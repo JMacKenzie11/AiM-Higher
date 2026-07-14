@@ -1,9 +1,43 @@
 .chart {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(var(--bar-count, 12), minmax(0, 1fr));
   gap: var(--space-2);
   align-items: end;
   padding: var(--space-3) 0;
+}
+
+/* SVG overlay sits on top of the tracks strip. We use CSS variables
+   so it aligns exactly with .track: same 140px height (100px mobile)
+   and same vertical offset from the .chart top (space-3 padding +
+   the .value row's ~16px + gap-1). Bottom offset lines up with the
+   .label row height + gap. */
+.trendLayer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--space-3) + 16px + var(--space-1));
+  height: 140px;
+  pointer-events: none;
+}
+
+.trendLine {
+  fill: none;
+  stroke: var(--aims-cobalt);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  stroke-linecap: round;
+  opacity: 0.7;
+  animation: trendDraw var(--duration-slow) var(--ease-out) both;
+}
+
+@keyframes trendDraw {
+  from {
+    stroke-dashoffset: 400;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 .column {
@@ -78,6 +112,10 @@
   .track {
     height: 100px;
   }
+  .trendLayer {
+    height: 100px;
+    top: calc(var(--space-3) + 14px + var(--space-1));
+  }
   .value {
     font-size: 10px;
   }
@@ -85,5 +123,11 @@
     font-size: 10px;
     transform: rotate(-45deg);
     transform-origin: top right;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trendLine {
+    animation: none;
   }
 }

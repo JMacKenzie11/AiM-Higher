@@ -139,7 +139,7 @@ export default async function DashboardPage() {
           <h2 id="trend-card" className={styles.h2}>
             Follow-Through Rate Trend
           </h2>
-          <p className={styles.cardMeta}>Last 12 weeks · current week in sky.</p>
+          <p className={styles.cardMeta}>Last 12 weeks.</p>
           <KeepRateBarChart bars={data.keepRateTrend} />
         </section>
 
