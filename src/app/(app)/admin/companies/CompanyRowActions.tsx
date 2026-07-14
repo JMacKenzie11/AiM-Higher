@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { scopeIntoCompanyAction } from "@/lib/admin/scope-actions";
 import { setCompanyStatusAction } from "@/lib/companies/actions";
 import styles from "./admin.module.css";
 
-// Per-row Open + Archive/Restore actions for the polished
-// /admin/companies table (Section 8.9).
+// Archive / Reactivate for a company row. The "open this company" flow
+// moved onto the company name itself (see CompanyNameLink), so this
+// component is now archive-only.
 
 export function CompanyRowActions({
   companyId,
@@ -17,12 +17,6 @@ export function CompanyRowActions({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
-  function open() {
-    startTransition(async () => {
-      await scopeIntoCompanyAction(companyId);
-    });
-  }
 
   function archive() {
     const nextStatus = status === "active" ? "archived" : "active";
@@ -39,15 +33,7 @@ export function CompanyRowActions({
   }
 
   return (
-    <div className={styles.rowActions}>
-      <button
-        type="button"
-        className={styles.primaryButtonSm}
-        onClick={open}
-        disabled={pending || status === "archived"}
-      >
-        {pending ? "…" : "Open"}
-      </button>
+    <>
       <button
         type="button"
         className={
@@ -56,13 +42,17 @@ export function CompanyRowActions({
         onClick={archive}
         disabled={pending}
       >
-        {status === "active" ? "Archive" : "Reactivate"}
+        {pending
+          ? "…"
+          : status === "active"
+            ? "Archive"
+            : "Reactivate"}
       </button>
       {error ? (
         <span role="alert" className={styles.inlineError}>
           {error}
         </span>
       ) : null}
-    </div>
+    </>
   );
 }

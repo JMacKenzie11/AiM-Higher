@@ -351,16 +351,29 @@
 }
 
 .companyLink {
+  /* Reset button chrome so <button> reads as a link inside the table. */
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+
   color: var(--primary);
   text-decoration: none;
   font-family: var(--font-sans);
   font-weight: 600;
+  font-size: 15px;
 }
 
-.companyLink:hover {
+.companyLink:hover:not(:disabled) {
   color: var(--primary-hover);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.companyLink:disabled {
+  opacity: 0.5;
+  cursor: progress;
 }
 
 .companyMeta {

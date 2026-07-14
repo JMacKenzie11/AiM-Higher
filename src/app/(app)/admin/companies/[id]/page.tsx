@@ -7,6 +7,7 @@ import styles from "../admin.module.css";
 import { InviteForm } from "./InviteForm";
 import { InvitationRow } from "./InvitationRow";
 import { CompanyRowActions } from "../CompanyRowActions";
+import { CompanyNameLink } from "../CompanyNameLink";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -48,11 +49,12 @@ export default async function CompanyDetailPage({ params }: PageProps) {
 
   return (
     <div className={styles.stage}>
-      <section className={styles.hero} aria-label="Company summary">
+      <section className={styles.hero} aria-label="Company settings">
         <div className={styles.heroInner}>
           <Link href="/admin/companies" className={styles.crumbLink}>
             ← All companies
           </Link>
+          <p className={styles.eyebrow}>Company settings</p>
           <h1 className={styles.h1}>{company.name}</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
@@ -64,16 +66,22 @@ export default async function CompanyDetailPage({ params }: PageProps) {
       <div className={styles.content}>
         <section className={styles.card} aria-labelledby="company-controls">
           <h2 id="company-controls" className={styles.h2}>
-            Manage this company
+            Actions
           </h2>
           <p className={styles.subtitleInline}>
-            Opening scopes you into the company&rsquo;s dashboard and workspaces.
-            Archiving hides it from picker lists and stops sign-ins.
+            Open the company to work inside it, or archive to hide it from
+            picker lists and stop sign-ins.
           </p>
-          <CompanyRowActions
-            companyId={company.id}
-            status={company.status}
-          />
+          <div className={styles.rowActions}>
+            <CompanyNameLink
+              companyId={company.id}
+              name="Open this company →"
+            />
+            <CompanyRowActions
+              companyId={company.id}
+              status={company.status}
+            />
+          </div>
         </section>
 
         <section className={styles.card} aria-labelledby="people">

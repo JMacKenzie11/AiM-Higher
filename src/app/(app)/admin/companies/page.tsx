@@ -2,13 +2,16 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCompaniesOverview } from "@/lib/admin/companies-service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
+import { CompanyNameLink } from "./CompanyNameLink";
 import { CompanyRowActions } from "./CompanyRowActions";
 import { CreateCompanyForm } from "./CreateCompanyForm";
 import styles from "./admin.module.css";
 
-// System-admin Companies overview — Section 8.9.
-//   Hero band, overlapping white card table, per-row Open + Archive.
-//   "Create company" primary button below.
+// System-admin Companies overview — the fleet view.
+//   Clicking a company name scopes into it and jumps straight to its
+//   dashboard (see CompanyNameLink). Per-row Settings link goes to
+//   /admin/companies/[id] for archive + people admin. Create form
+//   lives below the list.
 
 export default async function AdminCompaniesPage() {
   await requireRole(["system_admin"]);
@@ -22,8 +25,8 @@ export default async function AdminCompaniesPage() {
           <h1 className={styles.h1}>Companies</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Every company on the AiMS Execution Platform. Open one to work
-            inside it, or archive to freeze it.
+            Every company on the AiMS Execution Platform. Click a name to
+            jump into its dashboard.
           </p>
         </div>
       </section>
@@ -53,12 +56,10 @@ export default async function AdminCompaniesPage() {
                 {companies.map((company) => (
                   <tr key={company.id}>
                     <td>
-                      <Link
-                        href={`/admin/companies/${company.id}`}
-                        className={styles.companyLink}
-                      >
-                        {company.name}
-                      </Link>
+                      <CompanyNameLink
+                        companyId={company.id}
+                        name={company.name}
+                      />
                       <p className={styles.companyMeta}>{company.timezone}</p>
                     </td>
                     <td className={`${styles.numCell} aims-tabular`}>
@@ -85,10 +86,18 @@ export default async function AdminCompaniesPage() {
                       </span>
                     </td>
                     <td>
-                      <CompanyRowActions
-                        companyId={company.id}
-                        status={company.status}
-                      />
+                      <div className={styles.rowActions}>
+                        <Link
+                          href={`/admin/companies/${company.id}`}
+                          className={styles.ghostButton}
+                        >
+                          Settings
+                        </Link>
+                        <CompanyRowActions
+                          companyId={company.id}
+                          status={company.status}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
