@@ -7,18 +7,19 @@
   padding: var(--space-3) 0;
 }
 
-/* SVG overlay sits on top of the tracks strip. We use CSS variables
-   so it aligns exactly with .track: same 140px height (100px mobile)
-   and same vertical offset from the .chart top (space-3 padding +
-   the .value row's ~16px + gap-1). Bottom offset lines up with the
-   .label row height + gap. */
+/* SVG overlay sits on top of the tracks strip. Same 140px height as
+   .track (100px on mobile), positioned to align vertically with the
+   track band inside .chart. `width: 100%` is critical — SVGs default
+   to their viewBox aspect ratio, so left:0/right:0 alone won't stretch
+   them to fill the parent. */
 .trendLayer {
   position: absolute;
   left: 0;
-  right: 0;
   top: calc(var(--space-3) + 16px + var(--space-1));
+  width: 100%;
   height: 140px;
   pointer-events: none;
+  overflow: visible;
 }
 
 .trendLine {
@@ -28,15 +29,15 @@
   stroke-dasharray: 6 4;
   stroke-linecap: round;
   opacity: 0.7;
-  animation: trendDraw var(--duration-slow) var(--ease-out) both;
+  animation: trendFade var(--duration-slow) var(--ease-out) both;
 }
 
-@keyframes trendDraw {
+@keyframes trendFade {
   from {
-    stroke-dashoffset: 400;
+    opacity: 0;
   }
   to {
-    stroke-dashoffset: 0;
+    opacity: 0.7;
   }
 }
 
