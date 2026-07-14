@@ -18,9 +18,14 @@ import styles from "./NavBand.module.css";
 // Below 768px, the primary link row collapses into a hamburger toggle
 // that opens a drawer beneath the band (Section 9.9 responsive rules).
 
-// ASSUMPTION: /public/brand mirrors brand/assets/ to avoid Next.js'
-// static-PNG blur pipeline (requires sharp).
-const LOGO_WHITE_SRC = "/brand/logo-white.png";
+// The AiMS Higher wordmark. White variant lives here because the nav
+// band sits on the --grad-brand surface.
+// ASSUMPTION: /public/brand mirrors brand/assets/ so Next.js' static-PNG
+// blur pipeline (which requires sharp) isn't invoked at build time.
+const LOGO_WHITE_SRC = "/brand/aimshigher-logo-white.png";
+// Source PNG is 620×142 (≈4.37:1). Container height is set in CSS.
+const LOGO_INTRINSIC_WIDTH = 620;
+const LOGO_INTRINSIC_HEIGHT = 142;
 
 const APP_LINKS = [
   { label: "Dashboard", href: "/dashboard" },
@@ -82,13 +87,13 @@ export function NavBand({
   return (
     <header className={styles.band}>
       <div className={styles.inner}>
-        <Link href="/" className={styles.logoLink} aria-label="AiMS home">
+        <Link href="/" className={styles.logoLink} aria-label="AiMSHigher home">
           <Image
             src={LOGO_WHITE_SRC}
-            alt="AiMS"
+            alt="AiMSHigher"
             priority
-            width={112}
-            height={28}
+            width={LOGO_INTRINSIC_WIDTH}
+            height={LOGO_INTRINSIC_HEIGHT}
             className={styles.logo}
           />
         </Link>

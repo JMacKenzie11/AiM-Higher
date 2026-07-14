@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="142" viewBox="0 0 620 142">
+  
+  <text x="8" y="102" font-family="Figtree, sans-serif" font-weight="700" font-size="92" letter-spacing="-2"><tspan fill="#FFFFFF">AıMS</tspan><tspan fill="#8CC4DF">Higher</tspan></text>
+  <circle cx="83" cy="40" r="9" fill="#D6E264"></circle>
+  <rect x="527" y="72" width="16" height="30" rx="8" fill="#8CC4DF"></rect>
+  <rect x="552" y="50" width="16" height="52" rx="8" fill="#FFFFFF"></rect>
+  <rect x="577" y="26" width="16" height="76" rx="8" fill="#D6E264"></rect>
+</svg>

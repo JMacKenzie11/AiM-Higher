@@ -21,9 +21,15 @@
 }
 
 .logo {
-  height: 40px;
+  height: 56px;
   width: auto;
   margin-bottom: var(--space-3);
+}
+
+@media (max-width: 480px) {
+  .logo {
+    height: 44px;
+  }
 }
 
 .headline {

@@ -3,9 +3,14 @@ import { figtree, inter } from "@/lib/fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AiMS Execution Platform",
-  description:
-    "Execute what matters. Every week. The AiMS Institute execution platform.",
+  title: {
+    default: "AiMSHigher",
+    template: "%s · AiMSHigher",
+  },
+  description: "Leadership simplified. Results amplified.",
+  // Favicon + apple touch icon are auto-detected from src/app/icon.svg
+  // and src/app/apple-icon.png by Next.js — no explicit `icons` field
+  // needed. Both files live alongside this layout.
 };
 
 export const viewport: Viewport = {

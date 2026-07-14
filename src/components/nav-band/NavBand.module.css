@@ -23,9 +23,15 @@
 }
 
 .logo {
-  height: 28px;
+  height: 44px;
   width: auto;
   display: block;
+}
+
+@media (max-width: 768px) {
+  .logo {
+    height: 32px;
+  }
 }
 
 .nav {

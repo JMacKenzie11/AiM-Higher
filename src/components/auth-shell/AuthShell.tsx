@@ -2,9 +2,13 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import styles from "./AuthShell.module.css";
 
+// AiMS Higher wordmark, white on the --grad-brand auth stage.
 // ASSUMPTION: served from /public/brand (mirror of brand/assets/) to
 // avoid the static-import blur pipeline that requires sharp.
-const LOGO_WHITE_SRC = "/brand/logo-white.png";
+const LOGO_WHITE_SRC = "/brand/aimshigher-logo-white.png";
+// Source PNG is 620×142; container height set in CSS.
+const LOGO_INTRINSIC_WIDTH = 620;
+const LOGO_INTRINSIC_HEIGHT = 142;
 
 export type AuthShellProps = {
   headline: ReactNode;
@@ -29,10 +33,10 @@ export function AuthShell({
       <div className={styles.column}>
         <Image
           src={LOGO_WHITE_SRC}
-          alt="AiMS"
+          alt="AiMSHigher"
           priority
-          width={160}
-          height={40}
+          width={LOGO_INTRINSIC_WIDTH}
+          height={LOGO_INTRINSIC_HEIGHT}
           className={styles.logo}
         />
 
