@@ -1,0 +1,138 @@
+@import "../../brand/tokens.css";
+
+/* ============================================================
+   Global reset + base rules for the AiMS Execution Platform.
+   Consumes only custom properties from brand/tokens.css.
+   No hardcoded hex values are permitted anywhere in this app.
+   ============================================================ */
+
+/* next/font injects Inter and Figtree under hashed families exposed
+   as CSS variables on <html>. Rebind the brand token fonts to those
+   so tokens.css remains the single source of truth for typography. */
+:root {
+  --font-sans: var(--next-font-inter), -apple-system, "Segoe UI", sans-serif;
+  --font-body: var(--next-font-figtree), var(--next-font-inter), -apple-system,
+    sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: var(--text-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  color: var(--text-heading);
+  font-family: var(--font-sans);
+  line-height: 1.3;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--primary-hover);
+}
+
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font-family: var(--font-body);
+  color: var(--text);
+}
+
+/* Keyboard focus is always visible — cobalt ring per brand rules. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Utility: the signature chartreuse rule under key headings.
+   3px tall, rounded, wider at the left and tapering to the right. */
+.aims-rule {
+  display: block;
+  height: 3px;
+  width: 56px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--aims-chartreuse) 0%,
+    var(--aims-chartreuse) 60%,
+    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
+  );
+  margin-top: var(--space-3);
+}
+
+/* Utility: subhead label style (ALL CAPS, tracked). */
+.aims-subhead {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* Tabular numbers wherever we display stats or table numerics. */
+.aims-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Utility: horizontal scroll wrapper for wide tables.
+   Below 768px, tables scroll horizontally per Section 9.9. */
+.aims-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Respect users who prefer reduced motion. Disables the load-fill
+   animations across every component that uses them (progress bars,
+   chart bars, skeleton fade-ins). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,20 @@
+.frame {
+  min-height: 100dvh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-6);
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: var(--space-5) var(--space-4);
+  }
+}

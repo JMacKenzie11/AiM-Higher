@@ -1,0 +1,290 @@
+/* Gradient top nav band — signature --grad-brand surface. */
+
+.band {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  width: 100%;
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.logoLink {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  border-radius: var(--radius-sm);
+}
+
+.logo {
+  height: 28px;
+  width: auto;
+  display: block;
+}
+
+.nav {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.navList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--space-5);
+}
+
+.navLink {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-md);
+  padding: 0 var(--space-2);
+  color: var(--aims-white);
+  opacity: 0.8;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.navLink:hover {
+  opacity: 1;
+  color: var(--aims-white);
+}
+
+.navLink[data-active="true"] {
+  opacity: 1;
+  font-weight: 700;
+}
+
+.navLink[data-active="true"]::after {
+  content: "";
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  bottom: -2px;
+  height: 2px;
+  background: var(--aims-chartreuse);
+  border-radius: var(--radius-pill);
+}
+
+.userSlot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: var(--aims-white);
+}
+
+.userButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--aims-white);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.userButton:hover {
+  background: var(--glass-bg);
+}
+
+.userName {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.95;
+}
+
+.userChevron {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  min-width: 200px;
+  background: var(--aims-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  z-index: 20;
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.menuItem:hover {
+  background: var(--aims-cobalt-tint);
+  color: var(--text);
+}
+
+.menuItem:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.contextBand {
+  background: color-mix(in srgb, var(--aims-navy) 40%, transparent);
+  border-top: 1px solid var(--glass-border);
+}
+
+.contextInner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.contextText {
+  color: var(--aims-white);
+  opacity: 0.9;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.contextExit {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--aims-white);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.contextExit:hover {
+  background: var(--glass-bg);
+}
+
+/* Mobile toggle — hidden above 768px, shown below. */
+.mobileToggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-h-md);
+  width: var(--control-h-md);
+  padding: 0;
+  background: transparent;
+  color: var(--aims-white);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.mobileToggle:hover {
+  background: var(--glass-bg);
+}
+
+.hamburger {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.mobileDrawer {
+  background: color-mix(in srgb, var(--aims-navy) 55%, transparent);
+  border-top: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.mobileList {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.mobileLink {
+  display: block;
+  padding: var(--space-3) var(--space-4);
+  color: var(--aims-white);
+  opacity: 0.85;
+  text-decoration: none;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+}
+
+.mobileLink:hover {
+  background: var(--glass-bg);
+  color: var(--aims-white);
+  opacity: 1;
+}
+
+.mobileLink[data-active="true"] {
+  background: var(--glass-bg);
+  opacity: 1;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .inner {
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-3);
+  }
+  .nav {
+    display: none;
+  }
+  .mobileToggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+  .userName {
+    display: none;
+  }
+  .userButton {
+    padding: 0 var(--space-2);
+  }
+  .contextInner {
+    padding: var(--space-2) var(--space-4);
+  }
+}

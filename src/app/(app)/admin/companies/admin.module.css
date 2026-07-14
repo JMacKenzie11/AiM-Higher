@@ -1,0 +1,532 @@
+/* Admin — polished for Phase 8 (Section 8.9).
+   Same layered hero pattern as /dashboard and /people. */
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+}
+
+.hero {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+
+.heroInner {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.8;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.crumbLink {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  color: var(--aims-white);
+  opacity: 0.85;
+  font: var(--text-body-sm);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.crumbLink:hover {
+  opacity: 1;
+  color: var(--aims-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.capCell {
+  text-transform: capitalize;
+}
+
+.inlineError {
+  font: var(--text-caption);
+  color: var(--aims-danger);
+}
+
+.rowFootnote {
+  margin: var(--space-2) 0 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.h1 {
+  margin: 0;
+  color: var(--aims-white);
+  font: var(--text-display);
+  letter-spacing: -0.02em;
+}
+
+.rule {
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--aims-chartreuse) 0%,
+    var(--aims-chartreuse) 60%,
+    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
+  );
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.7;
+  font: var(--text-body);
+  max-width: 60ch;
+}
+
+.content {
+  position: relative;
+  margin: -32px auto 0;
+  padding: 0 var(--space-6) var(--space-6);
+  max-width: 1160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.h3 {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.subtitleInline {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body);
+}
+
+/* ---- Buttons ---- */
+
+.primaryButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.primaryButtonSm {
+  composes: primaryButton;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  font-size: 13px;
+}
+
+.ghostButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ghostButton:hover:not(:disabled) {
+  color: var(--primary-hover);
+  background: var(--aims-cobalt-tint);
+}
+
+.ghostButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dangerButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--aims-danger);
+  border: 1px solid var(--aims-danger);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.dangerButton:hover {
+  background: var(--aims-danger-tint);
+}
+
+.dangerGhost {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--aims-danger);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.dangerGhost:hover:not(:disabled) {
+  background: var(--aims-danger-tint);
+}
+
+/* ---- Forms ---- */
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.formFull {
+  grid-column: 1 / -1;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.fieldHint {
+  margin: var(--space-1) 0 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.input,
+.select {
+  height: var(--control-h-md);
+  width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.submitRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  grid-column: 1 / -1;
+}
+
+.errorMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-danger-tint);
+  border-left: 3px solid var(--aims-danger);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.successMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-success-tint);
+  border-left: 3px solid var(--aims-success);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.emptyLine {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font: var(--text-body);
+  font-style: italic;
+}
+
+/* ---- Table ---- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body);
+}
+
+.table th {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table tr:hover td {
+  background: var(--aims-navy-tint);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.companyLink {
+  color: var(--primary);
+  text-decoration: none;
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+.companyLink:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.companyMeta {
+  margin: var(--space-1) 0 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.mutedCell {
+  color: var(--text-muted);
+}
+
+.numHead {
+  text-align: right;
+}
+
+.actionHead {
+  text-align: right;
+}
+
+.numCell {
+  text-align: right;
+  color: var(--text);
+}
+
+.keepRateCell {
+  min-width: 220px;
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* ---- Chips ---- */
+.chip {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
+.chipActive {
+  composes: chip;
+  background: var(--aims-success-tint);
+  color: var(--text);
+}
+
+.chipInactive {
+  composes: chip;
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
+}
+
+.chipPending {
+  composes: chip;
+  background: var(--aims-warning-tint);
+  color: var(--text);
+}
+
+.chipAccepted {
+  composes: chip;
+  background: var(--aims-success-tint);
+  color: var(--text);
+}
+
+.chipRevoked {
+  composes: chip;
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
+}
+
+/* ---- List style used by the company detail page ---- */
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.listItem {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.itemLink {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.itemName {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.itemMeta {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.actionsCell {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.dangerButtonSm {
+  composes: dangerButton;
+}
+
+/* Legacy — the Phase 2 minimal page used these; keep as aliases so
+   the /people invitation card (which still imports InviteForm and
+   InvitationRow from this folder) doesn't break. */
+
+.page {
+  composes: content;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.select {
+  composes: input;
+}
+
+@media (max-width: 900px) {
+  .rowActions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .stage {
+    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) 0;
+  }
+  .hero,
+  .content {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  /* Tables scroll horizontally below 768px per Section 9.9. */
+  .table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}

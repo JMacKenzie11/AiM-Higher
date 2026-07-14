@@ -1,0 +1,104 @@
+/* Auth shell — the Section 8.1 composition, reused by sign-in,
+   forgot-password, reset-password, and accept-invite. */
+
+.stage {
+  min-height: 100dvh;
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-7) var(--space-4);
+}
+
+.column {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.logo {
+  height: 40px;
+  width: auto;
+  margin-bottom: var(--space-3);
+}
+
+.headline {
+  margin: 0;
+  color: var(--aims-white);
+  font: var(--text-display);
+  letter-spacing: -0.02em;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.rule {
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--aims-chartreuse) 0%,
+    var(--aims-chartreuse) 60%,
+    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
+  );
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.7;
+  font: var(--text-body);
+  text-align: center;
+  max-width: 40ch;
+}
+
+.card {
+  width: 100%;
+  margin-top: var(--space-3);
+  padding: var(--space-6);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-lg);
+}
+
+.footerLink {
+  margin-top: var(--space-2);
+  color: var(--aims-white);
+  opacity: 0.85;
+  font: var(--text-body-sm);
+  text-decoration: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.footerLink:hover {
+  opacity: 1;
+  color: var(--aims-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.footerLink:focus-visible {
+  outline: 2px solid var(--aims-white);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .stage {
+    padding: var(--space-5) var(--space-3);
+  }
+  .card {
+    padding: var(--space-5);
+  }
+  .headline {
+    font-size: 28px;
+  }
+}

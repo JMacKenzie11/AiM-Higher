@@ -1,0 +1,321 @@
+/* Dashboard — Section 8.2.
+   The hero is full-bleed within the app frame; we break out of the
+   layout's horizontal padding with negative margin, then the .content
+   area re-establishes it and overlaps the hero by 32px. */
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+}
+
+.hero {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+
+.heroInner {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.8;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.eyebrowLink {
+  color: var(--aims-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.eyebrowLink:hover {
+  opacity: 1;
+  color: var(--aims-white);
+}
+
+.h1 {
+  margin: 0;
+  color: var(--aims-white);
+  font: var(--text-display);
+  letter-spacing: -0.02em;
+}
+
+.rule {
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--aims-chartreuse) 0%,
+    var(--aims-chartreuse) 60%,
+    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
+  );
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.7;
+  font: var(--text-body);
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.heroStat {
+  padding: var(--space-4) var(--space-5);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.heroStatValue {
+  font: var(--text-stat);
+  letter-spacing: -0.03em;
+  color: var(--aims-white);
+  line-height: 1;
+}
+
+.heroStatLabel {
+  margin-top: var(--space-1);
+  color: var(--aims-white);
+  opacity: 0.85;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* ---- Content stack ---- */
+
+.content {
+  position: relative;
+  margin: -32px auto 0;
+  padding: 0 var(--space-6) var(--space-6);
+  max-width: 1160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.cardMeta {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.emptyLine {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font: var(--text-body);
+  font-style: italic;
+}
+
+.inlineLink {
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.inlineLink:hover {
+  color: var(--primary-hover);
+  border-bottom-color: var(--primary-hover);
+}
+
+/* ---- SFA list ---- */
+.sfaList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sfaRow {
+  border-bottom: 1px solid var(--border);
+}
+
+.sfaRow:last-child {
+  border-bottom: none;
+}
+
+.sfaLink {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) auto minmax(240px, 3fr);
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4) var(--space-3);
+  text-decoration: none;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.sfaLink:hover {
+  background: var(--aims-navy-tint);
+  transform: translateY(-1px);
+}
+
+.sfaLead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.sfaTitle {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.sfaSponsor {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.sfaProgress {
+  min-width: 240px;
+  justify-self: end;
+  width: 100%;
+}
+
+.orphanFootnote {
+  margin: 0;
+  padding: var(--space-3);
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  text-align: right;
+}
+
+/* ---- People table ---- */
+.peopleTable {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body);
+}
+
+.peopleTable th {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.peopleTable td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.peopleTable tr:hover td {
+  background: var(--aims-navy-tint);
+}
+
+.peopleTable tr:last-child td {
+  border-bottom: none;
+}
+
+.personLink {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.personLink:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mutedCell {
+  color: var(--text-muted);
+}
+
+.numHead {
+  text-align: right;
+}
+
+.numCell {
+  text-align: right;
+  color: var(--text);
+}
+
+.keepRateCell {
+  min-width: 220px;
+}
+
+@media (max-width: 900px) {
+  .statRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sfaLink {
+    grid-template-columns: 1fr;
+  }
+  .sfaProgress {
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 768px) {
+  .stage {
+    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) 0;
+  }
+  .hero,
+  .content {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  .peopleTable {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}

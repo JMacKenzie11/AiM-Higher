@@ -1,0 +1,377 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.h1 {
+  font: var(--text-h1);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.h3 {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.subtitle {
+  font: var(--text-body);
+  color: var(--text-muted);
+  margin: var(--space-3) 0 0 0;
+}
+
+/* ---- Grid ---- */
+
+.gridWrap {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: auto;
+  max-width: 100%;
+}
+
+.grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font: var(--text-body);
+}
+
+.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  text-align: left;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.weekHead {
+  text-align: right !important;
+  min-width: 88px;
+}
+
+.stickyCol {
+  position: sticky;
+  background: var(--surface);
+  z-index: 2;
+  border-right: 1px solid var(--border);
+}
+
+.stickyArea {
+  left: 0;
+  min-width: 200px;
+}
+
+.stickyMetric {
+  left: 200px;
+  min-width: 220px;
+}
+
+.stickyTarget {
+  left: 420px;
+  min-width: 100px;
+  text-align: right;
+}
+
+.grid thead .stickyCol {
+  z-index: 4;
+}
+
+/* Row hover — spans sticky + scrolling cells. */
+.grid tbody tr:hover td,
+.grid tbody tr:hover th {
+  background: var(--aims-navy-tint);
+}
+
+.grid tbody th,
+.grid tbody td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  vertical-align: middle;
+}
+
+.areaCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  vertical-align: top;
+}
+
+.areaName {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-heading);
+}
+
+.areaAccountable {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.metricName {
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.metricType {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.targetCell {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.emptyMetricLine {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ---- Individual cells ---- */
+
+.cell {
+  position: relative;
+  min-width: 88px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.cellNumeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cellText {
+  text-align: left;
+}
+
+.cellSuccess {
+  color: var(--aims-success);
+  font-weight: 600;
+}
+
+/* Editable cell affordance — subtle dashed border at rest so users see
+   the cell is interactive without visual clutter. */
+.cellEditable {
+  box-shadow: inset 0 0 0 1px var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.cellEditable:hover {
+  background: var(--aims-cobalt-tint);
+  box-shadow: inset 0 0 0 1px var(--aims-cobalt);
+}
+
+/* Below-target coloring — a gentle sky-tint background rather than
+   danger red so it signals "worth noticing" not "you failed." */
+.cellBelowTarget {
+  background: color-mix(in srgb, var(--aims-sky-tint) 60%, transparent);
+}
+
+.cellBelowTarget.cellEditable:hover {
+  background: var(--aims-cobalt-tint);
+}
+
+.cellPending {
+  opacity: 0.6;
+}
+
+.cellEmpty {
+  color: var(--text-faint);
+}
+
+.cellInput {
+  width: 100%;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-variant-numeric: inherit;
+  text-align: inherit;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.cellError {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--aims-danger-tint);
+  color: var(--text);
+  border-left: 3px solid var(--aims-danger);
+  font: var(--text-caption);
+  border-radius: var(--radius-sm);
+  z-index: 10;
+  white-space: nowrap;
+}
+
+/* ---- Empty state (gradient tile) ---- */
+
+.emptyTile {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-7) var(--space-6);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.emptyTileText {
+  margin: 0;
+  color: var(--aims-white);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+/* ---- Admin add cards ---- */
+
+.adminGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.input,
+.select {
+  height: var(--control-h-md);
+  width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.submitRow {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.primaryButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.errorMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-danger-tint);
+  border-left: 3px solid var(--aims-danger);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .stickyMetric {
+    left: 160px;
+    min-width: 180px;
+  }
+  .stickyArea {
+    min-width: 160px;
+  }
+  .stickyTarget {
+    left: 340px;
+    min-width: 80px;
+  }
+}

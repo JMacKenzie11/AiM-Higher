@@ -1,0 +1,381 @@
+/* People roster + person scorecard — Section 8.6.
+   Same layered-hero pattern as /dashboard. */
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+}
+
+.hero {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+
+.heroInner {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.heroCrumb {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  color: var(--aims-white);
+  opacity: 0.85;
+  font: var(--text-body-sm);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.heroCrumb:hover {
+  opacity: 1;
+  color: var(--aims-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.8;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.h1 {
+  margin: 0;
+  color: var(--aims-white);
+  font: var(--text-display);
+  letter-spacing: -0.02em;
+}
+
+.rule {
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--aims-chartreuse) 0%,
+    var(--aims-chartreuse) 60%,
+    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
+  );
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.7;
+  font: var(--text-body);
+}
+
+.heroAction {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-4);
+  background: color-mix(in srgb, var(--aims-white) 12%, transparent);
+  border: 1px solid var(--glass-border);
+  color: var(--aims-white);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.heroAction:hover {
+  background: color-mix(in srgb, var(--aims-white) 20%, transparent);
+  color: var(--aims-white);
+}
+
+.content {
+  position: relative;
+  margin: -32px auto 0;
+  padding: 0 var(--space-6) var(--space-6);
+  max-width: 1160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.cardMeta {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.emptyLine {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font: var(--text-body);
+  font-style: italic;
+}
+
+/* ---- Person scorecard stats ---- */
+.personStatRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.personStat {
+  padding: var(--space-4);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.personStatValue {
+  font: var(--text-stat);
+  letter-spacing: -0.03em;
+  color: var(--text-heading);
+  line-height: 1;
+}
+
+.personStatLabel {
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.trendWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* ---- Tables ---- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body);
+}
+
+.table th {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table tr:hover td {
+  background: var(--aims-navy-tint);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.personLink {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.personLink:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mutedCell {
+  color: var(--text-muted);
+}
+
+.capCell {
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+.numHead {
+  text-align: right;
+}
+
+.actionHead {
+  text-align: right;
+}
+
+.numCell {
+  text-align: right;
+  color: var(--text);
+}
+
+.keepRateCell {
+  min-width: 220px;
+}
+
+.actionsCell {
+  text-align: right;
+}
+
+.rowMessage {
+  margin: var(--space-1) 0 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* ---- Chips ---- */
+.chip {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
+.chipActive {
+  composes: chip;
+  background: var(--aims-success-tint);
+  color: var(--text);
+}
+
+.chipInactive {
+  composes: chip;
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
+}
+
+.chipPastDue {
+  composes: chip;
+  background: var(--aims-warning-tint);
+  color: var(--text);
+}
+
+/* ---- Buttons ---- */
+.ghostButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ghostButton:hover:not(:disabled) {
+  color: var(--primary-hover);
+  background: var(--aims-cobalt-tint);
+}
+
+.ghostButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dangerGhostButton {
+  composes: ghostButton;
+  color: var(--aims-danger);
+}
+
+.dangerGhostButton:hover:not(:disabled) {
+  color: var(--aims-danger);
+  background: var(--aims-danger-tint);
+}
+
+/* ---- History groups on person scorecard ---- */
+.historyGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.historyGroup:last-of-type {
+  margin-bottom: 0;
+}
+
+.weekLabel {
+  display: inline-block;
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  align-self: flex-start;
+}
+
+.reasonNote {
+  margin: var(--space-1) 0 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  .personStatRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .stage {
+    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) 0;
+  }
+  .hero,
+  .content {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  /* Tables scroll horizontally below 768px per Section 9.9. */
+  .table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}

@@ -1,0 +1,89 @@
+.chart {
+  display: grid;
+  grid-template-columns: repeat(var(--bar-count, 12), minmax(0, 1fr));
+  gap: var(--space-2);
+  align-items: end;
+  padding: var(--space-3) 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.value {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+  min-height: 16px;
+}
+
+.track {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bar,
+.barCurrent {
+  display: block;
+  width: 100%;
+  max-width: 32px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transform-origin: bottom;
+  animation: barGrow var(--duration-slow) var(--ease-out) both;
+}
+
+.bar {
+  background: var(--aims-cobalt);
+}
+
+.barCurrent {
+  background: var(--aims-sky);
+}
+
+.label {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-5);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font: var(--text-body);
+  font-style: italic;
+}
+
+@keyframes barGrow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@media (max-width: 768px) {
+  .track {
+    height: 100px;
+  }
+  .value {
+    font-size: 10px;
+  }
+  .label {
+    font-size: 10px;
+    transform: rotate(-45deg);
+    transform-origin: top right;
+  }
+}

@@ -1,0 +1,104 @@
+/* Shared chip + progress-bar visuals used across /plan, /dashboard,
+   and detail pages. Consumes only tokens. */
+
+.chip {
+  display: inline-block;
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-pill);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.chipNeutral {
+  composes: chip;
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
+}
+
+.chipInfo {
+  composes: chip;
+  background: var(--aims-sky-tint);
+  color: var(--text);
+}
+
+.chipWarning {
+  composes: chip;
+  background: var(--aims-warning-tint);
+  color: var(--text);
+}
+
+.chipSuccess {
+  composes: chip;
+  background: var(--aims-success-tint);
+  color: var(--text);
+}
+
+.chipDanger {
+  composes: chip;
+  background: var(--aims-danger-tint);
+  color: var(--text);
+}
+
+.progressWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 200px;
+}
+
+.progressTrack {
+  position: relative;
+  display: block;
+  flex: 1;
+  height: 8px;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  background: var(--aims-cobalt);
+  border-radius: var(--radius-pill);
+  transform-origin: left;
+  animation: progressGrow var(--duration-slow) var(--ease-out) both;
+}
+
+.progressLabel {
+  min-width: 42px;
+  text-align: right;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-heading);
+}
+
+.progressEmpty {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.progressTrackEmpty {
+  background: var(--border);
+}
+
+.progressLabelEmpty {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+@keyframes progressGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

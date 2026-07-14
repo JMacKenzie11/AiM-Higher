@@ -1,0 +1,130 @@
+/* Shared visuals for the root error and not-found boundaries.
+   Both render inside the root layout (no NavBand) since the boundary
+   might trigger before AppLayout resolves. Full-viewport gradient
+   matches the sign-in composition. */
+
+.stage {
+  min-height: 100dvh;
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-7) var(--space-4);
+}
+
+.card {
+  width: 100%;
+  max-width: 520px;
+  padding: var(--space-6);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  color: var(--aims-white);
+  text-align: left;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.8;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.h1 {
+  margin: 0;
+  color: var(--aims-white);
+  font: var(--text-h1);
+  letter-spacing: -0.01em;
+}
+
+.rule {
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--aims-chartreuse) 0%,
+    var(--aims-chartreuse) 60%,
+    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
+  );
+}
+
+.body {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.85;
+  font: var(--text-body);
+}
+
+.digest {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.55;
+  font: var(--text-caption);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-lg);
+  padding: 0 var(--space-6);
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: var(--shadow-cta);
+  transition: transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.primaryButton:hover {
+  transform: translateY(-1px);
+  color: var(--aims-navy);
+  background: color-mix(in srgb, var(--aims-chartreuse) 92%, var(--aims-navy));
+}
+
+.ghostLink {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-lg);
+  padding: 0 var(--space-3);
+  color: var(--aims-white);
+  opacity: 0.85;
+  text-decoration: none;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+}
+
+.ghostLink:hover {
+  opacity: 1;
+  color: var(--aims-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

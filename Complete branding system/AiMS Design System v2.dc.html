@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta charset="utf-8">
+  <title>AiMS Design System v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Figtree:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; background: #F7F7F2; }
+    body { font-family: "Figtree", sans-serif; color: #11151A; -webkit-font-smoothing: antialiased; }
+    a { color: #3551A4; text-decoration: none; }
+    a:hover { color: #2C4489; text-decoration: underline; }
+    * { box-sizing: border-box; }
+    h1, h2, h3 { font-family: "Inter", sans-serif; }
+    @keyframes aims-ring { from { stroke-dashoffset: 264; } }
+    @keyframes aims-bar { from { width: 0; } }
+  </style>
+</helmet>
+
+<!-- ============ HERO ============ -->
+<header data-screen-label="Hero" style="background: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); padding: 56px 48px 88px 48px">
+  <div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+    <img src="brand/assets/logo-white.png" alt="AiMS Institute" style="width: 120px; height: auto; align-self: flex-start">
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #8CC4DF; margin-bottom: 10px">Web Application Branding System · v2</div>
+      <h1 style="margin: 0; font-size: 44px; font-family: Inter, sans-serif; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; color: #FFFFFF">Simplified Leadership.<br>Amplified Results.</h1>
+      <div style="width: 88px; height: 4px; border-radius: 999px; background: #D6E264; margin-top: 16px"></div>
+      <p style="margin: 16px 0 0 0; max-width: 620px; font-size: 15px; font-weight: 300; line-height: 1.6; letter-spacing: 0.01em; color: #C9D6E4">Tokens, rules, and components for the AiMS assessment platform. Inter headings, Figtree body, tonal gradient surfaces, glass cards, and purposeful motion — no decorative imagery.</p>
+    </div>
+  </div>
+</header>
+
+<main style="max-width: 1120px; margin: 0 auto; padding: 0 24px 96px 24px; display: flex; flex-direction: column; gap: 64px">
+
+  <!-- ============ SURFACES & DEPTH (overlapping hero) ============ -->
+  <section data-screen-label="Surfaces" style="margin-top: -48px">
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px">
+      <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 20px 22px; backdrop-filter: blur(14px)">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; font-family: Inter, sans-serif; color: #8CC4DF">Glass card</div>
+        <div style="font-size: 13px; line-height: 1.6; color: #FFFFFF; margin-top: 8px">On gradient and dark surfaces. 8% white fill, 14% white border, 14px blur, 16px radius.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 20px 22px; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04); transition: all .15s" style-hover="transform: translateY(-2px); box-shadow: 0 2px 4px rgba(17,21,26,0.06), 0 10px 24px rgba(17,21,26,0.09)">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; font-family: Inter, sans-serif; color: #8A93A0">Light card</div>
+        <div style="font-size: 13px; line-height: 1.6; color: #11151A; margin-top: 8px">On sand. Layered shadow, lifts 2px on hover. Try it.</div>
+      </div>
+      <div style="background: #1A2233; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px 22px">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; font-family: Inter, sans-serif; color: #8CC4DF">Dark panel</div>
+        <div style="font-size: 13px; line-height: 1.6; color: #C9D6E4; margin-top: 8px">Opaque #1A2233 for tables and charts on midnight backgrounds.</div>
+      </div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 16px 20px; margin-top: 12px">
+      <div style="font-size: 13px; line-height: 1.7; color: #11151A"><strong>Depth rules:</strong> the navy→cobalt gradient (135°) is the signature surface for nav bands, heroes, and report covers — and the only permitted gradient. Content cards overlap the bottom of gradient bands. <strong>No decorative blob or bubble imagery, ever.</strong></div>
+    </div>
+  </section>
+
+  <!-- ============ COLORS ============ -->
+  <section data-screen-label="Colors">
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #5B6472; margin-bottom: 8px">01 · Foundations</div>
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Brand Colors</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px">
+      <sc-for list="{{ colors }}" as="c" hint-placeholder-count="6">
+        <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; overflow: hidden; transition: all .15s" style-hover="transform: translateY(-2px); box-shadow: 0 10px 24px rgba(17,21,26,0.09)">
+          <div style="height: 72px; background: {{ c.hex }}; border-bottom: 1px solid #EEEFE9"></div>
+          <div style="padding: 10px 12px 12px 12px">
+            <div style="font-size: 13px; font-weight: 600; color: #1F3352">{{ c.name }}</div>
+            <div style="font-size: 12px; color: #5B6472; font-variant-numeric: tabular-nums; font-family: Inter, sans-serif">{{ c.hex }}</div>
+            <div style="font-size: 11px; color: #8A93A0; margin-top: 4px; line-height: 1.4">{{ c.role }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px">
+      <div style="border-radius: 12px; overflow: hidden; border: 1px solid #E7E8E2">
+        <div style="height: 64px; background: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); display: flex; align-items: center; padding: 0 20px">
+          <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-family: Inter, sans-serif; color: #8CC4DF">--grad-brand · 135° navy → cobalt</span>
+        </div>
+        <div style="background: #FFFFFF; padding: 12px 20px; font-size: 12px; color: #5B6472; line-height: 1.5">The only gradient. Nav bands, heroes, report covers, empty states.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 16px 20px">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #5B6472; margin-bottom: 10px">Functional extensions</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <span style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px; border-radius: 999px; background: #EAF2EA; color: #38683B; font-size: 12px; font-weight: 600"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4C8A4F"></span>Success #4C8A4F</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px; border-radius: 999px; background: #F7EFE0; color: #8A5F1E; font-size: 12px; font-weight: 600"><span style="width: 7px; height: 7px; border-radius: 50%; background: #B07A2A"></span>Warning #B07A2A</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px; border-radius: 999px; background: #F6E9E9; color: #85312F; font-size: 12px; font-weight: 600"><span style="width: 7px; height: 7px; border-radius: 50%; background: #A94441"></span>Danger #A94441</span>
+        </div>
+        <div style="font-size: 11px; color: #8A93A0; margin-top: 10px; line-height: 1.5">Muted, used sparingly — mostly as tinted fills with dark text.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TYPOGRAPHY ============ -->
+  <section data-screen-label="Typography">
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Typography</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="border-radius: 12px; overflow: hidden; border: 1px solid #E7E8E2">
+      <div style="background: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); padding: 24px; display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: baseline">
+        <div style="font-size: 12px; color: #8CC4DF; line-height: 1.5">Display<br><span style="color: #6E8FBC">Inter 800 34 · −.02em · white on gradient</span></div>
+        <div style="font-size: 34px; font-family: Inter, sans-serif; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; color: #FFFFFF">Your Team Is Trending Up.</div>
+      </div>
+      <div style="background: #FFFFFF; padding: 8px 24px">
+        <div style="display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: baseline; padding: 18px 0; border-bottom: 1px solid #EEEFE9">
+          <div style="font-size: 12px; color: #5B6472; line-height: 1.5">Headline / H1<br><span style="color: #8A93A0">Inter Bold 28 · Title Case · Navy</span></div>
+          <div style="font-size: 28px; font-family: Inter, sans-serif; font-weight: 700; line-height: 1.3; color: #1F3352">Your Assessment Results</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: baseline; padding: 18px 0; border-bottom: 1px solid #EEEFE9">
+          <div style="font-size: 12px; color: #5B6472; line-height: 1.5">Stat number<br><span style="color: #8A93A0">Inter 800 40 · −.03em · tabular</span></div>
+          <div style="display: flex; align-items: baseline; gap: 10px"><span style="font-size: 40px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.03em; color: #1F3352; font-variant-numeric: tabular-nums; font-family: Inter, sans-serif">7.6</span><span style="font-size: 12px; font-weight: 600; color: #4C8A4F">▲ 0.3 vs Q1</span></div>
+        </div>
+        <div style="display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: baseline; padding: 18px 0; border-bottom: 1px solid #EEEFE9">
+          <div style="font-size: 12px; color: #5B6472; line-height: 1.5">Subhead / Label<br><span style="color: #8A93A0">Inter Bold 11 · Caps · +.15em</span></div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; line-height: 1.2; color: #1F3352">Team Engagement Score</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: baseline; padding: 18px 0">
+          <div style="font-size: 12px; color: #5B6472; line-height: 1.5">Body<br><span style="color: #8A93A0">Figtree 400 14/1.6 · +.01em · Midnight</span></div>
+          <div style="font-size: 14px; font-weight: 400; line-height: 1.6; letter-spacing: 0.01em; color: #11151A; max-width: 560px">AiMS provides business owners with a simple framework for transforming the way they approach planning, leading, and running the company.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LOGO ============ -->
+  <section data-screen-label="Logo">
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Logo</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px">
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px">
+        <img src="brand/assets/logo-navy.png" alt="AiMS logo, navy" style="width: 140px; height: auto">
+        <div style="font-size: 12px; color: #5B6472; text-align: center">Navy on light backgrounds<br><span style="color: #8A93A0">preferred</span></div>
+      </div>
+      <div style="background: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px">
+        <img src="brand/assets/logo-white.png" alt="AiMS logo, white" style="width: 140px; height: auto">
+        <div style="font-size: 12px; color: #A8B4C4; text-align: center">White on gradient / navy / midnight</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 10px; justify-content: center">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #5B6472">Rules</div>
+        <div style="font-size: 13px; line-height: 1.6; color: #11151A">Never recolor, distort, or place over busy imagery. Always “AiMS” — capital A-M-S, lowercase i. The circle-i glyph is decorative only and never replaces the logo.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPACING & RADIUS ============ -->
+  <section data-screen-label="Spacing and Radius">
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Spacing, Radius &amp; Motion</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px">
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 20px 24px">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #5B6472; margin-bottom: 14px">4px base · compact</div>
+        <div style="display: flex; align-items: flex-end; gap: 10px">
+          <sc-for list="{{ spacing }}" as="s" hint-placeholder-count="8">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="width: 22px; background: #8CC4DF; border-radius: 4px; height: {{ s.px }}"></div>
+              <div style="font-size: 11px; color: #5B6472; font-variant-numeric: tabular-nums; font-family: Inter, sans-serif">{{ s.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 20px 24px">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #5B6472; margin-bottom: 14px">Radius — round &amp; friendly</div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+          <div style="width: 64px; height: 44px; border: 2px solid #3551A4; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #5B6472">6 input</div>
+          <div style="width: 64px; height: 44px; border: 2px solid #3551A4; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #5B6472">12 card</div>
+          <div style="width: 64px; height: 44px; border: 2px solid #3551A4; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #5B6472">16 glass</div>
+          <div style="width: 84px; height: 44px; border: 2px solid #3551A4; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #5B6472">pill</div>
+        </div>
+        <div style="font-size: 11px; color: #8A93A0; margin-top: 12px">No sharp corners on interactive elements.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; gap: 10px">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #5B6472">Motion</div>
+        <div style="font-size: 13px; line-height: 1.6; color: #11151A">Hover: lift 1–2px + deeper shadow, 150ms. Load: bars &amp; rings animate their fill once, ~1s ease-out. Nothing bounces; nothing loops.</div>
+        <div style="height: 8px; border-radius: 999px; background: #ECEDE7; overflow: hidden"><div style="height: 8px; width: 72%; border-radius: 999px; background: #3551A4; animation: aims-bar 1s ease-out"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BUTTONS ============ -->
+  <section data-screen-label="Buttons and Links">
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #5B6472; margin-bottom: 8px">02 · Components</div>
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Buttons &amp; Links</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="border-radius: 12px; overflow: hidden; border: 1px solid #E7E8E2">
+      <div style="background: #FFFFFF; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
+          <button style="height: 34px; padding: 0 20px; border-radius: 999px; border: none; background: #3551A4; color: #FFFFFF; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(31,51,82,0.25), 0 3px 8px rgba(31,51,82,0.12); transition: all .15s" style-hover="background: #2C4489; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(31,51,82,0.25), 0 6px 14px rgba(31,51,82,0.18)">Start Assessment</button>
+          <button style="height: 34px; padding: 0 20px; border-radius: 999px; border: 1.5px solid #1F3352; background: transparent; color: #1F3352; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s" style-hover="background: #E9ECF1; transform: translateY(-1px)">View Report</button>
+          <button style="height: 34px; padding: 0 14px; border-radius: 999px; border: none; background: transparent; color: #3551A4; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer" style-hover="background: #EBEFF9">Skip for now</button>
+          <button style="height: 34px; padding: 0 20px; border-radius: 999px; border: 1.5px solid #A94441; background: transparent; color: #A94441; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer" style-hover="background: #F6E9E9">Delete</button>
+          <button style="height: 34px; padding: 0 20px; border-radius: 999px; border: none; background: #E9ECF1; color: #8A93A0; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: not-allowed">Disabled</button>
+          <span style="font-size: 13px; margin-left: 4px"><a href="#">Inline link</a> · underline on hover</span>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
+          <button style="height: 28px; padding: 0 14px; border-radius: 999px; border: none; background: #3551A4; color: #FFFFFF; font-family: Inter, sans-serif; font-size: 12px; font-weight: 600; cursor: pointer" style-hover="background: #2C4489">Small · 28</button>
+          <button style="height: 34px; padding: 0 20px; border-radius: 999px; border: none; background: #3551A4; color: #FFFFFF; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer" style-hover="background: #2C4489">Default · 34</button>
+          <button style="height: 42px; padding: 0 26px; border-radius: 999px; border: none; background: #3551A4; color: #FFFFFF; font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; cursor: pointer" style-hover="background: #2C4489">Large · 42</button>
+        </div>
+      </div>
+      <div style="background: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); padding: 20px 24px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
+        <button style="height: 40px; padding: 0 24px; border-radius: 999px; border: none; background: #D6E264; color: #1F3352; font-family: Inter, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 20px rgba(214,226,100,0.3); transition: all .15s" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(214,226,100,0.4)">Hero CTA — Chartreuse</button>
+        <button style="height: 34px; padding: 0 20px; border-radius: 999px; border: 1.5px solid rgba(255,255,255,0.4); background: transparent; color: #FFFFFF; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s" style-hover="background: rgba(255,255,255,0.1)">Secondary on dark</button>
+        <span style="font-size: 12px; color: #8CC4DF">On gradient/dark surfaces the hero CTA is chartreuse with a soft glow.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FORMS ============ -->
+  <section data-screen-label="Forms">
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Form Inputs &amp; Validation</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #1F3352">Company Name</label>
+          <input type="text" placeholder="e.g. Northwind Traders" style="height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid #C9CCC4; background: #FFFFFF; font-family: Inter, sans-serif; font-size: 13px; color: #11151A; outline: none" style-focus="border-color: #3551A4; box-shadow: 0 0 0 3px rgba(53,81,164,0.2)">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #1F3352">Team Size</label>
+          <select style="height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid #C9CCC4; background: #FFFFFF; font-family: Inter, sans-serif; font-size: 13px; color: #11151A; outline: none" style-focus="border-color: #3551A4; box-shadow: 0 0 0 3px rgba(53,81,164,0.2)">
+            <option>1–10 people</option>
+            <option>11–50 people</option>
+            <option>51–200 people</option>
+            <option>200+ people</option>
+          </select>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #A94441">Work Email</label>
+          <input type="text" value="jamie@northwind" style="height: 34px; padding: 0 12px; border-radius: 6px; border: 1.5px solid #A94441; background: #FFFFFF; font-family: Inter, sans-serif; font-size: 13px; color: #11151A; outline: none" style-focus="box-shadow: 0 0 0 3px rgba(169,68,65,0.15)">
+          <div style="font-size: 12px; color: #A94441">That address looks incomplete — try adding “.com”.</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #1F3352">Assessment Type</div>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #11151A; cursor: pointer"><input type="radio" name="atype" checked style="accent-color: #3551A4; width: 16px; height: 16px; margin: 0">Leadership pulse</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #11151A; cursor: pointer"><input type="radio" name="atype" style="accent-color: #3551A4; width: 16px; height: 16px; margin: 0">Full team assessment</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #11151A; cursor: pointer"><input type="radio" name="atype" style="accent-color: #3551A4; width: 16px; height: 16px; margin: 0">Quarterly review</label>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #1F3352">Notifications</div>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #11151A; cursor: pointer"><input type="checkbox" checked style="accent-color: #3551A4; width: 16px; height: 16px; margin: 0">Email me when results are ready</label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #11151A; cursor: pointer"><input type="checkbox" style="accent-color: #3551A4; width: 16px; height: 16px; margin: 0">Weekly summary digest</label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <button onClick="{{ toggleSwitch }}" style="width: 40px; height: 22px; border-radius: 999px; border: none; padding: 2px; cursor: pointer; display: flex; transition: background .15s; background: {{ switchBg }}; justify-content: {{ switchJustify }}">
+            <span style="width: 18px; height: 18px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(17,21,26,0.2)"></span>
+          </button>
+          <span style="font-size: 13px; color: #11151A">Toggle — anonymous responses</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #1F3352">Assessment scale item</div>
+        <div style="font-size: 13px; line-height: 1.6; color: #11151A">Our meetings leave people energized and clear on next steps.</div>
+        <div style="display: flex; gap: 6px; margin-top: 4px">
+          <sc-for list="{{ scaleOptions }}" as="opt" hint-placeholder-count="5">
+            <button onClick="{{ opt.select }}" style="flex: 1; height: 34px; border-radius: 999px; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; border: 1px solid {{ opt.border }}; background: {{ opt.bg }}; color: {{ opt.color }}">{{ opt.label }}</button>
+          </sc-for>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8A93A0"><span>Rarely</span><span>Consistently</span></div>
+        <div style="font-size: 11px; color: #8A93A0; line-height: 1.5; margin-top: 8px">Pill scale buttons are the core assessment control — selected state is cobalt fill, white text.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NAVIGATION ============ -->
+  <section data-screen-label="Navigation">
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Navigation</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; overflow: hidden">
+      <div style="display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 20px; background: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%)">
+        <div style="display: flex; align-items: center; gap: 28px">
+          <img src="brand/assets/logo-white.png" alt="AiMS" style="height: 30px; width: auto">
+          <nav style="display: flex; gap: 4px">
+            <a href="#" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; background: rgba(255,255,255,0.14); color: #FFFFFF; font-size: 13px; font-weight: 600; text-decoration: none; backdrop-filter: blur(6px)">Dashboard</a>
+            <a href="#" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500; text-decoration: none" style-hover="color: #FFFFFF; text-decoration: none">Assessments</a>
+            <a href="#" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500; text-decoration: none" style-hover="color: #FFFFFF; text-decoration: none">Reports</a>
+            <a href="#" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500; text-decoration: none" style-hover="color: #FFFFFF; text-decoration: none">Courses</a>
+          </nav>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span style="font-size: 12px; color: #8CC4DF">Northwind Traders</span>
+          <span style="width: 32px; height: 32px; border-radius: 50%; background: #D6E264; color: #1F3352; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">JM</span>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px 1fr">
+        <div style="border-right: 1px solid #EEEFE9; padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; background: #FFFFFF">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #8A93A0; padding: 0 12px 8px 12px">Admin</div>
+          <a href="#" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 999px; background: #EBEFF9; color: #3551A4; font-size: 13px; font-weight: 600; text-decoration: none"><span style="width: 6px; height: 6px; border-radius: 50%; background: #3551A4"></span>Overview</a>
+          <a href="#" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 999px; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none" style-hover="background: #E9ECF1; text-decoration: none; color: #1F3352"><span style="width: 6px; height: 6px; border-radius: 50%; background: #C9CCC4"></span>Participants</a>
+          <a href="#" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 999px; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none" style-hover="background: #E9ECF1; text-decoration: none; color: #1F3352"><span style="width: 6px; height: 6px; border-radius: 50%; background: #C9CCC4"></span>Question Banks</a>
+          <a href="#" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 999px; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none" style-hover="background: #E9ECF1; text-decoration: none; color: #1F3352"><span style="width: 6px; height: 6px; border-radius: 50%; background: #C9CCC4"></span>Settings</a>
+        </div>
+        <div style="padding: 20px 24px; background: #F7F7F2">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #5B6472; margin-bottom: 6px">Content area</div>
+          <div style="font-size: 13px; color: #5B6472; line-height: 1.6; max-width: 480px">Top bar carries the brand gradient with the white logo; active nav item is a glass pill. Sidebar is white with a pill active state in cobalt tint. Content sits on sand.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CARDS + STATS + CHARTS ============ -->
+  <section data-screen-label="Cards and Charts">
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Cards, Stats &amp; Charts</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px">
+      <sc-for list="{{ stats }}" as="st" hint-placeholder-count="4">
+        <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04); transition: all .15s" style-hover="transform: translateY(-2px); box-shadow: 0 2px 4px rgba(17,21,26,0.06), 0 10px 24px rgba(17,21,26,0.09)">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-family: Inter, sans-serif; color: #8A93A0">{{ st.label }}</div>
+            <svg width="56" height="22" viewBox="0 0 56 22"><polyline points="{{ st.spark }}" fill="none" stroke="{{ st.sparkColor }}" stroke-width="2" stroke-linecap="round"></polyline></svg>
+          </div>
+          <div style="font-size: 32px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.02em; color: #1F3352; margin-top: 4px; font-variant-numeric: tabular-nums; font-family: Inter, sans-serif">{{ st.value }}</div>
+          <div style="font-size: 12px; font-weight: 500; color: {{ st.deltaColor }}">{{ st.delta }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-top: 12px">
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04)">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px">
+          <div style="font-size: 15px; font-family: Inter, sans-serif; font-weight: 700; color: #1F3352">Strengths by Dimension</div>
+          <div style="font-size: 12px; color: #8A93A0">Q2 2026 · 24 respondents</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <sc-for list="{{ bars }}" as="b" hint-placeholder-count="5">
+            <div style="display: grid; grid-template-columns: 150px 1fr 40px; gap: 12px; align-items: center">
+              <div style="font-size: 13px; color: #11151A">{{ b.label }}</div>
+              <div style="height: 10px; border-radius: 999px; background: #ECEDE7; overflow: hidden">
+                <div style="height: 10px; border-radius: 999px; animation: aims-bar 1s ease-out; background: {{ b.color }}; width: {{ b.pct }}"></div>
+              </div>
+              <div style="font-size: 12px; color: #5B6472; text-align: right; font-variant-numeric: tabular-nums; font-family: Inter, sans-serif">{{ b.score }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); border-radius: 16px; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px">
+        <div style="font-size: 15px; font-family: Inter, sans-serif; font-weight: 700; color: #FFFFFF">Completion</div>
+        <div style="display: flex; align-items: center; gap: 20px">
+          <svg width="100" height="100" viewBox="0 0 100 100" style="flex-shrink: 0; transform: rotate(-90deg)">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="10"></circle>
+            <circle cx="50" cy="50" r="42" fill="none" stroke="#8CC4DF" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="84" style="animation: aims-ring 1.2s ease-out"></circle>
+          </svg>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #FFFFFF">
+            <div style="font-size: 28px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.02em; line-height: 1">68%</div>
+            <div style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #8CC4DF"></span>Completed · 164</div>
+            <div style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #D6E264"></span>In progress · 43</div>
+            <div style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3)"></span>Not started · 34</div>
+          </div>
+        </div>
+        <div style="font-size: 11px; color: #8CC4DF; line-height: 1.5">On dark: lead with sky, then chartreuse. Rings and bars animate once on load.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TABLE ============ -->
+  <section data-screen-label="Tables">
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Tables &amp; Data</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04)">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #EEEFE9">
+        <div style="font-size: 15px; font-family: Inter, sans-serif; font-weight: 700; color: #1F3352">Recent Assessments</div>
+        <button style="height: 28px; padding: 0 14px; border-radius: 999px; border: none; background: #3551A4; color: #FFFFFF; font-family: Inter, sans-serif; font-size: 12px; font-weight: 600; cursor: pointer" style-hover="background: #2C4489">New Assessment</button>
+      </div>
+      <div style="display: grid; grid-template-columns: 2fr 1.4fr 1fr 1fr 0.9fr; padding: 10px 20px; border-bottom: 1px solid #EEEFE9; font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #8A93A0">
+        <div>Company</div><div>Type</div><div style="text-align: right">Respondents</div><div style="text-align: right">Score</div><div>Status</div>
+      </div>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+        <div style="display: grid; grid-template-columns: 2fr 1.4fr 1fr 1fr 0.9fr; padding: 11px 20px; border-bottom: 1px solid #F2F3EE; font-size: 13px; align-items: center; transition: background .15s" style-hover="background: #F4F5F0">
+          <div style="font-weight: 600; color: #1F3352">{{ r.company }}</div>
+          <div style="color: #5B6472">{{ r.type }}</div>
+          <div style="text-align: right; font-variant-numeric: tabular-nums; font-family: Inter, sans-serif; color: #11151A">{{ r.n }}</div>
+          <div style="text-align: right; font-variant-numeric: tabular-nums; font-family: Inter, sans-serif; font-weight: 600; color: #1F3352">{{ r.score }}</div>
+          <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: {{ r.badgeBg }}; color: {{ r.badgeColor }}"><span style="width: 6px; height: 6px; border-radius: 50%; background: {{ r.dot }}"></span>{{ r.status }}</span></div>
+        </div>
+      </sc-for>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; font-size: 12px; color: #8A93A0">
+        <span>Showing 4 of 128</span>
+        <span style="display: flex; gap: 4px">
+          <button style="height: 26px; padding: 0 12px; border-radius: 999px; border: 1px solid #E7E8E2; background: #FFFFFF; color: #5B6472; font-family: Inter, sans-serif; font-size: 12px; cursor: pointer" style-hover="background: #E9ECF1">Prev</button>
+          <button style="height: 26px; padding: 0 12px; border-radius: 999px; border: 1px solid #E7E8E2; background: #FFFFFF; color: #5B6472; font-family: Inter, sans-serif; font-size: 12px; cursor: pointer" style-hover="background: #E9ECF1">Next</button>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MODAL + TOASTS ============ -->
+  <section data-screen-label="Modals and Toasts">
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Modals &amp; Toasts</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+      <div style="background: rgba(17,21,26,0.5); border-radius: 12px; padding: 40px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px)">
+        <div style="background: #FFFFFF; border-radius: 16px; box-shadow: 0 12px 32px rgba(17,21,26,0.2); padding: 24px; width: 100%; max-width: 380px">
+          <div style="font-size: 17px; font-family: Inter, sans-serif; font-weight: 700; color: #1F3352; line-height: 1.4">Send Assessment Invites?</div>
+          <p style="margin: 8px 0 0 0; font-size: 13px; line-height: 1.6; color: #5B6472">24 team members will receive an email invitation. You can track responses from the dashboard.</p>
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px">
+            <button style="height: 34px; padding: 0 14px; border-radius: 999px; border: none; background: transparent; color: #3551A4; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer" style-hover="background: #EBEFF9">Not yet</button>
+            <button style="height: 34px; padding: 0 20px; border-radius: 999px; border: none; background: #3551A4; color: #FFFFFF; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s" style-hover="background: #2C4489; transform: translateY(-1px)">Send Invites</button>
+          </div>
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 10px; justify-content: center">
+        <div style="display: flex; align-items: center; gap: 10px; background: #1F3352; color: #F7F7F2; border-radius: 12px; padding: 12px 16px; box-shadow: 0 4px 12px rgba(17,21,26,0.15); max-width: 380px">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #D6E264; flex-shrink: 0"></span>
+          <span style="font-size: 13px">Nice work — your assessment was published.</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; background: #1F3352; color: #F7F7F2; border-radius: 12px; padding: 12px 16px; box-shadow: 0 4px 12px rgba(17,21,26,0.15); max-width: 380px">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #8CC4DF; flex-shrink: 0"></span>
+          <span style="font-size: 13px">Report is generating — we’ll email you when it’s ready.</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; background: #1F3352; color: #F7F7F2; border-radius: 12px; padding: 12px 16px; box-shadow: 0 4px 12px rgba(17,21,26,0.15); max-width: 380px">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #E08A87; flex-shrink: 0"></span>
+          <span style="font-size: 13px">Couldn’t save — check your connection and try again.</span>
+        </div>
+        <div style="font-size: 11px; color: #8A93A0; margin-top: 6px">Navy surface, sand text, status dot. Copy stays positive and blame-free.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DARK MODE ============ -->
+  <sc-if value="{{ showDarkMode }}" hint-placeholder-val="{{ true }}">
+    <section data-screen-label="Dark Mode" style="background: #11151A; border-radius: 16px; padding: 32px">
+      <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #FFFFFF">Dark Mode</h2>
+      <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 8px"></div>
+      <p style="margin: 0 0 20px 0; font-size: 13px; color: #A8B4C4; max-width: 560px; line-height: 1.6">Midnight background, dark panels and glass cards, sand text. Sky Blue becomes the interactive color; chartreuse stays the accent and the hero CTA.</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px">
+        <div style="background: #1A2233; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #A8B4C4">Buttons</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            <button style="height: 34px; padding: 0 20px; border-radius: 999px; border: none; background: #8CC4DF; color: #1F3352; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer" style-hover="background: #A5D2E7">Start Assessment</button>
+            <button style="height: 34px; padding: 0 20px; border-radius: 999px; border: 1.5px solid #8CC4DF; background: transparent; color: #8CC4DF; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer" style-hover="background: rgba(140,196,223,0.12)">View Report</button>
+          </div>
+          <div style="font-size: 13px"><a href="#" style="color: #8CC4DF">Links are sky blue</a></div>
+        </div>
+        <div style="background: #1A2233; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #A8B4C4">Input</div>
+          <label style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #F7F7F2">Company Name</label>
+          <input type="text" placeholder="e.g. Northwind Traders" style="height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid #3A5378; background: #263D5F; font-family: Inter, sans-serif; font-size: 13px; color: #F7F7F2; outline: none" style-focus="border-color: #8CC4DF; box-shadow: 0 0 0 3px rgba(140,196,223,0.25)">
+          <div style="font-size: 12px; color: #A8B4C4">Raised surface #263D5F, sky focus ring.</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 20px; backdrop-filter: blur(14px)">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #8CC4DF">Glass stat card</div>
+          <div style="font-size: 32px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.02em; color: #FFFFFF; margin-top: 6px">7.8</div>
+          <div style="font-size: 12px; color: #D6E264; margin-top: 2px">▲ 0.4 vs last quarter</div>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <!-- ============ HANDOFF ============ -->
+  <section data-screen-label="Handoff">
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; font-family: Inter, sans-serif; color: #5B6472; margin-bottom: 8px">03 · Build with it</div>
+    <h2 style="margin: 0 0 4px 0; font-size: 26px; font-family: Inter, sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; color: #1F3352">Handoff Files</h2>
+    <div style="width: 56px; height: 3px; border-radius: 999px; background: #D6E264; margin-bottom: 20px"></div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px">
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 20px">
+        <div style="font-size: 14px; font-family: Inter, sans-serif; font-weight: 700; color: #1F3352; margin-bottom: 6px">brand/tokens.css</div>
+        <div style="font-size: 13px; color: #5B6472; line-height: 1.6">Colors, gradient, glass, type, spacing, motion and chart palette as CSS custom properties. Light default, <span style="font-family: monospace; font-size: 12px">data-theme="dark"</span> for dark.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 20px">
+        <div style="font-size: 14px; font-family: Inter, sans-serif; font-weight: 700; color: #1F3352; margin-bottom: 6px">handoff/CLAUDE.md</div>
+        <div style="font-size: 13px; color: #5B6472; line-height: 1.6">Drop into your Claude Code repo root. Voice, color/type rules, depth &amp; motion system, and per-component conventions.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E8E2; border-radius: 12px; padding: 20px">
+        <div style="font-size: 14px; font-family: Inter, sans-serif; font-weight: 700; color: #1F3352; margin-bottom: 6px">brand/assets/</div>
+        <div style="font-size: 13px; color: #5B6472; line-height: 1.6">logo-navy.png · logo-white.png — copy into your project's public folder.</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer style="background: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); padding: 28px 48px">
+  <div style="max-width: 1120px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center">
+    <img src="brand/assets/logo-white.png" alt="AiMS Institute" style="height: 34px; width: auto">
+    <div style="font-size: 12px; color: #A8B4C4">AiMS Design System · v2 "Bold Expressive" · Inter + Figtree · July 2026</div>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: &quot;100%&quot; },
+  &quot;showDarkMode&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Sections&quot; }
+}">
+class Component extends DCLogic {
+  state = { switchOn: true, scaleSelected: 3 };
+
+  renderVals() {
+    const scaleSelected = this.state.scaleSelected;
+    return {
+      showDarkMode: this.props.showDarkMode ?? true,
+
+      colors: [
+        { name: "Navy", hex: "#1F3352", role: "Headings, gradient start" },
+        { name: "Cobalt", hex: "#3551A4", role: "Buttons, links, gradient end" },
+        { name: "Sky Blue", hex: "#8CC4DF", role: "Charts, dark-mode primary" },
+        { name: "Bright Chartreuse", hex: "#D6E264", role: "Hero CTA, accent underlines" },
+        { name: "Midnight", hex: "#11151A", role: "Body text, dark bg" },
+        { name: "Sand", hex: "#F7F7F2", role: "App background" },
+      ],
+
+      spacing: [
+        { label: "4", px: "4px" }, { label: "8", px: "8px" }, { label: "12", px: "12px" },
+        { label: "16", px: "16px" }, { label: "24", px: "24px" }, { label: "32", px: "32px" },
+        { label: "48", px: "48px" }, { label: "64", px: "64px" },
+      ],
+
+      switchBg: this.state.switchOn ? "#3551A4" : "#C9CCC4",
+      switchJustify: this.state.switchOn ? "flex-end" : "flex-start",
+      toggleSwitch: () => this.setState(s => ({ switchOn: !s.switchOn })),
+
+      scaleOptions: [1, 2, 3, 4, 5].map(n => ({
+        label: String(n),
+        select: () => this.setState({ scaleSelected: n }),
+        bg: n === scaleSelected ? "#3551A4" : "#FFFFFF",
+        color: n === scaleSelected ? "#FFFFFF" : "#1F3352",
+        border: n === scaleSelected ? "#3551A4" : "#C9CCC4",
+      })),
+
+      stats: [
+        { label: "Avg. Score", value: "7.6", delta: "▲ 0.3 vs Q1", deltaColor: "#4C8A4F", spark: "0,16 9,14 18,15 27,10 36,11 45,6 56,4", sparkColor: "#3551A4" },
+        { label: "Respondents", value: "241", delta: "▲ 18 this month", deltaColor: "#4C8A4F", spark: "0,18 9,16 18,17 27,13 36,9 45,8 56,3", sparkColor: "#8CC4DF" },
+        { label: "Completion", value: "68%", delta: "43 in progress", deltaColor: "#5B6472", spark: "0,14 9,15 18,12 27,12 36,8 45,9 56,5", sparkColor: "#3551A4" },
+        { label: "Active Teams", value: "12", delta: "▼ 1 archived", deltaColor: "#5B6472", spark: "0,10 9,10 18,8 27,9 36,7 45,7 56,6", sparkColor: "#8CC4DF" },
+      ],
+
+      bars: [
+        { label: "Team Morale", pct: "82%", score: "8.2", color: "#3551A4" },
+        { label: "Innovation", pct: "74%", score: "7.4", color: "#3551A4" },
+        { label: "Meeting Quality", pct: "61%", score: "6.1", color: "#8CC4DF" },
+        { label: "Strategy Buy-in", pct: "78%", score: "7.8", color: "#3551A4" },
+        { label: "Process Flexibility", pct: "56%", score: "5.6", color: "#8CC4DF" },
+      ],
+
+      rows: [
+        { company: "Northwind Traders", type: "Full team", n: "24", score: "7.6", status: "Complete", badgeBg: "#EAF2EA", badgeColor: "#38683B", dot: "#4C8A4F" },
+        { company: "Lakeshore Consulting", type: "Leadership pulse", n: "8", score: "8.1", status: "Complete", badgeBg: "#EAF2EA", badgeColor: "#38683B", dot: "#4C8A4F" },
+        { company: "Beacon Manufacturing", type: "Quarterly review", n: "56", score: "—", status: "In progress", badgeBg: "#E8F3F9", badgeColor: "#2C5A75", dot: "#8CC4DF" },
+        { company: "Harvest & Co.", type: "Full team", n: "31", score: "—", status: "Invited", badgeBg: "#F5F8DC", badgeColor: "#6B7431", dot: "#B9C24E" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta charset="utf-8">
+  <meta name="design_doc_mode" content="canvas">
+  <title>AiMS — Modern Directions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #ECEAE3; font-family: "Inter", system-ui, sans-serif; }
+    a { color: #3551A4; text-decoration: none; }
+    a:hover { color: #2C4489; }
+    * { box-sizing: border-box; }
+    .dv-turn { padding: 40px 44px 32px; border-bottom: 1px solid rgba(0,0,0,.08); scroll-margin-top: 16px; }
+    .dv-thd { display: flex; align-items: baseline; gap: 10px; margin: 0 0 20px; }
+    .dv-tid { font: 600 10px ui-monospace, Menlo, monospace; padding: 3px 7px; background: #1a1a1a; color: #fff; border-radius: 4px; text-decoration: none; }
+    .dv-tname { font: 600 13px/1.2 system-ui, sans-serif; color: #1a1a1a; }
+    .dv-opts { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+    .dv-opt { flex: none; display: flex; flex-direction: column; gap: 9px; scroll-margin-top: 16px; }
+    .dv-oid { font: 600 10.5px ui-monospace, Menlo, monospace; padding: 3px 7px; background: rgba(0,0,0,.08); color: #1a1a1a; border-radius: 5px; text-decoration: none; }
+    .dv-olabel { display: flex; align-items: baseline; gap: 8px; font: 400 11px/1.3 system-ui, sans-serif; color: rgba(0,0,0,.55); }
+    .dv-card { max-width: 100%; background: #fff; border: 1px solid rgba(0,0,0,.08); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.06); overflow: hidden; }
+    .dv-opt:target .dv-oid { background: #2a78d6; color: #fff; }
+    .dv-next { margin: 22px 0 0; font: 12px/1.5 system-ui, sans-serif; color: rgba(0,0,0,.5); }
+    @keyframes aims-ring { from { stroke-dashoffset: 264; } }
+    @keyframes aims-bar { from { width: 0; } }
+  </style>
+</helmet>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Same dashboard, three levels of "modern" — pick one, or mix</span></div>
+  <div class="dv-opts">
+
+    <!-- ============ 1a REFINED DEPTH ============ -->
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Refined Depth — layered elevation, sparklines, hover lifts (subtle)</div>
+      <div class="dv-card" style="width: 1000px; background: #F7F7F2" data-screen-label="1a Refined Depth">
+        <div style="display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 24px; background: rgba(255,255,255,0.9); border-bottom: 1px solid #E7E8E2; backdrop-filter: blur(8px)">
+          <div style="display: flex; align-items: center; gap: 24px">
+            <img src="brand/assets/logo-navy.png" alt="AiMS" style="height: 28px; width: auto">
+            <nav style="display: flex; gap: 2px">
+              <a href="#1a" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; background: #EBEFF9; color: #3551A4; font-size: 13px; font-weight: 600">Dashboard</a>
+              <a href="#1a" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: #5B6472; font-size: 13px; font-weight: 500" style-hover="background: #EFF0EA; color: #1F3352">Assessments</a>
+              <a href="#1a" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: #5B6472; font-size: 13px; font-weight: 500" style-hover="background: #EFF0EA; color: #1F3352">Reports</a>
+            </nav>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <button style="height: 32px; padding: 0 18px; border-radius: 999px; border: none; background: #3551A4; color: #fff; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(31,51,82,0.25), 0 3px 8px rgba(31,51,82,0.12)" style-hover="background: #2C4489; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(31,51,82,0.25), 0 6px 14px rgba(31,51,82,0.18)">New Assessment</button>
+            <span style="width: 32px; height: 32px; border-radius: 50%; background: #8CC4DF; color: #1F3352; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; box-shadow: 0 0 0 2px #fff">JM</span>
+          </div>
+        </div>
+        <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end">
+            <div>
+              <div style="font-size: 12px; color: #8A93A0">Tuesday, July 7</div>
+              <div style="font-size: 22px; font-weight: 700; color: #1F3352; line-height: 1.3">Good Morning, Jamie</div>
+            </div>
+            <div style="display: inline-flex; background: #ECEDE7; border-radius: 999px; padding: 3px; gap: 2px">
+              <span style="height: 26px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; background: #fff; color: #1F3352; font-size: 12px; font-weight: 600; box-shadow: 0 1px 2px rgba(17,21,26,0.1)">Quarter</span>
+              <span style="height: 26px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: #5B6472; font-size: 12px; font-weight: 500; cursor: pointer">Year</span>
+              <span style="height: 26px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: #5B6472; font-size: 12px; font-weight: 500; cursor: pointer">All</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px">
+            <div style="background: #fff; border: 1px solid #E7E8E2; border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04); transition: all .15s" style-hover="transform: translateY(-2px); box-shadow: 0 2px 4px rgba(17,21,26,0.06), 0 10px 24px rgba(17,21,26,0.09)">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start">
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8A93A0">Avg. Score</div>
+                <svg width="56" height="22" viewBox="0 0 56 22"><polyline points="0,16 9,14 18,15 27,10 36,11 45,6 56,4" fill="none" stroke="#3551A4" stroke-width="2" stroke-linecap="round"></polyline></svg>
+              </div>
+              <div style="font-size: 28px; font-weight: 700; color: #1F3352; margin-top: 4px; font-variant-numeric: tabular-nums">7.6</div>
+              <div style="font-size: 12px; color: #4C8A4F; font-weight: 500">▲ 0.3 vs Q1</div>
+            </div>
+            <div style="background: #fff; border: 1px solid #E7E8E2; border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04); transition: all .15s" style-hover="transform: translateY(-2px); box-shadow: 0 2px 4px rgba(17,21,26,0.06), 0 10px 24px rgba(17,21,26,0.09)">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start">
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8A93A0">Respondents</div>
+                <svg width="56" height="22" viewBox="0 0 56 22"><polyline points="0,18 9,16 18,17 27,13 36,9 45,8 56,3" fill="none" stroke="#8CC4DF" stroke-width="2" stroke-linecap="round"></polyline></svg>
+              </div>
+              <div style="font-size: 28px; font-weight: 700; color: #1F3352; margin-top: 4px; font-variant-numeric: tabular-nums">241</div>
+              <div style="font-size: 12px; color: #4C8A4F; font-weight: 500">▲ 18 this month</div>
+            </div>
+            <div style="background: #fff; border: 1px solid #E7E8E2; border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04); transition: all .15s" style-hover="transform: translateY(-2px); box-shadow: 0 2px 4px rgba(17,21,26,0.06), 0 10px 24px rgba(17,21,26,0.09)">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8A93A0">Completion</div>
+              <div style="font-size: 28px; font-weight: 700; color: #1F3352; margin-top: 4px; font-variant-numeric: tabular-nums">68%</div>
+              <div style="height: 6px; border-radius: 999px; background: #ECEDE7; margin-top: 8px; overflow: hidden"><div style="height: 6px; width: 68%; border-radius: 999px; background: #3551A4"></div></div>
+            </div>
+            <div style="background: #fff; border: 1px solid #E7E8E2; border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04); transition: all .15s" style-hover="transform: translateY(-2px); box-shadow: 0 2px 4px rgba(17,21,26,0.06), 0 10px 24px rgba(17,21,26,0.09)">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8A93A0">Active Teams</div>
+              <div style="font-size: 28px; font-weight: 700; color: #1F3352; margin-top: 4px; font-variant-numeric: tabular-nums">12</div>
+              <div style="display: flex; margin-top: 8px">
+                <span style="width: 24px; height: 24px; border-radius: 50%; background: #8CC4DF; border: 2px solid #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #1F3352">NT</span>
+                <span style="width: 24px; height: 24px; border-radius: 50%; background: #1F3352; border: 2px solid #fff; margin-left: -8px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff">LC</span>
+                <span style="width: 24px; height: 24px; border-radius: 50%; background: #D6E264; border: 2px solid #fff; margin-left: -8px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #1F3352">BM</span>
+                <span style="width: 24px; height: 24px; border-radius: 50%; background: #ECEDE7; border: 2px solid #fff; margin-left: -8px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #5B6472">+9</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 12px">
+            <div style="background: #fff; border: 1px solid #E7E8E2; border-radius: 12px; padding: 18px 22px; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04)">
+              <div style="font-size: 14px; font-weight: 700; color: #1F3352; margin-bottom: 14px">Strengths by Dimension</div>
+              <div style="display: flex; flex-direction: column; gap: 11px">
+                <div style="display: grid; grid-template-columns: 130px 1fr 34px; gap: 10px; align-items: center"><div style="font-size: 13px; color: #11151A">Team Morale</div><div style="height: 8px; border-radius: 999px; background: #ECEDE7"><div style="height: 8px; width: 82%; border-radius: 999px; background: #3551A4"></div></div><div style="font-size: 12px; color: #5B6472; text-align: right">8.2</div></div>
+                <div style="display: grid; grid-template-columns: 130px 1fr 34px; gap: 10px; align-items: center"><div style="font-size: 13px; color: #11151A">Innovation</div><div style="height: 8px; border-radius: 999px; background: #ECEDE7"><div style="height: 8px; width: 74%; border-radius: 999px; background: #3551A4"></div></div><div style="font-size: 12px; color: #5B6472; text-align: right">7.4</div></div>
+                <div style="display: grid; grid-template-columns: 130px 1fr 34px; gap: 10px; align-items: center"><div style="font-size: 13px; color: #11151A">Meeting Quality</div><div style="height: 8px; border-radius: 999px; background: #ECEDE7"><div style="height: 8px; width: 61%; border-radius: 999px; background: #8CC4DF"></div></div><div style="font-size: 12px; color: #5B6472; text-align: right">6.1</div></div>
+                <div style="display: grid; grid-template-columns: 130px 1fr 34px; gap: 10px; align-items: center"><div style="font-size: 13px; color: #11151A">Strategy Buy-in</div><div style="height: 8px; border-radius: 999px; background: #ECEDE7"><div style="height: 8px; width: 78%; border-radius: 999px; background: #3551A4"></div></div><div style="font-size: 12px; color: #5B6472; text-align: right">7.8</div></div>
+              </div>
+            </div>
+            <div style="position: relative; overflow: hidden; background: #fff; border: 1px solid #E7E8E2; border-radius: 12px; padding: 18px 22px; box-shadow: 0 1px 2px rgba(17,21,26,0.04), 0 4px 12px rgba(17,21,26,0.04)">
+              <div style="position: absolute; right: -40px; bottom: -50px; width: 160px; height: 140px; border-radius: 50%; background: #8CC4DF; opacity: 0.12"></div>
+              <div style="font-size: 14px; font-weight: 700; color: #1F3352; margin-bottom: 12px">Next Up</div>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #F7F7F2" style-hover="background: #EBEFF9">
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #D6E264"></span>
+                  <div style="flex: 1"><div style="font-size: 13px; font-weight: 600; color: #1F3352">Send Q3 pulse to Beacon Mfg.</div><div style="font-size: 11px; color: #8A93A0">Due Thursday</div></div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #F7F7F2" style-hover="background: #EBEFF9">
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #8CC4DF"></span>
+                  <div style="flex: 1"><div style="font-size: 13px; font-weight: 600; color: #1F3352">Review Northwind report draft</div><div style="font-size: 11px; color: #8A93A0">Ready now</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 1b COLOR BLOCKED ============ -->
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Color Confident — navy sidebar, wave header, shapes woven in (medium-bold)</div>
+      <div class="dv-card" style="width: 1000px; background: #F7F7F2" data-screen-label="1b Color Confident">
+        <div style="display: grid; grid-template-columns: 210px 1fr; min-height: 560px">
+          <div style="position: relative; overflow: hidden; background: #1F3352; padding: 20px 12px; display: flex; flex-direction: column; gap: 2px">
+            <div style="position: absolute; left: -70px; bottom: -100px; width: 240px; height: 220px; border-radius: 50%; background: #3551A4; opacity: 0.5"></div>
+            <div style="position: absolute; right: -60px; bottom: 40px; width: 150px; height: 140px; border-radius: 50%; background: #8CC4DF; opacity: 0.1"></div>
+            <img src="brand/assets/logo-white.png" alt="AiMS" style="height: 30px; width: auto; align-self: flex-start; margin: 0 0 24px 12px; position: relative">
+            <a href="#1b" style="position: relative; display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border-radius: 999px; background: #8CC4DF; color: #1F3352; font-size: 13px; font-weight: 700"><span style="width: 6px; height: 6px; border-radius: 50%; background: #1F3352"></span>Dashboard</a>
+            <a href="#1b" style="position: relative; display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border-radius: 999px; color: #A8B4C4; font-size: 13px; font-weight: 500" style-hover="color: #fff; background: rgba(255,255,255,0.08)"><span style="width: 6px; height: 6px; border-radius: 50%; background: #3A5378"></span>Assessments</a>
+            <a href="#1b" style="position: relative; display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border-radius: 999px; color: #A8B4C4; font-size: 13px; font-weight: 500" style-hover="color: #fff; background: rgba(255,255,255,0.08)"><span style="width: 6px; height: 6px; border-radius: 50%; background: #3A5378"></span>Reports</a>
+            <a href="#1b" style="position: relative; display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border-radius: 999px; color: #A8B4C4; font-size: 13px; font-weight: 500" style-hover="color: #fff; background: rgba(255,255,255,0.08)"><span style="width: 6px; height: 6px; border-radius: 50%; background: #3A5378"></span>Courses</a>
+            <div style="position: relative; margin-top: auto; background: rgba(255,255,255,0.06); border-radius: 12px; padding: 12px 14px">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8CC4DF">Q3 Pulse</div>
+              <div style="font-size: 12px; color: #C9D6E4; margin-top: 4px; line-height: 1.5">3 of 5 sections drafted — nice pace.</div>
+              <div style="height: 5px; border-radius: 999px; background: rgba(255,255,255,0.15); margin-top: 8px"><div style="height: 5px; width: 60%; border-radius: 999px; background: #D6E264"></div></div>
+            </div>
+          </div>
+          <div>
+            <div style="position: relative; overflow: hidden; background: #8CC4DF; padding: 22px 28px 34px 28px">
+              <div style="position: absolute; right: -60px; top: -80px; width: 260px; height: 240px; border-radius: 50%; background: #fff; opacity: 0.25"></div>
+              <div style="position: absolute; left: 40%; bottom: -90px; width: 300px; height: 120px; border-radius: 50%; background: #F7F7F2"></div>
+              <div style="position: relative; display: flex; justify-content: space-between; align-items: flex-start">
+                <div>
+                  <div style="font-size: 12px; font-weight: 600; color: #2C5A75">Tuesday, July 7</div>
+                  <div style="font-size: 26px; font-weight: 800; color: #1F3352; line-height: 1.25; letter-spacing: -0.01em">Good Morning, Jamie</div>
+                  <div style="width: 64px; height: 4px; border-radius: 999px; background: #D6E264; margin-top: 8px"></div>
+                </div>
+                <button style="height: 36px; padding: 0 20px; border-radius: 999px; border: none; background: #1F3352; color: #fff; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer" style-hover="background: #3551A4">New Assessment</button>
+              </div>
+            </div>
+            <div style="padding: 0 28px 24px 28px; margin-top: -14px; position: relative; display: flex; flex-direction: column; gap: 14px">
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px">
+                <div style="background: #fff; border-radius: 14px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(31,51,82,0.08)">
+                  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8A93A0">Avg. Score</div>
+                  <div style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 34px; font-weight: 800; color: #1F3352; font-variant-numeric: tabular-nums; letter-spacing: -0.02em">7.6</span><span style="font-size: 12px; color: #4C8A4F; font-weight: 600">▲ 0.3</span></div>
+                </div>
+                <div style="background: #1F3352; border-radius: 14px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(31,51,82,0.12); position: relative; overflow: hidden">
+                  <div style="position: absolute; right: -24px; top: -24px; width: 90px; height: 90px; border-radius: 50%; background: #8CC4DF; opacity: 0.18"></div>
+                  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8CC4DF">Respondents</div>
+                  <div style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 34px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: -0.02em">241</span><span style="font-size: 12px; color: #D6E264; font-weight: 600">▲ 18</span></div>
+                </div>
+                <div style="background: #fff; border-radius: 14px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(31,51,82,0.08)">
+                  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8A93A0">Completion</div>
+                  <div style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 34px; font-weight: 800; color: #1F3352; font-variant-numeric: tabular-nums; letter-spacing: -0.02em">68%</span></div>
+                  <div style="height: 6px; border-radius: 999px; background: #ECEDE7; margin-top: 6px"><div style="height: 6px; width: 68%; border-radius: 999px; background: #3551A4"></div></div>
+                </div>
+              </div>
+              <div style="background: #fff; border-radius: 14px; padding: 18px 22px; box-shadow: 0 2px 8px rgba(31,51,82,0.08)">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px">
+                  <div style="font-size: 15px; font-weight: 700; color: #1F3352">Strengths by Dimension</div>
+                  <div style="font-size: 12px; color: #8A93A0">Q2 · 24 respondents</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 11px">
+                  <div style="display: grid; grid-template-columns: 130px 1fr 34px; gap: 10px; align-items: center"><div style="font-size: 13px; color: #11151A">Team Morale</div><div style="height: 10px; border-radius: 999px; background: #EEF0EA"><div style="height: 10px; width: 82%; border-radius: 999px; background: #3551A4"></div></div><div style="font-size: 12px; color: #5B6472; text-align: right">8.2</div></div>
+                  <div style="display: grid; grid-template-columns: 130px 1fr 34px; gap: 10px; align-items: center"><div style="font-size: 13px; color: #11151A">Innovation</div><div style="height: 10px; border-radius: 999px; background: #EEF0EA"><div style="height: 10px; width: 74%; border-radius: 999px; background: #8CC4DF"></div></div><div style="font-size: 12px; color: #5B6472; text-align: right">7.4</div></div>
+                  <div style="display: grid; grid-template-columns: 130px 1fr 34px; gap: 10px; align-items: center"><div style="font-size: 13px; color: #11151A">Meeting Quality</div><div style="height: 10px; border-radius: 999px; background: #EEF0EA"><div style="height: 10px; width: 61%; border-radius: 999px; background: #D6E264"></div></div><div style="font-size: 12px; color: #5B6472; text-align: right">6.1</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 1c BOLD EXPRESSIVE ============ -->
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Bold Expressive — dark tonal hero, glass cards, big type, motion (boldest)</div>
+      <div class="dv-card" style="width: 1000px; background: #11151A" data-screen-label="1c Bold Expressive">
+        <div style="position: relative; overflow: hidden; background: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); padding: 0 0 90px 0">
+          <div style="position: relative; display: flex; align-items: center; justify-content: space-between; height: 60px; padding: 0 28px">
+            <div style="display: flex; align-items: center; gap: 26px">
+              <img src="brand/assets/logo-white.png" alt="AiMS" style="height: 28px; width: auto">
+              <nav style="display: flex; gap: 2px">
+                <a href="#1c" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; background: rgba(255,255,255,0.14); color: #fff; font-size: 13px; font-weight: 600; backdrop-filter: blur(6px)">Dashboard</a>
+                <a href="#1c" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500" style-hover="color: #fff">Assessments</a>
+                <a href="#1c" style="height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500" style-hover="color: #fff">Reports</a>
+              </nav>
+            </div>
+            <span style="width: 32px; height: 32px; border-radius: 50%; background: #D6E264; color: #1F3352; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">JM</span>
+          </div>
+          <div style="position: relative; padding: 26px 28px 0 28px; display: flex; justify-content: space-between; align-items: flex-end">
+            <div>
+              <div style="font-size: 12px; font-weight: 600; color: #8CC4DF; letter-spacing: 0.12em; text-transform: uppercase">Tuesday, July 7</div>
+              <div style="font-size: 34px; font-weight: 800; color: #fff; line-height: 1.15; letter-spacing: -0.02em; margin-top: 6px">Your Team Is<br>Trending Up.</div>
+              <div style="width: 72px; height: 4px; border-radius: 999px; background: #D6E264; margin-top: 12px"></div>
+            </div>
+            <button style="height: 40px; padding: 0 24px; border-radius: 999px; border: none; background: #D6E264; color: #1F3352; font-family: Inter, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 20px rgba(214,226,100,0.3)" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(214,226,100,0.4)">New Assessment</button>
+          </div>
+        </div>
+        <div style="padding: 0 28px 26px 28px; margin-top: -64px; position: relative; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px">
+            <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 20px 22px; backdrop-filter: blur(14px)">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8CC4DF">Avg. Score</div>
+              <div style="display: flex; align-items: baseline; gap: 10px; margin-top: 6px"><span style="font-size: 40px; font-weight: 800; color: #fff; letter-spacing: -0.03em; font-variant-numeric: tabular-nums">7.6</span><span style="font-size: 12px; font-weight: 600; color: #D6E264">▲ 0.3</span></div>
+              <div style="height: 6px; border-radius: 999px; background: rgba(255,255,255,0.12); margin-top: 12px; overflow: hidden"><div style="height: 6px; width: 76%; border-radius: 999px; background: #8CC4DF; animation: aims-bar 1s ease-out"></div></div>
+            </div>
+            <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 20px 22px; backdrop-filter: blur(14px)">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8CC4DF">Respondents</div>
+              <div style="display: flex; align-items: baseline; gap: 10px; margin-top: 6px"><span style="font-size: 40px; font-weight: 800; color: #fff; letter-spacing: -0.03em; font-variant-numeric: tabular-nums">241</span><span style="font-size: 12px; font-weight: 600; color: #D6E264">▲ 18</span></div>
+              <div style="height: 6px; border-radius: 999px; background: rgba(255,255,255,0.12); margin-top: 12px; overflow: hidden"><div style="height: 6px; width: 62%; border-radius: 999px; background: #D6E264; animation: aims-bar 1.2s ease-out"></div></div>
+            </div>
+            <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 20px 22px; backdrop-filter: blur(14px); display: flex; align-items: center; gap: 16px">
+              <svg width="84" height="84" viewBox="0 0 100 100" style="flex-shrink: 0; transform: rotate(-90deg)">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="10"></circle>
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#8CC4DF" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="84" style="animation: aims-ring 1.2s ease-out"></circle>
+              </svg>
+              <div>
+                <div style="font-size: 26px; font-weight: 800; color: #fff; letter-spacing: -0.02em">68%</div>
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8CC4DF">Complete</div>
+              </div>
+            </div>
+          </div>
+          <div style="background: #1A2233; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px 24px">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px">
+              <div style="font-size: 16px; font-weight: 700; color: #fff">Strengths by Dimension</div>
+              <div style="font-size: 12px; color: #76839A">Q2 · 24 respondents</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <div style="display: grid; grid-template-columns: 140px 1fr 36px; gap: 12px; align-items: center"><div style="font-size: 13px; color: #C9D6E4">Team Morale</div><div style="height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08)"><div style="height: 10px; width: 82%; border-radius: 999px; background: #8CC4DF; animation: aims-bar 0.9s ease-out"></div></div><div style="font-size: 12px; color: #A8B4C4; text-align: right; font-variant-numeric: tabular-nums">8.2</div></div>
+              <div style="display: grid; grid-template-columns: 140px 1fr 36px; gap: 12px; align-items: center"><div style="font-size: 13px; color: #C9D6E4">Innovation</div><div style="height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08)"><div style="height: 10px; width: 74%; border-radius: 999px; background: #8CC4DF; animation: aims-bar 1.1s ease-out"></div></div><div style="font-size: 12px; color: #A8B4C4; text-align: right; font-variant-numeric: tabular-nums">7.4</div></div>
+              <div style="display: grid; grid-template-columns: 140px 1fr 36px; gap: 12px; align-items: center"><div style="font-size: 13px; color: #C9D6E4">Meeting Quality</div><div style="height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08)"><div style="height: 10px; width: 61%; border-radius: 999px; background: #D6E264; animation: aims-bar 1.3s ease-out"></div></div><div style="font-size: 12px; color: #A8B4C4; text-align: right; font-variant-numeric: tabular-nums">6.1</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "apply <a class="dv-oid" href="#1a">1a</a> to the design system" · "mix <a class="dv-oid" href="#1b">1b</a>'s sidebar with <a class="dv-oid" href="#1a">1a</a>'s cards" · "<a class="dv-oid" href="#1c">1c</a> but light mode"</p>
+</section>
+</x-dc>
+</body>
+</html>

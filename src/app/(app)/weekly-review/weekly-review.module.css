@@ -1,0 +1,609 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.h1 {
+  font: var(--text-h1);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.h2 {
+  font: var(--text-h1);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.h3 {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0 0 var(--space-3) 0;
+}
+
+/* ---- Compact stat bar (demoted from the old stat trio so the
+   week ranges below are the loudest thing on the page). ---- */
+.statBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  align-self: flex-start;
+}
+
+.statPill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.statPill + .statPill {
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--border);
+}
+
+.statPillValue {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--text-heading);
+  letter-spacing: -0.02em;
+}
+
+.statPillLabel {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.sectionEyebrow {
+  margin: 0;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--aims-cobalt);
+}
+
+.noticeCard {
+  padding: var(--space-5);
+  background: var(--aims-warning-tint);
+  border-left: 3px solid var(--aims-warning);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.noticeText {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body);
+}
+
+/* ---- Section shell ---- */
+.reviewSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionMeta {
+  margin: var(--space-3) 0 0 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+.ownerBlock {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.ownerHeader {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--aims-navy-tint);
+  border-bottom: 1px solid var(--border);
+}
+
+.ownerName {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-heading);
+  font-size: 15px;
+}
+
+.ownerPosition {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.rowList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.openRow,
+.resolvedRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.openRow:last-child,
+.resolvedRow:last-child {
+  border-bottom: none;
+}
+
+.resolvedRow {
+  align-items: center;
+  background: var(--bg);
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rowDescription {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body);
+  font-weight: 500;
+}
+
+.rowMeta {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.rowPriorityLink {
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--border-strong);
+}
+
+.rowPriorityLink:hover {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.reasonNote {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ---- Action group ---- */
+.actionGroup {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-self: flex-start;
+}
+
+.successOutlineButton,
+.dangerOutlineButton,
+.navyOutlineButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  background: transparent;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.successOutlineButton {
+  color: var(--aims-success);
+  border: 1.5px solid var(--aims-success);
+}
+
+.successOutlineButton:hover:not(:disabled) {
+  background: var(--aims-success-tint);
+  transform: translateY(-1px);
+}
+
+.dangerOutlineButton {
+  color: var(--aims-danger);
+  border: 1.5px solid var(--aims-danger);
+}
+
+.dangerOutlineButton:hover:not(:disabled) {
+  background: var(--aims-danger-tint);
+  transform: translateY(-1px);
+}
+
+.navyOutlineButton {
+  color: var(--aims-navy);
+  border: 1.5px solid var(--aims-navy);
+}
+
+.navyOutlineButton:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+  transform: translateY(-1px);
+}
+
+.successOutlineButton:disabled,
+.dangerOutlineButton:disabled,
+.navyOutlineButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Inline reason / carry box ---- */
+.inlineBox {
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.radioGroup {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.radioOption {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+  font: var(--text-body);
+  cursor: pointer;
+}
+
+.radioOption input[type="radio"] {
+  accent-color: var(--aims-cobalt);
+}
+
+.label {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  resize: vertical;
+  min-height: calc(var(--control-h-md) * 2);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.inlineActions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.ghostButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ghostButton:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary-hover);
+}
+
+.ghostButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dangerFilledButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  background: var(--aims-danger);
+  color: var(--aims-white);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.dangerFilledButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--aims-danger) 88%, var(--aims-midnight));
+  transform: translateY(-1px);
+}
+
+.dangerFilledButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirmText {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body-sm);
+}
+
+/* ---- Composer ---- */
+.composerCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.composerForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.input,
+.select {
+  height: var(--control-h-md);
+  width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.readOnlyValue {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: var(--text-body);
+}
+
+.fieldHint {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.submitRow {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.primaryButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.errorMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-danger-tint);
+  border-left: 3px solid var(--aims-danger);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.successMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-success-tint);
+  border-left: 3px solid var(--aims-success);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.emptyLine {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font: var(--text-body);
+  font-style: italic;
+}
+
+/* ---- Gradient empty tile ---- */
+.emptyTile {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) var(--space-5);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.emptyTileText {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--aims-white);
+}
+
+.primaryLink {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  background: var(--primary);
+  color: var(--on-primary);
+  text-decoration: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.primaryLink:hover {
+  background: var(--primary-hover);
+  color: var(--on-primary);
+}
+
+.primaryLinkOnDark {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+  text-decoration: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: var(--shadow-cta);
+}
+
+.primaryLinkOnDark:hover {
+  transform: translateY(-1px);
+  color: var(--aims-navy);
+}
+
+@media (max-width: 768px) {
+  .statBar {
+    align-self: stretch;
+    flex-direction: column;
+    border-radius: var(--radius-md);
+    align-items: flex-start;
+  }
+  .statPill + .statPill {
+    padding-left: 0;
+    border-left: none;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border);
+    width: 100%;
+  }
+  .openRow,
+  .resolvedRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .actionGroup {
+    justify-content: flex-start;
+  }
+}

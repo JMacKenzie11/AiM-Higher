@@ -1,0 +1,64 @@
+// Tiny shared helpers used by service files. Kept dep-free.
+
+/**
+ * Build a `Map` keyed on the result of `key(row)` from an array of rows.
+ * Handy for O(1) lookups when stitching join-shaped data client-side.
+ */
+export function indexBy<T, K extends string | number | symbol>(
+  rows: readonly T[],
+  key: (row: T) => K
+): Map<K, T> {
+  const map = new Map<K, T>();
+  for (const row of rows) map.set(key(row), row);
+  return map;
+}
+
+/**
+ * Group an array of rows by the result of `key(row)` into a `Map` of arrays.
+ * Order within each bucket matches the input order.
+ */
+export function groupBy<T, K extends string | number | symbol>(
+  rows: readonly T[],
+  key: (row: T) => K
+): Map<K, T[]> {
+  const map = new Map<K, T[]>();
+  for (const row of rows) {
+    const k = key(row);
+    const existing = map.get(k);
+    if (existing) existing.push(row);
+    else map.set(k, [row]);
+  }
+  return map;
+}
+
+/**
+ * Compute follow-through rate as a 0–100 percent from raw counts.
+ * Returns null when there are no resolved commitments (kept+missed=0).
+ * `carried` and `open` should already have been excluded by the caller.
+ */
+export function computeRateFromCounts(
+  kept: number,
+  missed: number
+): number | null {
+  const denom = kept + missed;
+  if (denom === 0) return null;
+  return Math.round((kept / denom) * 100);
+}
+
+/**
+ * Compute follow-through rate (kept / (kept + missed)) from a list of
+ * commitment status strings. Excludes `carried` and `open` from both
+ * numerator and denominator per Section 4.4 semantics. Returns null when
+ * there are no resolved commitments in the window.
+ */
+export function computeFollowThroughRate(
+  statuses: readonly string[]
+): number | null {
+  let kept = 0;
+  let missed = 0;
+  for (const s of statuses) {
+    if (s === "kept") kept += 1;
+    else if (s === "missed") missed += 1;
+  }
+  return computeRateFromCounts(kept, missed);
+}

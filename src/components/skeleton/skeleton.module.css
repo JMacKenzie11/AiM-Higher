@@ -1,0 +1,132 @@
+/* Skeleton primitives. Static navy-tint bars. Only motion is a
+   subtle one-time fade-in. No shimmer, no loop — Section 3. */
+
+.bar {
+  display: inline-block;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+  vertical-align: middle;
+  animation: skeletonFadeIn var(--duration-slow) var(--ease-out) both;
+}
+
+.onDark {
+  background: color-mix(in srgb, var(--aims-white) 12%, transparent);
+}
+
+.onDarkChartreuse {
+  background: color-mix(in srgb, var(--aims-chartreuse) 60%, transparent);
+}
+
+.block {
+  width: 100%;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-md);
+  animation: skeletonFadeIn var(--duration-slow) var(--ease-out) both;
+}
+
+.glass {
+  background: color-mix(in srgb, var(--aims-white) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aims-white) 14%, transparent);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+}
+
+.hero {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+
+.heroInner {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.content {
+  position: relative;
+  margin: -32px auto 0;
+  padding: 0 var(--space-6) var(--space-6);
+  max-width: 1160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+@keyframes skeletonFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar,
+  .block {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .statRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .stage {
+    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) 0;
+  }
+  .hero,
+  .content {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+}

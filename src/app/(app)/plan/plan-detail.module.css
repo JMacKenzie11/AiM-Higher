@@ -1,0 +1,334 @@
+/* Shared styles for /plan/sfa/[id], /plan/goal/[id], /plan/priority/[id]. */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.h3 {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.bodyText {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body);
+  white-space: pre-wrap;
+}
+
+.rowList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  padding: var(--space-3) 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+.rowTitle {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.rowTitle:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rowMeta {
+  margin: var(--space-1) 0 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.emptyLine {
+  margin: 0;
+  padding: var(--space-3) 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  font-style: italic;
+}
+
+/* ---- Forms ---- */
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.input,
+.select {
+  height: var(--control-h-md);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: calc(var(--control-h-md) * 2);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.primaryButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.submitRow {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.errorMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-danger-tint);
+  border-left: 3px solid var(--aims-danger);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.successMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-success-tint);
+  border-left: 3px solid var(--aims-success);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+/* ---- Status picker (owner-only path) ---- */
+.statusPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.statusPicker .select {
+  height: var(--control-h-md);
+  width: auto;
+  min-width: 200px;
+}
+
+.pickerMessage {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+/* ---- Commitment history table ---- */
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body);
+}
+
+.historyTable th {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.historyTable td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.historyTable tr:hover td {
+  background: var(--aims-navy-tint);
+}
+
+.weekGroup {
+  background: var(--aims-navy-tint);
+  padding: var(--space-2) var(--space-3);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.reasonNote {
+  margin: var(--space-1) 0 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.dueCell {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Edit priority — collapsed by default so the history table (the
+   reason people visit this page) reads first. */
+.editSummary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.editSummary::-webkit-details-marker {
+  display: none;
+}
+
+.editSummary::after {
+  content: "Open ▾";
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+}
+
+details[open] > .editSummary::after {
+  content: "Close ▴";
+}
+
+.editSummaryTitle {
+  composes: h2;
+  cursor: pointer;
+}
+
+.editPanel {
+  padding-top: var(--space-4);
+}
+
+.olderDetails {
+  margin-top: var(--space-3);
+}
+
+.olderSummary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  color: var(--primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.olderSummary::-webkit-details-marker {
+  display: none;
+}
+
+.olderSummary:hover {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary-hover);
+}
+
+@media (max-width: 768px) {
+  .historyTable {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}

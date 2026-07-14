@@ -1,0 +1,95 @@
+/* Detail-page hero — matches the layered pattern used by /dashboard,
+   /people, and /admin/companies. The .wrap breaks out of the (app)
+   layout's horizontal padding using negative margin so the gradient
+   band extends edge-to-edge inside the main content column. */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) var(--space-5);
+}
+
+.band {
+  background: var(--grad-brand);
+  padding: var(--space-5) var(--space-6) var(--space-7);
+}
+
+.bandInner {
+  margin: 0;
+  padding: 0;
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  color: var(--aims-white);
+  opacity: 0.85;
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.crumb:hover {
+  opacity: 1;
+  color: var(--aims-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  margin: -32px var(--space-6) 0;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.eyebrow {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.title {
+  font: var(--text-h1);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  margin-top: var(--space-2);
+}
+
+.body {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (max-width: 768px) {
+  .wrap {
+    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) var(--space-4);
+  }
+  .band {
+    padding: var(--space-4) var(--space-4) var(--space-6);
+  }
+  .card {
+    margin: -20px var(--space-4) 0;
+    padding: var(--space-5);
+  }
+}

@@ -1,0 +1,587 @@
+/* /foundation — dashboard-style stacked page.
+   Layered hero at the top; every section is a white card that sits
+   in the content column. Admins get a compact "Edit" button in each
+   card's footer that swaps the card into edit mode in place. */
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+}
+
+.hero {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+
+.heroInner {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.8;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.h1 {
+  margin: 0;
+  color: var(--aims-white);
+  font: var(--text-display);
+  letter-spacing: -0.02em;
+}
+
+.rule {
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--aims-chartreuse) 0%,
+    var(--aims-chartreuse) 60%,
+    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
+  );
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.7;
+  font: var(--text-body);
+  max-width: 60ch;
+}
+
+.content {
+  position: relative;
+  margin: -32px auto 0;
+  padding: 0 var(--space-6) var(--space-6);
+  max-width: 1160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ---- Card ---- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Accent variant for singleton sections that carry a "statement"
+   (Purpose, Marketing Strategy). Adds the subtle sky-tint corner
+   shape accent so those cards feel like the anchor content. */
+.cardAccent {
+  composes: card;
+  position: relative;
+  overflow: hidden;
+}
+
+.accentShapeLarge {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 200px;
+  height: 200px;
+  background: var(--aims-sky-tint);
+  border-radius: 50%;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.accentShapeSmall {
+  position: absolute;
+  top: 90px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  background: var(--aims-sky);
+  border-radius: 50%;
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+  position: relative;
+}
+
+.h3 {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  position: relative;
+}
+
+.metaLabel {
+  margin: 0;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.contextLine {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.purposeStatement {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--aims-navy);
+  font-weight: 500;
+}
+
+.bodyText {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body);
+  white-space: pre-wrap;
+}
+
+.visionTitle {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.visionTagline {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.mutedText {
+  color: var(--text-muted);
+}
+
+.emptyLine {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font: var(--text-body);
+  font-style: italic;
+}
+
+/* ---- Card footer (Edit button lives here) ---- */
+
+.cardFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-2);
+}
+
+.editButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.editButton:hover {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary-hover);
+}
+
+.editPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---- Grid for two-column card contents ---- */
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+/* ---- Subcard (nested item inside a section card) ---- */
+
+.subcard {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  transition: box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.subcard:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.subcardActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+/* ---- Differentiator (numbered variant of subcard) ---- */
+
+.differentiatorCard {
+  composes: subcard;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.differentiatorNumber {
+  font: var(--text-stat);
+  color: var(--aims-cobalt);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.differentiatorMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ---- Language-bank chips + hook lines ---- */
+
+.chipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-block;
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-chartreuse-tint);
+  color: var(--aims-navy);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.hookLine {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-cobalt-tint);
+  color: var(--text);
+  border-left: 3px solid var(--aims-cobalt);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  font-style: italic;
+}
+
+.hookLine::before {
+  content: "\201C";
+  color: var(--aims-cobalt);
+  font-size: 20px;
+  margin-right: 4px;
+}
+
+.hookLine::after {
+  content: "\201D";
+  color: var(--aims-cobalt);
+  font-size: 20px;
+  margin-left: 4px;
+}
+
+.stackedList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stackedLeaf {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.stackedLeafPrimary {
+  flex: 1;
+}
+
+/* ---- Plain lists (ICP, Avoid) ---- */
+
+.plainList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.plainListItem {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.plainListItem:last-child {
+  border-bottom: none;
+}
+
+.itemRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+/* ---- Inline "Add X" disclosure (for repeating item sections) ---- */
+
+.editDetails {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+}
+
+.editSummary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.editSummary::-webkit-details-marker {
+  display: none;
+}
+
+.editSummary:hover {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary-hover);
+}
+
+.editDetails[open] > .editSummary {
+  background: var(--aims-cobalt-tint);
+}
+
+/* ---- Forms (inline within a card) ---- */
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.input,
+.select {
+  height: var(--control-h-md);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: calc(var(--control-h-md) * 2);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.submitRow {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.primaryButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.ghostButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ghostButton:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary-hover);
+}
+
+.ghostButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dangerGhostButton {
+  composes: ghostButton;
+  color: var(--aims-danger);
+}
+
+.dangerGhostButton:hover:not(:disabled) {
+  color: var(--aims-danger);
+  background: var(--aims-danger-tint);
+}
+
+.deleteError {
+  margin-left: var(--space-2);
+  font: var(--text-caption);
+  color: var(--aims-danger);
+}
+
+.moveButtons {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.errorMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-danger-tint);
+  border-left: 3px solid var(--aims-danger);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.successMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-success-tint);
+  border-left: 3px solid var(--aims-success);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
+  .stage {
+    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) 0;
+  }
+  .hero,
+  .content {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+}
