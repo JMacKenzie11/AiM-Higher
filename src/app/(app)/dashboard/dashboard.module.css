@@ -88,6 +88,59 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  position: relative;
+}
+
+.heroStat:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Tooltip revealed on hover or keyboard focus. Positioned below so it
+   drops into the light content area rather than fighting the nav band. */
+.heroStatTooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  max-width: 280px;
+  width: max-content;
+  padding: var(--space-2) var(--space-3);
+  background: var(--text-heading);
+  color: var(--aims-white);
+  font: var(--text-body-sm);
+  line-height: 1.4;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity 150ms ease-out,
+    visibility 0s linear 150ms,
+    transform 150ms ease-out;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.heroStatTooltip::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 20px;
+  border: 6px solid transparent;
+  border-bottom-color: var(--text-heading);
+}
+
+.heroStat:hover .heroStatTooltip,
+.heroStat:focus-visible .heroStatTooltip,
+.heroStat:focus-within .heroStatTooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    opacity 150ms ease-out,
+    visibility 0s linear 0s,
+    transform 150ms ease-out;
 }
 
 .heroStatValue {

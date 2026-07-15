@@ -56,6 +56,7 @@ export default async function DashboardPage() {
           <div className={styles.statRow}>
             <HeroStat
               label="Strategic Progress"
+              tooltip="Average progress across your Strategic Focus Areas this quarter. Rolls up from priority-level progress and reflects only strategic commitments — operational (unlinked) commitments don't count here."
               value={
                 data.headline.executionPercent === null ? (
                   "—"
@@ -68,6 +69,7 @@ export default async function DashboardPage() {
             />
             <HeroStat
               label="Follow-Through Rate"
+              tooltip="Of all commitments resolved this quarter, the share that closed on time. Both strategic and operational commitments count."
               value={
                 data.headline.keepRatePercent === null ? (
                   "—"
@@ -296,18 +298,37 @@ function HeroStat({
   label,
   value,
   caption,
+  tooltip,
 }: {
   label: string;
   value: React.ReactNode;
   caption?: React.ReactNode;
+  tooltip?: string;
 }) {
   return (
-    <div className={styles.heroStat}>
+    <div
+      className={styles.heroStat}
+      tabIndex={tooltip ? 0 : undefined}
+      aria-describedby={tooltip ? `hero-tip-${slug(label)}` : undefined}
+    >
       <span className={`${styles.heroStatValue} aims-tabular`}>{value}</span>
       <span className={styles.heroStatLabel}>{label}</span>
       {caption ? (
         <span className={styles.heroStatCaption}>{caption}</span>
       ) : null}
+      {tooltip ? (
+        <span
+          role="tooltip"
+          id={`hero-tip-${slug(label)}`}
+          className={styles.heroStatTooltip}
+        >
+          {tooltip}
+        </span>
+      ) : null}
     </div>
   );
+}
+
+function slug(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
