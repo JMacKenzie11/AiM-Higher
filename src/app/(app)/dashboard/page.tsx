@@ -96,16 +96,6 @@ export default async function DashboardPage() {
             <HeroStat
               label="Open This Week"
               value={<AnimatedNumber value={data.headline.thisWeekOpen} />}
-              caption={
-                data.headline.thisWeekLinkedPercent === null ? undefined : (
-                  <>
-                    <AnimatedNumber
-                      value={data.headline.thisWeekLinkedPercent}
-                    />
-                    % linked to plan
-                  </>
-                )
-              }
             />
           </div>
         </div>

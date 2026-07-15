@@ -48,9 +48,6 @@ export type DashboardData = {
     keepRatePercent: number | null;
     onTrack: { good: number; total: number };
     thisWeekOpen: number;
-    // Percent of this week's commitments that are linked to a priority
-    // (strategic). Null when there are none this week.
-    thisWeekLinkedPercent: number | null;
   };
   sfas: DashboardSfa[];
   orphanGoalCount: number;
@@ -191,28 +188,16 @@ export async function getDashboardData(
     quarterCommitments.map((c) => c.status)
   );
 
-  // This Week — open count + % linked to a strategic priority.
+  // This Week — count of open commitments due this Friday.
   const tz = company.timezone ?? "America/Anchorage";
   const thisFri = thisFriday(tz);
   const { data: thisWeekRows } = await supabase
     .from("commitments")
-    .select("id, status, priority_id")
+    .select("id")
     .eq("company_id", companyId)
+    .eq("status", "open")
     .eq("week_ending", thisFri);
-  const thisWeekAll = (thisWeekRows ?? []) as Array<{
-    id: string;
-    status: string;
-    priority_id: string | null;
-  }>;
-  const thisWeekOpen = thisWeekAll.filter((r) => r.status === "open").length;
-  const thisWeekLinkedPercent =
-    thisWeekAll.length === 0
-      ? null
-      : Math.round(
-          (thisWeekAll.filter((r) => r.priority_id !== null).length /
-            thisWeekAll.length) *
-            100
-        );
+  const thisWeekOpen = thisWeekRows?.length ?? 0;
 
   // Keep-rate trend: last 12 weeks ending this Friday.
   const trendWeeks: string[] = [];
@@ -313,7 +298,6 @@ export async function getDashboardData(
       keepRatePercent,
       onTrack: { good: onTrackGood, total: onTrackTotal },
       thisWeekOpen,
-      thisWeekLinkedPercent,
     },
     sfas: enrichedSfas,
     orphanGoalCount,
