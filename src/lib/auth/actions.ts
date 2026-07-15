@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { APP_URL } from "@/lib/supabase/env";
+import { clearScopedCompanyCookie } from "@/lib/admin/scope";
 
 // Server actions for auth flows. Every UI form here has a matching
 // action; the UI never talks to Supabase directly for these operations.
@@ -34,6 +35,12 @@ export async function signInAction(
       message: "Those details didn't match. Check them and try again.",
     };
   }
+
+  // Every fresh sign-in starts unscoped. System admins land on the
+  // company list; any prior scope cookie from an earlier session is
+  // dropped so they explicitly re-pick. No effect for company users
+  // (they never had a scope cookie to begin with).
+  await clearScopedCompanyCookie();
 
   revalidatePath("/", "layout");
   redirect("/");
