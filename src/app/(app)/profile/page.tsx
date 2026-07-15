@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireProfile } from "@/lib/auth/current-user";
 import { ProfileDetailsForm } from "./ProfileDetailsForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
@@ -32,6 +33,20 @@ export default async function ProfilePage() {
           position={session.profile.position ?? ""}
           role={session.profile.role}
         />
+      </section>
+
+      <section className={styles.card} aria-labelledby="coaching">
+        <h2 id="coaching" className={styles.h2}>
+          Coaching
+        </h2>
+        <p className={styles.subtitleInline}>
+          Talk through what&rsquo;s on your mind — your commitments, where
+          you&rsquo;re stuck, what to prepare for. Your conversations stay
+          private to you.
+        </p>
+        <Link href={`/coach/${session.profile.id}`} className={styles.ctaLink}>
+          Get coaching →
+        </Link>
       </section>
 
       <section className={styles.card} aria-labelledby="password">

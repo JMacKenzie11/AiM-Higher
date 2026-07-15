@@ -13,9 +13,6 @@ type PageProps = { params: Promise<{ profileId: string }> };
 export default async function CoachListPage({ params }: PageProps) {
   const session = await requireProfile();
   const role = session.profile.role;
-  if (role !== "system_admin" && role !== "company_admin") {
-    redirect("/");
-  }
 
   const { profileId } = await params;
   const supabase = await createSupabaseServerClient();
@@ -27,10 +24,15 @@ export default async function CoachListPage({ params }: PageProps) {
       Pick<Profile, "id" | "full_name" | "position" | "company_id">
     >();
   if (!subject) notFound();
-  if (
+
+  // Access: system admins reach anyone; company admins reach anyone
+  // in their own company; team members reach only themselves.
+  const isSelf = subject.id === session.profile.id;
+  const isSystemAdmin = role === "system_admin";
+  const isCompanyAdmin =
     role === "company_admin" &&
-    subject.company_id !== session.profile.company_id
-  ) {
+    subject.company_id === session.profile.company_id;
+  if (!isSelf && !isSystemAdmin && !isCompanyAdmin) {
     redirect("/");
   }
 

@@ -35,6 +35,26 @@
   color: var(--text-muted);
 }
 
+.ctaLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  margin-top: var(--space-2);
+}
+
+.ctaLink:hover {
+  background: var(--primary-hover);
+}
+
 .email {
   margin: 0;
   font: var(--text-body-sm);

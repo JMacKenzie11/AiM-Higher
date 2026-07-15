@@ -54,10 +54,6 @@ function encodeEvent(event: string, data: unknown): Uint8Array {
 
 export async function POST(req: NextRequest): Promise<Response> {
   const session = await requireProfile();
-  const role = session.profile.role;
-  if (role !== "system_admin" && role !== "company_admin") {
-    return new Response("Forbidden", { status: 403 });
-  }
 
   let body: IncomingBody;
   try {
@@ -150,6 +146,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       companyId: convo.company_id,
       subjectProfileId: convo.subject_profile_id,
       currentAdminName: session.profile.full_name,
+      currentAdminProfileId: session.profile.id,
     }),
   ]);
 

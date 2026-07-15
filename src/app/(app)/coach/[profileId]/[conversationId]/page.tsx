@@ -13,16 +13,13 @@ type PageProps = {
 
 export default async function CoachChatPage({ params }: PageProps) {
   const session = await requireProfile();
-  const role = session.profile.role;
-  if (role !== "system_admin" && role !== "company_admin") {
-    redirect("/");
-  }
 
   const { profileId, conversationId } = await params;
 
   const conversation = await getConversation(conversationId);
   if (!conversation) notFound();
   if (conversation.subject_profile_id !== profileId) notFound();
+  // RLS already scopes to created_by; this guard is defense-in-depth.
   if (conversation.created_by !== session.profile.id) redirect("/");
 
   const supabase = await createSupabaseServerClient();

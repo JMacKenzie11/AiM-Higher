@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/current-user";
+import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import type { CoachingConversation } from "./service";
@@ -16,12 +16,12 @@ export type CoachActionResult<T> =
 export type SimpleResult = { ok: true } | { ok: false; message: string };
 
 // ---- Create -----------------------------------------------------
-// A conversation is scoped to (admin, subject). An admin can have any
-// number of separate conversations about the same person.
+// A conversation is scoped to (creator, subject). Admins may coach
+// anyone in their reach; team members may only coach themselves.
 export async function createConversationAction(
   subjectProfileId: string
 ): Promise<CoachActionResult<CoachingConversation>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireProfile();
 
   const supabase = await createSupabaseServerClient();
   const { data: subject } = await supabase
@@ -32,13 +32,17 @@ export async function createConversationAction(
   if (!subject || !subject.company_id) {
     return { ok: false, message: "That person isn't accessible." };
   }
-  if (
+
+  const isSelf = subject.id === session.profile.id;
+  const isSystemAdmin = session.profile.role === "system_admin";
+  const isCompanyAdmin =
     session.profile.role === "company_admin" &&
-    session.profile.company_id !== subject.company_id
-  ) {
+    session.profile.company_id === subject.company_id;
+
+  if (!isSelf && !isSystemAdmin && !isCompanyAdmin) {
     return {
       ok: false,
-      message: "Company admins can only coach subjects in their own company.",
+      message: "You can only coach yourself unless you're an admin.",
     };
   }
 
@@ -65,7 +69,7 @@ export async function createConversationAction(
 export async function archiveConversationAction(
   conversationId: string
 ): Promise<SimpleResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireProfile();
   const supabase = await createSupabaseServerClient();
 
   const { data: convo, error: readError } = await supabase
@@ -95,7 +99,7 @@ export async function renameConversationAction(
   conversationId: string,
   title: string
 ): Promise<SimpleResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireProfile();
   const trimmed = title.trim();
   if (!trimmed) return { ok: false, message: "Title can't be empty." };
 

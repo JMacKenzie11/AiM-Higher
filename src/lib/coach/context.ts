@@ -38,6 +38,7 @@ export type CoachContextInput = {
   companyId: string;
   subjectProfileId: string;
   currentAdminName: string;
+  currentAdminProfileId: string;
 };
 
 export type CoachContextBlocks = {
@@ -133,10 +134,15 @@ export async function buildCoachContext(
     goals,
   });
 
+  const isSelfCoaching = subject?.id === input.currentAdminProfileId;
   const coachingContext = [
     "<coaching_context>",
     `Being coached about: ${subject?.full_name ?? "(unknown subject)"}`,
-    `Coaching admin: ${input.currentAdminName}`,
+    `Coaching participant: ${input.currentAdminName}`,
+    isSelfCoaching
+      ? "This is a self-coaching session — the participant is reflecting on their own execution, not someone else's. Address them in the second person ('you' / 'your'), not the third person."
+      : "This is a leadership coaching session about another person. Refer to the subject by their name.",
+    "Pronouns for the subject are unknown. Use they/them by default; never infer gender from names. If you use a name repeatedly, that's fine — just do not guess pronouns.",
     `Today: ${todayIso}`,
     "</coaching_context>",
   ].join("\n");
