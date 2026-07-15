@@ -14,11 +14,6 @@
   background: var(--grad-brand);
   color: var(--aims-white);
   padding: var(--space-6) var(--space-6) var(--space-8);
-  /* Hoist above the content area so hero-stat tooltips that drop
-     down cross over the brief card (which has its own stacking
-     context via isolation: isolate). */
-  position: relative;
-  z-index: 20;
 }
 
 .heroInner {
@@ -93,7 +88,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  position: relative;
 }
 
 .heroStat:focus-visible {
@@ -101,12 +95,11 @@
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-/* Tooltip revealed on hover or keyboard focus. Positioned below so it
-   drops into the light content area rather than fighting the nav band. */
+/* Rendered via React portal to document.body so it escapes every
+   parent stacking context. Positioned absolutely with viewport-anchored
+   top/left set inline from getBoundingClientRect. */
 .heroStatTooltip {
   position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
   max-width: 280px;
   width: max-content;
   padding: var(--space-2) var(--space-3);
@@ -116,15 +109,9 @@
   line-height: 1.4;
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-4px);
-  transition:
-    opacity 150ms ease-out,
-    visibility 0s linear 150ms,
-    transform 150ms ease-out;
   pointer-events: none;
-  z-index: 20;
+  z-index: 1000;
+  animation: heroTipIn 150ms ease-out;
 }
 
 .heroStatTooltip::before {
@@ -136,16 +123,15 @@
   border-bottom-color: var(--text-heading);
 }
 
-.heroStat:hover .heroStatTooltip,
-.heroStat:focus-visible .heroStatTooltip,
-.heroStat:focus-within .heroStatTooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-  transition:
-    opacity 150ms ease-out,
-    visibility 0s linear 0s,
-    transform 150ms ease-out;
+@keyframes heroTipIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .heroStatValue {

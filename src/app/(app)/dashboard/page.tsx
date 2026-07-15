@@ -10,6 +10,7 @@ import { ProgressBar } from "@/components/plan/ProgressBar";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { CardAccent } from "@/components/ui/CardAccent";
 import { BriefSection, BriefLoading } from "./BriefSection";
+import { HeroStat } from "./HeroStat";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./dashboard.module.css";
 
@@ -284,41 +285,3 @@ export default async function DashboardPage() {
   );
 }
 
-function HeroStat({
-  label,
-  value,
-  caption,
-  tooltip,
-}: {
-  label: string;
-  value: React.ReactNode;
-  caption?: React.ReactNode;
-  tooltip?: string;
-}) {
-  return (
-    <div
-      className={styles.heroStat}
-      tabIndex={tooltip ? 0 : undefined}
-      aria-describedby={tooltip ? `hero-tip-${slug(label)}` : undefined}
-    >
-      <span className={`${styles.heroStatValue} aims-tabular`}>{value}</span>
-      <span className={styles.heroStatLabel}>{label}</span>
-      {caption ? (
-        <span className={styles.heroStatCaption}>{caption}</span>
-      ) : null}
-      {tooltip ? (
-        <span
-          role="tooltip"
-          id={`hero-tip-${slug(label)}`}
-          className={styles.heroStatTooltip}
-        >
-          {tooltip}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function slug(label: string): string {
-  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-}
