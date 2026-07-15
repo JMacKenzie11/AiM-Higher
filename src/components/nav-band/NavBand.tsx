@@ -45,6 +45,7 @@ const SYSTEM_ADMIN_LINK = { label: "Companies", href: "/admin/companies" };
 
 export type NavBandProps = {
   userName: string;
+  userProfileId: string;
   isSystemAdmin: boolean;
   contextLabel?: string;
   showExitScope?: boolean;
@@ -53,6 +54,7 @@ export type NavBandProps = {
 
 export function NavBand({
   userName,
+  userProfileId,
   isSystemAdmin,
   contextLabel,
   showExitScope = false,
@@ -135,7 +137,7 @@ export function NavBand({
           </span>
         </button>
 
-        <UserMenu userName={userName} />
+        <UserMenu userName={userName} userProfileId={userProfileId} />
       </div>
 
       {mobileOpen ? (
@@ -189,7 +191,13 @@ function isLinkActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function UserMenu({ userName }: { userName: string }) {
+function UserMenu({
+  userName,
+  userProfileId,
+}: {
+  userName: string;
+  userProfileId: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -227,6 +235,13 @@ function UserMenu({ userName }: { userName: string }) {
 
       {open ? (
         <div className={styles.menu} role="menu">
+          <Link
+            href={`/coach/${userProfileId}`}
+            className={styles.menuItem}
+            role="menuitem"
+          >
+            Get coaching
+          </Link>
           <Link href="/profile" className={styles.menuItem} role="menuitem">
             My profile
           </Link>
