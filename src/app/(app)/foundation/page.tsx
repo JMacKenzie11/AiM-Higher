@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getFoundation } from "@/lib/foundation/service";
 import {
   deleteFoundationItemAction,
@@ -30,6 +31,13 @@ export default async function FoundationPage() {
   if (!companyId) redirect("/admin/companies");
 
   const data = await getFoundation(companyId);
+  const supabase = await createSupabaseServerClient();
+  const { data: company } = await supabase
+    .from("companies")
+    .select("name")
+    .eq("id", companyId)
+    .maybeSingle<{ name: string }>();
+  const companyName = company?.name ?? "this company";
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
@@ -44,7 +52,7 @@ export default async function FoundationPage() {
           <h1 className={styles.h1}>Foundation</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Who this company is, in its own words.
+            Who {companyName} is, in your own words.
           </p>
         </div>
       </section>
