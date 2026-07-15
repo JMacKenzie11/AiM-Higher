@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
+import { getScopedCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import type { CoachingConversation } from "./service";
@@ -18,6 +19,8 @@ export type SimpleResult = { ok: true } | { ok: false; message: string };
 // ---- Create -----------------------------------------------------
 // A conversation is scoped to (creator, subject). Admins may coach
 // anyone in their reach; team members may only coach themselves.
+// System admins self-coaching have no company of their own — they
+// use whichever company they've currently scoped into.
 export async function createConversationAction(
   subjectProfileId: string
 ): Promise<CoachActionResult<CoachingConversation>> {
@@ -29,7 +32,7 @@ export async function createConversationAction(
     .select("id, company_id")
     .eq("id", subjectProfileId)
     .maybeSingle<Pick<Profile, "id" | "company_id">>();
-  if (!subject || !subject.company_id) {
+  if (!subject) {
     return { ok: false, message: "That person isn't accessible." };
   }
 
@@ -46,11 +49,30 @@ export async function createConversationAction(
     };
   }
 
+  // Every conversation row needs a company_id. Team members and
+  // company admins have one on their profile. System admins don't —
+  // fall back to their scoped company for self-coaching.
+  let conversationCompanyId = subject.company_id;
+  if (!conversationCompanyId) {
+    if (isSelf && isSystemAdmin) {
+      conversationCompanyId = await getScopedCompanyId();
+      if (!conversationCompanyId) {
+        return {
+          ok: false,
+          message:
+            "Scope into a company first — coaching runs against a company's context.",
+        };
+      }
+    } else {
+      return { ok: false, message: "That person isn't accessible." };
+    }
+  }
+
   const title = defaultTitleForToday();
   const { data, error } = await supabase
     .from("coaching_conversations")
     .insert({
-      company_id: subject.company_id,
+      company_id: conversationCompanyId,
       subject_profile_id: subject.id,
       created_by: session.profile.id,
       title,
