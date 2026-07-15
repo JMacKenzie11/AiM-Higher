@@ -54,5 +54,13 @@ export async function setScopedCompanyCookie(
 
 export async function clearScopedCompanyCookie(): Promise<void> {
   const jar = await cookies();
-  jar.delete(SCOPE_COOKIE_NAME);
+  // Overwrite with an immediately-expired value on the same path so the
+  // browser drops it reliably. `jar.delete(name)` doesn't always target
+  // path=/ cookies depending on the runtime, hence the explicit set.
+  jar.set(SCOPE_COOKIE_NAME, "", {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 0,
+  });
 }

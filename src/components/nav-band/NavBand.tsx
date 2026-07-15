@@ -78,9 +78,13 @@ export function NavBand({
 
   // A system_admin who hasn't scoped into a company can't visit any of
   // the app pages meaningfully — every one redirects to /admin/companies.
-  // Only show the app links once they're scoped in.
+  // Also: while on the /admin surface itself, hide app links even if a
+  // scope cookie lingers from a prior session — the sysadmin is here to
+  // pick or manage companies, not to peek at whichever one they were
+  // last inside.
+  const onAdminSurface = pathname.startsWith("/admin");
   const links = isSystemAdmin
-    ? showExitScope
+    ? showExitScope && !onAdminSurface
       ? [SYSTEM_ADMIN_LINK, ...appLinks]
       : [SYSTEM_ADMIN_LINK]
     : appLinks;
