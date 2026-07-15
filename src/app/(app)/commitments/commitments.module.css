@@ -191,7 +191,9 @@
 
 .rowList {
   list-style: none;
+  list-style-type: none;
   padding: 0;
+  padding-inline-start: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -204,6 +206,13 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
+  list-style: none;
+  list-style-type: none;
+}
+
+.row::marker,
+.rowList > li::marker {
+  content: "";
 }
 
 .row:last-child {
@@ -679,7 +688,7 @@
 /* ---- Mobile ---- */
 @media (max-width: 768px) {
   .row {
-    grid-template-columns: 32px minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
     grid-template-areas:
       "circle description status"
       ".      owner       owner"
@@ -687,6 +696,14 @@
       ".      due         due";
     row-gap: var(--space-1);
     column-gap: var(--space-3);
+  }
+
+  /* Larger circle on mobile — 20px is a hard tap target and reads
+     as a boxy rectangle at high DPI when the border is thin. */
+  .resolveCircle {
+    width: 28px;
+    height: 28px;
+    border-width: 2px;
   }
 
   /* Assign grid-area on the direct children of .row (six of them, in
