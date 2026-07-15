@@ -80,8 +80,8 @@ export function InviteForm({ companyId }: { companyId: string }) {
           className={styles.select}
           disabled={pending}
         >
-          <option value="team_member">Team member</option>
-          <option value="company_admin">Company admin</option>
+          <option value="team_member">Member</option>
+          <option value="company_admin">Company Admin</option>
         </select>
       </div>
 

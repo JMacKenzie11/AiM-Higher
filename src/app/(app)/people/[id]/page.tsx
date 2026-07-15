@@ -19,6 +19,9 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   if (!data) notFound();
 
   const isSelf = session.profile.id === id;
+  const isAdmin =
+    session.profile.role === "system_admin" ||
+    session.profile.role === "company_admin";
 
   return (
     <div className={styles.stage}>
@@ -32,11 +35,21 @@ export default async function PersonScorecardPage({ params }: PageProps) {
           <p className={styles.subtitle}>
             {data.profile.position ?? "Team member"} · {data.company.name}
           </p>
-          {isSelf ? (
-            <Link href="/profile" className={styles.heroAction}>
-              Edit my profile →
-            </Link>
-          ) : null}
+          <div className={styles.heroActions}>
+            {isSelf ? (
+              <Link href="/profile" className={styles.heroAction}>
+                Edit my profile →
+              </Link>
+            ) : null}
+            {isAdmin && !isSelf ? (
+              <Link
+                href={`/coach/${id}`}
+                className={styles.heroCoachAction}
+              >
+                Coach about {data.profile.full_name.split(" ")[0]}
+              </Link>
+            ) : null}
+          </div>
         </div>
       </section>
 

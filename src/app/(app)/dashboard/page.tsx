@@ -191,6 +191,7 @@ export default async function DashboardPage() {
                   <th>Position</th>
                   <th className={styles.numHead}>Open</th>
                   <th>Follow-through rate</th>
+                  {isAdmin ? <th aria-label="Coach" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -214,6 +215,16 @@ export default async function DashboardPage() {
                         label="No resolved commitments"
                       />
                     </td>
+                    {isAdmin ? (
+                      <td>
+                        <Link
+                          href={`/coach/${person.id}`}
+                          className={styles.coachButton}
+                        >
+                          Coach
+                        </Link>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

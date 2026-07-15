@@ -96,6 +96,12 @@ export default async function PeoplePage() {
                     </td>
                     {isAdmin ? (
                       <td className={styles.actionsCell}>
+                        <Link
+                          href={`/coach/${person.id}`}
+                          className={styles.coachButton}
+                        >
+                          Coach
+                        </Link>
                         <PersonStatusToggle
                           personId={person.id}
                           currentStatus={person.status}

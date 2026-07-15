@@ -291,6 +291,22 @@
   text-underline-offset: 3px;
 }
 
+.coachButton {
+  display: inline-block;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.coachButton:hover {
+  background: var(--aims-navy-tint);
+}
+
 .mutedCell {
   color: var(--text-muted);
 }
