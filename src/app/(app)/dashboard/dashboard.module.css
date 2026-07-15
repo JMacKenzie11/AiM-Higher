@@ -355,7 +355,6 @@
   color: var(--text);
   line-height: 1.7;
   margin: 0;
-  font-size: 17px;
 }
 
 .briefCursor {
@@ -376,10 +375,9 @@
 .briefTimestamp {
   display: block;
   margin-top: var(--space-3);
-  font: var(--text-caption);
+  font: var(--text-body);
+  font-size: 17px;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
 }
 
 .briefEmpty {

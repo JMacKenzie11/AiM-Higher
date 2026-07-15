@@ -22,18 +22,29 @@ export type DashboardBrief = {
   brief_date: string; // YYYY-MM-DD (company tz)
 };
 
-const SUMMARY_SYSTEM = `You're a smart, straight-talking colleague giving a busy operator a warm read on how the last week went. The AiMS philosophy is that follow-through builds momentum, and momentum builds trust — so you lead with what's working and where people showed up, then note where support would help.
+const SUMMARY_SYSTEM = `You are writing a short, positive read on how the last week of execution went, in the voice of a thoughtful leader briefing their team. The AiMS methodology treats follow-through as something to recognize publicly, so lead with what worked and where momentum is building.
 
-Rules:
-- One paragraph, 3-5 sentences. Nothing else.
-- Sound like a human, not a report. Short sentences. Contractions welcome.
-- Positive framing throughout — lead with wins and traction. When something's slipping, describe it as "where support would help" or "worth checking in on," not as failure. Never call anyone out for missing.
-- Name specific people whose follow-through moved things, and specific priorities where progress happened.
-- No corporate jargon: no "leverage," "demonstrates," "highlights," "notably," "furthermore," "moving forward," "actionable insights," or "kudos."
-- No preamble ("here's a quick take on..."), no headings, no bullet lists, no closing wrap-up ("all in all...").
-- Use real numbers where they add weight, but skip decimals when the sentence stiffens up.
-- Don't repeat "the team" three times. Vary the subject.
-- Don't quote missed reasons verbatim; if a pattern is present, note it gently as something to talk about.`;
+Voice
+- Written prose, not chat. Complete sentences. Occasional contractions are fine. No slang or casual filler — avoid phrases like "zoom out," "sitting on," "the real story," "you've got," "nothing hanging," "once X shows up."
+- No corporate jargon either — avoid "leverage," "demonstrates," "highlights," "notably," "furthermore," "moving forward," "actionable insights," "kudos," "shoutout."
+
+Framing (this is the important part)
+- Do NOT name any individual — positive or negative. Recognition and reflection both live at the team or company level. Never single anyone out.
+- Lead with what worked: which priorities moved forward, what got closed out on time, where momentum is building.
+- Anything that slipped is reframed as an OPPORTUNITY — a place where reflection or a small adjustment could compound. Use words like "opportunity," "a chance to," "worth revisiting," "room to sharpen." Do NOT use words like "behind," "slipping," "falling short," "missed," "the real story," "the whole story," "issue," "concern."
+- If a pattern is worth surfacing, offer it as an invitation to the team ("worth a conversation together") rather than a diagnosis.
+- Close on where things are pointed, not on a summary.
+
+Structure
+- Exactly one paragraph, 3–5 sentences. Nothing else. No preamble, no headings, no bullet lists, no closing wrap-up.
+- Real numbers are welcome when they add weight; skip decimals.
+- Do not repeat "the team" three times — vary the subject.`;
+
+// Bump this timestamp whenever SUMMARY_SYSTEM meaningfully changes.
+// Any cached brief generated before this moment is treated as stale
+// and regenerated on the next dashboard load, so a prompt tweak
+// shows up immediately instead of waiting for midnight.
+const PROMPT_REVISED_AT = "2026-07-15T15:00:00Z";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 400;
@@ -56,20 +67,27 @@ export async function getOrGenerateDashboardBrief(
 
   const { data: cached } = await supabase
     .from("dashboard_ai_briefs")
-    .select("content, generated_at, brief_date")
+    .select("id, content, generated_at, brief_date")
     .eq("company_id", companyId)
     .eq("brief_date", today)
     .maybeSingle<{
+      id: string;
       content: string;
       generated_at: string;
       brief_date: string;
     }>();
   if (cached) {
-    return {
-      content: cached.content,
-      generatedAt: cached.generated_at,
-      brief_date: cached.brief_date,
-    };
+    // Drop the row if it was generated before the current prompt
+    // revision — otherwise a prompt tweak silently persists until
+    // midnight when the day rolls over.
+    if (cached.generated_at >= PROMPT_REVISED_AT) {
+      return {
+        content: cached.content,
+        generatedAt: cached.generated_at,
+        brief_date: cached.brief_date,
+      };
+    }
+    await supabase.from("dashboard_ai_briefs").delete().eq("id", cached.id);
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
