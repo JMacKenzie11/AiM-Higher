@@ -1,15 +1,15 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getDashboardData } from "@/lib/dashboard/service";
-import { getOrGenerateDashboardBrief } from "@/lib/dashboard/brief";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { CardAccent } from "@/components/ui/CardAccent";
-import { AiBrief } from "./AiBrief";
+import { BriefSection, BriefLoading } from "./BriefSection";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./dashboard.module.css";
 
@@ -26,13 +26,6 @@ export default async function DashboardPage() {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
-
-  // Admin-only AI summary — cached once per company per day, generated
-  // by whichever admin loads the dashboard first. Team members don't
-  // see this card.
-  const brief = isAdmin
-    ? await getOrGenerateDashboardBrief(companyId, session.profile.id)
-    : null;
 
   return (
     <div className={styles.stage}>
@@ -118,26 +111,16 @@ export default async function DashboardPage() {
 
       {/* ============ Content, overlapping the hero ============ */}
       <div className={styles.content}>
-        {/* --- Week in review (admin-only, AI-generated) --- */}
+        {/* --- Week in review (admin-only, streamed via Suspense so
+              the rest of the dashboard renders immediately while the
+              model call is in flight) --- */}
         {isAdmin ? (
-          <section className={styles.briefCard} aria-labelledby="brief-card">
-            <CardAccent />
-            <p className={styles.briefEyebrow}>
-              <span className={styles.briefEyebrowDot} aria-hidden="true" />
-              Week in review
-            </p>
-            <h2 id="brief-card" className={styles.briefTitle}>
-              What&rsquo;s worth knowing today
-            </h2>
-            {brief ? (
-              <AiBrief content={brief.content} generatedAt={brief.generatedAt} />
-            ) : (
-              <p className={styles.briefEmpty}>
-                No brief yet — it&rsquo;ll appear here once there&rsquo;s enough
-                activity this week (and the coach API key is configured).
-              </p>
-            )}
-          </section>
+          <Suspense fallback={<BriefLoading />}>
+            <BriefSection
+              companyId={companyId}
+              adminId={session.profile.id}
+            />
+          </Suspense>
         ) : null}
 
         {/* --- Recent successes (admin-only) --- */}

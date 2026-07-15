@@ -375,15 +375,59 @@
 .briefTimestamp {
   display: block;
   margin-top: var(--space-3);
-  font: var(--text-body);
-  font-size: 17px;
+  font: var(--text-caption);
   color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
 }
 
 .briefEmpty {
   color: var(--text-muted);
   font: var(--text-body-sm);
   margin: 0;
+}
+
+.briefLoading {
+  color: var(--text-muted);
+  font: var(--text-body);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.briefLoadingDots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.briefLoadingDots span {
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
+  display: inline-block;
+  animation: briefDotBounce 1.2s ease-in-out infinite;
+}
+
+.briefLoadingDots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.briefLoadingDots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes briefDotBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
 }
 
 /* ---- Recent successes ---- */

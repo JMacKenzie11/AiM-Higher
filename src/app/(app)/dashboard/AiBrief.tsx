@@ -55,13 +55,19 @@ export function AiBrief({ content, generatedAt }: AiBriefProps) {
   const shown = content.slice(0, visible);
 
   return (
-    <p className={styles.briefBody}>
-      <span>{shown}</span>
-      {!done ? <span className={styles.briefCursor} aria-hidden="true" /> : null}
-      <span className={styles.briefTimestamp}>
-        Refreshed {formatRelative(generatedAt)}
-      </span>
-    </p>
+    <>
+      <p className={styles.briefBody}>
+        {shown}
+        {!done ? (
+          <span className={styles.briefCursor} aria-hidden="true" />
+        ) : null}
+      </p>
+      {done ? (
+        <span className={styles.briefTimestamp}>
+          Refreshed {formatRelative(generatedAt)}
+        </span>
+      ) : null}
+    </>
   );
 }
 

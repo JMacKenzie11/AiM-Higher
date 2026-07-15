@@ -1,5 +1,6 @@
 import "server-only";
 
+import crypto from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
@@ -40,11 +41,14 @@ Structure
 - Real numbers are welcome when they add weight; skip decimals.
 - Do not repeat "the team" three times — vary the subject.`;
 
-// Bump this timestamp whenever SUMMARY_SYSTEM meaningfully changes.
-// Any cached brief generated before this moment is treated as stale
-// and regenerated on the next dashboard load, so a prompt tweak
-// shows up immediately instead of waiting for midnight.
-const PROMPT_REVISED_AT = "2026-07-15T15:00:00Z";
+// SHA-256 of the current prompt text, stored on each cached row.
+// Changes to SUMMARY_SYSTEM automatically invalidate old rows the
+// next time the dashboard loads — no timestamp bookkeeping required.
+const PROMPT_HASH = crypto
+  .createHash("sha256")
+  .update(SUMMARY_SYSTEM)
+  .digest("hex")
+  .slice(0, 16);
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 400;
@@ -67,7 +71,7 @@ export async function getOrGenerateDashboardBrief(
 
   const { data: cached } = await supabase
     .from("dashboard_ai_briefs")
-    .select("id, content, generated_at, brief_date")
+    .select("id, content, generated_at, brief_date, prompt_hash")
     .eq("company_id", companyId)
     .eq("brief_date", today)
     .maybeSingle<{
@@ -75,18 +79,18 @@ export async function getOrGenerateDashboardBrief(
       content: string;
       generated_at: string;
       brief_date: string;
+      prompt_hash: string | null;
     }>();
   if (cached) {
-    // Drop the row if it was generated before the current prompt
-    // revision — otherwise a prompt tweak silently persists until
-    // midnight when the day rolls over.
-    if (cached.generated_at >= PROMPT_REVISED_AT) {
+    if (cached.prompt_hash === PROMPT_HASH) {
       return {
         content: cached.content,
         generatedAt: cached.generated_at,
         brief_date: cached.brief_date,
       };
     }
+    // Prompt has changed since this row was written; drop it and
+    // regenerate so the new tone shows up on this same page load.
     await supabase.from("dashboard_ai_briefs").delete().eq("id", cached.id);
   }
 
@@ -128,6 +132,7 @@ export async function getOrGenerateDashboardBrief(
       brief_date: today,
       content,
       generated_by: currentAdminId,
+      prompt_hash: PROMPT_HASH,
     })
     .select("content, generated_at, brief_date")
     .maybeSingle<{
