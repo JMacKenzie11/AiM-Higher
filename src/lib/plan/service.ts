@@ -269,6 +269,20 @@ export async function getGoalDetail(goalId: string) {
       .order("title"),
   ]);
 
+  // Open-commitment count across all non-archived priorities under
+  // this goal — used by the "Mark Complete" confirm modal to show
+  // how many rows the cascade will close.
+  const priorityIds = (priorities ?? []).map((p) => p.id);
+  let openCommitmentsCount = 0;
+  if (priorityIds.length > 0) {
+    const { count } = await supabase
+      .from("commitments")
+      .select("id", { count: "exact", head: true })
+      .in("priority_id", priorityIds)
+      .eq("status", "open");
+    openCommitmentsCount = count ?? 0;
+  }
+
   return {
     goal,
     priorities: (priorities ?? []) as Priority[],
@@ -276,6 +290,41 @@ export async function getGoalDetail(goalId: string) {
     percent: progress?.percent ?? null,
     people: (people ?? []) as Pick<Profile, "id" | "full_name">[],
     sfaOptions: (sfaOptions ?? []) as Pick<StrategicFocusArea, "id" | "title">[],
+    openCommitmentsCount,
+  };
+}
+
+export type BulkResetImpact = {
+  sfaCount: number;
+  goalCount: number;
+  priorityCount: number;
+};
+
+export async function getBulkResetImpact(
+  companyId: string
+): Promise<BulkResetImpact> {
+  const supabase = await createSupabaseServerClient();
+  const [sfa, goal, priority] = await Promise.all([
+    supabase
+      .from("strategic_focus_areas")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("archived", false),
+    supabase
+      .from("annual_goals")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("archived", false),
+    supabase
+      .from("priorities")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("archived", false),
+  ]);
+  return {
+    sfaCount: sfa.count ?? 0,
+    goalCount: goal.count ?? 0,
+    priorityCount: priority.count ?? 0,
   };
 }
 

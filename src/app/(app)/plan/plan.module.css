@@ -38,6 +38,34 @@
   flex-wrap: wrap;
 }
 
+.resetButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--aims-danger);
+  border: 1px solid var(--aims-danger);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.resetButton:hover:not(:disabled) {
+  background: var(--aims-danger-tint);
+}
+
+.resetButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.resetButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .toolbarGhost {
   display: inline-flex;
   align-items: center;

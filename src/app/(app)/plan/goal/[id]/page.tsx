@@ -31,6 +31,8 @@ export default async function GoalDetailPage({ params }: PageProps) {
         sfa={detail.sfa}
         owner={owner}
         percent={detail.percent}
+        priorityCount={detail.priorities.length}
+        openCommitmentsCount={detail.openCommitmentsCount}
         isAdmin={isAdmin}
         isOwner={isOwner}
       />

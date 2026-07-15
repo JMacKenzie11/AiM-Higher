@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
-import { getCascade } from "@/lib/plan/service";
+import { getCascade, getBulkResetImpact } from "@/lib/plan/service";
+import { BulkResetButton } from "./BulkResetButton";
 import { getQuartersForCompany } from "@/lib/quarters/service";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
@@ -42,6 +43,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
     companyId,
     selectedQuarter ? selectedQuarter.id : null
   );
+  const resetImpact = await getBulkResetImpact(companyId);
 
   const supabase = await createSupabaseServerClient();
   const { data: people } = await supabase
@@ -101,6 +103,12 @@ export default async function PlanPage({ searchParams }: PageProps) {
                     <AddSfaForm people={roster} />
                   </div>
                 </details>
+                <BulkResetButton
+                  companyId={companyId}
+                  sfaCount={resetImpact.sfaCount}
+                  goalCount={resetImpact.goalCount}
+                  priorityCount={resetImpact.priorityCount}
+                />
               </div>
             ) : null}
           </div>

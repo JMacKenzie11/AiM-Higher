@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
-import { updatePriorityAction, type PlanResult } from "@/lib/plan/actions";
+import {
+  completePriorityAction,
+  updatePriorityAction,
+  type PlanResult,
+} from "@/lib/plan/actions";
 import type {
   AnnualGoal,
   CascadeStatus,
@@ -12,6 +16,7 @@ import type {
   Profile,
   Quarter,
 } from "@/lib/types";
+import { CompleteConfirmDialog } from "@/components/plan/CompleteConfirmDialog";
 import { StatusPicker } from "../../StatusPicker";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
@@ -39,6 +44,7 @@ export type PriorityHeroPanelProps = {
   quarter: Pick<Quarter, "id" | "label"> | null;
   owner: Pick<Profile, "id" | "full_name"> | null;
   progressPercent: number | null;
+  openCommitmentsCount: number;
   isAdmin: boolean;
   isOwner: boolean;
 };
@@ -52,10 +58,14 @@ export function PriorityHeroPanel({
   quarter,
   owner,
   progressPercent,
+  openCommitmentsCount,
   isAdmin,
   isOwner,
 }: PriorityHeroPanelProps) {
   const [editing, setEditing] = useState(false);
+  const [confirmingComplete, setConfirmingComplete] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
+  const [completePending, startComplete] = useTransition();
   const [state, formAction, pending] = useActionState<
     PlanResult<Priority>,
     FormData
@@ -68,6 +78,20 @@ export function PriorityHeroPanel({
   useEffect(() => {
     if (saved && !pending && editing) setEditing(false);
   }, [saved, pending, editing]);
+
+  function runComplete() {
+    setCompleteError(null);
+    startComplete(async () => {
+      const result = await completePriorityAction(priority.id);
+      if (!result.ok) {
+        setCompleteError(result.message);
+      } else {
+        setConfirmingComplete(false);
+      }
+    });
+  }
+
+  const alreadyComplete = priority.status === "complete";
 
   return (
     <div className={heroStyles.wrap}>
@@ -282,6 +306,15 @@ export function PriorityHeroPanel({
 
               {isAdmin ? (
                 <div className={styles.editTrigger}>
+                  {!alreadyComplete ? (
+                    <button
+                      type="button"
+                      className={styles.editLink}
+                      onClick={() => setConfirmingComplete(true)}
+                    >
+                      Mark complete
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className={styles.editLink}
@@ -295,6 +328,51 @@ export function PriorityHeroPanel({
           </>
         )}
       </div>
+
+      <CompleteConfirmDialog
+        open={confirmingComplete}
+        title="Mark priority complete?"
+        body={
+          <>
+            <p>
+              This marks the priority Complete
+              {openCommitmentsCount > 0 ? (
+                <>
+                  {" "}
+                  and closes{" "}
+                  <strong>
+                    {openCommitmentsCount} open{" "}
+                    {openCommitmentsCount === 1 ? "commitment" : "commitments"}
+                  </strong>{" "}
+                  as Kept.
+                </>
+              ) : (
+                <>. There are no open commitments to close.</>
+              )}
+            </p>
+            {openCommitmentsCount > 0 ? (
+              <p style={{ margin: 0, color: "var(--text-muted)" }}>
+                If any of those commitments were actually abandoned, cancel and
+                resolve them as Closed with a reason first.
+              </p>
+            ) : null}
+            {completeError ? (
+              <p role="alert" style={{ margin: 0, color: "var(--aims-danger)" }}>
+                {completeError}
+              </p>
+            ) : null}
+          </>
+        }
+        confirmLabel="Complete it"
+        pending={completePending}
+        onConfirm={runComplete}
+        onCancel={() => {
+          if (!completePending) {
+            setConfirmingComplete(false);
+            setCompleteError(null);
+          }
+        }}
+      />
     </div>
   );
 }

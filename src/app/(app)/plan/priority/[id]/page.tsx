@@ -37,6 +37,7 @@ export default async function PriorityDetailPage({ params }: PageProps) {
         quarter={detail.quarter}
         owner={owner}
         progressPercent={detail.progress?.percent ?? null}
+        openCommitmentsCount={detail.progress?.open_count ?? 0}
         isAdmin={isAdmin}
         isOwner={isOwner}
       />
