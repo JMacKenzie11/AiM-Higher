@@ -86,7 +86,7 @@
 
 .conversationRow {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-3);
   align-items: center;
   padding: var(--space-3) var(--space-4);
@@ -103,6 +103,12 @@
   gap: var(--space-1);
   text-decoration: none;
   color: var(--text);
+  min-width: 0;
+}
+
+.conversationLink > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .conversationTitle {
@@ -174,6 +180,7 @@
   flex-direction: column;
   gap: 2px;
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 .chatHeaderSubject {
