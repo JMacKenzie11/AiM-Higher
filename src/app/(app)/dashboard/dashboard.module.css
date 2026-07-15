@@ -523,10 +523,82 @@
     padding-left: var(--space-4);
     padding-right: var(--space-4);
   }
-  .peopleTable {
+
+  /* Reshape the people table into stacked cards. Everything is
+     visible without horizontal scrolling; a labelled row gives context
+     the missing header would have provided. */
+  .peopleTable,
+  .peopleTable thead,
+  .peopleTable tbody,
+  .peopleTable tr,
+  .peopleTable td {
     display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  .peopleTable thead {
+    display: none;
+  }
+
+  .peopleTable tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-3);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "name coach"
+      "position position"
+      "open open"
+      "rate rate";
+    gap: var(--space-2);
+  }
+
+  .peopleTable tr:hover td {
+    background: transparent;
+  }
+
+  .peopleTable td {
+    border: none;
+    padding: 0;
+    text-align: left;
+  }
+
+  .peopleTable td:nth-of-type(1) { grid-area: name; }
+  .peopleTable td:nth-of-type(2) { grid-area: position; }
+  .peopleTable td:nth-of-type(3) {
+    grid-area: open;
+    text-align: left;
+  }
+  .peopleTable td:nth-of-type(4) { grid-area: rate; }
+  .peopleTable td:nth-of-type(5) {
+    grid-area: coach;
+    text-align: right;
+  }
+
+  /* Inline labels so the compressed cells still read as "Open: 5"
+     and "Follow-through" — the header row is hidden on mobile. */
+  .peopleTable td:nth-of-type(3)::before {
+    content: "Open ";
+    color: var(--text-muted);
+    font: var(--text-subhead);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: var(--space-2);
+  }
+  .peopleTable td:nth-of-type(4)::before {
+    content: "Follow-through";
+    display: block;
+    color: var(--text-muted);
+    font: var(--text-subhead);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: var(--space-1);
+  }
+
+  .keepRateCell {
+    min-width: 0;
   }
 }
