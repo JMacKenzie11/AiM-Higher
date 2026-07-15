@@ -45,6 +45,7 @@ export type CoachContextBlocks = {
   companyContext: string;
   personContext: string;
   coachingContext: string;
+  isSelfCoaching: boolean;
 };
 
 export async function buildCoachContext(
@@ -147,7 +148,7 @@ export async function buildCoachContext(
     "</coaching_context>",
   ].join("\n");
 
-  return { companyContext, personContext, coachingContext };
+  return { companyContext, personContext, coachingContext, isSelfCoaching };
 }
 
 // ---- Helpers ---------------------------------------------------
