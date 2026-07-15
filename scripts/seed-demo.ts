@@ -707,7 +707,7 @@ async function upsertCommitments(
     description: string;
     week_ending: string;
     due_date: string;
-    status: "open" | "kept" | "missed" | "carried";
+    status: "open" | "kept" | "missed";
     completed_at?: string | null;
     missed_reason?: string | null;
   }> = [];
@@ -737,7 +737,7 @@ async function upsertCommitments(
       const description = templates[templateIdx](title).slice(0, 200);
       const isCurrent = week === currentWeek;
 
-      let status: "open" | "kept" | "missed" | "carried";
+      let status: "open" | "kept" | "missed";
       let completed_at: string | null = null;
       let missed_reason: string | null = null;
 
@@ -751,6 +751,7 @@ async function upsertCommitments(
           completed_at = new Date(`${week}T15:00:00Z`).toISOString();
         } else {
           status = "missed";
+          completed_at = new Date(`${week}T15:00:00Z`).toISOString();
           missed_reason = missedReasons[Math.floor(rand() * missedReasons.length)];
         }
       } else {
@@ -765,10 +766,9 @@ async function upsertCommitments(
         if (r < keepChance) {
           status = "kept";
           completed_at = new Date(`${week}T15:00:00Z`).toISOString();
-        } else if (r < keepChance + 0.15) {
-          status = "carried";
         } else {
           status = "missed";
+          completed_at = new Date(`${week}T15:00:00Z`).toISOString();
           missed_reason = missedReasons[Math.floor(rand() * missedReasons.length)];
         }
       }

@@ -30,14 +30,15 @@ const LOGO_INTRINSIC_HEIGHT = 142;
 const APP_LINKS = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Plan", href: "/plan" },
-  { label: "Weekly Review", href: "/weekly-review" },
+  { label: "Commitments", href: "/commitments" },
   { label: "People", href: "/people" },
   { label: "Foundation", href: "/foundation" },
 ] as const;
 
 // ASSUMPTION: Scorecard route (/scorecard) still exists but is
 // intentionally omitted from the nav while the Functional Scorecard
-// design is being rethought. Restore this line to bring it back:
+// design is being rethought. When restored it belongs immediately
+// after Commitments:
 //   { label: "Scorecard", href: "/scorecard" },
 
 const SYSTEM_ADMIN_LINK = { label: "Companies", href: "/admin/companies" };

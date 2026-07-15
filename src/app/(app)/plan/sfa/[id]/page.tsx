@@ -2,11 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getSfaDetail } from "@/lib/plan/service";
-import { DetailHero } from "@/components/plan/DetailHero";
 import { StatusChip } from "@/components/plan/StatusChip";
-import { ProgressBar } from "@/components/plan/ProgressBar";
-import { SfaEditForm } from "./SfaEditForm";
-import { StatusPicker } from "../../StatusPicker";
+import { SfaHeroPanel } from "./SfaHeroPanel";
 import styles from "../../plan-detail.module.css";
 
 // SFA detail — Section 8.3.
@@ -28,42 +25,14 @@ export default async function SfaDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <DetailHero
-        breadcrumbHref="/plan"
-        breadcrumbLabel="Back to plan"
-        eyebrow="Strategic Focus Area"
-        title={detail.sfa.title}
-        meta={
-          <>
-            <span>Sponsor: {sponsor?.full_name ?? "Unassigned"}</span>
-            <span>·</span>
-            <StatusChip status={detail.sfa.status} />
-            <span>·</span>
-            <ProgressBar percent={detail.percent} label="No progress yet" />
-          </>
-        }
-      >
-        {detail.sfa.description ? (
-          <p className={styles.bodyText}>{detail.sfa.description}</p>
-        ) : null}
-
-        {isSponsor && !isAdmin ? (
-          <StatusPicker
-            level="sfa"
-            id={detail.sfa.id}
-            current={detail.sfa.status}
-          />
-        ) : null}
-      </DetailHero>
-
-      {isAdmin ? (
-        <section className={styles.card} aria-labelledby="edit-sfa">
-          <h2 id="edit-sfa" className={styles.h2}>
-            Edit focus area
-          </h2>
-          <SfaEditForm sfa={detail.sfa} people={detail.people} />
-        </section>
-      ) : null}
+      <SfaHeroPanel
+        sfa={detail.sfa}
+        people={detail.people}
+        sponsor={sponsor}
+        percent={detail.percent}
+        isAdmin={isAdmin}
+        isSponsor={isSponsor}
+      />
 
       <section className={styles.card} aria-labelledby="goals">
         <h2 id="goals" className={styles.h2}>

@@ -76,6 +76,11 @@ export default async function DashboardPage() {
             <HeroStat
               label="Open This Week"
               value={String(data.headline.thisWeekOpen)}
+              caption={
+                data.headline.thisWeekLinkedPercent === null
+                  ? undefined
+                  : `${data.headline.thisWeekLinkedPercent}% linked to plan`
+              }
             />
           </div>
         </div>
@@ -163,7 +168,6 @@ export default async function DashboardPage() {
                   <th>Position</th>
                   <th className={styles.numHead}>Open</th>
                   <th>Follow-through rate</th>
-                  <th className={styles.numHead}>Carried</th>
                 </tr>
               </thead>
               <tbody>
@@ -187,9 +191,6 @@ export default async function DashboardPage() {
                         label="No resolved commitments"
                       />
                     </td>
-                    <td className={`${styles.numCell} aims-tabular`}>
-                      {person.carriedCount}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -201,11 +202,22 @@ export default async function DashboardPage() {
   );
 }
 
-function HeroStat({ label, value }: { label: string; value: string }) {
+function HeroStat({
+  label,
+  value,
+  caption,
+}: {
+  label: string;
+  value: string;
+  caption?: string;
+}) {
   return (
     <div className={styles.heroStat}>
       <span className={`${styles.heroStatValue} aims-tabular`}>{value}</span>
       <span className={styles.heroStatLabel}>{label}</span>
+      {caption ? (
+        <span className={styles.heroStatCaption}>{caption}</span>
+      ) : null}
     </div>
   );
 }

@@ -192,6 +192,80 @@
   color: var(--text);
 }
 
+.ghostButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ghostButton:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+}
+
+.ghostButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.editTrigger {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+.editLink {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+}
+
+.editLink:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.editLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.editLink:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.inlineTitleInput {
+  width: 100%;
+  font: var(--text-h1);
+  color: var(--text-heading);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.inlineTitleInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
 /* ---- Status picker (owner-only path) ---- */
 .statusPicker {
   display: inline-flex;
@@ -215,6 +289,26 @@
   width: 100%;
   border-collapse: collapse;
   font: var(--text-body);
+  /* Fixed layout so every week's table sizes columns identically,
+     regardless of description length or reason-note wrapping. */
+  table-layout: fixed;
+}
+
+.historyTable th:nth-child(1),
+.historyTable td:nth-child(1) {
+  width: 20%;
+}
+.historyTable th:nth-child(2),
+.historyTable td:nth-child(2) {
+  width: 50%;
+}
+.historyTable th:nth-child(3),
+.historyTable td:nth-child(3) {
+  width: 15%;
+}
+.historyTable th:nth-child(4),
+.historyTable td:nth-child(4) {
+  width: 15%;
 }
 
 .historyTable th {

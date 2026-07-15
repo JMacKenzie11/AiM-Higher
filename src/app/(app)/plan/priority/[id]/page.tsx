@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getPriorityDetail } from "@/lib/plan/service";
@@ -6,12 +5,8 @@ import {
   getCommitmentHistoryForPriority,
   type WeekGroup,
 } from "@/lib/commitments/service";
-import { DetailHero } from "@/components/plan/DetailHero";
-import { StatusChip } from "@/components/plan/StatusChip";
-import { ProgressBar } from "@/components/plan/ProgressBar";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
-import { PriorityEditForm } from "./PriorityEditForm";
-import { StatusPicker } from "../../StatusPicker";
+import { PriorityHeroPanel } from "./PriorityHeroPanel";
 import styles from "../../plan-detail.module.css";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -33,59 +28,18 @@ export default async function PriorityDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <DetailHero
-        breadcrumbHref={
-          detail.goal ? `/plan/goal/${detail.goal.id}` : "/plan"
-        }
-        breadcrumbLabel={
-          detail.goal ? "Back to annual goal" : "Back to plan"
-        }
-        eyebrow="Priority"
-        title={detail.priority.title}
-        meta={
-          <>
-            {detail.goal ? (
-              <Link
-                href={`/plan/goal/${detail.goal.id}`}
-                className={styles.rowTitle}
-              >
-                Goal: {detail.goal.title}
-              </Link>
-            ) : (
-              <span>Not linked to a goal</span>
-            )}
-            <span>·</span>
-            <span>Quarter: {detail.quarter?.label ?? "—"}</span>
-            <span>·</span>
-            <span>Owner: {owner?.full_name ?? "Unassigned"}</span>
-            {detail.priority.due_date ? (
-              <>
-                <span>·</span>
-                <span>Due {detail.priority.due_date}</span>
-              </>
-            ) : null}
-            <span>·</span>
-            <StatusChip status={detail.priority.status} />
-            <span>·</span>
-            <ProgressBar
-              percent={detail.progress?.percent ?? null}
-              label="No commitments yet"
-            />
-          </>
-        }
-      >
-        {detail.priority.description ? (
-          <p className={styles.bodyText}>{detail.priority.description}</p>
-        ) : null}
-
-        {isOwner && !isAdmin ? (
-          <StatusPicker
-            level="priority"
-            id={detail.priority.id}
-            current={detail.priority.status}
-          />
-        ) : null}
-      </DetailHero>
+      <PriorityHeroPanel
+        priority={detail.priority}
+        people={detail.people}
+        goalOptions={detail.goalOptions}
+        quarters={detail.quarters}
+        goal={detail.goal}
+        quarter={detail.quarter}
+        owner={owner}
+        progressPercent={detail.progress?.percent ?? null}
+        isAdmin={isAdmin}
+        isOwner={isOwner}
+      />
 
       <section className={styles.card} aria-labelledby="history">
         <h2 id="history" className={styles.h2}>
@@ -94,7 +48,7 @@ export default async function PriorityDetailPage({ params }: PageProps) {
         {history.length === 0 ? (
           <p className={styles.emptyLine}>
             No commitments logged against this priority yet. Add them from
-            the Weekly Review.
+            the Commitments page.
           </p>
         ) : (
           <>
@@ -118,26 +72,6 @@ export default async function PriorityDetailPage({ params }: PageProps) {
           </>
         )}
       </section>
-
-      {isAdmin ? (
-        <section className={styles.card} aria-labelledby="edit-priority">
-          <details>
-            <summary className={styles.editSummary}>
-              <h2 id="edit-priority" className={styles.editSummaryTitle}>
-                Edit priority
-              </h2>
-            </summary>
-            <div className={styles.editPanel}>
-              <PriorityEditForm
-                priority={detail.priority}
-                people={detail.people}
-                goalOptions={detail.goalOptions}
-                quarters={detail.quarters}
-              />
-            </div>
-          </details>
-        </section>
-      ) : null}
     </>
   );
 }

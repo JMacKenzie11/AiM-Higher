@@ -34,7 +34,7 @@ export function groupBy<T, K extends string | number | symbol>(
 /**
  * Compute follow-through rate as a 0–100 percent from raw counts.
  * Returns null when there are no resolved commitments (kept+missed=0).
- * `carried` and `open` should already have been excluded by the caller.
+ * Callers should have already excluded `open` rows.
  */
 export function computeRateFromCounts(
   kept: number,
@@ -47,9 +47,8 @@ export function computeRateFromCounts(
 
 /**
  * Compute follow-through rate (kept / (kept + missed)) from a list of
- * commitment status strings. Excludes `carried` and `open` from both
- * numerator and denominator per Section 4.4 semantics. Returns null when
- * there are no resolved commitments in the window.
+ * commitment status strings. Excludes `open` from both numerator and
+ * denominator. Returns null when there are no resolved commitments.
  */
 export function computeFollowThroughRate(
   statuses: readonly string[]

@@ -2,11 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getGoalDetail } from "@/lib/plan/service";
-import { DetailHero } from "@/components/plan/DetailHero";
 import { StatusChip } from "@/components/plan/StatusChip";
-import { ProgressBar } from "@/components/plan/ProgressBar";
-import { GoalEditForm } from "./GoalEditForm";
-import { StatusPicker } from "../../StatusPicker";
+import { GoalHeroPanel } from "./GoalHeroPanel";
 import styles from "../../plan-detail.module.css";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -27,63 +24,16 @@ export default async function GoalDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <DetailHero
-        breadcrumbHref="/plan"
-        breadcrumbLabel="Back to plan"
-        eyebrow="Annual Goal"
-        title={detail.goal.title}
-        meta={
-          <>
-            {detail.sfa ? (
-              <Link
-                href={`/plan/sfa/${detail.sfa.id}`}
-                className={styles.rowTitle}
-              >
-                Focus area: {detail.sfa.title}
-              </Link>
-            ) : (
-              <span>Not linked to a focus area</span>
-            )}
-            <span>·</span>
-            <span>Owner: {owner?.full_name ?? "Unassigned"}</span>
-            {detail.goal.target_date ? (
-              <>
-                <span>·</span>
-                <span>Target {detail.goal.target_date}</span>
-              </>
-            ) : null}
-            <span>·</span>
-            <StatusChip status={detail.goal.status} />
-            <span>·</span>
-            <ProgressBar percent={detail.percent} label="No priorities yet" />
-          </>
-        }
-      >
-        {detail.goal.description ? (
-          <p className={styles.bodyText}>{detail.goal.description}</p>
-        ) : null}
-
-        {isOwner && !isAdmin ? (
-          <StatusPicker
-            level="goal"
-            id={detail.goal.id}
-            current={detail.goal.status}
-          />
-        ) : null}
-      </DetailHero>
-
-      {isAdmin ? (
-        <section className={styles.card} aria-labelledby="edit-goal">
-          <h2 id="edit-goal" className={styles.h2}>
-            Edit annual goal
-          </h2>
-          <GoalEditForm
-            goal={detail.goal}
-            people={detail.people}
-            sfaOptions={detail.sfaOptions}
-          />
-        </section>
-      ) : null}
+      <GoalHeroPanel
+        goal={detail.goal}
+        people={detail.people}
+        sfaOptions={detail.sfaOptions}
+        sfa={detail.sfa}
+        owner={owner}
+        percent={detail.percent}
+        isAdmin={isAdmin}
+        isOwner={isOwner}
+      />
 
       <section className={styles.card} aria-labelledby="priorities">
         <h2 id="priorities" className={styles.h2}>

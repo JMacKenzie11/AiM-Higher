@@ -1,38 +1,28 @@
 import type { Commitment } from "@/lib/types";
 import visuals from "./plan-visuals.module.css";
 
-// Resolution chip variants per Section 8.3:
-//   Kept           → success tint
-//   Missed         → danger tint
-//   Carried        → navy tint (neutral)
-//   Completed late → warning tint  (status='missed' but completed_at set)
-//   Open           → info tint     (in-progress; not called out explicitly
-//                                   but every state deserves a chip)
+// Resolution chip: Open, Kept, or Closed. A "Closed" chip corresponds
+// to status='missed' at the DB level — the commitment was closed after
+// its due date. Migration 0011 removed the carried state entirely.
 
-type Variant = "kept" | "missed" | "carried" | "completed_late" | "open";
+type Variant = "kept" | "closed" | "open";
 
 const LABELS: Record<Variant, string> = {
   kept: "Kept",
-  missed: "Missed",
-  carried: "Carried",
-  completed_late: "Completed late",
+  closed: "Closed",
   open: "Open",
 };
 
 const CLASSES: Record<Variant, string> = {
   kept: visuals.chipSuccess,
-  missed: visuals.chipDanger,
-  carried: visuals.chipNeutral,
-  completed_late: visuals.chipWarning,
+  closed: visuals.chipDanger,
   open: visuals.chipInfo,
 };
 
 export function variantForCommitment(commitment: Commitment): Variant {
   if (commitment.status === "kept") return "kept";
-  if (commitment.status === "carried") return "carried";
-  if (commitment.status === "open") return "open";
-  // status === "missed"
-  return commitment.completed_at ? "completed_late" : "missed";
+  if (commitment.status === "missed") return "closed";
+  return "open";
 }
 
 export function CommitmentResolutionChip({

@@ -58,8 +58,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
               }
             />
             <PersonStat label="Kept" value={String(data.stats.keptCount)} />
-            <PersonStat label="Missed" value={String(data.stats.missedCount)} />
-            <PersonStat label="Carried" value={String(data.stats.carriedCount)} />
+            <PersonStat label="Closed" value={String(data.stats.missedCount)} />
           </div>
 
           <div className={styles.trendWrap}>

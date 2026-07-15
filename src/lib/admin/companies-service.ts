@@ -89,7 +89,9 @@ export async function getCompaniesOverview(): Promise<CompanyOverviewRow[]> {
       Pick<Commitment, "priority_id" | "status">
     >;
     const byCompany = groupBy(commitments, (c) => {
-      return priorityToCompany.get(c.priority_id) ?? "__unknown";
+      return c.priority_id
+        ? priorityToCompany.get(c.priority_id) ?? "__unknown"
+        : "__unknown";
     });
     for (const [companyId, items] of byCompany.entries()) {
       commitmentStatusesByCompany.set(

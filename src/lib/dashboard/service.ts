@@ -37,7 +37,6 @@ export type DashboardPerson = {
   openCount: number;
   keptCount: number;
   missedCount: number;
-  carriedCount: number;
   keepRate: number | null;
 };
 
@@ -49,6 +48,9 @@ export type DashboardData = {
     keepRatePercent: number | null;
     onTrack: { good: number; total: number };
     thisWeekOpen: number;
+    // Percent of this week's commitments that are linked to a priority
+    // (strategic). Null when there are none this week.
+    thisWeekLinkedPercent: number | null;
   };
   sfas: DashboardSfa[];
   orphanGoalCount: number;
@@ -136,10 +138,9 @@ export async function getDashboardData(
     .eq("archived", false);
   const orphanGoalCount = orphanGoalRows?.length ?? 0;
 
-  // On Track + priority set (used by both on-track and later keep-rate math).
+  // On Track — priority-level status counts for the open quarter.
   let onTrackGood = 0;
   let onTrackTotal = 0;
-  let openQuarterPriorityIds: string[] = [];
   if (openQuarter) {
     const { data: pRows } = await supabase
       .from("priorities")
@@ -155,16 +156,19 @@ export async function getDashboardData(
     onTrackGood = priorities.filter(
       (p) => p.status === "on_track" || p.status === "complete"
     ).length;
-    openQuarterPriorityIds = priorities.map((p) => p.id);
   }
 
-  // Commitments in the open quarter (for keep-rate and person stats).
+  // Commitments in the open quarter — now derived from week_ending
+  // falling inside the quarter window, so operational (unlinked)
+  // commitments count toward keep-rate identically to strategic ones.
   let quarterCommitments: Commitment[] = [];
-  if (openQuarterPriorityIds.length > 0) {
+  if (openQuarter) {
     const { data: cRows } = await supabase
       .from("commitments")
       .select("*")
-      .in("priority_id", openQuarterPriorityIds);
+      .eq("company_id", companyId)
+      .gte("week_ending", openQuarter.start_date)
+      .lte("week_ending", openQuarter.end_date);
     quarterCommitments = (cRows ?? []) as Commitment[];
   }
 
@@ -172,16 +176,28 @@ export async function getDashboardData(
     quarterCommitments.map((c) => c.status)
   );
 
-  // This Week — count of open commitments due this week.
+  // This Week — open count + % linked to a strategic priority.
   const tz = company.timezone ?? "America/Anchorage";
   const thisFri = thisFriday(tz);
   const { data: thisWeekRows } = await supabase
     .from("commitments")
-    .select("id")
+    .select("id, status, priority_id")
     .eq("company_id", companyId)
-    .eq("status", "open")
     .eq("week_ending", thisFri);
-  const thisWeekOpen = thisWeekRows?.length ?? 0;
+  const thisWeekAll = (thisWeekRows ?? []) as Array<{
+    id: string;
+    status: string;
+    priority_id: string | null;
+  }>;
+  const thisWeekOpen = thisWeekAll.filter((r) => r.status === "open").length;
+  const thisWeekLinkedPercent =
+    thisWeekAll.length === 0
+      ? null
+      : Math.round(
+          (thisWeekAll.filter((r) => r.priority_id !== null).length /
+            thisWeekAll.length) *
+            100
+        );
 
   // Keep-rate trend: last 12 weeks ending this Friday.
   const trendWeeks: string[] = [];
@@ -224,10 +240,8 @@ export async function getDashboardData(
     "id" | "full_name" | "position"
   >[];
 
-  // Group commitments by owner for the quarter's kept/missed/carried and
-  // the overall open count (open uses today's snapshot, not just the
-  // quarter — spec says "Open (count)" without qualifying window; using
-  // "open right now in this company" is the fairest read).
+  // Group commitments by owner for the quarter's kept/missed counts
+  // and the overall open count (open uses today's snapshot).
   const { data: openRows } = await supabase
     .from("commitments")
     .select("owner_id")
@@ -238,24 +252,16 @@ export async function getDashboardData(
     openByOwner.set(row.owner_id, (openByOwner.get(row.owner_id) ?? 0) + 1);
   }
 
-  const perOwner = new Map<
-    string,
-    { kept: number; missed: number; carried: number }
-  >();
+  const perOwner = new Map<string, { kept: number; missed: number }>();
   for (const c of quarterCommitments) {
-    const bucket = perOwner.get(c.owner_id) ?? {
-      kept: 0,
-      missed: 0,
-      carried: 0,
-    };
+    const bucket = perOwner.get(c.owner_id) ?? { kept: 0, missed: 0 };
     if (c.status === "kept") bucket.kept += 1;
     else if (c.status === "missed") bucket.missed += 1;
-    else if (c.status === "carried") bucket.carried += 1;
     perOwner.set(c.owner_id, bucket);
   }
 
   const dashboardPeople: DashboardPerson[] = roster.map((person) => {
-    const counts = perOwner.get(person.id) ?? { kept: 0, missed: 0, carried: 0 };
+    const counts = perOwner.get(person.id) ?? { kept: 0, missed: 0 };
     return {
       id: person.id,
       full_name: person.full_name,
@@ -263,7 +269,6 @@ export async function getDashboardData(
       openCount: openByOwner.get(person.id) ?? 0,
       keptCount: counts.kept,
       missedCount: counts.missed,
-      carriedCount: counts.carried,
       keepRate: computeRateFromCounts(counts.kept, counts.missed),
     };
   });
@@ -287,6 +292,7 @@ export async function getDashboardData(
       keepRatePercent,
       onTrack: { good: onTrackGood, total: onTrackTotal },
       thisWeekOpen,
+      thisWeekLinkedPercent,
     },
     sfas: enrichedSfas,
     orphanGoalCount,

@@ -106,6 +106,13 @@
   letter-spacing: 0.15em;
 }
 
+.heroStatCaption {
+  margin-top: var(--space-1);
+  color: var(--aims-white);
+  opacity: 0.7;
+  font: var(--text-caption);
+}
+
 /* ---- Content stack ---- */
 
 .content {

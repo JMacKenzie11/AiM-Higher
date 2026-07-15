@@ -2,25 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Commitment, Priority } from "@/lib/types";
-import { addDays, thisFriday } from "@/lib/dates";
+import { todayInTimezone } from "@/lib/dates";
 
-// Commitment server actions — Section 4.4 semantics.
+// Commitment server actions — simplified per the "Open / Kept / Missed"
+// model (migration 0011 dropped the carried state).
 //
-//   Kept:  set status='kept', completed_at=now(). If completed AFTER
-//          the due date, we instead set status='missed' + completed_at
-//          (Section 4.4 "Completed late" state) and require a reason.
-//          For the plain "mark as Kept" button in the weekly review,
-//          we treat late as still Kept (the meeting is happening after
-//          the due date; the intent is that the item got done). The
-//          Missed path is the one that requires a reason.
-//   Missed: status='missed', missed_reason=<text>. UI enforces
-//           requiring a reason; the DB check enforces it too.
-//   Carry Forward: status='carried' on original; insert a new row
-//                  for week_ending+7 with carried_from_id set.
-//   Delete: owner may delete own open commitments in the CURRENT
-//           WEEK only. Admins may delete any in their company.
+//   Kept:    status='kept', completed_at=now(). Server rejects on
+//            overdue open rows — those go through Missed.
+//   Missed:  status='missed', missed_reason=<text>. In the UI this is
+//            labelled "Closed" — a commitment closed after its due
+//            date. The reason is required (DB check enforces too).
+//   Unmark:  either resolved state → open (drops completed_at and
+//            missed_reason). Any owner or admin can revert any week.
+//   Link:    priority_id may be null (operational commitment). Only
+//            mutable while status='open' — resolved rows have
+//            already fed priority progress.
+//   Delete:  owner may delete their own OPEN commitment, any week.
+//            Admins may delete any in their company.
 
 export type CommitmentResult =
   | { ok: true; commitment: Commitment }
@@ -38,14 +39,10 @@ async function loadCommitment(
   return data ?? null;
 }
 
-// Every commitment mutation touches three surfaces at once: the weekly
-// review page, the dashboard totals, and the priority's history table.
-// Hoisting the revalidatePath triplet so callers can't accidentally
-// forget one.
-function revalidateCommitmentSurfaces(priorityId: string): void {
-  revalidatePath("/weekly-review");
+function revalidateCommitmentSurfaces(priorityId: string | null): void {
+  revalidatePath("/commitments");
   revalidatePath("/dashboard");
-  revalidatePath(`/plan/priority/${priorityId}`);
+  if (priorityId) revalidatePath(`/plan/priority/${priorityId}`);
 }
 
 async function canWriteRow(
@@ -63,6 +60,27 @@ async function canWriteRow(
   return commitment.owner_id === session.profile.id;
 }
 
+function isAdminForCompany(
+  session: Awaited<ReturnType<typeof requireProfile>>,
+  companyId: string
+): boolean {
+  const role = session.profile.role;
+  if (role === "system_admin") return true;
+  return role === "company_admin" && session.profile.company_id === companyId;
+}
+
+async function getCompanyTimezone(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  companyId: string
+): Promise<string> {
+  const { data } = await supabase
+    .from("companies")
+    .select("timezone")
+    .eq("id", companyId)
+    .maybeSingle<{ timezone: string }>();
+  return data?.timezone ?? "America/Anchorage";
+}
+
 // ---- Create ---------------------------------------------------
 export async function createCommitmentAction(
   _prev: CommitmentResult | undefined,
@@ -70,15 +88,13 @@ export async function createCommitmentAction(
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
 
-  const priorityId = String(formData.get("priority_id") ?? "").trim();
+  const priorityIdRaw = String(formData.get("priority_id") ?? "").trim();
+  const priorityId = priorityIdRaw === "" ? null : priorityIdRaw;
   const description = String(formData.get("description") ?? "").trim();
   const weekEnding = String(formData.get("week_ending") ?? "").trim();
   const dueDateRaw = String(formData.get("due_date") ?? "").trim();
   const ownerIdRaw = String(formData.get("owner_id") ?? "").trim();
 
-  if (!priorityId) {
-    return { ok: false, message: "Pick a priority for this commitment." };
-  }
   if (!description) {
     return { ok: false, message: "Say what the commitment is." };
   }
@@ -87,29 +103,33 @@ export async function createCommitmentAction(
   }
   const dueDate = dueDateRaw || weekEnding;
 
-  // Look up the priority so we can validate company + owner rules.
   const supabase = await createSupabaseServerClient();
-  const { data: priority } = await supabase
-    .from("priorities")
-    .select("id, company_id")
-    .eq("id", priorityId)
-    .maybeSingle<Pick<Priority, "id" | "company_id">>();
-  if (!priority) {
-    return { ok: false, message: "That priority isn't accessible." };
+
+  let companyId: string | null;
+  if (priorityId) {
+    const { data: priority } = await supabase
+      .from("priorities")
+      .select("id, company_id")
+      .eq("id", priorityId)
+      .maybeSingle<Pick<Priority, "id" | "company_id">>();
+    if (!priority) {
+      return { ok: false, message: "That priority isn't accessible." };
+    }
+    companyId = priority.company_id;
+  } else {
+    companyId = await getEffectiveCompanyId(session);
+    if (!companyId) {
+      return { ok: false, message: "Pick a company scope first." };
+    }
   }
 
-  // Team members may only commit for themselves. Admins may pick anyone.
-  const role = session.profile.role;
-  const isAdmin =
-    role === "system_admin" ||
-    (role === "company_admin" &&
-      session.profile.company_id === priority.company_id);
+  const isAdmin = isAdminForCompany(session, companyId);
   const ownerId = isAdmin && ownerIdRaw ? ownerIdRaw : session.profile.id;
 
   const { data, error } = await supabase
     .from("commitments")
     .insert({
-      company_id: priority.company_id,
+      company_id: companyId,
       priority_id: priorityId,
       owner_id: ownerId,
       description,
@@ -143,6 +163,18 @@ export async function markKeptAction(
     return { ok: false, message: "That commitment isn't open anymore." };
   }
 
+  // Overdue open rows go through Missed (which is labelled "Closed" in
+  // the UI). Kept is on-time only. Enforced here so a stale UI or
+  // crafted request can't sneak past.
+  const tz = await getCompanyTimezone(supabase, commitment.company_id);
+  const { iso: todayIso } = todayInTimezone(tz);
+  if (commitment.due_date < todayIso) {
+    return {
+      ok: false,
+      message: "Past its due date — close it with a reason instead.",
+    };
+  }
+
   const { data, error } = await supabase
     .from("commitments")
     .update({
@@ -159,11 +191,42 @@ export async function markKeptAction(
   return { ok: true, commitment: data };
 }
 
-// ---- Missed ---------------------------------------------------
+// ---- Unmark kept (revert to open) ------------------------------
+// Any owner or admin, any week. Absorbs misclicks and lets people fix
+// history without an admin gate.
+export async function unmarkKeptAction(
+  commitmentId: string
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!(await canWriteRow(session, commitment))) {
+    return { ok: false, message: "Not yours to change." };
+  }
+  if (commitment.status !== "kept") {
+    return { ok: false, message: "Only kept commitments can be reverted." };
+  }
+
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({ status: "open", completed_at: null, missed_reason: null })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't revert that commitment." };
+  }
+
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: data };
+}
+
+// ---- Missed (Closed late) -------------------------------------
 export async function markMissedAction(
   commitmentId: string,
-  reason: string,
-  completedLate = false
+  reason: string
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
   const trimmed = reason.trim();
@@ -189,74 +252,108 @@ export async function markMissedAction(
     .update({
       status: "missed",
       missed_reason: trimmed,
-      // "Completed late" per Section 4.4: still counts as missed for
-      // keep-rate math, but we record completed_at so history shows it.
-      completed_at: completedLate ? new Date().toISOString() : null,
+      completed_at: new Date().toISOString(),
     })
     .eq("id", commitmentId)
     .select("*")
     .single<Commitment>();
-  if (error || !data) return { ok: false, message: "Couldn't mark that missed." };
+  if (error || !data) return { ok: false, message: "Couldn't close that." };
 
   revalidateCommitmentSurfaces(commitment.priority_id);
   return { ok: true, commitment: data };
 }
 
-// ---- Carry Forward --------------------------------------------
-export async function carryForwardAction(
-  commitmentId: string,
-  descriptionOverride?: string
+// ---- Unmark missed (revert Closed → Open) ---------------------
+// Same permission story as unmark kept: any owner or admin, any week.
+export async function unmarkMissedAction(
+  commitmentId: string
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
   const supabase = await createSupabaseServerClient();
 
-  const original = await loadCommitment(supabase, commitmentId);
-  if (!original) return { ok: false, message: "Commitment not found." };
-  if (!(await canWriteRow(session, original))) {
-    return { ok: false, message: "Not yours to carry." };
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!(await canWriteRow(session, commitment))) {
+    return { ok: false, message: "Not yours to change." };
   }
-  if (original.status !== "open") {
-    return { ok: false, message: "That commitment isn't open anymore." };
+  if (commitment.status !== "missed") {
+    return { ok: false, message: "Only closed commitments can be reopened." };
   }
 
-  const nextWeek = addDays(original.week_ending, 7);
-  const description = (descriptionOverride ?? original.description).trim();
-
-  // Close original.
-  const { error: closeError } = await supabase
+  const { data, error } = await supabase
     .from("commitments")
-    .update({ status: "carried" })
-    .eq("id", original.id);
-  if (closeError) {
-    return { ok: false, message: "Couldn't close the original commitment." };
-  }
-
-  // Insert the successor.
-  const { data: successor, error: insertError } = await supabase
-    .from("commitments")
-    .insert({
-      company_id: original.company_id,
-      priority_id: original.priority_id,
-      owner_id: original.owner_id,
-      description,
-      week_ending: nextWeek,
-      due_date: nextWeek,
-      status: "open",
-      carried_from_id: original.id,
-    })
+    .update({ status: "open", completed_at: null, missed_reason: null })
+    .eq("id", commitmentId)
     .select("*")
     .single<Commitment>();
-  if (insertError || !successor) {
-    // Best-effort revert so we don't leave the old row half-closed.
-    await supabase
-      .from("commitments")
-      .update({ status: "open" })
-      .eq("id", original.id);
-    return { ok: false, message: "Couldn't create the carried commitment." };
+  if (error || !data) {
+    return { ok: false, message: "Couldn't reopen that commitment." };
   }
 
-  revalidateCommitmentSurfaces(original.priority_id);
-  return { ok: true, commitment: successor };
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: data };
+}
+
+// ---- Link / unlink priority -----------------------------------
+// Only mutable while open, so resolved rows can't be silently retargeted
+// between priorities (that would rewrite priority progress history).
+// priorityId=null unlinks (turns the row operational). When linking,
+// the priority must belong to the open quarter.
+export async function linkPriorityAction(
+  commitmentId: string,
+  priorityId: string | null
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!(await canWriteRow(session, commitment))) {
+    return { ok: false, message: "Not yours to change." };
+  }
+  if (commitment.status !== "open") {
+    return {
+      ok: false,
+      message: "Resolved commitments have already fed priority progress — their link is frozen.",
+    };
+  }
+
+  if (priorityId) {
+    const { data: priority } = await supabase
+      .from("priorities")
+      .select("id, company_id, quarter_id")
+      .eq("id", priorityId)
+      .maybeSingle<Pick<Priority, "id" | "company_id" | "quarter_id">>();
+    if (!priority || priority.company_id !== commitment.company_id) {
+      return { ok: false, message: "That priority isn't accessible." };
+    }
+    const { data: quarter } = await supabase
+      .from("quarters")
+      .select("status")
+      .eq("id", priority.quarter_id)
+      .maybeSingle<{ status: string }>();
+    if (quarter?.status !== "open") {
+      return {
+        ok: false,
+        message: "Only priorities in the open quarter can be linked.",
+      };
+    }
+  }
+
+  const previousPriorityId = commitment.priority_id;
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({ priority_id: priorityId })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't update the link." };
+  }
+
+  revalidateCommitmentSurfaces(previousPriorityId);
+  revalidateCommitmentSurfaces(priorityId);
+  return { ok: true, commitment: data };
 }
 
 // ---- Delete ---------------------------------------------------
@@ -269,14 +366,8 @@ export async function deleteCommitmentAction(
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
 
-  const role = session.profile.role;
-  const isAdmin =
-    role === "system_admin" ||
-    (role === "company_admin" &&
-      session.profile.company_id === commitment.company_id);
-
+  const isAdmin = isAdminForCompany(session, commitment.company_id);
   if (!isAdmin) {
-    // Owner can only delete their own OPEN commitment in the CURRENT WEEK.
     if (commitment.owner_id !== session.profile.id) {
       return { ok: false, message: "Not yours to delete." };
     }
@@ -284,19 +375,6 @@ export async function deleteCommitmentAction(
       return {
         ok: false,
         message: "Resolved commitments stay in history — they can't be deleted.",
-      };
-    }
-    const { data: company } = await supabase
-      .from("companies")
-      .select("timezone")
-      .eq("id", commitment.company_id)
-      .maybeSingle<{ timezone: string }>();
-    const timezone = company?.timezone ?? "America/Anchorage";
-    if (commitment.week_ending !== thisFriday(timezone)) {
-      return {
-        ok: false,
-        message:
-          "Only this week's open commitments can be deleted. Older ones live in history.",
       };
     }
   }

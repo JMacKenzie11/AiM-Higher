@@ -119,7 +119,6 @@ export type PersonScorecard = {
     keepRate: number | null;
     keptCount: number;
     missedCount: number;
-    carriedCount: number;
   };
   keepRateTrend: KeepRateBar[];
   openCommitments: PersonCommitmentRow[];
@@ -151,29 +150,22 @@ export async function getPersonScorecard(
   const today = todayInTimezone(timezone).iso;
   const thisFri = thisFriday(timezone);
 
-  // Quarter stats — kept/missed/carried counts for this person in the
-  // open quarter. Keep rate = kept / (kept+missed).
+  // Quarter stats — kept/missed counts for this person, derived from
+  // week_ending falling inside the quarter window so operational
+  // commitments count identically to strategic ones.
   let keptCount = 0;
   let missedCount = 0;
-  let carriedCount = 0;
   if (openQuarter) {
-    const { data: pRows } = await supabase
-      .from("priorities")
-      .select("id")
+    const { data: cRows } = await supabase
+      .from("commitments")
+      .select("status")
+      .eq("owner_id", personId)
       .eq("company_id", profile.company_id)
-      .eq("quarter_id", openQuarter.id);
-    const priorityIds = (pRows ?? []).map((row) => row.id);
-    if (priorityIds.length > 0) {
-      const { data: cRows } = await supabase
-        .from("commitments")
-        .select("status")
-        .eq("owner_id", personId)
-        .in("priority_id", priorityIds);
-      for (const row of (cRows ?? []) as Pick<Commitment, "status">[]) {
-        if (row.status === "kept") keptCount += 1;
-        else if (row.status === "missed") missedCount += 1;
-        else if (row.status === "carried") carriedCount += 1;
-      }
+      .gte("week_ending", openQuarter.start_date)
+      .lte("week_ending", openQuarter.end_date);
+    for (const row of (cRows ?? []) as Pick<Commitment, "status">[]) {
+      if (row.status === "kept") keptCount += 1;
+      else if (row.status === "missed") missedCount += 1;
     }
   }
   const keepRate = computeRateFromCounts(keptCount, missedCount);
@@ -253,7 +245,9 @@ export async function getPersonScorecard(
   function enrich(commitment: Commitment): PersonCommitmentRow {
     return {
       ...commitment,
-      priority: priorityById.get(commitment.priority_id) ?? null,
+      priority: commitment.priority_id
+        ? priorityById.get(commitment.priority_id) ?? null
+        : null,
     };
   }
 
@@ -278,7 +272,6 @@ export async function getPersonScorecard(
       keepRate,
       keptCount,
       missedCount,
-      carriedCount,
     },
     keepRateTrend,
     openCommitments: enrichedOpen,

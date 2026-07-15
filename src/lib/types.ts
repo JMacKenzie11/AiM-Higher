@@ -107,12 +107,18 @@ export type Priority = {
 };
 
 // ---- commitments ------------------------------------------------
-export type CommitmentStatus = "open" | "kept" | "missed" | "carried";
+// Open = still to do. Kept = closed on/before due date. Missed = closed
+// after due date (labelled "Closed" in the UI — an opportunity to
+// improve). The prior "carried" state was removed in migration 0011.
+export type CommitmentStatus = "open" | "kept" | "missed";
 
 export type Commitment = {
   id: string;
   company_id: string;
-  priority_id: string;
+  // null = operational (not tied to a strategic priority). Only strategic
+  // commitments feed priority progress; both flavors count identically
+  // toward keep rate.
+  priority_id: string | null;
   owner_id: string;
   description: string;
   week_ending: string;
