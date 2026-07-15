@@ -14,6 +14,11 @@
   background: var(--grad-brand);
   color: var(--aims-white);
   padding: var(--space-6) var(--space-6) var(--space-8);
+  /* Hoist above the content area so hero-stat tooltips that drop
+     down cross over the brief card (which has its own stacking
+     context via isolation: isolate). */
+  position: relative;
+  z-index: 20;
 }
 
 .heroInner {
