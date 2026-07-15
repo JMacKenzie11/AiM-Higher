@@ -56,16 +56,17 @@ export type DashboardData = {
   orphanGoalCount: number;
   keepRateTrend: WeeklyKeepRatePoint[]; // last 12 weeks, oldest → newest
   people: DashboardPerson[];
-  // Ten most recent closed-late (missed) commitments this quarter, verbatim
-  // reasons attached. Admin-only surface — the caller decides whether to
-  // render, but we always compute so scope switches don't need a re-fetch.
-  recentMisses: RecentMiss[];
+  // Five most-recent commitments closed on time this quarter. Positive
+  // signal that matches the AiMS philosophy — celebrate what's working
+  // where the whole company can see it. Admin-only surface on the
+  // dashboard; the caller decides whether to render.
+  recentSuccesses: RecentSuccess[];
 };
 
-export type RecentMiss = {
+export type RecentSuccess = {
   id: string;
   description: string;
-  reason: string | null;
+  completedAt: string | null;
   weekEnding: string;
   ownerName: string;
   ownerId: string;
@@ -298,7 +299,11 @@ export async function getDashboardData(
     return a.keepRate - b.keepRate;
   });
 
-  const recentMisses = await loadRecentMisses(supabase, companyId, openQuarter);
+  const recentSuccesses = await loadRecentSuccesses(
+    supabase,
+    companyId,
+    openQuarter
+  );
 
   return {
     company,
@@ -314,40 +319,39 @@ export async function getDashboardData(
     orphanGoalCount,
     keepRateTrend,
     people: dashboardPeople,
-    recentMisses,
+    recentSuccesses,
   };
 }
 
-// Ten most recent closed-late (missed) commitments this quarter with
-// the operator's verbatim reason. Ordered by week_ending desc then
-// completed_at desc so most-recent-first. Empty array when there are
-// none — the UI can hide the card entirely.
-async function loadRecentMisses(
+// Five most recent commitments closed ON TIME this quarter. Positive
+// signal that matches the AiMS philosophy: recognize the follow-through
+// in public. Ordered by completed_at desc (falls back to week_ending
+// desc when completed_at is null on old rows).
+async function loadRecentSuccesses(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   companyId: string,
   openQuarter: Quarter | null
-): Promise<RecentMiss[]> {
+): Promise<RecentSuccess[]> {
   if (!openQuarter) return [];
 
   const { data: rows } = await supabase
     .from("commitments")
     .select(
-      "id, description, missed_reason, week_ending, owner_id, priority_id, completed_at"
+      "id, description, week_ending, owner_id, priority_id, completed_at"
     )
     .eq("company_id", companyId)
-    .eq("status", "missed")
+    .eq("status", "kept")
     .gte("week_ending", openQuarter.start_date)
     .lte("week_ending", openQuarter.end_date)
-    .order("week_ending", { ascending: false })
     .order("completed_at", { ascending: false, nullsFirst: false })
-    .limit(10);
+    .order("week_ending", { ascending: false })
+    .limit(5);
 
   const commitments = (rows ?? []) as Array<
     Pick<
       Commitment,
       | "id"
       | "description"
-      | "missed_reason"
       | "week_ending"
       | "owner_id"
       | "priority_id"
@@ -387,7 +391,7 @@ async function loadRecentMisses(
   return commitments.map((c) => ({
     id: c.id,
     description: c.description,
-    reason: c.missed_reason,
+    completedAt: c.completed_at,
     weekEnding: c.week_ending,
     ownerId: c.owner_id,
     ownerName: nameById.get(c.owner_id) ?? "—",

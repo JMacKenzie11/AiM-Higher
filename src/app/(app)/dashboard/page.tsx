@@ -140,39 +140,38 @@ export default async function DashboardPage() {
           </section>
         ) : null}
 
-        {/* --- Recent misses (admin-only) --- */}
-        {isAdmin && data.recentMisses.length > 0 ? (
+        {/* --- Recent successes (admin-only) --- */}
+        {isAdmin && data.recentSuccesses.length > 0 ? (
           <section
             className={styles.cardAccent}
-            aria-labelledby="misses-card"
+            aria-labelledby="successes-card"
           >
             <CardAccent />
-            <h2 id="misses-card" className={styles.h2}>
-              Recent misses
+            <h2 id="successes-card" className={styles.h2}>
+              Recent wins
             </h2>
             <p className={styles.cardMeta}>
-              The last {data.recentMisses.length} closed-late commitments this
-              quarter, in the owner&rsquo;s own words.
+              The last {data.recentSuccesses.length} commitments closed on
+              time this quarter.
             </p>
-            <ul className={styles.missList}>
-              {data.recentMisses.map((miss) => (
-                <li key={miss.id} className={styles.missItem}>
-                  <div className={styles.missHeader}>
-                    <span className={styles.missOwner}>{miss.ownerName}</span>
-                    <span className={styles.missWhen}>
-                      Week ending {formatShortDate(miss.weekEnding)}
+            <ul className={styles.successList}>
+              {data.recentSuccesses.map((win) => (
+                <li key={win.id} className={styles.successItem}>
+                  <div className={styles.successHeader}>
+                    <span className={styles.successOwner}>{win.ownerName}</span>
+                    <span className={styles.successWhen}>
+                      {win.completedAt
+                        ? formatShortDate(win.completedAt.slice(0, 10))
+                        : `Week ending ${formatShortDate(win.weekEnding)}`}
                     </span>
                   </div>
-                  <p className={styles.missDescription}>{miss.description}</p>
-                  {miss.reason ? (
-                    <p className={styles.missReason}>{miss.reason}</p>
-                  ) : null}
-                  {miss.priorityTitle ? (
-                    <span className={styles.missPriorityMuted}>
-                      Linked to: {miss.priorityTitle}
+                  <p className={styles.successDescription}>{win.description}</p>
+                  {win.priorityTitle ? (
+                    <span className={styles.successPriorityMuted}>
+                      Linked to: {win.priorityTitle}
                     </span>
                   ) : (
-                    <span className={styles.missPriorityMuted}>
+                    <span className={styles.successPriorityMuted}>
                       Operational
                     </span>
                   )}

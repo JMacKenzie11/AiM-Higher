@@ -388,8 +388,8 @@
   margin: 0;
 }
 
-/* ---- Recent misses ---- */
-.missList {
+/* ---- Recent successes ---- */
+.successList {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -398,17 +398,17 @@
   padding: 0;
 }
 
-.missItem {
+.successItem {
   padding: var(--space-3);
-  background: var(--aims-navy-tint);
+  background: var(--aims-success-tint);
   border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  border-left: 3px solid var(--aims-danger);
+  border-left: 3px solid var(--aims-success);
 }
 
-.missHeader {
+.successHeader {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -416,48 +416,26 @@
   flex-wrap: wrap;
 }
 
-.missOwner {
+.successOwner {
   font: var(--text-body);
   color: var(--text-heading);
   font-weight: 600;
 }
 
-.missWhen {
+.successWhen {
   font: var(--text-caption);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.15em;
 }
 
-.missDescription {
+.successDescription {
   font: var(--text-body);
   color: var(--text);
   margin: 0;
 }
 
-.missReason {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  font-style: italic;
-  margin: 0;
-  padding-left: var(--space-3);
-  border-left: 2px solid var(--border);
-}
-
-.missPriority {
-  font: var(--text-caption);
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  text-decoration: none;
-}
-
-.missPriority:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.missPriorityMuted {
+.successPriorityMuted {
   font: var(--text-caption);
   color: var(--text-muted);
   text-transform: uppercase;
