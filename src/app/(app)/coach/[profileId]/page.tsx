@@ -38,10 +38,16 @@ export default async function CoachListPage({ params }: PageProps) {
 
   const conversations = await listConversationsForSubject(profileId);
 
+  const firstName = subject.full_name.split(" ")[0] ?? subject.full_name;
+  const backHref = isSelf ? "/profile" : `/people/${profileId}`;
+  const backLabel = isSelf
+    ? "Back to my profile"
+    : `Back to ${firstName}'s scorecard`;
+
   return (
     <div className={styles.page}>
-      <Link href={`/people/${profileId}`} className={styles.crumb}>
-        ← Back to {subject.full_name}
+      <Link href={backHref} className={styles.crumb}>
+        ← {backLabel}
       </Link>
       <header className={styles.header}>
         <p className={styles.eyebrow}>Coaching</p>
