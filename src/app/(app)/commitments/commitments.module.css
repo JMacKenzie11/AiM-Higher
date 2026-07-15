@@ -679,26 +679,48 @@
 /* ---- Mobile ---- */
 @media (max-width: 768px) {
   .row {
-    grid-template-columns: 32px 1fr auto;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
     grid-template-areas:
       "circle description status"
-      ". owner owner"
-      ". priority priority"
-      ". due due";
+      ".      owner       owner"
+      ".      priority    priority"
+      ".      due         due";
     row-gap: var(--space-1);
+    column-gap: var(--space-3);
   }
-  .rowDescription {
+
+  /* Assign grid-area on the direct children of .row (six of them, in
+     order: circle button, description wrapper div, owner span,
+     priority cell, due span, status chip). Class-based selectors miss
+     because .rowDescription et al sit inside the wrapper elements,
+     not on them. min-width: 0 lets long words wrap normally instead
+     of forcing their column to intrinsic width. */
+  .row > :nth-child(1) {
+    grid-area: circle;
+    align-self: start;
+  }
+  .row > :nth-child(2) {
     grid-area: description;
-  }
-  .rowOwner {
-    grid-area: owner;
+    min-width: 0;
   }
   .row > :nth-child(3) {
+    grid-area: owner;
+    min-width: 0;
+  }
+  .row > :nth-child(4) {
     grid-area: priority;
+    min-width: 0;
   }
-  .rowDue {
+  .row > :nth-child(5) {
     grid-area: due;
+    min-width: 0;
   }
+  .row > :nth-child(6) {
+    grid-area: status;
+    align-self: start;
+    justify-self: end;
+  }
+
   .addForm {
     grid-template-columns: 1fr;
   }
