@@ -2,30 +2,40 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { deleteCommitmentAction } from "@/lib/commitments/actions";
+import {
+  deleteCommitmentAction,
+  markKeptAction,
+} from "@/lib/commitments/actions";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import type { CommitmentWithMeta } from "@/lib/commitments/weekly-review";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./weekly-review.module.css";
 
-// This-week row. Compact: no Kept/Missed buttons (that's Last Week's
-// job when the week ends). The row's own owner (or an admin) can
-// delete their open row while the week is still current. Deletion
-// goes through an inline confirm block to stay consistent with the
-// Missed/Carry patterns above.
+// This-week row. Kept is available for early completions; Missed and
+// Carry stay on Last Week where the week-end decision belongs. Delete
+// is still there for "changed my mind, this shouldn't be a commitment"
+// and goes through an inline confirm block.
 
 type Mode = "idle" | "confirmDelete";
 
 export function ThisWeekRow({
   commitment,
-  canDelete,
+  canAct,
 }: {
   commitment: CommitmentWithMeta;
-  canDelete: boolean;
+  canAct: boolean;
 }) {
   const [mode, setMode] = useState<Mode>("idle");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  function markKept() {
+    setError(null);
+    startTransition(async () => {
+      const result = await markKeptAction(commitment.id);
+      if (!result.ok) setError(result.message);
+    });
+  }
 
   function confirmDelete() {
     setError(null);
@@ -96,15 +106,26 @@ export function ThisWeekRow({
       </div>
 
       {commitment.status === "open" ? (
-        mode === "idle" && canDelete ? (
-          <button
-            type="button"
-            className={styles.ghostButton}
-            onClick={() => setMode("confirmDelete")}
-            disabled={pending}
-          >
-            Delete
-          </button>
+        mode === "idle" && canAct ? (
+          <div className={styles.actionGroup}>
+            <button
+              type="button"
+              className={styles.successOutlineButton}
+              onClick={markKept}
+              disabled={pending}
+              aria-label="Mark kept"
+            >
+              Kept
+            </button>
+            <button
+              type="button"
+              className={styles.ghostButton}
+              onClick={() => setMode("confirmDelete")}
+              disabled={pending}
+            >
+              Delete
+            </button>
+          </div>
         ) : null
       ) : (
         <CommitmentResolutionChip commitment={commitment} />

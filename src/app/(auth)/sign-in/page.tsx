@@ -11,12 +11,11 @@ export default function SignInPage() {
       cardLabel="Sign in"
       headline={
         <>
-          Execute what matters.
+          Leadership Simplified.
           <br />
-          Every week.
+          Results Amplified.
         </>
       }
-      subtitle="Sign in to the AiMS Execution Platform."
       footer={<Link href="/forgot-password">Forgot password?</Link>}
     >
       <SignInForm />

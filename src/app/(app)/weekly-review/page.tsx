@@ -144,9 +144,8 @@ export default async function WeeklyReviewPage() {
                 <ThisWeekRow
                   key={commitment.id}
                   commitment={commitment}
-                  canDelete={
-                    (isAdmin || commitment.owner_id === session.profile.id) &&
-                    commitment.status === "open"
+                  canAct={
+                    isAdmin || commitment.owner_id === session.profile.id
                   }
                 />
               ))}

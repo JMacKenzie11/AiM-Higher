@@ -12,7 +12,7 @@ const LOGO_INTRINSIC_HEIGHT = 142;
 
 export type AuthShellProps = {
   headline: ReactNode;
-  subtitle: ReactNode;
+  subtitle?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
   cardLabel: string;
@@ -41,8 +41,12 @@ export function AuthShell({
         />
 
         <h1 className={styles.headline}>{headline}</h1>
-        <span className={styles.rule} aria-hidden="true" />
-        <p className={styles.subtitle}>{subtitle}</p>
+        {subtitle ? (
+          <>
+            <span className={styles.rule} aria-hidden="true" />
+            <p className={styles.subtitle}>{subtitle}</p>
+          </>
+        ) : null}
 
         <section className={styles.card} aria-label={cardLabel}>
           {children}
