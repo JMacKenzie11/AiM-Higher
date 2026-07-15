@@ -74,7 +74,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                 ? "—"
                 : `${data.headerStats.keepRateThisQuarter}%`}
             </span>
-            <span className={styles.statPillLabel}>Keep rate this quarter</span>
+            <span className={styles.statPillLabel}>Follow-through rate this quarter</span>
           </span>
         </div>
 
