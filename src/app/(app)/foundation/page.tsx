@@ -16,6 +16,7 @@ import { PurposeForm } from "./PurposeForm";
 import { VisionForm } from "./VisionForm";
 import { AddSnippetForm } from "./MarketingForms";
 import { SectionEditToggle } from "./SectionEditToggle";
+import { CardAccent } from "@/components/ui/CardAccent";
 import styles from "./foundation.module.css";
 
 // Foundation — a single stacked page (dashboard-style).
@@ -82,7 +83,8 @@ export default async function FoundationPage() {
         />
 
         {/* ============ Core Values ============ */}
-        <section className={styles.card} aria-labelledby="values">
+        <section className={styles.cardAccent} aria-labelledby="values">
+          <CardAccent />
           <h2 id="values" className={styles.h2}>
             Core Values
           </h2>
@@ -146,10 +148,12 @@ export default async function FoundationPage() {
             </div>
           }
           editView={<VisionForm foundation={data.foundation} />}
+          accent
         />
 
         {/* ============ Vision Milestones ============ */}
-        <section className={styles.card} aria-labelledby="milestones">
+        <section className={styles.cardAccent} aria-labelledby="milestones">
+          <CardAccent />
           <h2 id="milestones" className={styles.h2}>
             Vision Milestones
           </h2>
@@ -191,7 +195,8 @@ export default async function FoundationPage() {
         </section>
 
         {/* ============ Differentiators ============ */}
-        <section className={styles.card} aria-labelledby="diffs">
+        <section className={styles.cardAccent} aria-labelledby="diffs">
+          <CardAccent />
           <h2 id="diffs" className={styles.h2}>
             Differentiators
           </h2>
@@ -243,7 +248,8 @@ export default async function FoundationPage() {
         </section>
 
         {/* ============ ICP ============ */}
-        <section className={styles.card} aria-labelledby="icp">
+        <section className={styles.cardAccent} aria-labelledby="icp">
+          <CardAccent />
           <h2 id="icp" className={styles.h2}>
             Ideal Customer Profile
           </h2>

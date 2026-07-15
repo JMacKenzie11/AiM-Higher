@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { CardAccent } from "@/components/ui/CardAccent";
 import styles from "./foundation.module.css";
 
 // A card that swaps between read and edit modes in place. Used for
@@ -28,12 +29,7 @@ export function SectionEditToggle({
       className={accent ? styles.cardAccent : styles.card}
       aria-label={title}
     >
-      {accent ? (
-        <>
-          <span className={styles.accentShapeLarge} aria-hidden="true" />
-          <span className={styles.accentShapeSmall} aria-hidden="true" />
-        </>
-      ) : null}
+      {accent ? <CardAccent /> : null}
 
       <h2 className={styles.h2}>{title}</h2>
 

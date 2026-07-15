@@ -137,6 +137,16 @@
   gap: var(--space-4);
 }
 
+/* Accent variant for the three main content cards. Establishes a
+   stacking context so the sky-tint accent shapes stay behind card
+   content (rows, hover states, chart) and never escape the corner. */
+.cardAccent {
+  composes: card;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
 .h2 {
   font: var(--text-h2);
   color: var(--text-heading);

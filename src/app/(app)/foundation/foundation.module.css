@@ -92,30 +92,10 @@
   composes: card;
   position: relative;
   overflow: hidden;
-}
-
-.accentShapeLarge {
-  position: absolute;
-  top: -60px;
-  right: -60px;
-  width: 200px;
-  height: 200px;
-  background: var(--aims-sky-tint);
-  border-radius: 50%;
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-.accentShapeSmall {
-  position: absolute;
-  top: 90px;
-  right: 30px;
-  width: 60px;
-  height: 60px;
-  background: var(--aims-sky);
-  border-radius: 50%;
-  opacity: 0.15;
-  pointer-events: none;
+  /* Contain the negative-z-index accent shapes inside this card's own
+     stacking context so they sit behind the card's content (subcards,
+     buttons, hover states) instead of escaping to the page root. */
+  isolation: isolate;
 }
 
 .h2 {

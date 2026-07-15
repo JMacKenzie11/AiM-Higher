@@ -7,6 +7,7 @@ import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { CardAccent } from "@/components/ui/CardAccent";
 import styles from "./dashboard.module.css";
 
 // Company Dashboard — Section 8.2.
@@ -108,7 +109,8 @@ export default async function DashboardPage() {
       {/* ============ Content, overlapping the hero ============ */}
       <div className={styles.content}>
         {/* --- Strategic Focus Areas --- */}
-        <section className={styles.card} aria-labelledby="sfa-card">
+        <section className={styles.cardAccent} aria-labelledby="sfa-card">
+          <CardAccent />
           <h2 id="sfa-card" className={styles.h2}>
             Strategic Focus Areas
           </h2>
@@ -159,7 +161,8 @@ export default async function DashboardPage() {
         </section>
 
         {/* --- Keep-rate trend --- */}
-        <section className={styles.card} aria-labelledby="trend-card">
+        <section className={styles.cardAccent} aria-labelledby="trend-card">
+          <CardAccent />
           <h2 id="trend-card" className={styles.h2}>
             Follow-Through Rate Trend
           </h2>
@@ -168,7 +171,8 @@ export default async function DashboardPage() {
         </section>
 
         {/* --- People --- */}
-        <section className={styles.card} aria-labelledby="people-card">
+        <section className={styles.cardAccent} aria-labelledby="people-card">
+          <CardAccent />
           <h2 id="people-card" className={styles.h2}>
             Where to lend support
           </h2>
