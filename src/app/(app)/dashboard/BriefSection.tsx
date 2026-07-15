@@ -55,7 +55,7 @@ export function BriefLoading() {
           <span />
           <span />
         </span>
-        Getting daily brief…
+        Reading the week…
       </p>
     </section>
   );
