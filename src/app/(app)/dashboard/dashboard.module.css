@@ -307,6 +307,164 @@
   background: var(--aims-navy-tint);
 }
 
+/* ---- Week in review AI brief ---- */
+.briefCard {
+  composes: card;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(
+    135deg,
+    var(--surface) 0%,
+    var(--aims-sky-tint) 100%
+  );
+}
+
+.briefEyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+  margin: 0;
+}
+
+.briefEyebrowDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: briefPulse 2s ease-in-out infinite;
+}
+
+@keyframes briefPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.briefTitle {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.briefBody {
+  font: var(--text-body);
+  color: var(--text);
+  line-height: 1.7;
+  margin: 0;
+  font-size: 17px;
+}
+
+.briefCursor {
+  display: inline-block;
+  width: 8px;
+  height: 1.1em;
+  background: var(--primary);
+  vertical-align: text-bottom;
+  margin-left: 3px;
+  animation: briefCursorPulse 0.9s ease-in-out infinite;
+}
+
+@keyframes briefCursorPulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+.briefTimestamp {
+  display: block;
+  margin-top: var(--space-3);
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.briefEmpty {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  margin: 0;
+}
+
+/* ---- Recent misses ---- */
+.missList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.missItem {
+  padding: var(--space-3);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-left: 3px solid var(--aims-danger);
+}
+
+.missHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.missOwner {
+  font: var(--text-body);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.missWhen {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.missDescription {
+  font: var(--text-body);
+  color: var(--text);
+  margin: 0;
+}
+
+.missReason {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+}
+
+.missPriority {
+  font: var(--text-caption);
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  text-decoration: none;
+}
+
+.missPriority:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.missPriorityMuted {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-style: italic;
+}
+
 .mutedCell {
   color: var(--text-muted);
 }

@@ -3,11 +3,14 @@ import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getDashboardData } from "@/lib/dashboard/service";
+import { getOrGenerateDashboardBrief } from "@/lib/dashboard/brief";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { CardAccent } from "@/components/ui/CardAccent";
+import { AiBrief } from "./AiBrief";
+import { formatShortDate } from "@/lib/dates";
 import styles from "./dashboard.module.css";
 
 // Company Dashboard — Section 8.2.
@@ -23,6 +26,13 @@ export default async function DashboardPage() {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+
+  // Admin-only AI summary — cached once per company per day, generated
+  // by whichever admin loads the dashboard first. Team members don't
+  // see this card.
+  const brief = isAdmin
+    ? await getOrGenerateDashboardBrief(companyId, session.profile.id)
+    : null;
 
   return (
     <div className={styles.stage}>
@@ -108,6 +118,70 @@ export default async function DashboardPage() {
 
       {/* ============ Content, overlapping the hero ============ */}
       <div className={styles.content}>
+        {/* --- Week in review (admin-only, AI-generated) --- */}
+        {isAdmin ? (
+          <section className={styles.briefCard} aria-labelledby="brief-card">
+            <CardAccent />
+            <p className={styles.briefEyebrow}>
+              <span className={styles.briefEyebrowDot} aria-hidden="true" />
+              Week in review
+            </p>
+            <h2 id="brief-card" className={styles.briefTitle}>
+              What&rsquo;s worth knowing today
+            </h2>
+            {brief ? (
+              <AiBrief content={brief.content} generatedAt={brief.generatedAt} />
+            ) : (
+              <p className={styles.briefEmpty}>
+                No brief yet — it&rsquo;ll appear here once there&rsquo;s enough
+                activity this week (and the coach API key is configured).
+              </p>
+            )}
+          </section>
+        ) : null}
+
+        {/* --- Recent misses (admin-only) --- */}
+        {isAdmin && data.recentMisses.length > 0 ? (
+          <section
+            className={styles.cardAccent}
+            aria-labelledby="misses-card"
+          >
+            <CardAccent />
+            <h2 id="misses-card" className={styles.h2}>
+              Recent misses
+            </h2>
+            <p className={styles.cardMeta}>
+              The last {data.recentMisses.length} closed-late commitments this
+              quarter, in the owner&rsquo;s own words.
+            </p>
+            <ul className={styles.missList}>
+              {data.recentMisses.map((miss) => (
+                <li key={miss.id} className={styles.missItem}>
+                  <div className={styles.missHeader}>
+                    <span className={styles.missOwner}>{miss.ownerName}</span>
+                    <span className={styles.missWhen}>
+                      Week ending {formatShortDate(miss.weekEnding)}
+                    </span>
+                  </div>
+                  <p className={styles.missDescription}>{miss.description}</p>
+                  {miss.reason ? (
+                    <p className={styles.missReason}>{miss.reason}</p>
+                  ) : null}
+                  {miss.priorityTitle ? (
+                    <span className={styles.missPriorityMuted}>
+                      Linked to: {miss.priorityTitle}
+                    </span>
+                  ) : (
+                    <span className={styles.missPriorityMuted}>
+                      Operational
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         {/* --- Strategic Focus Areas --- */}
         <section className={styles.cardAccent} aria-labelledby="sfa-card">
           <CardAccent />

@@ -56,6 +56,20 @@ export type DashboardData = {
   orphanGoalCount: number;
   keepRateTrend: WeeklyKeepRatePoint[]; // last 12 weeks, oldest → newest
   people: DashboardPerson[];
+  // Ten most recent closed-late (missed) commitments this quarter, verbatim
+  // reasons attached. Admin-only surface — the caller decides whether to
+  // render, but we always compute so scope switches don't need a re-fetch.
+  recentMisses: RecentMiss[];
+};
+
+export type RecentMiss = {
+  id: string;
+  description: string;
+  reason: string | null;
+  weekEnding: string;
+  ownerName: string;
+  ownerId: string;
+  priorityTitle: string | null;
 };
 
 export async function getDashboardData(
@@ -284,6 +298,8 @@ export async function getDashboardData(
     return a.keepRate - b.keepRate;
   });
 
+  const recentMisses = await loadRecentMisses(supabase, companyId, openQuarter);
+
   return {
     company,
     openQuarter,
@@ -298,5 +314,83 @@ export async function getDashboardData(
     orphanGoalCount,
     keepRateTrend,
     people: dashboardPeople,
+    recentMisses,
   };
+}
+
+// Ten most recent closed-late (missed) commitments this quarter with
+// the operator's verbatim reason. Ordered by week_ending desc then
+// completed_at desc so most-recent-first. Empty array when there are
+// none — the UI can hide the card entirely.
+async function loadRecentMisses(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  companyId: string,
+  openQuarter: Quarter | null
+): Promise<RecentMiss[]> {
+  if (!openQuarter) return [];
+
+  const { data: rows } = await supabase
+    .from("commitments")
+    .select(
+      "id, description, missed_reason, week_ending, owner_id, priority_id, completed_at"
+    )
+    .eq("company_id", companyId)
+    .eq("status", "missed")
+    .gte("week_ending", openQuarter.start_date)
+    .lte("week_ending", openQuarter.end_date)
+    .order("week_ending", { ascending: false })
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .limit(10);
+
+  const commitments = (rows ?? []) as Array<
+    Pick<
+      Commitment,
+      | "id"
+      | "description"
+      | "missed_reason"
+      | "week_ending"
+      | "owner_id"
+      | "priority_id"
+      | "completed_at"
+    >
+  >;
+  if (commitments.length === 0) return [];
+
+  const ownerIds = Array.from(new Set(commitments.map((c) => c.owner_id)));
+  const priorityIds = Array.from(
+    new Set(
+      commitments
+        .map((c) => c.priority_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+
+  const [{ data: ownerRows }, { data: priorityRows }] = await Promise.all([
+    supabase.from("profiles").select("id, full_name").in("id", ownerIds),
+    priorityIds.length > 0
+      ? supabase.from("priorities").select("id, title").in("id", priorityIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+  ]);
+  const nameById = new Map(
+    ((ownerRows ?? []) as Array<{ id: string; full_name: string }>).map((p) => [
+      p.id,
+      p.full_name,
+    ])
+  );
+  const priorityTitleById = new Map(
+    ((priorityRows ?? []) as Array<{ id: string; title: string }>).map((p) => [
+      p.id,
+      p.title,
+    ])
+  );
+
+  return commitments.map((c) => ({
+    id: c.id,
+    description: c.description,
+    reason: c.missed_reason,
+    weekEnding: c.week_ending,
+    ownerId: c.owner_id,
+    ownerName: nameById.get(c.owner_id) ?? "—",
+    priorityTitle: c.priority_id ? priorityTitleById.get(c.priority_id) ?? null : null,
+  }));
 }
