@@ -6,6 +6,7 @@ import { getDashboardData } from "@/lib/dashboard/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import styles from "./dashboard.module.css";
 
 // Company Dashboard — Section 8.2.
@@ -52,34 +53,52 @@ export default async function DashboardPage() {
             <HeroStat
               label="Strategic Progress"
               value={
-                data.headline.executionPercent === null
-                  ? "—"
-                  : `${data.headline.executionPercent}%`
+                data.headline.executionPercent === null ? (
+                  "—"
+                ) : (
+                  <>
+                    <AnimatedNumber value={data.headline.executionPercent} />%
+                  </>
+                )
               }
             />
             <HeroStat
               label="Follow-Through Rate"
               value={
-                data.headline.keepRatePercent === null
-                  ? "—"
-                  : `${data.headline.keepRatePercent}%`
+                data.headline.keepRatePercent === null ? (
+                  "—"
+                ) : (
+                  <>
+                    <AnimatedNumber value={data.headline.keepRatePercent} />%
+                  </>
+                )
               }
             />
             <HeroStat
               label="On Track"
               value={
-                data.headline.onTrack.total === 0
-                  ? "—"
-                  : `${data.headline.onTrack.good} / ${data.headline.onTrack.total}`
+                data.headline.onTrack.total === 0 ? (
+                  "—"
+                ) : (
+                  <>
+                    <AnimatedNumber value={data.headline.onTrack.good} /> /{" "}
+                    <AnimatedNumber value={data.headline.onTrack.total} />
+                  </>
+                )
               }
             />
             <HeroStat
               label="Open This Week"
-              value={String(data.headline.thisWeekOpen)}
+              value={<AnimatedNumber value={data.headline.thisWeekOpen} />}
               caption={
-                data.headline.thisWeekLinkedPercent === null
-                  ? undefined
-                  : `${data.headline.thisWeekLinkedPercent}% linked to plan`
+                data.headline.thisWeekLinkedPercent === null ? undefined : (
+                  <>
+                    <AnimatedNumber
+                      value={data.headline.thisWeekLinkedPercent}
+                    />
+                    % linked to plan
+                  </>
+                )
               }
             />
           </div>
@@ -208,8 +227,8 @@ function HeroStat({
   caption,
 }: {
   label: string;
-  value: string;
-  caption?: string;
+  value: React.ReactNode;
+  caption?: React.ReactNode;
 }) {
   return (
     <div className={styles.heroStat}>

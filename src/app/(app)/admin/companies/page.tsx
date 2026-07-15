@@ -25,7 +25,7 @@ export default async function AdminCompaniesPage() {
           <h1 className={styles.h1}>Companies</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Every company on the AiMS Execution Platform. Click a name to
+            Every company on the AiMSHigher Platform. Click a name to
             jump into its dashboard.
           </p>
         </div>
