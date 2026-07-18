@@ -159,7 +159,10 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  /* No overflow: hidden here — it would clip the priority picker's
+     dropdown when it opens downward from the inline add row. The
+     header takes its own top-corner border-radius so nothing bleeds
+     past the card. */
 }
 
 .groupHeader {
@@ -170,6 +173,7 @@
   padding: var(--space-3) var(--space-4);
   background: var(--aims-navy-tint);
   border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .groupTitle {
