@@ -7,6 +7,7 @@ import {
   type Flag,
   type ResultsProfile,
 } from "@/lib/strengths/types";
+import styles from "@/app/(app)/strengths/strengths.module.css";
 
 export default function ResultsView({
   firstName,
@@ -46,115 +47,130 @@ export default function ResultsView({
     .filter(Boolean);
 
   return (
-    <div className="stack-6">
-      <section className="hero-bg">
-        <div className="stack-4">
-          <div className="subhead">Strengths results</div>
-          <h1 className="chartreuse-underline">Your strengths, {firstName}</h1>
-          {topStrengths.length > 0 && (
-            <div className="stack-2">
-              <div className="subhead">Where you're at your strongest</div>
-              <div className="row-wrap">
+    <div className={styles.stage}>
+      <section className={styles.hero} aria-label="Your strengths">
+        <div className={styles.heroInner}>
+          <p className={styles.eyebrow}>Strengths results</p>
+          <h1 className={styles.h1}>Your strengths, {firstName}</h1>
+          <span className={styles.rule} aria-hidden="true" />
+          {topStrengths.length > 0 ? (
+            <div className={styles.stack2}>
+              <p className={styles.subtitle}>Where you&rsquo;re at your strongest</p>
+              <div className={styles.rowWrap}>
                 {topStrengths.map((s) => (
-                  <span key={s} className="chip chip-primary">
+                  <span key={s} className={`${styles.chip} ${styles.chipPrimary}`}>
                     {SUB_STRENGTH_LABELS[s] ?? s}
                   </span>
                 ))}
               </div>
             </div>
-          )}
-          {showCoachingLink && (
-            <Link href="/coach" className="btn btn-primary lg" style={{ alignSelf: "flex-start" }}>
+          ) : null}
+          {showCoachingLink ? (
+            <Link href="/coach" className={styles.primaryButton}>
               Talk through your results
             </Link>
-          )}
+          ) : null}
         </div>
       </section>
 
-      {banner}
+      <div className={styles.content}>
+        {banner}
 
-      <section className="card stack-3">
-        <h2 className="chartreuse-underline">{firstName}, at a glance</h2>
-        <div style={{ lineHeight: 1.7 }}>
-          {summaryParagraphs.map((p, i) => (
-            <p key={i} style={{ margin: i === 0 ? 0 : "1.5em 0 0" }}>
-              {boldStrengths(p)}
-            </p>
-          ))}
-        </div>
-      </section>
+        <section className={styles.card} aria-labelledby="at-a-glance">
+          <h2 id="at-a-glance" className={styles.h2}>
+            {firstName}, at a glance
+          </h2>
+          <div className={styles.stack3}>
+            {summaryParagraphs.map((p, i) => (
+              <p key={i} className={styles.prose}>{boldStrengths(p)}</p>
+            ))}
+          </div>
+        </section>
 
-      <section className="card stack-4">
-        <h2 className="chartreuse-underline">Where your energy sits</h2>
-        <p className="muted">
-          Competence and energy read separately for each dimension. The gap
-          between them is the interesting part.
-        </p>
-        <div className="stack-4">
-          {dimensionOrder.map((d) => {
-            const dim = dimensionMap.get(d);
-            if (!dim) return null;
-            return (
-              <div key={d} className="stack-2">
-                <div className="spread">
-                  <strong>{DIMENSION_LABELS[d]}</strong>
-                  <span className="faint" style={{ font: "var(--text-caption)" }}>
-                    Competence {dim.competence_avg.toFixed(1)} · Energy {dim.energy_avg.toFixed(1)}
-                  </span>
-                </div>
-                <DoubleBar
-                  competence={dim.competence_avg}
-                  energy={dim.energy_avg}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="card stack-4">
-        <h2 className="chartreuse-underline">The sixteen sub-strengths</h2>
-        <div className="stack-5">
-          {groupedSubs.map((g) => (
-            <div key={g.dimension} className="stack-3">
-              <div className="subhead">{DIMENSION_LABELS[g.dimension]}</div>
-              <div className="stack-3">
-                {g.subs.map((s) => (
-                  <SubStrengthRow key={s.sub_strength} sub={s} />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="card stack-4">
-        <h2 className="chartreuse-underline">How you apply your strengths</h2>
-        <OrientationSpectrum
-          lean={profile.orientation.lean}
-          score={profile.orientation.score}
-        />
-        <p>
-          Overall you lean <strong>{profile.orientation.lean}</strong>. Direct means you tend to bring the result yourself. Facilitative means you tend to draw the result out of the team.
-        </p>
-      </section>
-
-      {profile.divergences?.length > 0 && (
-        <section className="card stack-3">
-          <h2 className="chartreuse-underline">Worth exploring</h2>
-          <p className="muted">
-            Where your story and your scores didn't quite line up.
+        <section className={styles.card} aria-labelledby="where-energy-sits">
+          <h2 id="where-energy-sits" className={styles.h2}>
+            Where your energy sits
+          </h2>
+          <p className={styles.muted}>
+            Competence and energy read separately for each dimension. The gap
+            between them is the interesting part.
           </p>
-          <div className="stack-3">
-            {profile.divergences.map((d) => (
-              <div key={d.sub_strength} className="stack-1">
-                <strong>{SUB_STRENGTH_LABELS[d.sub_strength] ?? d.sub_strength}</strong>
-                <div>{boldStrengths(humanize(d.note))}</div>
+          <div className={styles.stack4}>
+            {dimensionOrder.map((d) => {
+              const dim = dimensionMap.get(d);
+              if (!dim) return null;
+              return (
+                <div key={d} className={styles.stack2}>
+                  <div className={styles.spread}>
+                    <strong>{DIMENSION_LABELS[d]}</strong>
+                    <span className={styles.muted} style={{ font: "var(--text-caption)" }}>
+                      Competence {dim.competence_avg.toFixed(1)} · Energy {dim.energy_avg.toFixed(1)}
+                    </span>
+                  </div>
+                  <DoubleBar
+                    competence={dim.competence_avg}
+                    energy={dim.energy_avg}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className={styles.card} aria-labelledby="sixteen">
+          <h2 id="sixteen" className={styles.h2}>
+            The sixteen sub-strengths
+          </h2>
+          <div className={styles.stack5}>
+            {groupedSubs.map((g) => (
+              <div key={g.dimension} className={styles.stack3}>
+                <p className={styles.subhead}>{DIMENSION_LABELS[g.dimension]}</p>
+                <div className={styles.stack3}>
+                  {g.subs.map((s) => (
+                    <SubStrengthRow key={s.sub_strength} sub={s} />
+                  ))}
+                </div>
               </div>
             ))}
           </div>
         </section>
-      )}
+
+        <section className={styles.card} aria-labelledby="apply">
+          <h2 id="apply" className={styles.h2}>
+            How you apply your strengths
+          </h2>
+          <OrientationSpectrum
+            lean={profile.orientation.lean}
+            score={profile.orientation.score}
+          />
+          <p className={styles.prose}>
+            Overall you lean <strong>{profile.orientation.lean}</strong>. Direct
+            means you tend to bring the result yourself. Facilitative means you
+            tend to draw the result out of the team.
+          </p>
+        </section>
+
+        {profile.divergences?.length > 0 ? (
+          <section className={styles.card} aria-labelledby="explore">
+            <h2 id="explore" className={styles.h2}>
+              Worth exploring
+            </h2>
+            <p className={styles.muted}>
+              Where your story and your scores didn&rsquo;t quite line up.
+            </p>
+            <div className={styles.stack3}>
+              {profile.divergences.map((d) => (
+                <div key={d.sub_strength} className={styles.stack2}>
+                  <strong>
+                    {SUB_STRENGTH_LABELS[d.sub_strength] ?? d.sub_strength}
+                  </strong>
+                  <div>{boldStrengths(humanize(d.note))}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -204,31 +220,23 @@ function DoubleBar({
   energy: number;
 }) {
   return (
-    <div className="stack-1">
-      <div className="row" style={{ gap: 12 }}>
-        <span
-          className="subhead"
-          style={{ flex: "0 0 110px", color: "var(--aims-cobalt)" }}
-        >
+    <div className={styles.stack2}>
+      <div className={styles.barRow}>
+        <span className={`${styles.barLabel} ${styles.barLabelCompetence}`}>
           Competence
         </span>
-        <div className="bar-track" style={{ flex: 1 }}>
+        <div className={styles.barTrack}>
           <div
-            className="bar-fill bar-competence"
+            className={`${styles.barFill} ${styles.barCompetence}`}
             style={{ width: `${(competence / 5) * 100}%` }}
           />
         </div>
       </div>
-      <div className="row" style={{ gap: 12 }}>
-        <span
-          className="subhead"
-          style={{ flex: "0 0 110px", color: "var(--aims-sky)" }}
-        >
-          Energy
-        </span>
-        <div className="bar-track" style={{ flex: 1 }}>
+      <div className={styles.barRow}>
+        <span className={`${styles.barLabel} ${styles.barLabelEnergy}`}>Energy</span>
+        <div className={styles.barTrack}>
           <div
-            className="bar-fill bar-energy"
+            className={`${styles.barFill} ${styles.barEnergy}`}
             style={{ width: `${(energy / 5) * 100}%` }}
           />
         </div>
@@ -243,34 +251,25 @@ function SubStrengthRow({
   sub: ResultsProfile["sub_strengths"][number];
 }) {
   const flag = sub.flag as Flag;
-  const chipClass =
+  const chipVariant =
     flag === "signature"
-      ? "chip chip-primary"
+      ? styles.chipPrimary
       : flag === "capable_but_draining"
-        ? "chip chip-warning"
+        ? styles.chipWarning
         : flag === "hidden_pull"
-          ? "chip chip-sky"
-          : "chip chip-muted";
+          ? styles.chipSky
+          : styles.chipMuted;
 
   return (
-    <div className="stack-2" style={{ borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
-      <div className="spread" style={{ flexWrap: "wrap" }}>
+    <div className={styles.subStrengthRow}>
+      <div className={styles.spread} style={{ flexWrap: "wrap" }}>
         <strong>{SUB_STRENGTH_LABELS[sub.sub_strength] ?? sub.sub_strength}</strong>
-        <span className={chipClass}>{FLAG_LABELS[flag]}</span>
+        <span className={`${styles.chip} ${chipVariant}`}>{FLAG_LABELS[flag]}</span>
       </div>
       <DoubleBar competence={sub.competence} energy={sub.energy} />
-      {sub.narrative_evidence && (
-        <div
-          className="muted"
-          style={{
-            borderLeft: "3px solid var(--aims-chartreuse)",
-            paddingLeft: 12,
-            fontStyle: "italic",
-          }}
-        >
-          "{sub.narrative_evidence}"
-        </div>
-      )}
+      {sub.narrative_evidence ? (
+        <div className={styles.evidence}>&ldquo;{sub.narrative_evidence}&rdquo;</div>
+      ) : null}
     </div>
   );
 }
@@ -284,32 +283,17 @@ function OrientationSpectrum({
 }) {
   const pct = ((score - 1) / 3) * 100;
   return (
-    <div className="stack-3">
-      <div
-        style={{
-          position: "relative",
-          height: 12,
-          background: "var(--aims-navy-tint)",
-          borderRadius: "var(--radius-pill)",
-        }}
-      >
+    <div className={styles.stack3}>
+      <div className={styles.spectrumTrack}>
         <div
-          style={{
-            position: "absolute",
-            top: -6,
-            left: `calc(${pct}% - 10px)`,
-            width: 20,
-            height: 24,
-            background: "var(--aims-navy)",
-            borderRadius: "var(--radius-pill)",
-            boxShadow: "var(--shadow-sm)",
-          }}
+          className={styles.spectrumThumb}
+          style={{ left: `calc(${pct}% - 10px)` }}
           aria-label={`Orientation lean: ${lean}`}
         />
       </div>
-      <div className="spread">
-        <span className="subhead">Direct</span>
-        <span className="subhead">Facilitative</span>
+      <div className={styles.spread}>
+        <span className={styles.subhead}>Direct</span>
+        <span className={styles.subhead}>Facilitative</span>
       </div>
     </div>
   );

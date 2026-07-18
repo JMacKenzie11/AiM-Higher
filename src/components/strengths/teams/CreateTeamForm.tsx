@@ -93,7 +93,7 @@ export default function CreateTeamForm({
         </label>
       ) : null}
 
-      <label className={styles.formField}>
+      <label className={`${styles.formField} ${styles.formFieldFull}`}>
         <span className={styles.fieldLabel}>Mission</span>
         <select
           className={styles.input}

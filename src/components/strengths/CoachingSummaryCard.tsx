@@ -1,4 +1,5 @@
 import Link from "next/link";
+import styles from "@/app/(app)/strengths/strengths.module.css";
 
 type CoachingSummary = {
   hasConversation: boolean;
@@ -34,55 +35,40 @@ export default function CoachingSummaryCard({
   const preview = summary.lastAssistantMessage?.trim();
 
   return (
-    <section className="card stack-3">
-      <div className="card-header">
-        <h2 className="chartreuse-underline">Your coach</h2>
-        <span className="caption">Private to you</span>
+    <section className={styles.card} aria-labelledby="coaching-summary">
+      <div className={styles.cardHeader}>
+        <h2 id="coaching-summary" className={styles.h2}>Your coach</h2>
+        <span className={styles.cardHeaderMeta}>Private to you</span>
       </div>
       {summary.exchangeCount === 0 ? (
         <>
-          <p style={{ margin: 0 }}>
+          <p className={styles.prose}>
             Talk anything through with your coach. What surprised you, what
-            you want to build on, or where you'd like to spend your energy.
+            you want to build on, or where you&rsquo;d like to spend your energy.
             No admin can read it.
           </p>
-          <div>
-            <Link href="/coach" className="btn btn-primary lg">
-              Start a conversation
-            </Link>
-          </div>
+          <Link href="/coach" className={styles.primaryButton}>
+            Start a conversation
+          </Link>
         </>
       ) : (
         <>
-          <p className="muted" style={{ margin: 0 }}>
+          <p className={styles.muted}>
             {summary.exchangeCount}{" "}
             {summary.exchangeCount === 1 ? "exchange" : "exchanges"} so far
             {relative ? ` · last activity ${relative}` : ""}.
           </p>
-          {preview && (
-            <blockquote
-              style={{
-                margin: 0,
-                borderLeft: "3px solid var(--aims-chartreuse)",
-                paddingLeft: 12,
-                color: "var(--text-muted)",
-                fontStyle: "italic",
-              }}
-            >
+          {preview ? (
+            <blockquote className={styles.evidence}>
               {preview.length > 240
                 ? preview.slice(0, 240).trim() + "…"
                 : preview}
             </blockquote>
-          )}
-          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <Link href="/coach" className="btn btn-primary lg">
-              Continue the conversation
-            </Link>
-          </div>
-          <p
-            className="caption"
-            style={{ margin: 0, marginTop: "var(--space-4)" }}
-          >
+          ) : null}
+          <Link href="/coach" className={styles.primaryButton}>
+            Continue the conversation
+          </Link>
+          <p className={styles.muted}>
             {firstName}, the thread stays open. Pick it up any time.
           </p>
         </>

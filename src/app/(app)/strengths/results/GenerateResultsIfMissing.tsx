@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import styles from "@/app/(app)/strengths/strengths.module.css";
 
 const STATUS_MESSAGES = [
   "Reading your responses",
@@ -55,25 +56,28 @@ export default function GenerateResultsIfMissing({
   }, [assessmentId, router]);
 
   return (
-    <section className="card stack-3">
-      <div className="card-header">
-        <h2>Tabulating your results</h2>
-      </div>
-      <div className="stack-3">
-        <div
-          className="progress-status"
-          key={statusIndex}
-          aria-live="polite"
-        >
-          {STATUS_MESSAGES[statusIndex]}
+    <div className={styles.stage}>
+      <section className={styles.hero} aria-label="Tabulating results">
+        <div className={styles.heroInner}>
+          <p className={styles.eyebrow}>Strengths results</p>
+          <h1 className={styles.h1}>Tabulating your results</h1>
+          <span className={styles.rule} aria-hidden="true" />
+          <p className={styles.subtitle} aria-live="polite">
+            {STATUS_MESSAGES[statusIndex]}…
+          </p>
         </div>
-        <div
-          className="progress-indeterminate"
-          role="progressbar"
-          aria-label="Tabulating results"
-        />
+      </section>
+      <div className={`${styles.content} ${styles.contentProse}`}>
+        <section className={styles.card}>
+          <div className={styles.barTrack} role="progressbar" aria-label="Tabulating results">
+            <div
+              className={`${styles.barFill} ${styles.barCompetence}`}
+              style={{ width: "100%", opacity: 0.6 }}
+            />
+          </div>
+          {error ? <p className={styles.fieldError}>{error}</p> : null}
+        </section>
       </div>
-      {error && <div className="field-error">{error}</div>}
-    </section>
+    </div>
   );
 }

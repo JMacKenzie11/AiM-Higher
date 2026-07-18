@@ -42,17 +42,12 @@ export default async function AssessmentPage() {
     .order("created_at", { ascending: true });
 
   return (
-    <>
-
-      <main>
-        <AssessmentFlow
-          assessmentId={assessment.id}
-          items={(items ?? []) as Item[]}
-          existingResponses={responses ?? []}
-          existingNarrative={narrative ?? []}
-          firstName={profile.first_name}
-        />
-      </main>
-    </>
+    <AssessmentFlow
+      assessmentId={assessment.id}
+      items={(items ?? []) as Item[]}
+      existingResponses={responses ?? []}
+      existingNarrative={narrative ?? []}
+      firstName={profile.first_name}
+    />
   );
 }

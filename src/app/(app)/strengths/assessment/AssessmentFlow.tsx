@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import ProgressBar from "@/components/strengths/ProgressBar";
 import { LIKERT_LABELS, type Item } from "@/lib/strengths/types";
+import styles from "./assessment.module.css";
 
 type Response = { item_id: string; value: number };
 type NarrativeMsg = { role: "assistant" | "user"; content: string };
@@ -118,11 +119,6 @@ export default function AssessmentFlow({
     setIndex(index - 1);
   }
 
-  // Furthest index the user is allowed to move forward to without answering:
-  //  - if every card has an answer, it's the last card index (they can
-  //    still leaf back through, and hitting Next on the last card advances
-  //    to the narrative phase);
-  //  - otherwise it's the first unanswered card index.
   const firstUnansweredNow = cardItems.findIndex(
     (i) => responses[i.id] === undefined,
   );
@@ -131,7 +127,6 @@ export default function AssessmentFlow({
 
   function forward() {
     if (index >= maxAllowedIndex) {
-      // On the last card with every card answered: continue to narrative.
       if (
         index === cardItems.length - 1 &&
         firstUnansweredNow === -1
@@ -192,7 +187,6 @@ export default function AssessmentFlow({
   async function finish(skipped: boolean) {
     setPhase("finishing");
     if (skipped && narrative.length <= 1) {
-      // record a marker so results generation knows it was skipped
       await supabase.from("strengths_narrative_messages").insert({
         assessment_id: assessmentId,
         role: "user",
@@ -213,18 +207,16 @@ export default function AssessmentFlow({
     } catch {
       // Results page will retry generation if missing.
     }
-    router.push("/results");
+    router.push("/strengths/results");
   }
 
   if (phase === "finishing") {
     return (
-      <div className="assessment-shell">
-        <div className="empty-state">
-          <div className="stack-3">
-            <div className="subhead">Generating your results</div>
-            <p className="muted" style={{ margin: 0 }}>
-              Give us a moment. This takes a few seconds.
-            </p>
+      <div className={styles.shell}>
+        <div className={styles.assessmentCard}>
+          <div className={styles.emptyState}>
+            <p className={styles.eyebrow}>Generating your results</p>
+            <p>Give us a moment. This takes a few seconds.</p>
           </div>
         </div>
       </div>
@@ -233,63 +225,71 @@ export default function AssessmentFlow({
 
   if (phase === "narrative") {
     return (
-      <div className="assessment-shell">
-        <div className="stack-5">
-          <ProgressBar current={total} total={total} />
-          <div className="card stack-4">
-            <div className="subhead">A couple of questions in your own words</div>
-            <div className="chat-log" role="log">
-              {narrative.map((m, i) => (
-                <div key={i} className={`chat-msg ${m.role}`}>
-                  <div className="chat-bubble">{m.content}</div>
-                </div>
-              ))}
-              {narrativeSending && (
-                <div className="chat-msg assistant">
-                  <div className="chat-bubble faint">Thinking...</div>
-                </div>
-              )}
-            </div>
-            {!narrativeDone && (
-              <div className="chat-input-row">
-                <textarea
-                  className="textarea"
-                  placeholder="Type your answer..."
-                  value={narrativeInput}
-                  onChange={(e) => setNarrativeInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                      e.preventDefault();
-                      sendNarrative();
-                    }
-                  }}
-                  disabled={narrativeSending}
-                />
-                <button
-                  className="btn btn-primary"
-                  onClick={sendNarrative}
-                  disabled={!narrativeInput.trim() || narrativeSending}
-                >
-                  Send
-                </button>
-              </div>
-            )}
-            <div className="spread">
-              <button
-                className="btn btn-ghost sm"
-                onClick={() => finish(true)}
+      <div className={styles.shell}>
+        <ProgressBar current={total} total={total} />
+        <div className={styles.assessmentCard}>
+          <p className={styles.eyebrow}>A couple of questions in your own words</p>
+          <div className={styles.chatLog} role="log">
+            {narrative.map((m, i) => (
+              <div
+                key={i}
+                className={`${styles.chatMsg} ${
+                  m.role === "user" ? styles.chatMsgUser : styles.chatMsgAssistant
+                }`}
               >
-                Skip this step
+                <div className={styles.chatBubble}>{m.content}</div>
+              </div>
+            ))}
+            {narrativeSending ? (
+              <div className={`${styles.chatMsg} ${styles.chatMsgAssistant}`}>
+                <div className={`${styles.chatBubble} ${styles.chatBubbleFaint}`}>
+                  Thinking…
+                </div>
+              </div>
+            ) : null}
+          </div>
+          {!narrativeDone ? (
+            <div className={styles.chatInputRow}>
+              <textarea
+                className={styles.chatTextarea}
+                placeholder="Type your answer…"
+                value={narrativeInput}
+                onChange={(e) => setNarrativeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    sendNarrative();
+                  }
+                }}
+                disabled={narrativeSending}
+              />
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={sendNarrative}
+                disabled={!narrativeInput.trim() || narrativeSending}
+              >
+                Send
               </button>
-              {narrativeDone && (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => finish(false)}
-                >
-                  Finish
-                </button>
-              )}
             </div>
+          ) : null}
+          <div className={styles.spread}>
+            <button
+              type="button"
+              className={styles.ghostButton}
+              onClick={() => finish(true)}
+            >
+              Skip this step
+            </button>
+            {narrativeDone ? (
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => finish(false)}
+              >
+                Finish
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -300,53 +300,53 @@ export default function AssessmentFlow({
   if (!item) return null;
 
   return (
-    <div className="assessment-shell">
-      <div className="stack-5">
-        <ProgressBar current={index + 1} total={total} />
-        <div className="assessment-card stack-5 card-fade-enter" key={item.id}>
-          {item.item_type === "orientation" ? (
-            <OrientationCard
-              item={item}
-              flipped={sideFlip[item.id] ?? false}
-              currentValue={responses[item.id]}
-              onSelect={(normalized) => selectOrientation(item, normalized)}
-            />
-          ) : (
-            <LikertCard
-              item={item}
-              currentValue={responses[item.id]}
-              onSelect={(v) => selectLikert(item, v)}
-            />
-          )}
-          <div className="spread">
-            <button
-              className="btn btn-ghost sm"
-              onClick={back}
-              disabled={index === 0}
-            >
-              Back
-            </button>
-            <div className="caption">{answered} answered</div>
-            <button
-              className="btn btn-ghost sm"
-              onClick={forward}
-              disabled={
-                index >= maxAllowedIndex &&
-                !(
-                  index === cardItems.length - 1 &&
-                  firstUnansweredNow === -1
-                )
-              }
-            >
-              Next
-            </button>
-          </div>
+    <div className={styles.shell}>
+      <ProgressBar current={index + 1} total={total} />
+      <div className={styles.assessmentCard} key={item.id}>
+        {item.item_type === "orientation" ? (
+          <OrientationCard
+            item={item}
+            flipped={sideFlip[item.id] ?? false}
+            currentValue={responses[item.id]}
+            onSelect={(normalized) => selectOrientation(item, normalized)}
+          />
+        ) : (
+          <LikertCard
+            item={item}
+            currentValue={responses[item.id]}
+            onSelect={(v) => selectLikert(item, v)}
+          />
+        )}
+        <div className={styles.spread}>
+          <button
+            type="button"
+            className={styles.ghostButton}
+            onClick={back}
+            disabled={index === 0}
+          >
+            Back
+          </button>
+          <div className={styles.caption}>{answered} answered</div>
+          <button
+            type="button"
+            className={styles.ghostButton}
+            onClick={forward}
+            disabled={
+              index >= maxAllowedIndex &&
+              !(
+                index === cardItems.length - 1 &&
+                firstUnansweredNow === -1
+              )
+            }
+          >
+            Next
+          </button>
         </div>
-        <p className="caption center" style={{ textAlign: "center" }}>
-          Hi {firstName}, step back to change an answer, or step forward
-          through anything you've already answered.
-        </p>
       </div>
+      <p className={`${styles.caption} ${styles.centerCaption}`}>
+        Hi {firstName}, step back to change an answer, or step forward through
+        anything you&rsquo;ve already answered.
+      </p>
     </div>
   );
 }
@@ -361,27 +361,31 @@ function LikertCard({
   onSelect: (value: number) => void;
 }) {
   return (
-    <div className="stack-5">
-      <div className="stack-2">
-        <div className="subhead">Rate this statement</div>
-        <p className="assessment-statement">{item.text}</p>
+    <>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        <p className={styles.eyebrow}>Rate this statement</p>
+        <p className={styles.statement}>{item.text}</p>
       </div>
-      <div className="likert-list">
+      <div className={styles.likertList}>
         {LIKERT_LABELS.map((label, i) => {
           const value = i + 1;
+          const selected = currentValue === value;
           return (
             <button
               key={value}
-              className={`likert-option ${currentValue === value ? "selected" : ""}`}
+              type="button"
+              className={`${styles.likertOption} ${
+                selected ? styles.likertOptionSelected : ""
+              }`}
               onClick={() => onSelect(value)}
             >
-              <span className="radio-dot" />
+              <span className={styles.radioDot} />
               <span>{label}</span>
             </button>
           );
         })}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -406,7 +410,6 @@ function OrientationCard({
   const bText = flipped ? directText : facilitativeText;
   const aIsDirect = !flipped;
 
-  // Intensity buttons labeled by the on-screen A/B, mapped back to the direct scale.
   const intensities: { label: string; normalized: number }[] = [
     { label: "Strongly A", normalized: aIsDirect ? 1 : 4 },
     { label: "Lean A", normalized: aIsDirect ? 2 : 3 },
@@ -415,29 +418,32 @@ function OrientationCard({
   ];
 
   return (
-    <div className="stack-5">
-      <div className="subhead">Which is closer to you?</div>
-      <div className="orientation-options">
-        <div className="orientation-choice stack-2">
-          <div className="subhead subhead-navy">A</div>
+    <>
+      <p className={styles.eyebrow}>Which is closer to you?</p>
+      <div className={styles.orientationOptions}>
+        <div className={styles.orientationChoice}>
+          <span className={styles.orientationLabel}>A</span>
           <div>{aText}</div>
         </div>
-        <div className="orientation-choice stack-2">
-          <div className="subhead subhead-navy">B</div>
+        <div className={styles.orientationChoice}>
+          <span className={styles.orientationLabel}>B</span>
           <div>{bText}</div>
         </div>
       </div>
-      <div className="orientation-intensity" role="radiogroup">
+      <div className={styles.orientationIntensity} role="radiogroup">
         {intensities.map((opt) => (
           <button
             key={opt.label}
-            className={currentValue === opt.normalized ? "selected" : ""}
+            type="button"
+            className={
+              currentValue === opt.normalized ? styles.orientationIntensitySelected : ""
+            }
             onClick={() => onSelect(opt.normalized)}
           >
             {opt.label}
           </button>
         ))}
       </div>
-    </div>
+    </>
   );
 }

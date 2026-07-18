@@ -67,34 +67,29 @@ export default async function ResultsPage() {
       (lastAssistant?.content as string | null) ?? null;
   }
 
-  return (
-    <>
+  if (!results) {
+    return <GenerateResultsIfMissing assessmentId={assessment.id} />;
+  }
 
-      <main className="container">
-        {!results ? (
-          <GenerateResultsIfMissing assessmentId={assessment.id} />
-        ) : (
-          <ResultsView
-            firstName={profile?.first_name ?? ""}
-            results={{
-              profile: results.profile as ResultsProfile,
-              summary: results.summary,
-            }}
-            showCoachingLink={false}
-            banner={
-              <CoachingSummaryCard
-                firstName={profile?.first_name ?? ""}
-                summary={{
-                  hasConversation: !!conversation,
-                  exchangeCount,
-                  lastActivity,
-                  lastAssistantMessage,
-                }}
-              />
-            }
-          />
-        )}
-      </main>
-    </>
+  return (
+    <ResultsView
+      firstName={profile?.first_name ?? ""}
+      results={{
+        profile: results.profile as ResultsProfile,
+        summary: results.summary,
+      }}
+      showCoachingLink={false}
+      banner={
+        <CoachingSummaryCard
+          firstName={profile?.first_name ?? ""}
+          summary={{
+            hasConversation: !!conversation,
+            exchangeCount,
+            lastActivity,
+            lastAssistantMessage,
+          }}
+        />
+      }
+    />
   );
 }

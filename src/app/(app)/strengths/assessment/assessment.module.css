@@ -1,0 +1,301 @@
+/* Scoped styles for the strengths assessment flow (Likert cards,
+   orientation A/B pairs, narrative chat). Sits alongside
+   strengths.module.css — the shared primitives handle the outer
+   hero/card layout, this handles the flow's interactive controls. */
+
+.shell {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: var(--space-6);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.assessmentCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.eyebrow {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.statement {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.spread {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.caption {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.centerCaption {
+  text-align: center;
+  margin: 0;
+}
+
+/* ---- Likert ---- */
+.likertList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.likertOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font: var(--text-body);
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.likertOption:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+}
+
+.likertOption:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.likertOptionSelected {
+  background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.radioDot {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.likertOptionSelected .radioDot {
+  border-color: var(--primary);
+}
+
+.likertOptionSelected .radioDot::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+/* ---- Orientation A/B ---- */
+.orientationOptions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.orientationChoice {
+  padding: var(--space-4);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.orientationLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+}
+
+.orientationIntensity {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+
+.orientationIntensity button {
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font: var(--text-body-sm);
+  color: var(--text);
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.orientationIntensity button:hover {
+  background: var(--aims-navy-tint);
+}
+
+.orientationIntensitySelected {
+  background: var(--aims-cobalt-tint) !important;
+  border-color: var(--primary) !important;
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+/* ---- Narrative chat ---- */
+.chatLog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 480px;
+  overflow-y: auto;
+  padding: var(--space-3) 0;
+}
+
+.chatMsg {
+  display: flex;
+}
+
+.chatMsgAssistant {
+  justify-content: flex-start;
+}
+
+.chatMsgUser {
+  justify-content: flex-end;
+}
+
+.chatBubble {
+  max-width: 80%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font: var(--text-body);
+  line-height: 1.5;
+}
+
+.chatMsgAssistant .chatBubble {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+  border-top-left-radius: var(--radius-sm);
+}
+
+.chatMsgUser .chatBubble {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-top-right-radius: var(--radius-sm);
+}
+
+.chatBubbleFaint {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.chatInputRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.chatTextarea {
+  flex: 1;
+  min-height: 72px;
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  resize: vertical;
+}
+
+.chatTextarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.primaryButton {
+  padding: 0 var(--space-4);
+  height: var(--control-h-md);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.ghostButton {
+  padding: 0 var(--space-3);
+  height: var(--control-h-sm);
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ghostButton:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+}
+
+.ghostButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.emptyState {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+  .orientationOptions {
+    grid-template-columns: 1fr;
+  }
+  .orientationIntensity {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .chatBubble {
+    max-width: 92%;
+  }
+}

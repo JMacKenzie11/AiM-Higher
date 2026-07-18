@@ -324,3 +324,94 @@ textarea.input {
   color: var(--text-muted);
   margin: 0;
 }
+
+.subhead {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+/* ---- Vertical stack helpers (for prose-heavy strengths pages) ---- */
+.stack2 { display: flex; flex-direction: column; gap: var(--space-2); }
+.stack3 { display: flex; flex-direction: column; gap: var(--space-3); }
+.stack4 { display: flex; flex-direction: column; gap: var(--space-4); }
+.stack5 { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.rowWrap { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+
+.chipWarning {
+  background: color-mix(in srgb, var(--aims-warning, #f0b442) 25%, transparent);
+  color: var(--text);
+}
+
+/* ---- Bar charts (competence + energy) ---- */
+.barTrack {
+  flex: 1;
+  height: 8px;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal, 200ms) var(--ease-out);
+}
+
+.barCompetence { background: var(--aims-cobalt, var(--primary)); }
+.barEnergy { background: var(--aims-sky, #7dc3f0); }
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.barLabel {
+  flex: 0 0 110px;
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.barLabelCompetence { color: var(--aims-cobalt, var(--primary)); }
+.barLabelEnergy { color: var(--aims-sky, #4a90d9); }
+
+/* Sub-strength row divider + evidence blockquote */
+.subStrengthRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.subStrengthRow:last-child { border-bottom: none; padding-bottom: 0; }
+
+.evidence {
+  border-left: 3px solid var(--aims-chartreuse);
+  padding-left: var(--space-3);
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* Orientation spectrum (direct ↔ facilitative) */
+.spectrumTrack {
+  position: relative;
+  height: 12px;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+}
+
+.spectrumThumb {
+  position: absolute;
+  top: -6px;
+  width: 20px;
+  height: 24px;
+  background: var(--aims-navy);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+}
