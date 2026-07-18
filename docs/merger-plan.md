@@ -1,0 +1,77 @@
+# AiMSHigher × Strengths Map merger plan
+
+Living design doc. Started 2026-07-18. Update as decisions land and phases complete.
+
+## Vision
+
+One platform, two subscribable modules. Customers pick **Execution** (this app: strategy → priorities → weekly commitments → follow-through), **Strengths Map** (assessment → dimension scoring → team builder), or both. Positioned as a Ninety.io alternative for SMB owners, with Strengths Map as the differentiator Ninety doesn't have.
+
+## Locked decisions
+
+1. **Coaching model = one shared primitive.** A single `coaching_conversations` / `coaching_messages` pair with a `context_kind` column (`'execution' | 'strengths' | ...`). Each module contributes its own prompt file and context assembler; the table, RLS, streaming, chat UI, and message persistence stay shared. Access rule stays `created_by = auth.uid()` + company/role scope. New coaching contexts (a specific priority, onboarding, whatever comes next) plug in without another migration.
+
+2. **Profile shape adopts Strengths Map's structured fields.** AiMSHigher's `full_name` gets replaced by `first_name` + `last_name`, and we add `hire_date`, `position_start_date`, and `reports_to`. The last one unlocks an org-chart surface later without a second migration.
+
+3. **AiMSHigher is home base.** All Strengths Map code moves in as a `modules/strengths/` sub-tree. Rationale: denser code, current SDK versions (SM lags on Anthropic + Supabase-ssr), more recent architectural conventions (route groups, `auth_profile()` helper, hash-invalidated caches).
+
+## Boundary sketch
+
+```
+shared/
+  lib/{supabase, auth, types, utils, dates}   ← Profile, Company, Role, RLS helpers
+  components/{nav, auth-shell, ui}            ← NavBand with module switcher
+  app/(auth)/*                                ← sign-in, reset, accept-invite
+
+modules/execution/                            ← current AiMSHigher
+  app/(app)/{dashboard, plan, commitments, people, foundation, quarters, coach}
+  lib/{commitments, plan, dashboard, coach}
+  supabase/migrations/000X_*.sql              ← keep numbering, extend
+
+modules/strengths/                            ← ported from Strengths Map
+  app/{assessment, results, teams, admin}
+  lib/{scoring, team-scoring, voice-rules}
+  supabase/migrations/01XX_strengths_*.sql    ← renumbered to avoid collision
+```
+
+Subscription gate: new `company_features` table (`company_id`, feature name). NavBand queries it and hides modules the customer didn't buy. RLS on module tables uses the same `auth_profile()` + `company_id` predicates we already use, no extra check needed.
+
+## Phase-by-phase execution
+
+- [ ] **Phase 1 — Prep** (dependency bumps, migration renumbering, `company_features` table)
+  - Bump Strengths Map's `@anthropic-ai/sdk 0.32 → 0.111`, `@supabase/supabase-js 2.47 → 2.110`, `@supabase/ssr 0.5 → 0.12` in isolation, verify assessment + coaching endpoints still work
+  - Renumber SM migrations to `01XX_` range so they don't collide with AiMSHigher's `0001–0015`
+  - Add `company_features(company_id, feature text)` migration to AiMSHigher
+- [ ] **Phase 2 — Shared auth + tenancy**
+  - Add `first_name`, `last_name`, `hire_date`, `position_start_date`, `reports_to` to `profiles`; backfill from `full_name`; keep `full_name` as a generated column initially so nothing breaks
+  - Unify invitation flow on AiMSHigher's `invitations` table (SM's `invite_status` on profile gets deprecated)
+  - Consolidate to one sign-in / reset / accept-invite surface
+- [ ] **Phase 3 — Shared nav + module switcher**
+  - Extend `NavBand` to read `company_features` and render module tabs conditionally
+  - Move route groups: `/execution/*` and `/strengths/*` under a shared `(app)` layout
+- [ ] **Phase 4 — Coaching consolidation**
+  - Add `context_kind` column to `coaching_conversations` (nullable, defaults to `'execution'` for existing rows)
+  - Port SM's self-coaching + admin-coaching flows onto the same primitive
+  - Prompt selection matrix: `context_kind × (subject == creator)` → one of four prompt files
+- [ ] **Phase 5 — Module API + component merge**
+  - `/api/coach` stays generic; assembles context by `context_kind` and picks the right prompt file
+  - Strengths-only endpoints move to `/api/strengths/*` (`narrative`, `generate-results`, `generate-team-insights`)
+  - Shared components (form primitives, cards, chips) hoist to `shared/components/ui`
+- [ ] **Phase 6 — Validation + staged rollout**
+  - Full integration test: user signs in, sees both modules based on `company_features`, uses each end-to-end
+  - Deploy to staging with both modules enabled for a test company; verify RLS on cross-module reads
+  - Prod rollout behind feature flag; existing customers grandfathered by default
+
+## Risks + mitigations
+
+| Risk | Mitigation |
+|---|---|
+| SM's SDK bumps introduce breaking changes to assessment / coach endpoints | Phase 1 in isolation, before any merge. If the Anthropic streaming API surface shifted, wrap with an adapter. |
+| Coaching table schema change breaks existing AiMSHigher conversations | `context_kind` added as nullable with default `'execution'`; existing rows treated as execution context. Backfill in the same migration. |
+| Profile rename (`full_name` → `first_name` + `last_name`) breaks queries | Add new fields; keep `full_name` as a generated column (`first_name || ' ' || last_name`) so old code keeps reading it. Deprecate reads over Phase 3–5. |
+| RLS drift when SM tables move into the same DB | Every SM migration re-declares its policies using `auth_profile()`; audit each renumbered file before applying. |
+| Company data grows across two modules; queries slow down | RLS is already company-scoped; add composite indexes on `(company_id, ...)` for hot paths as they surface in staging. |
+| Two teams of admins get confused about coaching visibility | Shared coaching primitive means one mental model. UI copy on the coach entry points explicitly says who can see the conversation. |
+
+## Status log
+
+- 2026-07-18 — Doc drafted. Phase 0 (analysis + decisions) complete. Awaiting green-light on Phase 1.
