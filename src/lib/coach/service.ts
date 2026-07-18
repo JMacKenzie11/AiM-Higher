@@ -6,6 +6,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // the current admin's created_by; server helpers here just return the
 // rows the caller is allowed to see.
 
+export type CoachingContextKind = "execution" | "strengths";
+
 export type CoachingConversation = {
   id: string;
   company_id: string;
@@ -13,6 +15,10 @@ export type CoachingConversation = {
   created_by: string;
   title: string;
   archived: boolean;
+  // Which module owns the coaching context — drives prompt selection
+  // and person-context assembly. Defaults to 'execution' on old rows
+  // (migration 0018).
+  context_kind: CoachingContextKind;
   created_at: string;
   updated_at: string;
 };

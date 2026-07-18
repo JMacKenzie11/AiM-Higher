@@ -140,16 +140,22 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
   const model = process.env.ANTHROPIC_COACH_MODEL || DEFAULT_MODEL;
 
-  // Build context first so we know which prompt to load — self-
-  // coaching gets a separate prompt file whose framing is written
-  // in the second person.
+  // Build context first so we know which prompt to load. Selection
+  // matrix: context_kind × isSelfCoaching → one of three files.
+  //   ('execution', true)   → self-coach.md
+  //   ('execution', false)  → leadership-coach.md
+  //   ('strengths',  *)     → strengths-self-coach.md  (SM ships self-only today)
   const context = await buildCoachContext({
     companyId: convo.company_id,
     subjectProfileId: convo.subject_profile_id,
     currentAdminName: session.profile.full_name,
     currentAdminProfileId: session.profile.id,
+    contextKind: convo.context_kind,
   });
-  const systemPromptText = await loadSystemPrompt(context.isSelfCoaching);
+  const systemPromptText = await loadSystemPrompt(
+    convo.context_kind,
+    context.isSelfCoaching
+  );
 
   const client = new Anthropic({ apiKey });
   const userTurnPrefix = `${context.companyContext}\n\n${context.personContext}\n\n${context.coachingContext}\n\n`;
@@ -266,8 +272,16 @@ export async function POST(req: NextRequest): Promise<Response> {
 
 // ---- Helpers ----------------------------------------------------
 
-async function loadSystemPrompt(isSelfCoaching: boolean): Promise<string> {
-  const filename = isSelfCoaching ? "self-coach.md" : "leadership-coach.md";
+async function loadSystemPrompt(
+  contextKind: "execution" | "strengths",
+  isSelfCoaching: boolean
+): Promise<string> {
+  const filename =
+    contextKind === "strengths"
+      ? "strengths-self-coach.md"
+      : isSelfCoaching
+      ? "self-coach.md"
+      : "leadership-coach.md";
   const filePath = path.join(process.cwd(), "prompts", filename);
   return fs.readFile(filePath, "utf8");
 }

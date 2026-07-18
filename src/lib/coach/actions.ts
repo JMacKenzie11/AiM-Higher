@@ -5,7 +5,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getScopedCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
-import type { CoachingConversation } from "./service";
+import type { CoachingConversation, CoachingContextKind } from "./service";
 
 // Coaching-specific server actions. Access checks live here AND in
 // RLS — never trust one alone.
@@ -17,12 +17,16 @@ export type CoachActionResult<T> =
 export type SimpleResult = { ok: true } | { ok: false; message: string };
 
 // ---- Create -----------------------------------------------------
-// A conversation is scoped to (creator, subject). Admins may coach
-// anyone in their reach; team members may only coach themselves.
-// System admins self-coaching have no company of their own — they
-// use whichever company they've currently scoped into.
+// A conversation is scoped to (creator, subject, context_kind).
+// Admins may coach anyone in their reach; team members may only
+// coach themselves. System admins self-coaching have no company of
+// their own — they use whichever company they've currently scoped
+// into. `contextKind` picks the prompt file and person-context
+// assembler; defaults to 'execution' for backward compatibility with
+// existing entry points.
 export async function createConversationAction(
-  subjectProfileId: string
+  subjectProfileId: string,
+  contextKind: CoachingContextKind = "execution"
 ): Promise<CoachActionResult<CoachingConversation>> {
   const session = await requireProfile();
 
@@ -76,6 +80,7 @@ export async function createConversationAction(
       subject_profile_id: subject.id,
       created_by: session.profile.id,
       title,
+      context_kind: contextKind,
     })
     .select("*")
     .single<CoachingConversation>();

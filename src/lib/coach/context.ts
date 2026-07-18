@@ -39,6 +39,9 @@ export type CoachContextInput = {
   subjectProfileId: string;
   currentAdminName: string;
   currentAdminProfileId: string;
+  // Which module owns this conversation. Determines how the person
+  // context block is built. Defaults to execution.
+  contextKind?: "execution" | "strengths";
 };
 
 export type CoachContextBlocks = {
@@ -97,43 +100,68 @@ export async function buildCoachContext(
     differentiators,
   });
 
-  const openQuarter = await getCurrentQuarter(input.companyId);
-  const priorQuarters = await loadPriorQuarters(supabase, input.companyId, 2);
-  const quartersForRate = [openQuarter, ...priorQuarters].filter(
-    (q): q is Quarter => Boolean(q)
-  );
+  const kind = input.contextKind ?? "execution";
 
-  const keepRatesByQuarter = await Promise.all(
-    quartersForRate.map(async (q) => ({
-      quarter: q,
-      keepRate: await computeQuarterKeepRateForSubject(
-        input.companyId,
+  let personContext: string;
+  if (kind === "strengths") {
+    // Strengths Map assessment tables (assessments / results /
+    // narrative_messages) don't live in AiMSHigher's DB yet — they
+    // land in Phase 5 when SM code physically imports. Until then
+    // the person context for strengths conversations is a stub.
+    personContext = [
+      "<person_context>",
+      `Name: ${subject?.full_name ?? "(unknown)"}`,
+      `Position: ${subject?.position ?? "—"}`,
+      "Assessment results: (Strengths Map data is not yet loaded in this environment. Speak in the general AiMS strengths voice and invite the participant to describe what showed up for them.)",
+      "</person_context>",
+    ].join("\n");
+  } else {
+    const openQuarter = await getCurrentQuarter(input.companyId);
+    const priorQuarters = await loadPriorQuarters(
+      supabase,
+      input.companyId,
+      2
+    );
+    const quartersForRate = [openQuarter, ...priorQuarters].filter(
+      (q): q is Quarter => Boolean(q)
+    );
+
+    const keepRatesByQuarter = await Promise.all(
+      quartersForRate.map(async (q) => ({
+        quarter: q,
+        keepRate: await computeQuarterKeepRateForSubject(
+          input.companyId,
+          input.subjectProfileId,
+          q
+        ),
+      }))
+    );
+
+    const { keptCount, missedCount, missed, openCommitments } =
+      await loadSubjectCommitments(
+        supabase,
         input.subjectProfileId,
-        q
-      ),
-    }))
-  );
+        openQuarter
+      );
 
-  const { keptCount, missedCount, missed, openCommitments } =
-    await loadSubjectCommitments(supabase, input.subjectProfileId, openQuarter);
+    const { priorities, goals } = await loadOwnedPlanItems(
+      supabase,
+      input.subjectProfileId
+    );
 
-  const { priorities, goals } = await loadOwnedPlanItems(
-    supabase,
-    input.subjectProfileId
-  );
-
-  const personContext = formatPersonContext({
-    subject,
-    todayIso,
-    keepRatesByQuarter,
-    openQuarter,
-    keptCount,
-    missedCount,
-    missed,
-    openCommitments,
-    priorities,
-    goals,
-  });
+    personContext = formatPersonContext({
+      subject,
+      todayIso,
+      keepRatesByQuarter,
+      openQuarter,
+      keptCount,
+      missedCount,
+      missed,
+      openCommitments,
+      priorities,
+      goals,
+    });
+  }
 
   const isSelfCoaching = subject?.id === input.currentAdminProfileId;
   const coachingContext = [
