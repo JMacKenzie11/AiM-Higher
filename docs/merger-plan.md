@@ -65,10 +65,11 @@ npm run dev
 ```
 
 Anthropic bumped from 0.32 → 0.111 is the biggest jump; expect changes around the streaming helper (`.stream()` / `.finalMessage()`) and the tool-use API. If SM only uses `messages.create` without tools/streaming, the surface is nearly unchanged.
-- [ ] **Phase 2 — Shared auth + tenancy**
-  - Add `first_name`, `last_name`, `hire_date`, `position_start_date`, `reports_to` to `profiles`; backfill from `full_name`; keep `full_name` as a generated column initially so nothing breaks
-  - Unify invitation flow on AiMSHigher's `invitations` table (SM's `invite_status` on profile gets deprecated)
-  - Consolidate to one sign-in / reset / accept-invite surface
+- [x] **Phase 2 — Shared auth + tenancy** (partial — schema landed, code unification deferred until SM ports over)
+  - [x] Add `first_name`, `last_name`, `hire_date`, `position_start_date`, `reports_to` to `profiles`; backfill; keep `full_name` in sync via a bidirectional BEFORE INSERT/UPDATE trigger so both legacy `full_name` writes and new structured writes work (migration 0017)
+  - [x] Update `Profile` TS type with all five new fields (nullable, backfilled by migration)
+  - [ ] Unify invitation flow on AiMSHigher's `invitations` table (SM's `invite_status` on profile gets deprecated) — **deferred to Phase 4/5** when SM code physically moves in
+  - [ ] Consolidate to one sign-in / reset / accept-invite surface — **deferred to Phase 4/5** for the same reason
 - [ ] **Phase 3 — Shared nav + module switcher**
   - Extend `NavBand` to read `company_features` and render module tabs conditionally
   - Move route groups: `/execution/*` and `/strengths/*` under a shared `(app)` layout
@@ -100,3 +101,4 @@ Anthropic bumped from 0.32 → 0.111 is the biggest jump; expect changes around 
 
 - 2026-07-18 — Doc drafted. Phase 0 (analysis + decisions) complete. Awaiting green-light on Phase 1.
 - 2026-07-18 — Phase 1 partial: `company_features` table + `company_has_feature` helper + `getCompanyFeatures` service landed in AiMSHigher (migration 0016). Existing companies backfilled with `'execution'`. SM dep bump documented above for manual application in the SM repo. Migration renumbering deferred to Phase 4/5 when SM tables actually import.
+- 2026-07-18 — Phase 2 partial: profile schema expansion landed (migration 0017 + `Profile` type update). Added `first_name`, `last_name`, `hire_date`, `position_start_date`, `reports_to`. Bidirectional `sync_profile_names` trigger keeps `full_name` and structured fields aligned regardless of which side writes, so every existing caller (profile edit form, invite accept, seed scripts, dashboard reads) keeps working untouched. Invite-flow + auth-surface unification wait for SM code to physically move in.

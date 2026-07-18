@@ -11,7 +11,15 @@ export type QuarterStatus = "open" | "closed";
 export type Profile = {
   id: string;
   company_id: string | null;
+  // full_name is trigger-maintained from first_name + last_name
+  // (migration 0017). Reads keep working everywhere; writes to
+  // either side stay in sync automatically.
   full_name: string;
+  first_name: string | null;
+  last_name: string | null;
+  hire_date: string | null; // ISO date YYYY-MM-DD
+  position_start_date: string | null;
+  reports_to: string | null; // profile FK, lays groundwork for org chart
   position: string | null;
   role: Role;
   status: ProfileStatus;
