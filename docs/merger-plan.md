@@ -37,10 +37,34 @@ Subscription gate: new `company_features` table (`company_id`, feature name). Na
 
 ## Phase-by-phase execution
 
-- [ ] **Phase 1 — Prep** (dependency bumps, migration renumbering, `company_features` table)
-  - Bump Strengths Map's `@anthropic-ai/sdk 0.32 → 0.111`, `@supabase/supabase-js 2.47 → 2.110`, `@supabase/ssr 0.5 → 0.12` in isolation, verify assessment + coaching endpoints still work
-  - Renumber SM migrations to `01XX_` range so they don't collide with AiMSHigher's `0001–0015`
-  - Add `company_features(company_id, feature text)` migration to AiMSHigher
+- [x] **Phase 1 — Prep** (dependency bumps, migration renumbering, `company_features` table)
+  - [ ] Bump Strengths Map's dependencies in the SM repo (manual — see below), verify assessment + coaching endpoints still work locally
+  - [ ] Renumber SM migrations to `01XX_` range so they don't collide with AiMSHigher's `0001–0016` (deferred until Phase 4/5 when SM tables physically import; renumbering earlier gains nothing)
+  - [x] Add `company_features(company_id, feature)` migration to AiMSHigher (`supabase/migrations/0016_company_features.sql`)
+  - [x] Add `company_has_feature(cid, feat)` SQL helper for module-table RLS in later phases
+  - [x] Backfill `'execution'` entitlement for every existing company
+  - [x] `src/lib/subscriptions/service.ts` exposes `getCompanyFeatures` / `companyHasFeature` for server components
+
+### Strengths Map dep bumps (manual, in the SM repo)
+
+Edit `/Users/jasonmackenzie/Custom Applications/AiMS Strengths Map/package.json`:
+
+```json
+"@anthropic-ai/sdk": "^0.111.0",     // was 0.32.1
+"@supabase/ssr": "^0.12.1",           // was 0.5.2
+"@supabase/supabase-js": "^2.110.5"   // was 2.47.10
+```
+
+Then in that repo:
+
+```bash
+npm install
+npm run typecheck
+npm run dev
+# smoke-test: /assessment, /results, /api/coach, /api/generate-team-insights
+```
+
+Anthropic bumped from 0.32 → 0.111 is the biggest jump; expect changes around the streaming helper (`.stream()` / `.finalMessage()`) and the tool-use API. If SM only uses `messages.create` without tools/streaming, the surface is nearly unchanged.
 - [ ] **Phase 2 — Shared auth + tenancy**
   - Add `first_name`, `last_name`, `hire_date`, `position_start_date`, `reports_to` to `profiles`; backfill from `full_name`; keep `full_name` as a generated column initially so nothing breaks
   - Unify invitation flow on AiMSHigher's `invitations` table (SM's `invite_status` on profile gets deprecated)
@@ -75,3 +99,4 @@ Subscription gate: new `company_features` table (`company_id`, feature name). Na
 ## Status log
 
 - 2026-07-18 — Doc drafted. Phase 0 (analysis + decisions) complete. Awaiting green-light on Phase 1.
+- 2026-07-18 — Phase 1 partial: `company_features` table + `company_has_feature` helper + `getCompanyFeatures` service landed in AiMSHigher (migration 0016). Existing companies backfilled with `'execution'`. SM dep bump documented above for manual application in the SM repo. Migration renumbering deferred to Phase 4/5 when SM tables actually import.
