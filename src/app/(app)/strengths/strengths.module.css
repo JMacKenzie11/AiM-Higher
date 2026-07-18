@@ -68,6 +68,13 @@
   gap: var(--space-5);
 }
 
+/* Narrower content column for prose-heavy pages (welcome, results
+   intros). Card + text share the same reading width so line breaks
+   don't feel arbitrary. */
+.contentProse {
+  max-width: 780px;
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -88,14 +95,12 @@
   font: var(--text-body);
   color: var(--text);
   margin: 0;
-  max-width: 65ch;
 }
 
 .proseMuted {
   font: var(--text-body-sm);
   color: var(--text-muted);
   margin: 0;
-  max-width: 65ch;
 }
 
 .primaryButton {

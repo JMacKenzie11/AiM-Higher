@@ -27,27 +27,50 @@ const LOGO_WHITE_SRC = "/brand/aimshigher-logo-white.png";
 const LOGO_INTRINSIC_WIDTH = 620;
 const LOGO_INTRINSIC_HEIGHT = 142;
 
-// Module-tagged nav links. Each link's `feature` determines whether
+// Module-tagged nav items. Each item's `feature` determines whether
 // it renders for a given company — hidden if the company hasn't
-// subscribed to that module. `null` means always-visible.
-type ModuleLink = {
-  label: string;
-  href: string;
-  feature: "execution" | "strengths" | null;
-};
+// subscribed. `null` means always-visible.
+//
+// Items can be flat links or grouped dropdowns. Grouping keeps the
+// top row uncluttered (Section 7): daily-use items stay top-level;
+// set-once surfaces like Foundation live under Company; multi-page
+// modules like Strengths collapse to one dropdown.
+type Feature = "execution" | "strengths";
+type NavLink = { kind: "link"; label: string; href: string };
+type NavItem =
+  | (NavLink & { feature: Feature | null })
+  | {
+      kind: "group";
+      label: string;
+      feature: Feature | null;
+      items: readonly NavLink[];
+    };
 
-const APP_LINKS: readonly ModuleLink[] = [
-  { label: "Dashboard", href: "/dashboard", feature: "execution" },
-  { label: "Plan", href: "/plan", feature: "execution" },
-  { label: "Commitments", href: "/commitments", feature: "execution" },
-  { label: "People", href: "/people", feature: "execution" },
-  { label: "Foundation", href: "/foundation", feature: "execution" },
-  // Strengths Map links — auto-hidden for companies without the
-  // 'strengths' feature entitlement. The routes themselves land in
-  // sub-phases 5c–5d.
-  { label: "Assessment", href: "/strengths/assessment", feature: "strengths" },
-  { label: "Results", href: "/strengths/results", feature: "strengths" },
-  { label: "Teams", href: "/strengths/teams", feature: "strengths" },
+const APP_ITEMS: readonly NavItem[] = [
+  { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
+  { kind: "link", label: "Plan", href: "/plan", feature: "execution" },
+  { kind: "link", label: "Commitments", href: "/commitments", feature: "execution" },
+  { kind: "link", label: "People", href: "/people", feature: "execution" },
+  {
+    kind: "group",
+    label: "Company",
+    feature: "execution",
+    items: [
+      { kind: "link", label: "Foundation", href: "/foundation" },
+      // ASSUMPTION: additional set-once company surfaces (Settings,
+      // Values calendar, etc.) join this menu as they land.
+    ],
+  },
+  {
+    kind: "group",
+    label: "Strengths",
+    feature: "strengths",
+    items: [
+      { kind: "link", label: "Assessment", href: "/strengths/assessment" },
+      { kind: "link", label: "Results", href: "/strengths/results" },
+      { kind: "link", label: "Teams", href: "/strengths/teams" },
+    ],
+  },
 ];
 
 // ASSUMPTION: Scorecard route (/scorecard) still exists but is
@@ -55,7 +78,12 @@ const APP_LINKS: readonly ModuleLink[] = [
 // design is being rethought. When restored it belongs immediately
 // after Commitments with feature: "execution".
 
-const SYSTEM_ADMIN_LINK = { label: "Companies", href: "/admin/companies" };
+const SYSTEM_ADMIN_ITEM: NavItem = {
+  kind: "link",
+  label: "Companies",
+  href: "/admin/companies",
+  feature: null,
+};
 
 export type NavBandProps = {
   userName: string;
@@ -84,15 +112,12 @@ export function NavBand({
     setMobileOpen(false);
   }, [pathname]);
 
-  // Filter by module subscription first, then rebadge Dashboard for
-  // scoped sysadmins. Feature `null` links (if any) always render.
-  const subscribedLinks = APP_LINKS.filter(
-    (link) => link.feature === null || features.includes(link.feature)
-  );
-  const appLinks = subscribedLinks.map((link) =>
-    isSystemAdmin && showExitScope && scopedCompanyName && link.href === "/dashboard"
-      ? { ...link, label: `${scopedCompanyName} Dashboard` }
-      : link
+  // Filter by module subscription. Feature `null` items always render.
+  // The "${company} Dashboard" rebadge is gone — the sub-band already
+  // carries the scoped-company signal on execution surfaces, and the
+  // long label was wrapping the whole nav to three lines.
+  const subscribedApp = APP_ITEMS.filter(
+    (item) => item.feature === null || features.includes(item.feature)
   );
 
   // A system_admin who hasn't scoped into a company can't visit any of
@@ -118,11 +143,11 @@ export function NavBand({
     !onAdminSurface &&
     !onPersonalSurface;
 
-  const links = isSystemAdmin
+  const items: NavItem[] = isSystemAdmin
     ? showExitScope && !onAdminSurface
-      ? [SYSTEM_ADMIN_LINK, ...appLinks]
-      : [SYSTEM_ADMIN_LINK]
-    : appLinks;
+      ? [SYSTEM_ADMIN_ITEM, ...subscribedApp]
+      : [SYSTEM_ADMIN_ITEM]
+    : subscribedApp;
 
   return (
     <header className={styles.band}>
@@ -140,20 +165,26 @@ export function NavBand({
 
         <nav className={styles.nav} aria-label="Primary">
           <ul className={styles.navList}>
-            {links.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className={styles.navLink}
-                  data-active={isLinkActive(pathname, link.href) ? "true" : undefined}
-                  aria-current={
-                    isLinkActive(pathname, link.href) ? "page" : undefined
-                  }
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
+            {items.map((item) =>
+              item.kind === "link" ? (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={styles.navLink}
+                    data-active={isLinkActive(pathname, item.href) ? "true" : undefined}
+                    aria-current={
+                      isLinkActive(pathname, item.href) ? "page" : undefined
+                    }
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ) : (
+                <li key={item.label}>
+                  <NavDropdown group={item} pathname={pathname} />
+                </li>
+              )
+            )}
           </ul>
         </nav>
 
@@ -186,22 +217,46 @@ export function NavBand({
           aria-label="Primary mobile"
         >
           <ul className={styles.mobileList}>
-            {links.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className={styles.mobileLink}
-                  data-active={
-                    isLinkActive(pathname, link.href) ? "true" : undefined
-                  }
-                  aria-current={
-                    isLinkActive(pathname, link.href) ? "page" : undefined
-                  }
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
+            {items.flatMap((item) =>
+              item.kind === "link"
+                ? [
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={styles.mobileLink}
+                        data-active={
+                          isLinkActive(pathname, item.href) ? "true" : undefined
+                        }
+                        aria-current={
+                          isLinkActive(pathname, item.href) ? "page" : undefined
+                        }
+                      >
+                        {item.label}
+                      </Link>
+                    </li>,
+                  ]
+                : [
+                    <li key={`${item.label}-header`} className={styles.mobileGroupLabel}>
+                      {item.label}
+                    </li>,
+                    ...item.items.map((child) => (
+                      <li key={child.href}>
+                        <Link
+                          href={child.href}
+                          className={`${styles.mobileLink} ${styles.mobileLinkNested}`}
+                          data-active={
+                            isLinkActive(pathname, child.href) ? "true" : undefined
+                          }
+                          aria-current={
+                            isLinkActive(pathname, child.href) ? "page" : undefined
+                          }
+                        >
+                          {child.label}
+                        </Link>
+                      </li>
+                    )),
+                  ]
+            )}
           </ul>
         </div>
       ) : null}
@@ -227,6 +282,82 @@ export function NavBand({
 function isLinkActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function NavDropdown({
+  group,
+  pathname,
+}: {
+  group: {
+    label: string;
+    items: readonly { label: string; href: string }[];
+  };
+  pathname: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click / Escape — same pattern as the user menu.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(event: MouseEvent) {
+      if (!ref.current) return;
+      if (!ref.current.contains(event.target as Node)) setOpen(false);
+    }
+    function onEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [open]);
+
+  // Collapse when the route changes so a nav click doesn't leave the
+  // menu hanging open over the new page.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  const groupActive = group.items.some((child) => isLinkActive(pathname, child.href));
+
+  return (
+    <div className={styles.dropdownWrap} ref={ref}>
+      <button
+        type="button"
+        className={styles.navLink}
+        data-active={groupActive ? "true" : undefined}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        {group.label}
+        <span className={styles.navChevron} aria-hidden="true">
+          ▾
+        </span>
+      </button>
+      {open ? (
+        <div className={styles.dropdownMenu} role="menu">
+          {group.items.map((child) => (
+            <Link
+              key={child.href}
+              href={child.href}
+              className={styles.menuItem}
+              role="menuitem"
+              data-active={isLinkActive(pathname, child.href) ? "true" : undefined}
+              aria-current={
+                isLinkActive(pathname, child.href) ? "page" : undefined
+              }
+            >
+              {child.label}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function UserMenu({

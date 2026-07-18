@@ -84,6 +84,44 @@
   border-radius: var(--radius-pill);
 }
 
+/* Dropdown for grouped nav items (Company, Strengths). Shares
+   .navLink styling so the trigger reads identically to a link;
+   .navChevron gives the affordance. The panel matches the user
+   menu's .menu shape for visual consistency. */
+.dropdownWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.navChevron {
+  margin-left: var(--space-2);
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  min-width: 180px;
+  background: var(--aims-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  z-index: 20;
+}
+
+.dropdownMenu .menuItem[data-active="true"] {
+  background: var(--aims-cobalt-tint);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
 .userSlot {
   position: relative;
   display: inline-flex;
@@ -270,6 +308,23 @@
   background: var(--glass-bg);
   opacity: 1;
   font-weight: 700;
+}
+
+/* Group headers inside the mobile drawer. Groups get flattened here
+   because a nested dropdown inside an already-nested drawer would be
+   more taps than the current flat layout. */
+.mobileGroupLabel {
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  color: var(--aims-white);
+  opacity: 0.7;
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  list-style: none;
+}
+
+.mobileLinkNested {
+  padding-left: var(--space-6);
 }
 
 @media (max-width: 768px) {
