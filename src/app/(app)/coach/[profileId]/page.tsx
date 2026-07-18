@@ -8,13 +8,19 @@ import { ArchiveConversationButton } from "./ArchiveConversationButton";
 import type { Profile } from "@/lib/types";
 import styles from "../coach.module.css";
 
-type PageProps = { params: Promise<{ profileId: string }> };
+type PageProps = {
+  params: Promise<{ profileId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default async function CoachListPage({ params }: PageProps) {
+export default async function CoachListPage({ params, searchParams }: PageProps) {
   const session = await requireProfile();
   const role = session.profile.role;
 
   const { profileId } = await params;
+  const sp = await searchParams;
+  const contextParam = typeof sp.context === "string" ? sp.context : "";
+  const contextKind = contextParam === "strengths" ? "strengths" : "execution";
   const supabase = await createSupabaseServerClient();
   const { data: subject } = await supabase
     .from("profiles")
@@ -59,7 +65,7 @@ export default async function CoachListPage({ params }: PageProps) {
       </header>
 
       <div className={styles.listActions}>
-        <NewConversationButton profileId={profileId} />
+        <NewConversationButton profileId={profileId} contextKind={contextKind} />
       </div>
 
       <div className={styles.card}>
