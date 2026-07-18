@@ -91,16 +91,20 @@
   margin: 0;
 }
 
+/* Prose stays at reading width even inside a wide card, so paragraphs
+   don't stretch to unreadable line lengths at large viewports. */
 .prose {
   font: var(--text-body);
   color: var(--text);
   margin: 0;
+  max-width: 68ch;
 }
 
 .proseMuted {
   font: var(--text-body-sm);
   color: var(--text-muted);
   margin: 0;
+  max-width: 68ch;
 }
 
 .primaryButton {

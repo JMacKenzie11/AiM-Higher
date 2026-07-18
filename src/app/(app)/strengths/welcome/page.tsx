@@ -41,7 +41,7 @@ export default async function WelcomePage() {
         </div>
       </section>
 
-      <div className={`${styles.content} ${styles.contentProse}`}>
+      <div className={styles.content}>
         <section className={styles.card} aria-labelledby="what-to-expect">
           <h2 id="what-to-expect" className={styles.h2}>
             What to expect
