@@ -42,10 +42,12 @@ const APP_LINKS: readonly ModuleLink[] = [
   { label: "Commitments", href: "/commitments", feature: "execution" },
   { label: "People", href: "/people", feature: "execution" },
   { label: "Foundation", href: "/foundation", feature: "execution" },
-  // Strengths Map links land here when the module ships:
-  //   { label: "Assessment", href: "/strengths/assessment", feature: "strengths" },
-  //   { label: "Results",    href: "/strengths/results",    feature: "strengths" },
-  //   { label: "Teams",      href: "/strengths/teams",      feature: "strengths" },
+  // Strengths Map links — auto-hidden for companies without the
+  // 'strengths' feature entitlement. The routes themselves land in
+  // sub-phases 5c–5d.
+  { label: "Assessment", href: "/strengths/assessment", feature: "strengths" },
+  { label: "Results", href: "/strengths/results", feature: "strengths" },
+  { label: "Teams", href: "/strengths/teams", feature: "strengths" },
 ];
 
 // ASSUMPTION: Scorecard route (/scorecard) still exists but is

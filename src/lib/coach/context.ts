@@ -104,17 +104,77 @@ export async function buildCoachContext(
 
   let personContext: string;
   if (kind === "strengths") {
-    // Strengths Map assessment tables (assessments / results /
-    // narrative_messages) don't live in AiMSHigher's DB yet — they
-    // land in Phase 5 when SM code physically imports. Until then
-    // the person context for strengths conversations is a stub.
-    personContext = [
-      "<person_context>",
-      `Name: ${subject?.full_name ?? "(unknown)"}`,
-      `Position: ${subject?.position ?? "—"}`,
-      "Assessment results: (Strengths Map data is not yet loaded in this environment. Speak in the general AiMS strengths voice and invite the participant to describe what showed up for them.)",
-      "</person_context>",
-    ].join("\n");
+    // Strengths context: latest completed assessment for the subject,
+    // plus its results block and narrative transcript. If they
+    // haven't finished one yet the block is a graceful note so the
+    // model can still coach in general terms.
+    const { data: assessmentRow } = await supabase
+      .from("strengths_assessments")
+      .select("id, completed_at")
+      .eq("user_id", input.subjectProfileId)
+      .eq("status", "completed")
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ id: string; completed_at: string | null }>();
+
+    let resultsJson: unknown = null;
+    let resultsSummary: string | null = null;
+    let narrativeTranscript = "";
+
+    if (assessmentRow) {
+      const [{ data: resultRow }, { data: narrativeRows }] = await Promise.all([
+        supabase
+          .from("strengths_results")
+          .select("profile, summary")
+          .eq("assessment_id", assessmentRow.id)
+          .maybeSingle<{ profile: unknown; summary: string }>(),
+        supabase
+          .from("strengths_narrative_messages")
+          .select("role, content")
+          .eq("assessment_id", assessmentRow.id)
+          .order("created_at", { ascending: true }),
+      ]);
+      resultsJson = resultRow?.profile ?? null;
+      resultsSummary = resultRow?.summary ?? null;
+      narrativeTranscript =
+        ((narrativeRows ?? []) as Array<{ role: string; content: string }>)
+          .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+          .join("\n") || "";
+    }
+
+    const lines: string[] = ["<person_context>"];
+    lines.push(`Name: ${subject?.full_name ?? "(unknown)"}`);
+    lines.push(`Position: ${subject?.position ?? "—"}`);
+    lines.push(`Today: ${todayIso}`);
+    lines.push("");
+    if (!assessmentRow) {
+      lines.push(
+        "Assessment: not yet completed. Coach in the general AiMS strengths voice and invite them to describe what's showing up for them."
+      );
+    } else {
+      lines.push(
+        `Assessment completed: ${
+          assessmentRow.completed_at?.slice(0, 10) ?? "(recently)"
+        }`
+      );
+      if (resultsSummary) {
+        lines.push("");
+        lines.push("Written summary:");
+        lines.push(resultsSummary.trim());
+      }
+      if (resultsJson) {
+        lines.push("");
+        lines.push("Structured results:");
+        lines.push(JSON.stringify(resultsJson));
+      }
+      if (narrativeTranscript) {
+        lines.push("");
+        lines.push("Best-self narrative transcript:");
+        lines.push(narrativeTranscript);
+      }
+    }
+    lines.push("</person_context>");
+    personContext = lines.join("\n");
   } else {
     const openQuarter = await getCurrentQuarter(input.companyId);
     const priorQuarters = await loadPriorQuarters(
