@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import styles from "../strengths.module.css";
 
 export default function StartAssessmentButton({
   userId,
@@ -13,33 +14,44 @@ export default function StartAssessmentButton({
 }) {
   const router = useRouter();
   const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function start() {
     if (!companyId) {
-      alert("Your profile isn't fully set up yet. Reach out to your admin.");
+      setError(
+        "Your profile isn't attached to a company yet — ask your admin to finish setup."
+      );
       return;
     }
     setStarting(true);
+    setError(null);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase
+    const { error: insertError } = await supabase
       .from("strengths_assessments")
       .insert({ user_id: userId, company_id: companyId, version: 1 });
-    if (error && !/duplicate/i.test(error.message)) {
+    if (insertError && !/duplicate/i.test(insertError.message)) {
       setStarting(false);
-      alert("Couldn't start. Try refreshing.");
+      setError("Couldn't start — try refreshing.");
       return;
     }
-    router.push("/assessment");
+    router.push("/strengths/assessment");
   }
 
   return (
-    <button
-      className="btn btn-primary lg"
-      onClick={start}
-      disabled={starting}
-      style={{ alignSelf: "flex-start" }}
-    >
-      {starting ? "Getting things ready..." : "Start the assessment"}
-    </button>
+    <>
+      <button
+        type="button"
+        className={styles.primaryButton}
+        onClick={start}
+        disabled={starting}
+      >
+        {starting ? "Getting things ready…" : "Start the assessment"}
+      </button>
+      {error ? (
+        <p role="alert" className={styles.proseMuted} style={{ color: "var(--aims-danger)" }}>
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }

@@ -102,6 +102,22 @@ export function NavBand({
   // pick or manage companies, not to peek at whichever one they were
   // last inside.
   const onAdminSurface = pathname.startsWith("/admin");
+
+  // The "operating as this company" sub-band only makes sense on
+  // execution-module surfaces. Strengths is a personal assessment,
+  // coach + profile are user-scoped, and /admin is the company picker
+  // itself — none of them are "inside a company" in the way the band
+  // suggests. Exit Company still reachable via the user menu.
+  const onPersonalSurface =
+    pathname.startsWith("/strengths") ||
+    pathname.startsWith("/coach") ||
+    pathname.startsWith("/profile");
+  const showContextBand =
+    isSystemAdmin &&
+    Boolean(contextLabel) &&
+    !onAdminSurface &&
+    !onPersonalSurface;
+
   const links = isSystemAdmin
     ? showExitScope && !onAdminSurface
       ? [SYSTEM_ADMIN_LINK, ...appLinks]
@@ -154,7 +170,12 @@ export function NavBand({
           </span>
         </button>
 
-        <UserMenu userName={userName} userProfileId={userProfileId} />
+        <UserMenu
+          userName={userName}
+          userProfileId={userProfileId}
+          showExitScope={isSystemAdmin && showExitScope}
+          scopedCompanyName={scopedCompanyName}
+        />
       </div>
 
       {mobileOpen ? (
@@ -185,13 +206,11 @@ export function NavBand({
         </div>
       ) : null}
 
-      {isSystemAdmin && contextLabel ? (
+      {showContextBand ? (
         <div className={styles.contextBand}>
           <div className={styles.contextInner}>
-            <span className={styles.contextText}>
-              {onAdminSurface ? "System admin" : contextLabel}
-            </span>
-            {showExitScope && !onAdminSurface ? (
+            <span className={styles.contextText}>{contextLabel}</span>
+            {showExitScope ? (
               <form action={exitCompanyScopeAction}>
                 <button type="submit" className={styles.contextExit}>
                   Exit company
@@ -213,9 +232,13 @@ function isLinkActive(pathname: string, href: string): boolean {
 function UserMenu({
   userName,
   userProfileId,
+  showExitScope,
+  scopedCompanyName,
 }: {
   userName: string;
   userProfileId: string;
+  showExitScope: boolean;
+  scopedCompanyName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -264,6 +287,17 @@ function UserMenu({
           <Link href="/profile" className={styles.menuItem} role="menuitem">
             My profile
           </Link>
+          {showExitScope ? (
+            <form action={exitCompanyScopeAction}>
+              <button
+                type="submit"
+                className={styles.menuItem}
+                role="menuitem"
+              >
+                Exit {scopedCompanyName ?? "company"}
+              </button>
+            </form>
+          ) : null}
           <form action={signOutAction}>
             <button
               type="submit"

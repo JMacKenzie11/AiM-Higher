@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import StartAssessmentButton from "./StartAssessmentButton";
+import styles from "../strengths.module.css";
 
 export default async function WelcomePage() {
   const supabase = await createSupabaseServerClient();
@@ -27,40 +28,41 @@ export default async function WelcomePage() {
   if (existing?.status === "in_progress") redirect("/strengths/assessment");
 
   return (
-    <>
-
-      <main className="container">
-        <div className="hero-band">
-          <div className="stack-5" style={{ maxWidth: 600 }}>
-            <div className="subhead">The AiMS Strengths Assessment</div>
-            <h1 className="chartreuse-underline">
-              Welcome, {profile.first_name}.
-            </h1>
-            <p>
-              This is about discovering where your strengths and energy already
-              are. It isn't a grading exercise, and there aren't any wrong
-              answers.
-            </p>
-            <p>
-              You'll rate a set of statements, then choose between a few
-              paired options, then answer a couple of questions in your own
-              words. Some things you'll agree with strongly, others you won't.
-              Both tell us something useful about how your energy is
-              configured.
-            </p>
-            <p>
-              A low score isn't a weakness. It's a signal about where your
-              energy is better spent elsewhere. The whole picture is what
-              matters, not any single answer.
-            </p>
-            <p className="muted">Give yourself about ten to twelve minutes.</p>
-            <StartAssessmentButton
-              userId={user.id}
-              companyId={profile.company_id}
-            />
-          </div>
+    <div className={styles.stage}>
+      <section className={styles.hero} aria-label="Assessment welcome">
+        <div className={styles.heroInner}>
+          <p className={styles.eyebrow}>The AiMS Strengths Assessment</p>
+          <h1 className={styles.h1}>Welcome, {profile.first_name}.</h1>
+          <span className={styles.rule} aria-hidden="true" />
+          <p className={styles.subtitle}>
+            About ten to twelve minutes. Not a grading exercise — a signal
+            about where your energy already is.
+          </p>
         </div>
-      </main>
-    </>
+      </section>
+
+      <div className={styles.content}>
+        <section className={styles.card} aria-labelledby="what-to-expect">
+          <h2 id="what-to-expect" className={styles.h2}>
+            What to expect
+          </h2>
+          <p className={styles.prose}>
+            You&rsquo;ll rate a set of statements, choose between a few paired
+            options, and answer a couple of questions in your own words. Some
+            things you&rsquo;ll agree with strongly, others you won&rsquo;t.
+            Both tell us something useful about how your energy is configured.
+          </p>
+          <p className={styles.prose}>
+            A low score isn&rsquo;t a weakness — it&rsquo;s a signal about
+            where your energy is better spent elsewhere. The whole picture is
+            what matters, not any single answer.
+          </p>
+          <StartAssessmentButton
+            userId={user.id}
+            companyId={profile.company_id}
+          />
+        </section>
+      </div>
+    </div>
   );
 }
