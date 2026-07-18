@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Quarter } from "@/lib/types";
 
@@ -41,18 +42,21 @@ export async function getQuartersForCompany(
   }));
 }
 
-export async function getCurrentQuarter(
-  companyId: string
-): Promise<Quarter | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("quarters")
-    .select("*")
-    .eq("company_id", companyId)
-    .eq("status", "open")
-    .maybeSingle<Quarter>();
-  return data ?? null;
-}
+// React.cache dedupes calls with the same companyId within a single
+// request — dashboard/plan/commitments loaders all reach for this and
+// used to hit Supabase separately.
+export const getCurrentQuarter = cache(
+  async (companyId: string): Promise<Quarter | null> => {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("quarters")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("status", "open")
+      .maybeSingle<Quarter>();
+    return data ?? null;
+  }
+);
 
 // Calendar-quarter helpers used by the "Open next quarter" prefill.
 // v1 assumes calendar quarters; the spec doesn't call for fiscal quarters.

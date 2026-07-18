@@ -1,17 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { canWriteOwnedRow } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   getCommitmentsPageData,
   type CommitmentFilters,
-  type CommitmentWithMeta,
 } from "@/lib/commitments/service";
 import { CommitmentRow } from "./CommitmentRow";
 import { FilterPills } from "./FilterPills";
 import { InlineAddRow } from "./InlineAddRow";
 import { PriorWeekRow } from "./PriorWeekRow";
-import type { Priority, Profile, Role } from "@/lib/types";
 import styles from "./commitments.module.css";
 
 // /commitments — one page, grouped by week, replacing /weekly-review.
@@ -100,62 +99,30 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
         type={filters.type}
       />
 
-      {data.needsAttention.length > 0 ? (
-        <section
-          className={styles.group}
-          aria-labelledby="needs-attention"
-        >
-          <div className={styles.groupHeader}>
-            <h2
-              id="needs-attention"
-              className={`${styles.groupTitle} ${styles.groupTitleNeedsAttention}`}
-            >
-              Needs attention
-            </h2>
-            <span className={styles.groupMeta}>
-              {data.needsAttention.length}{" "}
-              {data.needsAttention.length === 1 ? "commitment" : "commitments"}
-            </span>
-          </div>
-          <ul className={styles.rowList}>
-            {data.needsAttention.map((c) => (
-              <CommitmentRow
-                key={c.id}
-                commitment={c}
-                priorityOptions={data.priorityOptions}
-                todayIso={data.todayIso}
-                canResolve={canWriteRow(session.profile, c)}
-                canLink={canWriteRow(session.profile, c)}
-              />
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <section className={styles.group} aria-labelledby="this-week">
+      <section className={styles.group} aria-labelledby="commitments-main">
         <div className={styles.groupHeader}>
-          <h2 id="this-week" className={styles.groupTitle}>
-            Week of {data.thisWeek.weekRange}
+          <h2 id="commitments-main" className={styles.groupTitle}>
+            Commitments
           </h2>
           <span className={styles.groupMeta}>
-            {data.thisWeek.commitments.length}{" "}
-            {data.thisWeek.commitments.length === 1 ? "commitment" : "commitments"}
+            {data.mainList.length}{" "}
+            {data.mainList.length === 1 ? "commitment" : "commitments"}
           </span>
         </div>
         <ul className={styles.rowList}>
-          {data.thisWeek.commitments.length === 0 ? (
+          {data.mainList.length === 0 ? (
             <li className={styles.emptyLine}>
               Nothing here yet — add the first below.
             </li>
           ) : (
-            data.thisWeek.commitments.map((c) => (
+            data.mainList.map((c) => (
               <CommitmentRow
                 key={c.id}
                 commitment={c}
                 priorityOptions={data.priorityOptions}
                 todayIso={data.todayIso}
-                canResolve={canWriteRow(session.profile, c)}
-                canLink={canWriteRow(session.profile, c)}
+                canResolve={canWriteOwnedRow(session.profile, c)}
+                canLink={canWriteOwnedRow(session.profile, c)}
               />
             ))
           )}
@@ -208,15 +175,3 @@ function pickString(
   return value ?? fallback;
 }
 
-// Owner or company admin for the commitment's company.
-function canWriteRow(
-  profile: Pick<Profile, "id" | "role" | "company_id">,
-  commitment: CommitmentWithMeta
-): boolean {
-  const role: Role = profile.role;
-  if (role === "system_admin") return true;
-  if (role === "company_admin" && profile.company_id === commitment.company_id) {
-    return true;
-  }
-  return commitment.owner_id === profile.id;
-}

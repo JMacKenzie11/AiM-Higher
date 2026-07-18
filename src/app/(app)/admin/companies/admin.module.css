@@ -286,6 +286,38 @@
   grid-column: 1 / -1;
 }
 
+/* Checkbox group for feature entitlements. Renders each option as a
+   pill with a hover state so it reads as a click target, not a bare
+   input. */
+.checkGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.checkOption {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font: var(--text-body-sm);
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.checkOption:hover {
+  background: var(--aims-navy-tint);
+}
+
+.checkOption input {
+  accent-color: var(--primary);
+}
+
 .errorMessage {
   grid-column: 1 / -1;
   margin: 0;

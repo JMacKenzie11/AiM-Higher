@@ -122,12 +122,6 @@ export type CommitmentPriorWeek = {
   commitments: CommitmentWithMeta[]; // resolved-only; empty until expanded client-side
 };
 
-export type CommitmentThisWeek = {
-  weekEnding: string;
-  weekRange: string;
-  commitments: CommitmentWithMeta[];
-};
-
 export type CommitmentsPageData = {
   timezone: string;
   todayIso: string;
@@ -136,8 +130,10 @@ export type CommitmentsPageData = {
   quarterCoversThisWeek: boolean;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
   roster: Array<Pick<Profile, "id" | "full_name" | "position">>;
-  needsAttention: CommitmentWithMeta[];
-  thisWeek: CommitmentThisWeek;
+  // Single flat list: past-week still-open + this-week rows (open and
+  // resolved), sorted overdue-open → upcoming-open → resolved. Weekly
+  // grouping only surfaces in the collapsed prior-weeks section below.
+  mainList: CommitmentWithMeta[];
   priorWeeks: CommitmentPriorWeek[];
   headerStats: {
     openThisWeek: number;
@@ -279,13 +275,15 @@ export async function getCommitmentsPageData(
     matchesFilters(c, filters, currentUserId)
   );
 
-  const needsAttention = filtered
-    .filter((c) => c.week_ending < thisFri && c.status === "open")
-    .map(enrich)
-    .sort(compareByDueThenOverdueFirst(todayIso));
-
-  const thisWeekRows = filtered
-    .filter((c) => c.week_ending === thisFri)
+  // Everything currently in play: past-week open (would've been "Needs
+  // Attention") plus this-week open + resolved. One list, sorted so
+  // overdue floats to the top and resolved sinks to the bottom.
+  const mainList = filtered
+    .filter(
+      (c) =>
+        (c.week_ending < thisFri && c.status === "open") ||
+        c.week_ending === thisFri
+    )
     .map(enrich)
     .sort(byOpenFirstThenDue(todayIso));
 
@@ -328,12 +326,7 @@ export async function getCommitmentsPageData(
     quarterCoversThisWeek,
     priorityOptions,
     roster,
-    needsAttention,
-    thisWeek: {
-      weekEnding: thisFri,
-      weekRange: formatWeekRange(thisFri),
-      commitments: thisWeekRows,
-    },
+    mainList,
     priorWeeks,
     headerStats: {
       openThisWeek,

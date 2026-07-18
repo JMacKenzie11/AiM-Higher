@@ -36,6 +36,15 @@ export function thisFriday(timezone: string): YMD {
   return addDays(iso, daysUntil);
 }
 
+// The Friday of the week containing iso (weeks end Friday). If iso is
+// already a Friday, returns iso. Saturday rolls forward to the next
+// Friday. Used to bucket free-form due dates into weekly groups.
+export function fridayOf(iso: YMD): YMD {
+  const weekday = new Date(`${iso}T00:00:00Z`).getUTCDay(); // 0=Sun … 6=Sat
+  const daysUntil = (5 - weekday + 7) % 7;
+  return addDays(iso, daysUntil);
+}
+
 export function lastFriday(timezone: string): YMD {
   return addDays(thisFriday(timezone), -7);
 }

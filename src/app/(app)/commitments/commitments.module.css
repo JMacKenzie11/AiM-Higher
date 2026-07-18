@@ -294,6 +294,40 @@
   gap: var(--space-2);
 }
 
+/* Same shape as .rowDue but clickable — dashed ghost affordance so the
+   date reads as editable without shouting. Hover promotes to solid. */
+.rowDueButton {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: 1px dashed transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2));
+  cursor: pointer;
+  text-align: left;
+}
+
+.rowDueButton:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.rowDueButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.rowDueButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .rowDueOverdue {
   color: var(--aims-danger);
 }

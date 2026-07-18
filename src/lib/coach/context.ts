@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
+import { companyHasFeature } from "@/lib/subscriptions/service";
 import { todayInTimezone } from "@/lib/dates";
 import type {
   AnnualGoal,
@@ -100,7 +101,17 @@ export async function buildCoachContext(
     differentiators,
   });
 
-  const kind = input.contextKind ?? "execution";
+  const requestedKind = input.contextKind ?? "execution";
+  // Entitlement gate: if the company doesn't have the strengths
+  // module (either never had it, or turned it off), don't feed
+  // strengths data into the coaching prompt even if an old
+  // conversation was created under that kind. Fall through to
+  // execution context so the session degrades gracefully.
+  const kind =
+    requestedKind === "strengths" &&
+    !(await companyHasFeature(input.companyId, "strengths"))
+      ? "execution"
+      : requestedKind;
 
   let personContext: string;
   if (kind === "strengths") {
@@ -176,38 +187,33 @@ export async function buildCoachContext(
     lines.push("</person_context>");
     personContext = lines.join("\n");
   } else {
-    const openQuarter = await getCurrentQuarter(input.companyId);
-    const priorQuarters = await loadPriorQuarters(
-      supabase,
-      input.companyId,
-      2
-    );
+    // openQuarter is needed to bucket loadSubjectCommitments; everything
+    // else in this branch can run concurrently against it.
+    const [openQuarter, priorQuarters, { priorities, goals }] = await Promise.all([
+      getCurrentQuarter(input.companyId),
+      loadPriorQuarters(supabase, input.companyId, 2),
+      loadOwnedPlanItems(supabase, input.subjectProfileId),
+    ]);
+
     const quartersForRate = [openQuarter, ...priorQuarters].filter(
       (q): q is Quarter => Boolean(q)
     );
 
-    const keepRatesByQuarter = await Promise.all(
-      quartersForRate.map(async (q) => ({
-        quarter: q,
-        keepRate: await computeQuarterKeepRateForSubject(
-          input.companyId,
-          input.subjectProfileId,
-          q
-        ),
-      }))
-    );
-
-    const { keptCount, missedCount, missed, openCommitments } =
-      await loadSubjectCommitments(
-        supabase,
-        input.subjectProfileId,
-        openQuarter
-      );
-
-    const { priorities, goals } = await loadOwnedPlanItems(
-      supabase,
-      input.subjectProfileId
-    );
+    const [keepRatesByQuarter, commitmentStats] = await Promise.all([
+      Promise.all(
+        quartersForRate.map(async (q) => ({
+          quarter: q,
+          keepRate: await computeQuarterKeepRateForSubject(
+            supabase,
+            input.companyId,
+            input.subjectProfileId,
+            q
+          ),
+        }))
+      ),
+      loadSubjectCommitments(supabase, input.subjectProfileId, openQuarter),
+    ]);
+    const { keptCount, missedCount, missed, openCommitments } = commitmentStats;
 
     personContext = formatPersonContext({
       subject,
@@ -257,11 +263,11 @@ async function loadPriorQuarters(
 }
 
 async function computeQuarterKeepRateForSubject(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   companyId: string,
   subjectId: string,
   quarter: Pick<Quarter, "start_date" | "end_date">
 ): Promise<number | null> {
-  const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("commitments")
     .select("status")

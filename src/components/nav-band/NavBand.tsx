@@ -188,8 +188,10 @@ export function NavBand({
       {isSystemAdmin && contextLabel ? (
         <div className={styles.contextBand}>
           <div className={styles.contextInner}>
-            <span className={styles.contextText}>{contextLabel}</span>
-            {showExitScope ? (
+            <span className={styles.contextText}>
+              {onAdminSurface ? "System admin" : contextLabel}
+            </span>
+            {showExitScope && !onAdminSurface ? (
               <form action={exitCompanyScopeAction}>
                 <button type="submit" className={styles.contextExit}>
                   Exit company

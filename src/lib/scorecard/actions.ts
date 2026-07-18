@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
+import { scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { nullableString } from "@/lib/utils";
 import type {
   FunctionalArea,
   MetricValueType,
@@ -25,21 +27,6 @@ export type MetricResult =
 export type EntryResult =
   | { ok: true; entry: ScorecardEntry }
   | { ok: false; message: string };
-
-function scopedCompanyId(
-  session: { profile: { role: string; company_id: string | null } },
-  formCompanyId: string
-): string | null {
-  if (session.profile.role === "system_admin") {
-    return formCompanyId || session.profile.company_id;
-  }
-  return session.profile.company_id;
-}
-
-function nullableString(raw: unknown): string | null {
-  const value = typeof raw === "string" ? raw.trim() : "";
-  return value.length === 0 ? null : value;
-}
 
 const VALUE_TYPES: readonly MetricValueType[] = ["number", "percent", "text"];
 

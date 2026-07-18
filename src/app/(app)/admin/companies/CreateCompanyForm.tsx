@@ -60,6 +60,34 @@ export function CreateCompanyForm() {
         </select>
       </div>
 
+      <div className={`${styles.field} ${styles.formFull}`}>
+        <span className={styles.label}>Features</span>
+        <div className={styles.checkGroup}>
+          <label className={styles.checkOption}>
+            <input
+              type="checkbox"
+              name="features"
+              value="execution"
+              defaultChecked
+              disabled={pending}
+            />
+            Execution Platform
+          </label>
+          <label className={styles.checkOption}>
+            <input
+              type="checkbox"
+              name="features"
+              value="strengths"
+              disabled={pending}
+            />
+            Strengths
+          </label>
+        </div>
+        <p className={styles.fieldHint}>
+          Pick at least one. Controls which modules appear in the nav.
+        </p>
+      </div>
+
       {errorMessage ? (
         <p role="alert" className={styles.errorMessage}>
           {errorMessage}

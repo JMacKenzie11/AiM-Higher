@@ -1,6 +1,16 @@
 // Tiny shared helpers used by service files. Kept dep-free.
 
 /**
+ * Trim a form-derived value and return null when empty. Shared across
+ * plan/foundation/scorecard action files that all normalize optional
+ * text inputs the same way.
+ */
+export function nullableString(raw: unknown): string | null {
+  const value = typeof raw === "string" ? raw.trim() : "";
+  return value.length === 0 ? null : value;
+}
+
+/**
  * Build a `Map` keyed on the result of `key(row)` from an array of rows.
  * Handy for O(1) lookups when stitching join-shaped data client-side.
  */

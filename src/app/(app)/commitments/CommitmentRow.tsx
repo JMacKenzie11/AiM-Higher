@@ -6,6 +6,7 @@ import {
   linkPriorityAction,
   markKeptAction,
   markMissedAction,
+  rescheduleCommitmentAction,
   unmarkKeptAction,
   unmarkMissedAction,
 } from "@/lib/commitments/actions";
@@ -46,6 +47,9 @@ export function CommitmentRow({
 }: CommitmentRowProps) {
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState("");
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState(commitment.due_date);
+  const [rescheduleReason, setRescheduleReason] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -96,6 +100,23 @@ export function CommitmentRow({
     startTransition(async () => {
       const result = await linkPriorityAction(commitment.id, next);
       if (!result.ok) setError(result.message);
+    });
+  }
+
+  function submitReschedule() {
+    setError(null);
+    startTransition(async () => {
+      const result = await rescheduleCommitmentAction(
+        commitment.id,
+        rescheduleDate,
+        rescheduleReason
+      );
+      if (!result.ok) {
+        setError(result.message);
+      } else {
+        setShowReschedule(false);
+        setRescheduleReason("");
+      }
     });
   }
 
@@ -198,6 +219,67 @@ export function CommitmentRow({
             </div>
           </div>
         ) : null}
+
+        {showReschedule && isOpen ? (
+          <div className={styles.resolveStrip}>
+            <label
+              htmlFor={`reschedule-date-${commitment.id}`}
+              className={styles.stripLabel}
+            >
+              Move to
+            </label>
+            <input
+              id={`reschedule-date-${commitment.id}`}
+              type="date"
+              className={styles.stripInput}
+              value={rescheduleDate}
+              onChange={(e) => setRescheduleDate(e.target.value)}
+              disabled={pending}
+            />
+            <label
+              htmlFor={`reschedule-reason-${commitment.id}`}
+              className={styles.stripLabel}
+            >
+              Reason
+            </label>
+            <textarea
+              id={`reschedule-reason-${commitment.id}`}
+              className={styles.stripTextarea}
+              value={rescheduleReason}
+              onChange={(e) => setRescheduleReason(e.target.value)}
+              rows={2}
+              disabled={pending}
+              placeholder="Enter a reason for moving the due date"
+            />
+            <div className={styles.stripSubmitRow}>
+              <button
+                type="button"
+                className={styles.ghostButton}
+                onClick={() => {
+                  setShowReschedule(false);
+                  setRescheduleDate(commitment.due_date);
+                  setRescheduleReason("");
+                }}
+                disabled={pending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={submitReschedule}
+                disabled={
+                  pending ||
+                  !rescheduleReason.trim() ||
+                  !rescheduleDate ||
+                  rescheduleDate === commitment.due_date
+                }
+              >
+                {pending ? "Saving…" : "Reschedule"}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <span className={styles.rowOwner}>
@@ -212,14 +294,34 @@ export function CommitmentRow({
         disabled={pending}
       />
 
-      <span
-        className={
-          isOverdue ? `${styles.rowDue} ${styles.rowDueOverdue}` : styles.rowDue
-        }
-      >
-        {isOverdue ? <span className={styles.rowDueDot} aria-hidden /> : null}
-        {formatShortDate(commitment.due_date)}
-      </span>
+      {isOpen && canResolve ? (
+        <button
+          type="button"
+          className={
+            isOverdue
+              ? `${styles.rowDueButton} ${styles.rowDueOverdue}`
+              : styles.rowDueButton
+          }
+          onClick={() => {
+            setRescheduleDate(commitment.due_date);
+            setShowReschedule((prev) => !prev);
+          }}
+          disabled={pending}
+          aria-label="Reschedule with a reason"
+        >
+          {isOverdue ? <span className={styles.rowDueDot} aria-hidden /> : null}
+          {formatShortDate(commitment.due_date)}
+        </button>
+      ) : (
+        <span
+          className={
+            isOverdue ? `${styles.rowDue} ${styles.rowDueOverdue}` : styles.rowDue
+          }
+        >
+          {isOverdue ? <span className={styles.rowDueDot} aria-hidden /> : null}
+          {formatShortDate(commitment.due_date)}
+        </span>
+      )}
 
       <CommitmentResolutionChip commitment={commitment} />
     </li>

@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import type { Company, Invitation, Profile } from "@/lib/types";
 import styles from "../admin.module.css";
 import { InviteForm } from "./InviteForm";
 import { InvitationRow } from "./InvitationRow";
+import { FeaturesForm } from "./FeaturesForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 
@@ -39,6 +41,8 @@ export default async function CompanyDetailPage({ params }: PageProps) {
     ]);
 
   if (!company) notFound();
+
+  const features = await getCompanyFeatures(company.id);
 
   const pendingInvitations = (invitations as Invitation[] | null)?.filter(
     (row) => row.status === "pending"
@@ -82,6 +86,13 @@ export default async function CompanyDetailPage({ params }: PageProps) {
               status={company.status}
             />
           </div>
+        </section>
+
+        <section className={styles.card} aria-labelledby="features-heading">
+          <h2 id="features-heading" className={styles.h2}>
+            Features
+          </h2>
+          <FeaturesForm companyId={company.id} initial={features} />
         </section>
 
         <section className={styles.card} aria-labelledby="people">

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getScopedCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { companyHasFeature } from "@/lib/subscriptions/service";
 import type { Profile } from "@/lib/types";
 import type { CoachingConversation, CoachingContextKind } from "./service";
 
@@ -69,6 +70,21 @@ export async function createConversationAction(
       }
     } else {
       return { ok: false, message: "That person isn't accessible." };
+    }
+  }
+
+  // Feature gate: if the company doesn't subscribe to the module the
+  // caller is asking to coach on, don't start the conversation. This
+  // matters for 'strengths' — if the entitlement was turned off after
+  // data was captured, we don't want new coaching sessions pulling
+  // from that data.
+  if (contextKind === "strengths") {
+    const enabled = await companyHasFeature(conversationCompanyId, "strengths");
+    if (!enabled) {
+      return {
+        ok: false,
+        message: "Strengths coaching isn't enabled for this company.",
+      };
     }
   }
 
