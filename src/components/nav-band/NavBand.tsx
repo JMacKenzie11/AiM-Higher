@@ -27,19 +27,31 @@ const LOGO_WHITE_SRC = "/brand/aimshigher-logo-white.png";
 const LOGO_INTRINSIC_WIDTH = 620;
 const LOGO_INTRINSIC_HEIGHT = 142;
 
-const APP_LINKS = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Plan", href: "/plan" },
-  { label: "Commitments", href: "/commitments" },
-  { label: "People", href: "/people" },
-  { label: "Foundation", href: "/foundation" },
-] as const;
+// Module-tagged nav links. Each link's `feature` determines whether
+// it renders for a given company — hidden if the company hasn't
+// subscribed to that module. `null` means always-visible.
+type ModuleLink = {
+  label: string;
+  href: string;
+  feature: "execution" | "strengths" | null;
+};
+
+const APP_LINKS: readonly ModuleLink[] = [
+  { label: "Dashboard", href: "/dashboard", feature: "execution" },
+  { label: "Plan", href: "/plan", feature: "execution" },
+  { label: "Commitments", href: "/commitments", feature: "execution" },
+  { label: "People", href: "/people", feature: "execution" },
+  { label: "Foundation", href: "/foundation", feature: "execution" },
+  // Strengths Map links land here when the module ships:
+  //   { label: "Assessment", href: "/strengths/assessment", feature: "strengths" },
+  //   { label: "Results",    href: "/strengths/results",    feature: "strengths" },
+  //   { label: "Teams",      href: "/strengths/teams",      feature: "strengths" },
+];
 
 // ASSUMPTION: Scorecard route (/scorecard) still exists but is
 // intentionally omitted from the nav while the Functional Scorecard
 // design is being rethought. When restored it belongs immediately
-// after Commitments:
-//   { label: "Scorecard", href: "/scorecard" },
+// after Commitments with feature: "execution".
 
 const SYSTEM_ADMIN_LINK = { label: "Companies", href: "/admin/companies" };
 
@@ -50,6 +62,7 @@ export type NavBandProps = {
   contextLabel?: string;
   showExitScope?: boolean;
   scopedCompanyName?: string;
+  features?: Array<"execution" | "strengths">;
 };
 
 export function NavBand({
@@ -59,6 +72,7 @@ export function NavBand({
   contextLabel,
   showExitScope = false,
   scopedCompanyName,
+  features = [],
 }: NavBandProps) {
   const pathname = usePathname() ?? "";
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -68,11 +82,12 @@ export function NavBand({
     setMobileOpen(false);
   }, [pathname]);
 
-  // When a system_admin is scoped into a company, rename the "Dashboard"
-  // label to include the company name so it's obvious the app links
-  // resolve to that specific company. Company members see the plain
-  // "Dashboard" label.
-  const appLinks = APP_LINKS.map((link) =>
+  // Filter by module subscription first, then rebadge Dashboard for
+  // scoped sysadmins. Feature `null` links (if any) always render.
+  const subscribedLinks = APP_LINKS.filter(
+    (link) => link.feature === null || features.includes(link.feature)
+  );
+  const appLinks = subscribedLinks.map((link) =>
     isSystemAdmin && showExitScope && scopedCompanyName && link.href === "/dashboard"
       ? { ...link, label: `${scopedCompanyName} Dashboard` }
       : link

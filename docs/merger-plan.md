@@ -70,9 +70,11 @@ Anthropic bumped from 0.32 → 0.111 is the biggest jump; expect changes around 
   - [x] Update `Profile` TS type with all five new fields (nullable, backfilled by migration)
   - [ ] Unify invitation flow on AiMSHigher's `invitations` table (SM's `invite_status` on profile gets deprecated) — **deferred to Phase 4/5** when SM code physically moves in
   - [ ] Consolidate to one sign-in / reset / accept-invite surface — **deferred to Phase 4/5** for the same reason
-- [ ] **Phase 3 — Shared nav + module switcher**
-  - Extend `NavBand` to read `company_features` and render module tabs conditionally
-  - Move route groups: `/execution/*` and `/strengths/*` under a shared `(app)` layout
+- [x] **Phase 3 — Shared nav + module switcher** (partial — feature gating landed, URL restructure deferred)
+  - [x] Layout fetches `getCompanyFeatures` for the effective company and passes to `NavBand`
+  - [x] `NavBand` tags every link with its module (`execution` | `strengths` | `null` for always-on) and filters by subscription before rendering
+  - [x] Placeholder comment marks where Strengths Map links slot in when Phase 4 lands
+  - [ ] Move route groups to `/execution/*` and `/strengths/*` — **deferred**. Reasoning: current execution routes live at root (`/dashboard`, `/plan`, etc.); a URL restructure would touch every internal link, redirect, and revalidatePath. Cleaner to leave execution as the default namespace and namespace only Strengths (`/strengths/*`) when its code lands.
 - [ ] **Phase 4 — Coaching consolidation**
   - Add `context_kind` column to `coaching_conversations` (nullable, defaults to `'execution'` for existing rows)
   - Port SM's self-coaching + admin-coaching flows onto the same primitive
@@ -102,3 +104,4 @@ Anthropic bumped from 0.32 → 0.111 is the biggest jump; expect changes around 
 - 2026-07-18 — Doc drafted. Phase 0 (analysis + decisions) complete. Awaiting green-light on Phase 1.
 - 2026-07-18 — Phase 1 partial: `company_features` table + `company_has_feature` helper + `getCompanyFeatures` service landed in AiMSHigher (migration 0016). Existing companies backfilled with `'execution'`. SM dep bump documented above for manual application in the SM repo. Migration renumbering deferred to Phase 4/5 when SM tables actually import.
 - 2026-07-18 — Phase 2 partial: profile schema expansion landed (migration 0017 + `Profile` type update). Added `first_name`, `last_name`, `hire_date`, `position_start_date`, `reports_to`. Bidirectional `sync_profile_names` trigger keeps `full_name` and structured fields aligned regardless of which side writes, so every existing caller (profile edit form, invite accept, seed scripts, dashboard reads) keeps working untouched. Invite-flow + auth-surface unification wait for SM code to physically move in.
+- 2026-07-18 — Phase 3 partial: NavBand feature-gating landed. Layout reads `getCompanyFeatures` for the effective company and passes to NavBand; NavBand tags each APP_LINKS entry with its module and filters by subscription before rendering. Placeholder comment marks the Strengths link slot for Phase 4. Behavior unchanged in production (every company has `'execution'` per Phase 1 backfill), but Phase 4 can drop in Strengths items and they'll gate correctly with zero further nav work. Full `/execution/*` URL restructure deferred — execution stays the default namespace; only Strengths gets a namespace prefix.
