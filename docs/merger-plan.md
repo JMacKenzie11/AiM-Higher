@@ -92,9 +92,77 @@ Anthropic bumped from 0.32 → 0.111 is the biggest jump; expect changes around 
   - [x] **5h — Wire strengths context assembler.** `buildCoachContext`'s strengths branch now queries `strengths_assessments` (latest completed) + `strengths_results` (profile + summary) + `strengths_narrative_messages` (transcript). Falls back to a graceful "not yet completed" note when the subject hasn't finished one.
   - [ ] Shared components (form primitives, cards, chips) hoist to `shared/components/ui` — deferred; do after 5b–5h so we can see the actual shared surface.
 - [ ] **Phase 6 — Validation + staged rollout**
-  - Full integration test: user signs in, sees both modules based on `company_features`, uses each end-to-end
-  - Deploy to staging with both modules enabled for a test company; verify RLS on cross-module reads
-  - Prod rollout behind feature flag; existing customers grandfathered by default
+
+### Migration order
+
+Apply in Supabase in this exact order (safe to run all in one push; each is idempotent enough to survive re-runs, but a wrong order breaks FKs):
+
+```
+0016_company_features.sql
+0017_profile_expansion.sql
+0018_coaching_context_kind.sql
+0101_strengths_schema.sql
+0102_strengths_rls.sql
+0103_strengths_items_seed.sql
+```
+
+### Enable Strengths for a test company
+
+Pick a company id (any one — B&B Electric is fine). Then, connected as system_admin or via the SQL editor:
+
+```sql
+insert into public.company_features (company_id, feature)
+values ('<company-uuid>', 'strengths')
+on conflict (company_id, feature) do nothing;
+```
+
+Repeat with `'strengths'` for every company you want to demo to. To disable later:
+
+```sql
+delete from public.company_features
+ where company_id = '<company-uuid>' and feature = 'strengths';
+```
+
+### Smoke-test checklist
+
+**Baseline — nothing broken for execution-only companies:**
+- [ ] Sign in as an existing execution-only user; dashboard renders identically to pre-merger. NavBand shows only Dashboard / Plan / Commitments / People / Foundation.
+- [ ] Create a new commitment; mark kept; keep-rate updates.
+- [ ] Open the AI coach; both self-coach and admin-about-user paths still work.
+- [ ] Dashboard AI brief renders (or the "no data" fallback fires cleanly).
+
+**Feature toggle:**
+- [ ] Insert the `'strengths'` row for the test company. NavBand now shows Assessment / Results / Teams alongside the execution links.
+- [ ] Delete the row. Strengths links disappear on next page load.
+
+**Strengths flow — assessment:**
+- [ ] Navigate `/strengths/welcome`. Start-assessment button creates a `strengths_assessments` row.
+- [ ] Complete the questionnaire. Verify responses land in `strengths_responses`.
+- [ ] Complete the narrative interview. Verify the transcript lands in `strengths_narrative_messages`.
+- [ ] Hit `/strengths/results`. First load triggers `/api/strengths/generate-results` and populates `strengths_results`.
+- [ ] From results, click the coach entry. It creates a `coaching_conversations` row with `context_kind = 'strengths'` and lands in the shared chat UI. The AI reply grounds in the assessment data.
+
+**Strengths flow — team builder:**
+- [ ] `/strengths/teams` shows an empty list + Create form.
+- [ ] Create a team. Add members. `strengths_teams` and `strengths_team_members` populate.
+- [ ] The team detail page shows the deterministic scoring signals from `team-scoring.ts`.
+- [ ] Generate team insights → `/api/strengths/generate-team-insights` writes to `strengths_team_evaluations`.
+- [ ] `/strengths/teams/recommend` returns a Claude-recommended roster.
+
+**Cross-module RLS checks:**
+- [ ] As a company_admin at Company A, confirm you can't SELECT rows from Company B's `strengths_*` tables (should be zero results even if you know an id).
+- [ ] As a team_member with the strengths feature, confirm you can see your own `strengths_results` and `strengths_assessments` but not another member's.
+- [ ] As a company without the `'strengths'` feature row, confirm every SELECT against `strengths_*` returns zero — even from a system_admin scoped in.
+
+**Coach primitive:**
+- [ ] Open an execution coach conversation. Verify `context_kind = 'execution'` in the DB and the leadership-coach / self-coach prompt is in play.
+- [ ] Open a strengths coach conversation (from the results page). Verify `context_kind = 'strengths'` and the strengths-self-coach prompt is in play. Both use the same `/api/coach` route and the same messages table.
+
+### Known gaps ok to defer
+
+- Strengths pages carry SM's original CSS, not AiMSHigher's tokens. Visual polish comes after the smoke test surfaces functional issues.
+- Auth surface consolidation (Phase 2 remainder): SM's /login / /forgot-password aren't ported; the unified AiMSHigher auth surface serves the app.
+- Shared-component hoist to `shared/components/ui`: waiting until enough shared surface is visible to make hoisting worthwhile.
 
 ## Risks + mitigations
 
