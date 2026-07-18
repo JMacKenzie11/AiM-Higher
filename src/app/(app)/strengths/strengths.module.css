@@ -126,3 +126,201 @@
   opacity: 0.6;
   cursor: progress;
 }
+
+.ghostButton {
+  padding: 0 var(--space-3);
+  height: var(--control-h-md);
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ghostButton:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+}
+
+/* ---- Back link (Strengths sub-pages) ---- */
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--primary);
+  font: var(--text-body-sm);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  align-self: flex-start;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- Card header (title + right-aligned meta) ---- */
+.cardHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.cardHeaderMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* ---- Table ---- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body-sm);
+}
+
+.table thead th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.table tbody td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tableMuted {
+  color: var(--text-muted);
+}
+
+.tableActionCell {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.tableLink {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.tableLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- Status chips ---- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.chipPrimary {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
+}
+
+.chipSky {
+  background: color-mix(in srgb, var(--aims-sky, #7dc3f0) 25%, transparent);
+  color: var(--text);
+}
+
+.chipMuted {
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
+}
+
+/* ---- Form grid + inputs ---- */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.formFieldFull {
+  grid-column: 1 / -1;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldLabel {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.input {
+  height: var(--control-h-md);
+  width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+textarea.input {
+  padding: var(--space-2) var(--space-3);
+  min-height: calc(var(--control-h-md) * 2);
+  resize: vertical;
+}
+
+.fieldError {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-danger-tint, color-mix(in srgb, var(--aims-danger) 12%, transparent));
+  border-left: 3px solid var(--aims-danger);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+/* ---- Muted helpers ---- */
+.muted {
+  color: var(--text-muted);
+  margin: 0;
+}

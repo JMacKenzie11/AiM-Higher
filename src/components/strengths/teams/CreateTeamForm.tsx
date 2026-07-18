@@ -7,6 +7,7 @@ import {
   MISSION_BLURBS,
 } from "@/lib/strengths/team-labels";
 import type { MissionType } from "@/lib/strengths/team-scoring";
+import styles from "@/app/(app)/strengths/strengths.module.css";
 
 const MISSION_ORDER: MissionType[] = [
   "launch",
@@ -54,15 +55,18 @@ export default function CreateTeamForm({
       return;
     }
     const data = (await res.json()) as { id: string };
-    router.push(`/admin/teams/${data.id}`);
+    router.push(`/strengths/teams/${data.id}`);
   }
 
+  const showCompanyField =
+    lockedCompanyId === null && companies.length > 0;
+
   return (
-    <form onSubmit={submit} className="form-grid">
-      <label className="stack-1">
-        <span className="subhead">Team name</span>
+    <form onSubmit={submit} className={styles.formGrid}>
+      <label className={styles.formField}>
+        <span className={styles.fieldLabel}>Team name</span>
         <input
-          className="input"
+          className={styles.input}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -70,11 +74,12 @@ export default function CreateTeamForm({
           required
         />
       </label>
-      {lockedCompanyId === null && companies.length > 0 && (
-        <label className="stack-1">
-          <span className="subhead">Company</span>
+
+      {showCompanyField ? (
+        <label className={styles.formField}>
+          <span className={styles.fieldLabel}>Company</span>
           <select
-            className="input"
+            className={styles.input}
             value={companyId}
             onChange={(e) => setCompanyId(e.target.value)}
             required
@@ -86,11 +91,12 @@ export default function CreateTeamForm({
             ))}
           </select>
         </label>
-      )}
-      <label className="stack-1">
-        <span className="subhead">Mission</span>
+      ) : null}
+
+      <label className={styles.formField}>
+        <span className={styles.fieldLabel}>Mission</span>
         <select
-          className="input"
+          className={styles.input}
           value={mission}
           onChange={(e) => setMission(e.target.value as MissionType)}
         >
@@ -101,24 +107,27 @@ export default function CreateTeamForm({
           ))}
         </select>
       </label>
-      <label className="stack-1">
-        <span className="subhead">Mission notes (optional)</span>
+
+      <label className={`${styles.formField} ${styles.formFieldFull}`}>
+        <span className={styles.fieldLabel}>Mission notes (optional)</span>
         <textarea
-          className="input"
+          className={styles.input}
           rows={3}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Anything specific about what this team is for."
         />
       </label>
-      {error && <div className="field-error">{error}</div>}
-      <div>
+
+      {error ? <p className={styles.fieldError}>{error}</p> : null}
+
+      <div className={styles.formFieldFull}>
         <button
           type="submit"
-          className="btn btn-primary lg"
+          className={styles.primaryButton}
           disabled={status === "sending"}
         >
-          {status === "sending" ? "Creating..." : "Create team"}
+          {status === "sending" ? "Creating…" : "Create team"}
         </button>
       </div>
     </form>

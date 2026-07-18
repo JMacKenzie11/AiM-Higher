@@ -61,6 +61,13 @@
   font-weight: 500;
   border-radius: var(--radius-sm);
   transition: opacity var(--duration-fast) var(--ease-out);
+  /* Buttons (dropdown triggers) come with browser chrome — zero them
+     out so a <button className={styles.navLink}> reads identically to
+     an <a className={styles.navLink}>. */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
 }
 
 .navLink:hover {
