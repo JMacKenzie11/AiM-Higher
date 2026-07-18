@@ -1,0 +1,349 @@
+/* Compatibility styles for the two remaining un-ported client
+   components (TeamPage.tsx, RecommendPage.tsx) which use the legacy
+   generic class names (stack-*, card, chip-*, btn btn-*, etc.) from
+   the original standalone Strengths module.
+
+   Loaded only on /strengths/* routes via the route-group layout so
+   these class names don't leak into the rest of the app. Meant as a
+   holding pattern until those two components get a proper module-css
+   port (RecommendPage in particular has enough state coupling that a
+   live-UI pass is safer than a blind rewrite). */
+
+/* ---- Layout stacks ---- */
+.stack-1 { display: flex; flex-direction: column; gap: var(--space-1); }
+.stack-2 { display: flex; flex-direction: column; gap: var(--space-2); }
+.stack-3 { display: flex; flex-direction: column; gap: var(--space-3); }
+.stack-4 { display: flex; flex-direction: column; gap: var(--space-4); }
+.stack-5 { display: flex; flex-direction: column; gap: var(--space-5); }
+.stack-6 { display: flex; flex-direction: column; gap: var(--space-6); }
+
+.row { display: flex; align-items: center; }
+.row-wrap { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+.center { text-align: center; }
+
+/* ---- Card ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.card-header h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.hero-bg {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6);
+  border-radius: var(--radius-md);
+}
+
+.hero-bg h1,
+.hero-bg .subhead {
+  color: var(--aims-white);
+}
+
+/* ---- Legacy typography helpers ---- */
+.subhead {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.subhead-navy { color: var(--primary); }
+
+.caption {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.muted { color: var(--text-muted); }
+.faint { opacity: 0.7; }
+
+.chartreuse-underline {
+  display: block;
+  color: var(--text-heading);
+  font: var(--text-h2);
+  padding-bottom: var(--space-2);
+  position: relative;
+}
+
+.chartreuse-underline::after {
+  content: "";
+  display: block;
+  margin-top: var(--space-2);
+  height: 3px;
+  width: 56px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-chartreuse);
+}
+
+.hero-bg .chartreuse-underline {
+  color: var(--aims-white);
+}
+
+/* Wider container for hero-shell used by RecommendPage */
+.container-wide {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+  width: 100%;
+}
+
+.hero-shell {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) 0 var(--space-8);
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+}
+
+.hero-body h1,
+.hero-body .hero-title {
+  color: var(--aims-white);
+  font: var(--text-display);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.hero-body .eyebrow {
+  color: var(--aims-white);
+  opacity: 0.85;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 0;
+}
+
+.hero-body .hero-sub {
+  color: var(--aims-white);
+  opacity: 0.9;
+  font: var(--text-body);
+  max-width: 65ch;
+  margin: 0;
+}
+
+.hero-body .hero-bar {
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-chartreuse);
+  margin: var(--space-2) 0;
+}
+
+.content-shell {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ---- Chips ---- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.chip-primary { background: var(--aims-cobalt-tint); color: var(--primary); }
+.chip-sky { background: color-mix(in srgb, var(--aims-sky, #7dc3f0) 25%, transparent); color: var(--text); }
+.chip-warning { background: color-mix(in srgb, var(--aims-warning, #f0b442) 25%, transparent); color: var(--text); }
+.chip-muted { background: var(--aims-navy-tint); color: var(--text-muted); }
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: var(--control-h-md);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.btn-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+.btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
+.btn-ghost:hover:not(:disabled) { background: var(--aims-navy-tint); }
+
+.btn.sm { height: var(--control-h-sm); padding: 0 var(--space-3); font-size: 13px; }
+.btn.lg { height: var(--control-h-lg, 44px); padding: 0 var(--space-5); font-size: 15px; }
+
+/* ---- Inputs ---- */
+.input {
+  height: var(--control-h-md);
+  width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+}
+
+textarea.input {
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* ---- Form grid ---- */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.field-error {
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--aims-danger) 12%, transparent);
+  border-left: 3px solid var(--aims-danger);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+/* ---- Table (used inside teams admin sub-pages) ---- */
+.table { width: 100%; border-collapse: collapse; font: var(--text-body-sm); }
+.table thead th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.table tbody td { padding: var(--space-3); border-bottom: 1px solid var(--border); color: var(--text); }
+.table tbody tr:last-child td { border-bottom: none; }
+.action-cell { text-align: right; width: 1%; white-space: nowrap; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* ---- Progress bars ---- */
+.bar-track {
+  height: 8px;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  flex: 1;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal, 200ms) var(--ease-out);
+}
+
+.bar-competence { background: var(--aims-cobalt, var(--primary)); }
+.bar-energy { background: var(--aims-sky, #7dc3f0); }
+
+.progress {
+  height: 6px;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width var(--duration-normal, 200ms) var(--ease-out);
+}
+
+.progress-indeterminate {
+  height: 4px;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-indeterminate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--primary);
+  border-radius: var(--radius-pill);
+  animation: progress-shuttle 1.6s ease-in-out infinite;
+}
+
+@keyframes progress-shuttle {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+.progress-status {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* ---- Empty state used by AssessmentFlow's "finishing" screen ---- */
+.empty-state {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ---- Legacy container/main wrapper referenced by ported files ---- */
+.container {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: var(--space-6);
+  width: 100%;
+}

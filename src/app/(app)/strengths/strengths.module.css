@@ -120,6 +120,14 @@
   font-size: 15px;
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-out);
+  /* Flex centering so text lands mid-pill regardless of whether the
+     element is a <button> or an <a> — anchors don't share the button
+     default line-alignment. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  line-height: 1;
 }
 
 .primaryButton:hover:not(:disabled) {
@@ -145,6 +153,8 @@
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  line-height: 1;
   transition: background var(--duration-fast) var(--ease-out);
 }
 

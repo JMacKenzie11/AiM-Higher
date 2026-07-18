@@ -39,7 +39,7 @@ export default async function RecommendRoute() {
   void isSystemAdmin;
   // Back link goes to the Teams list, which is where the admin came from
   // when they opened this wizard.
-  const backHref = "/admin/teams";
+  const backHref = "/strengths/teams";
   const backLabel = "Back to Teams";
 
   return (

@@ -37,7 +37,7 @@ export default async function TeamDetailPage({
   // Back link destination is the Teams list; from there the admin can jump
   // back to the company overview if they need to.
   const isSystemAdmin = me.role === "system_admin";
-  const backHref = "/admin/teams";
+  const backHref = "/strengths/teams";
   const backLabel = "Back to Teams";
   void isSystemAdmin;
 

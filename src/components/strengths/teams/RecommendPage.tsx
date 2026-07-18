@@ -278,7 +278,7 @@ export default function RecommendPage({
         body: JSON.stringify({ profile_id: r.profile_id, pinned: r.pinned }),
       });
     }
-    router.push(`/admin/teams/${teamId}`);
+    router.push(`/strengths/teams/${teamId}`);
   }
 
   // -----------------------------------------------------------------------
@@ -689,7 +689,7 @@ export default function RecommendPage({
               <button
                 type="button"
                 className="btn btn-ghost lg"
-                onClick={() => router.push("/admin/teams")}
+                onClick={() => router.push("/strengths/teams")}
                 disabled={saving}
               >
                 Cancel
