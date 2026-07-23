@@ -61,7 +61,7 @@ export default async function PersonStrengthsPage({ params }: PageProps) {
   if (!assessment) {
     return (
       <PersonStrengthsShell subject={subject} isSelf={isSelf}>
-        <p className={styles.prose}>
+        <p className={styles.prose} style={{ maxWidth: "none" }}>
           {isSelf
             ? "You haven't taken the strengths assessment yet. It takes about ten to twelve minutes."
             : `${subject.first_name} hasn't taken the strengths assessment yet.`}
@@ -78,7 +78,7 @@ export default async function PersonStrengthsPage({ params }: PageProps) {
   if (assessment.status !== "completed") {
     return (
       <PersonStrengthsShell subject={subject} isSelf={isSelf}>
-        <p className={styles.prose}>
+        <p className={styles.prose} style={{ maxWidth: "none" }}>
           {isSelf
             ? "Your assessment is in progress. Finish it and your results will land here."
             : `${subject.first_name}'s assessment is in progress. Their results will appear here once they finish.`}
@@ -101,7 +101,7 @@ export default async function PersonStrengthsPage({ params }: PageProps) {
   if (!results) {
     return (
       <PersonStrengthsShell subject={subject} isSelf={isSelf}>
-        <p className={styles.prose}>
+        <p className={styles.prose} style={{ maxWidth: "none" }}>
           The assessment finished but results haven&rsquo;t generated yet.
           {isSelf ? " Reload in a moment." : " Ask them to reload their results page, or try again shortly."}
         </p>
