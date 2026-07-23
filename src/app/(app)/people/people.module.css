@@ -368,20 +368,10 @@
   gap: var(--space-2);
 }
 
+/* Composed from the shared ghost + small variants in ui.module.css
+   so this button matches the dashboard/admin equivalents exactly. */
 .coachButton {
-  display: inline-block;
-  padding: 4px 12px;
-  background: transparent;
-  color: var(--primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-size: 13px;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.coachButton:hover {
-  background: var(--aims-navy-tint);
+  composes: btnGhost btnSm from "@/components/ui/ui.module.css";
 }
 
 .rowMessage {
@@ -391,33 +381,17 @@
   text-align: right;
 }
 
-/* ---- Chips ---- */
-.chip {
-  display: inline-block;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-pill);
-  font: var(--text-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-weight: 600;
-}
-
+/* ---- Chips (share the base + colour variants from ui.module.css) ---- */
 .chipActive {
-  composes: chip;
-  background: var(--aims-success-tint);
-  color: var(--text);
+  composes: chipActive from "@/components/ui/ui.module.css";
 }
 
 .chipInactive {
-  composes: chip;
-  background: var(--aims-navy-tint);
-  color: var(--text-muted);
+  composes: chipInactive from "@/components/ui/ui.module.css";
 }
 
 .chipPastDue {
-  composes: chip;
-  background: var(--aims-warning-tint);
-  color: var(--text);
+  composes: chipWarning from "@/components/ui/ui.module.css";
 }
 
 /* ---- Buttons ---- */

@@ -1,0 +1,143 @@
+/* Shared visual primitives. Any page that renders a button, chip, or
+   table header should reference these instead of restating the same
+   CSS locally. Consolidated as part of the design fidelity pass —
+   before this, buttons/chips/headers had ~5 near-identical copies
+   scattered across page modules. */
+
+/* ---- Buttons ---------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: var(--control-h-md);
+  font: var(--text-button);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.btnPrimary {
+  composes: btn;
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btnGhost {
+  composes: btn;
+  border-color: var(--border);
+}
+
+.btnGhost:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+  border-color: var(--border-strong);
+}
+
+.btnDanger {
+  composes: btn;
+  color: var(--aims-danger);
+  border-color: var(--border);
+}
+
+.btnDanger:hover:not(:disabled) {
+  background: var(--aims-danger-tint);
+  border-color: var(--aims-danger);
+}
+
+.btnSm {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  font: var(--text-button-sm);
+}
+
+/* ---- Chips ------------------------------------------------------ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-pill);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  white-space: nowrap;
+}
+
+.chipActive {
+  composes: chip;
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+}
+
+.chipInactive {
+  composes: chip;
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
+}
+
+.chipInfo {
+  composes: chip;
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
+}
+
+.chipWarning {
+  composes: chip;
+  background: var(--aims-warning-tint);
+  color: var(--aims-warning);
+}
+
+.chipDanger {
+  composes: chip;
+  background: var(--aims-danger-tint);
+  color: var(--aims-danger);
+}
+
+/* ---- Table headers --------------------------------------------- */
+
+.tableHeader {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+.tableHeaderRight {
+  composes: tableHeader;
+  text-align: right;
+}
+
+/* ---- Coach shortcut (dashboard/people/admin all reused it) ---- */
+
+.coachButton {
+  composes: btn btnPrimary btnSm;
+}

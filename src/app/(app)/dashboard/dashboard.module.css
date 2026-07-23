@@ -335,20 +335,9 @@
   text-underline-offset: 3px;
 }
 
+/* Composed from the shared ghost + small variants in ui.module.css. */
 .coachButton {
-  display: inline-block;
-  padding: 4px 12px;
-  background: transparent;
-  color: var(--primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-size: 13px;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.coachButton:hover {
-  background: var(--aims-navy-tint);
+  composes: btnGhost btnSm from "@/components/ui/ui.module.css";
 }
 
 /* ---- Week in review AI brief ---- */

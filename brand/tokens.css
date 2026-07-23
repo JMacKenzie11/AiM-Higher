@@ -69,6 +69,11 @@
   --text-body: 400 14px/1.6 var(--font-body);
   --text-body-sm: 400 13px/1.5 var(--font-body);
   --text-caption: 400 12px/1.4 var(--font-body);
+  /* Buttons: Inter, semibold, tabular. Reference from every button
+     instead of restating font-size/weight inline. line-height:1 keeps
+     labels centered inside fixed-height pills. */
+  --text-button: 600 14px/1 var(--font-sans);
+  --text-button-sm: 600 13px/1 var(--font-sans);
 
   /* ---- Spacing (4px base, compact app density) ---- */
   --space-1: 4px;
@@ -95,6 +100,7 @@
   /* ---- Motion ---- */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast: 150ms;   /* hovers */
+  --duration-normal: 200ms; /* short state transitions */
   --duration-slow: 1000ms;  /* bar/ring fills on load */
 
   /* ---- Controls (compact) ---- */

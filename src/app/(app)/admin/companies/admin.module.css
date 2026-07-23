@@ -442,45 +442,25 @@
   align-items: center;
 }
 
-/* ---- Chips ---- */
-.chip {
-  display: inline-block;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-pill);
-  font: var(--text-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-weight: 600;
-}
-
+/* ---- Chips (shared colour variants — see ui.module.css) ---- */
 .chipActive {
-  composes: chip;
-  background: var(--aims-success-tint);
-  color: var(--text);
+  composes: chipActive from "@/components/ui/ui.module.css";
 }
 
 .chipInactive {
-  composes: chip;
-  background: var(--aims-navy-tint);
-  color: var(--text-muted);
+  composes: chipInactive from "@/components/ui/ui.module.css";
 }
 
 .chipPending {
-  composes: chip;
-  background: var(--aims-warning-tint);
-  color: var(--text);
+  composes: chipWarning from "@/components/ui/ui.module.css";
 }
 
 .chipAccepted {
-  composes: chip;
-  background: var(--aims-success-tint);
-  color: var(--text);
+  composes: chipActive from "@/components/ui/ui.module.css";
 }
 
 .chipRevoked {
-  composes: chip;
-  background: var(--aims-navy-tint);
-  color: var(--text-muted);
+  composes: chipInactive from "@/components/ui/ui.module.css";
 }
 
 /* ---- List style used by the company detail page ---- */
