@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import {
+  archivePriorityAction,
   completePriorityAction,
   updatePriorityAction,
   type PlanResult,
@@ -62,14 +64,37 @@ export function PriorityHeroPanel({
   isAdmin,
   isOwner,
 }: PriorityHeroPanelProps) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirmingComplete, setConfirmingComplete] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [completePending, startComplete] = useTransition();
+  const [archiving, startArchive] = useTransition();
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [state, formAction, pending] = useActionState<
     PlanResult<Priority>,
     FormData
   >(updatePriorityAction, INITIAL);
+
+  function onArchive() {
+    if (
+      !window.confirm(
+        `Archive "${priority.title}"? Its commitments stay in history and can be restored later.`
+      )
+    ) {
+      return;
+    }
+    setArchiveError(null);
+    startArchive(async () => {
+      const result = await archivePriorityAction(priority.id, true);
+      if (!result.ok) {
+        setArchiveError(result.message);
+        return;
+      }
+      router.push("/plan");
+      router.refresh();
+    });
+  }
 
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
@@ -311,6 +336,7 @@ export function PriorityHeroPanel({
                       type="button"
                       className={styles.editLink}
                       onClick={() => setConfirmingComplete(true)}
+                      disabled={archiving}
                     >
                       Mark complete
                     </button>
@@ -319,10 +345,24 @@ export function PriorityHeroPanel({
                     type="button"
                     className={styles.editLink}
                     onClick={() => setEditing(true)}
+                    disabled={archiving}
                   >
                     Edit priority
                   </button>
+                  <button
+                    type="button"
+                    className={styles.archiveLink}
+                    onClick={onArchive}
+                    disabled={archiving}
+                  >
+                    {archiving ? "Archiving…" : "Archive"}
+                  </button>
                 </div>
+              ) : null}
+              {archiveError ? (
+                <p role="alert" className={styles.errorMessage}>
+                  {archiveError}
+                </p>
               ) : null}
             </div>
           </>

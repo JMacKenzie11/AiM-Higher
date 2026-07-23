@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import {
+  archiveGoalAction,
   completeGoalAction,
   updateGoalAction,
   type PlanResult,
@@ -59,14 +61,37 @@ export function GoalHeroPanel({
   isAdmin,
   isOwner,
 }: GoalHeroPanelProps) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirmingComplete, setConfirmingComplete] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [completePending, startComplete] = useTransition();
+  const [archiving, startArchive] = useTransition();
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [state, formAction, pending] = useActionState<
     PlanResult<AnnualGoal>,
     FormData
   >(updateGoalAction, INITIAL);
+
+  function onArchive() {
+    if (
+      !window.confirm(
+        `Archive "${goal.title}"? Priorities and commitments under it stay intact and can be restored later.`
+      )
+    ) {
+      return;
+    }
+    setArchiveError(null);
+    startArchive(async () => {
+      const result = await archiveGoalAction(goal.id, true);
+      if (!result.ok) {
+        setArchiveError(result.message);
+        return;
+      }
+      router.push("/plan");
+      router.refresh();
+    });
+  }
 
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
@@ -278,6 +303,7 @@ export function GoalHeroPanel({
                       type="button"
                       className={styles.editLink}
                       onClick={() => setConfirmingComplete(true)}
+                      disabled={archiving}
                     >
                       Mark complete
                     </button>
@@ -286,10 +312,24 @@ export function GoalHeroPanel({
                     type="button"
                     className={styles.editLink}
                     onClick={() => setEditing(true)}
+                    disabled={archiving}
                   >
                     Edit annual goal
                   </button>
+                  <button
+                    type="button"
+                    className={styles.archiveLink}
+                    onClick={onArchive}
+                    disabled={archiving}
+                  >
+                    {archiving ? "Archiving…" : "Archive"}
+                  </button>
                 </div>
+              ) : null}
+              {archiveError ? (
+                <p role="alert" className={styles.errorMessage}>
+                  {archiveError}
+                </p>
               ) : null}
             </div>
           </>

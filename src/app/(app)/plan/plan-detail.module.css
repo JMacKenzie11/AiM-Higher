@@ -249,6 +249,35 @@
   cursor: progress;
 }
 
+/* Same visual weight as .editLink but coloured as a destructive
+   action. Not a full red — just enough to signal "different intent". */
+.archiveLink {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--aims-danger);
+  border-radius: var(--radius-sm);
+}
+
+.archiveLink:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.archiveLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.archiveLink:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 .inlineTitleInput {
   width: 100%;
   font: var(--text-h1);

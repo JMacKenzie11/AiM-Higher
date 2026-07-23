@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
-import { updateSfaAction, type PlanResult } from "@/lib/plan/actions";
+import {
+  archiveSfaAction,
+  updateSfaAction,
+  type PlanResult,
+} from "@/lib/plan/actions";
 import type { CascadeStatus, Profile, StrategicFocusArea } from "@/lib/types";
 import { StatusPicker } from "../../StatusPicker";
 import heroStyles from "@/components/plan/DetailHero.module.css";
@@ -42,11 +47,34 @@ export function SfaHeroPanel({
   isAdmin,
   isSponsor,
 }: SfaHeroPanelProps) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [archiving, startArchive] = useTransition();
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [state, formAction, pending] = useActionState<
     PlanResult<StrategicFocusArea>,
     FormData
   >(updateSfaAction, INITIAL);
+
+  function onArchive() {
+    if (
+      !window.confirm(
+        `Archive "${sfa.title}"? It will disappear from the plan but its history (goals, priorities, and linked commitments) stays intact and can be restored later.`
+      )
+    ) {
+      return;
+    }
+    setArchiveError(null);
+    startArchive(async () => {
+      const result = await archiveSfaAction(sfa.id, true);
+      if (!result.ok) {
+        setArchiveError(result.message);
+        return;
+      }
+      router.push("/plan");
+      router.refresh();
+    });
+  }
 
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
@@ -198,10 +226,24 @@ export function SfaHeroPanel({
                     type="button"
                     className={styles.editLink}
                     onClick={() => setEditing(true)}
+                    disabled={archiving}
                   >
                     Edit focus area
                   </button>
+                  <button
+                    type="button"
+                    className={styles.archiveLink}
+                    onClick={onArchive}
+                    disabled={archiving}
+                  >
+                    {archiving ? "Archiving…" : "Archive"}
+                  </button>
                 </div>
+              ) : null}
+              {archiveError ? (
+                <p role="alert" className={styles.errorMessage}>
+                  {archiveError}
+                </p>
               ) : null}
             </div>
           </>
