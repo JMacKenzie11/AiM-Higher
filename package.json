@@ -10,7 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "seed:admin": "node --env-file=.env.local --experimental-strip-types scripts/seed-admin.ts",
-    "seed:demo": "node --env-file=.env.local --experimental-strip-types scripts/seed-demo.ts"
+    "seed:demo": "node --env-file=.env.local --experimental-strip-types scripts/seed-demo.ts",
+    "seed:construction": "node --env-file=.env.local --experimental-strip-types scripts/seed-construction.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.16",
