@@ -46,19 +46,25 @@ type NavItem =
       items: readonly NavLink[];
     };
 
+// Nav shape:
+//   [Companies (sysadmin only)]  Dashboard  Company ▾  Strengths ▾  [user ▾]
+// Dashboard stays top-level as the daily entry point; every other
+// company-scoped surface (Plan, Commitments, People, Foundation) lives
+// under Company ▾ so the mental model matches ownership ("these all
+// belong to the same company you're operating on") rather than usage
+// frequency. Foundation used to be alone under Company; now the group
+// has real weight and the top row fits comfortably on one line.
 const APP_ITEMS: readonly NavItem[] = [
   { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
-  { kind: "link", label: "Plan", href: "/plan", feature: "execution" },
-  { kind: "link", label: "Commitments", href: "/commitments", feature: "execution" },
-  { kind: "link", label: "People", href: "/people", feature: "execution" },
   {
     kind: "group",
     label: "Company",
     feature: "execution",
     items: [
+      { kind: "link", label: "Plan", href: "/plan" },
+      { kind: "link", label: "Commitments", href: "/commitments" },
+      { kind: "link", label: "People", href: "/people" },
       { kind: "link", label: "Foundation", href: "/foundation" },
-      // ASSUMPTION: additional set-once company surfaces (Settings,
-      // Values calendar, etc.) join this menu as they land.
     ],
   },
   {
