@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getPersonScorecard } from "@/lib/people/service";
+import { companyHasFeature } from "@/lib/subscriptions/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import { formatShortDate } from "@/lib/dates";
@@ -22,6 +23,9 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+  const strengthsEnabled = data.profile.company_id
+    ? await companyHasFeature(data.profile.company_id, "strengths")
+    : false;
 
   return (
     <div className={styles.stage}>
@@ -52,6 +56,16 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                 className={styles.heroCoachAction}
               >
                 Coach about {data.profile.full_name.split(" ")[0]}
+              </Link>
+            ) : null}
+            {strengthsEnabled ? (
+              <Link
+                href={`/people/${id}/strengths`}
+                className={styles.heroAction}
+              >
+                {isSelf
+                  ? "View my strengths →"
+                  : `View ${data.profile.full_name.split(" ")[0]}'s strengths →`}
               </Link>
             ) : null}
           </div>

@@ -180,6 +180,41 @@
   text-underline-offset: 3px;
 }
 
+/* Thin band above ResultsView when the results are being viewed
+   from another page (e.g., a person's scorecard) so the visitor
+   has an obvious way back. Renders above the gradient hero. */
+.backCrumbBand {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) var(--space-6);
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+}
+
+.backCrumbLink {
+  color: var(--aims-white);
+  opacity: 0.9;
+  font: var(--text-body-sm);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  align-self: flex-start;
+}
+
+.backCrumbLink:hover {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* On the surface band (white bg) the link needs a darker colour. */
+.backCrumbBand .backCrumbLink {
+  color: var(--primary);
+  opacity: 1;
+}
+
 /* ---- Card header (title + right-aligned meta) ---- */
 .cardHeader {
   display: flex;
