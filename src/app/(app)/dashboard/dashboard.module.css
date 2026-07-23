@@ -332,7 +332,7 @@
 
 /* Composed from the shared ghost + small variants in ui.module.css. */
 .coachButton {
-  composes: btnGhost btnSm from "@/components/ui/ui.module.css";
+  composes: btnGhost btnSm from "../../../components/ui/ui.module.css";
 }
 
 /* ---- Week in review AI brief ---- */

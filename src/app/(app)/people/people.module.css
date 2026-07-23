@@ -366,7 +366,7 @@
 /* Composed from the shared ghost + small variants in ui.module.css
    so this button matches the dashboard/admin equivalents exactly. */
 .coachButton {
-  composes: btnGhost btnSm from "@/components/ui/ui.module.css";
+  composes: btnGhost btnSm from "../../../components/ui/ui.module.css";
 }
 
 .rowMessage {
@@ -378,15 +378,15 @@
 
 /* ---- Chips (share the base + colour variants from ui.module.css) ---- */
 .chipActive {
-  composes: chipActive from "@/components/ui/ui.module.css";
+  composes: chipActive from "../../../components/ui/ui.module.css";
 }
 
 .chipInactive {
-  composes: chipInactive from "@/components/ui/ui.module.css";
+  composes: chipInactive from "../../../components/ui/ui.module.css";
 }
 
 .chipPastDue {
-  composes: chipWarning from "@/components/ui/ui.module.css";
+  composes: chipWarning from "../../../components/ui/ui.module.css";
 }
 
 /* ---- Buttons ---- */

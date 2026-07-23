@@ -437,23 +437,23 @@
 
 /* ---- Chips (shared colour variants — see ui.module.css) ---- */
 .chipActive {
-  composes: chipActive from "@/components/ui/ui.module.css";
+  composes: chipActive from "../../../../components/ui/ui.module.css";
 }
 
 .chipInactive {
-  composes: chipInactive from "@/components/ui/ui.module.css";
+  composes: chipInactive from "../../../../components/ui/ui.module.css";
 }
 
 .chipPending {
-  composes: chipWarning from "@/components/ui/ui.module.css";
+  composes: chipWarning from "../../../../components/ui/ui.module.css";
 }
 
 .chipAccepted {
-  composes: chipActive from "@/components/ui/ui.module.css";
+  composes: chipActive from "../../../../components/ui/ui.module.css";
 }
 
 .chipRevoked {
-  composes: chipInactive from "@/components/ui/ui.module.css";
+  composes: chipInactive from "../../../../components/ui/ui.module.css";
 }
 
 /* ---- List style used by the company detail page ---- */
