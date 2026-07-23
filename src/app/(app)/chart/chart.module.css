@@ -1,6 +1,7 @@
-/* Chart — company functional map (Functions → Outcomes → Success
-   Measures). Mirrors the layered-hero pattern used by /plan and
-   /admin. */
+/* Chart — company functional map, org-chart style. Each function
+   renders as a rectangular card. Top-level functions sit in a row
+   (or grid at narrow widths). Sub-functions render below their
+   parent, connected by CSS-based tree lines. */
 
 .page {
   display: flex;
@@ -24,6 +25,7 @@
   font: var(--text-body);
   color: var(--text-muted);
   margin: var(--space-3) 0 0 0;
+  max-width: 68ch;
 }
 
 .toolbar {
@@ -57,122 +59,127 @@
   margin: 0;
 }
 
-/* ---- Function cards ------------------------------------------- */
-.tree {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+/* ---- Chart grid (top-level functions) ------------------------- */
+/* At wide viewports we lay top-level functions out horizontally so
+   the chart reads left-to-right. Auto-fit gives a responsive grid
+   for 2×2 / 3-column layouts on smaller screens without breaking. */
+.chartGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-5);
+  align-items: stretch;
 }
 
-.functionCard {
+/* ---- Function card (org-chart box) ---------------------------- */
+.fnCard {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
-  padding: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  overflow: hidden;
 }
 
-.functionSummary {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-4);
-  flex-wrap: wrap;
+.fnHeader {
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  border-bottom: 1px solid var(--border);
 }
 
-.functionEyebrow {
+.fnEyebrow {
   font: var(--text-subhead);
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: var(--primary);
-  display: inline-block;
-  padding: 2px var(--space-2);
-  background: var(--aims-cobalt-tint);
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--space-1);
+  color: var(--aims-white);
+  opacity: 0.75;
+  margin: 0 0 var(--space-1);
 }
 
-.functionTitle {
+.fnTitle {
   font: var(--text-h2);
-  color: var(--text-heading);
-  text-decoration: none;
+  color: var(--aims-white);
   margin: 0;
+  text-decoration: none;
 }
 
-.functionTitle:hover {
+.fnTitle:hover {
+  color: var(--aims-white);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.functionLeader {
+.fnDescription {
   font: var(--text-body-sm);
-  color: var(--text-muted);
-  margin: var(--space-1) 0 0;
+  color: var(--aims-white);
+  opacity: 0.85;
+  margin: var(--space-2) 0 0;
 }
 
-.functionDescription {
-  font: var(--text-body);
-  color: var(--text);
-  margin: 0;
-  max-width: 65ch;
-}
-
-/* Warning surfaces when a function has more than three outcomes —
-   the AiMS focus reminder without blocking the operator. */
-.focusWarning {
-  padding: var(--space-2) var(--space-3);
-  background: var(--aims-warning-tint);
-  border-left: 3px solid var(--aims-warning);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-  color: var(--text);
-}
-
-/* ---- Outcome list ------------------------------------------- */
-.outcomeList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.outcomeItem {
-  padding: var(--space-4);
+/* ---- LTD row (Lead / Track / Decide) -------------------------- */
+.ltdRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border);
   background: var(--aims-navy-tint);
-  border-radius: var(--radius-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
 }
 
-.outcomeHeader {
+.ltdCell {
+  padding: var(--space-3) var(--space-4);
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-3);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid var(--border);
+}
+
+.ltdCell:last-child {
+  border-right: none;
+}
+
+.ltdLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.ltdName {
+  font: var(--text-body);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.ltdNameEmpty {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* ---- Outcomes + measures ------------------------------------- */
+.outcomeBlock {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.outcomeBlock:last-child {
+  border-bottom: none;
+}
+
+.outcomeLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+  margin: 0 0 var(--space-1);
 }
 
 .outcomeTitle {
   font: var(--text-h3);
   color: var(--text-heading);
-  margin: 0;
+  margin: 0 0 var(--space-3);
 }
 
-.outcomeEyebrow {
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-muted);
-  margin-bottom: var(--space-1);
-}
-
-/* ---- Measure list ------------------------------------------- */
 .measureList {
   list-style: none;
   padding: 0;
@@ -182,18 +189,20 @@
   gap: var(--space-2);
 }
 
-.measureItem {
+.measureRow {
   display: grid;
-  grid-template-columns: 1fr 120px 120px;
-  align-items: center;
+  grid-template-columns: 1fr auto auto;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-bottom: 1px dashed var(--border);
 }
 
-.measureDescription {
+.measureRow:last-child {
+  border-bottom: none;
+}
+
+.measureDesc {
   font: var(--text-body);
   color: var(--text);
   min-width: 0;
@@ -203,28 +212,75 @@
   font: var(--text-body-sm);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .measureValue {
   font: var(--text-body);
+  font-weight: 700;
   color: var(--text-heading);
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  white-space: nowrap;
+  padding: 2px var(--space-2);
+  background: var(--aims-cobalt-tint);
+  border-radius: var(--radius-sm);
+  min-width: 48px;
+  text-align: center;
 }
 
-.measureValueMuted {
+.measureValueEmpty {
+  background: transparent;
   color: var(--text-muted);
   font-weight: 400;
 }
 
-/* ---- Add rows / inline forms -------------------------------- */
-.addRow {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
+.emptyOutcomeLine {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
 }
 
+.fnFooter {
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--aims-navy-tint);
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ---- Sub-function branch (children under a parent card) ------ */
+.branchWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.branchConnector {
+  /* Short vertical spacer + fanned children beneath a parent card. */
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--border);
+  margin-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---- Focus warning ------------------------------------------ */
+.focusWarning {
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-warning-tint);
+  border-left: 3px solid var(--aims-warning);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+  margin: 0;
+}
+
+/* ---- Inline add forms --------------------------------------- */
 .addDetails {
   align-self: flex-start;
 }
@@ -325,17 +381,6 @@
   margin: 0;
 }
 
-/* ---- Sub-function nesting ------------------------------------ */
-.children {
-  padding-left: var(--space-5);
-  border-left: 2px solid var(--border);
-  margin-left: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-}
-
 /* ---- Detail page ------------------------------------------- */
 .detailStage {
   display: flex;
@@ -352,4 +397,10 @@
 .crumb:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }

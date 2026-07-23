@@ -46,7 +46,9 @@ export async function createFunctionAction(
   if (!title) return { ok: false, message: "Give the function a title." };
 
   const description = nullableString(formData.get("description"));
-  const leaderId = nullableString(formData.get("leader_id"));
+  const leadId = nullableString(formData.get("lead_id"));
+  const trackId = nullableString(formData.get("track_id"));
+  const decideId = nullableString(formData.get("decide_id"));
   const parentFunctionId = nullableString(formData.get("parent_function_id"));
 
   const supabase = await createSupabaseServerClient();
@@ -57,7 +59,9 @@ export async function createFunctionAction(
       parent_function_id: parentFunctionId,
       title,
       description,
-      leader_id: leaderId,
+      lead_id: leadId,
+      track_id: trackId,
+      decide_id: decideId,
     })
     .select("*")
     .single<FunctionNode>();
@@ -81,7 +85,9 @@ export async function updateFunctionAction(
   if (!title) return { ok: false, message: "Title can't be empty." };
 
   const description = nullableString(formData.get("description"));
-  const leaderId = nullableString(formData.get("leader_id"));
+  const leadId = nullableString(formData.get("lead_id"));
+  const trackId = nullableString(formData.get("track_id"));
+  const decideId = nullableString(formData.get("decide_id"));
   const parentFunctionId = nullableString(formData.get("parent_function_id"));
 
   const supabase = await createSupabaseServerClient();
@@ -90,7 +96,9 @@ export async function updateFunctionAction(
     .update({
       title,
       description,
-      leader_id: leaderId,
+      lead_id: leadId,
+      track_id: trackId,
+      decide_id: decideId,
       parent_function_id: parentFunctionId,
     })
     .eq("id", id)
@@ -120,19 +128,25 @@ export async function archiveFunctionAction(
   return { ok: true, item: data };
 }
 
-export async function setFunctionLeaderAction(
+// Set one of the LTD roles (lead / track / decide). Passing null
+// clears the explicit assignment; the app falls back to lead_id
+// for track/decide when they're null.
+export async function setFunctionRoleAction(
   functionId: string,
-  leaderId: string | null
+  role: "lead" | "track" | "decide",
+  personId: string | null
 ): Promise<ChartResult<FunctionNode>> {
   await requireRole(["system_admin", "company_admin"]);
   const supabase = await createSupabaseServerClient();
+  const patch: Record<string, string | null> = {};
+  patch[`${role}_id`] = personId;
   const { data, error } = await supabase
     .from("functions")
-    .update({ leader_id: leaderId })
+    .update(patch)
     .eq("id", functionId)
     .select("*")
     .single<FunctionNode>();
-  if (error || !data) return { ok: false, message: "Couldn't update leader." };
+  if (error || !data) return { ok: false, message: `Couldn't update ${role}.` };
   revalidatePath("/chart");
   revalidatePath(`/chart/function/${functionId}`);
   return { ok: true, item: data };
@@ -288,8 +302,8 @@ export async function archiveMeasureAction(
 }
 
 // ---- Weekly measure entries -------------------------------------
-// Admin OR the parent function's leader may write these. RLS
-// enforces it a second time.
+// Admin OR the function's Lead / Track person may write these.
+// RLS enforces it a second time.
 
 export async function upsertMeasureEntryAction(
   measureId: string,
@@ -305,7 +319,7 @@ export async function upsertMeasureEntryAction(
   const { data: measureRow } = await supabase
     .from("success_measures")
     .select(
-      "id, value_type, outcome:function_outcomes!inner(function:functions!inner(id, company_id, leader_id))"
+      "id, value_type, outcome:function_outcomes!inner(function:functions!inner(id, company_id, lead_id, track_id))"
     )
     .eq("id", measureId)
     .maybeSingle<{
@@ -315,7 +329,8 @@ export async function upsertMeasureEntryAction(
         function: {
           id: string;
           company_id: string;
-          leader_id: string | null;
+          lead_id: string | null;
+          track_id: string | null;
         };
       };
     }>();
@@ -326,9 +341,13 @@ export async function upsertMeasureEntryAction(
   const isAdmin =
     role === "system_admin" ||
     (role === "company_admin" && session.profile.company_id === fn.company_id);
-  const isLeader = fn.leader_id === session.profile.id;
-  if (!isAdmin && !isLeader) {
-    return { ok: false, message: "Only the function leader or an admin can log this." };
+  const isLtd =
+    fn.lead_id === session.profile.id || fn.track_id === session.profile.id;
+  if (!isAdmin && !isLtd) {
+    return {
+      ok: false,
+      message: "Only the function's Lead / Track / an admin can log this.",
+    };
   }
 
   let value_number: number | null = null;

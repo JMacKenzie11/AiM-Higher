@@ -64,14 +64,48 @@ export function AddFunctionForm({
       </label>
 
       <label className={styles.formField}>
-        <span className={styles.formLabel}>Leader</span>
+        <span className={styles.formLabel}>Lead</span>
         <select
           className={styles.formSelect}
-          name="leader_id"
+          name="lead_id"
           defaultValue=""
           disabled={pending}
         >
           <option value="">Unassigned (fill in later)</option>
+          {people.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.full_name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className={styles.formField}>
+        <span className={styles.formLabel}>Track (optional)</span>
+        <select
+          className={styles.formSelect}
+          name="track_id"
+          defaultValue=""
+          disabled={pending}
+        >
+          <option value="">Same as Lead</option>
+          {people.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.full_name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className={styles.formField}>
+        <span className={styles.formLabel}>Decide (optional)</span>
+        <select
+          className={styles.formSelect}
+          name="decide_id"
+          defaultValue=""
+          disabled={pending}
+        >
+          <option value="">Same as Lead</option>
           {people.map((p) => (
             <option key={p.id} value={p.id}>
               {p.full_name}

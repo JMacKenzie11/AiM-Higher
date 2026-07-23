@@ -479,7 +479,13 @@ type OutcomeSeed = {
 
 type FunctionSeed = {
   title: string;
-  leaderKey: string;
+  // Lead / Track / Decide (LTD). Track and Decide are optional —
+  // fall back to Lead when null, which is the common owner-operator
+  // case. A couple functions split them so the demo shows the
+  // three-role model in play.
+  leadKey: string;
+  trackKey?: string;
+  decideKey?: string;
   description: string;
   outcomes: readonly OutcomeSeed[];
 };
@@ -487,7 +493,9 @@ type FunctionSeed = {
 const CHART_FUNCTIONS: readonly FunctionSeed[] = [
   {
     title: "Field Operations",
-    leaderKey: "marla",
+    leadKey: "marla",
+    trackKey: "ray",       // Ray keeps the field numbers — labor productivity, schedule adherence
+    decideKey: "marla",
     description:
       "Runs every active project — field productivity, schedule adherence, and the people delivering the work.",
     outcomes: [
@@ -507,7 +515,9 @@ const CHART_FUNCTIONS: readonly FunctionSeed[] = [
   },
   {
     title: "Preconstruction & Business Development",
-    leaderKey: "kelsey",
+    leadKey: "kelsey",
+    trackKey: "nathan",    // Nathan tracks pursuit metrics + hit rate
+    decideKey: "dale",     // Dale has final say on go/no-go over $1M
     description:
       "Wins the right work — negotiated relationships, disciplined go/no-go, real budgets in front of owners ahead of shovel.",
     outcomes: [
@@ -528,7 +538,8 @@ const CHART_FUNCTIONS: readonly FunctionSeed[] = [
   },
   {
     title: "Safety & Quality",
-    leaderKey: "hank",
+    leadKey: "hank",
+    // Hank owns all three — small enough function, one accountable person.
     description:
       "Every person on our sites goes home in the shape they arrived. Safety is a precondition, not a program.",
     outcomes: [
@@ -550,7 +561,9 @@ const CHART_FUNCTIONS: readonly FunctionSeed[] = [
   },
   {
     title: "Finance & Admin",
-    leaderKey: "priya",
+    leadKey: "priya",
+    trackKey: "priya",
+    decideKey: "dale",     // Priya runs the numbers; Dale calls the shots on cash + margin
     description:
       "Cash flows, margins hold, and every job closes at the number we bid.",
     outcomes: [
@@ -1313,14 +1326,18 @@ async function upsertChart(
   let totalEntries = 0;
 
   for (const [fnIdx, fn] of CHART_FUNCTIONS.entries()) {
-    const leaderId = people.get(fn.leaderKey)!;
+    const leadId = people.get(fn.leadKey)!;
+    const trackId = fn.trackKey ? people.get(fn.trackKey) ?? null : null;
+    const decideId = fn.decideKey ? people.get(fn.decideKey) ?? null : null;
     const { data: fnRow, error: fnErr } = await admin
       .from("functions")
       .insert({
         company_id: companyId,
         title: fn.title,
         description: fn.description,
-        leader_id: leaderId,
+        lead_id: leadId,
+        track_id: trackId,
+        decide_id: decideId,
         sort_order: fnIdx,
       })
       .select("id")
@@ -1371,7 +1388,7 @@ async function upsertChart(
             week_ending: week,
             value_number: null as number | null,
             value_text: null as string | null,
-            entered_by: leaderId,
+            entered_by: trackId ?? leadId,
           };
           if (m.valueType === "text") {
             entry.value_text = rand() < 0.85 ? "Yes" : "No";

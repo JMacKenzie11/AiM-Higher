@@ -31,25 +31,46 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
       </div>
 
       <header className={styles.header}>
-        <span className={styles.functionEyebrow}>Function</span>
+        <p className={styles.fnEyebrow} style={{ color: "var(--text-muted)" }}>
+          Function
+        </p>
         <h1 className={styles.h1}>{detail.fn.title}</h1>
         <span className="aims-rule" aria-hidden="true" />
-        <p className={styles.functionLeader}>
-          Leader: {detail.leader?.full_name ?? "Unassigned"}
-          {detail.parent ? (
-            <>
-              {" · Part of "}
-              <Link href={`/chart/function/${detail.parent.id}`} className={styles.crumb}>
-                {detail.parent.title}
-              </Link>
-            </>
-          ) : null}
-        </p>
+        {detail.parent ? (
+          <p className={styles.subtitle}>
+            Part of{" "}
+            <Link href={`/chart/function/${detail.parent.id}`} className={styles.crumb}>
+              {detail.parent.title}
+            </Link>
+          </p>
+        ) : null}
+        {detail.fn.description ? (
+          <p className={styles.subtitle}>{detail.fn.description}</p>
+        ) : null}
       </header>
 
-      {detail.fn.description ? (
-        <p className={styles.functionDescription}>{detail.fn.description}</p>
-      ) : null}
+      <div className={styles.fnCard} style={{ maxWidth: 640 }}>
+        <div className={styles.ltdRow}>
+          {(
+            [
+              { label: "Lead", person: detail.ltd.lead },
+              { label: "Track", person: detail.ltd.track },
+              { label: "Decide", person: detail.ltd.decide },
+            ] as const
+          ).map((c) => (
+            <div key={c.label} className={styles.ltdCell}>
+              <span className={styles.ltdLabel}>{c.label}</span>
+              <span
+                className={
+                  c.person ? styles.ltdName : `${styles.ltdName} ${styles.ltdNameEmpty}`
+                }
+              >
+                {c.person?.full_name ?? "Unassigned"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {outcomeCount > 3 ? (
         <p className={styles.focusWarning}>
@@ -61,40 +82,42 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
 
       <section className={styles.tree}>
         {detail.outcomes.map((o) => (
-          <article key={o.id} className={styles.outcomeItem}>
-            <div className={styles.outcomeHeader}>
-              <div>
-                <span className={styles.outcomeEyebrow}>Outcome</span>
-                <h2 className={styles.outcomeTitle}>{o.title}</h2>
-                {o.description ? (
-                  <p className={styles.functionDescription}>{o.description}</p>
-                ) : null}
-              </div>
-            </div>
+          <article key={o.id} className={styles.outcomeBlock} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
+            <p className={styles.outcomeLabel}>Outcome</p>
+            <h2 className={styles.outcomeTitle}>{o.title}</h2>
+            {o.description ? (
+              <p className={styles.subtitle}>{o.description}</p>
+            ) : null}
 
             {o.measures.length > 0 ? (
               <ul className={styles.measureList}>
                 {o.measures.map((m) => {
                   const latest = m.entries[0] ?? null;
                   return (
-                    <li key={m.id} className={styles.measureItem}>
-                      <div className={styles.measureDescription}>{m.description}</div>
-                      <div className={styles.measureTarget}>
+                    <li key={m.id} className={styles.measureRow}>
+                      <span className={styles.measureDesc}>{m.description}</span>
+                      <span className={styles.measureTarget}>
                         {m.target ? `Target: ${m.target}` : "No target"}
-                      </div>
-                      <div className={styles.measureValue}>
+                      </span>
+                      <span
+                        className={
+                          latest
+                            ? styles.measureValue
+                            : `${styles.measureValue} ${styles.measureValueEmpty}`
+                        }
+                      >
                         {formatValue(m.value_type, latest?.value_number ?? null, latest?.value_text ?? null)}
-                      </div>
+                      </span>
                     </li>
                   );
                 })}
               </ul>
             ) : (
-              <p className={styles.emptyLine}>No measures yet.</p>
+              <p className={styles.emptyOutcomeLine}>No measures yet.</p>
             )}
 
             {isAdmin ? (
-              <details className={styles.addDetails}>
+              <details className={styles.addDetails} style={{ marginTop: "var(--space-3)" }}>
                 <summary className={styles.addSummary}>+ Add measure</summary>
                 <AddMeasureForm outcomeId={o.id} />
               </details>
@@ -103,7 +126,7 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         ))}
 
         {detail.outcomes.length === 0 ? (
-          <p className={styles.emptyLine}>No outcomes yet.</p>
+          <p className={styles.emptyOutcomeLine}>No outcomes yet.</p>
         ) : null}
 
         {isAdmin ? (
@@ -116,11 +139,13 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
 
       {detail.children.length > 0 ? (
         <section>
-          <h2 className={styles.outcomeTitle}>Sub-functions</h2>
-          <ul className={styles.outcomeList}>
+          <h2 className={styles.outcomeTitle} style={{ marginBottom: "var(--space-3)" }}>
+            Sub-functions
+          </h2>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
             {detail.children.map((c) => (
-              <li key={c.id} className={styles.outcomeItem}>
-                <Link href={`/chart/function/${c.id}`} className={styles.functionTitle}>
+              <li key={c.id}>
+                <Link href={`/chart/function/${c.id}`} className={styles.crumb}>
                   {c.title}
                 </Link>
               </li>
