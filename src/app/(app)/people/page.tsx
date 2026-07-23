@@ -2,16 +2,26 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
-import { getPeopleRoster } from "@/lib/people/service";
+import {
+  getPeopleRoster,
+  getPeopleStrengthsOverlay,
+} from "@/lib/people/service";
+import { companyHasFeature } from "@/lib/subscriptions/service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { InviteForm } from "../admin/companies/[id]/InviteForm";
 import { InvitationRow } from "../admin/companies/[id]/InvitationRow";
 import { PersonStatusToggle } from "./PersonStatusToggle";
+import { PeopleViewTabs } from "./PeopleViewTabs";
+import { PeopleStrengthsTable } from "./PeopleStrengthsTable";
 import styles from "./people.module.css";
 
 // People roster — Section 8.6.
 
-export default async function PeoplePage() {
+type PageProps = {
+  searchParams: Promise<{ view?: string }>;
+};
+
+export default async function PeoplePage({ searchParams }: PageProps) {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
@@ -20,6 +30,15 @@ export default async function PeoplePage() {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+
+  const { view } = await searchParams;
+  const strengthsEnabled = await companyHasFeature(companyId, "strengths");
+  const activeView: "execution" | "strengths" =
+    view === "strengths" && strengthsEnabled ? "strengths" : "execution";
+  const strengthsOverlay =
+    activeView === "strengths"
+      ? await getPeopleStrengthsOverlay(companyId)
+      : [];
 
   return (
     <div className={styles.stage}>
@@ -36,10 +55,15 @@ export default async function PeoplePage() {
 
       <div className={styles.content}>
         <section className={styles.card} aria-labelledby="roster">
-          <h2 id="roster" className={styles.h2}>
-            Team
-          </h2>
-          {people.length === 0 ? (
+          <div className={styles.rosterHeader}>
+            <h2 id="roster" className={styles.h2}>
+              Team
+            </h2>
+            {strengthsEnabled ? <PeopleViewTabs active={activeView} /> : null}
+          </div>
+          {activeView === "strengths" ? (
+            <PeopleStrengthsTable rows={strengthsOverlay} />
+          ) : people.length === 0 ? (
             <p className={styles.emptyLine}>
               No one on the roster yet.{" "}
               {isAdmin ? "Send the first invitation below." : ""}

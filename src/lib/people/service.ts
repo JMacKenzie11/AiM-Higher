@@ -10,6 +10,7 @@ import type {
   Priority,
   Profile,
 } from "@/lib/types";
+import type { ResultsProfile } from "@/lib/strengths/types";
 import type { KeepRateBar } from "@/components/charts/KeepRateBarChart";
 
 // Roster + person-scorecard read models — Section 8.6.
@@ -99,6 +100,120 @@ export async function getPeopleRoster(
     people,
     pendingInvitations: (invitations ?? []) as Invitation[],
   };
+}
+
+// ================ People strengths overlay ================
+// Same roster shape as getPeopleRoster, but each row carries a
+// snapshot of the person's latest strengths results so /people can
+// render a directory-style "who leans thinking / who's a signature
+// on Building Trust" view without one round-trip per person.
+
+export type PersonStrengthsOverlay = {
+  id: string;
+  full_name: string;
+  position: string | null;
+  assessmentStatus: "not_started" | "in_progress" | "completed";
+  // Empty when the assessment isn't complete — the UI renders a
+  // status chip in that case rather than chips/bars.
+  topStrengths: string[]; // top 3 sub_strength ids by energy
+  dimensionEnergy: Record<"thinking" | "influence" | "execution" | "relating", number | null>;
+};
+
+export async function getPeopleStrengthsOverlay(
+  companyId: string
+): Promise<PersonStrengthsOverlay[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const [{ data: profiles }, { data: assessments }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, position")
+      .eq("company_id", companyId)
+      .eq("status", "active")
+      .order("full_name"),
+    supabase
+      .from("strengths_assessments")
+      .select("id, user_id, status, version")
+      .eq("company_id", companyId)
+      .order("version", { ascending: false }),
+  ]);
+
+  const roster = (profiles ?? []) as Pick<
+    Profile,
+    "id" | "full_name" | "position"
+  >[];
+  const assessmentRows = (assessments ?? []) as Array<{
+    id: string;
+    user_id: string;
+    status: string;
+    version: number;
+  }>;
+
+  // Pick the latest assessment row per user (rows are already sorted
+  // by version desc, so first-wins).
+  const latestByUser = new Map<string, (typeof assessmentRows)[number]>();
+  for (const row of assessmentRows) {
+    if (!latestByUser.has(row.user_id)) latestByUser.set(row.user_id, row);
+  }
+
+  const completedAssessmentIds = Array.from(latestByUser.values())
+    .filter((a) => a.status === "completed")
+    .map((a) => a.id);
+
+  const resultsByAssessmentId = new Map<string, ResultsProfile>();
+  if (completedAssessmentIds.length > 0) {
+    const { data: results } = await supabase
+      .from("strengths_results")
+      .select("assessment_id, profile")
+      .in("assessment_id", completedAssessmentIds);
+    for (const row of (results ?? []) as Array<{
+      assessment_id: string;
+      profile: unknown;
+    }>) {
+      resultsByAssessmentId.set(row.assessment_id, row.profile as ResultsProfile);
+    }
+  }
+
+  return roster.map((p) => {
+    const assessment = latestByUser.get(p.id);
+    const status: PersonStrengthsOverlay["assessmentStatus"] = !assessment
+      ? "not_started"
+      : assessment.status === "completed"
+        ? "completed"
+        : "in_progress";
+    const profile =
+      assessment && status === "completed"
+        ? resultsByAssessmentId.get(assessment.id) ?? null
+        : null;
+
+    const topStrengths = profile
+      ? [...profile.sub_strengths]
+          .sort((a, b) => b.energy - a.energy)
+          .slice(0, 3)
+          .map((s) => s.sub_strength)
+      : [];
+
+    const dimensionEnergy = {
+      thinking: null,
+      influence: null,
+      execution: null,
+      relating: null,
+    } as PersonStrengthsOverlay["dimensionEnergy"];
+    if (profile) {
+      for (const dim of profile.dimensions) {
+        dimensionEnergy[dim.dimension] = dim.energy_avg;
+      }
+    }
+
+    return {
+      id: p.id,
+      full_name: p.full_name,
+      position: p.position,
+      assessmentStatus: status,
+      topStrengths,
+      dimensionEnergy,
+    };
+  });
 }
 
 // ================ Person scorecard ================

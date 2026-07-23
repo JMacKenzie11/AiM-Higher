@@ -241,6 +241,103 @@
   color: var(--text-muted);
 }
 
+/* ---- Roster header (title + view tabs) ---- */
+.rosterHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.viewTabs {
+  display: inline-flex;
+  gap: var(--space-1);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+}
+
+.viewTab {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.viewTab:hover {
+  color: var(--text);
+}
+
+.viewTab[data-active="true"] {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---- Strengths view chips + dimension mini-bars ---- */
+.strengthsChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.strengthsChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
+  font: var(--text-caption);
+  font-weight: 600;
+}
+
+.dimensionMiniRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  min-width: 320px;
+}
+
+.dimensionMini {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dimensionMiniLabel {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.dimensionMiniTrack {
+  height: 6px;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.dimensionMiniFill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal, 200ms) var(--ease-out);
+}
+
+.dimensionMiniValue {
+  font: var(--text-caption);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 .capCell {
   color: var(--text);
   text-transform: capitalize;
