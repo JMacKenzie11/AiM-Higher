@@ -44,7 +44,7 @@
   --primary-hover: var(--aims-cobalt-hover);
   --on-primary: var(--aims-white);
   --accent: var(--aims-chartreuse);
-  --focus-ring: rgba(53, 81, 164, 0.35);
+  --focus-ring: rgba(53, 81, 164, 0.5); /* opaque enough to survive dark input borders + 200% zoom */
 
   /* ---- Surfaces & depth (1c "Bold Expressive" direction) ---- */
   --grad-brand: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); /* heroes, nav bands, report covers */

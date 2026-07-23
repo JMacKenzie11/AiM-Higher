@@ -144,10 +144,7 @@
 }
 
 .submit:hover:not(:disabled) {
-  transform: translateY(-1px);
   background: color-mix(in srgb, var(--aims-chartreuse) 92%, var(--aims-navy));
-  box-shadow: 0 8px 24px
-    color-mix(in srgb, var(--aims-chartreuse) 45%, transparent);
 }
 
 .submit:disabled,

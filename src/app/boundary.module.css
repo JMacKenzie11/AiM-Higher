@@ -98,7 +98,6 @@
 }
 
 .primaryButton:hover {
-  transform: translateY(-1px);
   color: var(--aims-navy);
   background: color-mix(in srgb, var(--aims-chartreuse) 92%, var(--aims-navy));
 }

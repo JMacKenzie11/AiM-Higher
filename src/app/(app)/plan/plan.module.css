@@ -122,7 +122,6 @@
 
 .toolbarAddSummary:hover {
   background: var(--primary-hover);
-  transform: translateY(-1px);
 }
 
 .toolbarAddPanel {
@@ -569,8 +568,6 @@
 
 .primaryButton:hover:not(:disabled) {
   background: var(--primary-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
 }
 
 .primaryButton:disabled {
