@@ -460,55 +460,113 @@ const PRIORITIES: readonly PrioritySeed[] = [
   },
 ];
 
-// ---- functional scorecard ---------------------------------------
+// ---- functional chart -------------------------------------------
+// Functions → Outcomes (obsession) → Success Measures (proof).
+// Modeled after the same GC KPIs a $10-20M builder actually watches.
+// Weekly entries land in success_measure_entries.
 
-type MetricSeed = {
-  name: string;
+type MeasureSeed = {
+  description: string;
   target: string;
   valueType: "number" | "percent" | "text";
 };
 
-type FunctionalAreaSeed = {
-  name: string;
-  accountableKey: string;
-  metrics: readonly MetricSeed[];
+type OutcomeSeed = {
+  title: string;
+  description?: string;
+  measures: readonly MeasureSeed[];
 };
 
-const SCORECARD_AREAS: readonly FunctionalAreaSeed[] = [
+type FunctionSeed = {
+  title: string;
+  leaderKey: string;
+  description: string;
+  outcomes: readonly OutcomeSeed[];
+};
+
+const CHART_FUNCTIONS: readonly FunctionSeed[] = [
   {
-    name: "Field Operations",
-    accountableKey: "marla",
-    metrics: [
-      { name: "Labor Productivity Factor (PLF)",     target: "0.95", valueType: "number" },
-      { name: "Days without a recordable incident",  target: "180",  valueType: "number" },
-      { name: "Projects on schedule",                target: "90",   valueType: "percent" },
+    title: "Field Operations",
+    leaderKey: "marla",
+    description:
+      "Runs every active project — field productivity, schedule adherence, and the people delivering the work.",
+    outcomes: [
+      {
+        title: "Every project ships on schedule",
+        measures: [
+          { description: "Projects on schedule",                target: "90",   valueType: "percent" },
+        ],
+      },
+      {
+        title: "Field labor beats estimate on self-perform scopes",
+        measures: [
+          { description: "Labor Productivity Factor (PLF)",     target: "0.95", valueType: "number" },
+        ],
+      },
     ],
   },
   {
-    name: "Preconstruction & Business Development",
-    accountableKey: "kelsey",
-    metrics: [
-      { name: "New negotiated pursuits started",     target: "3",    valueType: "number" },
-      { name: "Bid hit rate (negotiated)",           target: "55",   valueType: "percent" },
-      { name: "Backlog (signed contract value, $M)", target: "18",   valueType: "number" },
+    title: "Preconstruction & Business Development",
+    leaderKey: "kelsey",
+    description:
+      "Wins the right work — negotiated relationships, disciplined go/no-go, real budgets in front of owners ahead of shovel.",
+    outcomes: [
+      {
+        title: "Negotiated pursuits become the majority of the book",
+        measures: [
+          { description: "New negotiated pursuits started (per quarter)", target: "3",  valueType: "number" },
+          { description: "Bid hit rate (negotiated)",                     target: "55", valueType: "percent" },
+        ],
+      },
+      {
+        title: "Backlog stays healthy",
+        measures: [
+          { description: "Backlog (signed contract value, $M)", target: "18", valueType: "number" },
+        ],
+      },
     ],
   },
   {
-    name: "Safety & Quality",
-    accountableKey: "hank",
-    metrics: [
-      { name: "TRIR (trailing 12 mo)",               target: "1.5",  valueType: "number" },
-      { name: "Toolbox talks delivered this week",   target: "5",    valueType: "number" },
-      { name: "Near-miss reports logged",            target: "3",    valueType: "number" },
+    title: "Safety & Quality",
+    leaderKey: "hank",
+    description:
+      "Every person on our sites goes home in the shape they arrived. Safety is a precondition, not a program.",
+    outcomes: [
+      {
+        title: "No one gets hurt",
+        measures: [
+          { description: "TRIR (trailing 12 mo)",               target: "1.5", valueType: "number" },
+          { description: "Days without a recordable incident",  target: "180", valueType: "number" },
+        ],
+      },
+      {
+        title: "Safety leadership shows up in the field",
+        measures: [
+          { description: "Toolbox talks delivered this week",   target: "5", valueType: "number" },
+          { description: "Near-miss reports logged this week",  target: "3", valueType: "number" },
+        ],
+      },
     ],
   },
   {
-    name: "Finance & Admin",
-    accountableKey: "priya",
-    metrics: [
-      { name: "Days Sales Outstanding (AR days)",    target: "55",   valueType: "number" },
-      { name: "Gross margin on completed jobs",      target: "12.5", valueType: "number" },
-      { name: "Payroll processed on-time",           target: "Yes",  valueType: "text" },
+    title: "Finance & Admin",
+    leaderKey: "priya",
+    description:
+      "Cash flows, margins hold, and every job closes at the number we bid.",
+    outcomes: [
+      {
+        title: "Cash keeps flowing",
+        measures: [
+          { description: "Days Sales Outstanding (AR days)",    target: "55",  valueType: "number" },
+          { description: "Payroll processed on-time",           target: "Yes", valueType: "text" },
+        ],
+      },
+      {
+        title: "Every job closes at the margin we bid",
+        measures: [
+          { description: "Gross margin on completed jobs (%)",  target: "12.5", valueType: "number" },
+        ],
+      },
     ],
   },
 ];
@@ -813,7 +871,7 @@ async function main() {
 
   const priorities = await upsertCascade(admin, companyId, quarters, peopleByKey);
   await upsertCommitments(admin, companyId, priorities, peopleByKey);
-  await upsertScorecard(admin, companyId, peopleByKey);
+  await upsertChart(admin, companyId, peopleByKey);
   await upsertStrengths(admin, companyId, peopleByKey);
 
   console.log("");
@@ -1236,90 +1294,110 @@ async function upsertCommitments(
 
 // ---- scorecard ---------------------------------------------------
 
-async function upsertScorecard(
+async function upsertChart(
   admin: SupabaseClient,
   companyId: string,
   people: Map<string, string>
 ) {
-  await admin.from("scorecard_entries").delete().eq("company_id", companyId);
-  await admin.from("scorecard_metrics").delete().eq("company_id", companyId);
-  await admin.from("functional_areas").delete().eq("company_id", companyId);
+  // Clear existing chart data for this company (cascades handle
+  // outcomes → measures → entries via the FK on delete cascade).
+  await admin.from("functions").delete().eq("company_id", companyId);
 
   // 13 Fridays ending at ANCHOR_FRIDAY.
   const weeks: string[] = [];
   for (let i = 12; i >= 0; i--) weeks.push(addDays(ANCHOR_FRIDAY, -7 * i));
+  const rand = mulberry32(20260823);
 
-  const rand = mulberry32(20260822);
+  let totalOutcomes = 0;
+  let totalMeasures = 0;
+  let totalEntries = 0;
 
-  for (const [areaIdx, area] of SCORECARD_AREAS.entries()) {
-    const { data: areaRow, error: areaError } = await admin
-      .from("functional_areas")
+  for (const [fnIdx, fn] of CHART_FUNCTIONS.entries()) {
+    const leaderId = people.get(fn.leaderKey)!;
+    const { data: fnRow, error: fnErr } = await admin
+      .from("functions")
       .insert({
         company_id: companyId,
-        name: area.name,
-        accountable_id: people.get(area.accountableKey)!,
-        sort_order: areaIdx,
+        title: fn.title,
+        description: fn.description,
+        leader_id: leaderId,
+        sort_order: fnIdx,
       })
       .select("id")
       .single();
-    if (areaError || !areaRow) throw areaError ?? new Error("insert area failed");
+    if (fnErr || !fnRow) throw fnErr ?? new Error("insert function failed");
 
-    for (const [metricIdx, metric] of area.metrics.entries()) {
-      const { data: metricRow, error: metricError } = await admin
-        .from("scorecard_metrics")
+    for (const [oIdx, o] of fn.outcomes.entries()) {
+      const { data: oRow, error: oErr } = await admin
+        .from("function_outcomes")
         .insert({
-          company_id: companyId,
-          functional_area_id: areaRow.id,
-          name: metric.name,
-          target: metric.target,
-          value_type: metric.valueType,
-          sort_order: metricIdx,
+          function_id: fnRow.id,
+          title: o.title,
+          description: o.description ?? null,
+          sort_order: oIdx,
         })
         .select("id")
         .single();
-      if (metricError || !metricRow) throw metricError ?? new Error("insert metric failed");
+      if (oErr || !oRow) throw oErr ?? new Error("insert outcome failed");
+      totalOutcomes += 1;
 
-      const entries: Array<{
-        company_id: string;
-        metric_id: string;
-        week_ending: string;
-        value_number: number | null;
-        value_text: string | null;
-        entered_by: string;
-      }> = [];
+      for (const [mIdx, m] of o.measures.entries()) {
+        const { data: mRow, error: mErr } = await admin
+          .from("success_measures")
+          .insert({
+            outcome_id: oRow.id,
+            description: m.description,
+            target: m.target,
+            value_type: m.valueType,
+            sort_order: mIdx,
+          })
+          .select("id")
+          .single();
+        if (mErr || !mRow) throw mErr ?? new Error("insert measure failed");
+        totalMeasures += 1;
 
-      for (const week of weeks) {
-        if (rand() < 0.15) continue; // ~missed a week
-        const entry = {
-          company_id: companyId,
-          metric_id: metricRow.id,
-          week_ending: week,
-          value_number: null as number | null,
-          value_text: null as string | null,
-          entered_by: people.get(area.accountableKey)!,
-        };
-        if (metric.valueType === "text") {
-          entry.value_text = rand() < 0.85 ? "Yes" : "No";
-        } else if (metric.valueType === "percent") {
-          const target = Number(String(metric.target).replace("%", ""));
-          const jitter = (rand() - 0.4) * 20;
-          entry.value_number = Math.max(0, Math.min(100, Math.round(target + jitter)));
-        } else {
-          const target = Number(String(metric.target));
-          // Around 70–130% of target so it reads believable.
-          const val = target * (0.7 + rand() * 0.6);
-          entry.value_number = Math.round(val * 100) / 100;
+        const entries: Array<{
+          measure_id: string;
+          week_ending: string;
+          value_number: number | null;
+          value_text: string | null;
+          entered_by: string;
+        }> = [];
+
+        for (const week of weeks) {
+          if (rand() < 0.15) continue; // occasional missed week
+          const entry = {
+            measure_id: mRow.id,
+            week_ending: week,
+            value_number: null as number | null,
+            value_text: null as string | null,
+            entered_by: leaderId,
+          };
+          if (m.valueType === "text") {
+            entry.value_text = rand() < 0.85 ? "Yes" : "No";
+          } else if (m.valueType === "percent") {
+            const target = Number(String(m.target).replace("%", ""));
+            const jitter = (rand() - 0.4) * 20;
+            entry.value_number = Math.max(0, Math.min(100, Math.round(target + jitter)));
+          } else {
+            const target = Number(String(m.target));
+            const val = target * (0.7 + rand() * 0.6);
+            entry.value_number = Math.round(val * 100) / 100;
+          }
+          entries.push(entry);
         }
-        entries.push(entry);
-      }
-      if (entries.length > 0) {
-        const { error } = await admin.from("scorecard_entries").insert(entries);
-        if (error) throw error;
+        if (entries.length > 0) {
+          const { error } = await admin.from("success_measure_entries").insert(entries);
+          if (error) throw error;
+          totalEntries += entries.length;
+        }
       }
     }
   }
 
-  console.log(`  · scorecard: ${SCORECARD_AREAS.length} functional areas with 13 weeks`);
+  console.log(
+    `  · chart: ${CHART_FUNCTIONS.length} functions · ${totalOutcomes} outcomes · ${totalMeasures} measures · ${totalEntries} weekly entries`
+  );
 }
 
 // ---- strengths (assessments + responses + results per person) ---

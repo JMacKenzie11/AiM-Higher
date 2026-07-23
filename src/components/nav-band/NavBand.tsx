@@ -62,6 +62,7 @@ const APP_ITEMS: readonly NavItem[] = [
     feature: "execution",
     items: [
       { kind: "link", label: "Plan", href: "/plan" },
+      { kind: "link", label: "Chart", href: "/chart" },
       { kind: "link", label: "Commitments", href: "/commitments" },
       { kind: "link", label: "People", href: "/people" },
       { kind: "link", label: "Foundation", href: "/foundation" },

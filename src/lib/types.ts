@@ -207,6 +207,57 @@ export type ScorecardEntry = {
   updated_at: string;
 };
 
+// ---- Chart (Functions → Outcomes → Success Measures) ------------
+// Replaces the older Scorecard model. Functions form a tree via
+// parent_function_id. Each function owns Outcomes; each outcome owns
+// Success Measures; each measure has weekly entries.
+export type FunctionNode = {
+  id: string;
+  company_id: string;
+  parent_function_id: string | null;
+  title: string;
+  description: string | null;
+  leader_id: string | null;
+  sort_order: number;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FunctionOutcome = {
+  id: string;
+  function_id: string;
+  title: string;
+  description: string | null;
+  sort_order: number;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SuccessMeasure = {
+  id: string;
+  outcome_id: string;
+  description: string;
+  target: string | null;
+  value_type: MetricValueType;
+  sort_order: number;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SuccessMeasureEntry = {
+  id: string;
+  measure_id: string;
+  week_ending: string;
+  value_number: number | null;
+  value_text: string | null;
+  entered_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
 // ---- Foundation + marketing (Sections 4.6 + 4.7) -----------------
 export type FoundationItemKind =
   | "core_value"

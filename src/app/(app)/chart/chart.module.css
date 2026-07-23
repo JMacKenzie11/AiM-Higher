@@ -1,0 +1,355 @@
+/* Chart — company functional map (Functions → Outcomes → Success
+   Measures). Mirrors the layered-hero pattern used by /plan and
+   /admin. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.h1 {
+  font: var(--text-h1);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.subtitle {
+  font: var(--text-body);
+  color: var(--text-muted);
+  margin: var(--space-3) 0 0 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.emptyCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.emptyLead {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.emptyLine {
+  font: var(--text-body);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ---- Function cards ------------------------------------------- */
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.functionCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.functionSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.functionEyebrow {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+  display: inline-block;
+  padding: 2px var(--space-2);
+  background: var(--aims-cobalt-tint);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-1);
+}
+
+.functionTitle {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  text-decoration: none;
+  margin: 0;
+}
+
+.functionTitle:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.functionLeader {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin: var(--space-1) 0 0;
+}
+
+.functionDescription {
+  font: var(--text-body);
+  color: var(--text);
+  margin: 0;
+  max-width: 65ch;
+}
+
+/* Warning surfaces when a function has more than three outcomes —
+   the AiMS focus reminder without blocking the operator. */
+.focusWarning {
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-warning-tint);
+  border-left: 3px solid var(--aims-warning);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+/* ---- Outcome list ------------------------------------------- */
+.outcomeList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.outcomeItem {
+  padding: var(--space-4);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.outcomeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.outcomeTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.outcomeEyebrow {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+
+/* ---- Measure list ------------------------------------------- */
+.measureList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.measureItem {
+  display: grid;
+  grid-template-columns: 1fr 120px 120px;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.measureDescription {
+  font: var(--text-body);
+  color: var(--text);
+  min-width: 0;
+}
+
+.measureTarget {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.measureValue {
+  font: var(--text-body);
+  color: var(--text-heading);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.measureValueMuted {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ---- Add rows / inline forms -------------------------------- */
+.addRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.addDetails {
+  align-self: flex-start;
+}
+
+.addDetails[open] {
+  align-self: stretch;
+  width: 100%;
+}
+
+.addSummary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  color: var(--primary);
+  font: var(--text-button-sm);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.addSummary::-webkit-details-marker {
+  display: none;
+}
+
+.addSummary:hover {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary-hover);
+}
+
+.addForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3) 0 0;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.formFieldFull {
+  grid-column: 1 / -1;
+}
+
+.formLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.formInput,
+.formSelect,
+.formTextarea {
+  height: var(--control-h-md);
+  width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+}
+
+.formTextarea {
+  height: auto;
+  min-height: calc(var(--control-h-md) * 2);
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+
+.formInput:focus,
+.formSelect:focus,
+.formTextarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.formSubmit {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.errorMessage {
+  grid-column: 1 / -1;
+  padding: var(--space-3);
+  background: var(--aims-danger-tint);
+  border-left: 3px solid var(--aims-danger);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+  margin: 0;
+}
+
+/* ---- Sub-function nesting ------------------------------------ */
+.children {
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--border);
+  margin-left: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+/* ---- Detail page ------------------------------------------- */
+.detailStage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.crumb {
+  color: var(--primary);
+  text-decoration: none;
+  font: var(--text-body-sm);
+}
+
+.crumb:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
