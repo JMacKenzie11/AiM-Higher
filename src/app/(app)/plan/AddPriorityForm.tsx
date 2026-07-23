@@ -53,25 +53,33 @@ export function AddPriorityForm({
         />
       </div>
 
-      <div className={styles.field}>
-        <label htmlFor="priority-goal" className={styles.label}>
-          Annual goal
-        </label>
-        <select
-          id="priority-goal"
-          name="annual_goal_id"
-          className={styles.select}
-          defaultValue={defaultGoalId ?? ""}
-          disabled={pending}
-        >
-          <option value="">Not linked (yet)</option>
-          {goalOptions.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.title}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Goal picker is redundant when we've been mounted under a
+          specific goal (cascade inline add, or the Goal detail page).
+          Send it hidden and keep the visible form focused on what
+          isn't implied by context. */}
+      {defaultGoalId && goalOptions.length <= 1 ? (
+        <input type="hidden" name="annual_goal_id" value={defaultGoalId} />
+      ) : (
+        <div className={styles.field}>
+          <label htmlFor="priority-goal" className={styles.label}>
+            Annual goal
+          </label>
+          <select
+            id="priority-goal"
+            name="annual_goal_id"
+            className={styles.select}
+            defaultValue={defaultGoalId ?? ""}
+            disabled={pending}
+          >
+            <option value="">Not linked (yet)</option>
+            {goalOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className={styles.field}>
         <label htmlFor="priority-owner" className={styles.label}>

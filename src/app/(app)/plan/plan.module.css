@@ -445,8 +445,16 @@
 
 /* ---- Add-form disclosure ---- */
 .addDetails {
-  align-self: flex-start;
   margin-top: var(--space-2);
+}
+
+/* Summary button stays tight (inline-flex above), while the details
+   block itself stretches to the container so the opened form has
+   room for its multi-column grid. Without this the form collapsed to
+   a single narrow column matching the "+ Add …" button width. */
+.addDetails[open] {
+  align-self: stretch;
+  width: 100%;
 }
 
 .addSummary {

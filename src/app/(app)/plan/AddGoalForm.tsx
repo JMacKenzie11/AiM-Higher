@@ -49,25 +49,33 @@ export function AddGoalForm({
         />
       </div>
 
-      <div className={styles.field}>
-        <label htmlFor="goal-sfa" className={styles.label}>
-          Focus area
-        </label>
-        <select
-          id="goal-sfa"
-          name="sfa_id"
-          className={styles.select}
-          defaultValue={defaultSfaId ?? ""}
-          disabled={pending}
-        >
-          <option value="">Not linked (yet)</option>
-          {sfaOptions.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.title}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* When we've been mounted inside a specific SFA (detail page or
+          inline under that SFA in the cascade), the picker is noise —
+          there's exactly one valid parent and it's implied by where
+          the form lives. Pass it via hidden input instead. */}
+      {defaultSfaId && sfaOptions.length <= 1 ? (
+        <input type="hidden" name="sfa_id" value={defaultSfaId} />
+      ) : (
+        <div className={styles.field}>
+          <label htmlFor="goal-sfa" className={styles.label}>
+            Focus area
+          </label>
+          <select
+            id="goal-sfa"
+            name="sfa_id"
+            className={styles.select}
+            defaultValue={defaultSfaId ?? ""}
+            disabled={pending}
+          >
+            <option value="">Not linked (yet)</option>
+            {sfaOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className={styles.field}>
         <label htmlFor="goal-owner" className={styles.label}>
