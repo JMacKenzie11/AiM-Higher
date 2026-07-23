@@ -4,7 +4,9 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getSfaDetail } from "@/lib/plan/service";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { SfaHeroPanel } from "./SfaHeroPanel";
+import { AddGoalForm } from "../../AddGoalForm";
 import styles from "../../plan-detail.module.css";
+import planStyles from "../../plan.module.css";
 
 // SFA detail — Section 8.3.
 
@@ -61,6 +63,19 @@ export default async function SfaDetailPage({ params }: PageProps) {
             ))}
           </ul>
         )}
+
+        {isAdmin ? (
+          <details className={planStyles.addDetails}>
+            <summary className={planStyles.addSummary}>
+              + Add annual goal
+            </summary>
+            <AddGoalForm
+              defaultSfaId={detail.sfa.id}
+              sfaOptions={[{ id: detail.sfa.id, title: detail.sfa.title }]}
+              people={detail.people}
+            />
+          </details>
+        ) : null}
       </section>
     </>
   );

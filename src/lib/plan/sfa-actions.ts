@@ -17,7 +17,7 @@ export async function createSfaAction(
 ): Promise<PlanResult<StrategicFocusArea>> {
   const session = await requireRole(["system_admin", "company_admin"]);
 
-  const companyId = scopedCompanyId(
+  const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
   );

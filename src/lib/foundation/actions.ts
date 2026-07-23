@@ -30,7 +30,7 @@ export async function upsertFoundationAction(
   formData: FormData
 ): Promise<Result<CompanyFoundation>> {
   const session = await requireRole(["system_admin", "company_admin"]);
-  const companyId = scopedCompanyId(
+  const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
   );
@@ -65,7 +65,7 @@ export async function createFoundationItemAction(
   formData: FormData
 ): Promise<Result<FoundationItem>> {
   const session = await requireRole(["system_admin", "company_admin"]);
-  const companyId = scopedCompanyId(
+  const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
   );
@@ -207,7 +207,7 @@ export async function upsertMarketingAction(
   formData: FormData
 ): Promise<Result<MarketingStrategy>> {
   const session = await requireRole(["system_admin", "company_admin"]);
-  const companyId = scopedCompanyId(
+  const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
   );
@@ -240,7 +240,7 @@ export async function createPillarAction(
   formData: FormData
 ): Promise<Result<MessagingPillar>> {
   const session = await requireRole(["system_admin", "company_admin"]);
-  const companyId = scopedCompanyId(
+  const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
   );
@@ -344,7 +344,7 @@ export async function createSnippetAction(
   formData: FormData
 ): Promise<Result<MarketingSnippet>> {
   const session = await requireRole(["system_admin", "company_admin"]);
-  const companyId = scopedCompanyId(
+  const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
   );

@@ -13,9 +13,11 @@
     "seed:demo": "node --env-file=.env.local --experimental-strip-types scripts/seed-demo.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.16",
     "@anthropic-ai/sdk": "^0.111.0",
     "@supabase/ssr": "^0.12.1",
     "@supabase/supabase-js": "^2.110.5",
+    "ai": "^7.0.31",
     "next": "15.5.20",
     "react": "19.0.0",
     "react-dom": "19.0.0",

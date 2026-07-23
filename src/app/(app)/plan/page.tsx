@@ -75,45 +75,63 @@ export default async function PlanPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      {quarters.length === 0 ? (
-        <NoQuartersState isAdmin={isAdmin} />
-      ) : (
-        <>
-          <div className={styles.toolbar}>
-            <QuarterSwitcher
-              quarters={quarters.map((quarter) => ({
-                id: quarter.id,
-                label: quarter.label,
-                status: quarter.status,
-              }))}
-              selectedId={selectedQuarter?.id ?? null}
-            />
-            {isAdmin ? (
-              <div className={styles.toolbarActions}>
-                {!openQuarter ? (
-                  <Link href="/quarters" className={styles.toolbarGhost}>
-                    + Open next quarter
-                  </Link>
-                ) : null}
-                <details className={styles.toolbarAddDetails}>
-                  <summary className={styles.toolbarAddSummary}>
-                    + Add Strategic Focus Area
-                  </summary>
-                  <div className={styles.toolbarAddPanel}>
-                    <AddSfaForm people={roster} />
-                  </div>
-                </details>
-                <BulkResetButton
-                  companyId={companyId}
-                  sfaCount={resetImpact.sfaCount}
-                  goalCount={resetImpact.goalCount}
-                  priorityCount={resetImpact.priorityCount}
+      {/* Toolbar is always visible. SFAs and annual goals aren't
+          quarter-scoped, so the operator can populate the top of the
+          cascade before opening a quarter. Only priorities need a
+          quarter, and that gating happens at the priority form. */}
+      <div className={styles.toolbar}>
+        {quarters.length > 0 ? (
+          <QuarterSwitcher
+            quarters={quarters.map((quarter) => ({
+              id: quarter.id,
+              label: quarter.label,
+              status: quarter.status,
+            }))}
+            selectedId={selectedQuarter?.id ?? null}
+          />
+        ) : (
+          <span className={styles.toolbarMuted}>
+            No quarters yet — open one to add priorities.
+          </span>
+        )}
+        {isAdmin ? (
+          <div className={styles.toolbarActions}>
+            {!openQuarter ? (
+              <Link href="/quarters" className={styles.toolbarGhost}>
+                + {quarters.length === 0 ? "Open your first quarter" : "Open next quarter"}
+              </Link>
+            ) : null}
+            <details className={styles.toolbarAddDetails}>
+              <summary className={styles.toolbarAddSummary}>
+                + Add Strategic Focus Area
+              </summary>
+              <div className={styles.toolbarAddPanel}>
+                <AddSfaForm people={roster} />
+              </div>
+            </details>
+            <details className={styles.toolbarAddDetails}>
+              <summary className={styles.toolbarAddSummary}>
+                + Add Annual Goal
+              </summary>
+              <div className={styles.toolbarAddPanel}>
+                <AddGoalForm
+                  defaultSfaId={null}
+                  sfaOptions={sfaOptions}
+                  people={roster}
                 />
               </div>
-            ) : null}
+            </details>
+            <BulkResetButton
+              companyId={companyId}
+              sfaCount={resetImpact.sfaCount}
+              goalCount={resetImpact.goalCount}
+              priorityCount={resetImpact.priorityCount}
+            />
           </div>
+        ) : null}
+      </div>
 
-          <PlanCascadeController companyId={companyId}>
+      <PlanCascadeController companyId={companyId}>
           <div className={styles.cascade}>
             {cascade.sfas.length === 0 && cascade.orphanGoals.length === 0 &&
               cascade.orphanPriorities.length === 0 ? (
@@ -406,28 +424,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
             ) : null}
           </div>
           </PlanCascadeController>
-        </>
-      )}
     </div>
-  );
-}
-
-function NoQuartersState({ isAdmin }: { isAdmin: boolean }) {
-  return (
-    <section className={styles.emptyCard}>
-      <p className={styles.emptyLead}>
-        No quarters yet. Priorities live inside a quarter.
-      </p>
-      {isAdmin ? (
-        <Link href="/quarters" className={styles.primaryLink}>
-          Open your first quarter
-        </Link>
-      ) : (
-        <p className={styles.emptyLine}>
-          Ask your company admin to open a quarter.
-        </p>
-      )}
-    </section>
   );
 }
 

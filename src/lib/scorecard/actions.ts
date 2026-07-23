@@ -39,7 +39,7 @@ export async function createAreaAction(
   formData: FormData
 ): Promise<AreaResult> {
   const session = await requireRole(["system_admin", "company_admin"]);
-  const companyId = scopedCompanyId(
+  const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
   );
@@ -110,7 +110,7 @@ export async function createMetricAction(
   formData: FormData
 ): Promise<MetricResult> {
   const session = await requireRole(["system_admin", "company_admin"]);
-  const companyId = scopedCompanyId(
+  const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
   );

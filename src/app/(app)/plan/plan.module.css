@@ -38,6 +38,12 @@
   flex-wrap: wrap;
 }
 
+.toolbarMuted {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  font-style: italic;
+}
+
 .resetButton {
   height: var(--control-h-md);
   padding: 0 var(--space-4);

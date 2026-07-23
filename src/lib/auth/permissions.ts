@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import type { Profile, Role } from "@/lib/types";
 
 // Shared permission primitives. Every server action + page loader used
@@ -37,17 +38,24 @@ export function canWriteOwnedRow(
 }
 
 /**
- * Resolve the company_id to write against. system_admins may submit any
- * company (via a form field); everyone else is pinned to their own.
+ * Resolve the company_id to write against. Precedence:
+ *   1. system_admin with an explicit form value → use it (cross-company writes)
+ *   2. system_admin with a scope cookie → use the scoped company
+ *   3. everyone else → their profile.company_id
  * Returns null when we can't determine one — caller should surface a
  * message rather than silently insert against the wrong company.
+ *
+ * Async because the sysadmin fallback reads the HTTP-only scope cookie.
  */
-export function scopedCompanyId(
-  session: { profile: Pick<Profile, "role" | "company_id"> },
+export async function scopedCompanyId(
+  session: { profile: Pick<Profile, "id" | "role" | "company_id"> },
   formCompanyId: string
-): string | null {
+): Promise<string | null> {
   if (session.profile.role === "system_admin") {
-    return formCompanyId || session.profile.company_id;
+    if (formCompanyId) return formCompanyId;
+    // Session profile has no company_id for sysadmins; fall through to
+    // the scope cookie via the shared resolver.
+    return getEffectiveCompanyId(session);
   }
   return session.profile.company_id;
 }

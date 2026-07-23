@@ -26,7 +26,8 @@ export function AddSfaForm({
   const { formRef, confirmationVisible } = useStayOpenForm(
     state,
     pending,
-    (s) => Boolean(s && "ok" in s && s.ok)
+    (s) => Boolean(s && "ok" in s && s.ok),
+    { closeAncestor: "details" }
   );
 
   return (

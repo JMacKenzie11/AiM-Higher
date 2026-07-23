@@ -13,7 +13,7 @@ export async function createGoalAction(
   formData: FormData
 ): Promise<PlanResult<AnnualGoal>> {
   const session = await requireRole(["system_admin", "company_admin"]);
-  const companyId = scopedCompanyId(
+  const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
   );
