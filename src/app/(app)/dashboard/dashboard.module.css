@@ -56,12 +56,7 @@
   height: 3px;
   width: 72px;
   border-radius: var(--radius-pill);
-  background: linear-gradient(
-    to right,
-    var(--aims-chartreuse) 0%,
-    var(--aims-chartreuse) 60%,
-    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
-  );
+  background: var(--grad-rule);
 }
 
 .subtitle {
@@ -346,11 +341,7 @@
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  background: linear-gradient(
-    135deg,
-    var(--surface) 0%,
-    var(--aims-sky-tint) 100%
-  );
+  background: var(--grad-secondary);
 }
 
 .briefEyebrow {

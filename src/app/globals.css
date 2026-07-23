@@ -94,12 +94,7 @@ select {
   height: 3px;
   width: 56px;
   border-radius: var(--radius-pill);
-  background: linear-gradient(
-    to right,
-    var(--aims-chartreuse) 0%,
-    var(--aims-chartreuse) 60%,
-    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
-  );
+  background: var(--grad-rule);
   margin-top: var(--space-3);
 }
 

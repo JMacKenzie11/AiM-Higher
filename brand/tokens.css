@@ -48,6 +48,13 @@
 
   /* ---- Surfaces & depth (1c "Bold Expressive" direction) ---- */
   --grad-brand: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); /* heroes, nav bands, report covers */
+  --grad-secondary: linear-gradient(135deg, var(--surface) 0%, var(--aims-sky-tint) 100%); /* light-surface AI/insight cards */
+  --grad-rule: linear-gradient(
+    to right,
+    var(--aims-chartreuse) 0%,
+    var(--aims-chartreuse) 60%,
+    color-mix(in srgb, var(--aims-chartreuse) 30%, transparent) 100%
+  ); /* the signature tapered rule under key headings — always this */
   --glass-bg: rgba(255, 255, 255, 0.08);        /* glass cards on dark/gradient surfaces */
   --glass-border: rgba(255, 255, 255, 0.14);
   --glass-blur: 14px;                            /* backdrop-filter: blur(var(--glass-blur)) */

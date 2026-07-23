@@ -428,7 +428,7 @@
 
 .chip {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid var(--glass-border);
   color: var(--aims-white);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-pill);
@@ -437,5 +437,5 @@
 }
 
 .chip:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--glass-bg);
 }
