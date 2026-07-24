@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getChartTree,
   type ChartFunction,
@@ -10,15 +11,23 @@ import {
 import { AddFunctionForm, AddOutcomeForm, AddMeasureForm } from "./InlineForms";
 import styles from "./chart.module.css";
 
-// Chart — how we run the business. Rendered as an org-chart of
-// function boxes. Each box: Function name → LTD trio → outcomes with
-// their success measures + targets. Sub-functions render below their
-// parent, connected by a CSS-based branch line.
+// Chart — an org-chart tree of the company's functions.
+// Company at the root; functions branch below with L-shaped
+// connector lines; sub-functions cascade further. Each function
+// box shows LTD (Lead / Track / Decide) and the outcomes with
+// their success measures.
 
 export default async function ChartPage() {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
+
+  const supabase = await createSupabaseServerClient();
+  const { data: company } = await supabase
+    .from("companies")
+    .select("name")
+    .eq("id", companyId)
+    .maybeSingle<{ name: string }>();
 
   const { roots, roster } = await getChartTree(companyId);
 
@@ -32,9 +41,8 @@ export default async function ChartPage() {
         <h1 className={styles.h1}>Chart</h1>
         <span className="aims-rule" aria-hidden="true" />
         <p className={styles.subtitle}>
-          The company&rsquo;s functions — the capabilities we need to deliver
-          value — with the LTD (Lead / Track / Decide) for each and the
-          success measures that prove the outcomes.
+          How we run the business. Each function shows LTD (Lead / Track /
+          Decide) and the success measures that prove its outcomes.
         </p>
       </header>
 
@@ -52,18 +60,30 @@ export default async function ChartPage() {
       {roots.length === 0 ? (
         <EmptyChart isAdmin={isAdmin} />
       ) : (
-        <div className={styles.chartGrid}>
-          {roots.map((fn) => (
-            <FunctionBranch key={fn.id} fn={fn} isAdmin={isAdmin} />
-          ))}
+        <div className={styles.tree}>
+          <ul>
+            <li>
+              <div className={styles.companyRoot}>
+                <span className={styles.companyRootLabel}>Company</span>
+                <h2 className={styles.companyRootTitle}>
+                  {company?.name ?? "Chart"}
+                </h2>
+              </div>
+              <ul>
+                {roots.map((fn) => (
+                  <FunctionBranch key={fn.id} fn={fn} isAdmin={isAdmin} />
+                ))}
+              </ul>
+            </li>
+          </ul>
         </div>
       )}
     </div>
   );
 }
 
-// A branch = a function card plus any sub-functions rendered
-// beneath it and connected by the .branchConnector line.
+// A branch = a function box, plus a nested <ul> of its sub-functions
+// if any. The CSS tree scaffold takes care of the connector lines.
 function FunctionBranch({
   fn,
   isAdmin,
@@ -72,16 +92,16 @@ function FunctionBranch({
   isAdmin: boolean;
 }) {
   return (
-    <div className={styles.branchWrap}>
+    <li>
       <FunctionBox fn={fn} isAdmin={isAdmin} />
       {fn.children.length > 0 ? (
-        <div className={styles.branchConnector}>
+        <ul>
           {fn.children.map((child) => (
             <FunctionBranch key={child.id} fn={child} isAdmin={isAdmin} />
           ))}
-        </div>
+        </ul>
       ) : null}
-    </div>
+    </li>
   );
 }
 
@@ -91,9 +111,9 @@ function FunctionBox({ fn, isAdmin }: { fn: ChartFunction; isAdmin: boolean }) {
     <article className={styles.fnCard}>
       <header className={styles.fnHeader}>
         <p className={styles.fnEyebrow}>Function</p>
-        <h2 className={styles.fnTitle}>
+        <h3 className={styles.fnTitle}>
           <Link href={`/chart/function/${fn.id}`}>{fn.title}</Link>
-        </h2>
+        </h3>
         {fn.description ? (
           <p className={styles.fnDescription}>{fn.description}</p>
         ) : null}
@@ -109,36 +129,37 @@ function FunctionBox({ fn, isAdmin }: { fn: ChartFunction; isAdmin: boolean }) {
         fn.outcomes.map((o) => (
           <section key={o.id} className={styles.outcomeBlock}>
             <p className={styles.outcomeLabel}>Outcome</p>
-            <h3 className={styles.outcomeTitle}>{o.title}</h3>
+            <h4 className={styles.outcomeTitle}>{o.title}</h4>
             {o.measures.length === 0 ? (
-              <p className={styles.emptyOutcomeLine}>
-                No success measures yet.
-                {isAdmin ? " Add one below to start tracking." : ""}
-              </p>
+              <p className={styles.emptyOutcomeLine}>No success measures yet.</p>
             ) : (
               <ul className={styles.measureList}>
                 {o.measures.map((m) => (
                   <li key={m.id} className={styles.measureRow}>
                     <span className={styles.measureDesc}>{m.description}</span>
-                    <span className={styles.measureTarget}>
-                      {m.target ? `Target ${formatWithType(m.target, m.value_type)}` : "No target"}
-                    </span>
-                    <span
-                      className={
-                        m.latestEntry
-                          ? styles.measureValue
-                          : `${styles.measureValue} ${styles.measureValueEmpty}`
-                      }
-                      title={m.latestEntry ? `Week of ${m.latestEntry.week_ending}` : "No entries yet"}
-                    >
-                      {formatLatestValue(m)}
-                    </span>
+                    <div className={styles.measureTargets}>
+                      <span
+                        className={
+                          m.latestEntry
+                            ? styles.measureValue
+                            : `${styles.measureValue} ${styles.measureValueEmpty}`
+                        }
+                        title={m.latestEntry ? `Week of ${m.latestEntry.week_ending}` : "No entries yet"}
+                      >
+                        {formatLatestValue(m)}
+                      </span>
+                      {m.target ? (
+                        <span className={styles.measureTarget}>
+                          Target {formatWithType(m.target, m.value_type)}
+                        </span>
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </ul>
             )}
             {isAdmin ? (
-              <details className={styles.addDetails} style={{ marginTop: "var(--space-3)" }}>
+              <details className={styles.addDetails} style={{ marginTop: "var(--space-2)" }}>
                 <summary className={styles.addSummary}>+ Add measure</summary>
                 <AddMeasureForm outcomeId={o.id} />
               </details>
@@ -183,6 +204,7 @@ function LtdRow({ ltd }: { ltd: ChartLtd }) {
             className={
               c.person ? styles.ltdName : `${styles.ltdName} ${styles.ltdNameEmpty}`
             }
+            title={c.person?.full_name ?? "Unassigned"}
           >
             {c.person?.full_name ?? "Unassigned"}
           </span>

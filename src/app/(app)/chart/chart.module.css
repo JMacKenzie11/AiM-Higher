@@ -1,7 +1,9 @@
-/* Chart — company functional map, org-chart style. Each function
-   renders as a rectangular card. Top-level functions sit in a row
-   (or grid at narrow widths). Sub-functions render below their
-   parent, connected by CSS-based tree lines. */
+/* Chart — a real org-chart tree.
+   Company root at top. Functions branch below with L-shaped
+   connectors drawn in pure CSS. Sub-functions cascade further.
+   Horizontal scroll on narrow viewports (the whole point of an org
+   chart is spatial hierarchy — we don't want to reflow it into a
+   stack that loses the shape). */
 
 .page {
   display: flex;
@@ -59,18 +61,127 @@
   margin: 0;
 }
 
-/* ---- Chart grid (top-level functions) ------------------------- */
-/* At wide viewports we lay top-level functions out horizontally so
-   the chart reads left-to-right. Auto-fit gives a responsive grid
-   for 2×2 / 3-column layouts on smaller screens without breaking. */
-.chartGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: var(--space-5);
-  align-items: stretch;
+/* ---- Tree scaffold -------------------------------------------
+   The classic CSS org-tree pattern using nested ul/li. Each `ul`
+   is a row of siblings, each `li` gets pseudo-element line stubs
+   that meet in the middle to form the L-shape. Works to any depth. */
+
+.tree {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: var(--space-4) var(--space-3) var(--space-6);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
 }
 
-/* ---- Function card (org-chart box) ---------------------------- */
+.tree ul {
+  padding-inline-start: 0;
+  padding-top: var(--space-5);
+  margin: 0;
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+  gap: var(--space-5);
+}
+
+/* Every list becomes a set of horizontal children. Each child has
+   two pseudo-elements: one for the horizontal spanning line and
+   one for the vertical drop from the parent connector. */
+.tree li {
+  padding: var(--space-5) var(--space-2) 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Left half of the horizontal connector, plus a vertical stub down
+   into this child. The border-right becomes the vertical drop. */
+.tree li::before,
+.tree li::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  height: var(--space-5);
+  border-top: 2px solid var(--border-strong);
+  width: 50%;
+}
+.tree li::before {
+  right: 50%;
+  border-right: 2px solid var(--border-strong);
+}
+.tree li::after {
+  left: 50%;
+}
+
+/* Single-child branches don't need horizontal spans — just the
+   vertical drop from parent. */
+.tree li:only-child::before,
+.tree li:only-child::after {
+  display: none;
+}
+.tree li:only-child {
+  padding-top: var(--space-5);
+}
+
+/* First/last-child corners: hide the outer half of the horizontal
+   line and round the inner corner. Gives the classic bracket. */
+.tree li:first-child::before,
+.tree li:last-child::after {
+  border: 0 none;
+}
+.tree li:last-child::before {
+  border-right: 2px solid var(--border-strong);
+  border-radius: 0 var(--radius-sm) 0 0;
+}
+.tree li:first-child::after {
+  border-radius: var(--radius-sm) 0 0 0;
+}
+
+/* Vertical connector coming out of a parent node, dropping into
+   the horizontal span of its children. */
+.tree ul ul::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  border-left: 2px solid var(--border-strong);
+  height: var(--space-5);
+}
+
+/* ---- Company root box ------------------------------------- */
+
+.companyRoot {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  min-width: 220px;
+}
+
+.companyRootLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  opacity: 0.8;
+}
+
+.companyRootTitle {
+  font: var(--text-h3);
+  color: var(--aims-white);
+  margin: 0;
+}
+
+/* ---- Function box (tree node) ----------------------------- */
+
 .fnCard {
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -79,13 +190,14 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  width: 340px;
+  max-width: 340px;
 }
 
 .fnHeader {
   padding: var(--space-4) var(--space-5) var(--space-3);
   background: var(--grad-brand);
   color: var(--aims-white);
-  border-bottom: 1px solid var(--border);
 }
 
 .fnEyebrow {
@@ -98,7 +210,7 @@
 }
 
 .fnTitle {
-  font: var(--text-h2);
+  font: var(--text-h3);
   color: var(--aims-white);
   margin: 0;
   text-decoration: none;
@@ -117,7 +229,7 @@
   margin: var(--space-2) 0 0;
 }
 
-/* ---- LTD row (Lead / Track / Decide) -------------------------- */
+/* ---- LTD row (Lead / Track / Decide) --------------------- */
 .ltdRow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -126,11 +238,13 @@
 }
 
 .ltdCell {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 2px;
   border-right: 1px solid var(--border);
+  text-align: left;
+  min-width: 0;
 }
 
 .ltdCell:last-child {
@@ -145,9 +259,12 @@
 }
 
 .ltdName {
-  font: var(--text-body);
+  font: var(--text-body-sm);
   color: var(--text-heading);
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ltdNameEmpty {
@@ -156,10 +273,11 @@
   font-style: italic;
 }
 
-/* ---- Outcomes + measures ------------------------------------- */
+/* ---- Outcomes + measures ------------------------------- */
 .outcomeBlock {
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
+  text-align: left;
 }
 
 .outcomeBlock:last-child {
@@ -175,9 +293,10 @@
 }
 
 .outcomeTitle {
-  font: var(--text-h3);
+  font: var(--text-body);
   color: var(--text-heading);
-  margin: 0 0 var(--space-3);
+  font-weight: 700;
+  margin: 0 0 var(--space-2);
 }
 
 .measureList {
@@ -191,8 +310,8 @@
 
 .measureRow {
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: var(--space-3);
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2);
   align-items: baseline;
   padding: var(--space-2) 0;
   border-bottom: 1px dashed var(--border);
@@ -203,20 +322,27 @@
 }
 
 .measureDesc {
-  font: var(--text-body);
+  font: var(--text-body-sm);
   color: var(--text);
   min-width: 0;
 }
 
+.measureTargets {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
 .measureTarget {
-  font: var(--text-body-sm);
+  font: var(--text-caption);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .measureValue {
-  font: var(--text-body);
+  font: var(--text-body-sm);
   font-weight: 700;
   color: var(--text-heading);
   font-variant-numeric: tabular-nums;
@@ -242,7 +368,7 @@
 }
 
 .fnFooter {
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-2) var(--space-4);
   border-top: 1px solid var(--border);
   background: var(--aims-navy-tint);
   display: flex;
@@ -252,24 +378,7 @@
   flex-wrap: wrap;
 }
 
-/* ---- Sub-function branch (children under a parent card) ------ */
-.branchWrap {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.branchConnector {
-  /* Short vertical spacer + fanned children beneath a parent card. */
-  padding-left: var(--space-5);
-  border-left: 2px solid var(--border);
-  margin-left: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-/* ---- Focus warning ------------------------------------------ */
+/* Focus warning stays inline inside the card. */
 .focusWarning {
   padding: var(--space-2) var(--space-3);
   background: var(--aims-warning-tint);
@@ -278,6 +387,7 @@
   font: var(--text-body-sm);
   color: var(--text);
   margin: 0;
+  text-align: left;
 }
 
 /* ---- Inline add forms --------------------------------------- */
@@ -295,7 +405,7 @@
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   color: var(--primary);
   font: var(--text-button-sm);
   border-radius: var(--radius-sm);
@@ -313,9 +423,10 @@
 
 .addForm {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-3);
   padding: var(--space-3) 0 0;
+  text-align: left;
 }
 
 .formField {
@@ -381,7 +492,7 @@
   margin: 0;
 }
 
-/* ---- Detail page ------------------------------------------- */
+/* ---- Detail page ---------------------------------------- */
 .detailStage {
   display: flex;
   flex-direction: column;
@@ -397,10 +508,4 @@
 .crumb:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.tree {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
 }
