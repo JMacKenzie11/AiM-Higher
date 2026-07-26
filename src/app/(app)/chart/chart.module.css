@@ -27,7 +27,6 @@
   font: var(--text-body);
   color: var(--text-muted);
   margin: var(--space-3) 0 0 0;
-  max-width: 68ch;
 }
 
 .toolbar {
