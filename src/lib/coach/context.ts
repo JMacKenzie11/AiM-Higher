@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { todayInTimezone } from "@/lib/dates";
+import { computeFollowThroughRate } from "@/lib/utils";
 import type {
   AnnualGoal,
   Commitment,
@@ -61,11 +62,21 @@ export async function buildCoachContext(
 ): Promise<CoachContextBlocks> {
   const supabase = await createSupabaseServerClient();
 
+  // Wave 1: everything that only depends on the raw inputs. Fires
+  // all in parallel — the previous shape ran three sequential waves
+  // (company/foundation/subject, then quarters/plan, then strengths)
+  // for no data reason. The strengths query is included here even
+  // though it's structurally an overlay on person context, because
+  // it only needs companyId + subjectProfileId.
   const [
     { data: company },
     { data: foundation },
     { data: foundationItems },
     { data: subject },
+    openQuarter,
+    priorQuarters,
+    { priorities, goals },
+    strengthsContext,
   ] = await Promise.all([
     supabase
       .from("companies")
@@ -89,6 +100,18 @@ export async function buildCoachContext(
       .maybeSingle<
         Pick<Profile, "id" | "full_name" | "position" | "role" | "company_id">
       >(),
+    getCurrentQuarter(input.companyId),
+    loadPriorQuarters(supabase, input.companyId, 2),
+    loadOwnedPlanItems(supabase, input.subjectProfileId),
+    // Strengths overlay — additive to person context, not a
+    // replacement. Assembled ONLY when the company has the
+    // entitlement; otherwise omitted entirely so the model can't leak
+    // strengths language even if the tables happen to have data.
+    buildStrengthsContext({
+      supabase,
+      companyId: input.companyId,
+      subjectProfileId: input.subjectProfileId,
+    }),
   ]);
 
   const tz = company?.timezone ?? "America/Anchorage";
@@ -105,17 +128,9 @@ export async function buildCoachContext(
     differentiators,
   });
 
-  // Execution context is always the base — this is the subject's
-  // rhythm of commitments + plan items + follow-through rate. It
-  // doesn't matter whether the conversation nominally started under
-  // 'execution' or 'strengths' context_kind; the coach model always
-  // benefits from knowing what the subject is on the hook for.
-  const [openQuarter, priorQuarters, { priorities, goals }] = await Promise.all([
-    getCurrentQuarter(input.companyId),
-    loadPriorQuarters(supabase, input.companyId, 2),
-    loadOwnedPlanItems(supabase, input.subjectProfileId),
-  ]);
-
+  // Wave 2: the per-quarter keep-rate calcs and the open-quarter
+  // commitment stats — both need quarter rows from wave 1 before
+  // they can fire, so this can't fold up further.
   const quartersForRate = [openQuarter, ...priorQuarters].filter(
     (q): q is Quarter => Boolean(q)
   );
@@ -147,16 +162,6 @@ export async function buildCoachContext(
     openCommitments,
     priorities,
     goals,
-  });
-
-  // Strengths overlay — additive to person context, not a replacement.
-  // Assembled ONLY when the company has the entitlement; otherwise
-  // omitted entirely so the model can't leak strengths language even
-  // if the tables happen to have data.
-  const strengthsContext = await buildStrengthsContext({
-    supabase,
-    companyId: input.companyId,
-    subjectProfileId: input.subjectProfileId,
   });
 
   const isSelfCoaching = subject?.id === input.currentAdminProfileId;
@@ -309,15 +314,7 @@ async function computeQuarterKeepRateForSubject(
     .gte("week_ending", quarter.start_date)
     .lte("week_ending", quarter.end_date);
   const rows = (data ?? []) as Array<{ status: string }>;
-  let kept = 0;
-  let missed = 0;
-  for (const r of rows) {
-    if (r.status === "kept") kept += 1;
-    else if (r.status === "missed") missed += 1;
-  }
-  const denom = kept + missed;
-  if (denom === 0) return null;
-  return Math.round((kept / denom) * 100);
+  return computeFollowThroughRate(rows.map((r) => r.status));
 }
 
 async function loadSubjectCommitments(

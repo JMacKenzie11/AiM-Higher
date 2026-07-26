@@ -125,15 +125,28 @@ export async function POST(req: NextRequest): Promise<Response> {
     userRow = inserted;
   }
 
-  // Load the full turn-by-turn history (including the row we just
-  // inserted) so the model sees the same thread the UI shows.
-  const { data: allMessages } = await supabase
+  // Load the turn-by-turn history so the model sees the same thread
+  // the UI shows. Only role + content leave the DB — id, created_by,
+  // and timestamps aren't part of the prompt and shipping them was
+  // ~40% of the payload weight. We also cap the window so a long
+  // thread can't grow the request-time payload (and the model's
+  // token budget) without bound; older turns drop off, but the
+  // company/person context is re-injected every send and grounds
+  // the model regardless.
+  const HISTORY_LIMIT = 200;
+  const { data: recentRows } = await supabase
     .from("coaching_messages")
-    .select("*")
+    .select("role, content")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true });
-  const history = (allMessages ?? []) as CoachingMessage[];
+    .order("created_at", { ascending: false })
+    .limit(HISTORY_LIMIT);
+  const history = (recentRows ?? [])
+    .slice()
+    .reverse() as Array<Pick<CoachingMessage, "role" | "content">>;
 
+  // First exchange = the one user row we just inserted, no assistant
+  // row yet. When the cap is reached this is trivially false; when
+  // it isn't, the counts match the true totals.
   const isFirstExchange =
     history.filter((m) => m.role === "user").length === 1 &&
     history.filter((m) => m.role === "assistant").length === 0;
@@ -351,7 +364,7 @@ async function loadSystemPrompt(
 }
 
 function buildMessages(
-  history: CoachingMessage[],
+  history: ReadonlyArray<Pick<CoachingMessage, "role" | "content">>,
   contextPrefix: string
 ): Anthropic.MessageParam[] {
   // The dynamic <company_context>/<person_context>/<coaching_context>
