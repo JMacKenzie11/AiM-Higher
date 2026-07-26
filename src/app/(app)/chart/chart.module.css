@@ -180,7 +180,7 @@
   margin: 0;
 }
 
-/* ---- Function box (tree node) ----------------------------- */
+/* ---- Function box (tree node) — compact org-chart style ---- */
 
 .fnCard {
   background: var(--surface);
@@ -190,23 +190,21 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  width: 340px;
-  max-width: 340px;
+  width: 220px;
+  text-align: left;
+  transition: box-shadow var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.fnCard:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary);
 }
 
 .fnHeader {
-  padding: var(--space-4) var(--space-5) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   background: var(--grad-brand);
   color: var(--aims-white);
-}
-
-.fnEyebrow {
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--aims-white);
-  opacity: 0.75;
-  margin: 0 0 var(--space-1);
 }
 
 .fnTitle {
@@ -214,52 +212,31 @@
   color: var(--aims-white);
   margin: 0;
   text-decoration: none;
+  display: block;
 }
 
 .fnTitle:hover {
   color: var(--aims-white);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
-.fnDescription {
-  font: var(--text-body-sm);
-  color: var(--aims-white);
-  opacity: 0.85;
-  margin: var(--space-2) 0 0;
-}
-
-/* ---- LTD row (Lead / Track / Decide) --------------------- */
-.ltdRow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.fnSeat {
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border);
   background: var(--aims-navy-tint);
-}
-
-.ltdCell {
-  padding: var(--space-3) var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 2px;
-  border-right: 1px solid var(--border);
-  text-align: left;
-  min-width: 0;
 }
 
-.ltdCell:last-child {
-  border-right: none;
-}
-
-.ltdLabel {
+.fnSeatLabel {
   font: var(--text-subhead);
   text-transform: uppercase;
   letter-spacing: 0.15em;
   color: var(--text-muted);
 }
 
-.ltdName {
-  font: var(--text-body-sm);
+.fnSeatName {
+  font: var(--text-body);
   color: var(--text-heading);
   font-weight: 600;
   white-space: nowrap;
@@ -267,39 +244,27 @@
   text-overflow: ellipsis;
 }
 
-.ltdNameEmpty {
+.fnSeatEmpty {
   color: var(--text-muted);
   font-weight: 400;
   font-style: italic;
 }
 
-/* ---- Outcomes + measures ------------------------------- */
+/* ---- Outcomes — titles only in the chart view ---------- */
 .outcomeBlock {
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
   text-align: left;
-}
-
-.outcomeBlock:last-child {
-  border-bottom: none;
 }
 
 .outcomeLabel {
   font: var(--text-subhead);
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: var(--primary);
-  margin: 0 0 var(--space-1);
-}
-
-.outcomeTitle {
-  font: var(--text-body);
-  color: var(--text-heading);
-  font-weight: 700;
+  color: var(--text-muted);
   margin: 0 0 var(--space-2);
 }
 
-.measureList {
+.outcomeList {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -308,56 +273,23 @@
   gap: var(--space-2);
 }
 
-.measureRow {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-2);
-  align-items: baseline;
-  padding: var(--space-2) 0;
-  border-bottom: 1px dashed var(--border);
-}
-
-.measureRow:last-child {
-  border-bottom: none;
-}
-
-.measureDesc {
+.outcomeItem {
   font: var(--text-body-sm);
   color: var(--text);
-  min-width: 0;
+  padding-left: var(--space-3);
+  position: relative;
+  line-height: 1.35;
 }
 
-.measureTargets {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.measureTarget {
-  font: var(--text-caption);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.measureValue {
-  font: var(--text-body-sm);
-  font-weight: 700;
-  color: var(--text-heading);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  padding: 2px var(--space-2);
-  background: var(--aims-cobalt-tint);
-  border-radius: var(--radius-sm);
-  min-width: 48px;
-  text-align: center;
-}
-
-.measureValueEmpty {
-  background: transparent;
-  color: var(--text-muted);
-  font-weight: 400;
+.outcomeItem::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
 }
 
 .emptyOutcomeLine {
@@ -365,29 +297,6 @@
   color: var(--text-muted);
   font-style: italic;
   margin: 0;
-}
-
-.fnFooter {
-  padding: var(--space-2) var(--space-4);
-  border-top: 1px solid var(--border);
-  background: var(--aims-navy-tint);
-  display: flex;
-  gap: var(--space-2);
-  justify-content: flex-end;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-/* Focus warning stays inline inside the card. */
-.focusWarning {
-  padding: var(--space-2) var(--space-3);
-  background: var(--aims-warning-tint);
-  border-left: 3px solid var(--aims-warning);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-  color: var(--text);
-  margin: 0;
-  text-align: left;
 }
 
 /* ---- Inline add forms --------------------------------------- */
@@ -508,4 +417,97 @@
 .crumb:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* Detail page — measures + values + targets live here, not on the
+   chart. The chart is the map; the detail is the dashboard. */
+.detailOutcome {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.detailOutcomeTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.detailMeasureList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.detailMeasureRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.detailMeasureRow:last-child {
+  border-bottom: none;
+}
+
+.detailMeasureDesc {
+  font: var(--text-body);
+  color: var(--text);
+  min-width: 0;
+}
+
+.detailMeasureTarget {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.detailMeasureValue {
+  font: var(--text-body);
+  font-weight: 700;
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding: 2px var(--space-3);
+  background: var(--aims-cobalt-tint);
+  border-radius: var(--radius-sm);
+  min-width: 56px;
+  text-align: center;
+}
+
+.detailMeasureValueEmpty {
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.detailSeatCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 400px;
+}
+
+.focusWarning {
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-warning-tint);
+  border-left: 3px solid var(--aims-warning);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+  margin: 0;
 }

@@ -5,8 +5,11 @@ import { getChartFunctionDetail } from "@/lib/chart/service";
 import { AddOutcomeForm, AddMeasureForm } from "../../InlineForms";
 import styles from "../../chart.module.css";
 
-// Function detail — the whole story for a single function: leader,
-// parent link, sub-functions, outcomes, measures, entry history.
+// Function detail — the whole story for a single function.
+// The org chart is the map (function name, seat, outcome titles).
+// This page is the dashboard: seat holder, description, sub-
+// functions, and per outcome the full list of success measures
+// with targets and latest values.
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -31,9 +34,6 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
       </div>
 
       <header className={styles.header}>
-        <p className={styles.fnEyebrow} style={{ color: "var(--text-muted)" }}>
-          Function
-        </p>
         <h1 className={styles.h1}>{detail.fn.title}</h1>
         <span className="aims-rule" aria-hidden="true" />
         {detail.parent ? (
@@ -49,27 +49,17 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         ) : null}
       </header>
 
-      <div className={styles.fnCard} style={{ maxWidth: 640 }}>
-        <div className={styles.ltdRow}>
-          {(
-            [
-              { label: "Lead", person: detail.ltd.lead },
-              { label: "Track", person: detail.ltd.track },
-              { label: "Decide", person: detail.ltd.decide },
-            ] as const
-          ).map((c) => (
-            <div key={c.label} className={styles.ltdCell}>
-              <span className={styles.ltdLabel}>{c.label}</span>
-              <span
-                className={
-                  c.person ? styles.ltdName : `${styles.ltdName} ${styles.ltdNameEmpty}`
-                }
-              >
-                {c.person?.full_name ?? "Unassigned"}
-              </span>
-            </div>
-          ))}
-        </div>
+      <div className={styles.detailSeatCard}>
+        <span className={styles.fnSeatLabel}>In the seat</span>
+        <span
+          className={
+            detail.seatHolder
+              ? styles.fnSeatName
+              : `${styles.fnSeatName} ${styles.fnSeatEmpty}`
+          }
+        >
+          {detail.seatHolder?.full_name ?? "Unassigned"}
+        </span>
       </div>
 
       {outcomeCount > 3 ? (
@@ -80,31 +70,34 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         </p>
       ) : null}
 
-      <section className={styles.tree}>
+      <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
         {detail.outcomes.map((o) => (
-          <article key={o.id} className={styles.outcomeBlock} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-            <p className={styles.outcomeLabel}>Outcome</p>
-            <h2 className={styles.outcomeTitle}>{o.title}</h2>
-            {o.description ? (
-              <p className={styles.subtitle}>{o.description}</p>
-            ) : null}
+          <article key={o.id} className={styles.detailOutcome}>
+            <div>
+              <p className={styles.outcomeLabel}>Outcome</p>
+              <h2 className={styles.detailOutcomeTitle}>{o.title}</h2>
+              {o.description ? (
+                <p className={styles.subtitle}>{o.description}</p>
+              ) : null}
+            </div>
 
             {o.measures.length > 0 ? (
-              <ul className={styles.measureList}>
+              <ul className={styles.detailMeasureList}>
                 {o.measures.map((m) => {
                   const latest = m.entries[0] ?? null;
                   return (
-                    <li key={m.id} className={styles.measureRow}>
-                      <span className={styles.measureDesc}>{m.description}</span>
-                      <span className={styles.measureTarget}>
-                        {m.target ? `Target: ${m.target}` : "No target"}
+                    <li key={m.id} className={styles.detailMeasureRow}>
+                      <span className={styles.detailMeasureDesc}>{m.description}</span>
+                      <span className={styles.detailMeasureTarget}>
+                        {m.target ? `Target ${m.target}` : "No target"}
                       </span>
                       <span
                         className={
                           latest
-                            ? styles.measureValue
-                            : `${styles.measureValue} ${styles.measureValueEmpty}`
+                            ? styles.detailMeasureValue
+                            : `${styles.detailMeasureValue} ${styles.detailMeasureValueEmpty}`
                         }
+                        title={latest ? `Week of ${latest.week_ending}` : "No entries yet"}
                       >
                         {formatValue(m.value_type, latest?.value_number ?? null, latest?.value_text ?? null)}
                       </span>
@@ -117,7 +110,7 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
             )}
 
             {isAdmin ? (
-              <details className={styles.addDetails} style={{ marginTop: "var(--space-3)" }}>
+              <details className={styles.addDetails}>
                 <summary className={styles.addSummary}>+ Add measure</summary>
                 <AddMeasureForm outcomeId={o.id} />
               </details>
@@ -139,7 +132,7 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
 
       {detail.children.length > 0 ? (
         <section>
-          <h2 className={styles.outcomeTitle} style={{ marginBottom: "var(--space-3)" }}>
+          <h2 className={styles.detailOutcomeTitle} style={{ marginBottom: "var(--space-3)" }}>
             Sub-functions
           </h2>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>

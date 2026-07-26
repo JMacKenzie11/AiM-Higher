@@ -23,6 +23,10 @@ export type ChartOutcome = FunctionOutcome & {
   measures: ChartMeasureWithLatest[];
 };
 
+// Kept as a type alias for the detail page which still surfaces
+// the LTD split when set explicitly. The org-chart page only shows
+// the seat holder (Lead), because L/T/D are three responsibilities
+// of one accountable person, not three separate assignments.
 export type ChartLtd = {
   lead: Pick<Profile, "id" | "full_name"> | null;
   track: Pick<Profile, "id" | "full_name"> | null;
@@ -30,7 +34,7 @@ export type ChartLtd = {
 };
 
 export type ChartFunction = FunctionNode & {
-  ltd: ChartLtd;
+  seatHolder: Pick<Profile, "id" | "full_name"> | null;
   outcomes: ChartOutcome[];
   children: ChartFunction[]; // recursive: sub-functions
 };
@@ -141,24 +145,11 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
   // Build the tree. Two passes: enrich each function, then attach
   // to its parent (or the root list). Order within siblings mirrors
   // sort_order which is how we loaded from the DB.
-  const resolveLtd = (f: FunctionNode): ChartLtd => {
-    const lead = f.lead_id ? rosterById.get(f.lead_id) ?? null : null;
-    // Track and Decide fall back to Lead when unset — that's the
-    // common case (one accountable person for all three roles).
-    const trackId = f.track_id ?? f.lead_id;
-    const decideId = f.decide_id ?? f.lead_id;
-    return {
-      lead,
-      track: trackId ? rosterById.get(trackId) ?? null : null,
-      decide: decideId ? rosterById.get(decideId) ?? null : null,
-    };
-  };
-
   const nodesById = new Map<string, ChartFunction>();
   for (const f of functions) {
     nodesById.set(f.id, {
       ...f,
-      ltd: resolveLtd(f),
+      seatHolder: f.lead_id ? rosterById.get(f.lead_id) ?? null : null,
       outcomes: outcomesByFunction.get(f.id) ?? [],
       children: [],
     });
@@ -183,7 +174,7 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
 // (last 13 weeks) per measure so a chart could render a trend later.
 export async function getChartFunctionDetail(functionId: string): Promise<{
   fn: FunctionNode;
-  ltd: ChartLtd;
+  seatHolder: Pick<Profile, "id" | "full_name"> | null;
   parent: Pick<FunctionNode, "id" | "title"> | null;
   children: FunctionNode[];
   outcomes: Array<
@@ -269,15 +260,7 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
     Pick<Profile, "id" | "full_name">
   >;
   const rosterById = new Map(roster.map((p) => [p.id, p]));
-  const ltd: ChartLtd = {
-    lead: fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null,
-    track: (fn.track_id ?? fn.lead_id)
-      ? rosterById.get(fn.track_id ?? fn.lead_id!) ?? null
-      : null,
-    decide: (fn.decide_id ?? fn.lead_id)
-      ? rosterById.get(fn.decide_id ?? fn.lead_id!) ?? null
-      : null,
-  };
+  const seatHolder = fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null;
 
   const outcomesWithMeasures = outcomes.map((o) => ({
     ...o,
@@ -291,7 +274,7 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
 
   return {
     fn,
-    ltd,
+    seatHolder,
     parent: parentRaw ?? null,
     children: (childrenRaw ?? []) as FunctionNode[],
     outcomes: outcomesWithMeasures,

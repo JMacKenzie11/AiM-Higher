@@ -6,16 +6,20 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getChartTree,
   type ChartFunction,
-  type ChartLtd,
 } from "@/lib/chart/service";
-import { AddFunctionForm, AddOutcomeForm, AddMeasureForm } from "./InlineForms";
+import { AddFunctionForm } from "./InlineForms";
 import styles from "./chart.module.css";
 
 // Chart — an org-chart tree of the company's functions.
-// Company at the root; functions branch below with L-shaped
-// connector lines; sub-functions cascade further. Each function
-// box shows LTD (Lead / Track / Decide) and the outcomes with
-// their success measures.
+//
+// Each function box carries the minimum needed to read the shape of
+// the org at a glance: function name, who's in the seat, and the
+// outcomes the function is obsessed with delivering. LTD (Lead /
+// Track / Decide) are three responsibilities of the one seat holder,
+// not three separate assignments — so we show one name, not three.
+// Success measures + weekly values live on the function's detail
+// page; keeping them off the chart is what lets the chart stay a
+// chart.
 
 export default async function ChartPage() {
   const session = await requireProfile();
@@ -41,8 +45,9 @@ export default async function ChartPage() {
         <h1 className={styles.h1}>Chart</h1>
         <span className="aims-rule" aria-hidden="true" />
         <p className={styles.subtitle}>
-          How we run the business. Each function shows LTD (Lead / Track /
-          Decide) and the success measures that prove its outcomes.
+          The functions that run the business. Each box shows who&rsquo;s in the
+          seat and what they&rsquo;re obsessed with delivering. Click a
+          function to see its success measures.
         </p>
       </header>
 
@@ -71,7 +76,7 @@ export default async function ChartPage() {
               </div>
               <ul>
                 {roots.map((fn) => (
-                  <FunctionBranch key={fn.id} fn={fn} isAdmin={isAdmin} />
+                  <FunctionBranch key={fn.id} fn={fn} />
                 ))}
               </ul>
             </li>
@@ -82,22 +87,14 @@ export default async function ChartPage() {
   );
 }
 
-// A branch = a function box, plus a nested <ul> of its sub-functions
-// if any. The CSS tree scaffold takes care of the connector lines.
-function FunctionBranch({
-  fn,
-  isAdmin,
-}: {
-  fn: ChartFunction;
-  isAdmin: boolean;
-}) {
+function FunctionBranch({ fn }: { fn: ChartFunction }) {
   return (
     <li>
-      <FunctionBox fn={fn} isAdmin={isAdmin} />
+      <FunctionBox fn={fn} />
       {fn.children.length > 0 ? (
         <ul>
           {fn.children.map((child) => (
-            <FunctionBranch key={child.id} fn={child} isAdmin={isAdmin} />
+            <FunctionBranch key={child.id} fn={child} />
           ))}
         </ul>
       ) : null}
@@ -105,131 +102,40 @@ function FunctionBranch({
   );
 }
 
-function FunctionBox({ fn, isAdmin }: { fn: ChartFunction; isAdmin: boolean }) {
-  const overThreeOutcomes = fn.outcomes.length > 3;
+function FunctionBox({ fn }: { fn: ChartFunction }) {
   return (
-    <article className={styles.fnCard}>
-      <header className={styles.fnHeader}>
-        <p className={styles.fnEyebrow}>Function</p>
-        <h3 className={styles.fnTitle}>
-          <Link href={`/chart/function/${fn.id}`}>{fn.title}</Link>
-        </h3>
-        {fn.description ? (
-          <p className={styles.fnDescription}>{fn.description}</p>
-        ) : null}
-      </header>
-
-      <LtdRow ltd={fn.ltd} />
-
-      {fn.outcomes.length === 0 ? (
-        <div className={styles.outcomeBlock}>
-          <p className={styles.emptyOutcomeLine}>No outcomes yet.</p>
-        </div>
-      ) : (
-        fn.outcomes.map((o) => (
-          <section key={o.id} className={styles.outcomeBlock}>
-            <p className={styles.outcomeLabel}>Outcome</p>
-            <h4 className={styles.outcomeTitle}>{o.title}</h4>
-            {o.measures.length === 0 ? (
-              <p className={styles.emptyOutcomeLine}>No success measures yet.</p>
-            ) : (
-              <ul className={styles.measureList}>
-                {o.measures.map((m) => (
-                  <li key={m.id} className={styles.measureRow}>
-                    <span className={styles.measureDesc}>{m.description}</span>
-                    <div className={styles.measureTargets}>
-                      <span
-                        className={
-                          m.latestEntry
-                            ? styles.measureValue
-                            : `${styles.measureValue} ${styles.measureValueEmpty}`
-                        }
-                        title={m.latestEntry ? `Week of ${m.latestEntry.week_ending}` : "No entries yet"}
-                      >
-                        {formatLatestValue(m)}
-                      </span>
-                      {m.target ? (
-                        <span className={styles.measureTarget}>
-                          Target {formatWithType(m.target, m.value_type)}
-                        </span>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {isAdmin ? (
-              <details className={styles.addDetails} style={{ marginTop: "var(--space-2)" }}>
-                <summary className={styles.addSummary}>+ Add measure</summary>
-                <AddMeasureForm outcomeId={o.id} />
-              </details>
-            ) : null}
-          </section>
-        ))
-      )}
-
-      {overThreeOutcomes ? (
-        <div className={styles.outcomeBlock}>
-          <p className={styles.focusWarning}>
-            <strong>Focus reminder:</strong> {fn.outcomes.length} outcomes on
-            this function. We recommend keeping it to three.
-          </p>
-        </div>
-      ) : null}
-
-      {isAdmin ? (
-        <footer className={styles.fnFooter}>
-          <details className={styles.addDetails}>
-            <summary className={styles.addSummary}>+ Add outcome</summary>
-            <AddOutcomeForm functionId={fn.id} />
-          </details>
-        </footer>
-      ) : null}
-    </article>
-  );
-}
-
-function LtdRow({ ltd }: { ltd: ChartLtd }) {
-  const cells: Array<{ label: string; person: ChartLtd["lead"] }> = [
-    { label: "Lead", person: ltd.lead },
-    { label: "Track", person: ltd.track },
-    { label: "Decide", person: ltd.decide },
-  ];
-  return (
-    <div className={styles.ltdRow}>
-      {cells.map((c) => (
-        <div key={c.label} className={styles.ltdCell}>
-          <span className={styles.ltdLabel}>{c.label}</span>
+    <Link href={`/chart/function/${fn.id}`} style={{ textDecoration: "none" }}>
+      <article className={styles.fnCard}>
+        <header className={styles.fnHeader}>
+          <h3 className={styles.fnTitle}>{fn.title}</h3>
+        </header>
+        <div className={styles.fnSeat}>
+          <span className={styles.fnSeatLabel}>Seat</span>
           <span
             className={
-              c.person ? styles.ltdName : `${styles.ltdName} ${styles.ltdNameEmpty}`
+              fn.seatHolder
+                ? styles.fnSeatName
+                : `${styles.fnSeatName} ${styles.fnSeatEmpty}`
             }
-            title={c.person?.full_name ?? "Unassigned"}
           >
-            {c.person?.full_name ?? "Unassigned"}
+            {fn.seatHolder?.full_name ?? "Unassigned"}
           </span>
         </div>
-      ))}
-    </div>
+        {fn.outcomes.length > 0 ? (
+          <div className={styles.outcomeBlock}>
+            <p className={styles.outcomeLabel}>Obsessed with</p>
+            <ul className={styles.outcomeList}>
+              {fn.outcomes.map((o) => (
+                <li key={o.id} className={styles.outcomeItem}>
+                  {o.title}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </article>
+    </Link>
   );
-}
-
-function formatWithType(target: string, valueType: "number" | "percent" | "text"): string {
-  if (valueType === "percent") {
-    const numeric = target.replace(/[^0-9.\-]/g, "");
-    return numeric ? `${numeric}%` : target;
-  }
-  return target;
-}
-
-function formatLatestValue(m: ChartFunction["outcomes"][number]["measures"][number]): React.ReactNode {
-  const latest = m.latestEntry;
-  if (!latest) return "—";
-  if (m.value_type === "text") return latest.value_text ?? "—";
-  const n = latest.value_number;
-  if (n === null || !Number.isFinite(n)) return "—";
-  if (m.value_type === "percent") return `${n}%`;
-  return n.toString();
 }
 
 function EmptyChart({ isAdmin }: { isAdmin: boolean }) {
