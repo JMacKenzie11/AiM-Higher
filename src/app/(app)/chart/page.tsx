@@ -104,7 +104,7 @@ function FunctionBranch({ fn }: { fn: ChartFunction }) {
 
 function FunctionBox({ fn }: { fn: ChartFunction }) {
   return (
-    <Link href={`/chart/function/${fn.id}`} style={{ textDecoration: "none" }}>
+    <Link href={`/chart/function/${fn.id}`} className={styles.fnCardLink}>
       <article className={styles.fnCard}>
         <header className={styles.fnHeader}>
           <h3 className={styles.fnTitle}>{fn.title}</h3>

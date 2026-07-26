@@ -85,7 +85,10 @@
   list-style: none;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  /* stretch so every card at the same depth matches the tallest
+     sibling — long titles and longer outcome lists no longer make
+     one box shorter than its neighbours. */
+  align-items: stretch;
   position: relative;
   gap: var(--space-5);
 }
@@ -176,6 +179,15 @@
 
 /* ---- Function box (tree node) — compact org-chart style ---- */
 
+/* The Link wrapper takes the tree node's full height so the card
+   inside can stretch to match its siblings. */
+.fnCardLink {
+  display: flex;
+  flex: 1 1 auto;
+  text-decoration: none;
+  width: 220px;
+}
+
 .fnCard {
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -184,7 +196,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  width: 220px;
+  width: 100%;
+  flex: 1 1 auto;
   text-align: left;
   transition: box-shadow var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out);
@@ -199,6 +212,11 @@
   padding: var(--space-3) var(--space-4);
   background: var(--grad-brand);
   color: var(--aims-white);
+  display: flex;
+  align-items: center;
+  /* Two-line title height as a floor so single-line titles don't
+     shrink the blue band relative to wrapped ones. */
+  min-height: 4.5rem;
 }
 
 .fnTitle {
