@@ -75,7 +75,10 @@
   border: 1px solid var(--border);
 }
 
-.tree ul {
+/* Only the ULs used for the tree scaffold get flex/gap layout — an
+   explicit .treeBranch class avoids styling <ul>s inside function
+   cards (outcome lists, etc.). */
+.treeBranch {
   padding-inline-start: 0;
   padding-top: var(--space-5);
   margin: 0;
@@ -87,21 +90,20 @@
   gap: var(--space-5);
 }
 
-/* Every list becomes a set of horizontal children. Each child has
-   two pseudo-elements: one for the horizontal spanning line and
-   one for the vertical drop from the parent connector. */
-.tree li {
+/* Each tree node = one function-or-company card. The class scopes
+   the connector pseudo-elements so they don't leak into any nested
+   <li> (like outcome bullets). */
+.treeNode {
   padding: var(--space-5) var(--space-2) 0;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
+  list-style: none;
 }
 
-/* Left half of the horizontal connector, plus a vertical stub down
-   into this child. The border-right becomes the vertical drop. */
-.tree li::before,
-.tree li::after {
+.treeNode::before,
+.treeNode::after {
   content: "";
   position: absolute;
   top: 0;
@@ -109,41 +111,33 @@
   border-top: 2px solid var(--border-strong);
   width: 50%;
 }
-.tree li::before {
+.treeNode::before {
   right: 50%;
   border-right: 2px solid var(--border-strong);
 }
-.tree li::after {
+.treeNode::after {
   left: 50%;
 }
 
-/* Single-child branches don't need horizontal spans — just the
-   vertical drop from parent. */
-.tree li:only-child::before,
-.tree li:only-child::after {
+.treeNode:only-child::before,
+.treeNode:only-child::after {
   display: none;
 }
-.tree li:only-child {
-  padding-top: var(--space-5);
-}
 
-/* First/last-child corners: hide the outer half of the horizontal
-   line and round the inner corner. Gives the classic bracket. */
-.tree li:first-child::before,
-.tree li:last-child::after {
+.treeNode:first-child::before,
+.treeNode:last-child::after {
   border: 0 none;
 }
-.tree li:last-child::before {
+.treeNode:last-child::before {
   border-right: 2px solid var(--border-strong);
   border-radius: 0 var(--radius-sm) 0 0;
 }
-.tree li:first-child::after {
+.treeNode:first-child::after {
   border-radius: var(--radius-sm) 0 0 0;
 }
 
-/* Vertical connector coming out of a parent node, dropping into
-   the horizontal span of its children. */
-.tree ul ul::before {
+/* Vertical drop from a parent node into its children's branch. */
+.treeNode > .treeBranch::before {
   content: "";
   position: absolute;
   top: 0;

@@ -66,15 +66,15 @@ export default async function ChartPage() {
         <EmptyChart isAdmin={isAdmin} />
       ) : (
         <div className={styles.tree}>
-          <ul>
-            <li>
+          <ul className={styles.treeBranch}>
+            <li className={styles.treeNode}>
               <div className={styles.companyRoot}>
                 <span className={styles.companyRootLabel}>Company</span>
                 <h2 className={styles.companyRootTitle}>
                   {company?.name ?? "Chart"}
                 </h2>
               </div>
-              <ul>
+              <ul className={styles.treeBranch}>
                 {roots.map((fn) => (
                   <FunctionBranch key={fn.id} fn={fn} />
                 ))}
@@ -89,10 +89,10 @@ export default async function ChartPage() {
 
 function FunctionBranch({ fn }: { fn: ChartFunction }) {
   return (
-    <li>
+    <li className={styles.treeNode}>
       <FunctionBox fn={fn} />
       {fn.children.length > 0 ? (
-        <ul>
+        <ul className={styles.treeBranch}>
           {fn.children.map((child) => (
             <FunctionBranch key={child.id} fn={child} />
           ))}
