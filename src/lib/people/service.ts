@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { addDays, thisFriday, todayInTimezone } from "@/lib/dates";
-import { computeRateFromCounts } from "@/lib/utils";
+import { bucketKeepRates, computeRateFromCounts } from "@/lib/utils";
 import type {
   Commitment,
   Invitation,
@@ -73,19 +73,12 @@ export async function getPeopleRoster(
         .from("commitments")
         .select("owner_id, status")
         .in("priority_id", priorityIds);
-      const buckets = new Map<string, { kept: number; missed: number }>();
-      for (const row of (cRows ?? []) as Pick<
-        Commitment,
-        "owner_id" | "status"
-      >[]) {
-        if (row.status !== "kept" && row.status !== "missed") continue;
-        const b = buckets.get(row.owner_id) ?? { kept: 0, missed: 0 };
-        if (row.status === "kept") b.kept += 1;
-        else b.missed += 1;
-        buckets.set(row.owner_id, b);
-      }
-      for (const [ownerId, b] of buckets.entries()) {
-        keepRateByOwner.set(ownerId, computeRateFromCounts(b.kept, b.missed));
+      const buckets = bucketKeepRates(
+        (cRows ?? []) as Pick<Commitment, "owner_id" | "status">[],
+        (row) => row.owner_id
+      );
+      for (const [ownerId, bucket] of buckets) {
+        keepRateByOwner.set(ownerId, bucket.keepRate);
       }
     }
   }
@@ -297,25 +290,15 @@ export async function getPersonScorecard(
     .eq("owner_id", personId)
     .gte("week_ending", oldestWeek)
     .lte("week_ending", thisFri);
-  const trendByWeek = new Map<string, { kept: number; missed: number }>();
-  for (const row of (trendRows ?? []) as Pick<
-    Commitment,
-    "week_ending" | "status"
-  >[]) {
-    if (row.status !== "kept" && row.status !== "missed") continue;
-    const b = trendByWeek.get(row.week_ending) ?? { kept: 0, missed: 0 };
-    if (row.status === "kept") b.kept += 1;
-    else b.missed += 1;
-    trendByWeek.set(row.week_ending, b);
-  }
-  const keepRateTrend: KeepRateBar[] = trendWeeks.map((week) => {
-    const bucket = trendByWeek.get(week);
-    return {
-      weekEnding: week,
-      keepRate: bucket ? computeRateFromCounts(bucket.kept, bucket.missed) : null,
-      isCurrentWeek: week === thisFri,
-    };
-  });
+  const trendByWeek = bucketKeepRates(
+    (trendRows ?? []) as Pick<Commitment, "week_ending" | "status">[],
+    (row) => row.week_ending
+  );
+  const keepRateTrend: KeepRateBar[] = trendWeeks.map((week) => ({
+    weekEnding: week,
+    keepRate: trendByWeek.get(week)?.keepRate ?? null,
+    isCurrentWeek: week === thisFri,
+  }));
 
   // Open commitments (all-time, still open).
   const { data: openRows } = await supabase

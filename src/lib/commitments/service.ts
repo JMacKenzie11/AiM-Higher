@@ -10,7 +10,7 @@ import {
 } from "@/lib/dates";
 import {
   computeFollowThroughRate,
-  computeRateFromCounts,
+  summarizeKeepRate,
 } from "@/lib/utils";
 import type {
   Commitment,
@@ -302,18 +302,13 @@ export async function getCommitmentsPageData(
   const priorWeeks: CommitmentPriorWeek[] = Array.from(byWeek.entries())
     .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
     .map(([weekEnding, commitments]) => {
-      let kept = 0;
-      let missed = 0;
-      for (const c of commitments) {
-        if (c.status === "kept") kept += 1;
-        else if (c.status === "missed") missed += 1;
-      }
+      const summary = summarizeKeepRate(commitments.map((c) => c.status));
       return {
         weekEnding,
         weekRange: formatWeekRange(weekEnding),
-        keptCount: kept,
-        missedCount: missed,
-        keepRate: computeRateFromCounts(kept, missed),
+        keptCount: summary.kept,
+        missedCount: summary.missed,
+        keepRate: summary.keepRate,
         commitments,
       };
     });

@@ -56,6 +56,26 @@ export function computeRateFromCounts(
 }
 
 /**
+ * Fold a list of commitment status strings into {kept, missed, keepRate}.
+ * `open` rows are excluded. Callers that need only the rate should use
+ * computeFollowThroughRate below; callers that also need the raw counts
+ * (e.g. to render "kept 4 / missed 2") should use this.
+ */
+export function summarizeKeepRate(statuses: readonly string[]): {
+  kept: number;
+  missed: number;
+  keepRate: number | null;
+} {
+  let kept = 0;
+  let missed = 0;
+  for (const s of statuses) {
+    if (s === "kept") kept += 1;
+    else if (s === "missed") missed += 1;
+  }
+  return { kept, missed, keepRate: computeRateFromCounts(kept, missed) };
+}
+
+/**
  * Compute follow-through rate (kept / (kept + missed)) from a list of
  * commitment status strings. Excludes `open` from both numerator and
  * denominator. Returns null when there are no resolved commitments.
@@ -63,11 +83,38 @@ export function computeRateFromCounts(
 export function computeFollowThroughRate(
   statuses: readonly string[]
 ): number | null {
-  let kept = 0;
-  let missed = 0;
-  for (const s of statuses) {
-    if (s === "kept") kept += 1;
-    else if (s === "missed") missed += 1;
+  return summarizeKeepRate(statuses).keepRate;
+}
+
+/**
+ * Group commitment rows by a caller-chosen key (owner, week, priority,
+ * etc.) and return a per-bucket {kept, missed, keepRate}. Open rows
+ * are excluded — same rule as computeFollowThroughRate above. Callers
+ * that need only the rate should read `.keepRate`; callers that need
+ * to render kept/missed counts get them for free without a second pass.
+ */
+export function bucketKeepRates<K, T extends { status: string }>(
+  rows: readonly T[],
+  keyFn: (row: T) => K
+): Map<K, { kept: number; missed: number; keepRate: number | null }> {
+  const counts = new Map<K, { kept: number; missed: number }>();
+  for (const row of rows) {
+    if (row.status !== "kept" && row.status !== "missed") continue;
+    const key = keyFn(row);
+    const bucket = counts.get(key) ?? { kept: 0, missed: 0 };
+    if (row.status === "kept") bucket.kept += 1;
+    else bucket.missed += 1;
+    counts.set(key, bucket);
   }
-  return computeRateFromCounts(kept, missed);
+  const result = new Map<
+    K,
+    { kept: number; missed: number; keepRate: number | null }
+  >();
+  for (const [key, bucket] of counts) {
+    result.set(key, {
+      ...bucket,
+      keepRate: computeRateFromCounts(bucket.kept, bucket.missed),
+    });
+  }
+  return result;
 }
