@@ -81,7 +81,7 @@ export function AddFunctionForm({
       </label>
 
       <label className={`${styles.formField} ${styles.formFieldFull}`}>
-        <span className={styles.formLabel}>What this function is on the hook for</span>
+        <span className={styles.formLabel}>The outcomes this function is obsessed with delivering</span>
         <textarea
           className={styles.formTextarea}
           name="description"

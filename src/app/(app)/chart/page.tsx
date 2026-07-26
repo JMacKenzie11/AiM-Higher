@@ -55,9 +55,7 @@ export default async function ChartPage() {
         <div className={styles.toolbar}>
           <details className={styles.addDetails}>
             <summary className={styles.addSummary}>+ Add function</summary>
-            <div style={{ marginTop: "var(--space-3)" }}>
-              <AddFunctionForm people={roster} />
-            </div>
+            <AddFunctionForm people={roster} />
           </details>
         </div>
       ) : null}

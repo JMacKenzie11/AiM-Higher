@@ -311,7 +311,14 @@
   margin: 0;
 }
 
-/* ---- Inline add forms --------------------------------------- */
+/* ---- Inline add forms ---------------------------------------
+   Two visual states.
+   Closed → a compact "+ Add …" pill that sits inline.
+   Open  → a bordered panel with a tinted wash so the opened form
+   reads as a proper card, matching the branding elsewhere. The
+   same disclosure is used at the top of the chart page and nested
+   inside detail-page outcome cards; the tint keeps both contexts
+   coherent without ever nesting a full white card in a white card. */
 .addDetails {
   align-self: flex-start;
 }
@@ -319,6 +326,10 @@
 .addDetails[open] {
   align-self: stretch;
   width: 100%;
+  background: var(--aims-navy-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
 .addSummary {
@@ -342,11 +353,30 @@
   color: var(--primary-hover);
 }
 
+/* When the disclosure is open, the summary reads as a panel header
+   rather than a pill — it still toggles closed on click. */
+.addDetails[open] .addSummary {
+  display: flex;
+  width: 100%;
+  padding: 0 0 var(--space-3);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--text-heading);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.addDetails[open] .addSummary:hover {
+  background: transparent;
+  color: var(--primary);
+}
+
 .addForm {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-3);
-  padding: var(--space-3) 0 0;
   text-align: left;
 }
 
