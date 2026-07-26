@@ -4,8 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { addDays, thisFriday } from "@/lib/dates";
 import {
+  bucketKeepRates,
   computeFollowThroughRate,
-  computeRateFromCounts,
 } from "@/lib/utils";
 import type {
   Company,
@@ -45,7 +45,7 @@ export type DashboardPerson = {
 };
 
 export type DashboardData = {
-  company: Company;
+  company: Pick<Company, "id" | "name" | "timezone">;
   openQuarter: Quarter | null;
   headline: {
     executionPercent: number | null;
@@ -81,9 +81,9 @@ export async function getDashboardData(
 
   const { data: company } = await supabase
     .from("companies")
-    .select("*")
+    .select("id, name, timezone")
     .eq("id", companyId)
-    .maybeSingle<Company>();
+    .maybeSingle<Pick<Company, "id" | "name" | "timezone">>();
   if (!company) return null;
 
   const openQuarter = await getCurrentQuarter(companyId);
@@ -114,7 +114,7 @@ export async function getDashboardData(
   const { data: sfaProgress } = sfas.length
     ? await supabase
         .from("sfa_progress")
-        .select("*")
+        .select("sfa_id, percent")
         .in(
           "sfa_id",
           sfas.map((s) => s.id)
@@ -177,15 +177,20 @@ export async function getDashboardData(
   // Commitments in the open quarter — now derived from week_ending
   // falling inside the quarter window, so operational (unlinked)
   // commitments count toward keep-rate identically to strategic ones.
-  let quarterCommitments: Commitment[] = [];
+  // Only status + owner_id are needed for the two folds below
+  // (headline rate + per-owner rate). Commitments is one of the
+  // widest tables in the DB, so narrowing here matters at scale.
+  let quarterCommitments: Array<Pick<Commitment, "status" | "owner_id">> = [];
   if (openQuarter) {
     const { data: cRows } = await supabase
       .from("commitments")
-      .select("*")
+      .select("status, owner_id")
       .eq("company_id", companyId)
       .gte("week_ending", openQuarter.start_date)
       .lte("week_ending", openQuarter.end_date);
-    quarterCommitments = (cRows ?? []) as Commitment[];
+    quarterCommitments = (cRows ?? []) as Array<
+      Pick<Commitment, "status" | "owner_id">
+    >;
   }
 
   const keepRatePercent = computeFollowThroughRate(
@@ -215,22 +220,15 @@ export async function getDashboardData(
     .eq("company_id", companyId)
     .gte("week_ending", oldestWeek)
     .lte("week_ending", thisFri);
-  const trendByWeek = new Map<string, { kept: number; missed: number }>();
-  for (const row of (trendRows ?? []) as Pick<Commitment, "week_ending" | "status">[]) {
-    if (row.status !== "kept" && row.status !== "missed") continue;
-    const bucket = trendByWeek.get(row.week_ending) ?? { kept: 0, missed: 0 };
-    if (row.status === "kept") bucket.kept += 1;
-    else bucket.missed += 1;
-    trendByWeek.set(row.week_ending, bucket);
-  }
-  const keepRateTrend: WeeklyKeepRatePoint[] = trendWeeks.map((week) => {
-    const bucket = trendByWeek.get(week);
-    return {
-      weekEnding: week,
-      keepRate: bucket ? computeRateFromCounts(bucket.kept, bucket.missed) : null,
-      isCurrentWeek: week === thisFri,
-    };
-  });
+  const trendByWeek = bucketKeepRates(
+    (trendRows ?? []) as Pick<Commitment, "week_ending" | "status">[],
+    (row) => row.week_ending
+  );
+  const keepRateTrend: WeeklyKeepRatePoint[] = trendWeeks.map((week) => ({
+    weekEnding: week,
+    keepRate: trendByWeek.get(week)?.keepRate ?? null,
+    isCurrentWeek: week === thisFri,
+  }));
 
   // People — per-owner counts in the OPEN QUARTER (Section 8.2).
   const { data: people } = await supabase
@@ -256,25 +254,19 @@ export async function getDashboardData(
     openByOwner.set(row.owner_id, (openByOwner.get(row.owner_id) ?? 0) + 1);
   }
 
-  const perOwner = new Map<string, { kept: number; missed: number }>();
-  for (const c of quarterCommitments) {
-    const bucket = perOwner.get(c.owner_id) ?? { kept: 0, missed: 0 };
-    if (c.status === "kept") bucket.kept += 1;
-    else if (c.status === "missed") bucket.missed += 1;
-    perOwner.set(c.owner_id, bucket);
-  }
+  const perOwner = bucketKeepRates(quarterCommitments, (c) => c.owner_id);
 
   const dashboardPeople: DashboardPerson[] = roster.map((person) => {
-    const counts = perOwner.get(person.id) ?? { kept: 0, missed: 0 };
+    const bucket = perOwner.get(person.id);
     return {
       id: person.id,
       full_name: person.full_name,
       position: person.position ?? null,
       reports_to: person.reports_to ?? null,
       openCount: openByOwner.get(person.id) ?? 0,
-      keptCount: counts.kept,
-      missedCount: counts.missed,
-      keepRate: computeRateFromCounts(counts.kept, counts.missed),
+      keptCount: bucket?.kept ?? 0,
+      missedCount: bucket?.missed ?? 0,
+      keepRate: bucket?.keepRate ?? null,
     };
   });
 
