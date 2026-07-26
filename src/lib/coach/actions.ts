@@ -34,9 +34,9 @@ export async function createConversationAction(
   const supabase = await createSupabaseServerClient();
   const { data: subject } = await supabase
     .from("profiles")
-    .select("id, company_id")
+    .select("id, company_id, reports_to")
     .eq("id", subjectProfileId)
-    .maybeSingle<Pick<Profile, "id" | "company_id">>();
+    .maybeSingle<Pick<Profile, "id" | "company_id" | "reports_to">>();
   if (!subject) {
     return { ok: false, message: "That person isn't accessible." };
   }
@@ -46,13 +46,20 @@ export async function createConversationAction(
   const isCompanyAdmin =
     session.profile.role === "company_admin" &&
     session.profile.company_id === subject.company_id;
+  const isManager = subject.reports_to === session.profile.id;
 
-  if (!isSelf && !isSystemAdmin && !isCompanyAdmin) {
+  // Authorization matches migration 0021 RLS: self-mode is open to any
+  // active member for themselves; about-mode requires admin OR the
+  // subject's direct manager (via profiles.reports_to).
+  if (!isSelf && !isSystemAdmin && !isCompanyAdmin && !isManager) {
     return {
       ok: false,
-      message: "You can only coach yourself unless you're an admin.",
+      message:
+        "You can only coach yourself, your direct reports, or people in your company as an admin.",
     };
   }
+
+  const mode = isSelf ? "self" : "about";
 
   // Every conversation row needs a company_id. Team members and
   // company admins have one on their profile. System admins don't —
@@ -97,6 +104,7 @@ export async function createConversationAction(
       created_by: session.profile.id,
       title,
       context_kind: contextKind,
+      mode,
     })
     .select("*")
     .single<CoachingConversation>();

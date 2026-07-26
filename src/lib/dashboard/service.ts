@@ -34,6 +34,10 @@ export type DashboardPerson = {
   id: string;
   full_name: string;
   position: string | null;
+  // Direct manager per profiles.reports_to. Surfaces so the caller
+  // can render the Coach affordance for a row where the viewer is
+  // the row subject's manager (in addition to admins).
+  reports_to: string | null;
   openCount: number;
   keptCount: number;
   missedCount: number;
@@ -231,13 +235,13 @@ export async function getDashboardData(
   // People — per-owner counts in the OPEN QUARTER (Section 8.2).
   const { data: people } = await supabase
     .from("profiles")
-    .select("id, full_name, position")
+    .select("id, full_name, position, reports_to")
     .eq("company_id", companyId)
     .eq("status", "active")
     .order("full_name");
   const roster = (people ?? []) as Pick<
     Profile,
-    "id" | "full_name" | "position"
+    "id" | "full_name" | "position" | "reports_to"
   >[];
 
   // Group commitments by owner for the quarter's kept/missed counts
@@ -266,6 +270,7 @@ export async function getDashboardData(
       id: person.id,
       full_name: person.full_name,
       position: person.position ?? null,
+      reports_to: person.reports_to ?? null,
       openCount: openByOwner.get(person.id) ?? 0,
       keptCount: counts.kept,
       missedCount: counts.missed,

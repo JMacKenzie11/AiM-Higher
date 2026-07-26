@@ -23,6 +23,10 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+  // A direct manager can now coach about their report — same
+  // authorization the RLS insert policy on coaching_conversations
+  // enforces (migration 0021).
+  const isManager = data.profile.reports_to === session.profile.id;
   const strengthsEnabled = data.profile.company_id
     ? await companyHasFeature(data.profile.company_id, "strengths")
     : false;
@@ -50,7 +54,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                 Get coaching
               </Link>
             ) : null}
-            {isAdmin && !isSelf ? (
+            {(isAdmin || isManager) && !isSelf ? (
               <Link
                 href={`/coach/${id}`}
                 className={styles.heroCoachAction}

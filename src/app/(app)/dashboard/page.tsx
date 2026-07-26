@@ -27,6 +27,14 @@ export default async function DashboardPage() {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+  // Managers get the Coach column for rows they own via
+  // profiles.reports_to — same rule as the coaching_conversations
+  // insert policy in migration 0021. If they don't manage anyone on
+  // the roster there's no point showing the column at all.
+  const managesAnyone = data.people.some(
+    (p) => p.reports_to === session.profile.id,
+  );
+  const showCoachColumn = isAdmin || managesAnyone;
 
   return (
     <div className={styles.stage}>
@@ -240,12 +248,15 @@ export default async function DashboardPage() {
                   <th>Position</th>
                   <th className={styles.numHead}>Open</th>
                   <th>Follow-through rate</th>
-                  {isAdmin ? <th aria-label="Coach" /> : null}
+                  {showCoachColumn ? <th aria-label="Coach" /> : null}
                 </tr>
               </thead>
               <tbody>
-                {data.people.map((person) => (
-                  <tr key={person.id}>
+                {data.people.map((person) => {
+                  const canCoachPerson =
+                    isAdmin || person.reports_to === session.profile.id;
+                  return (
+                    <tr key={person.id}>
                     <td>
                       <Link
                         href={`/people/${person.id}`}
@@ -264,18 +275,21 @@ export default async function DashboardPage() {
                         label="No resolved commitments"
                       />
                     </td>
-                    {isAdmin ? (
+                    {showCoachColumn ? (
                       <td>
-                        <Link
-                          href={`/coach/${person.id}`}
-                          className={styles.coachButton}
-                        >
-                          Coach
-                        </Link>
+                        {canCoachPerson ? (
+                          <Link
+                            href={`/coach/${person.id}`}
+                            className={styles.coachButton}
+                          >
+                            Coach
+                          </Link>
+                        ) : null}
                       </td>
                     ) : null}
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

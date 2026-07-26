@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // rows the caller is allowed to see.
 
 export type CoachingContextKind = "execution" | "strengths";
+export type CoachingMode = "self" | "about";
 
 export type CoachingConversation = {
   id: string;
@@ -19,6 +20,11 @@ export type CoachingConversation = {
   // and person-context assembly. Defaults to 'execution' on old rows
   // (migration 0018).
   context_kind: CoachingContextKind;
+  // 'self' when the creator is coaching themselves, 'about' when
+  // coaching another person. Added in migration 0021 with a
+  // deterministic backfill; kept explicit rather than inferred so
+  // policies and prompt logic don't have to compare ids at read time.
+  mode: CoachingMode;
   created_at: string;
   updated_at: string;
 };

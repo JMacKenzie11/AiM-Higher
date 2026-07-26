@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
+import { buildCoachTools } from "@/lib/coach/tools";
 import type {
   CoachingConversation,
   CoachingMessage,
@@ -45,6 +46,11 @@ type IncomingBody = {
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 2000;
+// Cap on the number of tool-loop iterations per user turn. Each
+// iteration = one Anthropic call that may end in either a natural
+// stop or a tool_use. The cap prevents a misbehaving prompt from
+// looping tools indefinitely.
+const MAX_TOOL_ITERATIONS = 4;
 
 function encodeEvent(event: string, data: unknown): Uint8Array {
   const payload =
@@ -158,44 +164,102 @@ export async function POST(req: NextRequest): Promise<Response> {
   );
 
   const client = new Anthropic({ apiKey });
-  const userTurnPrefix = `${context.companyContext}\n\n${context.personContext}\n\n${context.coachingContext}\n\n`;
+  const strengthsBlock = context.strengthsContext ? `${context.strengthsContext}\n\n` : "";
+  const userTurnPrefix = `${context.companyContext}\n\n${context.personContext}\n\n${strengthsBlock}${context.coachingContext}\n\n`;
   const messages = buildMessages(history, userTurnPrefix);
+
+  const tools = buildCoachTools({
+    subjectProfileId: convo.subject_profile_id,
+    companyId: convo.company_id,
+  });
+  const toolDefs = tools.map((t) => t.definition);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
         controller.enqueue(encodeEvent("ready", { userMessageId: userRow.id }));
 
-        const messageStream = client.messages.stream({
-          model,
-          max_tokens: MAX_TOKENS,
-          system: [
-            {
-              type: "text",
-              text: systemPromptText,
-              cache_control: { type: "ephemeral" },
-            },
-          ],
-          messages,
-        });
+        // Tool loop. Each iteration streams one Anthropic response;
+        // if it ends in tool_use we execute the tools, append the
+        // assistant + tool_result turns to the running messages, and
+        // loop. Otherwise we're done and persist.
+        let currentMessages: Anthropic.MessageParam[] = messages;
+        let combinedAssistantText = "";
+        let finalUsage: Anthropic.Usage | null = null;
 
-        for await (const event of messageStream) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            controller.enqueue(
-              encodeEvent("delta", { text: event.delta.text })
-            );
+        for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
+          const messageStream = client.messages.stream({
+            model,
+            max_tokens: MAX_TOKENS,
+            system: [
+              {
+                type: "text",
+                text: systemPromptText,
+                cache_control: { type: "ephemeral" },
+              },
+            ],
+            messages: currentMessages,
+            tools: toolDefs,
+          });
+
+          for await (const event of messageStream) {
+            if (
+              event.type === "content_block_delta" &&
+              event.delta.type === "text_delta"
+            ) {
+              controller.enqueue(
+                encodeEvent("delta", { text: event.delta.text })
+              );
+            }
           }
+
+          const final = await messageStream.finalMessage();
+          const textThisTurn = final.content
+            .filter((b): b is Anthropic.TextBlock => b.type === "text")
+            .map((b) => b.text)
+            .join("");
+          combinedAssistantText += textThisTurn;
+          finalUsage = final.usage;
+
+          if (final.stop_reason !== "tool_use") break;
+
+          // Execute every tool_use block from this response and
+          // continue the conversation with the tool_result blocks.
+          const toolUses = final.content.filter(
+            (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+          );
+          const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
+            toolUses.map(async (tu) => {
+              const tool = tools.find((t) => t.definition.name === tu.name);
+              let payload: unknown;
+              if (!tool) {
+                payload = { status: "error", message: `unknown tool: ${tu.name}` };
+              } else {
+                try {
+                  payload = await tool.handler(tu.input);
+                } catch {
+                  // Tools shouldn't throw for expected states, but if
+                  // one does, return a safe error shape rather than
+                  // killing the whole stream.
+                  payload = { status: "error", message: "tool execution failed" };
+                }
+              }
+              return {
+                type: "tool_result",
+                tool_use_id: tu.id,
+                content: JSON.stringify(payload),
+              };
+            })
+          );
+
+          currentMessages = [
+            ...currentMessages,
+            { role: "assistant", content: final.content },
+            { role: "user", content: toolResults },
+          ];
         }
 
-        const final = await messageStream.finalMessage();
-        const assistantText = final.content
-          .filter((b): b is Anthropic.TextBlock => b.type === "text")
-          .map((b) => b.text)
-          .join("");
-
+        const assistantText = combinedAssistantText.trim();
         const { data: assistantRow } = await supabase
           .from("coaching_messages")
           .insert({
@@ -216,7 +280,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         controller.enqueue(
           encodeEvent("done", {
             assistantMessageId: assistantRow?.id ?? null,
-            usage: final.usage,
+            usage: finalUsage,
           })
         );
 

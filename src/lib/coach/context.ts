@@ -48,6 +48,10 @@ export type CoachContextInput = {
 export type CoachContextBlocks = {
   companyContext: string;
   personContext: string;
+  // Additive overlay when the company has the 'strengths' feature.
+  // Null when the module is disabled (never assembled at all — spec)
+  // or when the subject has no strengths data of any kind.
+  strengthsContext: string | null;
   coachingContext: string;
   isSelfCoaching: boolean;
 };
@@ -101,148 +105,177 @@ export async function buildCoachContext(
     differentiators,
   });
 
-  const requestedKind = input.contextKind ?? "execution";
-  // Entitlement gate: if the company doesn't have the strengths
-  // module (either never had it, or turned it off), don't feed
-  // strengths data into the coaching prompt even if an old
-  // conversation was created under that kind. Fall through to
-  // execution context so the session degrades gracefully.
-  const kind =
-    requestedKind === "strengths" &&
-    !(await companyHasFeature(input.companyId, "strengths"))
-      ? "execution"
-      : requestedKind;
+  // Execution context is always the base — this is the subject's
+  // rhythm of commitments + plan items + follow-through rate. It
+  // doesn't matter whether the conversation nominally started under
+  // 'execution' or 'strengths' context_kind; the coach model always
+  // benefits from knowing what the subject is on the hook for.
+  const [openQuarter, priorQuarters, { priorities, goals }] = await Promise.all([
+    getCurrentQuarter(input.companyId),
+    loadPriorQuarters(supabase, input.companyId, 2),
+    loadOwnedPlanItems(supabase, input.subjectProfileId),
+  ]);
 
-  let personContext: string;
-  if (kind === "strengths") {
-    // Strengths context: latest completed assessment for the subject,
-    // plus its results block and narrative transcript. If they
-    // haven't finished one yet the block is a graceful note so the
-    // model can still coach in general terms.
-    const { data: assessmentRow } = await supabase
-      .from("strengths_assessments")
-      .select("id, completed_at")
-      .eq("user_id", input.subjectProfileId)
-      .eq("status", "completed")
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle<{ id: string; completed_at: string | null }>();
+  const quartersForRate = [openQuarter, ...priorQuarters].filter(
+    (q): q is Quarter => Boolean(q)
+  );
 
-    let resultsJson: unknown = null;
-    let resultsSummary: string | null = null;
-    let narrativeTranscript = "";
+  const [keepRatesByQuarter, commitmentStats] = await Promise.all([
+    Promise.all(
+      quartersForRate.map(async (q) => ({
+        quarter: q,
+        keepRate: await computeQuarterKeepRateForSubject(
+          supabase,
+          input.companyId,
+          input.subjectProfileId,
+          q
+        ),
+      }))
+    ),
+    loadSubjectCommitments(supabase, input.subjectProfileId, openQuarter),
+  ]);
+  const { keptCount, missedCount, missed, openCommitments } = commitmentStats;
 
-    if (assessmentRow) {
-      const [{ data: resultRow }, { data: narrativeRows }] = await Promise.all([
-        supabase
-          .from("strengths_results")
-          .select("profile, summary")
-          .eq("assessment_id", assessmentRow.id)
-          .maybeSingle<{ profile: unknown; summary: string }>(),
-        supabase
-          .from("strengths_narrative_messages")
-          .select("role, content")
-          .eq("assessment_id", assessmentRow.id)
-          .order("created_at", { ascending: true }),
-      ]);
-      resultsJson = resultRow?.profile ?? null;
-      resultsSummary = resultRow?.summary ?? null;
-      narrativeTranscript =
-        ((narrativeRows ?? []) as Array<{ role: string; content: string }>)
-          .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
-          .join("\n") || "";
-    }
+  const personContext = formatPersonContext({
+    subject,
+    todayIso,
+    keepRatesByQuarter,
+    openQuarter,
+    keptCount,
+    missedCount,
+    missed,
+    openCommitments,
+    priorities,
+    goals,
+  });
 
-    const lines: string[] = ["<person_context>"];
-    lines.push(`Name: ${subject?.full_name ?? "(unknown)"}`);
-    lines.push(`Position: ${subject?.position ?? "—"}`);
-    lines.push(`Today: ${todayIso}`);
-    lines.push("");
-    if (!assessmentRow) {
-      lines.push(
-        "Assessment: not yet completed. Coach in the general AiMS strengths voice and invite them to describe what's showing up for them."
-      );
-    } else {
-      lines.push(
-        `Assessment completed: ${
-          assessmentRow.completed_at?.slice(0, 10) ?? "(recently)"
-        }`
-      );
-      if (resultsSummary) {
-        lines.push("");
-        lines.push("Written summary:");
-        lines.push(resultsSummary.trim());
-      }
-      if (resultsJson) {
-        lines.push("");
-        lines.push("Structured results:");
-        lines.push(JSON.stringify(resultsJson));
-      }
-      if (narrativeTranscript) {
-        lines.push("");
-        lines.push("Best-self narrative transcript:");
-        lines.push(narrativeTranscript);
-      }
-    }
-    lines.push("</person_context>");
-    personContext = lines.join("\n");
-  } else {
-    // openQuarter is needed to bucket loadSubjectCommitments; everything
-    // else in this branch can run concurrently against it.
-    const [openQuarter, priorQuarters, { priorities, goals }] = await Promise.all([
-      getCurrentQuarter(input.companyId),
-      loadPriorQuarters(supabase, input.companyId, 2),
-      loadOwnedPlanItems(supabase, input.subjectProfileId),
-    ]);
-
-    const quartersForRate = [openQuarter, ...priorQuarters].filter(
-      (q): q is Quarter => Boolean(q)
-    );
-
-    const [keepRatesByQuarter, commitmentStats] = await Promise.all([
-      Promise.all(
-        quartersForRate.map(async (q) => ({
-          quarter: q,
-          keepRate: await computeQuarterKeepRateForSubject(
-            supabase,
-            input.companyId,
-            input.subjectProfileId,
-            q
-          ),
-        }))
-      ),
-      loadSubjectCommitments(supabase, input.subjectProfileId, openQuarter),
-    ]);
-    const { keptCount, missedCount, missed, openCommitments } = commitmentStats;
-
-    personContext = formatPersonContext({
-      subject,
-      todayIso,
-      keepRatesByQuarter,
-      openQuarter,
-      keptCount,
-      missedCount,
-      missed,
-      openCommitments,
-      priorities,
-      goals,
-    });
-  }
+  // Strengths overlay — additive to person context, not a replacement.
+  // Assembled ONLY when the company has the entitlement; otherwise
+  // omitted entirely so the model can't leak strengths language even
+  // if the tables happen to have data.
+  const strengthsContext = await buildStrengthsContext({
+    supabase,
+    companyId: input.companyId,
+    subjectProfileId: input.subjectProfileId,
+  });
 
   const isSelfCoaching = subject?.id === input.currentAdminProfileId;
+  const mode: "self" | "about" = isSelfCoaching ? "self" : "about";
   const coachingContext = [
     "<coaching_context>",
+    `Mode: ${mode}`,
     `Being coached about: ${subject?.full_name ?? "(unknown subject)"}`,
     `Coaching participant: ${input.currentAdminName}`,
     isSelfCoaching
       ? "This is a self-coaching session — the participant is reflecting on their own execution, not someone else's. Address them in the second person ('you' / 'your'), not the third person."
       : "This is a leadership coaching session about another person. Refer to the subject by their name.",
     "Pronouns for the subject are unknown. Use they/them by default; never infer gender from names. If you use a name repeatedly, that's fine — just do not guess pronouns.",
+    "If strengths data is marked incomplete or unavailable, say so if asked and never invent or guess strengths.",
     `Today: ${todayIso}`,
     "</coaching_context>",
   ].join("\n");
 
-  return { companyContext, personContext, coachingContext, isSelfCoaching };
+  return { companyContext, personContext, strengthsContext, coachingContext, isSelfCoaching };
+}
+
+// Build the <strengths_context> block for a subject. Returns null
+// when the company doesn't have the strengths entitlement — the spec
+// says the block must be absent entirely in that case, not just
+// empty. When the entitlement is on but the subject has no completed
+// assessment, returns a short "incomplete" block so the model can
+// say so honestly if asked.
+async function buildStrengthsContext(args: {
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+  companyId: string;
+  subjectProfileId: string;
+}): Promise<string | null> {
+  const enabled = await companyHasFeature(args.companyId, "strengths");
+  if (!enabled) return null;
+
+  const { data: assessmentRow } = await args.supabase
+    .from("strengths_assessments")
+    .select("id, completed_at")
+    .eq("user_id", args.subjectProfileId)
+    .eq("status", "completed")
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; completed_at: string | null }>();
+
+  if (!assessmentRow) {
+    return [
+      "<strengths_context>",
+      "Assessment: not yet completed.",
+      "</strengths_context>",
+    ].join("\n");
+  }
+
+  const { data: resultRow } = await args.supabase
+    .from("strengths_results")
+    .select("profile, summary")
+    .eq("assessment_id", assessmentRow.id)
+    .maybeSingle<{ profile: unknown; summary: string }>();
+
+  if (!resultRow) {
+    return [
+      "<strengths_context>",
+      "Assessment: not yet completed.",
+      "</strengths_context>",
+    ].join("\n");
+  }
+
+  const profile = resultRow.profile as {
+    dimensions?: Array<{
+      dimension: string;
+      competence_avg: number;
+      energy_avg: number;
+    }>;
+    sub_strengths?: Array<{
+      sub_strength: string;
+      dimension: string;
+      competence: number;
+      energy: number;
+      flag: string;
+    }>;
+    top_strengths?: string[];
+  };
+
+  const signatures =
+    profile.sub_strengths
+      ?.filter((s) => s.flag === "signature")
+      .map((s) => s.sub_strength) ?? profile.top_strengths ?? [];
+  const drainers =
+    profile.sub_strengths
+      ?.filter((s) => s.flag === "capable_but_draining")
+      .map((s) => s.sub_strength) ?? [];
+
+  const lines: string[] = ["<strengths_context>"];
+  lines.push(
+    `Assessment completed: ${
+      assessmentRow.completed_at?.slice(0, 10) ?? "(recently)"
+    }`
+  );
+  if (signatures.length > 0) {
+    lines.push(`Signature strengths: ${signatures.join(", ")}`);
+  }
+  if (profile.dimensions && profile.dimensions.length > 0) {
+    lines.push("Dimension competence + energy:");
+    for (const d of profile.dimensions) {
+      lines.push(
+        `  ${d.dimension}: competence ${d.competence_avg.toFixed(1)}, energy ${d.energy_avg.toFixed(1)}`
+      );
+    }
+  }
+  if (drainers.length > 0) {
+    lines.push(`Capable but draining: ${drainers.join(", ")}`);
+  }
+  const summary = resultRow.summary?.trim();
+  if (summary) {
+    lines.push("");
+    lines.push("Narrative summary:");
+    lines.push(summary);
+  }
+  lines.push("</strengths_context>");
+  return lines.join("\n");
 }
 
 // ---- Helpers ---------------------------------------------------

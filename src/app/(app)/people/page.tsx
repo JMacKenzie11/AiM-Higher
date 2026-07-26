@@ -30,6 +30,14 @@ export default async function PeoplePage({ searchParams }: PageProps) {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+  // A manager reaches the Coach affordance for their direct reports,
+  // matching the coaching_conversations insert policy (migration
+  // 0021). Only bother rendering the Actions column for managers who
+  // actually have reports on this roster.
+  const managesAnyone = people.some(
+    (p) => p.reports_to === session.profile.id,
+  );
+  const showActionsColumn = isAdmin || managesAnyone;
 
   const { view } = await searchParams;
   const strengthsEnabled = await companyHasFeature(companyId, "strengths");
@@ -78,12 +86,17 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                   <th>Status</th>
                   <th className={styles.numHead}>Open</th>
                   <th>Follow-through rate</th>
-                  {isAdmin ? <th className={styles.actionHead}>Actions</th> : null}
+                  {showActionsColumn ? (
+                    <th className={styles.actionHead}>Actions</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
-                {people.map((person) => (
-                  <tr key={person.id}>
+                {people.map((person) => {
+                  const canCoachPerson =
+                    isAdmin || person.reports_to === session.profile.id;
+                  return (
+                    <tr key={person.id}>
                     <td>
                       <Link
                         href={`/people/${person.id}`}
@@ -118,23 +131,28 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                         label="No resolved commitments"
                       />
                     </td>
-                    {isAdmin ? (
+                    {showActionsColumn ? (
                       <td className={styles.actionsCell}>
-                        <Link
-                          href={`/coach/${person.id}`}
-                          className={styles.coachButton}
-                        >
-                          Coach
-                        </Link>
-                        <PersonStatusToggle
-                          personId={person.id}
-                          currentStatus={person.status}
-                          disabled={person.id === session.profile.id}
-                        />
+                        {canCoachPerson ? (
+                          <Link
+                            href={`/coach/${person.id}`}
+                            className={styles.coachButton}
+                          >
+                            Coach
+                          </Link>
+                        ) : null}
+                        {isAdmin ? (
+                          <PersonStatusToggle
+                            personId={person.id}
+                            currentStatus={person.status}
+                            disabled={person.id === session.profile.id}
+                          />
+                        ) : null}
                       </td>
                     ) : null}
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
