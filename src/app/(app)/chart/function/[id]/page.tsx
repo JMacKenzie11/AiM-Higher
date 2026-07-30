@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getChartFunctionDetail } from "@/lib/chart/service";
 import { AddOutcomeForm, AddMeasureForm } from "../../InlineForms";
+import { DeleteFunctionButton } from "./DeleteFunctionButton";
 import styles from "../../chart.module.css";
 
 // Function detail — the whole story for a single function.
@@ -144,6 +145,16 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {isAdmin ? (
+        <section className={styles.dangerZone}>
+          <DeleteFunctionButton
+            functionId={detail.fn.id}
+            functionTitle={detail.fn.title}
+            hasChildren={detail.children.length > 0}
+          />
         </section>
       ) : null}
     </div>

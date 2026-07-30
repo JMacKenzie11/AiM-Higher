@@ -128,6 +128,23 @@ export async function archiveFunctionAction(
   return { ok: true, item: data };
 }
 
+// Hard delete. FKs cascade: sub-functions, outcomes, measures, and
+// weekly entries all go with it. Admin-only via RLS + the role check
+// here.
+export async function deleteFunctionAction(
+  functionId: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireRole(["system_admin", "company_admin"]);
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("functions")
+    .delete()
+    .eq("id", functionId);
+  if (error) return { ok: false, message: "Couldn't delete that function." };
+  revalidatePath("/chart");
+  return { ok: true };
+}
+
 // Set one of the LTD roles (lead / track / decide). Passing null
 // clears the explicit assignment; the app falls back to lead_id
 // for track/decide when they're null.

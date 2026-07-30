@@ -217,11 +217,12 @@
 }
 
 .fnHeader {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-3);
   background: var(--grad-brand);
   color: var(--aims-white);
   display: flex;
   align-items: center;
+  justify-content: center;
   /* Two-line title height as a floor so single-line titles don't
      shrink the blue band relative to wrapped ones. */
   min-height: 4.5rem;
@@ -233,6 +234,10 @@
   margin: 0;
   text-decoration: none;
   display: block;
+  width: 100%;
+  text-align: center;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .fnTitle:hover {
@@ -560,4 +565,34 @@
   font: var(--text-body-sm);
   color: var(--text);
   margin: 0;
+}
+
+.dangerZone {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-4);
+  border-top: 1px dashed var(--border);
+}
+
+.deleteFunctionButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--aims-danger);
+  border: 1px solid var(--aims-danger);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.deleteFunctionButton:hover:not(:disabled) {
+  background: var(--aims-danger-tint);
+}
+
+.deleteFunctionButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
