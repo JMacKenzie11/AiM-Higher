@@ -456,10 +456,121 @@
 }
 
 /* ---- Detail page ---------------------------------------- */
+/* ---- Function detail: hero + cards ---------------------------
+   Matches the branded layered look used on /people/[id], /foundation,
+   and /dashboard: a full-bleed gradient hero at the top, then
+   card-styled sections on a max-width column. */
 .detailStage {
   display: flex;
   flex-direction: column;
+  gap: 0;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+}
+
+.backCrumbBand {
+  padding: var(--space-4) var(--space-6) 0;
+  max-width: 1160px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.backCrumbLink {
+  color: var(--primary);
+  text-decoration: none;
+  font: var(--text-body-sm);
+}
+
+.backCrumbLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.detailHero {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+
+.detailHeroInner {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.detailEyebrow {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.8;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.detailH1 {
+  margin: 0;
+  color: var(--aims-white);
+  font: var(--text-display);
+  letter-spacing: -0.02em;
+}
+
+.detailHeroRule {
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: var(--grad-rule);
+}
+
+.detailHeroLine {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.75;
+  font: var(--text-body);
+}
+
+.detailHeroLine a {
+  color: var(--aims-white);
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.detailContent {
+  position: relative;
+  margin: -32px auto 0;
+  padding: 0 var(--space-6) var(--space-6);
+  max-width: 1160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-5);
+}
+
+.sectionCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionCardAccent {
+  composes: sectionCard;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.sectionTitle {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+  position: relative;
 }
 
 .crumb {
