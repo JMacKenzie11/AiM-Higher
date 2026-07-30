@@ -377,24 +377,12 @@
   color: var(--primary-hover);
 }
 
-/* When the disclosure is open, the summary reads as a panel header
-   rather than a pill — it still toggles closed on click. */
+/* When the disclosure is open, the summary is redundant — the panel
+   itself is the affordance. Hide it. The Add Function form redirects
+   to the detail page on save, so the disclosure closes on its own
+   through the useStayOpenForm closeAncestor hook. */
 .addDetails[open] .addSummary {
-  display: flex;
-  width: 100%;
-  padding: 0 0 var(--space-3);
-  margin-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  color: var(--text-heading);
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-}
-
-.addDetails[open] .addSummary:hover {
-  background: transparent;
-  color: var(--primary);
+  display: none;
 }
 
 .addForm {
