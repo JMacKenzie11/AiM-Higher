@@ -3,6 +3,11 @@ import { AuthShell } from "@/components/auth-shell/AuthShell";
 import formStyles from "@/components/auth-shell/AuthForm.module.css";
 import { AcceptInviteForm } from "./AcceptInviteForm";
 
+// Auth flow — the session comes from Supabase's invite email at
+// runtime, so prerendering adds no value and trips the client form's
+// initial state during SSR.
+export const dynamic = "force-dynamic";
+
 // Supabase's invite email drops the user here with an auth session
 // already established via URL fragment tokens. The AcceptInviteForm
 // waits for that session, has them set a password, then flips the
