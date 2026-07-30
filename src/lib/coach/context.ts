@@ -380,6 +380,11 @@ function formatCompanyContext({
     lines.push("Purpose:");
     lines.push(foundation.purpose_statement.trim());
   }
+  if (foundation?.vision) {
+    lines.push("");
+    lines.push("Vision:");
+    lines.push(foundation.vision.trim());
+  }
   if (coreValues.length > 0) {
     lines.push("");
     lines.push("Core values:");

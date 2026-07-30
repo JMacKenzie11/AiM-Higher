@@ -10,6 +10,9 @@ import styles from "./foundation.module.css";
 
 const INITIAL: Result<CompanyFoundation> = { ok: false, message: "" };
 
+// Single vision field — title, tagline, body, and the old milestone
+// list all consolidated (migration 0106).
+
 export function VisionForm({
   foundation,
 }: {
@@ -25,41 +28,16 @@ export function VisionForm({
   return (
     <form action={formAction} className={styles.form}>
       <div className={styles.fieldWide}>
-        <label htmlFor="vision-title" className={styles.label}>
-          Vision title
-        </label>
-        <input
-          id="vision-title"
-          name="vision_title"
-          className={styles.input}
-          defaultValue={foundation?.vision_title ?? ""}
-          placeholder="e.g. Vision 2035: Powering Alaska's Future"
-          disabled={pending}
-        />
-      </div>
-      <div className={styles.fieldWide}>
-        <label htmlFor="vision-tagline" className={styles.label}>
-          Tagline
-        </label>
-        <input
-          id="vision-tagline"
-          name="vision_tagline"
-          className={styles.input}
-          defaultValue={foundation?.vision_tagline ?? ""}
-          placeholder="e.g. big enough to lead, yet small enough to care"
-          disabled={pending}
-        />
-      </div>
-      <div className={styles.fieldWide}>
-        <label htmlFor="vision-body" className={styles.label}>
-          Narrative
+        <label htmlFor="vision" className={styles.label}>
+          Vision
         </label>
         <textarea
-          id="vision-body"
-          name="vision_body"
+          id="vision"
+          name="vision"
           className={styles.textarea}
-          defaultValue={foundation?.vision_body ?? ""}
-          rows={6}
+          defaultValue={foundation?.vision ?? ""}
+          rows={12}
+          placeholder="Where this company is going. Title, tagline, milestones — all of it belongs here, in your own words."
           disabled={pending}
         />
       </div>

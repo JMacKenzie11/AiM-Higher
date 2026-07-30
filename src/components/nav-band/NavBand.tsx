@@ -69,7 +69,7 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "Chart", href: "/chart" },
       { kind: "link", label: "Commitments", href: "/commitments" },
       { kind: "link", label: "People", href: "/people" },
-      { kind: "link", label: "Foundation", href: "/foundation" },
+      { kind: "link", label: "One-Page Plan", href: "/foundation" },
     ],
   },
 ];

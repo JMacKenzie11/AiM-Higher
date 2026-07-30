@@ -53,25 +53,13 @@ export function PurposeForm({
         />
       </div>
 
-      {/* Vision fields live in the Vision tab's form; the singleton
-          shares the same row, so both forms include only the fields
-          they own and leave the rest untouched via upsert semantics.
-          To do that safely, we send the current vision values so the
-          upsert doesn't null them out. */}
+      {/* Vision lives in the Vision form; the singleton shares the
+          same row, so each form includes only the fields it owns and
+          preserves the rest via upsert semantics. */}
       <input
         type="hidden"
-        name="vision_title"
-        value={foundation?.vision_title ?? ""}
-      />
-      <input
-        type="hidden"
-        name="vision_tagline"
-        value={foundation?.vision_tagline ?? ""}
-      />
-      <input
-        type="hidden"
-        name="vision_body"
-        value={foundation?.vision_body ?? ""}
+        name="vision"
+        value={foundation?.vision ?? ""}
       />
 
       {errorMessage ? (

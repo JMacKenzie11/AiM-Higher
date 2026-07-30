@@ -262,8 +262,8 @@ export type SuccessMeasureEntry = {
 // ---- Foundation + marketing (Sections 4.6 + 4.7) -----------------
 export type FoundationItemKind =
   | "core_value"
-  | "vision_milestone"
-  | "differentiator";
+  | "differentiator"
+  | "key_success_metric";
 
 export type MarketingSnippetKind =
   | "short_hook"
@@ -278,9 +278,10 @@ export type CompanyFoundation = {
   company_id: string;
   purpose_statement: string | null;
   purpose_context: string | null;
-  vision_title: string | null;
-  vision_tagline: string | null;
-  vision_body: string | null;
+  // Consolidated in migration 0106 — vision is a single field now.
+  // Legacy vision_title, vision_tagline, and vision_milestone items
+  // were merged into it.
+  vision: string | null;
   created_at: string;
   updated_at: string;
 };

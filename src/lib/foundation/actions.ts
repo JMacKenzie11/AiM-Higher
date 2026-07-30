@@ -40,9 +40,7 @@ export async function upsertFoundationAction(
     company_id: companyId,
     purpose_statement: nullableString(formData.get("purpose_statement")),
     purpose_context: nullableString(formData.get("purpose_context")),
-    vision_title: nullableString(formData.get("vision_title")),
-    vision_tagline: nullableString(formData.get("vision_tagline")),
-    vision_body: nullableString(formData.get("vision_body")),
+    vision: nullableString(formData.get("vision")),
   };
 
   const supabase = await createSupabaseServerClient();
@@ -191,8 +189,8 @@ export async function moveFoundationItemAction(
 function validateItemKind(raw: string): FoundationItemKind | null {
   if (
     raw === "core_value" ||
-    raw === "vision_milestone" ||
-    raw === "differentiator"
+    raw === "differentiator" ||
+    raw === "key_success_metric"
   ) {
     return raw;
   }

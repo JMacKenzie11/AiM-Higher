@@ -15,8 +15,8 @@ import type {
 export type FoundationData = {
   foundation: CompanyFoundation | null;
   coreValues: FoundationItem[];
-  visionMilestones: FoundationItem[];
   differentiators: FoundationItem[];
+  keySuccessMetrics: FoundationItem[];
   marketing: MarketingStrategy | null;
   pillars: MessagingPillar[];
   snippets: {
@@ -78,8 +78,8 @@ export async function getFoundation(
   return {
     foundation: foundationRow ?? null,
     coreValues: items.filter((i) => i.kind === "core_value"),
-    visionMilestones: items.filter((i) => i.kind === "vision_milestone"),
     differentiators: items.filter((i) => i.kind === "differentiator"),
+    keySuccessMetrics: items.filter((i) => i.kind === "key_success_metric"),
     marketing: marketingRow ?? null,
     pillars: (pillarRows ?? []) as MessagingPillar[],
     snippets: {

@@ -67,6 +67,40 @@
   gap: var(--space-5);
 }
 
+/* Two-column layout for the One-Page Plan: LEFT — Purpose, Core
+   Values, Differentiators. RIGHT — Vision, Strategic Focus Areas,
+   Ideal Client Avatar. Both columns stack under 900px. */
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.inlineLink {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.inlineLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* ---- Card ---- */
 
 .card {
