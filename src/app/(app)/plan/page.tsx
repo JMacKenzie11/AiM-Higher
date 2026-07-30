@@ -121,6 +121,21 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 />
               </div>
             </details>
+            {selectedQuarter ? (
+              <details className={styles.toolbarAddDetails}>
+                <summary className={styles.toolbarAddSummary}>
+                  + Add 90-Day Priority
+                </summary>
+                <div className={styles.toolbarAddPanel}>
+                  <AddPriorityForm
+                    quarterId={selectedQuarter.id}
+                    defaultGoalId={null}
+                    goalOptions={goalOptions}
+                    people={roster}
+                  />
+                </div>
+              </details>
+            ) : null}
             <BulkResetButton
               companyId={companyId}
               sfaCount={resetImpact.sfaCount}
@@ -345,10 +360,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
               >
                 <header className={styles.orphanHeader}>
                   <h2 id="orphan-priorities" className={styles.orphanTitle}>
-                    Priorities without a goal
+                    Standalone 90-Day Priorities
                   </h2>
                   <p className={styles.orphanNote}>
-                    Attach these to an annual goal to link them to the plan.
+                    Priorities that aren&rsquo;t tied to an annual goal yet. Link one to a goal when the strategic plan takes shape.
                   </p>
                 </header>
                 <ul className={styles.rowList}>
@@ -405,23 +420,6 @@ export default async function PlanPage({ searchParams }: PageProps) {
               </section>
             ) : null}
 
-            {isAdmin && selectedQuarter && cascade.orphanGoals.length === 0 &&
-              cascade.sfas.every((sfa) => sfa.goals.length === 0) ? (
-              <section
-                className={styles.addCard}
-                aria-labelledby="add-orphan-priority"
-              >
-                <h2 id="add-orphan-priority" className={styles.orphanTitle}>
-                  Add a priority
-                </h2>
-                <AddPriorityForm
-                  quarterId={selectedQuarter.id}
-                  defaultGoalId={null}
-                  goalOptions={goalOptions}
-                  people={roster}
-                />
-              </section>
-            ) : null}
           </div>
           </PlanCascadeController>
     </div>
