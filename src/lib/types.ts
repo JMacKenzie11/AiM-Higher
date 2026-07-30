@@ -236,6 +236,21 @@ export type FunctionOutcome = {
   updated_at: string;
 };
 
+// Roles & Responsibilities under a function. Every function has one
+// row with is_default=true holding "Lead, Track, Decide" — the
+// baseline responsibility of any seat holder. That row can't be
+// edited or deleted (enforced by RLS + the UI).
+export type FunctionRole = {
+  id: string;
+  function_id: string;
+  title: string;
+  body: string | null;
+  sort_order: number;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SuccessMeasure = {
   id: string;
   outcome_id: string;

@@ -8,6 +8,7 @@ import { nullableString } from "@/lib/utils";
 import type {
   FunctionNode,
   FunctionOutcome,
+  FunctionRole,
   MetricValueType,
   SuccessMeasure,
   SuccessMeasureEntry,
@@ -126,6 +127,106 @@ export async function archiveFunctionAction(
   if (error || !data) return { ok: false, message: "Couldn't archive." };
   revalidatePath("/chart");
   return { ok: true, item: data };
+}
+
+// ---- Function roles (R&R) --------------------------------------
+// Every function has a trigger-created default role holding
+// "Lead, Track, Decide" (is_default=true) — RLS blocks update and
+// delete on that row. User-added rows below can be freely edited.
+
+export async function createFunctionRoleAction(
+  _prev: ChartResult<FunctionRole> | undefined,
+  formData: FormData
+): Promise<ChartResult<FunctionRole>> {
+  await requireRole(["system_admin", "company_admin"]);
+  const functionId = String(formData.get("function_id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const body = nullableString(formData.get("body"));
+  if (!functionId || !title) {
+    return { ok: false, message: "Missing function or title." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: existing } = await supabase
+    .from("function_roles")
+    .select("sort_order")
+    .eq("function_id", functionId)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  const nextSort =
+    existing && existing.length > 0 ? (existing[0].sort_order ?? 0) + 1 : 1;
+
+  const { data, error } = await supabase
+    .from("function_roles")
+    .insert({
+      function_id: functionId,
+      title,
+      body,
+      sort_order: nextSort,
+      is_default: false,
+    })
+    .select("*")
+    .single<FunctionRole>();
+  if (error || !data) return { ok: false, message: "Couldn't add that." };
+  revalidatePath("/chart");
+  revalidatePath(`/chart/function/${functionId}`);
+  return { ok: true, item: data };
+}
+
+export async function updateFunctionRoleAction(
+  _prev: ChartResult<FunctionRole> | undefined,
+  formData: FormData
+): Promise<ChartResult<FunctionRole>> {
+  await requireRole(["system_admin", "company_admin"]);
+  const id = String(formData.get("id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const body = nullableString(formData.get("body"));
+  if (!id || !title) return { ok: false, message: "Missing title or id." };
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("function_roles")
+    .update({ title, body })
+    .eq("id", id)
+    .eq("is_default", false)
+    .select("*")
+    .single<FunctionRole>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't save (the default role is locked)." };
+  }
+  revalidatePath("/chart");
+  revalidatePath(`/chart/function/${data.function_id}`);
+  return { ok: true, item: data };
+}
+
+export async function deleteFunctionRoleAction(
+  roleId: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireRole(["system_admin", "company_admin"]);
+  const supabase = await createSupabaseServerClient();
+
+  // Grab function_id first so we can revalidate the detail path even
+  // after the row is gone. The is_default block also prevents the
+  // baseline row from being deleted via a crafted request.
+  const { data: role } = await supabase
+    .from("function_roles")
+    .select("function_id, is_default")
+    .eq("id", roleId)
+    .maybeSingle<Pick<FunctionRole, "function_id" | "is_default">>();
+  if (!role) return { ok: false, message: "Not found." };
+  if (role.is_default) {
+    return { ok: false, message: "The default role can't be deleted." };
+  }
+
+  const { error } = await supabase
+    .from("function_roles")
+    .delete()
+    .eq("id", roleId)
+    .eq("is_default", false);
+  if (error) return { ok: false, message: "Couldn't delete." };
+  revalidatePath("/chart");
+  revalidatePath(`/chart/function/${role.function_id}`);
+  return { ok: true };
 }
 
 // Hard delete. FKs cascade: sub-functions, outcomes, measures, and

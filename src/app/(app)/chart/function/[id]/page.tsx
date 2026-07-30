@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getChartFunctionDetail } from "@/lib/chart/service";
 import { AddOutcomeForm, AddMeasureForm } from "../../InlineForms";
 import { DeleteFunctionButton } from "./DeleteFunctionButton";
+import { RolesList } from "./RolesList";
 import styles from "../../chart.module.css";
 
 // Function detail — the whole story for a single function.
@@ -63,19 +64,31 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         </span>
       </div>
 
+      <section>
+        <h2 className={styles.detailOutcomeTitle} style={{ marginBottom: "var(--space-3)" }}>
+          Roles & Responsibilities
+        </h2>
+        <RolesList
+          functionId={detail.fn.id}
+          roles={detail.roles}
+          canEdit={isAdmin}
+        />
+      </section>
+
       {outcomeCount > 3 ? (
         <p className={styles.focusWarning}>
-          <strong>Focus reminder:</strong> {outcomeCount} outcomes on this
+          <strong>Focus reminder:</strong> {outcomeCount} success measures on this
           function. Three or fewer is the norm — everything else should either
           fold in or move.
         </p>
       ) : null}
 
       <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+        <h2 className={styles.detailOutcomeTitle}>Success Measures</h2>
         {detail.outcomes.map((o) => (
           <article key={o.id} className={styles.detailOutcome}>
             <div>
-              <p className={styles.outcomeLabel}>Outcome</p>
+              <p className={styles.outcomeLabel}>Success Measure</p>
               <h2 className={styles.detailOutcomeTitle}>{o.title}</h2>
               {o.description ? (
                 <p className={styles.subtitle}>{o.description}</p>
@@ -107,12 +120,12 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
                 })}
               </ul>
             ) : (
-              <p className={styles.emptyOutcomeLine}>No measures yet.</p>
+              <p className={styles.emptyOutcomeLine}>No metrics yet.</p>
             )}
 
             {isAdmin ? (
               <details className={styles.addDetails}>
-                <summary className={styles.addSummary}>+ Add measure</summary>
+                <summary className={styles.addSummary}>+ Add metric</summary>
                 <AddMeasureForm outcomeId={o.id} />
               </details>
             ) : null}
@@ -120,12 +133,12 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         ))}
 
         {detail.outcomes.length === 0 ? (
-          <p className={styles.emptyOutcomeLine}>No outcomes yet.</p>
+          <p className={styles.emptyOutcomeLine}>No success measures yet.</p>
         ) : null}
 
         {isAdmin ? (
           <details className={styles.addDetails}>
-            <summary className={styles.addSummary}>+ Add outcome</summary>
+            <summary className={styles.addSummary}>+ Add success measure</summary>
             <AddOutcomeForm functionId={detail.fn.id} />
           </details>
         ) : null}

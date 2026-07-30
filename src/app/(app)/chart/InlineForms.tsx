@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   createFunctionAction,
   createOutcomeAction,
@@ -32,6 +33,7 @@ export function AddFunctionForm({
   people: Array<Pick<Profile, "id" | "full_name">>;
   parentFunctionId?: string;
 }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<
     ChartResult<FunctionNode>,
     FormData
@@ -44,6 +46,16 @@ export function AddFunctionForm({
     (s) => Boolean(s && "ok" in s && s.ok),
     { closeAncestor: "details" }
   );
+
+  // Straight to the detail page after save — that's where R&R and
+  // Success Measures get filled in inline. useStayOpenForm above
+  // resets the fields and closes the disclosure, so the redirect is
+  // additive: momentum lands on the new function.
+  useEffect(() => {
+    if (state && "ok" in state && state.ok && state.item?.id) {
+      router.push(`/chart/function/${state.item.id}`);
+    }
+  }, [state, router]);
 
   return (
     <form action={formAction} className={styles.addForm} ref={formRef}>
@@ -81,12 +93,12 @@ export function AddFunctionForm({
       </label>
 
       <label className={`${styles.formField} ${styles.formFieldFull}`}>
-        <span className={styles.formLabel}>The outcomes this function is obsessed with delivering</span>
+        <span className={styles.formLabel}>Description</span>
         <textarea
           className={styles.formTextarea}
           name="description"
           rows={3}
-          placeholder="A short description of the capability this function is responsible for delivering."
+          placeholder="One line on what this function is responsible for. Add responsibilities and success measures on the next page."
           disabled={pending}
         />
       </label>
@@ -128,7 +140,7 @@ export function AddOutcomeForm({ functionId }: { functionId: string }) {
       <input type="hidden" name="function_id" value={functionId} />
 
       <label className={`${styles.formField} ${styles.formFieldFull}`}>
-        <span className={styles.formLabel}>Outcome</span>
+        <span className={styles.formLabel}>Success measure</span>
         <input
           className={styles.formInput}
           type="text"
@@ -145,7 +157,7 @@ export function AddOutcomeForm({ functionId }: { functionId: string }) {
           className={styles.formTextarea}
           name="description"
           rows={2}
-          placeholder="A sentence about why this outcome earned a spot on the short list."
+          placeholder="A sentence about why this earned a spot on the short list."
           disabled={pending}
         />
       </label>
@@ -158,7 +170,7 @@ export function AddOutcomeForm({ functionId }: { functionId: string }) {
 
       <div className={styles.formSubmit}>
         <button type="submit" className={uiStyles.btnPrimary} disabled={pending}>
-          {pending ? "Adding…" : "Add outcome"}
+          {pending ? "Adding…" : "Add success measure"}
         </button>
         <ConfirmationChip visible={confirmationVisible} />
       </div>
@@ -239,7 +251,7 @@ export function AddMeasureForm({ outcomeId }: { outcomeId: string }) {
 
       <div className={styles.formSubmit}>
         <button type="submit" className={uiStyles.btnPrimary} disabled={pending}>
-          {pending ? "Adding…" : "Add measure"}
+          {pending ? "Adding…" : "Add metric"}
         </button>
         <ConfirmationChip visible={confirmationVisible} />
       </div>

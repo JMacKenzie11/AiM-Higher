@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   FunctionNode,
   FunctionOutcome,
+  FunctionRole,
   Profile,
   SuccessMeasure,
   SuccessMeasureEntry,
@@ -35,6 +36,9 @@ export type ChartLtd = {
 
 export type ChartFunction = FunctionNode & {
   seatHolder: Pick<Profile, "id" | "full_name"> | null;
+  // R&R for the chart tree box. Includes the trigger-created default
+  // "Lead, Track, Decide" row (is_default=true) sorted first.
+  roles: FunctionRole[];
   outcomes: ChartOutcome[];
   children: ChartFunction[]; // recursive: sub-functions
 };
@@ -76,7 +80,7 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
 
   const functionIds = functions.map((f) => f.id);
 
-  const [{ data: outcomesRaw }, { data: measuresRaw }] = await Promise.all([
+  const [{ data: outcomesRaw }, { data: measuresRaw }, { data: rolesRaw }] = await Promise.all([
     supabase
       .from("function_outcomes")
       .select("*")
@@ -90,6 +94,15 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
       .select("*, function_outcomes!inner(function_id)")
       .eq("archived", false)
       .in("function_outcomes.function_id", functionIds)
+      .order("sort_order"),
+    // Roles & Responsibilities for the chart tree boxes. Sort is
+    // is_default first (default row = sort_order 0), then by
+    // sort_order — user-added items follow after the L/T/D baseline.
+    supabase
+      .from("function_roles")
+      .select("*")
+      .in("function_id", functionIds)
+      .order("is_default", { ascending: false })
       .order("sort_order"),
   ]);
 
@@ -121,6 +134,14 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
 
   const rosterById = new Map(roster.map((p) => [p.id, p]));
 
+  const roles = (rolesRaw ?? []) as FunctionRole[];
+  const rolesByFunction = new Map<string, FunctionRole[]>();
+  for (const role of roles) {
+    const arr = rolesByFunction.get(role.function_id) ?? [];
+    arr.push(role);
+    rolesByFunction.set(role.function_id, arr);
+  }
+
   const outcomesByFunction = new Map<string, ChartOutcome[]>();
   const measuresByOutcome = new Map<string, ChartMeasureWithLatest[]>();
 
@@ -150,6 +171,7 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
     nodesById.set(f.id, {
       ...f,
       seatHolder: f.lead_id ? rosterById.get(f.lead_id) ?? null : null,
+      roles: rolesByFunction.get(f.id) ?? [],
       outcomes: outcomesByFunction.get(f.id) ?? [],
       children: [],
     });
@@ -177,6 +199,7 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
   seatHolder: Pick<Profile, "id" | "full_name"> | null;
   parent: Pick<FunctionNode, "id" | "title"> | null;
   children: FunctionNode[];
+  roles: FunctionRole[];
   outcomes: Array<
     FunctionOutcome & {
       measures: Array<SuccessMeasure & { entries: SuccessMeasureEntry[] }>;
@@ -197,6 +220,7 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
     { data: parentRaw },
     { data: childrenRaw },
     { data: outcomesRaw },
+    { data: rolesRaw },
     { data: rosterRaw },
   ] = await Promise.all([
     fn.parent_function_id
@@ -217,6 +241,12 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
       .select("*")
       .eq("function_id", fn.id)
       .eq("archived", false)
+      .order("sort_order"),
+    supabase
+      .from("function_roles")
+      .select("*")
+      .eq("function_id", fn.id)
+      .order("is_default", { ascending: false })
       .order("sort_order"),
     supabase
       .from("profiles")
@@ -277,6 +307,7 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
     seatHolder,
     parent: parentRaw ?? null,
     children: (childrenRaw ?? []) as FunctionNode[],
+    roles: (rolesRaw ?? []) as FunctionRole[],
     outcomes: outcomesWithMeasures,
     roster,
   };

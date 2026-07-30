@@ -585,6 +585,168 @@
   border-top: 1px dashed var(--border);
 }
 
+/* ---- Roles & Responsibilities editor ---------------------- */
+.roleList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.roleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.roleRowDefault {
+  background: var(--aims-navy-tint);
+  border-style: dashed;
+}
+
+.roleRowDraft {
+  background: var(--aims-navy-tint);
+  border-style: dashed;
+}
+
+.roleMain {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.roleTitle {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.roleBody {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.roleBadge {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.roleActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.roleEditForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.roleEditActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.roleInput,
+.roleTextarea {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  width: 100%;
+  min-width: 0;
+}
+
+.roleTextarea {
+  resize: vertical;
+  min-height: calc(var(--control-h-md) * 1.5);
+}
+
+.roleInput:focus,
+.roleTextarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.rolePrimaryButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-4);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rolePrimaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.rolePrimaryButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.roleGhostButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.roleGhostButton:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
+}
+
+.roleDangerButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--aims-danger);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.roleDangerButton:hover:not(:disabled) {
+  background: var(--aims-danger-tint);
+}
+
+.roleError {
+  margin: 0;
+  color: var(--aims-danger);
+  font: var(--text-caption);
+}
+
 .deleteFunctionButton {
   height: var(--control-h-sm);
   padding: 0 var(--space-4);

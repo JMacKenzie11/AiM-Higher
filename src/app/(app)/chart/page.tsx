@@ -119,13 +119,13 @@ function FunctionBox({ fn }: { fn: ChartFunction }) {
             {fn.seatHolder?.full_name ?? "Unassigned"}
           </span>
         </div>
-        {fn.outcomes.length > 0 ? (
+        {fn.roles.length > 0 ? (
           <div className={styles.outcomeBlock}>
-            <p className={styles.outcomeLabel}>Obsessed with</p>
+            <p className={styles.outcomeLabel}>Roles & Responsibilities</p>
             <ul className={styles.outcomeList}>
-              {fn.outcomes.map((o) => (
-                <li key={o.id} className={styles.outcomeItem}>
-                  {o.title}
+              {fn.roles.map((r) => (
+                <li key={r.id} className={styles.outcomeItem}>
+                  {r.title}
                 </li>
               ))}
             </ul>
