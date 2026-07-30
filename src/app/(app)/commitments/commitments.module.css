@@ -246,6 +246,35 @@
   color: var(--text-muted);
 }
 
+/* Button variant of .rowOwner — clickable when the user is allowed
+   to reassign. Quiet at rest; hover reveals it as an affordance. */
+.rowOwnerButton {
+  background: none;
+  border: 1px dashed transparent;
+  color: var(--text-muted);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.rowOwnerButton:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.rowOwnerButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.rowOwnerButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .rowPriorityLink {
   color: var(--primary);
   font: var(--text-body-sm);

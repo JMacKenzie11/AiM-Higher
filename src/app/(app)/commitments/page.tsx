@@ -120,9 +120,11 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                 key={c.id}
                 commitment={c}
                 priorityOptions={data.priorityOptions}
+                roster={data.roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
                 todayIso={data.todayIso}
                 canResolve={canWriteOwnedRow(session.profile, c)}
                 canLink={canWriteOwnedRow(session.profile, c)}
+                canReassign={canWriteOwnedRow(session.profile, c)}
               />
             ))
           )}
@@ -154,6 +156,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                 key={week.weekEnding}
                 week={week}
                 priorityOptions={data.priorityOptions}
+                roster={data.roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
                 todayIso={data.todayIso}
                 currentUserId={session.profile.id}
                 isAdmin={isAdmin}

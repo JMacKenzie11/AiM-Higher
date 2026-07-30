@@ -325,6 +325,58 @@ export async function rescheduleCommitmentAction(
   return { ok: true, commitment: data };
 }
 
+// ---- Reassign owner -------------------------------------------
+// Change who a commitment belongs to. The old owner or an admin can
+// hand it off to any other active member of the same company. Works
+// on any status — reassigning a resolved row corrects the record;
+// reassigning an open one hands the work over.
+export async function reassignCommitmentAction(
+  commitmentId: string,
+  newOwnerId: string
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to reassign." };
+  }
+  if (!newOwnerId) {
+    return { ok: false, message: "Pick who owns this now." };
+  }
+  if (newOwnerId === commitment.owner_id) {
+    return { ok: true, commitment };
+  }
+
+  // The new owner must be in the same company. Blocks cross-company
+  // handoffs (which would break RLS reads and priority progress).
+  const { data: newOwner } = await supabase
+    .from("profiles")
+    .select("id, company_id, status")
+    .eq("id", newOwnerId)
+    .maybeSingle<{ id: string; company_id: string | null; status: string }>();
+  if (!newOwner || newOwner.company_id !== commitment.company_id) {
+    return { ok: false, message: "That person isn't in this company." };
+  }
+  if (newOwner.status === "inactive") {
+    return { ok: false, message: "That person is inactive." };
+  }
+
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({ owner_id: newOwnerId })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't reassign that commitment." };
+  }
+
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: data };
+}
+
 // ---- Link / unlink priority -----------------------------------
 // Only mutable while open, so resolved rows can't be silently retargeted
 // between priorities (that would rewrite priority progress history).

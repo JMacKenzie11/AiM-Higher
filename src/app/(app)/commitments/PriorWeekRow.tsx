@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { CommitmentPriorWeek } from "@/lib/commitments/service";
-import type { Priority } from "@/lib/types";
+import type { Priority, Profile } from "@/lib/types";
 import { CommitmentRow } from "./CommitmentRow";
 import styles from "./commitments.module.css";
 
@@ -16,6 +16,7 @@ import styles from "./commitments.module.css";
 export type PriorWeekRowProps = {
   week: CommitmentPriorWeek;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  roster: Array<Pick<Profile, "id" | "full_name">>;
   todayIso: string;
   currentUserId: string;
   isAdmin: boolean;
@@ -25,6 +26,7 @@ export type PriorWeekRowProps = {
 export function PriorWeekRow({
   week,
   priorityOptions,
+  roster,
   todayIso,
   currentUserId,
   isAdmin,
@@ -71,9 +73,11 @@ export function PriorWeekRow({
                   key={commitment.id}
                   commitment={commitment}
                   priorityOptions={priorityOptions}
+                  roster={roster}
                   todayIso={todayIso}
                   canResolve={canResolve}
                   canLink={false}
+                  canReassign={canResolve}
                 />
               );
             })

@@ -6,15 +6,17 @@ import {
   linkPriorityAction,
   markKeptAction,
   markMissedAction,
+  reassignCommitmentAction,
   rescheduleCommitmentAction,
   unmarkKeptAction,
   unmarkMissedAction,
 } from "@/lib/commitments/actions";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import { formatShortDate } from "@/lib/dates";
-import type { Priority } from "@/lib/types";
+import type { Priority, Profile } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import { PriorityPicker } from "./PriorityPicker";
+import { OwnerPicker } from "./OwnerPicker";
 import styles from "./commitments.module.css";
 
 // A single commitment row.
@@ -33,23 +35,31 @@ import styles from "./commitments.module.css";
 export type CommitmentRowProps = {
   commitment: CommitmentWithMeta;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  roster: Array<Pick<Profile, "id" | "full_name">>;
   todayIso: string;
   canResolve: boolean;
   canLink: boolean;
+  // Reassign follows the same admin-or-owner rule as resolve. Kept
+  // as its own prop so callers can gate it independently later if the
+  // policy diverges.
+  canReassign: boolean;
 };
 
 export function CommitmentRow({
   commitment,
   priorityOptions,
+  roster,
   todayIso,
   canResolve,
   canLink,
+  canReassign,
 }: CommitmentRowProps) {
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState("");
   const [showReschedule, setShowReschedule] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState(commitment.due_date);
   const [rescheduleReason, setRescheduleReason] = useState("");
+  const [pickingOwner, setPickingOwner] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -99,6 +109,15 @@ export function CommitmentRow({
     setError(null);
     startTransition(async () => {
       const result = await linkPriorityAction(commitment.id, next);
+      if (!result.ok) setError(result.message);
+    });
+  }
+
+  function reassignTo(newOwnerId: string) {
+    setError(null);
+    setPickingOwner(false);
+    startTransition(async () => {
+      const result = await reassignCommitmentAction(commitment.id, newOwnerId);
       if (!result.ok) setError(result.message);
     });
   }
@@ -282,9 +301,30 @@ export function CommitmentRow({
         ) : null}
       </div>
 
-      <span className={styles.rowOwner}>
-        {commitment.owner?.full_name ?? "—"}
-      </span>
+      {canReassign && pickingOwner ? (
+        <span className={styles.rowOwner}>
+          <OwnerPicker
+            roster={roster}
+            currentOwnerId={commitment.owner_id}
+            onSelect={reassignTo}
+            disabled={pending}
+          />
+        </span>
+      ) : canReassign ? (
+        <button
+          type="button"
+          className={styles.rowOwnerButton}
+          onClick={() => setPickingOwner(true)}
+          disabled={pending}
+          aria-label="Reassign owner"
+        >
+          {commitment.owner?.full_name ?? "—"}
+        </button>
+      ) : (
+        <span className={styles.rowOwner}>
+          {commitment.owner?.full_name ?? "—"}
+        </span>
+      )}
 
       <PriorityCell
         commitment={commitment}
