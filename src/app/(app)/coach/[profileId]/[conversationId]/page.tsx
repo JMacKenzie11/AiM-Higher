@@ -18,6 +18,14 @@ export default async function CoachChatPage({ params }: PageProps) {
 
   const conversation = await getConversation(conversationId);
   if (!conversation) notFound();
+  // General (Ask Aimee) conversations live under /ask-aimee. If the
+  // creator hits this route via a stale bookmark, send them there.
+  if (conversation.mode === "general") {
+    if (conversation.created_by === session.profile.id) {
+      redirect(`/ask-aimee/${conversation.id}`);
+    }
+    notFound();
+  }
   if (conversation.subject_profile_id !== profileId) notFound();
   // RLS already scopes to created_by; this guard is defense-in-depth.
   if (conversation.created_by !== session.profile.id) redirect("/");

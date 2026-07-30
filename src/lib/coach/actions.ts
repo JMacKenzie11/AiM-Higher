@@ -17,19 +17,23 @@ export type CoachActionResult<T> =
 
 export type SimpleResult = { ok: true } | { ok: false; message: string };
 
-// ---- Create -----------------------------------------------------
-// A conversation is scoped to (creator, subject, context_kind).
-// Admins may coach anyone in their reach; team members may only
-// coach themselves. System admins self-coaching have no company of
-// their own — they use whichever company they've currently scoped
-// into. `contextKind` picks the prompt file and person-context
-// assembler; defaults to 'execution' for backward compatibility with
-// existing entry points.
+// ---- Create an ABOUT conversation (person-specific) ------------
+// Admin coaches anyone in their reach; manager coaches a direct
+// report. Self-coaching is retired — general conversations (Ask
+// Aimee) go through createGeneralConversationAction below.
 export async function createConversationAction(
   subjectProfileId: string,
   contextKind: CoachingContextKind = "execution"
 ): Promise<CoachActionResult<CoachingConversation>> {
   const session = await requireProfile();
+
+  if (subjectProfileId === session.profile.id) {
+    return {
+      ok: false,
+      message:
+        "Use Ask Aimee for general reflection — this flow is for coaching about someone else.",
+    };
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data: subject } = await supabase
@@ -41,52 +45,28 @@ export async function createConversationAction(
     return { ok: false, message: "That person isn't accessible." };
   }
 
-  const isSelf = subject.id === session.profile.id;
   const isSystemAdmin = session.profile.role === "system_admin";
   const isCompanyAdmin =
     session.profile.role === "company_admin" &&
     session.profile.company_id === subject.company_id;
   const isManager = subject.reports_to === session.profile.id;
 
-  // Authorization matches migration 0021 RLS: self-mode is open to any
-  // active member for themselves; about-mode requires admin OR the
-  // subject's direct manager (via profiles.reports_to).
-  if (!isSelf && !isSystemAdmin && !isCompanyAdmin && !isManager) {
+  // Matches migration 0105 RLS insert policy for mode='about'.
+  if (!isSystemAdmin && !isCompanyAdmin && !isManager) {
     return {
       ok: false,
       message:
-        "You can only coach yourself, your direct reports, or people in your company as an admin.",
+        "You can only coach your direct reports or people in your company as an admin.",
     };
   }
 
-  const mode = isSelf ? "self" : "about";
-
-  // Every conversation row needs a company_id. Team members and
-  // company admins have one on their profile. System admins don't —
-  // fall back to their scoped company for self-coaching.
-  let conversationCompanyId = subject.company_id;
-  if (!conversationCompanyId) {
-    if (isSelf && isSystemAdmin) {
-      conversationCompanyId = await getScopedCompanyId();
-      if (!conversationCompanyId) {
-        return {
-          ok: false,
-          message:
-            "Scope into a company first — coaching runs against a company's context.",
-        };
-      }
-    } else {
-      return { ok: false, message: "That person isn't accessible." };
-    }
+  if (!subject.company_id) {
+    return { ok: false, message: "That person isn't in a company yet." };
   }
 
-  // Feature gate: if the company doesn't subscribe to the module the
-  // caller is asking to coach on, don't start the conversation. This
-  // matters for 'strengths' — if the entitlement was turned off after
-  // data was captured, we don't want new coaching sessions pulling
-  // from that data.
+  // Feature gate: strengths coaching requires the company entitlement.
   if (contextKind === "strengths") {
-    const enabled = await companyHasFeature(conversationCompanyId, "strengths");
+    const enabled = await companyHasFeature(subject.company_id, "strengths");
     if (!enabled) {
       return {
         ok: false,
@@ -99,12 +79,12 @@ export async function createConversationAction(
   const { data, error } = await supabase
     .from("coaching_conversations")
     .insert({
-      company_id: conversationCompanyId,
+      company_id: subject.company_id,
       subject_profile_id: subject.id,
       created_by: session.profile.id,
       title,
       context_kind: contextKind,
-      mode,
+      mode: "about",
     })
     .select("*")
     .single<CoachingConversation>();
@@ -113,6 +93,49 @@ export async function createConversationAction(
   }
 
   revalidatePath(`/coach/${subject.id}`);
+  return { ok: true, item: data };
+}
+
+// ---- Create a GENERAL conversation (Ask Aimee) ----------------
+// Any active member of a company can start one. System admins fall
+// back to their scoped company. The subject stays null; the user
+// brings the situation in-thread.
+export async function createGeneralConversationAction(): Promise<
+  CoachActionResult<CoachingConversation>
+> {
+  const session = await requireProfile();
+
+  let companyId: string | null = session.profile.company_id;
+  if (!companyId && session.profile.role === "system_admin") {
+    companyId = await getScopedCompanyId();
+  }
+  if (!companyId) {
+    return {
+      ok: false,
+      message:
+        "Scope into a company first — coaching runs against a company's context.",
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const title = defaultTitleForToday();
+  const { data, error } = await supabase
+    .from("coaching_conversations")
+    .insert({
+      company_id: companyId,
+      subject_profile_id: null,
+      created_by: session.profile.id,
+      title,
+      context_kind: "execution",
+      mode: "general",
+    })
+    .select("*")
+    .single<CoachingConversation>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't start that conversation." };
+  }
+
+  revalidatePath("/ask-aimee");
   return { ok: true, item: data };
 }
 
@@ -141,7 +164,11 @@ export async function archiveConversationAction(
     .eq("id", conversationId);
   if (error) return { ok: false, message: "Couldn't archive that." };
 
-  revalidatePath(`/coach/${convo.subject_profile_id}`);
+  if (convo.mode === "general") {
+    revalidatePath("/ask-aimee");
+  } else if (convo.subject_profile_id) {
+    revalidatePath(`/coach/${convo.subject_profile_id}`);
+  }
   return { ok: true };
 }
 
@@ -157,10 +184,10 @@ export async function renameConversationAction(
   const supabase = await createSupabaseServerClient();
   const { data: convo } = await supabase
     .from("coaching_conversations")
-    .select("id, created_by, subject_profile_id")
+    .select("id, created_by, subject_profile_id, mode")
     .eq("id", conversationId)
     .maybeSingle<
-      Pick<CoachingConversation, "id" | "created_by" | "subject_profile_id">
+      Pick<CoachingConversation, "id" | "created_by" | "subject_profile_id" | "mode">
     >();
   if (!convo) return { ok: false, message: "Conversation not found." };
   if (convo.created_by !== session.profile.id) {
@@ -173,7 +200,11 @@ export async function renameConversationAction(
     .eq("id", conversationId);
   if (error) return { ok: false, message: "Couldn't rename that." };
 
-  revalidatePath(`/coach/${convo.subject_profile_id}/${conversationId}`);
+  if (convo.mode === "general") {
+    revalidatePath(`/ask-aimee/${conversationId}`);
+  } else if (convo.subject_profile_id) {
+    revalidatePath(`/coach/${convo.subject_profile_id}/${conversationId}`);
+  }
   return { ok: true };
 }
 

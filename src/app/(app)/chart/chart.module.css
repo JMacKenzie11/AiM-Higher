@@ -181,6 +181,7 @@
   font: var(--text-h3);
   color: var(--aims-white);
   margin: 0;
+  text-align: center;
 }
 
 /* ---- Function box (tree node) — compact org-chart style ---- */
@@ -229,15 +230,25 @@
 }
 
 .fnTitle {
-  font: var(--text-h3);
   color: var(--aims-white);
   margin: 0;
   text-decoration: none;
   display: block;
   width: 100%;
   text-align: center;
+  /* Wrap on whole words rather than hyphenating mid-word — hyphens
+     turned "Preconstruction" into "Preconstruc-tion" and read badly.
+     Font-size is a touch below h3 so common single words (e.g.
+     "Preconstruction") fit without breaking. break-word is a
+     fallback for a genuinely unbreakable string. */
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   overflow-wrap: break-word;
-  hyphens: auto;
+  word-break: normal;
+  hyphens: manual;
 }
 
 .fnTitle:hover {

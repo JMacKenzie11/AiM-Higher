@@ -84,8 +84,10 @@ export default async function PeoplePage() {
               </thead>
               <tbody>
                 {people.map((person) => {
+                  const isSelfRow = person.id === session.profile.id;
                   const canCoachPerson =
-                    isAdmin || person.reports_to === session.profile.id;
+                    !isSelfRow &&
+                    (isAdmin || person.reports_to === session.profile.id);
                   return (
                     <tr key={person.id}>
                     <td>

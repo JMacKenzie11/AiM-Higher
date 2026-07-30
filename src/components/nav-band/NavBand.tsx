@@ -68,6 +68,10 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "Foundation", href: "/foundation" },
     ],
   },
+  // Ask Aimee is always visible — every active member gets it. It
+  // has no feature gate because general coaching doesn't depend on
+  // any module entitlement.
+  { kind: "link", label: "Ask Aimee", href: "/ask-aimee", feature: null },
 ];
 
 // ASSUMPTION: Scorecard route (/scorecard) still exists but is
@@ -84,7 +88,6 @@ const SYSTEM_ADMIN_ITEM: NavItem = {
 
 export type NavBandProps = {
   userName: string;
-  userProfileId: string;
   isSystemAdmin: boolean;
   contextLabel?: string;
   showExitScope?: boolean;
@@ -94,7 +97,6 @@ export type NavBandProps = {
 
 export function NavBand({
   userName,
-  userProfileId,
   isSystemAdmin,
   contextLabel,
   showExitScope = false,
@@ -200,7 +202,6 @@ export function NavBand({
 
         <UserMenu
           userName={userName}
-          userProfileId={userProfileId}
           showExitScope={isSystemAdmin && showExitScope}
           scopedCompanyName={scopedCompanyName}
         />
@@ -359,12 +360,10 @@ function NavDropdown({
 
 function UserMenu({
   userName,
-  userProfileId,
   showExitScope,
   scopedCompanyName,
 }: {
   userName: string;
-  userProfileId: string;
   showExitScope: boolean;
   scopedCompanyName?: string;
 }) {
@@ -405,13 +404,6 @@ function UserMenu({
 
       {open ? (
         <div className={styles.menu} role="menu">
-          <Link
-            href={`/coach/${userProfileId}`}
-            className={styles.menuItem}
-            role="menuitem"
-          >
-            Get coaching
-          </Link>
           <Link href="/profile" className={styles.menuItem} role="menuitem">
             My profile
           </Link>

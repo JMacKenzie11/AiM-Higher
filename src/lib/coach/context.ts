@@ -38,23 +38,23 @@ import type {
 
 export type CoachContextInput = {
   companyId: string;
-  subjectProfileId: string;
+  // Null = general ("Ask Aimee") — no subject on file. Person context
+  // and strengths context are skipped, and no subject-scoped queries
+  // are issued.
+  subjectProfileId: string | null;
   currentAdminName: string;
   currentAdminProfileId: string;
-  // Which module owns this conversation. Determines how the person
-  // context block is built. Defaults to execution.
   contextKind?: "execution" | "strengths";
 };
 
 export type CoachContextBlocks = {
   companyContext: string;
-  personContext: string;
-  // Additive overlay listing the subject's strengths + superpowers
-  // (from admin/self entry, not from the strengths assessment). Null
-  // when the subject hasn't been given any entries yet.
+  // Null in general mode.
+  personContext: string | null;
+  // Null when the subject has no strengths or the mode is general.
   strengthsContext: string | null;
   coachingContext: string;
-  isSelfCoaching: boolean;
+  mode: "about" | "general";
 };
 
 export async function buildCoachContext(
@@ -62,21 +62,14 @@ export async function buildCoachContext(
 ): Promise<CoachContextBlocks> {
   const supabase = await createSupabaseServerClient();
 
-  // Wave 1: everything that only depends on the raw inputs. Fires
-  // all in parallel — the previous shape ran three sequential waves
-  // (company/foundation/subject, then quarters/plan, then strengths)
-  // for no data reason. The strengths query is included here even
-  // though it's structurally an overlay on person context, because
-  // it only needs companyId + subjectProfileId.
+  // Company-level fetches always run. Subject-scoped fetches only
+  // run in about-mode — in general mode they'd be pointless and
+  // could pull data the coach must not touch.
   const [
     { data: company },
     { data: foundation },
     { data: foundationItems },
-    { data: subject },
-    openQuarter,
-    priorQuarters,
-    { priorities, goals },
-    strengthsContext,
+    subjectBundle,
   ] = await Promise.all([
     supabase
       .from("companies")
@@ -93,20 +86,9 @@ export async function buildCoachContext(
       .select("*")
       .eq("company_id", input.companyId)
       .in("kind", ["core_value", "differentiator"]),
-    supabase
-      .from("profiles")
-      .select("id, full_name, position, role, company_id")
-      .eq("id", input.subjectProfileId)
-      .maybeSingle<
-        Pick<Profile, "id" | "full_name" | "position" | "role" | "company_id">
-      >(),
-    getCurrentQuarter(input.companyId),
-    loadPriorQuarters(supabase, input.companyId, 2),
-    loadOwnedPlanItems(supabase, input.subjectProfileId),
-    buildStrengthsContext({
-      supabase,
-      subjectProfileId: input.subjectProfileId,
-    }),
+    input.subjectProfileId
+      ? loadSubjectBundle(supabase, input.companyId, input.subjectProfileId)
+      : Promise.resolve(null),
   ]);
 
   const tz = company?.timezone ?? "America/Anchorage";
@@ -123,27 +105,32 @@ export async function buildCoachContext(
     differentiators,
   });
 
-  // Wave 2: the per-quarter keep-rate calcs and the open-quarter
-  // commitment stats — both need quarter rows from wave 1 before
-  // they can fire, so this can't fold up further.
-  const quartersForRate = [openQuarter, ...priorQuarters].filter(
-    (q): q is Quarter => Boolean(q)
-  );
+  const mode: "about" | "general" = input.subjectProfileId ? "about" : "general";
 
-  const [keepRatesByQuarter, commitmentStats] = await Promise.all([
-    Promise.all(
-      quartersForRate.map(async (q) => ({
-        quarter: q,
-        keepRate: await computeQuarterKeepRateForSubject(
-          supabase,
-          input.companyId,
-          input.subjectProfileId,
-          q
-        ),
-      }))
-    ),
-    loadSubjectCommitments(supabase, input.subjectProfileId, openQuarter),
-  ]);
+  if (!subjectBundle) {
+    // General mode — Ask Aimee. No subject; no person, keep-rate, or
+    // strengths context. The coach relies on what the user shares
+    // in-thread, plus the company context above.
+    const coachingContext = [
+      "<coaching_context>",
+      "Mode: general",
+      `Coaching participant: ${input.currentAdminName}`,
+      "There is no subject on file. The participant brings the situation in-thread — they may be talking about themselves, another person, a decision, or a conversation they're preparing for. Follow their lead.",
+      "You know nothing about any person the participant names — no commitments, no history, no profile. If asked what you know about someone, say so plainly. Never invent details about a person.",
+      `Today: ${todayIso}`,
+      "</coaching_context>",
+    ].join("\n");
+    return {
+      companyContext,
+      personContext: null,
+      strengthsContext: null,
+      coachingContext,
+      mode,
+    };
+  }
+
+  const { subject, openQuarter, keepRatesByQuarter, commitmentStats, plan, strengthsContext } =
+    subjectBundle;
   const { keptCount, missedCount, missed, openCommitments } = commitmentStats;
 
   const personContext = formatPersonContext({
@@ -155,27 +142,82 @@ export async function buildCoachContext(
     missedCount,
     missed,
     openCommitments,
-    priorities,
-    goals,
+    priorities: plan.priorities,
+    goals: plan.goals,
   });
 
-  const isSelfCoaching = subject?.id === input.currentAdminProfileId;
-  const mode: "self" | "about" = isSelfCoaching ? "self" : "about";
   const coachingContext = [
     "<coaching_context>",
-    `Mode: ${mode}`,
+    "Mode: about",
     `Being coached about: ${subject?.full_name ?? "(unknown subject)"}`,
     `Coaching participant: ${input.currentAdminName}`,
-    isSelfCoaching
-      ? "This is a self-coaching session — the participant is reflecting on their own execution, not someone else's. Address them in the second person ('you' / 'your'), not the third person."
-      : "This is a leadership coaching session about another person. Refer to the subject by their name.",
+    "This is a leadership coaching session about another person. Refer to the subject by their name.",
     "Pronouns for the subject are unknown. Use they/them by default; never infer gender from names. If you use a name repeatedly, that's fine — just do not guess pronouns.",
     "If strengths data is marked incomplete or unavailable, say so if asked and never invent or guess strengths.",
     `Today: ${todayIso}`,
     "</coaching_context>",
   ].join("\n");
 
-  return { companyContext, personContext, strengthsContext, coachingContext, isSelfCoaching };
+  return { companyContext, personContext, strengthsContext, coachingContext, mode };
+}
+
+// ---- Subject bundle -------------------------------------------
+// Wraps every subject-scoped query into one call so the top-level
+// buildCoachContext can skip all of it cleanly when the mode is
+// general. Runs the intra-bundle queries in parallel + the wave-2
+// dependent queries (quarter-scoped rates) after.
+async function loadSubjectBundle(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  companyId: string,
+  subjectProfileId: string
+) {
+  const [
+    { data: subject },
+    openQuarter,
+    priorQuarters,
+    plan,
+    strengthsContext,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, position, role, company_id")
+      .eq("id", subjectProfileId)
+      .maybeSingle<
+        Pick<Profile, "id" | "full_name" | "position" | "role" | "company_id">
+      >(),
+    getCurrentQuarter(companyId),
+    loadPriorQuarters(supabase, companyId, 2),
+    loadOwnedPlanItems(supabase, subjectProfileId),
+    buildStrengthsContext({ supabase, subjectProfileId }),
+  ]);
+
+  const quartersForRate = [openQuarter, ...priorQuarters].filter(
+    (q): q is Quarter => Boolean(q)
+  );
+
+  const [keepRatesByQuarter, commitmentStats] = await Promise.all([
+    Promise.all(
+      quartersForRate.map(async (q) => ({
+        quarter: q,
+        keepRate: await computeQuarterKeepRateForSubject(
+          supabase,
+          companyId,
+          subjectProfileId,
+          q
+        ),
+      }))
+    ),
+    loadSubjectCommitments(supabase, subjectProfileId, openQuarter),
+  ]);
+
+  return {
+    subject,
+    openQuarter,
+    keepRatesByQuarter,
+    commitmentStats,
+    plan,
+    strengthsContext,
+  };
 }
 
 // Emit the subject's admin/self-entered strengths + superpowers.

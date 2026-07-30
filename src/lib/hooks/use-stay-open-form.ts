@@ -28,13 +28,19 @@ export function useStayOpenForm<TState extends { ok?: boolean } | undefined>(
   const router = useRouter();
   const formRef = useRef<HTMLFormElement | null>(null);
   const [confirmationVisible, setConfirmationVisible] = useState(false);
-  const lastHandledRef = useRef<TState>(state);
+
+  // Key the effect on the success-carrying state itself rather than a
+  // ref-based "have we handled this?" guard. The ref guard was subtly
+  // wrong under React strict mode: cleanup would clear the auto-hide
+  // timer, and the second effect invocation would short-circuit
+  // because the ref had already been updated — leaving the chip stuck
+  // visible until the next form submission. Using a stable dep that
+  // changes on each new success (or flips to null on failure/idle)
+  // lets React's own dedup handle re-runs correctly.
+  const successKey = pending || !isSuccess(state) ? null : state;
 
   useEffect(() => {
-    if (pending) return;
-    if (state === lastHandledRef.current) return;
-    lastHandledRef.current = state;
-    if (!isSuccess(state)) return;
+    if (!successKey) return;
 
     formRef.current?.reset();
     // Pick up the newly-created row from the server without a full
@@ -53,7 +59,7 @@ export function useStayOpenForm<TState extends { ok?: boolean } | undefined>(
     setConfirmationVisible(true);
     const timer = window.setTimeout(() => setConfirmationVisible(false), 2000);
     return () => window.clearTimeout(timer);
-  }, [state, pending, isSuccess, router, options?.closeAncestor]);
+  }, [successKey, router, options?.closeAncestor]);
 
   return { formRef, confirmationVisible };
 }

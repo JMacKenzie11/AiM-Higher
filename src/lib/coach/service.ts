@@ -7,12 +7,16 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // rows the caller is allowed to see.
 
 export type CoachingContextKind = "execution" | "strengths";
-export type CoachingMode = "self" | "about";
+// 'about' — a person on file. 'general' — Ask Aimee, no subject.
+// (Historical 'self' rows were migrated to 'general' in 0105.)
+export type CoachingMode = "about" | "general";
 
 export type CoachingConversation = {
   id: string;
   company_id: string;
-  subject_profile_id: string;
+  // Null for general (Ask Aimee) conversations — the user brings the
+  // situation. Non-null for 'about' conversations.
+  subject_profile_id: string | null;
   created_by: string;
   title: string;
   archived: boolean;
@@ -20,10 +24,6 @@ export type CoachingConversation = {
   // and person-context assembly. Defaults to 'execution' on old rows
   // (migration 0018).
   context_kind: CoachingContextKind;
-  // 'self' when the creator is coaching themselves, 'about' when
-  // coaching another person. Added in migration 0021 with a
-  // deterministic backfill; kept explicit rather than inferred so
-  // policies and prompt logic don't have to compare ids at read time.
   mode: CoachingMode;
   created_at: string;
   updated_at: string;
@@ -51,6 +51,7 @@ export async function listConversationsForSubject(
   let query = supabase
     .from("coaching_conversations")
     .select("*")
+    .eq("mode", "about")
     .eq("subject_profile_id", subjectProfileId)
     .order("updated_at", { ascending: false });
   if (!includeArchived) query = query.eq("archived", false);
@@ -62,6 +63,53 @@ export async function listConversationsForSubject(
   // One extra query to pull the last message of each conversation for
   // the snippet. v1 volumes are tiny; if this ever gets hot we can
   // move it into a view or a lateral join.
+  const { data: messages } = await supabase
+    .from("coaching_messages")
+    .select("conversation_id, content, created_at")
+    .in("conversation_id", rows.map((r) => r.id))
+    .order("created_at", { ascending: false });
+  const bySnippet = new Map<string, string>();
+  for (const m of (messages ?? []) as Array<{
+    conversation_id: string;
+    content: string;
+    created_at: string;
+  }>) {
+    if (!bySnippet.has(m.conversation_id)) {
+      bySnippet.set(
+        m.conversation_id,
+        m.content.length > 120 ? `${m.content.slice(0, 117)}…` : m.content
+      );
+    }
+  }
+
+  return rows.map((r) => ({
+    ...r,
+    lastMessageSnippet: bySnippet.get(r.id) ?? null,
+  }));
+}
+
+// General (Ask Aimee) conversations belong to their creator only. RLS
+// already restricts SELECT to created_by = auth.uid(); the filter
+// here is a scoping convenience so the query stays cheap even if the
+// caller ever creates conversations in multiple companies.
+export async function listGeneralConversationsForUser(
+  userId: string,
+  includeArchived = false
+): Promise<ConversationWithSnippet[]> {
+  const supabase = await createSupabaseServerClient();
+
+  let query = supabase
+    .from("coaching_conversations")
+    .select("*")
+    .eq("mode", "general")
+    .eq("created_by", userId)
+    .order("updated_at", { ascending: false });
+  if (!includeArchived) query = query.eq("archived", false);
+
+  const { data: convos } = await query;
+  const rows = (convos ?? []) as CoachingConversation[];
+  if (rows.length === 0) return [];
+
   const { data: messages } = await supabase
     .from("coaching_messages")
     .select("conversation_id, content, created_at")

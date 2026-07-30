@@ -20,31 +20,34 @@ export default async function CoachListPage({ params }: PageProps) {
   const supabase = await createSupabaseServerClient();
   const { data: subject } = await supabase
     .from("profiles")
-    .select("id, full_name, position, company_id")
+    .select("id, full_name, position, company_id, reports_to")
     .eq("id", profileId)
     .maybeSingle<
-      Pick<Profile, "id" | "full_name" | "position" | "company_id">
+      Pick<Profile, "id" | "full_name" | "position" | "company_id" | "reports_to">
     >();
   if (!subject) notFound();
 
-  // Access: system admins reach anyone; company admins reach anyone
-  // in their own company; team members reach only themselves.
-  const isSelf = subject.id === session.profile.id;
+  // Self-coaching is retired — anyone landing on their own coach URL
+  // (bookmark, deep link) gets redirected to Ask Aimee.
+  if (subject.id === session.profile.id) redirect("/ask-aimee");
+
+  // Access mirrors the RLS insert policy for mode='about': system
+  // admin anywhere, company admin within the subject's company, or
+  // the subject's direct manager.
   const isSystemAdmin = role === "system_admin";
   const isCompanyAdmin =
     role === "company_admin" &&
     subject.company_id === session.profile.company_id;
-  if (!isSelf && !isSystemAdmin && !isCompanyAdmin) {
+  const isManager = subject.reports_to === session.profile.id;
+  if (!isSystemAdmin && !isCompanyAdmin && !isManager) {
     redirect("/");
   }
 
   const conversations = await listConversationsForSubject(profileId);
 
   const firstName = subject.full_name.split(" ")[0] ?? subject.full_name;
-  const backHref = isSelf ? "/profile" : `/people/${profileId}`;
-  const backLabel = isSelf
-    ? "Back to my profile"
-    : `Back to ${firstName}'s scorecard`;
+  const backHref = `/people/${profileId}`;
+  const backLabel = `Back to ${firstName}'s scorecard`;
 
   return (
     <div className={styles.page}>

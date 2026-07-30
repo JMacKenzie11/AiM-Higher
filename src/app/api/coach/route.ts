@@ -159,10 +159,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
   const model = process.env.ANTHROPIC_COACH_MODEL || DEFAULT_MODEL;
 
-  // Build context, then pick the prompt based purely on whether the
-  // participant is coaching themselves or someone else. (The old
-  // 'strengths' context_kind used to route to a dedicated prompt; the
-  // strengths overlay is now folded into the standard coach prompts.)
+  // Build context. In general mode (Ask Aimee) there is no subject,
+  // so person / strengths context are absent and the system prompt
+  // gets an Aimee preamble. In about mode the standard leadership
+  // prompt runs against subject-scoped context.
   const context = await buildCoachContext({
     companyId: convo.company_id,
     subjectProfileId: convo.subject_profile_id,
@@ -170,17 +170,24 @@ export async function POST(req: NextRequest): Promise<Response> {
     currentAdminProfileId: session.profile.id,
     contextKind: convo.context_kind,
   });
-  const systemPromptText = await loadSystemPrompt(context.isSelfCoaching);
+  const systemPromptText = await loadSystemPrompt(convo.mode);
 
   const client = new Anthropic({ apiKey });
+  const personBlock = context.personContext ? `${context.personContext}\n\n` : "";
   const strengthsBlock = context.strengthsContext ? `${context.strengthsContext}\n\n` : "";
-  const userTurnPrefix = `${context.companyContext}\n\n${context.personContext}\n\n${strengthsBlock}${context.coachingContext}\n\n`;
+  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${strengthsBlock}${context.coachingContext}\n\n`;
   const messages = buildMessages(history, userTurnPrefix);
 
-  const tools = buildCoachTools({
-    subjectProfileId: convo.subject_profile_id,
-    companyId: convo.company_id,
-  });
+  // Tool gating: subject-scoped tools are ONLY registered when there
+  // is a subject to scope them to. In general mode the tool list is
+  // empty — Aimee has no subject data to query and must not appear to.
+  const tools =
+    convo.mode === "about" && convo.subject_profile_id
+      ? buildCoachTools({
+          subjectProfileId: convo.subject_profile_id,
+          companyId: convo.company_id,
+        })
+      : [];
   const toolDefs = tools.map((t) => t.definition);
 
   const stream = new ReadableStream<Uint8Array>({
@@ -345,11 +352,31 @@ export async function POST(req: NextRequest): Promise<Response> {
 
 // ---- Helpers ----------------------------------------------------
 
-async function loadSystemPrompt(isSelfCoaching: boolean): Promise<string> {
-  const filename = isSelfCoaching ? "self-coach.md" : "leadership-coach.md";
-  const filePath = path.join(process.cwd(), "prompts", filename);
-  return fs.readFile(filePath, "utf8");
+async function loadSystemPrompt(mode: "about" | "general"): Promise<string> {
+  const filePath = path.join(process.cwd(), "prompts", "leadership-coach.md");
+  const base = await fs.readFile(filePath, "utf8");
+  if (mode === "about") return base;
+  return `${GENERAL_MODE_PREAMBLE}\n\n${base}`;
 }
+
+// Injected ahead of leadership-coach.md in general (Ask Aimee) mode.
+// Shifts persona (Aimee, AiMS Leadership Coach), disables all
+// person-data assumptions, and hardens the confabulation rule for the
+// no-subject case. Kept inline rather than in a second .md file so
+// the base prompt stays a single source of truth.
+const GENERAL_MODE_PREAMBLE = `You are Aimee, the AiMS Leadership Coach.
+
+Introduce yourself as Aimee, the AiMS Leadership Coach, when a natural moment arises — do not belabor the name.
+
+There is no subject on file for this conversation. The participant brings the situation in-thread. They may be reflecting on themselves, working through an issue with someone else, weighing a decision, or preparing for a conversation. Follow their lead rather than assuming which of those it is.
+
+You have no data about any specific person the participant mentions — no commitments, no scorecard, no strengths profile, nothing. Do not call any person-data tools. Do not reference commitments, scorecards, or strengths unless the participant has shared that information in this conversation.
+
+If asked what you know about a person, say plainly that you have no information about them and invite the participant to share what they'd like you to know. Never invent a profile, history, or details about a person.
+
+Use whatever company-level context is provided below (purpose, values, focus areas). If a section is sparse or absent, proceed without it and never fabricate company detail.
+
+Otherwise, follow the coaching approach in the base prompt below — help the participant lay out the situation before offering any diagnosis.`;
 
 function buildMessages(
   history: ReadonlyArray<Pick<CoachingMessage, "role" | "content">>,

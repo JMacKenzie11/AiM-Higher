@@ -46,8 +46,8 @@ export default async function PersonScorecardPage({ params }: PageProps) {
               </Link>
             ) : null}
             {isSelf ? (
-              <Link href={`/coach/${id}`} className={styles.heroCoachAction}>
-                Get coaching
+              <Link href="/ask-aimee" className={styles.heroCoachAction}>
+                Ask Aimee
               </Link>
             ) : null}
             {(isAdmin || isManager) && !isSelf ? (

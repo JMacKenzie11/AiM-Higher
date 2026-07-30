@@ -25,10 +25,18 @@ type UiMessage = {
   error?: string | null;
 };
 
-const SUGGESTION_CHIPS = [
+const ABOUT_SUGGESTION_CHIPS = [
   "Prepare for a conversation",
   "Interpret their execution pattern",
   "Help me see what I'm missing",
+];
+
+// Ask Aimee starters — wording is fixed by product spec.
+const GENERAL_SUGGESTION_CHIPS = [
+  "I need help thinking through an issue",
+  "I've thought this through and want your feedback",
+  "Can you tell me what I'm missing?",
+  "Show me how you would approach this",
 ];
 
 export function ChatView({
@@ -39,11 +47,21 @@ export function ChatView({
   initialMessages,
 }: {
   conversation: CoachingConversation;
-  subjectName: string;
+  // Null in general (Ask Aimee) mode — no subject on file.
+  subjectName: string | null;
   subjectPosition: string | null;
-  firstName: string;
+  firstName: string | null;
   initialMessages: UiMessage[];
 }) {
+  const isGeneral = conversation.mode === "general";
+  const suggestions = isGeneral ? GENERAL_SUGGESTION_CHIPS : ABOUT_SUGGESTION_CHIPS;
+  const emptyPrompt = isGeneral
+    ? "What's on your mind?"
+    : `What's on your mind about ${firstName ?? "them"}?`;
+  const composerPlaceholder = isGeneral ? "Ask Aimee…" : "Message coach…";
+  const headerSubject = isGeneral
+    ? "Ask Aimee · AiMS Leadership Coach"
+    : `${subjectName ?? ""}${subjectPosition ? ` · ${subjectPosition}` : ""}`;
   const [messages, setMessages] = useState<UiMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -182,10 +200,7 @@ export function ChatView({
     <div className={styles.chatWrap}>
       <div className={styles.chatHeader}>
         <div className={styles.chatHeaderMain}>
-          <span className={styles.chatHeaderSubject}>
-            {subjectName}
-            {subjectPosition ? ` · ${subjectPosition}` : ""}
-          </span>
+          <span className={styles.chatHeaderSubject}>{headerSubject}</span>
           {renaming ? (
             <input
               type="text"
@@ -219,11 +234,9 @@ export function ChatView({
       <div className={styles.thread} ref={threadRef}>
         {isEmpty ? (
           <div className={styles.emptyState}>
-            <p className={styles.emptyStatePrompt}>
-              What&rsquo;s on your mind about {firstName}?
-            </p>
+            <p className={styles.emptyStatePrompt}>{emptyPrompt}</p>
             <div className={styles.chipRow}>
-              {SUGGESTION_CHIPS.map((chip) => (
+              {suggestions.map((chip) => (
                 <button
                   key={chip}
                   type="button"
@@ -257,7 +270,7 @@ export function ChatView({
         <textarea
           ref={textareaRef}
           className={styles.composerInput}
-          placeholder={`Message coach…`}
+          placeholder={composerPlaceholder}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
