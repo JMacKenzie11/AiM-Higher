@@ -3,22 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { createConversationAction } from "@/lib/coach/actions";
-import type { CoachingContextKind } from "@/lib/coach/service";
 import styles from "../coach.module.css";
 
-export function NewConversationButton({
-  profileId,
-  contextKind = "execution",
-}: {
-  profileId: string;
-  contextKind?: CoachingContextKind;
-}) {
+export function NewConversationButton({ profileId }: { profileId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function start() {
     startTransition(async () => {
-      const result = await createConversationAction(profileId, contextKind);
+      const result = await createConversationAction(profileId, "execution");
       if (result.ok) {
         router.push(`/coach/${profileId}/${result.item.id}`);
       } else {
@@ -27,8 +20,6 @@ export function NewConversationButton({
     });
   }
 
-  const label = contextKind === "strengths" ? "Coach on my strengths" : "New conversation";
-
   return (
     <button
       type="button"
@@ -36,7 +27,7 @@ export function NewConversationButton({
       onClick={start}
       disabled={pending}
     >
-      {pending ? "Starting…" : label}
+      {pending ? "Starting…" : "New conversation"}
     </button>
   );
 }

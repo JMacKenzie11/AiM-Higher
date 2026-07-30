@@ -190,11 +190,13 @@ export async function getCommitmentsPageData(
   );
 
   // Roster for owner filter + display and owner picker in the add row.
+  // Pending users show up alongside active — an admin can pre-assign
+  // commitments to someone who hasn't accepted their invite yet.
   const { data: rosterRows } = await supabase
     .from("profiles")
     .select("id, full_name, position")
     .eq("company_id", companyId)
-    .eq("status", "active")
+    .neq("status", "inactive")
     .order("full_name");
   const roster = (rosterRows ?? []) as Array<
     Pick<Profile, "id" | "full_name" | "position">

@@ -68,16 +68,6 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "Foundation", href: "/foundation" },
     ],
   },
-  {
-    kind: "group",
-    label: "Strengths",
-    feature: "strengths",
-    items: [
-      { kind: "link", label: "Assessment", href: "/strengths/assessment" },
-      { kind: "link", label: "Results", href: "/strengths/results" },
-      { kind: "link", label: "Teams", href: "/strengths/teams" },
-    ],
-  },
 ];
 
 // ASSUMPTION: Scorecard route (/scorecard) still exists but is

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth/current-user";
+import { getUserStrengths } from "@/lib/strengths/user-strengths";
+import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
 import { ProfileDetailsForm } from "./ProfileDetailsForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import styles from "./profile.module.css";
@@ -10,6 +12,7 @@ import styles from "./profile.module.css";
 
 export default async function ProfilePage() {
   const session = await requireProfile();
+  const strengths = await getUserStrengths(session.profile.id);
 
   return (
     <div className={styles.page}>
@@ -33,6 +36,18 @@ export default async function ProfilePage() {
           position={session.profile.position ?? ""}
           role={session.profile.role}
         />
+      </section>
+
+      <section className={styles.card} aria-labelledby="strengths">
+        <h2 id="strengths" className={styles.h2}>
+          Strengths & superpowers
+        </h2>
+        <p className={styles.subtitleInline}>
+          A few words about what you&rsquo;re strong at, and what people say
+          you&rsquo;re uniquely good at. Your coach uses these to tailor the
+          conversation.
+        </p>
+        <StrengthsEditor userId={session.profile.id} initial={strengths} heading="" />
       </section>
 
       <section className={styles.card} aria-labelledby="coaching">

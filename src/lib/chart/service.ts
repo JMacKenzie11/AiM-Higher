@@ -61,7 +61,7 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
       .from("profiles")
       .select("id, full_name")
       .eq("company_id", companyId)
-      .eq("status", "active")
+      .neq("status", "inactive")
       .order("full_name"),
   ]);
 
@@ -222,7 +222,7 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
       .from("profiles")
       .select("id, full_name")
       .eq("company_id", fn.company_id)
-      .eq("status", "active")
+      .neq("status", "inactive")
       .order("full_name"),
   ]);
 

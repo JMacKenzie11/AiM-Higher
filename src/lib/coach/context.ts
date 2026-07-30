@@ -2,7 +2,6 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
-import { companyHasFeature } from "@/lib/subscriptions/service";
 import { todayInTimezone } from "@/lib/dates";
 import { computeFollowThroughRate } from "@/lib/utils";
 import type {
@@ -13,6 +12,7 @@ import type {
   Priority,
   Profile,
   Quarter,
+  UserStrength,
 } from "@/lib/types";
 
 // Assembles the fresh <company_context>, <person_context>, and
@@ -49,9 +49,9 @@ export type CoachContextInput = {
 export type CoachContextBlocks = {
   companyContext: string;
   personContext: string;
-  // Additive overlay when the company has the 'strengths' feature.
-  // Null when the module is disabled (never assembled at all — spec)
-  // or when the subject has no strengths data of any kind.
+  // Additive overlay listing the subject's strengths + superpowers
+  // (from admin/self entry, not from the strengths assessment). Null
+  // when the subject hasn't been given any entries yet.
   strengthsContext: string | null;
   coachingContext: string;
   isSelfCoaching: boolean;
@@ -103,13 +103,8 @@ export async function buildCoachContext(
     getCurrentQuarter(input.companyId),
     loadPriorQuarters(supabase, input.companyId, 2),
     loadOwnedPlanItems(supabase, input.subjectProfileId),
-    // Strengths overlay — additive to person context, not a
-    // replacement. Assembled ONLY when the company has the
-    // entitlement; otherwise omitted entirely so the model can't leak
-    // strengths language even if the tables happen to have data.
     buildStrengthsContext({
       supabase,
-      companyId: input.companyId,
       subjectProfileId: input.subjectProfileId,
     }),
   ]);
@@ -183,101 +178,31 @@ export async function buildCoachContext(
   return { companyContext, personContext, strengthsContext, coachingContext, isSelfCoaching };
 }
 
-// Build the <strengths_context> block for a subject. Returns null
-// when the company doesn't have the strengths entitlement — the spec
-// says the block must be absent entirely in that case, not just
-// empty. When the entitlement is on but the subject has no completed
-// assessment, returns a short "incomplete" block so the model can
-// say so honestly if asked.
+// Emit the subject's admin/self-entered strengths + superpowers.
+// Returns null when they have neither, so the block is omitted
+// entirely from the context (no "empty section" noise).
 async function buildStrengthsContext(args: {
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
-  companyId: string;
   subjectProfileId: string;
 }): Promise<string | null> {
-  const enabled = await companyHasFeature(args.companyId, "strengths");
-  if (!enabled) return null;
-
-  const { data: assessmentRow } = await args.supabase
-    .from("strengths_assessments")
-    .select("id, completed_at")
+  const { data } = await args.supabase
+    .from("user_strengths")
+    .select("kind, label, sort_order")
     .eq("user_id", args.subjectProfileId)
-    .eq("status", "completed")
-    .order("version", { ascending: false })
-    .limit(1)
-    .maybeSingle<{ id: string; completed_at: string | null }>();
+    .order("sort_order", { ascending: true });
 
-  if (!assessmentRow) {
-    return [
-      "<strengths_context>",
-      "Assessment: not yet completed.",
-      "</strengths_context>",
-    ].join("\n");
-  }
+  const rows = (data ?? []) as Array<Pick<UserStrength, "kind" | "label" | "sort_order">>;
+  const strengths = rows.filter((r) => r.kind === "strength").map((r) => r.label);
+  const superpowers = rows.filter((r) => r.kind === "superpower").map((r) => r.label);
 
-  const { data: resultRow } = await args.supabase
-    .from("strengths_results")
-    .select("profile, summary")
-    .eq("assessment_id", assessmentRow.id)
-    .maybeSingle<{ profile: unknown; summary: string }>();
-
-  if (!resultRow) {
-    return [
-      "<strengths_context>",
-      "Assessment: not yet completed.",
-      "</strengths_context>",
-    ].join("\n");
-  }
-
-  const profile = resultRow.profile as {
-    dimensions?: Array<{
-      dimension: string;
-      competence_avg: number;
-      energy_avg: number;
-    }>;
-    sub_strengths?: Array<{
-      sub_strength: string;
-      dimension: string;
-      competence: number;
-      energy: number;
-      flag: string;
-    }>;
-    top_strengths?: string[];
-  };
-
-  const signatures =
-    profile.sub_strengths
-      ?.filter((s) => s.flag === "signature")
-      .map((s) => s.sub_strength) ?? profile.top_strengths ?? [];
-  const drainers =
-    profile.sub_strengths
-      ?.filter((s) => s.flag === "capable_but_draining")
-      .map((s) => s.sub_strength) ?? [];
+  if (strengths.length === 0 && superpowers.length === 0) return null;
 
   const lines: string[] = ["<strengths_context>"];
-  lines.push(
-    `Assessment completed: ${
-      assessmentRow.completed_at?.slice(0, 10) ?? "(recently)"
-    }`
-  );
-  if (signatures.length > 0) {
-    lines.push(`Signature strengths: ${signatures.join(", ")}`);
+  if (strengths.length > 0) {
+    lines.push(`Strengths: ${strengths.join(", ")}`);
   }
-  if (profile.dimensions && profile.dimensions.length > 0) {
-    lines.push("Dimension competence + energy:");
-    for (const d of profile.dimensions) {
-      lines.push(
-        `  ${d.dimension}: competence ${d.competence_avg.toFixed(1)}, energy ${d.energy_avg.toFixed(1)}`
-      );
-    }
-  }
-  if (drainers.length > 0) {
-    lines.push(`Capable but draining: ${drainers.join(", ")}`);
-  }
-  const summary = resultRow.summary?.trim();
-  if (summary) {
-    lines.push("");
-    lines.push("Narrative summary:");
-    lines.push(summary);
+  if (superpowers.length > 0) {
+    lines.push(`Superpowers: ${superpowers.join(", ")}`);
   }
   lines.push("</strengths_context>");
   return lines.join("\n");

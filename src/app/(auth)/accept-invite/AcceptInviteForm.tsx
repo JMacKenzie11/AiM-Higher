@@ -7,18 +7,18 @@ import {
   setNewPasswordAction,
   type AuthActionResult,
 } from "@/lib/auth/actions";
-import { acceptInvitationAction } from "@/lib/auth/invitations";
+import { acceptInviteAction } from "@/lib/auth/users";
 
 // Two-step accept-invite flow:
-//   1. User arrives with a Supabase recovery/invite session already active
+//   1. User arrives with a Supabase invite session already active
 //      (the invite email link exchanged for a session in the URL hash).
 //   2. They set a password (setNewPasswordAction).
-//   3. On success, we immediately call acceptInvitationAction to create
-//      their profile row from the invitation.
+//   3. On success, acceptInviteAction flips their existing profile row
+//      from pending → active.
 
 const INITIAL: AuthActionResult = { ok: true };
 
-export function AcceptInviteForm({ token }: { token: string }) {
+export function AcceptInviteForm() {
   const [state, formAction, pending] = useActionState(
     setNewPasswordAction,
     INITIAL
@@ -34,7 +34,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
 
   if (passwordSet && !accepted && !accepting && !acceptError) {
     startAccept(async () => {
-      const result = await acceptInvitationAction(token);
+      const result = await acceptInviteAction();
       if (!result.ok) {
         setAcceptError(result.message);
         return;

@@ -2,31 +2,34 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
-import {
-  getPeopleRoster,
-  getPeopleStrengthsOverlay,
-} from "@/lib/people/service";
-import { companyHasFeature } from "@/lib/subscriptions/service";
+import { getPeopleRoster } from "@/lib/people/service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { InviteForm } from "../admin/companies/[id]/InviteForm";
-import { InvitationRow } from "../admin/companies/[id]/InvitationRow";
+import { UserRowActions } from "../admin/companies/[id]/UserRowActions";
 import { PersonStatusToggle } from "./PersonStatusToggle";
-import { PeopleViewTabs } from "./PeopleViewTabs";
-import { PeopleStrengthsTable } from "./PeopleStrengthsTable";
+import type { Profile } from "@/lib/types";
 import styles from "./people.module.css";
+import adminStyles from "../admin/companies/admin.module.css";
 
 // People roster — Section 8.6.
 
-type PageProps = {
-  searchParams: Promise<{ view?: string }>;
-};
+function statusChipClass(status: Profile["status"]): string {
+  switch (status) {
+    case "pending":
+      return adminStyles.chipPending;
+    case "inactive":
+      return styles.chipInactive;
+    default:
+      return styles.chipActive;
+  }
+}
 
-export default async function PeoplePage({ searchParams }: PageProps) {
+export default async function PeoplePage() {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
 
-  const { people, pendingInvitations } = await getPeopleRoster(companyId);
+  const { people } = await getPeopleRoster(companyId);
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
@@ -38,15 +41,6 @@ export default async function PeoplePage({ searchParams }: PageProps) {
     (p) => p.reports_to === session.profile.id,
   );
   const showActionsColumn = isAdmin || managesAnyone;
-
-  const { view } = await searchParams;
-  const strengthsEnabled = await companyHasFeature(companyId, "strengths");
-  const activeView: "execution" | "strengths" =
-    view === "strengths" && strengthsEnabled ? "strengths" : "execution";
-  const strengthsOverlay =
-    activeView === "strengths"
-      ? await getPeopleStrengthsOverlay(companyId)
-      : [];
 
   return (
     <div className={styles.stage}>
@@ -67,14 +61,11 @@ export default async function PeoplePage({ searchParams }: PageProps) {
             <h2 id="roster" className={styles.h2}>
               Team
             </h2>
-            {strengthsEnabled ? <PeopleViewTabs active={activeView} /> : null}
           </div>
-          {activeView === "strengths" ? (
-            <PeopleStrengthsTable rows={strengthsOverlay} />
-          ) : people.length === 0 ? (
+          {people.length === 0 ? (
             <p className={styles.emptyLine}>
               No one on the roster yet.{" "}
-              {isAdmin ? "Send the first invitation below." : ""}
+              {isAdmin ? "Add the first person below." : ""}
             </p>
           ) : (
             <table className={styles.table}>
@@ -112,13 +103,7 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                       {person.role.replace("_", " ")}
                     </td>
                     <td>
-                      <span
-                        className={
-                          person.status === "active"
-                            ? styles.chipActive
-                            : styles.chipInactive
-                        }
-                      >
+                      <span className={statusChipClass(person.status)}>
                         {person.status}
                       </span>
                     </td>
@@ -142,11 +127,20 @@ export default async function PeoplePage({ searchParams }: PageProps) {
                           </Link>
                         ) : null}
                         {isAdmin ? (
-                          <PersonStatusToggle
-                            personId={person.id}
-                            currentStatus={person.status}
-                            disabled={person.id === session.profile.id}
-                          />
+                          <>
+                            <UserRowActions
+                              profileId={person.id}
+                              status={person.status}
+                              canDelete={person.id !== session.profile.id}
+                            />
+                            {person.status !== "pending" ? (
+                              <PersonStatusToggle
+                                personId={person.id}
+                                currentStatus={person.status}
+                                disabled={person.id === session.profile.id}
+                              />
+                            ) : null}
+                          </>
                         ) : null}
                       </td>
                     ) : null}
@@ -159,38 +153,11 @@ export default async function PeoplePage({ searchParams }: PageProps) {
         </section>
 
         {isAdmin ? (
-          <section className={styles.card} aria-labelledby="invite-person">
-            <h2 id="invite-person" className={styles.h2}>
-              Invite a person
+          <section className={styles.card} aria-labelledby="add-person">
+            <h2 id="add-person" className={styles.h2}>
+              Add a person
             </h2>
             <InviteForm companyId={companyId} />
-          </section>
-        ) : null}
-
-        {isAdmin && pendingInvitations.length > 0 ? (
-          <section className={styles.card} aria-labelledby="pending-invites">
-            <h2 id="pending-invites" className={styles.h2}>
-              Pending invitations
-            </h2>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Expires</th>
-                  <th className={styles.actionHead}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingInvitations.map((invitation) => (
-                  <InvitationRow
-                    key={invitation.id}
-                    invitation={invitation}
-                  />
-                ))}
-              </tbody>
-            </table>
           </section>
         ) : null}
       </div>

@@ -3,10 +3,10 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
-import type { Company, Invitation, Profile } from "@/lib/types";
+import type { Company, Profile } from "@/lib/types";
 import styles from "../admin.module.css";
 import { InviteForm } from "./InviteForm";
-import { InvitationRow } from "./InvitationRow";
+import { UserRowActions } from "./UserRowActions";
 import { FeaturesForm } from "./FeaturesForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
@@ -15,41 +15,40 @@ type PageProps = {
   params: Promise<{ id: string }>;
 };
 
+function statusChipClass(status: Profile["status"]): string {
+  switch (status) {
+    case "pending":
+      return styles.chipPending;
+    case "inactive":
+      return styles.chipInactive;
+    default:
+      return styles.chipActive;
+  }
+}
+
 export default async function CompanyDetailPage({ params }: PageProps) {
-  await requireRole(["system_admin"]);
+  const session = await requireRole(["system_admin"]);
   const { id } = await params;
 
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: company }, { data: profiles }, { data: invitations }] =
-    await Promise.all([
-      supabase
-        .from("companies")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle<Company>(),
-      supabase
-        .from("profiles")
-        .select("*")
-        .eq("company_id", id)
-        .order("full_name"),
-      supabase
-        .from("invitations")
-        .select("*")
-        .eq("company_id", id)
-        .order("created_at", { ascending: false }),
-    ]);
+  const [{ data: company }, { data: profiles }] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle<Company>(),
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("company_id", id)
+      .order("full_name"),
+  ]);
 
   if (!company) notFound();
 
   const features = await getCompanyFeatures(company.id);
-
-  const pendingInvitations = (invitations as Invitation[] | null)?.filter(
-    (row) => row.status === "pending"
-  );
-  const otherInvitations = (invitations as Invitation[] | null)?.filter(
-    (row) => row.status !== "pending"
-  );
+  const roster = (profiles ?? []) as Profile[];
 
   return (
     <div className={styles.stage}>
@@ -99,7 +98,7 @@ export default async function CompanyDetailPage({ params }: PageProps) {
           <h2 id="people" className={styles.h2}>
             People
           </h2>
-          {profiles && profiles.length > 0 ? (
+          {roster.length > 0 ? (
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -107,10 +106,11 @@ export default async function CompanyDetailPage({ params }: PageProps) {
                   <th>Position</th>
                   <th>Role</th>
                   <th>Status</th>
+                  <th className={styles.actionHead}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {(profiles as Profile[]).map((profile) => (
+                {roster.map((profile) => (
                   <tr key={profile.id}>
                     <td>{profile.full_name}</td>
                     <td className={styles.mutedCell}>
@@ -120,15 +120,16 @@ export default async function CompanyDetailPage({ params }: PageProps) {
                       {profile.role.replace("_", " ")}
                     </td>
                     <td>
-                      <span
-                        className={
-                          profile.status === "active"
-                            ? styles.chipActive
-                            : styles.chipInactive
-                        }
-                      >
+                      <span className={statusChipClass(profile.status)}>
                         {profile.status}
                       </span>
+                    </td>
+                    <td>
+                      <UserRowActions
+                        profileId={profile.id}
+                        status={profile.status}
+                        canDelete={profile.id !== session.profile.id}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -136,77 +137,17 @@ export default async function CompanyDetailPage({ params }: PageProps) {
             </table>
           ) : (
             <p className={styles.emptyLine}>
-              No one on this company yet. Send the first invitation below.
+              No one on this company yet. Add the first person below.
             </p>
           )}
         </section>
 
-        <section className={styles.card} aria-labelledby="invite">
-          <h2 id="invite" className={styles.h2}>
-            Invite someone
+        <section className={styles.card} aria-labelledby="add-person">
+          <h2 id="add-person" className={styles.h2}>
+            Add a person
           </h2>
           <InviteForm companyId={company.id} />
         </section>
-
-        {pendingInvitations && pendingInvitations.length > 0 ? (
-          <section className={styles.card} aria-labelledby="pending-invites">
-            <h2 id="pending-invites" className={styles.h2}>
-              Pending invitations
-            </h2>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Expires</th>
-                  <th className={styles.actionHead}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingInvitations.map((invitation) => (
-                  <InvitationRow key={invitation.id} invitation={invitation} />
-                ))}
-              </tbody>
-            </table>
-          </section>
-        ) : null}
-
-        {otherInvitations && otherInvitations.length > 0 ? (
-          <section className={styles.card} aria-labelledby="past-invites">
-            <h2 id="past-invites" className={styles.h2}>
-              Invitation history
-            </h2>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {otherInvitations.map((invitation) => (
-                  <tr key={invitation.id}>
-                    <td>{invitation.full_name}</td>
-                    <td className={styles.mutedCell}>{invitation.email}</td>
-                    <td>
-                      <span
-                        className={
-                          invitation.status === "accepted"
-                            ? styles.chipAccepted
-                            : styles.chipRevoked
-                        }
-                      >
-                        {invitation.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        ) : null}
       </div>
     </div>
   );

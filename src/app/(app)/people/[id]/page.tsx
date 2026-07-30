@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getPersonScorecard } from "@/lib/people/service";
-import { companyHasFeature } from "@/lib/subscriptions/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import { formatShortDate } from "@/lib/dates";
@@ -27,9 +26,6 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   // authorization the RLS insert policy on coaching_conversations
   // enforces (migration 0021).
   const isManager = data.profile.reports_to === session.profile.id;
-  const strengthsEnabled = data.profile.company_id
-    ? await companyHasFeature(data.profile.company_id, "strengths")
-    : false;
 
   return (
     <div className={styles.stage}>
@@ -62,16 +58,14 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                 Coach about {data.profile.full_name.split(" ")[0]}
               </Link>
             ) : null}
-            {strengthsEnabled ? (
-              <Link
-                href={`/people/${id}/strengths`}
-                className={styles.heroAction}
-              >
-                {isSelf
-                  ? "View my strengths →"
-                  : `View ${data.profile.full_name.split(" ")[0]}'s strengths →`}
-              </Link>
-            ) : null}
+            <Link
+              href={`/people/${id}/strengths`}
+              className={styles.heroAction}
+            >
+              {isSelf
+                ? "Edit my strengths →"
+                : `Edit ${data.profile.full_name.split(" ")[0]}'s strengths →`}
+            </Link>
           </div>
         </div>
       </section>

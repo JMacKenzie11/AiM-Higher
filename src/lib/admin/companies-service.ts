@@ -37,7 +37,7 @@ export async function getCompaniesOverview(): Promise<CompanyOverviewRow[]> {
       .from("profiles")
       .select("company_id")
       .in("company_id", companyIds)
-      .eq("status", "active"),
+      .neq("status", "inactive"),
     supabase
       .from("quarters")
       .select("id, company_id, label")

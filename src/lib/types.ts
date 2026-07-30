@@ -3,10 +3,10 @@
 // agree on shape.
 
 export type Role = "system_admin" | "company_admin" | "team_member";
-export type ProfileStatus = "active" | "inactive";
+export type ProfileStatus = "pending" | "active" | "inactive";
 export type CompanyStatus = "active" | "archived";
-export type InvitationStatus = "pending" | "accepted" | "revoked";
 export type QuarterStatus = "open" | "closed";
+export type UserStrengthKind = "strength" | "superpower";
 
 export type Profile = {
   id: string;
@@ -23,6 +23,7 @@ export type Profile = {
   position: string | null;
   role: Role;
   status: ProfileStatus;
+  invited_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -36,17 +37,12 @@ export type Company = {
   updated_at: string;
 };
 
-export type Invitation = {
+export type UserStrength = {
   id: string;
-  company_id: string;
-  email: string;
-  full_name: string;
-  position: string | null;
-  role: Exclude<Role, "system_admin">;
-  invited_by: string;
-  token: string;
-  status: InvitationStatus;
-  expires_at: string;
+  user_id: string;
+  kind: UserStrengthKind;
+  label: string;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 };

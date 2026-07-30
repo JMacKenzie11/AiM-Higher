@@ -10,17 +10,13 @@ import styles from "../coach.module.css";
 
 type PageProps = {
   params: Promise<{ profileId: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function CoachListPage({ params, searchParams }: PageProps) {
+export default async function CoachListPage({ params }: PageProps) {
   const session = await requireProfile();
   const role = session.profile.role;
 
   const { profileId } = await params;
-  const sp = await searchParams;
-  const contextParam = typeof sp.context === "string" ? sp.context : "";
-  const contextKind = contextParam === "strengths" ? "strengths" : "execution";
   const supabase = await createSupabaseServerClient();
   const { data: subject } = await supabase
     .from("profiles")
@@ -65,7 +61,7 @@ export default async function CoachListPage({ params, searchParams }: PageProps)
       </header>
 
       <div className={styles.listActions}>
-        <NewConversationButton profileId={profileId} contextKind={contextKind} />
+        <NewConversationButton profileId={profileId} />
       </div>
 
       <div className={styles.card}>

@@ -159,11 +159,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
   const model = process.env.ANTHROPIC_COACH_MODEL || DEFAULT_MODEL;
 
-  // Build context first so we know which prompt to load. Selection
-  // matrix: context_kind × isSelfCoaching → one of three files.
-  //   ('execution', true)   → self-coach.md
-  //   ('execution', false)  → leadership-coach.md
-  //   ('strengths',  *)     → strengths-self-coach.md  (SM ships self-only today)
+  // Build context, then pick the prompt based purely on whether the
+  // participant is coaching themselves or someone else. (The old
+  // 'strengths' context_kind used to route to a dedicated prompt; the
+  // strengths overlay is now folded into the standard coach prompts.)
   const context = await buildCoachContext({
     companyId: convo.company_id,
     subjectProfileId: convo.subject_profile_id,
@@ -171,10 +170,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     currentAdminProfileId: session.profile.id,
     contextKind: convo.context_kind,
   });
-  const systemPromptText = await loadSystemPrompt(
-    convo.context_kind,
-    context.isSelfCoaching
-  );
+  const systemPromptText = await loadSystemPrompt(context.isSelfCoaching);
 
   const client = new Anthropic({ apiKey });
   const strengthsBlock = context.strengthsContext ? `${context.strengthsContext}\n\n` : "";
@@ -349,16 +345,8 @@ export async function POST(req: NextRequest): Promise<Response> {
 
 // ---- Helpers ----------------------------------------------------
 
-async function loadSystemPrompt(
-  contextKind: "execution" | "strengths",
-  isSelfCoaching: boolean
-): Promise<string> {
-  const filename =
-    contextKind === "strengths"
-      ? "strengths-self-coach.md"
-      : isSelfCoaching
-      ? "self-coach.md"
-      : "leadership-coach.md";
+async function loadSystemPrompt(isSelfCoaching: boolean): Promise<string> {
+  const filename = isSelfCoaching ? "self-coach.md" : "leadership-coach.md";
   const filePath = path.join(process.cwd(), "prompts", filename);
   return fs.readFile(filePath, "utf8");
 }

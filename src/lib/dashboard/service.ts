@@ -231,11 +231,13 @@ export async function getDashboardData(
   }));
 
   // People — per-owner counts in the OPEN QUARTER (Section 8.2).
+  // Pending users included so they surface on the dashboard as soon
+  // as they're added, even before they accept the invite.
   const { data: people } = await supabase
     .from("profiles")
     .select("id, full_name, position, reports_to")
     .eq("company_id", companyId)
-    .eq("status", "active")
+    .neq("status", "inactive")
     .order("full_name");
   const roster = (people ?? []) as Pick<
     Profile,
