@@ -71,10 +71,16 @@ export function ChatView({
   const [renameValue, setRenameValue] = useState(conversation.title);
   const [renamePending, startRename] = useTransition();
   const threadRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Keep the bottom of the thread in view as the assistant streams.
+  // The scroll container here is the window (sticky header + composer
+  // sit at page level; the thread just grows the page height), so
+  // scrollTo on the thread element itself is a no-op. scrollIntoView
+  // on a bottom anchor works regardless of which ancestor scrolls.
   useEffect(() => {
-    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
+    bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
 
   useEffect(() => {
@@ -258,6 +264,7 @@ export function ChatView({
             />
           ))
         )}
+        <div ref={bottomRef} aria-hidden />
       </div>
 
       <form
