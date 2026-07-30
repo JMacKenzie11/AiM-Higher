@@ -55,6 +55,10 @@ type NavItem =
 // frequency. Foundation used to be alone under Company; now the group
 // has real weight and the top row fits comfortably on one line.
 const APP_ITEMS: readonly NavItem[] = [
+  // Ask Aimee is the primary personal entry point — always visible
+  // to every active member, no feature gate. It leads because it's
+  // the surface that any user, admin or not, can rely on.
+  { kind: "link", label: "Ask Aimee", href: "/ask-aimee", feature: null },
   { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
   {
     kind: "group",
@@ -68,10 +72,6 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "Foundation", href: "/foundation" },
     ],
   },
-  // Ask Aimee is always visible — every active member gets it. It
-  // has no feature gate because general coaching doesn't depend on
-  // any module entitlement.
-  { kind: "link", label: "Ask Aimee", href: "/ask-aimee", feature: null },
 ];
 
 // ASSUMPTION: Scorecard route (/scorecard) still exists but is
