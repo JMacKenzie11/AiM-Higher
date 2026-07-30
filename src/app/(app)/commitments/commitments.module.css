@@ -553,6 +553,14 @@
   border-top: 1px dashed var(--border);
 }
 
+/* Draft variant — the row is always live now, so it needs to read
+   as "not yet a commitment" rather than an unsaved existing row. A
+   subtle tint plus keeping the dashed top border says "this is where
+   the next one goes." */
+.inlineAddRowDraft {
+  background: var(--aims-navy-tint);
+}
+
 .inlinePlaceholder {
   background: none;
   border: none;

@@ -9,10 +9,9 @@ import type { Priority, Profile } from "@/lib/types";
 import { PriorityPicker } from "./PriorityPicker";
 import styles from "./commitments.module.css";
 
-// Inline add row lives at the bottom of the "This week" group.
-// Click the muted placeholder to expand into a form. On save, the form
-// resets to a fresh blank ready for the next commitment (Section 4.4
-// rhythm — capture-in-motion, not modal-in-the-way).
+// Always-live entry row. Sits at the bottom of "This week"; the row
+// is the affordance — no "Add" button opens a form. Save it, focus
+// jumps to the next blank ready for the next commitment.
 
 const INITIAL: CommitmentResult = { ok: false, message: "" };
 
@@ -35,7 +34,6 @@ export function InlineAddRow({
   quarterCoversThisWeek,
   noQuarterMessage,
 }: InlineAddRowProps) {
-  const [expanded, setExpanded] = useState(false);
   const [priorityId, setPriorityId] = useState<string | null>(null);
   const [ownerId, setOwnerId] = useState<string>(currentUserId);
   const [description, setDescription] = useState("");
@@ -46,17 +44,22 @@ export function InlineAddRow({
     FormData
   >(createCommitmentAction, INITIAL);
 
-  // On save success: clear the form, keep it expanded so the user can
-  // capture the next one immediately (that's the whole point).
+  function resetToBlank() {
+    setDescription("");
+    setPriorityId(null);
+    setDueDate(thisFriday);
+    setOwnerId(currentUserId);
+    inputRef.current?.focus();
+  }
+
+  // On save success: clear the form, jump focus to the description
+  // field so momentum stays. That's the whole point of the live row.
   useEffect(() => {
     if (state && "ok" in state && state.ok) {
-      setDescription("");
-      setPriorityId(null);
-      setDueDate(thisFriday);
-      setOwnerId(currentUserId);
-      inputRef.current?.focus();
+      resetToBlank();
     }
-  }, [state, thisFriday, currentUserId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
@@ -69,25 +72,8 @@ export function InlineAddRow({
     );
   }
 
-  if (!expanded) {
-    return (
-      <div className={styles.inlineAddRow}>
-        <button
-          type="button"
-          className={styles.inlinePlaceholder}
-          onClick={() => {
-            setExpanded(true);
-            setTimeout(() => inputRef.current?.focus(), 0);
-          }}
-        >
-          + Add a commitment…
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className={styles.inlineAddRow}>
+    <div className={`${styles.inlineAddRow} ${styles.inlineAddRowDraft}`}>
       <form action={formAction} className={styles.addForm}>
         <input type="hidden" name="week_ending" value={thisFriday} />
         <input type="hidden" name="priority_id" value={priorityId ?? ""} />
@@ -98,11 +84,21 @@ export function InlineAddRow({
           type="text"
           name="description"
           className={styles.addField}
-          placeholder="A specific, verifiable step."
+          placeholder="Add a commitment — a specific, verifiable step."
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          onKeyDown={(e) => {
+            // Escape clears the draft without submitting. Enter submits
+            // the form (default form behavior) as long as the required
+            // description is present.
+            if (e.key === "Escape") {
+              e.preventDefault();
+              resetToBlank();
+            }
+          }}
           required
           disabled={pending}
+          aria-label="New commitment"
         />
 
         <PriorityPicker

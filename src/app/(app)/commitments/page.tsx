@@ -110,24 +110,18 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
           </span>
         </div>
         <ul className={styles.rowList}>
-          {data.mainList.length === 0 ? (
-            <li className={styles.emptyLine}>
-              Nothing here yet — add the first below.
-            </li>
-          ) : (
-            data.mainList.map((c) => (
-              <CommitmentRow
-                key={c.id}
-                commitment={c}
-                priorityOptions={data.priorityOptions}
-                roster={data.roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
-                todayIso={data.todayIso}
-                canResolve={canWriteOwnedRow(session.profile, c)}
-                canLink={canWriteOwnedRow(session.profile, c)}
-                canReassign={canWriteOwnedRow(session.profile, c)}
-              />
-            ))
-          )}
+          {data.mainList.map((c) => (
+            <CommitmentRow
+              key={c.id}
+              commitment={c}
+              priorityOptions={data.priorityOptions}
+              roster={data.roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
+              todayIso={data.todayIso}
+              canResolve={canWriteOwnedRow(session.profile, c)}
+              canLink={canWriteOwnedRow(session.profile, c)}
+              canReassign={canWriteOwnedRow(session.profile, c)}
+            />
+          ))}
         </ul>
         <InlineAddRow
           thisFriday={data.thisFriday}
