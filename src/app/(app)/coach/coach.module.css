@@ -27,12 +27,13 @@
 }
 
 /* Descriptive body copy under the h1 — matches the .subtitle pattern
-   used on /chart, /people, /profile. Sentence case, not all-caps. */
+   used on /chart, /people, /profile. Sentence case, not all-caps.
+   No max-width — the container already bounds the reading measure,
+   and a shorter cap made the text wrap awkwardly mid-page. */
 .subtitle {
   font: var(--text-body);
   color: var(--text-muted);
   margin: var(--space-3) 0 0 0;
-  max-width: 72ch;
 }
 
 .crumb {
