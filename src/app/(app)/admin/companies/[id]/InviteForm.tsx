@@ -145,7 +145,7 @@ export function InviteForm({ companyId }: { companyId: string }) {
       </fieldset>
 
       <label className={`${styles.checkOption} ${styles.formFull}`}>
-        <input type="checkbox" name="send_invite_now" defaultChecked disabled={pending} />
+        <input type="checkbox" name="send_invite_now" disabled={pending} />
         Send invite email now
       </label>
 
