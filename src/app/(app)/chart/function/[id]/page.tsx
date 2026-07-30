@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getChartFunctionDetail } from "@/lib/chart/service";
-import { AddOutcomeForm, AddMeasureForm } from "../../InlineForms";
+import { AddMeasureForm } from "../../InlineForms";
 import { DeleteFunctionButton } from "./DeleteFunctionButton";
 import { RolesList } from "./RolesList";
+import { SeatEditor } from "./SeatEditor";
+import { AddSuccessMeasureRow } from "./AddSuccessMeasureRow";
 import styles from "../../chart.module.css";
 
 // Function detail — the whole story for a single function.
@@ -46,22 +48,16 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
             </Link>
           </p>
         ) : null}
-        {detail.fn.description ? (
-          <p className={styles.subtitle}>{detail.fn.description}</p>
-        ) : null}
       </header>
 
       <div className={styles.detailSeatCard}>
         <span className={styles.fnSeatLabel}>In the seat</span>
-        <span
-          className={
-            detail.seatHolder
-              ? styles.fnSeatName
-              : `${styles.fnSeatName} ${styles.fnSeatEmpty}`
-          }
-        >
-          {detail.seatHolder?.full_name ?? "Unassigned"}
-        </span>
+        <SeatEditor
+          functionId={detail.fn.id}
+          currentSeatHolder={detail.seatHolder}
+          roster={detail.roster}
+          canEdit={isAdmin}
+        />
       </div>
 
       <section>
@@ -132,15 +128,10 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
           </article>
         ))}
 
-        {detail.outcomes.length === 0 ? (
-          <p className={styles.emptyOutcomeLine}>No success measures yet.</p>
-        ) : null}
-
         {isAdmin ? (
-          <details className={styles.addDetails}>
-            <summary className={styles.addSummary}>+ Add success measure</summary>
-            <AddOutcomeForm functionId={detail.fn.id} />
-          </details>
+          <AddSuccessMeasureRow functionId={detail.fn.id} />
+        ) : detail.outcomes.length === 0 ? (
+          <p className={styles.emptyOutcomeLine}>No success measures yet.</p>
         ) : null}
       </section>
 

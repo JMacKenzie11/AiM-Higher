@@ -92,17 +92,6 @@ export function AddFunctionForm({
         </select>
       </label>
 
-      <label className={`${styles.formField} ${styles.formFieldFull}`}>
-        <span className={styles.formLabel}>Description</span>
-        <textarea
-          className={styles.formTextarea}
-          name="description"
-          rows={3}
-          placeholder="One line on what this function is responsible for. Add responsibilities and success measures on the next page."
-          disabled={pending}
-        />
-      </label>
-
       {errorMessage ? (
         <p role="alert" className={styles.errorMessage}>
           {errorMessage}
