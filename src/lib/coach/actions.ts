@@ -132,7 +132,12 @@ export async function createGeneralConversationAction(): Promise<
     .select("*")
     .single<CoachingConversation>();
   if (error || !data) {
-    return { ok: false, message: "Couldn't start that conversation." };
+    // Surface the underlying DB message during rollout — the two most
+    // likely causes are the mode check constraint or the NOT NULL on
+    // subject_profile_id (both cleared by migration 0105).
+    console.error("createGeneralConversationAction insert failed", error);
+    const detail = error?.message ? ` (${error.message})` : "";
+    return { ok: false, message: `Couldn't start that conversation.${detail}` };
   }
 
   revalidatePath("/ask-aimee");
