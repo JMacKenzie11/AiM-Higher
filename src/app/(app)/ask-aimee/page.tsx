@@ -21,8 +21,8 @@ export default async function AskAimeePage() {
         <p className={styles.eyebrow}>Coaching</p>
         <h1 className={styles.h1}>Ask Aimee</h1>
         <span className="aims-rule" aria-hidden="true" />
-        <p className={styles.conversationMeta}>
-          A thinking partner for the situation you&rsquo;re working through — a
+        <p className={styles.subtitle}>
+          A thinking partner for the situation you&rsquo;re working through: a
           decision, a conversation to prep for, an employee not on the
           platform, or your own leadership. Your Ask Aimee conversations are
           visible only to you.
