@@ -12,7 +12,6 @@ import type {
 } from "@/lib/types";
 import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
 import styles from "../admin.module.css";
-import { InviteForm } from "./InviteForm";
 import { UserRowActions } from "./UserRowActions";
 import { FeaturesForm } from "./FeaturesForm";
 import { CompanyRowActions } from "../CompanyRowActions";
@@ -181,13 +180,6 @@ export default async function CompanyDetailPage({
               No one on this company yet. Add the first person below.
             </p>
           )}
-        </section>
-
-        <section className={styles.card} aria-labelledby="add-person">
-          <h2 id="add-person" className={styles.h2}>
-            Add a person
-          </h2>
-          <InviteForm companyId={company.id} />
         </section>
 
         <CompanyTranscriptsPanel
