@@ -156,6 +156,10 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
 // ============================================================
 // Company context
 // ============================================================
+type RosterMember = Pick<Profile, "id" | "full_name" | "position"> & {
+  isCoach: boolean;
+};
+
 type CompanyContext = {
   companyId: string;
   companyName: string;
@@ -163,7 +167,7 @@ type CompanyContext = {
   purpose: string | null;
   vision: string | null;
   coreValues: FoundationItem[];
-  roster: Array<Pick<Profile, "id" | "full_name" | "position">>;
+  roster: RosterMember[];
   priorities: Array<Pick<Priority, "id" | "title" | "owner_id" | "quarter_id">>;
 };
 
@@ -171,28 +175,40 @@ async function loadCompanyContext(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   companyId: string
 ): Promise<CompanyContext> {
-  const [companyRes, foundationRes, itemsRes, rosterRes] = await Promise.all([
-    admin
-      .from("companies")
-      .select("id, name, timezone")
-      .eq("id", companyId)
-      .maybeSingle<{ id: string; name: string; timezone: string }>(),
-    admin
-      .from("company_foundation")
-      .select("*")
-      .eq("company_id", companyId)
-      .maybeSingle<CompanyFoundation>(),
-    admin
-      .from("foundation_items")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("kind", "core_value"),
-    admin
-      .from("profiles")
-      .select("id, full_name, position, status")
-      .eq("company_id", companyId)
-      .neq("status", "inactive"),
-  ]);
+  const [companyRes, foundationRes, itemsRes, rosterRes, coachesRes] =
+    await Promise.all([
+      admin
+        .from("companies")
+        .select("id, name, timezone")
+        .eq("id", companyId)
+        .maybeSingle<{ id: string; name: string; timezone: string }>(),
+      admin
+        .from("company_foundation")
+        .select("*")
+        .eq("company_id", companyId)
+        .maybeSingle<CompanyFoundation>(),
+      admin
+        .from("foundation_items")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("kind", "core_value"),
+      admin
+        .from("profiles")
+        .select("id, full_name, position, status")
+        .eq("company_id", companyId)
+        .neq("status", "inactive"),
+      // System admins are candidate owners too — they show up as the
+      // AiMS coach in a client meeting and often walk out of it with
+      // commitments of their own. Loading them here lets the analyzer
+      // assign to them; the roster label marks them as coaches so the
+      // model can disambiguate when a first name happens to collide
+      // with a company member's.
+      admin
+        .from("profiles")
+        .select("id, full_name, position, status")
+        .eq("role", "system_admin")
+        .neq("status", "inactive"),
+    ]);
 
   const openQuarter = await getCurrentQuarter(companyId);
   let priorities: CompanyContext["priorities"] = [];
@@ -206,6 +222,28 @@ async function loadCompanyContext(
     priorities = (data ?? []) as CompanyContext["priorities"];
   }
 
+  const companyMembers: RosterMember[] = (
+    (rosterRes.data ?? []) as Array<Pick<Profile, "id" | "full_name" | "position">>
+  ).map((p) => ({
+    id: p.id,
+    full_name: p.full_name,
+    position: p.position,
+    isCoach: false,
+  }));
+  const coaches: RosterMember[] = (
+    (coachesRes.data ?? []) as Array<Pick<Profile, "id" | "full_name" | "position">>
+  )
+    // Skip a coach who also belongs to this company as a member — the
+    // company entry already covers them and we don't want two rows
+    // with the same id in the whitelist.
+    .filter((c) => !companyMembers.some((m) => m.id === c.id))
+    .map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      position: p.position,
+      isCoach: true,
+    }));
+
   return {
     companyId,
     companyName: companyRes.data?.name ?? "(unknown company)",
@@ -213,9 +251,7 @@ async function loadCompanyContext(
     purpose: foundationRes.data?.purpose_statement ?? null,
     vision: foundationRes.data?.vision ?? null,
     coreValues: (itemsRes.data ?? []) as FoundationItem[],
-    roster: ((rosterRes.data ?? []) as Array<
-      Pick<Profile, "id" | "full_name" | "position">
-    >).map((p) => ({ id: p.id, full_name: p.full_name, position: p.position })),
+    roster: [...companyMembers, ...coaches],
     priorities,
   };
 }
@@ -246,7 +282,8 @@ function formatCompanyContext(ctx: CompanyContext): string {
     lines.push("Roster (names the transcript may refer to):");
     for (const p of ctx.roster) {
       const pos = p.position ? ` — ${p.position}` : "";
-      lines.push(`- ${p.full_name}${pos}`);
+      const suffix = p.isCoach ? " (AiMS coach)" : "";
+      lines.push(`- ${p.full_name}${pos}${suffix}`);
     }
   }
   if (ctx.priorities.length > 0) {
@@ -291,7 +328,10 @@ function buildExtractionUserMessage(
   transcript: string
 ): string {
   const roster = ctx.roster
-    .map((p) => `- ${p.full_name} (id: ${p.id})`)
+    .map(
+      (p) =>
+        `- ${p.full_name}${p.isCoach ? " (AiMS coach)" : ""} (id: ${p.id})`
+    )
     .join("\n");
   const priorities =
     ctx.priorities.length > 0
