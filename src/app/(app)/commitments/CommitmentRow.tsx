@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition, useMemo } from "react";
 import {
+  deleteCommitmentAction,
   linkPriorityAction,
   markKeptAction,
   markMissedAction,
@@ -147,6 +148,27 @@ export function CommitmentRow({
     });
   }
 
+  // Admins can delete any commitment in their company; owners can
+  // delete their own open commitments. Resolved rows stay in history
+  // for non-admins (the server enforces both rules).
+  const canDelete =
+    isAdmin || (commitment.owner_id === currentUserId && isOpen);
+
+  function handleDelete() {
+    if (!canDelete) return;
+    if (
+      !confirm(
+        "Delete this commitment? This can't be undone."
+      )
+    )
+      return;
+    setError(null);
+    startTransition(async () => {
+      const result = await deleteCommitmentAction(commitment.id);
+      if (!result.ok) setError(result.message);
+    });
+  }
+
   function onCircleClick() {
     if (!canResolve) return;
     if (isKept) {
@@ -214,6 +236,34 @@ export function CommitmentRow({
                 From meeting
               </span>
             )
+          ) : null}
+          {canDelete ? (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={pending}
+              title="Delete this commitment"
+              aria-label="Delete this commitment"
+              style={{
+                marginLeft: "var(--space-2)",
+                background: "transparent",
+                border: "none",
+                color: "var(--muted)",
+                cursor: "pointer",
+                fontSize: "14px",
+                lineHeight: 1,
+                padding: "2px 6px",
+                borderRadius: "var(--radius-sm)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "var(--aims-danger)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "var(--muted)";
+              }}
+            >
+              ×
+            </button>
           ) : null}
         </p>
         {commitment.missed_reason ? (
