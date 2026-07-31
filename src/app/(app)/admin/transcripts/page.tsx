@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { transcriptSourcesAllowed } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
 import type { Company, Meeting, TranscriptSource } from "@/lib/types";
 import styles from "../companies/admin.module.css";
 import { ConnectFolderForm } from "./ConnectFolderForm";
@@ -12,9 +13,16 @@ import { UnroutedRowActions } from "./UnroutedRowActions";
 // System-admin transcripts surface: connected sources, connect flow,
 // unrouted queue, recent meetings.
 
-export default async function TranscriptsPage() {
+type PageProps = {
+  searchParams: Promise<{ oauth_connected?: string; oauth_error?: string }>;
+};
+
+export default async function TranscriptsPage({ searchParams }: PageProps) {
   const session = await requireProfile();
   if (!transcriptSourcesAllowed(session.profile)) redirect("/");
+
+  const flash = await searchParams;
+  const connectedAccount = await getConnectedGoogleAccount();
 
   const supabase = await createSupabaseServerClient();
   const [{ data: sources }, { data: meetings }, { data: companies }] =
@@ -49,9 +57,6 @@ export default async function TranscriptsPage() {
     countBySource.set(m.source_id, (countBySource.get(m.source_id) ?? 0) + 1);
   }
 
-  const serviceAccountEmail =
-    process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ??
-    "(GOOGLE_SERVICE_ACCOUNT_EMAIL not set)";
 
   return (
     <div className={styles.stage}>
@@ -69,16 +74,73 @@ export default async function TranscriptsPage() {
       </section>
 
       <div className={styles.content}>
+        <section className={styles.card} aria-labelledby="google-account">
+          <h2 id="google-account" className={styles.h2}>
+            Google account
+          </h2>
+          {flash.oauth_connected ? (
+            <p className={styles.successMessage} role="status">
+              Connected as {flash.oauth_connected}.
+            </p>
+          ) : null}
+          {flash.oauth_error ? (
+            <p className={styles.errorMessage} role="alert">
+              Couldn&rsquo;t connect: {flash.oauth_error}
+            </p>
+          ) : null}
+          {connectedAccount ? (
+            <>
+              <p className={styles.subtitleInline}>
+                Transcripts are read using this Google account&rsquo;s Drive
+                access. Share each transcript folder with the address below
+                (Viewer is enough), then connect it further down.
+              </p>
+              <CopyableEmail email={connectedAccount} />
+              <div>
+                <a
+                  href="/api/oauth/google/start"
+                  className={styles.ghostButton}
+                >
+                  Reconnect / switch account
+                </a>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className={styles.subtitleInline}>
+                Sign in with a Google account that has (or can be given)
+                access to the transcript folders you want to ingest. Clients
+                will share their folders with this address.
+              </p>
+              <div>
+                <a
+                  href="/api/oauth/google/start"
+                  className={styles.primaryButton}
+                >
+                  Connect Google account
+                </a>
+              </div>
+            </>
+          )}
+        </section>
+
         <section className={styles.card} aria-labelledby="connect">
           <h2 id="connect" className={styles.h2}>
             Connect folder
           </h2>
-          <p className={styles.subtitleInline}>
-            Share your transcript folder with this address as Viewer, then
-            paste the folder link below:
-          </p>
-          <CopyableEmail email={serviceAccountEmail} />
-          <ConnectFolderForm companies={companyRows} />
+          {connectedAccount ? (
+            <>
+              <p className={styles.subtitleInline}>
+                Paste a Google Drive folder link. It must already be shared
+                with {connectedAccount}.
+              </p>
+              <ConnectFolderForm companies={companyRows} />
+            </>
+          ) : (
+            <p className={styles.emptyLine}>
+              Connect a Google account above before adding folders.
+            </p>
+          )}
         </section>
 
         <section className={styles.card} aria-labelledby="sources">

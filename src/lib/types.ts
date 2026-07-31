@@ -409,6 +409,16 @@ export type ExtractedCommitment = {
   priority_id: string | null;
 };
 
+export type OAuthCredentials = {
+  provider: TranscriptProviderKind;
+  account_email: string;
+  refresh_token: string;
+  access_token: string | null;
+  access_token_expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type MeetingAnalysis = {
   id: string;
   meeting_id: string;
