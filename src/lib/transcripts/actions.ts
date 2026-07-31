@@ -69,6 +69,11 @@ export async function connectGoogleFolderAction(
   }
 
   const admin = createSupabaseAdminClient();
+  // Seed the cursor to "now" so the first ingest cycle only picks
+  // up files modified after the connection. Without this the initial
+  // pass drags in every historical transcript in the folder, which
+  // is almost never what the operator wants when onboarding.
+  const initialCursor = new Date().toISOString();
   const { data, error } = await admin
     .from("transcript_sources")
     .insert({
@@ -78,6 +83,7 @@ export async function connectGoogleFolderAction(
       folder_id: folderId,
       folder_name: folderName,
       status: "active",
+      cursor: initialCursor,
     })
     .select("*")
     .single<TranscriptSource>();
