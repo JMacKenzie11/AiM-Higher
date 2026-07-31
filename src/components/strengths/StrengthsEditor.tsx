@@ -48,16 +48,26 @@ export function StrengthsEditor({
       : [""]
   );
 
+  // Editing a row: if typing into the trailing empty row, a fresh
+  // empty row appears below so the user never needs an "Add" button —
+  // the last row is always in edit mode. Idempotent: no auto-append
+  // when they're just editing an earlier row.
   function update(list: string[], idx: number, value: string) {
     const next = list.slice();
     next[idx] = value;
+    const isLast = idx === next.length - 1;
+    if (isLast && value.trim() !== "") next.push("");
     return next;
   }
 
   function removeAt(list: string[], idx: number) {
     const next = list.slice();
     next.splice(idx, 1);
-    return next.length > 0 ? next : [""];
+    // Always keep at least one editable row.
+    if (next.length === 0 || next[next.length - 1].trim() !== "") {
+      next.push("");
+    }
+    return next;
   }
 
   return (
@@ -79,14 +89,6 @@ export function StrengthsEditor({
             onRemove={() => setStrengths((prev) => removeAt(prev, idx))}
           />
         ))}
-        <button
-          type="button"
-          className={styles.ghostButton}
-          onClick={() => setStrengths((prev) => [...prev, ""])}
-          disabled={pending}
-        >
-          + Add strength
-        </button>
       </fieldset>
 
       <fieldset className={`${styles.field} ${styles.formFull}`}>
@@ -102,14 +104,6 @@ export function StrengthsEditor({
             onRemove={() => setSuperpowers((prev) => removeAt(prev, idx))}
           />
         ))}
-        <button
-          type="button"
-          className={styles.ghostButton}
-          onClick={() => setSuperpowers((prev) => [...prev, ""])}
-          disabled={pending}
-        >
-          + Add superpower
-        </button>
       </fieldset>
 
       {errorMessage ? (
