@@ -53,14 +53,6 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
       </section>
 
       <div className={styles.content}>
-        <PlatformTranscriptsPanel
-          connectedAccount={connectedAccount}
-          unrouted={unrouted}
-          companies={companies.map((c) => ({ id: c.id, name: c.name }))}
-          flashConnected={flash.oauth_connected ?? null}
-          flashError={flash.oauth_error ?? null}
-        />
-
         <section className={styles.card} aria-labelledby="companies-list">
           <h2 id="companies-list" className={styles.h2}>
             All companies
@@ -141,6 +133,14 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
           </h2>
           <CreateCompanyForm />
         </section>
+
+        <PlatformTranscriptsPanel
+          connectedAccount={connectedAccount}
+          unrouted={unrouted}
+          companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+          flashConnected={flash.oauth_connected ?? null}
+          flashError={flash.oauth_error ?? null}
+        />
       </div>
     </div>
   );
