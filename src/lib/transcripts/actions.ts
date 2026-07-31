@@ -83,7 +83,7 @@ export async function connectGoogleFolderAction(
     return { ok: false, message: error?.message ?? "Couldn't save the source." };
   }
 
-  revalidatePath("/admin/transcripts");
+  revalidatePath("/admin/companies", "layout");
   return { ok: true, item: data };
 }
 
@@ -97,7 +97,7 @@ export async function pauseSourceAction(id: string): Promise<ActionResult> {
     .update({ status: "paused" })
     .eq("id", id);
   if (error) return { ok: false, message: "Couldn't pause." };
-  revalidatePath("/admin/transcripts");
+  revalidatePath("/admin/companies", "layout");
   return { ok: true };
 }
 
@@ -110,7 +110,7 @@ export async function resumeSourceAction(id: string): Promise<ActionResult> {
     .update({ status: "active", last_error: null })
     .eq("id", id);
   if (error) return { ok: false, message: "Couldn't resume." };
-  revalidatePath("/admin/transcripts");
+  revalidatePath("/admin/companies", "layout");
   return { ok: true };
 }
 
@@ -132,7 +132,7 @@ export async function removeSourceAction(id: string): Promise<ActionResult> {
   // it. If the operator wants history preservation, they Pause.
   const { error } = await admin.from("transcript_sources").delete().eq("id", id);
   if (error) return { ok: false, message: "Couldn't remove." };
-  revalidatePath("/admin/transcripts");
+  revalidatePath("/admin/companies", "layout");
   return { ok: true };
 }
 
@@ -141,7 +141,7 @@ export async function checkSourceNowAction(id: string): Promise<ActionResult> {
   if (!g.ok) return g;
   try {
     await runSourceCycle(id);
-    revalidatePath("/admin/transcripts");
+    revalidatePath("/admin/companies", "layout");
     return { ok: true };
   } catch (err) {
     return {
@@ -180,8 +180,7 @@ export async function routeMeetingAction(
       };
     }
   }
-  revalidatePath("/admin/transcripts");
-  revalidatePath("/admin/companies");
+  revalidatePath("/admin/companies", "layout");
   return { ok: true };
 }
 
@@ -196,8 +195,7 @@ export async function dismissMeetingAction(
     .update({ status: "failed", error: "dismissed" })
     .eq("id", meetingId);
   if (error) return { ok: false, message: error.message };
-  revalidatePath("/admin/transcripts");
-  revalidatePath("/admin/companies");
+  revalidatePath("/admin/companies", "layout");
   return { ok: true };
 }
 
