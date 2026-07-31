@@ -6,13 +6,11 @@ import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import type {
   Company,
   Meeting,
-  Profile,
   TranscriptAlias,
   TranscriptSource,
 } from "@/lib/types";
 import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
 import styles from "../admin.module.css";
-import { UserRowActions } from "./UserRowActions";
 import { FeaturesForm } from "./FeaturesForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
@@ -24,22 +22,11 @@ type PageProps = {
   searchParams: Promise<{ oauth_connected?: string; oauth_error?: string }>;
 };
 
-function statusChipClass(status: Profile["status"]): string {
-  switch (status) {
-    case "pending":
-      return styles.chipPending;
-    case "inactive":
-      return styles.chipInactive;
-    default:
-      return styles.chipActive;
-  }
-}
-
 export default async function CompanyDetailPage({
   params,
   searchParams,
 }: PageProps) {
-  const session = await requireRole(["system_admin"]);
+  await requireRole(["system_admin"]);
   const { id } = await params;
   const flash = await searchParams;
 
@@ -47,7 +34,6 @@ export default async function CompanyDetailPage({
 
   const [
     { data: company },
-    { data: profiles },
     { data: aliases },
     { data: sources },
     { data: meetings },
@@ -58,11 +44,6 @@ export default async function CompanyDetailPage({
       .select("*")
       .eq("id", id)
       .maybeSingle<Company>(),
-    supabase
-      .from("profiles")
-      .select("*")
-      .eq("company_id", id)
-      .order("full_name"),
     supabase
       .from("transcript_aliases")
       .select("*")
@@ -85,7 +66,6 @@ export default async function CompanyDetailPage({
   if (!company) notFound();
 
   const features = await getCompanyFeatures(company.id);
-  const roster = (profiles ?? []) as Profile[];
   const aliasRows = (aliases ?? []) as TranscriptAlias[];
   const sourceRows = (sources ?? []) as TranscriptSource[];
   const meetingRows = (meetings ?? []) as Meeting[];
@@ -132,54 +112,6 @@ export default async function CompanyDetailPage({
             Features
           </h2>
           <FeaturesForm companyId={company.id} initial={features} />
-        </section>
-
-        <section className={styles.card} aria-labelledby="people">
-          <h2 id="people" className={styles.h2}>
-            People
-          </h2>
-          {roster.length > 0 ? (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Position</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th className={styles.actionHead}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roster.map((profile) => (
-                  <tr key={profile.id}>
-                    <td>{profile.full_name}</td>
-                    <td className={styles.mutedCell}>
-                      {profile.position ?? "—"}
-                    </td>
-                    <td className={styles.capCell}>
-                      {profile.role.replace("_", " ")}
-                    </td>
-                    <td>
-                      <span className={statusChipClass(profile.status)}>
-                        {profile.status}
-                      </span>
-                    </td>
-                    <td>
-                      <UserRowActions
-                        profileId={profile.id}
-                        status={profile.status}
-                        canDelete={profile.id !== session.profile.id}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className={styles.emptyLine}>
-              No one on this company yet. Add the first person below.
-            </p>
-          )}
         </section>
 
         <CompanyTranscriptsPanel

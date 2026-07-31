@@ -30,9 +30,14 @@ export function InviteForm({ companyId }: { companyId: string }) {
   const [strengths, setStrengths] = useState<string[]>([""]);
   const [superpowers, setSuperpowers] = useState<string[]>([""]);
 
+  // Typing into the trailing empty row auto-appends a new empty row
+  // below, so the last row is always in edit mode and there's no
+  // explicit + Add button to press. Matches StrengthsEditor's model.
   function updateAt(list: string[], idx: number, value: string) {
     const next = list.slice();
     next[idx] = value;
+    const isLast = idx === next.length - 1;
+    if (isLast && value.trim() !== "") next.push("");
     return next;
   }
 
@@ -110,14 +115,6 @@ export function InviteForm({ companyId }: { companyId: string }) {
             maxLength={120}
           />
         ))}
-        <button
-          type="button"
-          className={styles.ghostButton}
-          onClick={() => setStrengths((prev) => [...prev, ""])}
-          disabled={pending}
-        >
-          + Add another strength
-        </button>
       </fieldset>
 
       <fieldset className={`${styles.field} ${styles.formFull}`}>
@@ -134,14 +131,6 @@ export function InviteForm({ companyId }: { companyId: string }) {
             maxLength={120}
           />
         ))}
-        <button
-          type="button"
-          className={styles.ghostButton}
-          onClick={() => setSuperpowers((prev) => [...prev, ""])}
-          disabled={pending}
-        >
-          + Add another superpower
-        </button>
       </fieldset>
 
       <label className={`${styles.checkOption} ${styles.formFull}`}>
