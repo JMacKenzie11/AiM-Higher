@@ -1,5 +1,4 @@
 import type { Company, Meeting } from "@/lib/types";
-import { CardAccent } from "@/components/ui/CardAccent";
 import { ConnectGoogleButton } from "@/app/(app)/admin/transcripts/ConnectGoogleButton";
 import { UnroutedRowActions } from "@/app/(app)/admin/transcripts/UnroutedRowActions";
 import styles from "./admin.module.css";
@@ -23,8 +22,7 @@ export function PlatformTranscriptsPanel({
   flashError: string | null;
 }) {
   return (
-    <section className={styles.cardAccent} aria-labelledby="google-account">
-      <CardAccent />
+    <section className={styles.card} aria-labelledby="google-account">
       <h2 id="google-account" className={styles.h2}>
         Meeting transcripts
       </h2>

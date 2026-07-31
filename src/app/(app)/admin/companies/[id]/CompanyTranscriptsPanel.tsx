@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Meeting, TranscriptSource } from "@/lib/types";
-import { CardAccent } from "@/components/ui/CardAccent";
 import { ConnectCompanyFolderForm } from "./ConnectCompanyFolderForm";
 import { SourceRowActions } from "@/app/(app)/admin/transcripts/SourceRowActions";
 import styles from "../admin.module.css";
@@ -31,8 +30,7 @@ export function CompanyTranscriptsPanel({
   }
 
   return (
-    <section className={styles.cardAccent} aria-labelledby="transcripts">
-      <CardAccent />
+    <section className={styles.card} aria-labelledby="transcripts">
       <h2 id="transcripts" className={styles.h2}>
         Meeting transcripts
       </h2>
