@@ -356,14 +356,26 @@ export async function reassignCommitmentAction(
     return { ok: true, commitment };
   }
 
-  // The new owner must be in the same company. Blocks cross-company
-  // handoffs (which would break RLS reads and priority progress).
+  // The new owner must belong to the same company OR be an AiMS
+  // coach (system admin). Coaches routinely take on commitments in
+  // client meetings, so they're valid owners even without a company
+  // membership. Anything else is a cross-company handoff and would
+  // break RLS reads and priority progress.
   const { data: newOwner } = await supabase
     .from("profiles")
-    .select("id, company_id, status")
+    .select("id, company_id, status, role")
     .eq("id", newOwnerId)
-    .maybeSingle<{ id: string; company_id: string | null; status: string }>();
-  if (!newOwner || newOwner.company_id !== commitment.company_id) {
+    .maybeSingle<{
+      id: string;
+      company_id: string | null;
+      status: string;
+      role: string;
+    }>();
+  if (!newOwner) {
+    return { ok: false, message: "That person isn't in this company." };
+  }
+  const isCoach = newOwner.role === "system_admin";
+  if (!isCoach && newOwner.company_id !== commitment.company_id) {
     return { ok: false, message: "That person isn't in this company." };
   }
   if (newOwner.status === "inactive") {

@@ -192,15 +192,32 @@ export async function getCommitmentsPageData(
   // Roster for owner filter + display and owner picker in the add row.
   // Pending users show up alongside active — an admin can pre-assign
   // commitments to someone who hasn't accepted their invite yet.
-  const { data: rosterRows } = await supabase
-    .from("profiles")
-    .select("id, full_name, position")
-    .eq("company_id", companyId)
-    .neq("status", "inactive")
-    .order("full_name");
-  const roster = (rosterRows ?? []) as Array<
+  // System admins (AiMS coaches) are appended so they can be picked
+  // as owners even though they don't belong to the client company.
+  const [rosterRes, coachesRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, position")
+      .eq("company_id", companyId)
+      .neq("status", "inactive")
+      .order("full_name"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, position")
+      .eq("role", "system_admin")
+      .neq("status", "inactive")
+      .order("full_name"),
+  ]);
+  const companyMembers = (rosterRes.data ?? []) as Array<
     Pick<Profile, "id" | "full_name" | "position">
   >;
+  const coaches = (
+    (coachesRes.data ?? []) as Array<Pick<Profile, "id" | "full_name" | "position">>
+  ).filter((c) => !companyMembers.some((m) => m.id === c.id));
+  const roster: Array<Pick<Profile, "id" | "full_name" | "position">> = [
+    ...companyMembers,
+    ...coaches,
+  ];
   const rosterById = new Map(roster.map((p) => [p.id, p]));
 
   // Open-quarter priorities feed the priority picker.
