@@ -209,11 +209,17 @@ export function CommitmentRow({
         }
         aria-pressed={isKept || isClosed}
       >
-        {isKept ? (
-          <span className={styles.checkmark} aria-hidden>✓</span>
-        ) : isClosed ? (
-          <span className={styles.checkmark} aria-hidden>✕</span>
-        ) : null}
+        <span
+          className={styles.checkmark}
+          aria-hidden
+          style={
+            isKept || isClosed
+              ? undefined
+              : { color: "var(--text-muted)" }
+          }
+        >
+          {isClosed ? "✕" : "✓"}
+        </span>
       </button>
 
       {canDelete ? (
