@@ -51,10 +51,15 @@ export async function connectGoogleFolderAction(
     return { ok: false, message: "Paste a Google Drive folder URL or ID." };
   }
 
+  // The connect flow only supports company-scoped sources now — a
+  // shared scope has no OAuth identity to authenticate against.
+  if (!companyId) {
+    return { ok: false, message: "Pick a company for this folder." };
+  }
   const provider = await getProvider("google_drive");
   let folderName: string;
   try {
-    const verified = await provider.verifyFolderAccess(folderId);
+    const verified = await provider.verifyFolderAccess(folderId, companyId);
     folderName = verified.folderName;
   } catch (err) {
     return {

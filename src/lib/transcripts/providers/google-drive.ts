@@ -65,8 +65,13 @@ export function buildConsentUrl(state: string): string {
 
 // Called by the callback route. Returns the connected user's email
 // so we can display it on the setup page and clients know which
-// address to share folders with.
-export async function exchangeCodeAndPersist(code: string): Promise<string> {
+// address to share folders with. Scoped per company — each company
+// stores its own refresh token, so different companies can point at
+// Drive folders owned by different Google Workspaces.
+export async function exchangeCodeAndPersist(
+  code: string,
+  companyId: string
+): Promise<string> {
   const client = getOAuthClient();
   const { tokens } = await client.getToken(code);
   if (!tokens.refresh_token) {
@@ -88,6 +93,7 @@ export async function exchangeCodeAndPersist(code: string): Promise<string> {
     .upsert(
       {
         provider: "google_drive",
+        company_id: companyId,
         account_email: email,
         refresh_token: tokens.refresh_token,
         access_token: tokens.access_token ?? null,
@@ -95,24 +101,25 @@ export async function exchangeCodeAndPersist(code: string): Promise<string> {
           ? new Date(tokens.expiry_date).toISOString()
           : null,
       },
-      { onConflict: "provider" }
+      { onConflict: "provider,company_id" }
     );
   return email;
 }
 
-// Loads the stored refresh token and returns an OAuth2Client with
-// credentials set — google-auth-library refreshes the access token
-// automatically when the SDK detects expiry.
-async function authenticatedClient(): Promise<OAuth2Client> {
+// Loads the stored refresh token for a company and returns an
+// OAuth2Client with credentials set. google-auth-library refreshes
+// the access token automatically when the SDK detects expiry.
+async function authenticatedClient(companyId: string): Promise<OAuth2Client> {
   const admin = createSupabaseAdminClient();
   const { data } = await admin
     .from("oauth_credentials")
     .select("*")
     .eq("provider", "google_drive")
+    .eq("company_id", companyId)
     .maybeSingle<OAuthCredentials>();
   if (!data) {
     throw new Error(
-      "Google Drive isn't connected yet. Connect a Google account on the Transcripts page."
+      "This company hasn't connected a Google account yet. Connect one from its transcripts panel."
     );
   }
   const client = getOAuthClient();
@@ -135,13 +142,14 @@ async function authenticatedClient(): Promise<OAuth2Client> {
           ? new Date(tokens.expiry_date).toISOString()
           : null,
       })
-      .eq("provider", "google_drive");
+      .eq("provider", "google_drive")
+      .eq("company_id", companyId);
   });
   return client;
 }
 
-async function driveClient(): Promise<drive_v3.Drive> {
-  const auth = await authenticatedClient();
+async function driveClient(companyId: string): Promise<drive_v3.Drive> {
+  const auth = await authenticatedClient(companyId);
   return google.drive({ version: "v3", auth });
 }
 
@@ -158,9 +166,10 @@ export function parseGoogleFolderId(input: string): string | null {
 }
 
 async function verifyFolderAccess(
-  folderId: string
+  folderId: string,
+  companyId: string
 ): Promise<{ folderName: string }> {
-  const drive = await driveClient();
+  const drive = await driveClient(companyId);
   try {
     const res = await drive.files.get({
       fileId: folderId,
@@ -179,6 +188,7 @@ async function verifyFolderAccess(
         .from("oauth_credentials")
         .select("account_email")
         .eq("provider", "google_drive")
+        .eq("company_id", companyId)
         .maybeSingle<Pick<OAuthCredentials, "account_email">>();
       const acct = data?.account_email ?? "the connected account";
       throw new Error(
@@ -193,7 +203,10 @@ async function listNewFiles(source: TranscriptSource): Promise<{
   files: ListedFile[];
   nextCursor: string | null;
 }> {
-  const drive = await driveClient();
+  if (!source.company_id) {
+    throw new Error("Shared-scope sources are no longer supported.");
+  }
+  const drive = await driveClient(source.company_id);
 
   const parts: string[] = [
     `'${source.folder_id}' in parents`,
@@ -240,8 +253,10 @@ async function downloadFile(
   source: TranscriptSource,
   fileId: string
 ): Promise<DownloadedFile> {
-  void source;
-  const drive = await driveClient();
+  if (!source.company_id) {
+    throw new Error("Shared-scope sources are no longer supported.");
+  }
+  const drive = await driveClient(source.company_id);
 
   const meta = await drive.files.get({
     fileId,
@@ -280,14 +295,17 @@ export const googleDriveProvider: TranscriptProvider = {
   verifyFolderAccess,
 };
 
-// Reads the currently-connected account for display purposes. Null
-// when no OAuth handshake has completed.
-export async function getConnectedGoogleAccount(): Promise<string | null> {
+// Reads a company's currently-connected account for display
+// purposes. Null when this company hasn't completed the handshake.
+export async function getConnectedGoogleAccount(
+  companyId: string
+): Promise<string | null> {
   const admin = createSupabaseAdminClient();
   const { data } = await admin
     .from("oauth_credentials")
     .select("account_email")
     .eq("provider", "google_drive")
+    .eq("company_id", companyId)
     .maybeSingle<Pick<OAuthCredentials, "account_email">>();
   return data?.account_email ?? null;
 }

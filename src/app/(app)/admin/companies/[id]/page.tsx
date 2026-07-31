@@ -22,6 +22,7 @@ import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
 
 type PageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ oauth_connected?: string; oauth_error?: string }>;
 };
 
 function statusChipClass(status: Profile["status"]): string {
@@ -35,9 +36,13 @@ function statusChipClass(status: Profile["status"]): string {
   }
 }
 
-export default async function CompanyDetailPage({ params }: PageProps) {
+export default async function CompanyDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const session = await requireRole(["system_admin"]);
   const { id } = await params;
+  const flash = await searchParams;
 
   const supabase = await createSupabaseServerClient();
 
@@ -75,7 +80,7 @@ export default async function CompanyDetailPage({ params }: PageProps) {
       .eq("company_id", id)
       .order("created_at", { ascending: false })
       .limit(50),
-    getConnectedGoogleAccount(),
+    getConnectedGoogleAccount(id),
   ]);
 
   if (!company) notFound();
@@ -184,6 +189,25 @@ export default async function CompanyDetailPage({ params }: PageProps) {
           </h2>
           <InviteForm companyId={company.id} />
         </section>
+
+        {flash.oauth_connected || flash.oauth_error ? (
+          <section
+            className={styles.card}
+            aria-live="polite"
+            aria-label="Google connection status"
+          >
+            {flash.oauth_connected ? (
+              <p className={styles.successMessage} role="status">
+                Connected as {flash.oauth_connected}.
+              </p>
+            ) : null}
+            {flash.oauth_error ? (
+              <p className={styles.errorMessage} role="alert">
+                Couldn&rsquo;t connect: {flash.oauth_error}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         <CompanyTranscriptsPanel
           companyId={company.id}

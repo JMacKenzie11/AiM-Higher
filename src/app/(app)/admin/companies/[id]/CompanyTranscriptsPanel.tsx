@@ -1,14 +1,14 @@
 import Link from "next/link";
 import type { Meeting, TranscriptSource } from "@/lib/types";
 import { ConnectCompanyFolderForm } from "./ConnectCompanyFolderForm";
+import { ConnectGoogleButton } from "@/app/(app)/admin/transcripts/ConnectGoogleButton";
 import { SourceRowActions } from "@/app/(app)/admin/transcripts/SourceRowActions";
 import styles from "../admin.module.css";
 
-// Per-company transcripts card. Shows only the sources connected to
-// this company (or a shared source that's routed a meeting here),
-// plus recent meetings for this company, plus a scoped connect
-// folder form. The Google account connection and unrouted queue
-// live on the overview page — this card assumes both are handled.
+// Per-company transcripts card. Each company connects its own
+// Google account (0110) and points at its own Drive folders. Shows
+// the connection state, folder sources, and recent meetings for
+// this company. The unrouted queue lives on the overview page.
 
 export function CompanyTranscriptsPanel({
   companyId,
@@ -36,20 +36,33 @@ export function CompanyTranscriptsPanel({
       </h2>
 
       {!connectedAccount ? (
-        <p className={styles.emptyLine}>
-          Connect a Google account on the{" "}
-          <Link href="/admin/companies" className={styles.crumbLink}>
-            Companies
-          </Link>{" "}
-          overview page before adding transcript folders.
-        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <p className={styles.subtitleInline}>
+            Sign in with a Google account that has (or can be given) access to
+            this company&rsquo;s transcript folders. Each company connects its
+            own account, so folders can live under different Google Workspaces.
+          </p>
+          <div>
+            <ConnectGoogleButton
+              label="Connect Google account"
+              href={`/api/oauth/google/start?company_id=${companyId}`}
+            />
+          </div>
+        </div>
       ) : (
         <>
-          <p className={styles.subtitleInline}>
-            Drive folders shared with <strong>{connectedAccount}</strong> and
-            connected here will feed this company&rsquo;s commitments and
-            leadership analyses.
-          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+            <p className={styles.subtitleInline}>
+              Reading Drive as <strong>{connectedAccount}</strong>. Share each
+              transcript folder with that address (Viewer), then connect it below.
+            </p>
+            <div>
+              <ConnectGoogleButton
+                label="Reconnect / switch account"
+                href={`/api/oauth/google/start?company_id=${companyId}`}
+              />
+            </div>
+          </div>
 
           {sources.length > 0 ? (
             <table className={styles.table}>

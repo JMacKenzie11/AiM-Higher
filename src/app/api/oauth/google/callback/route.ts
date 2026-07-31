@@ -8,12 +8,11 @@ import { exchangeCodeAndPersist } from "@/lib/transcripts/providers/google-drive
 import { APP_URL } from "@/lib/supabase/env";
 
 // Handles Google's redirect back after user consents. Verifies the
-// state cookie, exchanges the code for tokens, persists the refresh
-// token in oauth_credentials, and sends the operator back to the
-// Companies page with a success or error flash query param. Must
-// point directly at /admin/companies — going through
-// /admin/transcripts strips the query string on redirect and the
-// flash message is lost.
+// state cookie, extracts the target company id (embedded in state
+// by /api/oauth/google/start), exchanges the code for tokens,
+// persists the refresh token in oauth_credentials against that
+// company, and sends the operator back to the company page with a
+// success or error flash query param.
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -35,21 +34,31 @@ export async function GET(req: NextRequest): Promise<Response> {
   const stored = cookieStore.get(STATE_COOKIE)?.value;
   cookieStore.delete(STATE_COOKIE);
 
-  const destination = `${APP_URL()}/admin/companies`;
+  // Fallback landing if state is missing/tampered (no company id to
+  // route back to). The overview page still shows the flash.
+  const fallback = `${APP_URL()}/admin/companies`;
 
   if (error) {
     return NextResponse.redirect(
-      `${destination}?oauth_error=${encodeURIComponent(error)}`
+      `${fallback}?oauth_error=${encodeURIComponent(error)}`
     );
   }
   if (!code || !state || !stored || state !== stored) {
     return NextResponse.redirect(
-      `${destination}?oauth_error=invalid_state`
+      `${fallback}?oauth_error=invalid_state`
     );
   }
 
+  const companyId = state.split(".")[1] ?? "";
+  if (!companyId) {
+    return NextResponse.redirect(
+      `${fallback}?oauth_error=missing_company`
+    );
+  }
+  const destination = `${APP_URL()}/admin/companies/${companyId}`;
+
   try {
-    const email = await exchangeCodeAndPersist(code);
+    const email = await exchangeCodeAndPersist(code, companyId);
     return NextResponse.redirect(
       `${destination}?oauth_connected=${encodeURIComponent(email)}`
     );

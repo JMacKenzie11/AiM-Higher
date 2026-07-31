@@ -410,6 +410,8 @@ export type ExtractedCommitment = {
 };
 
 export type OAuthCredentials = {
+  id: string;
+  company_id: string;
   provider: TranscriptProviderKind;
   account_email: string;
   refresh_token: string;

@@ -32,11 +32,14 @@ export interface TranscriptProvider {
 
   downloadFile(source: TranscriptSource, fileId: string): Promise<DownloadedFile>;
 
-  // Called during the connect flow — verifies the platform service
+  // Called during the connect flow — verifies the company's OAuth
   // account can actually read the folder. Returns the folder's
   // display name for storage. Throws with a friendly message when
   // the folder isn't shared or the id is malformed.
-  verifyFolderAccess(folderId: string): Promise<{ folderName: string }>;
+  verifyFolderAccess(
+    folderId: string,
+    companyId: string
+  ): Promise<{ folderName: string }>;
 }
 
 // Provider registry. Each tag maps to the module that owns its

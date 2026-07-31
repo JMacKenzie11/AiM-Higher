@@ -2,7 +2,6 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCompaniesOverview } from "@/lib/admin/companies-service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import type { Meeting } from "@/lib/types";
 import { CompanyNameLink } from "./CompanyNameLink";
@@ -24,10 +23,9 @@ type PageProps = {
 export default async function AdminCompaniesPage({ searchParams }: PageProps) {
   await requireRole(["system_admin"]);
 
-  const [companies, flash, connectedAccount] = await Promise.all([
+  const [companies, flash] = await Promise.all([
     getCompaniesOverview(),
     searchParams,
-    getConnectedGoogleAccount(),
   ]);
 
   const supabase = await createSupabaseServerClient();
@@ -37,6 +35,9 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
     .eq("status", "unrouted")
     .order("created_at", { ascending: false });
   const unrouted = (unroutedRows ?? []) as Meeting[];
+
+  const oauthConnected = flash.oauth_connected ?? null;
+  const oauthError = flash.oauth_error ?? null;
 
   return (
     <div className={styles.stage}>
@@ -134,12 +135,28 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
           <CreateCompanyForm />
         </section>
 
+        {oauthConnected || oauthError ? (
+          <section
+            className={styles.card}
+            aria-live="polite"
+            aria-label="Google connection status"
+          >
+            {oauthConnected ? (
+              <p className={styles.successMessage} role="status">
+                Connected as {oauthConnected}.
+              </p>
+            ) : null}
+            {oauthError ? (
+              <p className={styles.errorMessage} role="alert">
+                Couldn&rsquo;t connect: {oauthError}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
         <PlatformTranscriptsPanel
-          connectedAccount={connectedAccount}
           unrouted={unrouted}
           companies={companies.map((c) => ({ id: c.id, name: c.name }))}
-          flashConnected={flash.oauth_connected ?? null}
-          flashError={flash.oauth_error ?? null}
         />
       </div>
     </div>
