@@ -10,7 +10,10 @@ import { APP_URL } from "@/lib/supabase/env";
 // Handles Google's redirect back after user consents. Verifies the
 // state cookie, exchanges the code for tokens, persists the refresh
 // token in oauth_credentials, and sends the operator back to the
-// Transcripts page with a success or error flash query param.
+// Companies page with a success or error flash query param. Must
+// point directly at /admin/companies — going through
+// /admin/transcripts strips the query string on redirect and the
+// flash message is lost.
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,7 +35,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   const stored = cookieStore.get(STATE_COOKIE)?.value;
   cookieStore.delete(STATE_COOKIE);
 
-  const destination = `${APP_URL()}/admin/transcripts`;
+  const destination = `${APP_URL()}/admin/companies`;
 
   if (error) {
     return NextResponse.redirect(
