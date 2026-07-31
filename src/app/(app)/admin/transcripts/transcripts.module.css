@@ -1,0 +1,42 @@
+/* Google-branded "Continue with Google" button. Follows Google's
+   standard visual pattern: white background, dark text, colored G
+   mark, subtle border, comfortable padding. Larger than the ghost
+   buttons because auth is a deliberate action, not a quick option. */
+.googleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 44px;
+  padding: 0 var(--space-5);
+  background: var(--surface);
+  color: var(--text-heading);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition:
+    box-shadow var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.googleButton:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+  background: var(--aims-navy-tint);
+}
+
+.googleButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  border-color: var(--primary);
+}
+
+.googleG {
+  display: inline-flex;
+  align-items: center;
+}

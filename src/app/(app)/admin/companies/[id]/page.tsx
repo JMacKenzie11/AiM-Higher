@@ -3,7 +3,14 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
-import type { Company, Profile, TranscriptAlias } from "@/lib/types";
+import type {
+  Company,
+  Meeting,
+  Profile,
+  TranscriptAlias,
+  TranscriptSource,
+} from "@/lib/types";
+import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
 import styles from "../admin.module.css";
 import { InviteForm } from "./InviteForm";
 import { UserRowActions } from "./UserRowActions";
@@ -11,6 +18,7 @@ import { FeaturesForm } from "./FeaturesForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { AliasEditor } from "./AliasEditor";
+import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -33,7 +41,14 @@ export default async function CompanyDetailPage({ params }: PageProps) {
 
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: company }, { data: profiles }, { data: aliases }] = await Promise.all([
+  const [
+    { data: company },
+    { data: profiles },
+    { data: aliases },
+    { data: sources },
+    { data: meetings },
+    connectedAccount,
+  ] = await Promise.all([
     supabase
       .from("companies")
       .select("*")
@@ -49,6 +64,18 @@ export default async function CompanyDetailPage({ params }: PageProps) {
       .select("*")
       .eq("company_id", id)
       .order("created_at"),
+    supabase
+      .from("transcript_sources")
+      .select("*")
+      .eq("company_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("meetings")
+      .select("*")
+      .eq("company_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    getConnectedGoogleAccount(),
   ]);
 
   if (!company) notFound();
@@ -56,6 +83,8 @@ export default async function CompanyDetailPage({ params }: PageProps) {
   const features = await getCompanyFeatures(company.id);
   const roster = (profiles ?? []) as Profile[];
   const aliasRows = (aliases ?? []) as TranscriptAlias[];
+  const sourceRows = (sources ?? []) as TranscriptSource[];
+  const meetingRows = (meetings ?? []) as Meeting[];
 
   return (
     <div className={styles.stage}>
@@ -155,6 +184,13 @@ export default async function CompanyDetailPage({ params }: PageProps) {
           </h2>
           <InviteForm companyId={company.id} />
         </section>
+
+        <CompanyTranscriptsPanel
+          companyId={company.id}
+          connectedAccount={connectedAccount}
+          sources={sourceRows}
+          meetings={meetingRows}
+        />
 
         <section className={styles.card} aria-labelledby="aliases">
           <h2 id="aliases" className={styles.h2}>

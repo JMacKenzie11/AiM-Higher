@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCompaniesOverview } from "@/lib/admin/companies-service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
 import { ProgressBar } from "@/components/plan/ProgressBar";
+import type { Meeting } from "@/lib/types";
 import { CompanyNameLink } from "./CompanyNameLink";
 import { CompanyRowActions } from "./CompanyRowActions";
 import { CreateCompanyForm } from "./CreateCompanyForm";
+import { PlatformTranscriptsPanel } from "./PlatformTranscriptsPanel";
 import styles from "./admin.module.css";
 
 // System-admin Companies overview — the fleet view.
@@ -13,9 +17,26 @@ import styles from "./admin.module.css";
 //   /admin/companies/[id] for archive + people admin. Create form
 //   lives below the list.
 
-export default async function AdminCompaniesPage() {
+type PageProps = {
+  searchParams: Promise<{ oauth_connected?: string; oauth_error?: string }>;
+};
+
+export default async function AdminCompaniesPage({ searchParams }: PageProps) {
   await requireRole(["system_admin"]);
-  const companies = await getCompaniesOverview();
+
+  const [companies, flash, connectedAccount] = await Promise.all([
+    getCompaniesOverview(),
+    searchParams,
+    getConnectedGoogleAccount(),
+  ]);
+
+  const supabase = await createSupabaseServerClient();
+  const { data: unroutedRows } = await supabase
+    .from("meetings")
+    .select("*")
+    .eq("status", "unrouted")
+    .order("created_at", { ascending: false });
+  const unrouted = (unroutedRows ?? []) as Meeting[];
 
   return (
     <div className={styles.stage}>
@@ -32,6 +53,14 @@ export default async function AdminCompaniesPage() {
       </section>
 
       <div className={styles.content}>
+        <PlatformTranscriptsPanel
+          connectedAccount={connectedAccount}
+          unrouted={unrouted}
+          companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+          flashConnected={flash.oauth_connected ?? null}
+          flashError={flash.oauth_error ?? null}
+        />
+
         <section className={styles.card} aria-labelledby="companies-list">
           <h2 id="companies-list" className={styles.h2}>
             All companies

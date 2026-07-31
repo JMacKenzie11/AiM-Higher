@@ -81,7 +81,6 @@ const APP_ITEMS: readonly NavItem[] = [
 
 const SYSTEM_ADMIN_ITEMS: readonly NavItem[] = [
   { kind: "link", label: "Companies", href: "/admin/companies", feature: null },
-  { kind: "link", label: "Transcripts", href: "/admin/transcripts", feature: null },
 ];
 
 export type NavBandProps = {
