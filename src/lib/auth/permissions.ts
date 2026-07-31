@@ -26,15 +26,32 @@ export function isAdminForCompany(
 
 /**
  * Standard "admin OR owner" check used by every commitment write path.
- * The row must expose `company_id` and `owner_id`. Kept sync so callers
- * that already loaded the row don't need to wrap in an async block.
+ * The row must expose `company_id` and `owner_id` (which may be null
+ * for unassigned commitments extracted from meeting transcripts).
+ * Null owners are treated as writable by admins only; team members
+ * claim an unassigned commitment through a dedicated action, which
+ * mirrors the commitments_claim_unassigned RLS policy.
  */
 export function canWriteOwnedRow(
   profile: SessionProfileLike,
-  row: { company_id: string; owner_id: string }
+  row: { company_id: string; owner_id: string | null }
 ): boolean {
   if (isAdminForCompany(profile, row.company_id)) return true;
+  if (row.owner_id === null) return false;
   return row.owner_id === profile.id;
+}
+
+/**
+ * Guard for transcript-source management (Google Drive folders and
+ * future providers). Currently system_admin only. Widening to
+ * company_admin is a one-line change here — every caller (server
+ * actions, page loaders, and RLS mirrors) reads through this so the
+ * policy has one source of truth.
+ */
+export function transcriptSourcesAllowed(
+  profile: Pick<Profile, "role">
+): boolean {
+  return profile.role === "system_admin";
 }
 
 /**

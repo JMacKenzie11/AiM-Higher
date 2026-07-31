@@ -123,7 +123,11 @@ export type Commitment = {
   // commitments feed priority progress; both flavors count identically
   // toward keep rate.
   priority_id: string | null;
-  owner_id: string;
+  // null = unassigned. Extraction from meeting transcripts may create
+  // a commitment without a matched roster owner; a company_admin
+  // reassigns, or a team member claims it for themselves via the
+  // dedicated action.
+  owner_id: string | null;
   description: string;
   week_ending: string;
   due_date: string;
@@ -131,6 +135,9 @@ export type Commitment = {
   completed_at: string | null;
   missed_reason: string | null;
   carried_from_id: string | null;
+  // Set when this row was created by the meeting-transcript analysis
+  // pipeline. Null for hand-entered commitments.
+  source_meeting_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -340,4 +347,73 @@ export type MarketingSnippet = {
   sort_order: number;
   created_at: string;
   updated_at: string;
+};
+
+// ---- Meeting transcripts (Section: ingestion pipeline) ----------
+export type TranscriptSourceScope = "company" | "shared";
+export type TranscriptProviderKind = "google_drive" | "teams";
+export type TranscriptSourceStatus = "active" | "paused" | "error";
+
+export type TranscriptSource = {
+  id: string;
+  company_id: string | null;
+  scope: TranscriptSourceScope;
+  provider: TranscriptProviderKind;
+  folder_id: string;
+  folder_name: string | null;
+  cursor: string | null;
+  status: TranscriptSourceStatus;
+  last_checked_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TranscriptAlias = {
+  id: string;
+  company_id: string;
+  alias: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MeetingStatus =
+  | "unrouted"
+  | "pending"
+  | "analyzing"
+  | "complete"
+  | "failed";
+
+export type Meeting = {
+  id: string;
+  company_id: string | null;
+  source_id: string;
+  provider_file_id: string;
+  file_name: string;
+  content_hash: string;
+  routed_by_alias: string | null;
+  meeting_title: string | null;
+  transcript_text: string;
+  status: MeetingStatus;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// Shape of the extraction call's parsed JSON — validated server-side
+// before rows are created.
+export type ExtractedCommitment = {
+  owner_profile_id: string | null;
+  description: string;
+  due_date: string | null;
+  priority_id: string | null;
+};
+
+export type MeetingAnalysis = {
+  id: string;
+  meeting_id: string;
+  analysis_markdown: string;
+  commitments_json: ExtractedCommitment[];
+  model: string;
+  created_at: string;
 };

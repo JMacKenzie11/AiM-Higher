@@ -45,10 +45,16 @@ export async function getPeopleRoster(
     .eq("status", "open");
   const openByOwner = new Map<string, number>();
   for (const row of (openRows ?? []) as Pick<Commitment, "owner_id">[]) {
+    // Person open-count skips unassigned rows — they show under the
+    // "Unassigned" section on /commitments and roll up at the
+    // company level, not any individual's page.
+    if (!row.owner_id) continue;
     openByOwner.set(row.owner_id, (openByOwner.get(row.owner_id) ?? 0) + 1);
   }
 
   // Keep rate for the open quarter (kept / (kept+missed)) per person.
+  // Same rule as above: unassigned commitments are excluded from
+  // any individual's keep rate.
   const keepRateByOwner = new Map<string, number | null>();
   if (openQuarter) {
     const { data: priorityRows } = await supabase
@@ -62,10 +68,9 @@ export async function getPeopleRoster(
         .from("commitments")
         .select("owner_id, status")
         .in("priority_id", priorityIds);
-      const buckets = bucketKeepRates(
-        (cRows ?? []) as Pick<Commitment, "owner_id" | "status">[],
-        (row) => row.owner_id
-      );
+      const rows = ((cRows ?? []) as Pick<Commitment, "owner_id" | "status">[])
+        .filter((row) => row.owner_id !== null);
+      const buckets = bucketKeepRates(rows, (row) => row.owner_id as string);
       for (const [ownerId, bucket] of buckets) {
         keepRateByOwner.set(ownerId, bucket.keepRate);
       }

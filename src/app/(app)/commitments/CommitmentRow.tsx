@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import {
   linkPriorityAction,
   markKeptAction,
@@ -43,6 +43,12 @@ export type CommitmentRowProps = {
   // as its own prop so callers can gate it independently later if the
   // policy diverges.
   canReassign: boolean;
+  // The caller's own profile id + whether they're an admin. Together
+  // these decide (a) whether a team member can claim an unassigned
+  // row for themselves, and (b) whether the "From meeting" chip
+  // deep-links to the analysis page.
+  currentUserId: string;
+  isAdmin: boolean;
 };
 
 export function CommitmentRow({
@@ -53,6 +59,8 @@ export function CommitmentRow({
   canResolve,
   canLink,
   canReassign,
+  currentUserId,
+  isAdmin,
 }: CommitmentRowProps) {
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState("");
@@ -187,7 +195,27 @@ export function CommitmentRow({
       </button>
 
       <div>
-        <p className={styles.rowDescription}>{commitment.description}</p>
+        <p className={styles.rowDescription}>
+          {commitment.description}
+          {commitment.source_meeting_id ? (
+            isAdmin ? (
+              <Link
+                href={`/admin/transcripts/meetings/${commitment.source_meeting_id}`}
+                className={styles.fromMeetingChip}
+                title="From a meeting transcript — click to view analysis"
+              >
+                From meeting
+              </Link>
+            ) : (
+              <span
+                className={styles.fromMeetingChip}
+                title="Created from a meeting transcript"
+              >
+                From meeting
+              </span>
+            )
+          ) : null}
+        </p>
         {commitment.missed_reason ? (
           <p className={styles.reasonNote}>Reason: {commitment.missed_reason}</p>
         ) : null}
@@ -301,30 +329,17 @@ export function CommitmentRow({
         ) : null}
       </div>
 
-      {canReassign && pickingOwner ? (
-        <span className={styles.rowOwner}>
-          <OwnerPicker
-            roster={roster}
-            currentOwnerId={commitment.owner_id}
-            onSelect={reassignTo}
-            disabled={pending}
-          />
-        </span>
-      ) : canReassign ? (
-        <button
-          type="button"
-          className={styles.rowOwnerButton}
-          onClick={() => setPickingOwner(true)}
-          disabled={pending}
-          aria-label="Reassign owner"
-        >
-          {commitment.owner?.full_name ?? "—"}
-        </button>
-      ) : (
-        <span className={styles.rowOwner}>
-          {commitment.owner?.full_name ?? "—"}
-        </span>
-      )}
+      <OwnerCell
+        commitment={commitment}
+        roster={roster}
+        canReassign={canReassign}
+        currentUserId={currentUserId}
+        isAdmin={isAdmin}
+        pickingOwner={pickingOwner}
+        setPickingOwner={setPickingOwner}
+        reassignTo={reassignTo}
+        pending={pending}
+      />
 
       <PriorityCell
         commitment={commitment}
@@ -454,5 +469,95 @@ function PriorityCell({
     </button>
   ) : (
     <span className={styles.rowPriorityMuted}>Operational</span>
+  );
+}
+
+// Owner column. Three shapes:
+//   - Admin or existing owner: click owner name → full-roster picker.
+//   - Team member on an unassigned row: click "Unassigned" chip → one-
+//     click self-claim (they can only assign to themselves).
+//   - Otherwise: read-only name or muted "Unassigned" chip.
+function OwnerCell({
+  commitment,
+  roster,
+  canReassign,
+  currentUserId,
+  isAdmin,
+  pickingOwner,
+  setPickingOwner,
+  reassignTo,
+  pending,
+}: {
+  commitment: CommitmentWithMeta;
+  roster: Array<Pick<Profile, "id" | "full_name">>;
+  canReassign: boolean;
+  currentUserId: string;
+  isAdmin: boolean;
+  pickingOwner: boolean;
+  setPickingOwner: (b: boolean) => void;
+  reassignTo: (id: string) => void;
+  pending: boolean;
+}) {
+  const canClaim =
+    commitment.owner_id === null && !isAdmin && !canReassign;
+  // Admins + existing owners see the full-roster picker; a team
+  // member on an unassigned row gets a self-only picker so the
+  // action can't silently target another person.
+  const pickerRoster = useMemo(
+    () =>
+      canReassign
+        ? roster
+        : roster.filter((p) => p.id === currentUserId),
+    [canReassign, roster, currentUserId]
+  );
+
+  if (pickingOwner && (canReassign || canClaim)) {
+    return (
+      <span className={styles.rowOwner}>
+        <OwnerPicker
+          roster={pickerRoster}
+          currentOwnerId={commitment.owner_id}
+          onSelect={reassignTo}
+          disabled={pending}
+        />
+      </span>
+    );
+  }
+
+  if (commitment.owner_id === null) {
+    if (canReassign || canClaim) {
+      return (
+        <button
+          type="button"
+          className={`${styles.rowOwnerButton} ${styles.rowOwnerUnassigned}`}
+          onClick={() => setPickingOwner(true)}
+          disabled={pending}
+          aria-label={canClaim ? "Claim this commitment" : "Assign owner"}
+        >
+          Unassigned
+        </button>
+      );
+    }
+    return <span className={styles.rowOwnerUnassignedChip}>Unassigned</span>;
+  }
+
+  if (canReassign) {
+    return (
+      <button
+        type="button"
+        className={styles.rowOwnerButton}
+        onClick={() => setPickingOwner(true)}
+        disabled={pending}
+        aria-label="Reassign owner"
+      >
+        {commitment.owner?.full_name ?? "—"}
+      </button>
+    );
+  }
+
+  return (
+    <span className={styles.rowOwner}>
+      {commitment.owner?.full_name ?? "—"}
+    </span>
   );
 }

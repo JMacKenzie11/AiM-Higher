@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
-import type { Company, Profile } from "@/lib/types";
+import type { Company, Profile, TranscriptAlias } from "@/lib/types";
 import styles from "../admin.module.css";
 import { InviteForm } from "./InviteForm";
 import { UserRowActions } from "./UserRowActions";
 import { FeaturesForm } from "./FeaturesForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
+import { AliasEditor } from "./AliasEditor";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -32,7 +33,7 @@ export default async function CompanyDetailPage({ params }: PageProps) {
 
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: company }, { data: profiles }] = await Promise.all([
+  const [{ data: company }, { data: profiles }, { data: aliases }] = await Promise.all([
     supabase
       .from("companies")
       .select("*")
@@ -43,12 +44,18 @@ export default async function CompanyDetailPage({ params }: PageProps) {
       .select("*")
       .eq("company_id", id)
       .order("full_name"),
+    supabase
+      .from("transcript_aliases")
+      .select("*")
+      .eq("company_id", id)
+      .order("created_at"),
   ]);
 
   if (!company) notFound();
 
   const features = await getCompanyFeatures(company.id);
   const roster = (profiles ?? []) as Profile[];
+  const aliasRows = (aliases ?? []) as TranscriptAlias[];
 
   return (
     <div className={styles.stage}>
@@ -147,6 +154,18 @@ export default async function CompanyDetailPage({ params }: PageProps) {
             Add a person
           </h2>
           <InviteForm companyId={company.id} />
+        </section>
+
+        <section className={styles.card} aria-labelledby="aliases">
+          <h2 id="aliases" className={styles.h2}>
+            Transcript aliases
+          </h2>
+          <p className={styles.subtitleInline}>
+            When a shared Google Drive folder serves multiple companies,
+            transcript file names are matched (case-insensitive substring)
+            against these aliases to decide who a meeting belongs to.
+          </p>
+          <AliasEditor companyId={company.id} aliases={aliasRows} />
         </section>
       </div>
     </div>

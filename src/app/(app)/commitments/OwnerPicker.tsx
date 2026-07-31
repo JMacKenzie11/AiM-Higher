@@ -10,7 +10,7 @@ import styles from "./commitments.module.css";
 
 export type OwnerPickerProps = {
   roster: Array<Pick<Profile, "id" | "full_name">>;
-  currentOwnerId: string;
+  currentOwnerId: string | null;
   onSelect: (ownerId: string) => void;
   disabled?: boolean;
 };

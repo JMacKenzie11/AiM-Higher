@@ -63,24 +63,39 @@ export function PriorWeekRow({
               Nothing matches these filters in this week.
             </li>
           ) : (
-            week.commitments.map((commitment) => {
-              const canResolve =
-                isAdmin ||
-                commitment.owner_id === currentUserId ||
-                commitment.company_id === currentUserCompanyId;
+            (() => {
+              const renderRow = (commitment: typeof week.commitments[number]) => {
+                const canResolve =
+                  isAdmin ||
+                  commitment.owner_id === currentUserId ||
+                  commitment.company_id === currentUserCompanyId;
+                return (
+                  <CommitmentRow
+                    key={commitment.id}
+                    commitment={commitment}
+                    priorityOptions={priorityOptions}
+                    roster={roster}
+                    todayIso={todayIso}
+                    canResolve={canResolve}
+                    canLink={false}
+                    canReassign={canResolve}
+                    currentUserId={currentUserId}
+                    isAdmin={isAdmin}
+                  />
+                );
+              };
+              const assigned = week.commitments.filter((c) => c.owner_id !== null);
+              const unassigned = week.commitments.filter((c) => c.owner_id === null);
               return (
-                <CommitmentRow
-                  key={commitment.id}
-                  commitment={commitment}
-                  priorityOptions={priorityOptions}
-                  roster={roster}
-                  todayIso={todayIso}
-                  canResolve={canResolve}
-                  canLink={false}
-                  canReassign={canResolve}
-                />
+                <>
+                  {assigned.map(renderRow)}
+                  {unassigned.length > 0 ? (
+                    <li className={styles.unassignedHeading}>Unassigned</li>
+                  ) : null}
+                  {unassigned.map(renderRow)}
+                </>
               );
-            })
+            })()
           )}
         </ul>
       ) : null}

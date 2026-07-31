@@ -256,7 +256,7 @@ export async function getCommitmentsPageData(
 
   const enrich = (c: Commitment): CommitmentWithMeta => ({
     ...c,
-    owner: rosterById.get(c.owner_id) ?? null,
+    owner: c.owner_id ? rosterById.get(c.owner_id) ?? null : null,
     priority: c.priority_id ? priorityMap.get(c.priority_id) ?? null : null,
   });
 

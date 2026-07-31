@@ -110,18 +110,40 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
           </span>
         </div>
         <ul className={styles.rowList}>
-          {data.mainList.map((c) => (
-            <CommitmentRow
-              key={c.id}
-              commitment={c}
-              priorityOptions={data.priorityOptions}
-              roster={data.roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
-              todayIso={data.todayIso}
-              canResolve={canWriteOwnedRow(session.profile, c)}
-              canLink={canWriteOwnedRow(session.profile, c)}
-              canReassign={canWriteOwnedRow(session.profile, c)}
-            />
-          ))}
+          {(() => {
+            // Sort so unassigned rows land at the bottom of this
+            // week's list under a subtle divider. Prior weeks get
+            // the same treatment inside PriorWeekRow.
+            const assigned = data.mainList.filter((c) => c.owner_id !== null);
+            const unassigned = data.mainList.filter((c) => c.owner_id === null);
+            const rosterMinimal = data.roster.map((p) => ({
+              id: p.id,
+              full_name: p.full_name,
+            }));
+            const renderRow = (c: typeof data.mainList[number]) => (
+              <CommitmentRow
+                key={c.id}
+                commitment={c}
+                priorityOptions={data.priorityOptions}
+                roster={rosterMinimal}
+                todayIso={data.todayIso}
+                canResolve={canWriteOwnedRow(session.profile, c)}
+                canLink={canWriteOwnedRow(session.profile, c)}
+                canReassign={canWriteOwnedRow(session.profile, c)}
+                currentUserId={session.profile.id}
+                isAdmin={isAdmin}
+              />
+            );
+            return (
+              <>
+                {assigned.map(renderRow)}
+                {unassigned.length > 0 ? (
+                  <li className={styles.unassignedHeading}>Unassigned</li>
+                ) : null}
+                {unassigned.map(renderRow)}
+              </>
+            );
+          })()}
         </ul>
         <InlineAddRow
           thisFriday={data.thisFriday}

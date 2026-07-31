@@ -70,7 +70,7 @@ export type RecentSuccess = {
   completedAt: string | null;
   weekEnding: string;
   ownerName: string;
-  ownerId: string;
+  ownerId: string | null;
   priorityTitle: string | null;
 };
 
@@ -253,10 +253,16 @@ export async function getDashboardData(
     .eq("status", "open");
   const openByOwner = new Map<string, number>();
   for (const row of (openRows ?? []) as Pick<Commitment, "owner_id">[]) {
+    // Person keep-rate ignores unassigned commitments (they show up
+    // in the company-wide roll-up but not on any individual's row).
+    if (!row.owner_id) continue;
     openByOwner.set(row.owner_id, (openByOwner.get(row.owner_id) ?? 0) + 1);
   }
 
-  const perOwner = bucketKeepRates(quarterCommitments, (c) => c.owner_id);
+  const perOwner = bucketKeepRates(
+    quarterCommitments.filter((c) => c.owner_id !== null),
+    (c) => c.owner_id as string
+  );
 
   const dashboardPeople: DashboardPerson[] = roster.map((person) => {
     const bucket = perOwner.get(person.id);
@@ -377,7 +383,7 @@ async function loadRecentSuccesses(
     completedAt: c.completed_at,
     weekEnding: c.week_ending,
     ownerId: c.owner_id,
-    ownerName: nameById.get(c.owner_id) ?? "—",
+    ownerName: c.owner_id ? nameById.get(c.owner_id) ?? "—" : "Unassigned",
     priorityTitle: c.priority_id ? priorityTitleById.get(c.priority_id) ?? null : null,
   }));
 }

@@ -275,6 +275,70 @@
   cursor: not-allowed;
 }
 
+/* Unassigned variant of the owner button — italic, muted, dashed
+   border always visible so it reads as "waiting for a name" rather
+   than a name that just happens to be quiet. */
+.rowOwnerUnassigned {
+  border-color: var(--border);
+  font-style: italic;
+}
+
+/* Read-only unassigned chip — for viewers who can't claim (not a
+   same-company member) or admin on their own resolved rows. */
+.rowOwnerUnassignedChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* "From meeting" ghost chip on rows extracted from a transcript.
+   Sits inline with the description, tiny and muted so it doesn't
+   compete with the commitment text itself. */
+.fromMeetingChip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  cursor: default;
+}
+
+a.fromMeetingChip {
+  cursor: pointer;
+}
+
+a.fromMeetingChip:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* Divider inside a week's list separating assigned from unassigned
+   rows. Reads as a subtle label, not a section — the "Unassigned"
+   scope sits inside the week, not above it. */
+.unassignedHeading {
+  padding: var(--space-3) var(--space-4) 0;
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  list-style: none;
+  border-top: 1px dashed var(--border);
+  margin-top: var(--space-2);
+}
+
 .rowPriorityLink {
   color: var(--primary);
   font: var(--text-body-sm);

@@ -339,7 +339,14 @@ export async function reassignCommitmentAction(
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
-  if (!canWriteOwnedRow(session.profile, commitment)) {
+
+  // Team-member self-claim on a null-owner row is allowed; otherwise
+  // fall back to the standard "admin or existing owner" check.
+  const isClaimForSelf =
+    commitment.owner_id === null &&
+    newOwnerId === session.profile.id &&
+    commitment.company_id === session.profile.company_id;
+  if (!isClaimForSelf && !canWriteOwnedRow(session.profile, commitment)) {
     return { ok: false, message: "Not yours to reassign." };
   }
   if (!newOwnerId) {

@@ -79,12 +79,10 @@ const APP_ITEMS: readonly NavItem[] = [
 // design is being rethought. When restored it belongs immediately
 // after Commitments with feature: "execution".
 
-const SYSTEM_ADMIN_ITEM: NavItem = {
-  kind: "link",
-  label: "Companies",
-  href: "/admin/companies",
-  feature: null,
-};
+const SYSTEM_ADMIN_ITEMS: readonly NavItem[] = [
+  { kind: "link", label: "Companies", href: "/admin/companies", feature: null },
+  { kind: "link", label: "Transcripts", href: "/admin/transcripts", feature: null },
+];
 
 export type NavBandProps = {
   userName: string;
@@ -144,8 +142,8 @@ export function NavBand({
 
   const items: NavItem[] = isSystemAdmin
     ? showExitScope && !onAdminSurface
-      ? [SYSTEM_ADMIN_ITEM, ...subscribedApp]
-      : [SYSTEM_ADMIN_ITEM]
+      ? [...SYSTEM_ADMIN_ITEMS, ...subscribedApp]
+      : [...SYSTEM_ADMIN_ITEMS]
     : subscribedApp;
 
   return (

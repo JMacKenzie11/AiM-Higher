@@ -283,7 +283,7 @@ async function buildWeeklySnapshot(
     lines.push("");
     lines.push("Closed-late (missed) commitments this week, with the operator's stated reason:");
     for (const m of missedThisWeek.slice(0, 20)) {
-      const who = nameById.get(m.owner_id) ?? "Unknown";
+      const who = m.owner_id ? nameById.get(m.owner_id) ?? "Unknown" : "Unassigned";
       const link = m.priority_id
         ? priorityTitleById.get(m.priority_id) ?? "(unlinked)"
         : "(operational)";

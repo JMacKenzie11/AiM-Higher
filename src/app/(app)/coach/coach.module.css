@@ -256,11 +256,11 @@
   flex: 1 1 auto;
   background: var(--aims-sand, var(--surface));
   /* Extra bottom room so the sticky composer never covers the last
-     line of a streaming reply — the bottom-anchor scrollIntoView
-     otherwise puts the tail flush with the viewport bottom, which is
-     right under the composer. ~7rem covers a two-line textarea plus
-     breathing space. */
-  padding: var(--space-5) var(--space-5) 7rem;
+     line of a streaming reply. Composer height grows with content
+     (textarea autosizes up to 6 lines) plus its own padding, so we
+     over-budget the padding. 12rem clears a fully expanded composer
+     with breathing room even when the last bubble is tall. */
+  padding: var(--space-5) var(--space-5) 12rem;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
