@@ -184,6 +184,7 @@ alter table public.meeting_analyses force row level security;
 
 -- ---- transcript_sources: system_admin write; system_admin +
 --      routed company_admin read.
+drop policy if exists transcript_sources_select on public.transcript_sources;
 create policy transcript_sources_select on public.transcript_sources
 for select to authenticated
 using (
@@ -198,6 +199,7 @@ using (
   )
 );
 
+drop policy if exists transcript_sources_insert on public.transcript_sources;
 create policy transcript_sources_insert on public.transcript_sources
 for insert to authenticated
 with check (
@@ -207,6 +209,7 @@ with check (
   )
 );
 
+drop policy if exists transcript_sources_update on public.transcript_sources;
 create policy transcript_sources_update on public.transcript_sources
 for update to authenticated
 using (
@@ -222,6 +225,7 @@ with check (
   )
 );
 
+drop policy if exists transcript_sources_delete on public.transcript_sources;
 create policy transcript_sources_delete on public.transcript_sources
 for delete to authenticated
 using (
@@ -233,6 +237,7 @@ using (
 
 -- ---- transcript_aliases: every company member reads their own
 --      company's aliases; only system_admin writes.
+drop policy if exists transcript_aliases_select on public.transcript_aliases;
 create policy transcript_aliases_select on public.transcript_aliases
 for select to authenticated
 using (
@@ -244,6 +249,7 @@ using (
   )
 );
 
+drop policy if exists transcript_aliases_insert on public.transcript_aliases;
 create policy transcript_aliases_insert on public.transcript_aliases
 for insert to authenticated
 with check (
@@ -253,6 +259,7 @@ with check (
   )
 );
 
+drop policy if exists transcript_aliases_update on public.transcript_aliases;
 create policy transcript_aliases_update on public.transcript_aliases
 for update to authenticated
 using (
@@ -268,6 +275,7 @@ with check (
   )
 );
 
+drop policy if exists transcript_aliases_delete on public.transcript_aliases;
 create policy transcript_aliases_delete on public.transcript_aliases
 for delete to authenticated
 using (
@@ -281,6 +289,7 @@ using (
 --      reads their own company's rows. Writes are service-role
 --      only (cron/analysis pipeline), so no insert/update/delete
 --      policies for authenticated — RLS default-deny.
+drop policy if exists meetings_select on public.meetings;
 create policy meetings_select on public.meetings
 for select to authenticated
 using (
@@ -296,6 +305,7 @@ using (
 );
 
 -- Manual routing from the system-admin UI: system_admin only.
+drop policy if exists meetings_update_admin on public.meetings;
 create policy meetings_update_admin on public.meetings
 for update to authenticated
 using (
@@ -331,6 +341,7 @@ with check (
 );
 
 -- ---- meeting_analyses: mirrors meetings visibility.
+drop policy if exists meeting_analyses_select on public.meeting_analyses;
 create policy meeting_analyses_select on public.meeting_analyses
 for select to authenticated
 using (
