@@ -24,7 +24,13 @@ import type { OAuthCredentials, TranscriptSource } from "@/lib/types";
 // account's email address (Viewer). That address is displayed on
 // /admin/transcripts once the connection is set up.
 
-const READONLY_SCOPES = ["https://www.googleapis.com/auth/drive.readonly"];
+// openid + email are required so the OIDC userinfo call in
+// exchangeCodeAndPersist returns the connected account address.
+const READONLY_SCOPES = [
+  "openid",
+  "email",
+  "https://www.googleapis.com/auth/drive.readonly",
+];
 
 export const SUPPORTED_MIMES = new Set<string>([
   "application/vnd.google-apps.document", // Google Doc
@@ -54,7 +60,6 @@ export function buildConsentUrl(state: string): string {
     prompt: "consent",
     scope: READONLY_SCOPES,
     state,
-    include_granted_scopes: true,
   });
 }
 
