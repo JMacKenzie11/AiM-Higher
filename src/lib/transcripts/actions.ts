@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth/current-user";
 import { transcriptSourcesAllowed } from "@/lib/auth/permissions";
-import { runSourceCycle, processPendingMeetings } from "./ingest";
+import { ingestSource, processPendingMeetings } from "./ingest";
 import { getProvider } from "./provider";
 import { parseGoogleFolderId } from "./providers/google-drive";
 import type {
@@ -147,17 +147,64 @@ export async function removeSourceAction(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function checkSourceNowAction(id: string): Promise<ActionResult> {
+// Ingest-only leg of Check now. Kept fast so the user gets an
+// immediate "found N" answer; the client then chains a call to
+// analyzePendingForCompanyAction to run the (slower) analysis pass
+// and reveal per-meeting status transitions in the Recent meetings
+// table as revalidation catches them.
+export type CheckSourceResult =
+  | { ok: true; filesSeen: number; filesIngested: number }
+  | { ok: false; message: string };
+
+export async function checkSourceNowAction(
+  id: string
+): Promise<CheckSourceResult> {
   const g = await guard();
   if (!g.ok) return g;
   try {
-    await runSourceCycle(id);
+    const admin = createSupabaseAdminClient();
+    const { data: source } = await admin
+      .from("transcript_sources")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle<TranscriptSource>();
+    if (!source) return { ok: false, message: "Source not found." };
+    const ingest = await ingestSource(source);
     revalidatePath("/admin/companies", "layout");
-    return { ok: true };
+    if (ingest.error) return { ok: false, message: ingest.error };
+    return {
+      ok: true,
+      filesSeen: ingest.filesSeen,
+      filesIngested: ingest.filesIngested,
+    };
   } catch (err) {
     return {
       ok: false,
       message: err instanceof Error ? err.message : "Check failed.",
+    };
+  }
+}
+
+// Analysis leg. Called by the client after checkSourceNowAction so
+// the panel first shows the pending row and then updates as each
+// meeting flips through analyzing → complete.
+export type AnalyzeResult =
+  | { ok: true; analyzed: number }
+  | { ok: false; message: string };
+
+export async function analyzePendingForCompanyAction(
+  companyId: string
+): Promise<AnalyzeResult> {
+  const g = await guard();
+  if (!g.ok) return g;
+  try {
+    const result = await processPendingMeetings({ companyId });
+    revalidatePath("/admin/companies", "layout");
+    return { ok: true, analyzed: result.processed };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Analysis failed.",
     };
   }
 }

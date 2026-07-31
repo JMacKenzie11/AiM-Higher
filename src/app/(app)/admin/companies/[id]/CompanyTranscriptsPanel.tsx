@@ -127,6 +127,7 @@ export function CompanyTranscriptsPanel({
                     <td>
                       <SourceRowActions
                         sourceId={s.id}
+                        companyId={companyId}
                         status={s.status}
                       />
                     </td>
