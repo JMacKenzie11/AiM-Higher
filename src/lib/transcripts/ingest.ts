@@ -42,14 +42,15 @@ export async function ingestSource(
     const { files, nextCursor } = await provider.listNewFiles(source);
     result.filesSeen = files.length;
 
-    // Load aliases up-front — one query per source. For shared
-    // sources we use every alias in the platform; for company-scoped
-    // sources routing is skipped entirely (all meetings inherit the
-    // source's company_id).
+    // Load aliases up-front — one query per source. Shared sources
+    // route across the whole platform; company sources use their own
+    // aliases as an in/out filter (see per-file loop below).
     const aliases =
       source.scope === "shared"
         ? await loadAllAliases(admin)
-        : [];
+        : source.company_id
+          ? await loadCompanyAliases(admin, source.company_id)
+          : [];
 
     for (const file of files) {
       try {
@@ -72,6 +73,17 @@ export async function ingestSource(
             companyId = null;
             status = "unrouted";
           }
+        } else if (aliases.length > 0) {
+          // Company scope with aliases configured: use them as a
+          // filter. Clients drop mixed content in a shared folder;
+          // we only ingest meetings whose filename matches an alias
+          // (e.g. "Benson"). Non-matches are dropped silently — no
+          // meetings row, so they don't clutter the queue and will
+          // be re-considered if the alias list changes and the file
+          // is later modified in Drive.
+          const decision = routeByFilename(file.name, aliases);
+          if (decision.kind !== "routed") continue;
+          routedByAlias = decision.alias;
         }
 
         // Per-company duplicate guard (applies only after routing).
@@ -258,6 +270,17 @@ async function loadAllAliases(
   const { data } = await admin
     .from("transcript_aliases")
     .select("company_id, alias");
+  return (data ?? []) as Array<Pick<TranscriptAlias, "company_id" | "alias">>;
+}
+
+async function loadCompanyAliases(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  companyId: string
+): Promise<Array<Pick<TranscriptAlias, "company_id" | "alias">>> {
+  const { data } = await admin
+    .from("transcript_aliases")
+    .select("company_id, alias")
+    .eq("company_id", companyId);
   return (data ?? []) as Array<Pick<TranscriptAlias, "company_id" | "alias">>;
 }
 
