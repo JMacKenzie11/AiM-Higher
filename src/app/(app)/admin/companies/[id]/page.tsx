@@ -190,30 +190,13 @@ export default async function CompanyDetailPage({
           <InviteForm companyId={company.id} />
         </section>
 
-        {flash.oauth_connected || flash.oauth_error ? (
-          <section
-            className={styles.card}
-            aria-live="polite"
-            aria-label="Google connection status"
-          >
-            {flash.oauth_connected ? (
-              <p className={styles.successMessage} role="status">
-                Connected as {flash.oauth_connected}.
-              </p>
-            ) : null}
-            {flash.oauth_error ? (
-              <p className={styles.errorMessage} role="alert">
-                Couldn&rsquo;t connect: {flash.oauth_error}
-              </p>
-            ) : null}
-          </section>
-        ) : null}
-
         <CompanyTranscriptsPanel
           companyId={company.id}
           connectedAccount={connectedAccount}
           sources={sourceRows}
           meetings={meetingRows}
+          flashConnected={flash.oauth_connected ?? null}
+          flashError={flash.oauth_error ?? null}
         />
 
         <section className={styles.card} aria-labelledby="aliases">

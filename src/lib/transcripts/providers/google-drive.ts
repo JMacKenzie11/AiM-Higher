@@ -88,7 +88,7 @@ export async function exchangeCodeAndPersist(
   if (!email) throw new Error("Google didn't return the connected email.");
 
   const admin = createSupabaseAdminClient();
-  await admin
+  const { error: upsertError } = await admin
     .from("oauth_credentials")
     .upsert(
       {
@@ -103,6 +103,15 @@ export async function exchangeCodeAndPersist(
       },
       { onConflict: "provider,company_id" }
     );
+  // Supabase doesn't throw on DB errors — check and re-raise so the
+  // callback surfaces the real reason instead of a spurious "success"
+  // flash while the row was never written (e.g. migration 0110 not
+  // applied, so company_id doesn't exist yet).
+  if (upsertError) {
+    throw new Error(
+      `Couldn't store the Google credential: ${upsertError.message}`
+    );
+  }
   return email;
 }
 

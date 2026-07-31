@@ -15,11 +15,15 @@ export function CompanyTranscriptsPanel({
   connectedAccount,
   sources,
   meetings,
+  flashConnected,
+  flashError,
 }: {
   companyId: string;
   connectedAccount: string | null;
   sources: TranscriptSource[];
   meetings: Meeting[];
+  flashConnected: string | null;
+  flashError: string | null;
 }) {
   const meetingCountBySource = new Map<string, number>();
   for (const m of meetings) {
@@ -34,6 +38,17 @@ export function CompanyTranscriptsPanel({
       <h2 id="transcripts" className={styles.h2}>
         Meeting transcripts
       </h2>
+
+      {flashConnected ? (
+        <p className={styles.successMessage} role="status">
+          Connected as {flashConnected}.
+        </p>
+      ) : null}
+      {flashError ? (
+        <p className={styles.errorMessage} role="alert">
+          Couldn&rsquo;t connect: {flashError}
+        </p>
+      ) : null}
 
       {!connectedAccount ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>

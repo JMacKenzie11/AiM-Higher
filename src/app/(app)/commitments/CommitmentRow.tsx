@@ -216,6 +216,21 @@ export function CommitmentRow({
         ) : null}
       </button>
 
+      {canDelete ? (
+        <button
+          type="button"
+          className={styles.deleteRowButton}
+          onClick={handleDelete}
+          disabled={pending}
+          aria-label="Delete this commitment"
+          title="Delete this commitment"
+        >
+          <span aria-hidden>×</span>
+        </button>
+      ) : (
+        <span aria-hidden />
+      )}
+
       <div>
         <p className={styles.rowDescription}>
           {commitment.description}
@@ -236,34 +251,6 @@ export function CommitmentRow({
                 From meeting
               </span>
             )
-          ) : null}
-          {canDelete ? (
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={pending}
-              title="Delete this commitment"
-              aria-label="Delete this commitment"
-              style={{
-                marginLeft: "var(--space-2)",
-                background: "transparent",
-                border: "none",
-                color: "var(--muted)",
-                cursor: "pointer",
-                fontSize: "14px",
-                lineHeight: 1,
-                padding: "2px 6px",
-                borderRadius: "var(--radius-sm)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "var(--aims-danger)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "var(--muted)";
-              }}
-            >
-              ×
-            </button>
           ) : null}
         </p>
         {commitment.missed_reason ? (

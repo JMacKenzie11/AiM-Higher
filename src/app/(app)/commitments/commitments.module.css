@@ -205,7 +205,8 @@
 
 .row {
   display: grid;
-  grid-template-columns: 32px 1fr 180px 180px 110px 90px;
+  /* resolve (✓) | delete (×) | description | owner | priority | due | status */
+  grid-template-columns: 32px 32px 1fr 180px 180px 110px 90px;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
@@ -484,6 +485,46 @@ a.fromMeetingChip:hover {
   font-size: 14px;
   line-height: 1;
   font-weight: 700;
+}
+
+/* Delete-row button — sits in its own leading column right after the
+   resolve circle. Quiet at rest, brand danger on hover so the action
+   still reads as destructive. Matches the resolve circle's size so
+   the two front columns line up as paired affordances. */
+.deleteRowButton {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.deleteRowButton:hover:not(:disabled) {
+  color: var(--aims-white);
+  background: var(--aims-danger);
+  border-color: var(--aims-danger);
+}
+
+.deleteRowButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.deleteRowButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 @keyframes checkPop {
@@ -841,51 +882,56 @@ a.fromMeetingChip:hover {
 /* ---- Mobile ---- */
 @media (max-width: 768px) {
   .row {
-    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-columns: 40px 40px minmax(0, 1fr) auto;
     grid-template-areas:
-      "circle description status"
-      ".      owner       owner"
-      ".      priority    priority"
-      ".      due         due";
+      "circle delete description status"
+      ".      .      owner       owner"
+      ".      .      priority    priority"
+      ".      .      due         due";
     row-gap: var(--space-1);
     column-gap: var(--space-3);
   }
 
   /* Larger circle on mobile — 20px is a hard tap target and reads
      as a boxy rectangle at high DPI when the border is thin. */
-  .resolveCircle {
+  .resolveCircle,
+  .deleteRowButton {
     width: 28px;
     height: 28px;
     border-width: 2px;
   }
 
-  /* Assign grid-area on the direct children of .row (six of them, in
-     order: circle button, description wrapper div, owner span,
-     priority cell, due span, status chip). Class-based selectors miss
-     because .rowDescription et al sit inside the wrapper elements,
-     not on them. min-width: 0 lets long words wrap normally instead
-     of forcing their column to intrinsic width. */
+  /* Assign grid-area on the direct children of .row (seven of them,
+     in order: resolve circle, delete button, description wrapper,
+     owner span, priority cell, due span, status chip). Class-based
+     selectors miss because .rowDescription et al sit inside the
+     wrapper elements, not on them. min-width: 0 lets long words wrap
+     normally instead of forcing their column to intrinsic width. */
   .row > :nth-child(1) {
     grid-area: circle;
     align-self: start;
   }
   .row > :nth-child(2) {
+    grid-area: delete;
+    align-self: start;
+  }
+  .row > :nth-child(3) {
     grid-area: description;
     min-width: 0;
   }
-  .row > :nth-child(3) {
+  .row > :nth-child(4) {
     grid-area: owner;
     min-width: 0;
   }
-  .row > :nth-child(4) {
+  .row > :nth-child(5) {
     grid-area: priority;
     min-width: 0;
   }
-  .row > :nth-child(5) {
+  .row > :nth-child(6) {
     grid-area: due;
     min-width: 0;
   }
-  .row > :nth-child(6) {
+  .row > :nth-child(7) {
     grid-area: status;
     align-self: start;
     justify-self: end;
