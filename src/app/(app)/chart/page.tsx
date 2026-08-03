@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getChartTree,
   type ChartFunction,
@@ -25,13 +24,6 @@ export default async function ChartPage() {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
-
-  const supabase = await createSupabaseServerClient();
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name")
-    .eq("id", companyId)
-    .maybeSingle<{ name: string }>();
 
   const { roots, roster } = await getChartTree(companyId);
 
@@ -65,19 +57,9 @@ export default async function ChartPage() {
       ) : (
         <div className={styles.tree}>
           <ul className={styles.treeBranch}>
-            <li className={styles.treeNode}>
-              <div className={styles.companyRoot}>
-                <span className={styles.companyRootLabel}>Company</span>
-                <h2 className={styles.companyRootTitle}>
-                  {company?.name ?? "Chart"}
-                </h2>
-              </div>
-              <ul className={styles.treeBranch}>
-                {roots.map((fn) => (
-                  <FunctionBranch key={fn.id} fn={fn} />
-                ))}
-              </ul>
-            </li>
+            {roots.map((fn) => (
+              <FunctionBranch key={fn.id} fn={fn} />
+            ))}
           </ul>
         </div>
       )}

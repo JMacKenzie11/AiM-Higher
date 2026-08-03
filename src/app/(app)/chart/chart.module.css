@@ -66,12 +66,16 @@
    that meet in the middle to form the L-shape. Works to any depth. */
 
 .tree {
+  /* Fit to the containing card by default; only fall back to
+     horizontal scrolling if the row genuinely can't shrink further
+     (very deep or wide trees on very narrow viewports). */
   overflow-x: auto;
   overflow-y: visible;
   padding: var(--space-4) var(--space-3) var(--space-6);
   background: var(--aims-navy-tint);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  container-type: inline-size;
 }
 
 /* Only the ULs used for the tree scaffold get flex/gap layout — an
@@ -107,8 +111,13 @@
   flex-direction: column;
   align-items: center;
   list-style: none;
-  flex: 0 1 220px;
-  min-width: 160px;
+  /* Shrink to fit the container width instead of forcing a
+     horizontal scrollbar. Cards may get narrow when a function has
+     many siblings, but the content wraps and the tree stays in one
+     view. */
+  flex: 1 1 0;
+  min-width: 110px;
+  max-width: 240px;
 }
 
 .treeNode::before,
@@ -284,6 +293,10 @@
   color: var(--text-muted);
   font-weight: 400;
   font-style: italic;
+  /* Italic glyphs slant past the text box's right edge; without a
+     little breathing room the parent's overflow:hidden clips the
+     final letter (looks like "Unassigne" with a truncated d). */
+  padding-right: 3px;
 }
 
 /* ---- Outcomes — titles only in the chart view ---------- */

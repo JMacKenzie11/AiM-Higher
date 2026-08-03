@@ -34,9 +34,13 @@ export function HelpWidget() {
 
   useEffect(() => {
     if (!open) return;
-    if (state.kind !== "idle") return;
-    setState({ kind: "loading" });
+    // Deliberately NOT including state.kind in the deps: the moment
+    // we call setState({kind:"loading"}) below, React re-runs this
+    // effect (deps changed), which fires the cleanup, which aborts
+    // the fetch we just started. Firing on [open, pathname] alone
+    // means one fetch per open per URL — exactly what we want.
     const controller = new AbortController();
+    setState({ kind: "loading" });
     fetch(`/api/help?pathname=${encodeURIComponent(pathname)}`, {
       signal: controller.signal,
     })
@@ -57,7 +61,7 @@ export function HelpWidget() {
         });
       });
     return () => controller.abort();
-  }, [open, pathname, state.kind]);
+  }, [open, pathname]);
 
   // Close on Escape / outside click.
   useEffect(() => {
