@@ -10,8 +10,15 @@ and renders the one matching the current route + user role.
 matching help doc in this folder.** CI enforces the pairing:
 
 ```bash
-pnpm run check:help    # or npm run check:help
+pnpm run check:help    # or npm run check:help — fails on missing
+pnpm run check:help --write   # scaffolds skeletons for every missing doc
 ```
+
+The `--write` variant creates a valid frontmatter + TODO body for
+each missing route so you don't have to remember the naming
+convention. Edit the scaffolded files with real content before
+merging — a scaffolded doc still satisfies coverage, but shipping
+one is a bit of a self-troll.
 
 ## File naming
 

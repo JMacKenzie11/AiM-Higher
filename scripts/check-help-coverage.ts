@@ -7,13 +7,18 @@
  *   - the exact slug for the route (dynamic segments as `_id`), or
  *   - any prefix of it (so `plan.md` covers `plan.priority._id.md` too).
  *
- * The whole point is to keep the help widget honest as new pages
- * ship. Wire this into CI (a `pnpm run check:help` step) so a PR
- * that adds a page.tsx without a paired doc doesn't merge silently.
+ * Usage:
+ *   pnpm run check:help           # CI mode: fail on missing
+ *   pnpm run check:help --write   # dev mode: scaffold skeletons for
+ *                                 # every missing doc and exit 0
+ *
+ * The scaffold writes a minimal frontmatter + TODO body so the
+ * author still has to fill in real content, but they don't have to
+ * remember the naming convention or the frontmatter shape.
  *
  * Exit codes:
- *   0 — every route is covered
- *   1 — one or more routes are missing help docs
+ *   0 — every route is covered (or was, after --write scaffolded)
+ *   1 — one or more routes are missing help docs (no --write)
  */
 
 import fs from "node:fs/promises";
@@ -73,7 +78,37 @@ async function existingHelpSlugs(): Promise<Set<string>> {
   return slugs;
 }
 
+function skeletonFor(route: string, slug: string): string {
+  // Fallback title from the last non-underscore segment. E.g.
+  //   plan.priority._id -> "priority"
+  // The author will almost always rename this, but it beats leaving
+  // it blank.
+  const guessTitle = slug
+    .split(".")
+    .filter((p) => p !== "_id")
+    .pop()
+    ?.replace(/-/g, " ") ?? slug;
+  const cased =
+    guessTitle.charAt(0).toUpperCase() + guessTitle.slice(1);
+  return `---
+title: ${cased}
+---
+
+# ${cased}
+
+<!-- TODO: replace this scaffold with real help copy.
+     Route: ${route}
+     See docs/help/README.md for the conventions. Aim for:
+       - one sentence saying what this page is for
+       - 2–3 "Common things people do here" bullets
+       - any gotchas worth flagging
+-->
+`;
+}
+
 async function main() {
+  const shouldWrite = process.argv.includes("--write");
+
   const [routes, slugs] = await Promise.all([
     collectPageRoutes(APP_ROOT),
     existingHelpSlugs(),
@@ -91,6 +126,26 @@ async function main() {
     process.exit(0);
   }
 
+  if (shouldWrite) {
+    console.log(
+      `Scaffolding ${missing.length} missing help doc${missing.length === 1 ? "" : "s"}…`
+    );
+    for (const { route, expected } of missing) {
+      // Use the most specific candidate (index 0) as the target
+      // filename. If the author wanted the umbrella doc instead,
+      // they can delete the scaffold and let the fallback resolver
+      // pick up the parent.
+      const slug = expected[0];
+      const target = path.join(HELP_ROOT, `${slug}.md`);
+      await fs.writeFile(target, skeletonFor(route, slug), { flag: "wx" });
+      console.log(`  created docs/help/${slug}.md   (${route})`);
+    }
+    console.log(
+      "\nDone. Edit each scaffolded file, then re-run check:help to confirm coverage."
+    );
+    process.exit(0);
+  }
+
   console.error(
     `Missing help docs for ${missing.length} route${missing.length === 1 ? "" : "s"}:`
   );
@@ -101,7 +156,8 @@ async function main() {
     );
   }
   console.error(
-    "\nSee docs/help/README.md for the frontmatter format and conventions."
+    "\nTo scaffold skeletons automatically:  pnpm run check:help --write" +
+      "\nSee docs/help/README.md for the frontmatter format and conventions."
   );
   process.exit(1);
 }
