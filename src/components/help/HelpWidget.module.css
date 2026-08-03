@@ -1,0 +1,151 @@
+/* Fixed floating help widget — bottom-right, always visible on
+   authenticated surfaces. Trigger is a small cobalt pill; the panel
+   sits above it and stretches to a comfortable reading width. */
+
+.wrap {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.trigger,
+.panel {
+  pointer-events: auto;
+}
+
+.trigger {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary, #0057ff);
+  color: var(--aims-white, #ffffff);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(20, 38, 71, 0.2);
+  transition: transform var(--duration-fast, 120ms) var(--ease-out, ease-out),
+    box-shadow var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+
+.trigger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(20, 38, 71, 0.28);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring, rgba(0, 87, 255, 0.35)),
+    0 4px 14px rgba(20, 38, 71, 0.2);
+}
+
+.panel {
+  width: min(380px, calc(100vw - 40px));
+  max-height: min(560px, calc(100vh - 120px));
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, rgba(20, 38, 71, 0.12));
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(20, 38, 71, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border, rgba(20, 38, 71, 0.08));
+  background: var(--surface-muted, rgba(20, 38, 71, 0.03));
+}
+
+.panelTitle {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--fg, #142647);
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  color: var(--muted, #647388);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.closeButton:hover {
+  color: var(--fg, #142647);
+  background: rgba(20, 38, 71, 0.05);
+}
+
+.panelBody {
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 14px;
+  color: var(--fg, #142647);
+}
+
+.muted {
+  color: var(--muted, #647388);
+  margin: 0;
+}
+
+.error {
+  color: var(--aims-danger, #c0392b);
+  margin: 0;
+}
+
+.prose > * + * {
+  margin-top: 10px;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  color: var(--fg, #142647);
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 14px;
+}
+
+.prose h1 {
+  font-size: 16px;
+}
+.prose h2 {
+  font-size: 15px;
+}
+.prose h3 {
+  font-size: 14px;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 20px;
+}
+
+.prose li + li {
+  margin-top: 4px;
+}
+
+.prose code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: rgba(20, 38, 71, 0.05);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.prose a {
+  color: var(--primary, #0057ff);
+}

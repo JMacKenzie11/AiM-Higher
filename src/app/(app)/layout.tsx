@@ -1,4 +1,5 @@
 import { NavBand } from "@/components/nav-band/NavBand";
+import { HelpWidget } from "@/components/help/HelpWidget";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
@@ -80,6 +81,7 @@ export default async function AppLayout({
         features={features}
       />
       <div className={styles.main}>{children}</div>
+      <HelpWidget />
     </div>
   );
 }
