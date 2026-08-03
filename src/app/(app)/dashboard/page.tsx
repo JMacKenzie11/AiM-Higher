@@ -106,6 +106,23 @@ export default async function DashboardPage() {
               label="Open This Week"
               value={<AnimatedNumber value={data.headline.thisWeekOpen} />}
             />
+            <HeroStat
+              label="Commitment Clarity"
+              tooltip={
+                data.headline.clarityAssessedCount === 0
+                  ? "Once commitments are assessed against the three clarity criteria (deliverable, timeline, success), this shows the share that meet all three."
+                  : `Of ${data.headline.clarityAssessedCount} assessed commitment${data.headline.clarityAssessedCount === 1 ? "" : "s"} this quarter, the share that meet all three clarity criteria (deliverable, timeline, success).`
+              }
+              value={
+                data.headline.clarityPercent === null ? (
+                  "—"
+                ) : (
+                  <>
+                    <AnimatedNumber value={data.headline.clarityPercent} />%
+                  </>
+                )
+              }
+            />
           </div>
         </div>
       </section>

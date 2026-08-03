@@ -151,6 +151,15 @@ export type Commitment = {
   // Set when this row was created by the meeting-transcript analysis
   // pipeline. Null for hand-entered commitments.
   source_meeting_id: string | null;
+  // Clarity assessment — three booleans that answer "is this
+  // commitment clear enough to keep?". Null means "unassessed" (a
+  // different state from an explicit false). The analyzer may
+  // populate these on extraction; the owner or an admin can
+  // override at any time via the row's clarity strip.
+  clarity_deliverable: boolean | null;
+  clarity_timeline: boolean | null;
+  clarity_success: boolean | null;
+  clarity_note: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -420,6 +429,16 @@ export type ExtractedCommitment = {
   description: string;
   due_date: string | null;
   priority_id: string | null;
+  // Clarity scoring: analyzer's assessment of whether the
+  // commitment as spoken meets each of the three AiMS criteria,
+  // plus an optional short refinement suggestion when any is false.
+  // Optional because raw model output may omit them; validation
+  // coerces missing/unexpected values to null so the DB stores
+  // "unassessed" rather than a spurious explicit false.
+  clarity_deliverable?: boolean | null;
+  clarity_timeline?: boolean | null;
+  clarity_success?: boolean | null;
+  clarity_note?: string | null;
 };
 
 export type OAuthCredentials = {

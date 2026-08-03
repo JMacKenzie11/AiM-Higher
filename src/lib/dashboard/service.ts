@@ -52,6 +52,13 @@ export type DashboardData = {
     keepRatePercent: number | null;
     onTrack: { good: number; total: number };
     thisWeekOpen: number;
+    // Clarity score for the open quarter: share of commitments (any
+    // status) that pass all three clarity criteria. Null when there
+    // aren't enough scored commitments in the quarter yet to make a
+    // meaningful number.
+    clarityPercent: number | null;
+    clarityAssessedCount: number;
+    clarityTotalCount: number;
   };
   sfas: DashboardSfa[];
   orphanGoalCount: number;
@@ -177,25 +184,69 @@ export async function getDashboardData(
   // Commitments in the open quarter — now derived from week_ending
   // falling inside the quarter window, so operational (unlinked)
   // commitments count toward keep-rate identically to strategic ones.
-  // Only status + owner_id are needed for the two folds below
-  // (headline rate + per-owner rate). Commitments is one of the
-  // widest tables in the DB, so narrowing here matters at scale.
-  let quarterCommitments: Array<Pick<Commitment, "status" | "owner_id">> = [];
+  // We also pull the three clarity booleans so the headline can
+  // report share-with-all-three-met without a second scan.
+  let quarterCommitments: Array<
+    Pick<
+      Commitment,
+      | "status"
+      | "owner_id"
+      | "clarity_deliverable"
+      | "clarity_timeline"
+      | "clarity_success"
+    >
+  > = [];
   if (openQuarter) {
     const { data: cRows } = await supabase
       .from("commitments")
-      .select("status, owner_id")
+      .select(
+        "status, owner_id, clarity_deliverable, clarity_timeline, clarity_success"
+      )
       .eq("company_id", companyId)
       .gte("week_ending", openQuarter.start_date)
       .lte("week_ending", openQuarter.end_date);
     quarterCommitments = (cRows ?? []) as Array<
-      Pick<Commitment, "status" | "owner_id">
+      Pick<
+        Commitment,
+        | "status"
+        | "owner_id"
+        | "clarity_deliverable"
+        | "clarity_timeline"
+        | "clarity_success"
+      >
     >;
   }
 
   const keepRatePercent = computeFollowThroughRate(
     quarterCommitments.map((c) => c.status)
   );
+
+  // Clarity: percentage of assessed commitments where all three
+  // criteria pass. Un-assessed rows (any of the three still null)
+  // are excluded from both the numerator and the denominator so a
+  // company that hasn't started assessing doesn't look like it's
+  // failing.
+  let clarityAssessed = 0;
+  let clarityAllClear = 0;
+  for (const c of quarterCommitments) {
+    const anyNull =
+      c.clarity_deliverable === null ||
+      c.clarity_timeline === null ||
+      c.clarity_success === null;
+    if (anyNull) continue;
+    clarityAssessed += 1;
+    if (
+      c.clarity_deliverable === true &&
+      c.clarity_timeline === true &&
+      c.clarity_success === true
+    ) {
+      clarityAllClear += 1;
+    }
+  }
+  const clarityPercent =
+    clarityAssessed === 0
+      ? null
+      : Math.round((clarityAllClear / clarityAssessed) * 100);
 
   // This Week — count of open commitments due this Friday.
   const tz = company.timezone ?? "America/Anchorage";
@@ -303,6 +354,9 @@ export async function getDashboardData(
       keepRatePercent,
       onTrack: { good: onTrackGood, total: onTrackTotal },
       thisWeekOpen,
+      clarityPercent,
+      clarityAssessedCount: clarityAssessed,
+      clarityTotalCount: quarterCommitments.length,
     },
     sfas: enrichedSfas,
     orphanGoalCount,

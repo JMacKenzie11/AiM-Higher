@@ -9,6 +9,7 @@ import {
   markMissedAction,
   reassignCommitmentAction,
   rescheduleCommitmentAction,
+  setCommitmentClarityAction,
   unmarkKeptAction,
   unmarkMissedAction,
 } from "@/lib/commitments/actions";
@@ -18,6 +19,7 @@ import type { Priority, Profile } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import { PriorityPicker } from "./PriorityPicker";
 import { OwnerPicker } from "./OwnerPicker";
+import { ClarityChip, ClarityEditor, clarityState } from "./ClarityStrip";
 import styles from "./commitments.module.css";
 
 // A single commitment row.
@@ -69,6 +71,7 @@ export function CommitmentRow({
   const [rescheduleDate, setRescheduleDate] = useState(commitment.due_date);
   const [rescheduleReason, setRescheduleReason] = useState("");
   const [pickingOwner, setPickingOwner] = useState(false);
+  const [showClarity, setShowClarity] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -239,6 +242,14 @@ export function CommitmentRow({
 
       <div>
         <p className={styles.rowDescription}>
+          <ClarityChip
+            state={clarityState(commitment)}
+            onClick={
+              canResolve
+                ? () => setShowClarity((prev) => !prev)
+                : undefined
+            }
+          />
           {commitment.description}
           {commitment.source_meeting_id ? (
             isAdmin ? (
@@ -369,6 +380,15 @@ export function CommitmentRow({
               </button>
             </div>
           </div>
+        ) : null}
+
+        {showClarity && canResolve ? (
+          <ClarityEditor
+            commitment={commitment}
+            onCancel={() => setShowClarity(false)}
+            onSaved={() => setShowClarity(false)}
+            onError={setError}
+          />
         ) : null}
       </div>
 

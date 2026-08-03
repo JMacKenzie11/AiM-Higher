@@ -613,6 +613,71 @@ a.fromMeetingChip:hover {
   gap: var(--space-2);
 }
 
+/* ---- Clarity chip + toggles ---------------------------------
+   The chip is a small dot that sits inline before the commitment
+   description. Three tones map to the three states — the
+   "unassessed" state is deliberately muted rather than red so the
+   row doesn't shout when the analyzer hasn't scored yet. */
+.clarityDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: var(--space-2);
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.clarityDotButton {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  width: 10px;
+  height: 10px;
+}
+.clarityDotClear {
+  background: var(--aims-success, #2f9e44);
+}
+.clarityDotUnclear {
+  background: var(--aims-warning, #e0a72c);
+}
+.clarityDotUnassessed {
+  background: var(--border-strong, rgba(20, 38, 71, 0.25));
+}
+
+.clarityBtn {
+  min-width: 60px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+.clarityBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.clarityBtnYes {
+  background: var(--aims-success, #2f9e44);
+  color: var(--aims-white, #ffffff);
+  border-color: var(--aims-success, #2f9e44);
+}
+.clarityBtnNo {
+  background: var(--aims-warning, #e0a72c);
+  color: var(--aims-white, #ffffff);
+  border-color: var(--aims-warning, #e0a72c);
+}
+.clarityBtnUnset {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
 .primaryButton {
   height: var(--control-h-md);
   padding: 0 var(--space-4);

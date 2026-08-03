@@ -120,7 +120,16 @@ describe("validateExtracted", () => {
       expect(out[0].description).toBe("Review the contract.");
       // No stray fields leak into the validated row.
       expect(Object.keys(out[0]).sort()).toEqual(
-        ["description", "due_date", "owner_profile_id", "priority_id"].sort()
+        [
+          "clarity_deliverable",
+          "clarity_note",
+          "clarity_success",
+          "clarity_timeline",
+          "description",
+          "due_date",
+          "owner_profile_id",
+          "priority_id",
+        ].sort()
       );
     }
   );

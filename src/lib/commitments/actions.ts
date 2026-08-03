@@ -458,6 +458,53 @@ export async function linkPriorityAction(
   return { ok: true, commitment: data };
 }
 
+// ---- Clarity assessment --------------------------------------
+// Set (or clear) the three clarity booleans + coaching note on a
+// commitment. Owner or admin may edit any time — clarity is a
+// coaching signal, not a permission gate. Null values represent
+// "unassessed"; the row indicator uses that to show a muted dot.
+export type ClarityInput = {
+  deliverable: boolean | null;
+  timeline: boolean | null;
+  success: boolean | null;
+  note: string | null;
+};
+
+export async function setCommitmentClarityAction(
+  commitmentId: string,
+  input: ClarityInput
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to change." };
+  }
+
+  const trimmedNote =
+    typeof input.note === "string" ? input.note.trim().slice(0, 500) : null;
+
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({
+      clarity_deliverable: input.deliverable,
+      clarity_timeline: input.timeline,
+      clarity_success: input.success,
+      clarity_note: trimmedNote && trimmedNote.length > 0 ? trimmedNote : null,
+    })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't update clarity." };
+  }
+
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: data };
+}
+
 // ---- Delete ---------------------------------------------------
 export async function deleteCommitmentAction(
   commitmentId: string

@@ -311,9 +311,16 @@ From the transcript, extract every clear commitment a person made: who committed
 
 You will be given a company context block listing the valid roster (names + ids) and the open-quarter priorities (titles + ids). Match a commitment's owner to a roster person ONLY when the transcript makes it unambiguous — first name plus context, or an explicit full name. When ambiguous, return null for owner_profile_id. Match a commitment to a priority only when the connection is clearly stated in the transcript; otherwise return null for priority_id.
 
+For every extracted commitment, also score it on three clarity criteria (each is a boolean answered from the transcript alone — do not assume information the participants didn't state):
+- clarity_deliverable: TRUE only when both parties clearly share the same picture of what will be delivered. If the deliverable is vague ("look into X", "think about Y", "explore Z"), set FALSE.
+- clarity_timeline:    TRUE only when a specific deadline was stated or an "by end of week / by Friday" style anchor was agreed. Vague "soon" or "next few weeks" is FALSE.
+- clarity_success:     TRUE only when the participants named an observable outcome that will show the commitment was fulfilled. Absent, set FALSE.
+
+When any of the three is FALSE, provide a short (≤160 char) refinement suggestion in clarity_note that rewrites the commitment to satisfy all three. When all three are TRUE, set clarity_note to null.
+
 Return strict JSON in exactly this shape and NOTHING ELSE (no prose, no code fences):
 
-{"commitments":[{"owner_profile_id": string|null, "description": string, "due_date": string|null, "priority_id": string|null}]}
+{"commitments":[{"owner_profile_id": string|null, "description": string, "due_date": string|null, "priority_id": string|null, "clarity_deliverable": boolean, "clarity_timeline": boolean, "clarity_success": boolean, "clarity_note": string|null}]}
 
 Rules:
 - description: 1–300 characters, in the transcript's language, describing what was committed to.
@@ -385,11 +392,31 @@ export function validateExtracted(
       typeof item.due_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.due_date)
         ? item.due_date
         : null;
+    // Clarity: only accept explicit booleans. Anything else stays
+    // null (== unassessed) rather than defaulting to false, which
+    // would misrepresent "the model didn't emit this" as an
+    // explicit failure.
+    const claDeliverable =
+      typeof item.clarity_deliverable === "boolean"
+        ? item.clarity_deliverable
+        : null;
+    const claTimeline =
+      typeof item.clarity_timeline === "boolean" ? item.clarity_timeline : null;
+    const claSuccess =
+      typeof item.clarity_success === "boolean" ? item.clarity_success : null;
+    const claNote =
+      typeof item.clarity_note === "string"
+        ? item.clarity_note.trim().slice(0, 200) || null
+        : null;
     out.push({
       owner_profile_id: owner,
       description: desc,
       due_date: due,
       priority_id: priority,
+      clarity_deliverable: claDeliverable,
+      clarity_timeline: claTimeline,
+      clarity_success: claSuccess,
+      clarity_note: claNote,
     });
     if (out.length >= MAX_COMMITMENTS) break;
   }
@@ -438,6 +465,10 @@ async function createCommitmentsFromExtraction(
       due_date: dueWithinHorizon,
       status: "open" as const,
       source_meeting_id: meeting.id,
+      clarity_deliverable: c.clarity_deliverable,
+      clarity_timeline: c.clarity_timeline,
+      clarity_success: c.clarity_success,
+      clarity_note: c.clarity_note,
     };
   });
 
