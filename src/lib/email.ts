@@ -18,7 +18,7 @@ function client(): Resend | null {
 }
 
 function from(): string {
-  return process.env.EMAIL_FROM ?? "AiMS <noreply@aimshigher.com>";
+  return process.env.EMAIL_FROM ?? "AiMS <noreply@aimshigher.tools>";
 }
 
 export type CommitmentEmailInput = {
