@@ -1,0 +1,44 @@
+name: Checks
+
+# Runs on every PR + every push to main. Three gates:
+#   1. Typecheck — TypeScript across the whole app.
+#   2. Unit tests — vitest.
+#   3. Help coverage — every page.tsx must have a matching doc
+#      in docs/help/ (see docs/help/README.md).
+#
+# Any failure blocks the PR. To scaffold missing help docs locally
+# before pushing, run:  npm run check:help -- --write
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Help coverage
+        run: npm run check:help
