@@ -1,6 +1,6 @@
 import { NavBand } from "@/components/nav-band/NavBand";
 import { requireProfile } from "@/lib/auth/current-user";
-import { getScopedCompanyId } from "@/lib/admin/scope";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Company } from "@/lib/types";
@@ -8,9 +8,9 @@ import type { ModuleFeature } from "@/lib/subscriptions/service";
 import styles from "./layout.module.css";
 
 // Layout for authenticated routes. Guards on session + profile and
-// renders the gradient nav band. When a system_admin has scoped into
-// a company (Phase 8), the persistent sub-band reads
-// "SYSTEM ADMIN · COMPANY NAME" per Section 7.
+// renders the gradient nav band. When a system_admin or aims_guide
+// has scoped into a company, the persistent sub-band reads
+// "<ROLE LABEL> · COMPANY NAME" per Section 7.
 
 export default async function AppLayout({
   children,
@@ -18,14 +18,23 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const session = await requireProfile();
-  const isSystemAdmin = session.profile.role === "system_admin";
+  const role = session.profile.role;
+  const isSystemAdmin = role === "system_admin";
+  const isGuide = role === "aims_guide";
+  const isCrossCompanyRole = isSystemAdmin || isGuide;
+
+  const roleLabel = isSystemAdmin
+    ? "System admin"
+    : isGuide
+      ? "AiMS Guide"
+      : null;
 
   let contextLabel: string | undefined;
   let scopedCompanyId: string | null = null;
   let scopedCompanyName: string | undefined;
 
-  if (isSystemAdmin) {
-    scopedCompanyId = await getScopedCompanyId();
+  if (isCrossCompanyRole) {
+    scopedCompanyId = await getEffectiveCompanyId(session);
     if (scopedCompanyId) {
       const supabase = await createSupabaseServerClient();
       const { data: company } = await supabase
@@ -35,10 +44,10 @@ export default async function AppLayout({
         .maybeSingle<Pick<Company, "name">>();
       scopedCompanyName = company?.name;
       contextLabel = scopedCompanyName
-        ? `System admin · ${scopedCompanyName}`
-        : "System admin";
+        ? `${roleLabel} · ${scopedCompanyName}`
+        : (roleLabel ?? undefined);
     } else {
-      contextLabel = "System admin";
+      contextLabel = roleLabel ?? undefined;
     }
   } else if (session.profile.company_id) {
     const supabase = await createSupabaseServerClient();
@@ -51,9 +60,9 @@ export default async function AppLayout({
   }
 
   // Fetch the effective company's feature entitlements so NavBand
-  // can gate module-specific links. Sysadmins with no scoped company
-  // see no module links either way (nav collapses to Companies).
-  const effectiveCompanyId = isSystemAdmin
+  // can gate module-specific links. Cross-company roles with no
+  // scoped company see no module links either way.
+  const effectiveCompanyId = isCrossCompanyRole
     ? scopedCompanyId
     : session.profile.company_id;
   const features: ModuleFeature[] = effectiveCompanyId
@@ -64,9 +73,9 @@ export default async function AppLayout({
     <div className={styles.frame}>
       <NavBand
         userName={session.profile.full_name}
-        isSystemAdmin={isSystemAdmin}
+        isSystemAdmin={isCrossCompanyRole}
         contextLabel={contextLabel}
-        showExitScope={isSystemAdmin && Boolean(scopedCompanyId)}
+        showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}
         scopedCompanyName={scopedCompanyName}
         features={features}
       />

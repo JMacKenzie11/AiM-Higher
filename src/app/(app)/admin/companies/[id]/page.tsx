@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import type {
@@ -26,9 +27,14 @@ export default async function CompanyDetailPage({
   params,
   searchParams,
 }: PageProps) {
-  await requireRole(["system_admin"]);
+  const session = await requireRole(["system_admin", "aims_guide"]);
   const { id } = await params;
   const flash = await searchParams;
+  const isSystemAdmin = session.profile.role === "system_admin";
+  // A guide can only view companies they're assigned to.
+  if (!isAdminForCompany(session.profile, id)) {
+    redirect("/admin/companies");
+  }
 
   const supabase = await createSupabaseServerClient();
 
@@ -92,27 +98,32 @@ export default async function CompanyDetailPage({
             Actions
           </h2>
           <p className={styles.subtitleInline}>
-            Open the company to work inside it, or archive to hide it from
-            picker lists and stop sign-ins.
+            {isSystemAdmin
+              ? "Open the company to work inside it, or archive to hide it from picker lists and stop sign-ins."
+              : "Open the company to work inside it."}
           </p>
           <div className={styles.rowActions}>
             <CompanyNameLink
               companyId={company.id}
               name="Open this company →"
             />
-            <CompanyRowActions
-              companyId={company.id}
-              status={company.status}
-            />
+            {isSystemAdmin ? (
+              <CompanyRowActions
+                companyId={company.id}
+                status={company.status}
+              />
+            ) : null}
           </div>
         </section>
 
-        <section className={styles.card} aria-labelledby="features-heading">
-          <h2 id="features-heading" className={styles.h2}>
-            Features
-          </h2>
-          <FeaturesForm companyId={company.id} initial={features} />
-        </section>
+        {isSystemAdmin ? (
+          <section className={styles.card} aria-labelledby="features-heading">
+            <h2 id="features-heading" className={styles.h2}>
+              Features
+            </h2>
+            <FeaturesForm companyId={company.id} initial={features} />
+          </section>
+        ) : null}
 
         <CompanyTranscriptsPanel
           companyId={company.id}

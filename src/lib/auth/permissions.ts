@@ -8,20 +8,32 @@ import type { Profile, Role } from "@/lib/types";
 // there is a policy divergence that silently opens or closes access.
 // Keep one source of truth and let the callers stay short.
 
-export type SessionProfileLike = Pick<Profile, "id" | "role" | "company_id">;
+// SessionProfileLike is the minimum a permission helper needs. Guide
+// callers must also expose their guide_company_ids so isAdminForCompany
+// can stay synchronous — the assignments are loaded once at session
+// resolution and travel with the profile from there.
+export type SessionProfileLike = Pick<Profile, "id" | "role" | "company_id"> & {
+  guide_company_ids?: readonly string[];
+};
 
 /**
- * true if the session role is system_admin, OR if the session is a
- * company_admin scoped to the given company. Owner-level checks are
- * NOT included — combine with `isOwner` when you need "admin or owner".
+ * true if the session role is system_admin, OR the session is a
+ * company_admin scoped to the given company, OR the session is an
+ * aims_guide whose assignments include the given company. Owner-level
+ * checks are NOT included — combine with an owner check when you need
+ * "admin or owner".
  */
 export function isAdminForCompany(
-  profile: Pick<Profile, "role" | "company_id">,
+  profile: SessionProfileLike,
   companyId: string
 ): boolean {
   const role: Role = profile.role;
   if (role === "system_admin") return true;
-  return role === "company_admin" && profile.company_id === companyId;
+  if (role === "company_admin") return profile.company_id === companyId;
+  if (role === "aims_guide") {
+    return (profile.guide_company_ids ?? []).includes(companyId);
+  }
+  return false;
 }
 
 /**
@@ -43,35 +55,39 @@ export function canWriteOwnedRow(
 
 /**
  * Guard for transcript-source management (Google Drive folders and
- * future providers). Currently system_admin only. Widening to
- * company_admin is a one-line change here — every caller (server
- * actions, page loaders, and RLS mirrors) reads through this so the
- * policy has one source of truth.
+ * future providers). System admins have unconditional access.
+ * aims_guides are admitted so they can set up transcripts for the
+ * companies they coach; whether a specific company is theirs is
+ * checked separately (via isAdminForCompany) at the action layer.
+ * Every caller reads through this so the policy stays in one spot.
  */
 export function transcriptSourcesAllowed(
   profile: Pick<Profile, "role">
 ): boolean {
-  return profile.role === "system_admin";
+  return profile.role === "system_admin" || profile.role === "aims_guide";
 }
 
 /**
  * Resolve the company_id to write against. Precedence:
- *   1. system_admin with an explicit form value → use it (cross-company writes)
- *   2. system_admin with a scope cookie → use the scoped company
+ *   1. system_admin or aims_guide with an explicit form value → use it
+ *      (cross-company writes on behalf of a specific company)
+ *   2. system_admin or aims_guide with a scope cookie → use it
  *   3. everyone else → their profile.company_id
  * Returns null when we can't determine one — caller should surface a
  * message rather than silently insert against the wrong company.
  *
- * Async because the sysadmin fallback reads the HTTP-only scope cookie.
+ * Async because the sysadmin / guide fallback reads the HTTP-only
+ * scope cookie.
  */
 export async function scopedCompanyId(
-  session: { profile: Pick<Profile, "id" | "role" | "company_id"> },
+  session: { profile: SessionProfileLike },
   formCompanyId: string
 ): Promise<string | null> {
-  if (session.profile.role === "system_admin") {
+  const role = session.profile.role;
+  if (role === "system_admin" || role === "aims_guide") {
     if (formCompanyId) return formCompanyId;
-    // Session profile has no company_id for sysadmins; fall through to
-    // the scope cookie via the shared resolver.
+    // Neither sysadmins nor guides have a primary company_id; fall
+    // through to the scope cookie via the shared resolver.
     return getEffectiveCompanyId(session);
   }
   return session.profile.company_id;

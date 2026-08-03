@@ -1,40 +1,52 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCompaniesOverview } from "@/lib/admin/companies-service";
+import { getGuidesOverview } from "@/lib/admin/guides-service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import type { Meeting } from "@/lib/types";
 import { CompanyNameLink } from "./CompanyNameLink";
 import { CompanyRowActions } from "./CompanyRowActions";
 import { CreateCompanyForm } from "./CreateCompanyForm";
+import { GuidesPanel } from "./GuidesPanel";
 import { PlatformTranscriptsPanel } from "./PlatformTranscriptsPanel";
 import styles from "./admin.module.css";
 
-// System-admin Companies overview — the fleet view.
+// Companies overview — the fleet view.
+//   system_admin sees every company + management affordances (Create,
+//   Archive, Guides admin, unrouted queue).
+//   aims_guide sees only their assigned companies, with no
+//   create/archive/guides-admin surface.
 //   Clicking a company name scopes into it and jumps straight to its
 //   dashboard (see CompanyNameLink). Per-row Settings link goes to
-//   /admin/companies/[id] for archive + people admin. Create form
-//   lives below the list.
+//   /admin/companies/[id].
 
 type PageProps = {
   searchParams: Promise<{ oauth_connected?: string; oauth_error?: string }>;
 };
 
 export default async function AdminCompaniesPage({ searchParams }: PageProps) {
-  await requireRole(["system_admin"]);
+  const session = await requireRole(["system_admin", "aims_guide"]);
+  const isSystemAdmin = session.profile.role === "system_admin";
 
-  const [companies, flash] = await Promise.all([
+  const [companies, flash, guides] = await Promise.all([
     getCompaniesOverview(),
     searchParams,
+    isSystemAdmin ? getGuidesOverview() : Promise.resolve([]),
   ]);
 
   const supabase = await createSupabaseServerClient();
-  const { data: unroutedRows } = await supabase
-    .from("meetings")
-    .select("*")
-    .eq("status", "unrouted")
-    .order("created_at", { ascending: false });
-  const unrouted = (unroutedRows ?? []) as Meeting[];
+  // Unrouted queue is only meaningful for the sysadmin who manages
+  // routing across the platform; guides don't need it in their view.
+  const unrouted: Meeting[] = [];
+  if (isSystemAdmin) {
+    const { data: unroutedRows } = await supabase
+      .from("meetings")
+      .select("*")
+      .eq("status", "unrouted")
+      .order("created_at", { ascending: false });
+    unrouted.push(...((unroutedRows ?? []) as Meeting[]));
+  }
 
   const oauthConnected = flash.oauth_connected ?? null;
   const oauthError = flash.oauth_error ?? null;
@@ -43,12 +55,15 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
     <div className={styles.stage}>
       <section className={styles.hero} aria-label="Companies summary">
         <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>System admin</p>
+          <p className={styles.eyebrow}>
+            {isSystemAdmin ? "System admin" : "AiMS Guide"}
+          </p>
           <h1 className={styles.h1}>Companies</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Every company on the AiMSHigher Platform. Click a name to
-            jump into its dashboard.
+            {isSystemAdmin
+              ? "Every company on the AiMSHigher Platform. Click a name to jump into its dashboard."
+              : "The companies you coach. Click a name to jump into its dashboard."}
           </p>
         </div>
       </section>
@@ -115,10 +130,12 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                         >
                           Settings
                         </Link>
-                        <CompanyRowActions
-                          companyId={company.id}
-                          status={company.status}
-                        />
+                        {isSystemAdmin ? (
+                          <CompanyRowActions
+                            companyId={company.id}
+                            status={company.status}
+                          />
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -128,12 +145,21 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
           )}
         </section>
 
-        <section className={styles.card} aria-labelledby="create-company">
-          <h2 id="create-company" className={styles.h2}>
-            Create a new company
-          </h2>
-          <CreateCompanyForm />
-        </section>
+        {isSystemAdmin ? (
+          <section className={styles.card} aria-labelledby="create-company">
+            <h2 id="create-company" className={styles.h2}>
+              Create a new company
+            </h2>
+            <CreateCompanyForm />
+          </section>
+        ) : null}
+
+        {isSystemAdmin ? (
+          <GuidesPanel
+            guides={guides}
+            companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+          />
+        ) : null}
 
         {oauthConnected || oauthError ? (
           <section

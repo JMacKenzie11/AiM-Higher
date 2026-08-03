@@ -22,7 +22,7 @@ export function ProfileDetailsForm({
   id: string;
   fullName: string;
   position: string;
-  role: "system_admin" | "company_admin" | "team_member";
+  role: "system_admin" | "company_admin" | "team_member" | "aims_guide";
 }) {
   const [state, formAction, pending] = useActionState<ProfileResult, FormData>(
     updateProfileAction,

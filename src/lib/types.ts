@@ -2,7 +2,20 @@
 // These stay in one place so route handlers, server actions, and views
 // agree on shape.
 
-export type Role = "system_admin" | "company_admin" | "team_member";
+export type Role =
+  | "system_admin"
+  | "company_admin"
+  | "team_member"
+  | "aims_guide";
+
+// A single (guide -> company) assignment. Guides have no primary
+// company_id on their profile; their access is derived from these
+// rows via the is_guide_for() SQL helper.
+export type GuideAssignment = {
+  guide_id: string;
+  company_id: string;
+  created_at: string;
+};
 export type ProfileStatus = "pending" | "active" | "inactive";
 export type CompanyStatus = "active" | "archived";
 export type QuarterStatus = "open" | "closed";

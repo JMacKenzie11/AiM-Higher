@@ -17,10 +17,19 @@ export async function getCurrentUser() {
   return user;
 }
 
+// A SessionProfile is a DB Profile plus the caller's guide
+// assignments loaded eagerly. Non-guides always get an empty array;
+// guides get the full list of company_ids they've been assigned to.
+// Attaching this to the session keeps isAdminForCompany() sync — no
+// DB round trip in every permission check.
+export type SessionProfile = Profile & {
+  guide_company_ids: readonly string[];
+};
+
 export type CurrentSession = {
   userId: string;
   email: string;
-  profile: Profile | null;
+  profile: SessionProfile | null;
 };
 
 export async function getCurrentSession(): Promise<CurrentSession | null> {
@@ -36,10 +45,23 @@ export async function getCurrentSession(): Promise<CurrentSession | null> {
     .eq("id", user.id)
     .maybeSingle<Profile>();
 
+  let guideCompanyIds: string[] = [];
+  if (profile?.role === "aims_guide") {
+    const { data: assignments } = await supabase
+      .from("guide_assignments")
+      .select("company_id")
+      .eq("guide_id", profile.id);
+    guideCompanyIds = ((assignments ?? []) as Array<{ company_id: string }>).map(
+      (a) => a.company_id
+    );
+  }
+
   return {
     userId: user.id,
     email: user.email ?? "",
-    profile: profile ?? null,
+    profile: profile
+      ? { ...profile, guide_company_ids: guideCompanyIds }
+      : null,
   };
 }
 
@@ -53,7 +75,7 @@ export async function requireSession(): Promise<CurrentSession> {
 }
 
 export async function requireProfile(): Promise<
-  CurrentSession & { profile: Profile }
+  CurrentSession & { profile: SessionProfile }
 > {
   const session = await requireSession();
   if (!session.profile) {
@@ -62,12 +84,12 @@ export async function requireProfile(): Promise<
     // failed. Send them back to sign-in — they need admin help.
     redirect("/sign-in?error=no-profile");
   }
-  return session as CurrentSession & { profile: Profile };
+  return session as CurrentSession & { profile: SessionProfile };
 }
 
 export async function requireRole(
   allowed: Role[]
-): Promise<CurrentSession & { profile: Profile }> {
+): Promise<CurrentSession & { profile: SessionProfile }> {
   const session = await requireProfile();
   if (!allowed.includes(session.profile.role)) {
     redirect("/");
