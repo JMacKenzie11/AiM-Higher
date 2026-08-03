@@ -110,8 +110,8 @@ export default async function DashboardPage() {
               label="Commitment Clarity"
               tooltip={
                 data.headline.clarityAssessedCount === 0
-                  ? "Once commitments are assessed against the three clarity criteria (deliverable, timeline, success), this shows the share that meet all three."
-                  : `Of ${data.headline.clarityAssessedCount} assessed commitment${data.headline.clarityAssessedCount === 1 ? "" : "s"} this quarter, the share that meet all three clarity criteria (deliverable, timeline, success).`
+                  ? "Once commitments are assessed against the two clarity criteria (timeline, definition of done), this shows the share that meet both."
+                  : `Of ${data.headline.clarityAssessedCount} assessed commitment${data.headline.clarityAssessedCount === 1 ? "" : "s"} this quarter, the share that meet both clarity criteria (timeline, definition of done).`
               }
               value={
                 data.headline.clarityPercent === null ? (

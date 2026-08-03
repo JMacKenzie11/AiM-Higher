@@ -184,35 +184,25 @@ export async function getDashboardData(
   // Commitments in the open quarter — now derived from week_ending
   // falling inside the quarter window, so operational (unlinked)
   // commitments count toward keep-rate identically to strategic ones.
-  // We also pull the three clarity booleans so the headline can
-  // report share-with-all-three-met without a second scan.
+  // We also pull the two clarity booleans so the headline can
+  // report share-with-both-met without a second scan.
   let quarterCommitments: Array<
     Pick<
       Commitment,
-      | "status"
-      | "owner_id"
-      | "clarity_deliverable"
-      | "clarity_timeline"
-      | "clarity_success"
+      "status" | "owner_id" | "clarity_timeline" | "clarity_success"
     >
   > = [];
   if (openQuarter) {
     const { data: cRows } = await supabase
       .from("commitments")
-      .select(
-        "status, owner_id, clarity_deliverable, clarity_timeline, clarity_success"
-      )
+      .select("status, owner_id, clarity_timeline, clarity_success")
       .eq("company_id", companyId)
       .gte("week_ending", openQuarter.start_date)
       .lte("week_ending", openQuarter.end_date);
     quarterCommitments = (cRows ?? []) as Array<
       Pick<
         Commitment,
-        | "status"
-        | "owner_id"
-        | "clarity_deliverable"
-        | "clarity_timeline"
-        | "clarity_success"
+        "status" | "owner_id" | "clarity_timeline" | "clarity_success"
       >
     >;
   }
@@ -221,25 +211,17 @@ export async function getDashboardData(
     quarterCommitments.map((c) => c.status)
   );
 
-  // Clarity: percentage of assessed commitments where all three
-  // criteria pass. Un-assessed rows (any of the three still null)
-  // are excluded from both the numerator and the denominator so a
+  // Clarity: percentage of assessed commitments where both
+  // criteria pass. Un-assessed rows (either still null) are
+  // excluded from both the numerator and the denominator so a
   // company that hasn't started assessing doesn't look like it's
   // failing.
   let clarityAssessed = 0;
   let clarityAllClear = 0;
   for (const c of quarterCommitments) {
-    const anyNull =
-      c.clarity_deliverable === null ||
-      c.clarity_timeline === null ||
-      c.clarity_success === null;
-    if (anyNull) continue;
+    if (c.clarity_timeline === null || c.clarity_success === null) continue;
     clarityAssessed += 1;
-    if (
-      c.clarity_deliverable === true &&
-      c.clarity_timeline === true &&
-      c.clarity_success === true
-    ) {
+    if (c.clarity_timeline === true && c.clarity_success === true) {
       clarityAllClear += 1;
     }
   }

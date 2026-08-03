@@ -201,6 +201,15 @@ export function CommitmentRow({
         className={buildCircleClass(isKept, isClosed, isOverdue)}
         onClick={onCircleClick}
         disabled={pending || !canResolve}
+        title={
+          isKept
+            ? "Kept — click to reopen"
+            : isClosed
+            ? "Closed — click to reopen"
+            : isOverdue
+            ? "Overdue — close with a reason"
+            : "Mark kept"
+        }
         aria-label={
           isKept
             ? "Kept — click to reopen"
@@ -240,16 +249,17 @@ export function CommitmentRow({
         <span aria-hidden />
       )}
 
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <ClarityChip
+          state={clarityState(commitment)}
+          onClick={
+            canResolve ? () => setShowClarity((prev) => !prev) : undefined
+          }
+        />
+      </div>
+
       <div>
         <p className={styles.rowDescription}>
-          <ClarityChip
-            state={clarityState(commitment)}
-            onClick={
-              canResolve
-                ? () => setShowClarity((prev) => !prev)
-                : undefined
-            }
-          />
           {commitment.description}
           {commitment.source_meeting_id ? (
             isAdmin ? (

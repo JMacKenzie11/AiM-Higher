@@ -121,7 +121,6 @@ describe("validateExtracted", () => {
       // No stray fields leak into the validated row.
       expect(Object.keys(out[0]).sort()).toEqual(
         [
-          "clarity_deliverable",
           "clarity_note",
           "clarity_success",
           "clarity_timeline",

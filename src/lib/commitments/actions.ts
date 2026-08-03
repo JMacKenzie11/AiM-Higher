@@ -136,7 +136,6 @@ export async function createCommitmentAction(
       const { data: updated } = await supabase
         .from("commitments")
         .update({
-          clarity_deliverable: score.deliverable,
           clarity_timeline: score.timeline,
           clarity_success: score.success,
           clarity_note: score.note,
@@ -486,12 +485,11 @@ export async function linkPriorityAction(
 }
 
 // ---- Clarity assessment --------------------------------------
-// Set (or clear) the three clarity booleans + coaching note on a
+// Set (or clear) the two clarity booleans + coaching note on a
 // commitment. Owner or admin may edit any time — clarity is a
 // coaching signal, not a permission gate. Null values represent
 // "unassessed"; the row indicator uses that to show a muted dot.
 export type ClarityInput = {
-  deliverable: boolean | null;
   timeline: boolean | null;
   success: boolean | null;
   note: string | null;
@@ -516,7 +514,6 @@ export async function setCommitmentClarityAction(
   const { data, error } = await supabase
     .from("commitments")
     .update({
-      clarity_deliverable: input.deliverable,
       clarity_timeline: input.timeline,
       clarity_success: input.success,
       clarity_note: trimmedNote && trimmedNote.length > 0 ? trimmedNote : null,

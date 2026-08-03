@@ -205,8 +205,8 @@
 
 .row {
   display: grid;
-  /* resolve (✓) | delete (×) | description | owner | priority | due | status */
-  grid-template-columns: 32px 32px 1fr 180px 180px 110px 90px;
+  /* resolve (✓) | delete (×) | clarity | description | owner | priority | due | status */
+  grid-template-columns: 32px 32px 32px 1fr 180px 180px 110px 90px;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
@@ -947,12 +947,12 @@ a.fromMeetingChip:hover {
 /* ---- Mobile ---- */
 @media (max-width: 768px) {
   .row {
-    grid-template-columns: 40px 40px minmax(0, 1fr) auto;
+    grid-template-columns: 40px 40px 40px minmax(0, 1fr) auto;
     grid-template-areas:
-      "circle delete description status"
-      ".      .      owner       owner"
-      ".      .      priority    priority"
-      ".      .      due         due";
+      "circle delete clarity description status"
+      ".      .      .       owner       owner"
+      ".      .      .       priority    priority"
+      ".      .      .       due         due";
     row-gap: var(--space-1);
     column-gap: var(--space-3);
   }
@@ -966,12 +966,13 @@ a.fromMeetingChip:hover {
     border-width: 2px;
   }
 
-  /* Assign grid-area on the direct children of .row (seven of them,
-     in order: resolve circle, delete button, description wrapper,
-     owner span, priority cell, due span, status chip). Class-based
-     selectors miss because .rowDescription et al sit inside the
-     wrapper elements, not on them. min-width: 0 lets long words wrap
-     normally instead of forcing their column to intrinsic width. */
+  /* Assign grid-area on the direct children of .row (eight of them,
+     in order: resolve circle, delete button, clarity dot,
+     description wrapper, owner span, priority cell, due span,
+     status chip). Class-based selectors miss because .rowDescription
+     et al sit inside the wrapper elements, not on them. min-width: 0
+     lets long words wrap normally instead of forcing their column to
+     intrinsic width. */
   .row > :nth-child(1) {
     grid-area: circle;
     align-self: start;
@@ -981,22 +982,27 @@ a.fromMeetingChip:hover {
     align-self: start;
   }
   .row > :nth-child(3) {
+    grid-area: clarity;
+    align-self: start;
+    justify-self: center;
+  }
+  .row > :nth-child(4) {
     grid-area: description;
     min-width: 0;
   }
-  .row > :nth-child(4) {
+  .row > :nth-child(5) {
     grid-area: owner;
     min-width: 0;
   }
-  .row > :nth-child(5) {
+  .row > :nth-child(6) {
     grid-area: priority;
     min-width: 0;
   }
-  .row > :nth-child(6) {
+  .row > :nth-child(7) {
     grid-area: due;
     min-width: 0;
   }
-  .row > :nth-child(7) {
+  .row > :nth-child(8) {
     grid-area: status;
     align-self: start;
     justify-self: end;

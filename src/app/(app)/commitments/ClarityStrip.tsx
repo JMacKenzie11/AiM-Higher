@@ -5,10 +5,9 @@ import { setCommitmentClarityAction } from "@/lib/commitments/actions";
 import type { Commitment } from "@/lib/types";
 import styles from "./commitments.module.css";
 
-// "Is this commitment clear?" against the three AiMS criteria:
-//   deliverable — shared understanding of what's being delivered
-//   timeline    — deadline stated and achievable
-//   success     — done looks like something specific
+// "Is this commitment clear?" against the two AiMS criteria:
+//   timeline — deadline is clearly stated
+//   success  — definition of done is well-defined
 //
 // Each is a boolean in the DB; null means "not yet assessed" (a
 // meaningful third state, not the same as false). Both the analyzer
@@ -18,12 +17,9 @@ import styles from "./commitments.module.css";
 export type ClarityState = "clear" | "unclear" | "unassessed";
 
 export function clarityState(
-  c: Pick<
-    Commitment,
-    "clarity_deliverable" | "clarity_timeline" | "clarity_success"
-  >
+  c: Pick<Commitment, "clarity_timeline" | "clarity_success">
 ): ClarityState {
-  const parts = [c.clarity_deliverable, c.clarity_timeline, c.clarity_success];
+  const parts = [c.clarity_timeline, c.clarity_success];
   if (parts.every((p) => p === true)) return "clear";
   if (parts.some((p) => p === false)) return "unclear";
   return "unassessed";
@@ -87,9 +83,6 @@ export function ClarityEditor({
   onSaved: () => void;
   onError: (msg: string) => void;
 }) {
-  const [deliverable, setDeliverable] = useState<boolean | null>(
-    commitment.clarity_deliverable
-  );
   const [timeline, setTimeline] = useState<boolean | null>(
     commitment.clarity_timeline
   );
@@ -102,7 +95,6 @@ export function ClarityEditor({
   function submit() {
     startTransition(async () => {
       const result = await setCommitmentClarityAction(commitment.id, {
-        deliverable,
         timeline,
         success,
         note: note.trim() ? note.trim() : null,
@@ -119,17 +111,11 @@ export function ClarityEditor({
     <div className={styles.resolveStrip}>
       <span className={styles.stripLabel}>Clarity check</span>
       <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)" }}>
-        A clear commitment names a shared deliverable, a stated deadline, and
-        an observable definition of done. Toggle each below.
+        A clear commitment names a stated deadline and an observable
+        definition of done. Toggle each below.
       </p>
       <ClarityToggle
-        label="Both parties share the same picture of the deliverable"
-        value={deliverable}
-        onChange={setDeliverable}
-        disabled={pending}
-      />
-      <ClarityToggle
-        label="Timeline is clear and achievable"
+        label="Timeline is clear"
         value={timeline}
         onChange={setTimeline}
         disabled={pending}

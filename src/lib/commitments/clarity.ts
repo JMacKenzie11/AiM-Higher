@@ -2,12 +2,12 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 
-// Auto-score a single commitment against the three AiMS clarity
-// criteria and (when any fails) return a short refinement note.
+// Auto-score a single commitment against the two AiMS clarity
+// criteria and (when either fails) return a short refinement note.
 //
 // Used by createCommitmentAction so hand-typed commitments get the
 // same feedback as analyzer-extracted ones — a two-word "Test"
-// lands with three amber flags and a suggested rewrite instead of
+// lands with two amber flags and a suggested rewrite instead of
 // sliding through unassessed.
 //
 // Failure is silent: if the API key is missing, the model returns
@@ -20,24 +20,22 @@ const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 const MAX_TOKENS = 400;
 
 export type ClarityScore = {
-  deliverable: boolean;
   timeline: boolean;
   success: boolean;
   note: string | null;
 };
 
-const SYSTEM_PROMPT = `You score a single work commitment against three clarity criteria and return strict JSON.
+const SYSTEM_PROMPT = `You score a single work commitment against two clarity criteria and return strict JSON.
 
 The criteria (each is a boolean, judged from the commitment text alone — do not assume information not stated):
-- deliverable: TRUE only when the commitment clearly names what will be delivered. Vague verbs like "look into", "think about", "explore", "review" without a specific artefact are FALSE.
-- timeline:    TRUE when a specific deadline is stated or implied by the commitment text OR when the caller provides a due_date. "Soon", "next few weeks" with no due_date is FALSE.
-- success:     TRUE when the commitment names an observable outcome or artefact that will show the work is done. Absent, FALSE.
+- timeline: TRUE when a specific deadline is stated or implied by the commitment text, OR when the caller provides a due_date. "Soon", "next few weeks" with no due_date is FALSE.
+- success:  TRUE when the commitment names an observable outcome or artefact that will show the work is done. Vague verbs like "look into", "think about", "explore", "review" without a specific artefact are FALSE.
 
-When any of the three is FALSE, provide a short refinement note (≤160 chars) that rewrites the commitment to satisfy all three. When all three are TRUE, set note to null.
+When either is FALSE, provide a short refinement note (≤160 chars) that rewrites the commitment to satisfy both. When both are TRUE, set note to null.
 
 Return strict JSON in exactly this shape and nothing else — no prose, no code fences:
 
-{"deliverable": boolean, "timeline": boolean, "success": boolean, "note": string|null}`;
+{"timeline": boolean, "success": boolean, "note": string|null}`;
 
 export async function scoreCommitmentClarity(
   description: string,
@@ -83,14 +81,12 @@ function parseScore(raw: string): ClarityScore | null {
   }
   if (!parsed || typeof parsed !== "object") return null;
   const obj = parsed as Record<string, unknown>;
-  const deliverable =
-    typeof obj.deliverable === "boolean" ? obj.deliverable : null;
   const timeline = typeof obj.timeline === "boolean" ? obj.timeline : null;
   const success = typeof obj.success === "boolean" ? obj.success : null;
-  if (deliverable === null || timeline === null || success === null) {
+  if (timeline === null || success === null) {
     return null;
   }
   const note =
     typeof obj.note === "string" ? obj.note.trim().slice(0, 200) || null : null;
-  return { deliverable, timeline, success, note };
+  return { timeline, success, note };
 }
