@@ -74,6 +74,7 @@ export default async function AppLayout({
     <div className={styles.frame}>
       <NavBand
         userName={session.profile.full_name}
+        userRole={session.profile.role}
         isSystemAdmin={isCrossCompanyRole}
         contextLabel={contextLabel}
         showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}

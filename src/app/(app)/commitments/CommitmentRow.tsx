@@ -243,7 +243,7 @@ export function CommitmentRow({
           {commitment.source_meeting_id ? (
             isAdmin ? (
               <Link
-                href={`/admin/transcripts/meetings/${commitment.source_meeting_id}`}
+                href={`/leadership/meetings/${commitment.source_meeting_id}`}
                 className={styles.fromMeetingChip}
                 title="From a meeting transcript — click to view analysis"
               >

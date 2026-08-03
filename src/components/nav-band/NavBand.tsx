@@ -36,7 +36,16 @@ const LOGO_INTRINSIC_HEIGHT = 142;
 // set-once surfaces like Foundation live under Company; multi-page
 // modules like Strengths collapse to one dropdown.
 type Feature = "execution" | "strengths";
-type NavLink = { kind: "link"; label: string; href: string };
+type NavRole = "system_admin" | "company_admin" | "team_member" | "aims_guide";
+// Items may declare `roles` — a caller with a role NOT in the list
+// won't see the item. Missing/null means "everyone". Applied to both
+// top-level links and to individual items within a dropdown group.
+type NavLink = {
+  kind: "link";
+  label: string;
+  href: string;
+  roles?: readonly NavRole[];
+};
 type NavItem =
   | (NavLink & { feature: Feature | null })
   | {
@@ -54,6 +63,12 @@ type NavItem =
 // belong to the same company you're operating on") rather than usage
 // frequency. Foundation used to be alone under Company; now the group
 // has real weight and the top row fits comfortably on one line.
+const ADMIN_ROLES: readonly NavRole[] = [
+  "system_admin",
+  "company_admin",
+  "aims_guide",
+];
+
 const APP_ITEMS: readonly NavItem[] = [
   // Ask Aimee is the primary personal entry point — always visible
   // to every active member, no feature gate. It leads because it's
@@ -70,6 +85,10 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "Chart", href: "/chart" },
       { kind: "link", label: "Commitments", href: "/commitments" },
       { kind: "link", label: "People", href: "/people" },
+      // Leadership hosts meeting-transcript analyses; only admins /
+      // coaches see it. Team members get the resulting commitments
+      // and email, not the full write-up.
+      { kind: "link", label: "Leadership", href: "/leadership", roles: ADMIN_ROLES },
     ],
   },
 ];
@@ -85,6 +104,7 @@ const SYSTEM_ADMIN_ITEMS: readonly NavItem[] = [
 
 export type NavBandProps = {
   userName: string;
+  userRole: NavRole;
   isSystemAdmin: boolean;
   contextLabel?: string;
   showExitScope?: boolean;
@@ -94,6 +114,7 @@ export type NavBandProps = {
 
 export function NavBand({
   userName,
+  userRole,
   isSystemAdmin,
   contextLabel,
   showExitScope = false,
@@ -108,13 +129,20 @@ export function NavBand({
     setMobileOpen(false);
   }, [pathname]);
 
-  // Filter by module subscription. Feature `null` items always render.
-  // The "${company} Dashboard" rebadge is gone — the sub-band already
-  // carries the scoped-company signal on execution surfaces, and the
-  // long label was wrapping the whole nav to three lines.
-  const subscribedApp = APP_ITEMS.filter(
-    (item) => item.feature === null || features.includes(item.feature)
-  );
+  function linkVisible(link: NavLink): boolean {
+    return !link.roles || link.roles.includes(userRole);
+  }
+
+  // Filter by module subscription + per-item role, then trim dropdown
+  // children by role too. Groups with zero visible children collapse
+  // away entirely.
+  const subscribedApp = APP_ITEMS.flatMap<NavItem>((item) => {
+    if (item.feature !== null && !features.includes(item.feature)) return [];
+    if (item.kind === "link") return linkVisible(item) ? [item] : [];
+    const filteredChildren = item.items.filter(linkVisible);
+    if (filteredChildren.length === 0) return [];
+    return [{ ...item, items: filteredChildren }];
+  });
 
   // A system_admin who hasn't scoped into a company can't visit any of
   // the app pages meaningfully — every one redirects to /admin/companies.

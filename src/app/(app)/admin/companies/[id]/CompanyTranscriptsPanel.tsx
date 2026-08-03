@@ -176,7 +176,7 @@ export function CompanyTranscriptsPanel({
                       <td>
                         {m.status === "complete" ? (
                           <Link
-                            href={`/admin/transcripts/meetings/${m.id}`}
+                            href={`/leadership/meetings/${m.id}`}
                             className={styles.ghostButton}
                           >
                             View
