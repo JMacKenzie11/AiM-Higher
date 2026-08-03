@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { canWriteOwnedRow, isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { scoreCommitmentClarity } from "./clarity";
 import type { Commitment, Priority } from "@/lib/types";
 import { fridayOf, todayInTimezone } from "@/lib/dates";
 
@@ -123,8 +124,34 @@ export async function createCommitmentAction(
     return { ok: false, message: "Couldn't save that commitment." };
   }
 
+  // Auto-score against the three clarity criteria so hand-typed
+  // rows get the same feedback as analyzer-extracted ones. Best-
+  // effort: a failed / null score leaves the fields null (== muted
+  // grey dot) and the user can still open the strip and toggle
+  // manually. The save itself is already committed.
+  let finalRow: Commitment = data;
+  try {
+    const score = await scoreCommitmentClarity(description, dueDate);
+    if (score) {
+      const { data: updated } = await supabase
+        .from("commitments")
+        .update({
+          clarity_deliverable: score.deliverable,
+          clarity_timeline: score.timeline,
+          clarity_success: score.success,
+          clarity_note: score.note,
+        })
+        .eq("id", data.id)
+        .select("*")
+        .single<Commitment>();
+      if (updated) finalRow = updated;
+    }
+  } catch (err) {
+    console.warn("Clarity autoscore failed for commitment", data.id, err);
+  }
+
   revalidateCommitmentSurfaces(priorityId);
-  return { ok: true, commitment: data };
+  return { ok: true, commitment: finalRow };
 }
 
 // ---- Kept -----------------------------------------------------
