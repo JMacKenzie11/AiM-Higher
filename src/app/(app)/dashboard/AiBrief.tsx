@@ -3,10 +3,15 @@
 import { useEffect, useState } from "react";
 import styles from "./dashboard.module.css";
 
-// Types the cached AI brief out character-by-character on mount so
-// every visit feels alive, without spending an API call. Respects
-// prefers-reduced-motion — motion-sensitive users see the full text
-// instantly.
+// Types the cached AI brief out character-by-character the FIRST
+// time the user sees a given generation, then just renders it
+// instantly on subsequent visits until the brief refreshes to a
+// newer generatedAt. Also respects prefers-reduced-motion — motion-
+// sensitive users see the full text instantly regardless.
+//
+// Memory lives in localStorage keyed by generatedAt (unique per
+// brief). If the key hasn't been seen, animate + record; otherwise
+// skip the animation.
 
 export type AiBriefProps = {
   content: string;
@@ -14,20 +19,49 @@ export type AiBriefProps = {
 };
 
 const CHAR_INTERVAL_MS = 12; // ~80 chars/sec — brisk but readable
+const SEEN_STORAGE_KEY = "aims.brief.lastSeenGeneratedAt";
 
 export function AiBrief({ content, generatedAt }: AiBriefProps) {
-  const [visible, setVisible] = useState(0);
-  const [done, setDone] = useState(false);
+  // Start fully rendered by default. If the effect below decides an
+  // animation is warranted, it flips back to 0 and steps up. This
+  // avoids an SSR/CSR mismatch flash: the server render matches the
+  // initial client render, then the effect kicks in.
+  const [visible, setVisible] = useState(content.length);
+  const [done, setDone] = useState(true);
 
   useEffect(() => {
+    // Same-brief revisits: skip the animation.
+    let alreadySeen = false;
+    try {
+      alreadySeen =
+        window.localStorage?.getItem(SEEN_STORAGE_KEY) === generatedAt;
+    } catch {
+      // Private mode / disabled storage — treat as "not seen" and
+      // animate. Best UX degradation given we can't remember.
+    }
+    if (alreadySeen) {
+      setVisible(content.length);
+      setDone(true);
+      return;
+    }
+
     if (
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
     ) {
       setVisible(content.length);
       setDone(true);
+      try {
+        window.localStorage?.setItem(SEEN_STORAGE_KEY, generatedAt);
+      } catch {
+        /* ignore */
+      }
       return;
     }
+
+    // Fresh brief — animate.
+    setDone(false);
+    setVisible(0);
 
     let cancelled = false;
     let i = 0;
@@ -40,6 +74,11 @@ export function AiBrief({ content, generatedAt }: AiBriefProps) {
       setVisible(i);
       if (i >= content.length) {
         setDone(true);
+        try {
+          window.localStorage?.setItem(SEEN_STORAGE_KEY, generatedAt);
+        } catch {
+          /* ignore */
+        }
         return;
       }
       window.setTimeout(step, CHAR_INTERVAL_MS);
@@ -50,7 +89,7 @@ export function AiBrief({ content, generatedAt }: AiBriefProps) {
       cancelled = true;
       window.clearTimeout(start);
     };
-  }, [content]);
+  }, [content, generatedAt]);
 
   const shown = content.slice(0, visible);
 
