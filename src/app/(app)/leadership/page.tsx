@@ -71,7 +71,9 @@ export default async function LeadershipPage() {
               <tbody>
                 {meetings.map((m) => (
                   <tr key={m.id}>
-                    <td>{m.meeting_title ?? m.file_name}</td>
+                    <td style={{ fontWeight: 600 }}>
+                      {m.meeting_title ?? m.file_name}
+                    </td>
                     <td className={styles.mutedCell}>
                       {new Date(m.created_at).toLocaleDateString()}
                     </td>
