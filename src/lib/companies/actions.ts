@@ -61,6 +61,29 @@ export async function createCompanyAction(
     };
   }
 
+  // Seed the two default leadership functions every company starts
+  // with. Failure is non-fatal — the admin can add them manually on
+  // the chart page if the insert bounces (usually only would if RLS
+  // shifts underneath us).
+  await supabase.from("functions").insert([
+    {
+      company_id: data.id,
+      parent_function_id: null,
+      title: "Visionary",
+      description:
+        "CEO — sets the long-term vision, priorities and cultural tone.",
+      sort_order: 0,
+    },
+    {
+      company_id: data.id,
+      parent_function_id: null,
+      title: "Integrator",
+      description:
+        "COO — turns the vision into execution across the leadership team.",
+      sort_order: 1,
+    },
+  ]);
+
   revalidatePath("/admin/companies");
 
   // Callers can opt into an immediate redirect (Phase 2 minimal admin
