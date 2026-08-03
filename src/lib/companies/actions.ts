@@ -62,27 +62,33 @@ export async function createCompanyAction(
   }
 
   // Seed the two default leadership functions every company starts
-  // with. Failure is non-fatal — the admin can add them manually on
-  // the chart page if the insert bounces (usually only would if RLS
-  // shifts underneath us).
-  await supabase.from("functions").insert([
-    {
+  // with. Visionary is the single top-level box; Integrator reports
+  // to it. Every subsequent function the operator adds must pick a
+  // parent (Visionary, Integrator, or any downstream function).
+  // Failure is non-fatal — the admin can add them manually on the
+  // chart page if the insert bounces.
+  const { data: visionary } = await supabase
+    .from("functions")
+    .insert({
       company_id: data.id,
       parent_function_id: null,
       title: "Visionary",
       description:
         "CEO — sets the long-term vision, priorities and cultural tone.",
       sort_order: 0,
-    },
-    {
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
+  if (visionary?.id) {
+    await supabase.from("functions").insert({
       company_id: data.id,
-      parent_function_id: null,
+      parent_function_id: visionary.id,
       title: "Integrator",
       description:
         "COO — turns the vision into execution across the leadership team.",
-      sort_order: 1,
-    },
-  ]);
+      sort_order: 0,
+    });
+  }
 
   revalidatePath("/admin/companies");
 
