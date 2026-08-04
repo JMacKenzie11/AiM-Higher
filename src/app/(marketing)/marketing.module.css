@@ -454,6 +454,16 @@
   max-width: 18ch;
 }
 
+.problemIntro {
+  margin: var(--space-4) 0 var(--space-6);
+  color: var(--text);
+  font: var(--text-body);
+  font-size: 17px;
+  line-height: 1.65;
+  max-width: 64ch;
+  text-wrap: balance;
+}
+
 .problemRule {
   display: block;
   height: 3px;
@@ -1227,6 +1237,148 @@
   margin: 0;
 }
 
+/* ---- Investment replacement section (sand) ---- */
+
+.investment {
+  background: var(--bg);
+}
+
+.investmentIntro {
+  margin: 0 0 var(--space-6);
+  color: var(--text);
+  font: var(--text-body);
+  font-size: 17px;
+  line-height: 1.65;
+  max-width: 64ch;
+  text-wrap: balance;
+}
+
+.investmentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.investmentCard {
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.investmentCardTitle {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.3;
+  color: var(--text-heading);
+}
+
+.investmentCardBody {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Closing line beneath the cards — bigger, editorial paragraph
+   matching the .aims-prose voice used across the app. */
+.investmentClose {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body);
+  font-size: 20px;
+  line-height: 1.55;
+  max-width: 68ch;
+  text-wrap: balance;
+  padding: var(--space-5) var(--space-6);
+  background: var(--surface);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+/* ---- Origin story + stat band (white section) ---- */
+
+.origin {
+  background: var(--surface);
+}
+
+.originGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: var(--space-8);
+  align-items: start;
+}
+
+.originStory {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.originStory p {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body);
+  font-size: 17px;
+  line-height: 1.7;
+  max-width: 62ch;
+}
+
+.statBand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-md);
+}
+
+.statBandLabel {
+  margin: 0 0 var(--space-2);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.statTileGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.statTile {
+  padding: var(--space-4);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statTileValue {
+  font: var(--text-stat);
+  color: var(--text-heading);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1;
+}
+
+.statTileCaption {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* ---- Closing CTA ---- */
 
 .closingCta {
@@ -1338,7 +1490,8 @@
 
   .heroInner,
   .forCoachesInner,
-  .featureRow {
+  .featureRow,
+  .originGrid {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-6);
   }

@@ -1,21 +1,32 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { MobileNavToggle } from "./MobileNavToggle";
+import { usePathname } from "next/navigation";
+import { MobileNavToggle, type NavLink } from "./MobileNavToggle";
 import { demoUrl } from "./demo-url";
 import styles from "./marketing.module.css";
 
-// Sticky slim marketing nav. White bar with a subtle border. Anchor
-// links jump to page sections; primary CTA is the demo booking link.
-// Sign-in stays quiet — it's for returning users, not the visitor
-// this page is written for.
+// Sticky slim marketing nav. Links flip based on route: on / the
+// anchor links jump to sections and "For coaches" links to /coaches;
+// on /coaches the nav collapses to a single "For owners" link back
+// to /. Client component so it can read pathname without doing a
+// session fetch from the server layout.
 
-const NAV_LINKS: Array<{ label: string; href: string }> = [
+const OWNER_LINKS: NavLink[] = [
   { label: "Platform", href: "#platform" },
   { label: "How it works", href: "#how-it-works" },
-  { label: "For coaches", href: "#for-coaches" },
+  { label: "For coaches", href: "/coaches" },
+];
+
+const COACH_LINKS: NavLink[] = [
+  { label: "For owners", href: "/" },
 ];
 
 export function MarketingHeader() {
+  const pathname = usePathname() ?? "/";
+  const links = pathname.startsWith("/coaches") ? COACH_LINKS : OWNER_LINKS;
+
   return (
     <header className={styles.header}>
       <div className={styles.headerInner}>
@@ -32,7 +43,7 @@ export function MarketingHeader() {
 
         <nav className={styles.headerNav} aria-label="Primary">
           <ul className={styles.headerNavList}>
-            {NAV_LINKS.map((l) => (
+            {links.map((l) => (
               <li key={l.href}>
                 <a href={l.href} className={styles.headerNavLink}>
                   {l.label}
@@ -51,7 +62,7 @@ export function MarketingHeader() {
           </a>
         </div>
 
-        <MobileNavToggle links={NAV_LINKS} />
+        <MobileNavToggle links={links} />
       </div>
     </header>
   );

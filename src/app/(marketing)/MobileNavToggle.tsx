@@ -9,10 +9,12 @@ import styles from "./marketing.module.css";
 // the tablet breakpoint (the desktop nav is display:none there via
 // CSS) and expands a drawer with the anchor links + CTAs when open.
 
+export type NavLink = { label: string; href: string };
+
 export function MobileNavToggle({
   links,
 }: {
-  links: Array<{ label: string; href: string }>;
+  links: NavLink[];
 }) {
   const [open, setOpen] = useState(false);
   return (
