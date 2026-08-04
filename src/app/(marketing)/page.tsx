@@ -166,7 +166,7 @@ export default function LandingPage() {
       <section className={styles.origin}>
         <div className={styles.sectionInner}>
           <h2 className={styles.sectionHeadline}>
-            Built from scar tissue, not a whiteboard.
+            Built inside a real business, not a workshop.
           </h2>
           <span className={styles.sectionRule} aria-hidden="true" />
           <div className={styles.originGrid}>

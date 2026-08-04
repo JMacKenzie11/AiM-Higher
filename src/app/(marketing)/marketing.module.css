@@ -489,6 +489,15 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  transition: transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.problemCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--aims-cobalt) 30%, var(--border));
 }
 
 .problemCardTitle {
@@ -1161,6 +1170,15 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  transition: transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.pillarCol:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--aims-cobalt) 30%, var(--border));
 }
 
 .pillarEyebrow {
@@ -1241,7 +1259,7 @@
   font: var(--text-body);
   font-size: 16px;
   line-height: 1.65;
-  max-width: 52ch;
+  text-wrap: pretty;
 }
 
 .forCoachesCtaRow {
@@ -1310,6 +1328,15 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  transition: transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.howCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--aims-cobalt) 30%, var(--border));
 }
 
 .howStepNumber {
@@ -1436,6 +1463,15 @@
   flex-direction: column;
   gap: var(--space-2);
   height: 100%;
+  transition: transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.investmentCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--aims-cobalt) 30%, var(--border));
 }
 
 .investmentCardTitle {
@@ -1581,8 +1617,7 @@
   opacity: 0.85;
   font: var(--text-body);
   font-size: 16px;
-  max-width: 52ch;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 /* ---- Footer ---- */
@@ -1639,6 +1674,24 @@
   opacity: 1;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* Reduce-motion — kill the card lift for anyone who prefers less
+   motion. Colour hover stays; only the transform is silenced. */
+@media (prefers-reduced-motion: reduce) {
+  .problemCard,
+  .investmentCard,
+  .pillarCol,
+  .howCard {
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+  .problemCard:hover,
+  .investmentCard:hover,
+  .pillarCol:hover,
+  .howCard:hover {
+    transform: none;
+    box-shadow: var(--shadow-sm);
+  }
 }
 
 /* ============================================================
