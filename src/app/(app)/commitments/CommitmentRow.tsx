@@ -311,118 +311,6 @@ export function CommitmentRow({
             {error}
           </p>
         ) : null}
-
-        {showReason && isOverdue ? (
-          <div className={styles.resolveStrip}>
-            <label
-              htmlFor={`reason-${commitment.id}`}
-              className={styles.stripLabel}
-            >
-              What happened?
-            </label>
-            <textarea
-              id={`reason-${commitment.id}`}
-              className={styles.stripTextarea}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={2}
-              disabled={pending}
-              placeholder="A short note — this is the opportunity to improve."
-              autoFocus
-            />
-            <div className={styles.stripSubmitRow}>
-              <button
-                type="button"
-                className={styles.ghostButton}
-                onClick={() => {
-                  setShowReason(false);
-                  setReason("");
-                }}
-                disabled={pending}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={submitClose}
-                disabled={pending || !reason.trim()}
-              >
-                {pending ? "Saving…" : "Close it"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {showReschedule && isOpen ? (
-          <div className={styles.resolveStrip}>
-            <label
-              htmlFor={`reschedule-date-${commitment.id}`}
-              className={styles.stripLabel}
-            >
-              Move to
-            </label>
-            <input
-              id={`reschedule-date-${commitment.id}`}
-              type="date"
-              className={styles.stripInput}
-              value={rescheduleDate}
-              onChange={(e) => setRescheduleDate(e.target.value)}
-              disabled={pending}
-            />
-            <label
-              htmlFor={`reschedule-reason-${commitment.id}`}
-              className={styles.stripLabel}
-            >
-              Reason
-            </label>
-            <textarea
-              id={`reschedule-reason-${commitment.id}`}
-              className={styles.stripTextarea}
-              value={rescheduleReason}
-              onChange={(e) => setRescheduleReason(e.target.value)}
-              rows={2}
-              disabled={pending}
-              placeholder="Enter a reason for moving the due date"
-            />
-            <div className={styles.stripSubmitRow}>
-              <button
-                type="button"
-                className={styles.ghostButton}
-                onClick={() => {
-                  setShowReschedule(false);
-                  setRescheduleDate(commitment.due_date);
-                  setRescheduleReason("");
-                }}
-                disabled={pending}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={submitReschedule}
-                disabled={
-                  pending ||
-                  !rescheduleReason.trim() ||
-                  !rescheduleDate ||
-                  rescheduleDate === commitment.due_date
-                }
-              >
-                {pending ? "Saving…" : "Reschedule"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {showClarity && canResolve ? (
-          <ClarityEditor
-            commitment={commitment}
-            onCancel={() => setShowClarity(false)}
-            onSaved={() => setShowClarity(false)}
-            onError={setError}
-          />
-        ) : null}
       </div>
 
       <OwnerCell
@@ -513,6 +401,122 @@ export function CommitmentRow({
       ) : (
         <span aria-hidden />
       )}
+
+      {/* Full-width editor strips — direct grid children so
+          grid-column: 1 / -1 spans the whole row. Previously nested
+          inside the description cell, which cramped them to one
+          column while the row furniture stranded off to the right. */}
+      {showReason && isOverdue ? (
+        <div className={styles.resolveStrip}>
+          <label
+            htmlFor={`reason-${commitment.id}`}
+            className={styles.stripLabel}
+          >
+            What happened?
+          </label>
+          <textarea
+            id={`reason-${commitment.id}`}
+            className={styles.stripTextarea}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            disabled={pending}
+            placeholder="A short note — this is the opportunity to improve."
+            autoFocus
+          />
+          <div className={styles.stripSubmitRow}>
+            <button
+              type="button"
+              className={styles.ghostButton}
+              onClick={() => {
+                setShowReason(false);
+                setReason("");
+              }}
+              disabled={pending}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={submitClose}
+              disabled={pending || !reason.trim()}
+            >
+              {pending ? "Saving…" : "Close it"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showReschedule && isOpen ? (
+        <div className={styles.resolveStrip}>
+          <label
+            htmlFor={`reschedule-date-${commitment.id}`}
+            className={styles.stripLabel}
+          >
+            Move to
+          </label>
+          <input
+            id={`reschedule-date-${commitment.id}`}
+            type="date"
+            className={styles.stripInput}
+            value={rescheduleDate}
+            onChange={(e) => setRescheduleDate(e.target.value)}
+            disabled={pending}
+          />
+          <label
+            htmlFor={`reschedule-reason-${commitment.id}`}
+            className={styles.stripLabel}
+          >
+            Reason
+          </label>
+          <textarea
+            id={`reschedule-reason-${commitment.id}`}
+            className={styles.stripTextarea}
+            value={rescheduleReason}
+            onChange={(e) => setRescheduleReason(e.target.value)}
+            rows={2}
+            disabled={pending}
+            placeholder="Enter a reason for moving the due date"
+          />
+          <div className={styles.stripSubmitRow}>
+            <button
+              type="button"
+              className={styles.ghostButton}
+              onClick={() => {
+                setShowReschedule(false);
+                setRescheduleDate(commitment.due_date);
+                setRescheduleReason("");
+              }}
+              disabled={pending}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={submitReschedule}
+              disabled={
+                pending ||
+                !rescheduleReason.trim() ||
+                !rescheduleDate ||
+                rescheduleDate === commitment.due_date
+              }
+            >
+              {pending ? "Saving…" : "Reschedule"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showClarity && canResolve ? (
+        <ClarityEditor
+          commitment={commitment}
+          onCancel={() => setShowClarity(false)}
+          onSaved={() => setShowClarity(false)}
+          onError={setError}
+        />
+      ) : null}
 
       {canDelete ? (
         <ConfirmDialog

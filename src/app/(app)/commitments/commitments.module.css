@@ -830,7 +830,10 @@ a.fromMeetingChip:hover {
   }
 }
 
-/* ---- Resolve strip (overdue open only) ---- */
+/* ---- Full-width editor strip (reason / reschedule / clarity) ----
+   Sits as a direct grid child of .row so grid-column: 1 / -1 spans
+   the whole row underneath the row's cells. The row's grid gap
+   already spaces it from the cells above; no margin-top needed. */
 .resolveStrip {
   grid-column: 1 / -1;
   background: var(--aims-navy-tint);
@@ -839,7 +842,6 @@ a.fromMeetingChip:hover {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  margin-top: var(--space-3);
   border-radius: var(--radius-sm);
 }
 
