@@ -152,6 +152,115 @@
   font: var(--text-caption);
 }
 
+/* ---- Setup checklist (first-run scaffold) ---- */
+
+.setupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.setupProgressBadge {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt);
+  font: var(--text-caption);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.setupList {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.setupItem {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.setupItem[data-done="true"] {
+  background: color-mix(in srgb, var(--aims-success-tint) 60%, var(--surface));
+  border-color: color-mix(in srgb, var(--aims-success) 25%, transparent);
+}
+
+.setupBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.setupItem[data-done="true"] .setupBadge {
+  background: var(--aims-success);
+  color: var(--aims-white);
+}
+
+.setupBody {
+  min-width: 0;
+}
+
+.setupItemTitle {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 15px;
+}
+
+.setupItemDescription {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.setupStepLink {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.setupStepLink:hover {
+  background: var(--primary-hover);
+}
+
+.setupDoneLabel {
+  font: var(--text-caption);
+  color: var(--aims-success);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
 /* ---- Content stack ---- */
 
 .content {

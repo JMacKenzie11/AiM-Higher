@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDashboardData } from "@/lib/dashboard/service";
 import { getMeasureInsights } from "@/lib/measures/insights";
 import { getMeasuresOwnedBy } from "@/lib/measures/service";
@@ -16,6 +17,7 @@ import { BriefSection, BriefLoading } from "./BriefSection";
 import { HeroStat } from "./HeroStat";
 import { MeasureInsightsCards } from "./MeasureInsightsCards";
 import { PendingMeasuresCard } from "./PendingMeasuresCard";
+import { SetupChecklist, type SetupStep } from "./SetupChecklist";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./dashboard.module.css";
 
@@ -39,6 +41,61 @@ export default async function DashboardPage() {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+
+  // First-run setup checklist — only rendered when the caller is admin
+  // AND at least one setup step is incomplete. Cheap read: one extra
+  // query for the foundation row. Everything else is already loaded.
+  let setupSteps: SetupStep[] | null = null;
+  if (isAdmin) {
+    const supabase = await createSupabaseServerClient();
+    const { data: foundationRow } = await supabase
+      .from("company_foundation")
+      .select("purpose_statement, vision")
+      .eq("company_id", companyId)
+      .maybeSingle<{ purpose_statement: string | null; vision: string | null }>();
+    const hasFoundation = Boolean(
+      foundationRow?.purpose_statement?.trim() || foundationRow?.vision?.trim()
+    );
+    const hasPeople = data.people.length > 1; // owner alone doesn't count
+    const hasQuarter = Boolean(data.openQuarter);
+    const hasPlan = data.sfas.length > 0;
+    const candidateSteps: SetupStep[] = [
+      {
+        key: "foundation",
+        label: "Set the foundation",
+        description:
+          "Purpose, vision, and core values — the north star everything else hangs from.",
+        href: "/foundation",
+        done: hasFoundation,
+      },
+      {
+        key: "people",
+        label: "Invite the team",
+        description:
+          "Add the leadership team so commitments and coaching have real names to land on.",
+        href: "/people",
+        done: hasPeople,
+      },
+      {
+        key: "quarter",
+        label: "Open a quarter",
+        description:
+          "Quarters bracket every plan and priority. Nothing can be added until one is open.",
+        href: "/quarters",
+        done: hasQuarter,
+      },
+      {
+        key: "plan",
+        label: "Build the plan",
+        description:
+          "Strategic Focus Areas → annual goals → 90-day priorities. Start with one Focus Area.",
+        href: "/plan",
+        done: hasPlan,
+      },
+    ];
+    const anyIncomplete = candidateSteps.some((s) => !s.done);
+    if (anyIncomplete) setupSteps = candidateSteps;
+  }
 
   const { measures: ownedMeasures, weekEnding: measuresWeekEnding } =
     perfTrackingOn
@@ -97,6 +154,7 @@ export default async function DashboardPage() {
           <div className={styles.statRow}>
             <HeroStat
               label="Strategic Progress"
+              caption="Focus Areas this quarter"
               tooltip="Average progress across your Strategic Focus Areas this quarter. Rolls up from priority-level progress and reflects only strategic commitments — operational (unlinked) commitments don't count here."
               value={
                 data.headline.executionPercent === null ? (
@@ -110,6 +168,7 @@ export default async function DashboardPage() {
             />
             <HeroStat
               label="Follow-Through Rate"
+              caption="Resolved on time this quarter"
               tooltip="Of all commitments resolved this quarter, the share that closed on time. Both strategic and operational commitments count."
               value={
                 data.headline.keepRatePercent === null ? (
@@ -123,6 +182,7 @@ export default async function DashboardPage() {
             />
             <HeroStat
               label="On Track"
+              caption="Priorities pacing to hit target"
               value={
                 data.headline.onTrack.total === 0 ? (
                   "—"
@@ -136,10 +196,12 @@ export default async function DashboardPage() {
             />
             <HeroStat
               label="Open This Week"
+              caption="Commitments due by Friday"
               value={<AnimatedNumber value={data.headline.thisWeekOpen} />}
             />
             <HeroStat
               label="Commitment Clarity"
+              caption="Timeline + success defined"
               tooltip={
                 data.headline.clarityAssessedCount === 0
                   ? "Once commitments are assessed against the two clarity criteria (timeline, definition of done), this shows the share that meet both."
@@ -161,6 +223,13 @@ export default async function DashboardPage() {
 
       {/* ============ Content, overlapping the hero ============ */}
       <div className={styles.content}>
+        {setupSteps ? (
+          <SetupChecklist
+            steps={setupSteps}
+            companyName={data.company.name}
+          />
+        ) : null}
+
         {/* --- Week in review (admin-only, streamed via Suspense so
               the rest of the dashboard renders immediately while the
               model call is in flight) --- */}

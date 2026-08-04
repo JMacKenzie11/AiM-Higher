@@ -44,6 +44,54 @@
   font-style: italic;
 }
 
+/* Danger zone — closes for actions that would blow away plan
+   content. Deliberately below the fold and collapsed by default so
+   it can't sit next to primary create actions and get misclicked. */
+.dangerZone {
+  margin-top: var(--space-6);
+  border: 1px dashed var(--aims-danger);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--aims-danger-tint) 60%, transparent);
+}
+
+.dangerZoneSummary {
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--aims-danger);
+  cursor: pointer;
+  list-style: none;
+}
+
+.dangerZoneSummary::-webkit-details-marker {
+  display: none;
+}
+
+.dangerZoneSummary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: var(--space-2);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.dangerZone[open] .dangerZoneSummary::before {
+  transform: rotate(90deg);
+}
+
+.dangerZoneBody {
+  padding: 0 var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.dangerZoneCopy {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text);
+  max-width: 68ch;
+}
+
 .resetButton {
   height: var(--control-h-md);
   padding: 0 var(--space-4);

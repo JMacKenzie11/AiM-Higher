@@ -99,62 +99,114 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
         type={filters.type}
       />
 
-      <section className={styles.group} aria-labelledby="commitments-main">
-        <div className={styles.groupHeader}>
-          <h2 id="commitments-main" className={styles.groupTitle}>
-            Commitments
-          </h2>
-          <span className={styles.groupMeta}>
-            {data.mainList.length}{" "}
-            {data.mainList.length === 1 ? "commitment" : "commitments"}
-          </span>
-        </div>
-        <ul className={styles.rowList}>
-          {(() => {
-            // Sort so unassigned rows land at the bottom of this
-            // week's list under a subtle divider. Prior weeks get
-            // the same treatment inside PriorWeekRow.
-            const assigned = data.mainList.filter((c) => c.owner_id !== null);
-            const unassigned = data.mainList.filter((c) => c.owner_id === null);
-            const rosterMinimal = data.roster.map((p) => ({
-              id: p.id,
-              full_name: p.full_name,
-            }));
-            const renderRow = (c: typeof data.mainList[number]) => (
-              <CommitmentRow
-                key={c.id}
-                commitment={c}
+      {(() => {
+        // Split mainList so the past-week still-open items surface in
+        // their own "Needs attention" group pinned above This week.
+        // The comment at the top of this file (and the header pill on
+        // the same page) has always promised this grouping; the render
+        // path had drifted to a single flat list.
+        const needsAttention = data.mainList.filter(
+          (c) => c.status === "open" && c.due_date < data.thisFriday
+        );
+        const thisWeekList = data.mainList.filter(
+          (c) => !(c.status === "open" && c.due_date < data.thisFriday)
+        );
+        const rosterMinimal = data.roster.map((p) => ({
+          id: p.id,
+          full_name: p.full_name,
+        }));
+        const renderRow = (c: typeof data.mainList[number]) => (
+          <CommitmentRow
+            key={c.id}
+            commitment={c}
+            priorityOptions={data.priorityOptions}
+            roster={rosterMinimal}
+            todayIso={data.todayIso}
+            canResolve={canWriteOwnedRow(session.profile, c)}
+            canLink={canWriteOwnedRow(session.profile, c)}
+            canReassign={canWriteOwnedRow(session.profile, c)}
+            currentUserId={session.profile.id}
+            isAdmin={isAdmin}
+          />
+        );
+
+        return (
+          <>
+            {needsAttention.length > 0 ? (
+              <section
+                className={styles.group}
+                aria-labelledby="commitments-needs-attention"
+              >
+                <div className={styles.groupHeader}>
+                  <h2
+                    id="commitments-needs-attention"
+                    className={`${styles.groupTitle} ${styles.groupTitleNeedsAttention}`}
+                  >
+                    Needs attention
+                  </h2>
+                  <span className={styles.groupMeta}>
+                    {needsAttention.length} overdue
+                  </span>
+                </div>
+                <ul className={styles.rowList}>
+                  {needsAttention.map(renderRow)}
+                </ul>
+              </section>
+            ) : null}
+
+            <section
+              className={styles.group}
+              aria-labelledby="commitments-this-week"
+            >
+              <div className={styles.groupHeader}>
+                <h2
+                  id="commitments-this-week"
+                  className={styles.groupTitle}
+                >
+                  This week
+                </h2>
+                <span className={styles.groupMeta}>
+                  {thisWeekList.length}{" "}
+                  {thisWeekList.length === 1 ? "commitment" : "commitments"}
+                </span>
+              </div>
+              <ul className={styles.rowList}>
+                {(() => {
+                  const assigned = thisWeekList.filter(
+                    (c) => c.owner_id !== null
+                  );
+                  const unassigned = thisWeekList.filter(
+                    (c) => c.owner_id === null
+                  );
+                  return (
+                    <>
+                      {assigned.map(renderRow)}
+                      {unassigned.length > 0 ? (
+                        <li className={styles.unassignedHeading}>
+                          Unassigned
+                        </li>
+                      ) : null}
+                      {unassigned.map(renderRow)}
+                    </>
+                  );
+                })()}
+              </ul>
+              <InlineAddRow
+                thisFriday={data.thisFriday}
                 priorityOptions={data.priorityOptions}
-                roster={rosterMinimal}
-                todayIso={data.todayIso}
-                canResolve={canWriteOwnedRow(session.profile, c)}
-                canLink={canWriteOwnedRow(session.profile, c)}
-                canReassign={canWriteOwnedRow(session.profile, c)}
+                roster={data.roster.map((p) => ({
+                  id: p.id,
+                  full_name: p.full_name,
+                }))}
                 currentUserId={session.profile.id}
                 isAdmin={isAdmin}
+                quarterCoversThisWeek={data.quarterCoversThisWeek}
+                noQuarterMessage={noQuarterMessage}
               />
-            );
-            return (
-              <>
-                {assigned.map(renderRow)}
-                {unassigned.length > 0 ? (
-                  <li className={styles.unassignedHeading}>Unassigned</li>
-                ) : null}
-                {unassigned.map(renderRow)}
-              </>
-            );
-          })()}
-        </ul>
-        <InlineAddRow
-          thisFriday={data.thisFriday}
-          priorityOptions={data.priorityOptions}
-          roster={data.roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
-          currentUserId={session.profile.id}
-          isAdmin={isAdmin}
-          quarterCoversThisWeek={data.quarterCoversThisWeek}
-          noQuarterMessage={noQuarterMessage}
-        />
-      </section>
+            </section>
+          </>
+        );
+      })()}
 
       {data.priorWeeks.length > 0 ? (
         <section aria-labelledby="prior-weeks">

@@ -101,6 +101,12 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 + {quarters.length === 0 ? "Open your first quarter" : "Open next quarter"}
               </Link>
             ) : null}
+            {/* Progressive add — the cascade only reads correctly if
+                built top-down. Reveal each next level only once the
+                previous one has something to hang from. Bulk Reset
+                has moved out of this toolbar into a dedicated danger
+                zone at the bottom of the page so it can't be
+                mistaken for a primary create action. */}
             <details className={styles.toolbarAddDetails}>
               <summary className={styles.toolbarAddSummary}>
                 + Add Strategic Focus Area
@@ -109,19 +115,21 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 <AddSfaForm people={roster} />
               </div>
             </details>
-            <details className={styles.toolbarAddDetails}>
-              <summary className={styles.toolbarAddSummary}>
-                + Add Annual Goal
-              </summary>
-              <div className={styles.toolbarAddPanel}>
-                <AddGoalForm
-                  defaultSfaId={null}
-                  sfaOptions={sfaOptions}
-                  people={roster}
-                />
-              </div>
-            </details>
-            {selectedQuarter ? (
+            {sfaOptions.length > 0 ? (
+              <details className={styles.toolbarAddDetails}>
+                <summary className={styles.toolbarAddSummary}>
+                  + Add Annual Goal
+                </summary>
+                <div className={styles.toolbarAddPanel}>
+                  <AddGoalForm
+                    defaultSfaId={null}
+                    sfaOptions={sfaOptions}
+                    people={roster}
+                  />
+                </div>
+              </details>
+            ) : null}
+            {selectedQuarter && goalOptions.length > 0 ? (
               <details className={styles.toolbarAddDetails}>
                 <summary className={styles.toolbarAddSummary}>
                   + Add 90-Day Priority
@@ -136,12 +144,6 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 </div>
               </details>
             ) : null}
-            <BulkResetButton
-              companyId={companyId}
-              sfaCount={resetImpact.sfaCount}
-              goalCount={resetImpact.goalCount}
-              priorityCount={resetImpact.priorityCount}
-            />
           </div>
         ) : null}
       </div>
@@ -422,6 +424,31 @@ export default async function PlanPage({ searchParams }: PageProps) {
 
           </div>
           </PlanCascadeController>
+
+      {isAdmin &&
+      (resetImpact.sfaCount > 0 ||
+        resetImpact.goalCount > 0 ||
+        resetImpact.priorityCount > 0) ? (
+        <details className={styles.dangerZone}>
+          <summary className={styles.dangerZoneSummary}>
+            Danger zone — bulk actions
+          </summary>
+          <div className={styles.dangerZoneBody}>
+            <p className={styles.dangerZoneCopy}>
+              Bulk reset wipes every Strategic Focus Area, Annual Goal,
+              and 90-Day Priority in this company. Commitments are kept
+              (they'll go orphaned). Only useful when you're starting
+              the plan cascade over from scratch.
+            </p>
+            <BulkResetButton
+              companyId={companyId}
+              sfaCount={resetImpact.sfaCount}
+              goalCount={resetImpact.goalCount}
+              priorityCount={resetImpact.priorityCount}
+            />
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }
