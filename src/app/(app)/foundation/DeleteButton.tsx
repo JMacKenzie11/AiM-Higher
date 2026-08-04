@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import styles from "./foundation.module.css";
 
 // Generic delete button used by every deletable row on /foundation.
@@ -14,19 +15,23 @@ import styles from "./foundation.module.css";
 export function DeleteButton({
   action,
   itemId,
-  confirmMessage = "Delete this?",
+  confirmMessage = "Delete this item?",
   label = "Delete",
 }: {
   action: (id: string) => Promise<{ ok: true } | { ok: false; message: string }>;
   itemId: string;
+  // Kept as `confirmMessage` for API compatibility with existing
+  // callers on /foundation. Used as the ConfirmDialog title so a
+  // question like "Delete this metric?" reads correctly.
   confirmMessage?: string;
   label?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
-  function onClick() {
-    if (!confirm(confirmMessage)) return;
+  function run() {
+    setConfirming(false);
     setError(null);
     startTransition(async () => {
       const result = await action(itemId);
@@ -39,7 +44,7 @@ export function DeleteButton({
       <button
         type="button"
         className={styles.dangerGhostButton}
-        onClick={onClick}
+        onClick={() => setConfirming(true)}
         disabled={pending}
       >
         {pending ? "…" : label}
@@ -49,6 +54,16 @@ export function DeleteButton({
           {error}
         </span>
       ) : null}
+      <ConfirmDialog
+        open={confirming}
+        title={confirmMessage}
+        message="This can't be undone."
+        confirmLabel={label}
+        tone="danger"
+        onConfirm={run}
+        onCancel={() => setConfirming(false)}
+        pending={pending}
+      />
     </>
   );
 }

@@ -7,6 +7,7 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationReview } from "@/components/leadership/FacilitationReview";
+import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
 import type { Meeting, MeetingAnalysis, Profile } from "@/lib/types";
 import styles from "../../../admin/companies/admin.module.css";
@@ -106,6 +107,14 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       </section>
 
       <div className={styles.content}>
+        <div style={{ display: "flex" }}>
+          <PrivacyNote tone="managerial">
+            Meeting analyses and facilitation reviews are visible to system
+            admins, company admins, and AiMS Guides for this company only.
+            Meeting participants don&rsquo;t see this page.
+          </PrivacyNote>
+        </div>
+
         {commitmentRows.length > 0 ? (
           <section className={styles.card} aria-labelledby="cmt">
             <h2 id="cmt" className={styles.h2}>

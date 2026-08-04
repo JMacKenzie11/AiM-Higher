@@ -1,7 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { archiveConversationAction } from "@/lib/coach/actions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import styles from "../coach.module.css";
 
 export function ArchiveConversationButton({
@@ -10,23 +11,43 @@ export function ArchiveConversationButton({
   conversationId: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function run() {
-    if (!confirm("Archive this conversation? It'll disappear from the list.")) return;
+    setConfirmOpen(false);
+    setError(null);
     startTransition(async () => {
       const result = await archiveConversationAction(conversationId);
-      if (!result.ok) alert(result.message);
+      if (!result.ok) setError(result.message);
     });
   }
 
   return (
-    <button
-      type="button"
-      className={styles.ghostButton}
-      onClick={run}
-      disabled={pending}
-    >
-      {pending ? "…" : "Archive"}
-    </button>
+    <>
+      <button
+        type="button"
+        className={styles.ghostButton}
+        onClick={() => setConfirmOpen(true)}
+        disabled={pending}
+      >
+        {pending ? "…" : "Archive"}
+      </button>
+      {error ? (
+        <span role="alert" style={{ color: "var(--aims-danger)", fontSize: 12 }}>
+          {error}
+        </span>
+      ) : null}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Archive this conversation?"
+        message="It disappears from the list. The messages stay on file for the caller who owns the thread."
+        confirmLabel="Archive"
+        tone="danger"
+        onConfirm={run}
+        onCancel={() => setConfirmOpen(false)}
+        pending={pending}
+      />
+    </>
   );
 }

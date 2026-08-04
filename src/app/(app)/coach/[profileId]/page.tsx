@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listConversationsForSubject } from "@/lib/coach/service";
 import { NewConversationButton } from "./NewConversationButton";
 import { ArchiveConversationButton } from "./ArchiveConversationButton";
+import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import type { Profile } from "@/lib/types";
 import styles from "../coach.module.css";
 
@@ -62,6 +63,14 @@ export default async function CoachListPage({ params }: PageProps) {
           <p className={styles.conversationMeta}>{subject.position}</p>
         ) : null}
       </header>
+
+      <div style={{ marginTop: "var(--space-3)" }}>
+        <PrivacyNote tone="managerial">
+          Coaching threads about {firstName} are visible to system admins,
+          company admins, and {firstName}&rsquo;s direct manager. {firstName}{" "}
+          cannot see them.
+        </PrivacyNote>
+      </div>
 
       <div className={styles.listActions}>
         <NewConversationButton profileId={profileId} />

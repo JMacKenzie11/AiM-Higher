@@ -6,6 +6,7 @@ import {
   deleteAttachmentAction,
   uploadAttachmentAction,
 } from "@/lib/classroom/actions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { ClassroomAttachment } from "@/lib/classroom/types";
 import styles from "../../../../companies/admin.module.css";
 
@@ -22,6 +23,9 @@ export function AttachmentsPanel({
     null
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  const [pendingRemove, setPendingRemove] = useState<ClassroomAttachment | null>(
+    null
+  );
 
   function upload(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
@@ -41,8 +45,10 @@ export function AttachmentsPanel({
     });
   }
 
-  function remove(id: string) {
-    if (!confirm("Remove this attachment?")) return;
+  function runRemove() {
+    if (!pendingRemove) return;
+    const id = pendingRemove.id;
+    setPendingRemove(null);
     setMessage(null);
     startTransition(async () => {
       const result = await deleteAttachmentAction(id);
@@ -101,7 +107,7 @@ export function AttachmentsPanel({
                     type="button"
                     className={styles.dangerGhost}
                     disabled={pending}
-                    onClick={() => remove(a.id)}
+                    onClick={() => setPendingRemove(a)}
                   >
                     Remove
                   </button>
@@ -111,6 +117,20 @@ export function AttachmentsPanel({
           ))}
         </ul>
       )}
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        title={
+          pendingRemove
+            ? `Remove "${pendingRemove.file_name}"?`
+            : "Remove attachment?"
+        }
+        message="The file is deleted from storage. Learners will no longer see it under this training."
+        confirmLabel="Remove"
+        tone="danger"
+        onConfirm={runRemove}
+        onCancel={() => setPendingRemove(null)}
+        pending={pending}
+      />
     </>
   );
 }

@@ -8,6 +8,7 @@ import {
   deleteTrainingAction,
   moveTrainingAction,
 } from "@/lib/classroom/actions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { ClassroomTraining } from "@/lib/classroom/types";
 import styles from "../../../../companies/admin.module.css";
 
@@ -31,6 +32,9 @@ export function TrainingsInLesson({
   const [showAdd, setShowAdd] = useState(trainings.length === 0);
   const [title, setTitle] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<ClassroomTraining | null>(
+    null
+  );
 
   function add() {
     if (!title.trim() || !videoUrl.trim()) return;
@@ -58,8 +62,10 @@ export function TrainingsInLesson({
     });
   }
 
-  function remove(id: string) {
-    if (!confirm("Delete this training and any attachments?")) return;
+  function runRemove() {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
     setMessage(null);
     startTransition(async () => {
       const result = await deleteTrainingAction(id);
@@ -208,7 +214,7 @@ export function TrainingsInLesson({
                     type="button"
                     className={styles.dangerGhost}
                     disabled={pending}
-                    onClick={() => remove(t.id)}
+                    onClick={() => setPendingDelete(t)}
                   >
                     Delete
                   </button>
@@ -218,6 +224,20 @@ export function TrainingsInLesson({
           ))}
         </ul>
       )}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={
+          pendingDelete
+            ? `Delete "${pendingDelete.title}"?`
+            : "Delete training?"
+        }
+        message="The video reference, notes, and any attachments are deleted with it. This can't be undone."
+        confirmLabel="Delete training"
+        tone="danger"
+        onConfirm={runRemove}
+        onCancel={() => setPendingDelete(null)}
+        pending={pending}
+      />
     </>
   );
 }

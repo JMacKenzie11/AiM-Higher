@@ -19,6 +19,7 @@ import type {
   Quarter,
 } from "@/lib/types";
 import { CompleteConfirmDialog } from "@/components/plan/CompleteConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusPicker } from "../../StatusPicker";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
@@ -71,19 +72,14 @@ export function PriorityHeroPanel({
   const [completePending, startComplete] = useTransition();
   const [archiving, startArchive] = useTransition();
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [state, formAction, pending] = useActionState<
     PlanResult<Priority>,
     FormData
   >(updatePriorityAction, INITIAL);
 
-  function onArchive() {
-    if (
-      !window.confirm(
-        `Archive "${priority.title}"? Its commitments stay in history and can be restored later.`
-      )
-    ) {
-      return;
-    }
+  function runArchive() {
+    setConfirmArchive(false);
     setArchiveError(null);
     startArchive(async () => {
       const result = await archivePriorityAction(priority.id, true);
@@ -352,7 +348,7 @@ export function PriorityHeroPanel({
                   <button
                     type="button"
                     className={styles.archiveLink}
-                    onClick={onArchive}
+                    onClick={() => setConfirmArchive(true)}
                     disabled={archiving}
                   >
                     {archiving ? "Archiving…" : "Archive"}
@@ -365,6 +361,17 @@ export function PriorityHeroPanel({
                 </p>
               ) : null}
             </div>
+
+            <ConfirmDialog
+              open={confirmArchive}
+              title={`Archive "${priority.title}"?`}
+              message="Commitments stay in history and can be restored later. The priority disappears from the plan cascade."
+              confirmLabel="Archive"
+              tone="danger"
+              onConfirm={runArchive}
+              onCancel={() => setConfirmArchive(false)}
+              pending={archiving}
+            />
           </>
         )}
       </div>

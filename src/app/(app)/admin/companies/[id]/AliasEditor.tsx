@@ -5,6 +5,7 @@ import {
   createAliasAction,
   deleteAliasAction,
 } from "@/lib/transcripts/actions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { TranscriptAlias } from "@/lib/types";
 import styles from "../admin.module.css";
 
@@ -22,6 +23,9 @@ export function AliasEditor({
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [pendingRemoval, setPendingRemoval] = useState<TranscriptAlias | null>(
+    null
+  );
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,11 +42,13 @@ export function AliasEditor({
     });
   }
 
-  function remove(aliasId: string) {
-    if (!confirm("Remove this alias?")) return;
+  function runRemove() {
+    if (!pendingRemoval) return;
+    const id = pendingRemoval.id;
+    setPendingRemoval(null);
     setMsg(null);
     startTransition(async () => {
-      const r = await deleteAliasAction(aliasId);
+      const r = await deleteAliasAction(id);
       if (!r.ok) setMsg(r.message);
     });
   }
@@ -69,7 +75,7 @@ export function AliasEditor({
               <span>{a.alias}</span>
               <button
                 type="button"
-                onClick={() => remove(a.id)}
+                onClick={() => setPendingRemoval(a)}
                 disabled={pending}
                 style={{
                   background: "none",
@@ -107,6 +113,20 @@ export function AliasEditor({
         </button>
       </form>
       {msg ? <p className={styles.inlineError}>{msg}</p> : null}
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        title={
+          pendingRemoval
+            ? `Remove alias "${pendingRemoval.alias}"?`
+            : "Remove alias?"
+        }
+        message="Meetings whose filenames matched this alias will no longer be routed to this company."
+        confirmLabel="Remove"
+        tone="danger"
+        onConfirm={runRemove}
+        onCancel={() => setPendingRemoval(null)}
+        pending={pending}
+      />
     </div>
   );
 }

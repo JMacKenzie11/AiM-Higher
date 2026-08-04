@@ -11,6 +11,7 @@ import {
   type PlanResult,
 } from "@/lib/plan/actions";
 import type { CascadeStatus, Profile, StrategicFocusArea } from "@/lib/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusPicker } from "../../StatusPicker";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
@@ -56,14 +57,9 @@ export function SfaHeroPanel({
     FormData
   >(updateSfaAction, INITIAL);
 
-  function onArchive() {
-    if (
-      !window.confirm(
-        `Archive "${sfa.title}"? It will disappear from the plan but its history (goals, priorities, and linked commitments) stays intact and can be restored later.`
-      )
-    ) {
-      return;
-    }
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  function runArchive() {
+    setConfirmArchive(false);
     setArchiveError(null);
     startArchive(async () => {
       const result = await archiveSfaAction(sfa.id, true);
@@ -233,7 +229,7 @@ export function SfaHeroPanel({
                   <button
                     type="button"
                     className={styles.archiveLink}
-                    onClick={onArchive}
+                    onClick={() => setConfirmArchive(true)}
                     disabled={archiving}
                   >
                     {archiving ? "Archiving…" : "Archive"}
@@ -249,6 +245,17 @@ export function SfaHeroPanel({
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmArchive}
+        title={`Archive "${sfa.title}"?`}
+        message="Goals, priorities, and linked commitments stay intact and can be restored later. The focus area disappears from the plan."
+        confirmLabel="Archive"
+        tone="danger"
+        onConfirm={runArchive}
+        onCancel={() => setConfirmArchive(false)}
+        pending={archiving}
+      />
     </div>
   );
 }

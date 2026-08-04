@@ -8,6 +8,7 @@ import {
   type ChartResult,
 } from "@/lib/chart/actions";
 import type { FunctionRole } from "@/lib/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import styles from "../../chart.module.css";
 
 // Roles & Responsibilities editor. Same rhythm as the commitment
@@ -147,9 +148,10 @@ function EditRoleForm({
 function DeleteRoleButton({ roleId }: { roleId: string }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
-  function handleDelete() {
-    if (!confirm("Delete this responsibility?")) return;
+  function run() {
+    setConfirming(false);
     startTransition(async () => {
       const result = await deleteFunctionRoleAction(roleId);
       if (!result.ok) setMessage(result.message);
@@ -161,11 +163,20 @@ function DeleteRoleButton({ roleId }: { roleId: string }) {
       <button
         type="button"
         className={styles.roleDangerButton}
-        onClick={handleDelete}
+        onClick={() => setConfirming(true)}
         disabled={pending}
       >
         Delete
       </button>
+      <ConfirmDialog
+        open={confirming}
+        title="Delete this responsibility?"
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={run}
+        onCancel={() => setConfirming(false)}
+        pending={pending}
+      />
       {message ? (
         <p role="alert" className={styles.roleError}>
           {message}

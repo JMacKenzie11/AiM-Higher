@@ -18,6 +18,7 @@ import type {
   StrategicFocusArea,
 } from "@/lib/types";
 import { CompleteConfirmDialog } from "@/components/plan/CompleteConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusPicker } from "../../StatusPicker";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
@@ -68,19 +69,14 @@ export function GoalHeroPanel({
   const [completePending, startComplete] = useTransition();
   const [archiving, startArchive] = useTransition();
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [state, formAction, pending] = useActionState<
     PlanResult<AnnualGoal>,
     FormData
   >(updateGoalAction, INITIAL);
 
-  function onArchive() {
-    if (
-      !window.confirm(
-        `Archive "${goal.title}"? Priorities and commitments under it stay intact and can be restored later.`
-      )
-    ) {
-      return;
-    }
+  function runArchive() {
+    setConfirmArchive(false);
     setArchiveError(null);
     startArchive(async () => {
       const result = await archiveGoalAction(goal.id, true);
@@ -319,7 +315,7 @@ export function GoalHeroPanel({
                   <button
                     type="button"
                     className={styles.archiveLink}
-                    onClick={onArchive}
+                    onClick={() => setConfirmArchive(true)}
                     disabled={archiving}
                   >
                     {archiving ? "Archiving…" : "Archive"}
@@ -335,6 +331,17 @@ export function GoalHeroPanel({
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmArchive}
+        title={`Archive "${goal.title}"?`}
+        message="Priorities and commitments under this goal stay intact and can be restored later. The goal disappears from the plan cascade."
+        confirmLabel="Archive"
+        tone="danger"
+        onConfirm={runArchive}
+        onCancel={() => setConfirmArchive(false)}
+        pending={archiving}
+      />
 
       <CompleteConfirmDialog
         open={confirmingComplete}

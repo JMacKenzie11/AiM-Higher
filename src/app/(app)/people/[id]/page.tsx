@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getPersonScorecard } from "@/lib/people/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
+import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { formatShortDate } from "@/lib/dates";
 import styles from "../people.module.css";
 
@@ -97,6 +98,24 @@ export default async function PersonScorecardPage({ params }: PageProps) {
               bars={data.keepRateTrend}
               ariaLabel={`Follow-through rate by week for ${data.profile.full_name}`}
             />
+          </div>
+
+          <div style={{ marginTop: "var(--space-4)", display: "flex" }}>
+            {isSelf ? (
+              <PrivacyNote tone="private">
+                Your follow-through numbers here are visible to system admins,
+                your company admins, and your direct manager. Your manager can
+                also keep private coaching notes about your development — those
+                notes are not visible to you.
+              </PrivacyNote>
+            ) : (
+              <PrivacyNote tone="managerial">
+                This scorecard is visible to system admins, company admins, and{" "}
+                {data.profile.full_name.split(" ")[0]}
+                &rsquo;s direct manager. {data.profile.full_name.split(" ")[0]}{" "}
+                can see their own scorecard too.
+              </PrivacyNote>
+            )}
           </div>
         </section>
 

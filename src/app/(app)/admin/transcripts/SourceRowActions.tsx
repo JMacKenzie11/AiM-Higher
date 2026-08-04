@@ -8,6 +8,7 @@ import {
   checkSourceNowAction,
   analyzePendingForCompanyAction,
 } from "@/lib/transcripts/actions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { TranscriptSourceStatus } from "@/lib/types";
 import styles from "../companies/admin.module.css";
 
@@ -34,6 +35,7 @@ export function SourceRowActions({
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [msgTone, setMsgTone] = useState<"info" | "success" | "error">("info");
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   function report(text: string, tone: "info" | "success" | "error" = "info") {
     setMsg(text);
@@ -117,15 +119,25 @@ export function SourceRowActions({
       <button
         type="button"
         className={styles.dangerButton}
-        onClick={() => {
-          if (!confirm("Remove this source? Meetings from it will be deleted.")) return;
-          runSimple(() => removeSourceAction(sourceId));
-        }}
+        onClick={() => setConfirmRemove(true)}
         disabled={pending}
       >
         Remove
       </button>
       {msg ? <p className={msgStyle}>{msg}</p> : null}
+      <ConfirmDialog
+        open={confirmRemove}
+        title="Remove this source?"
+        message="Every meeting analyzed from this folder will be deleted with it. Meetings routed to other companies via aliases are not affected."
+        confirmLabel="Remove source"
+        tone="danger"
+        onConfirm={() => {
+          setConfirmRemove(false);
+          runSimple(() => removeSourceAction(sourceId));
+        }}
+        onCancel={() => setConfirmRemove(false)}
+        pending={pending}
+      />
     </div>
   );
 }

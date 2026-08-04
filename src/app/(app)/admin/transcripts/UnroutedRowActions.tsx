@@ -5,6 +5,7 @@ import {
   routeMeetingAction,
   dismissMeetingAction,
 } from "@/lib/transcripts/actions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { Company } from "@/lib/types";
 import styles from "../companies/admin.module.css";
 
@@ -18,6 +19,7 @@ export function UnroutedRowActions({
   const [companyId, setCompanyId] = useState<string>(companies[0]?.id ?? "");
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
+  const [confirmDismiss, setConfirmDismiss] = useState(false);
 
   function route(analyze: boolean) {
     if (!companyId) {
@@ -31,8 +33,8 @@ export function UnroutedRowActions({
     });
   }
 
-  function dismiss() {
-    if (!confirm("Dismiss this file as not a transcript?")) return;
+  function runDismiss() {
+    setConfirmDismiss(false);
     setMsg(null);
     startTransition(async () => {
       const r = await dismissMeetingAction(meetingId);
@@ -74,13 +76,23 @@ export function UnroutedRowActions({
         <button
           type="button"
           className={styles.dangerButton}
-          onClick={dismiss}
+          onClick={() => setConfirmDismiss(true)}
           disabled={pending}
         >
           Dismiss
         </button>
       </div>
       {msg ? <p className={styles.inlineError}>{msg}</p> : null}
+      <ConfirmDialog
+        open={confirmDismiss}
+        title="Dismiss this file as not a transcript?"
+        message="It disappears from the unrouted queue. You can re-ingest by dropping the file back into the source folder."
+        confirmLabel="Dismiss"
+        tone="danger"
+        onConfirm={runDismiss}
+        onCancel={() => setConfirmDismiss(false)}
+        pending={pending}
+      />
     </div>
   );
 }

@@ -69,6 +69,7 @@ export function ChatView({
   const [title, setTitle] = useState(conversation.title);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(conversation.title);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [renamePending, startRename] = useTransition();
   const threadRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -189,13 +190,17 @@ export function ChatView({
       setRenameValue(title);
       return;
     }
+    setRenameError(null);
     startRename(async () => {
       const result = await renameConversationAction(conversation.id, next);
       if (result.ok) {
         setTitle(next);
         setRenaming(false);
       } else {
-        alert(result.message);
+        // Was a native alert() — jarring during a screen-shared coach
+        // session because it blocks the whole window. Inline the error
+        // just under the rename input instead.
+        setRenameError(result.message);
       }
     });
   }
@@ -208,22 +213,36 @@ export function ChatView({
         <div className={styles.chatHeaderMain}>
           <span className={styles.chatHeaderSubject}>{headerSubject}</span>
           {renaming ? (
-            <input
-              type="text"
-              className={styles.chatHeaderTitleInput}
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onBlur={submitRename}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submitRename();
-                if (e.key === "Escape") {
-                  setRenaming(false);
-                  setRenameValue(title);
-                }
-              }}
-              disabled={renamePending}
-              autoFocus
-            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <input
+                type="text"
+                className={styles.chatHeaderTitleInput}
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onBlur={submitRename}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitRename();
+                  if (e.key === "Escape") {
+                    setRenaming(false);
+                    setRenameValue(title);
+                    setRenameError(null);
+                  }
+                }}
+                disabled={renamePending}
+                autoFocus
+              />
+              {renameError ? (
+                <span
+                  role="alert"
+                  style={{
+                    color: "var(--aims-danger)",
+                    fontSize: 12,
+                  }}
+                >
+                  {renameError}
+                </span>
+              ) : null}
+            </div>
           ) : (
             <button
               type="button"

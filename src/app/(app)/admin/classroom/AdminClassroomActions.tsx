@@ -9,6 +9,7 @@ import {
   deleteLessonAction,
   moveLessonAction,
 } from "@/lib/classroom/actions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { CategoryWithLessons } from "@/lib/classroom/service";
 import styles from "../companies/admin.module.css";
 
@@ -30,6 +31,7 @@ export function AdminClassroomActions({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
   const [newLessonTitle, setNewLessonTitle] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   function addCategory() {
     const name = newCategoryName.trim();
@@ -74,8 +76,10 @@ export function AdminClassroomActions({
     });
   }
 
-  function removeLesson(id: string) {
-    if (!confirm("Delete this lesson and every training under it?")) return;
+  function runDeleteLesson() {
+    if (!pendingDelete) return;
+    const id = pendingDelete;
+    setPendingDelete(null);
     setMessage(null);
     startTransition(async () => {
       const result = await deleteLessonAction(id);
@@ -183,7 +187,7 @@ export function AdminClassroomActions({
               lessons={g.lessons}
               pending={pending}
               onMove={moveLesson}
-              onDelete={removeLesson}
+              onDelete={setPendingDelete}
             />
           )}
         </section>
@@ -200,10 +204,21 @@ export function AdminClassroomActions({
             lessons={orphans.lessons}
             pending={pending}
             onMove={moveLesson}
-            onDelete={removeLesson}
+            onDelete={setPendingDelete}
           />
         </section>
       ) : null}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this lesson?"
+        message="Every training under this lesson (videos, notes, attachments) is deleted with it. This can't be undone."
+        confirmLabel="Delete lesson"
+        tone="danger"
+        onConfirm={runDeleteLesson}
+        onCancel={() => setPendingDelete(null)}
+        pending={pending}
+      />
     </>
   );
 }

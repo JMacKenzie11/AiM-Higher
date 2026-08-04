@@ -6,6 +6,7 @@ import {
   deleteGuideAction,
   unassignGuideAction,
 } from "@/lib/admin/guides-actions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { Company } from "@/lib/types";
 import styles from "./admin.module.css";
 
@@ -27,6 +28,10 @@ export function GuideRowActions({
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [pickCompanyId, setPickCompanyId] = useState<string>("");
+  const [pendingUnassign, setPendingUnassign] = useState<
+    Pick<Company, "id" | "name"> | null
+  >(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const availableToAssign = allCompanies.filter(
     (c) => !assignedCompanyIds.includes(c.id)
@@ -91,15 +96,7 @@ export function GuideRowActions({
                 className={styles.ghostButton}
                 disabled={pending}
                 title={`Unassign from ${c.name}`}
-                onClick={() => {
-                  if (
-                    !confirm(
-                      `Unassign this guide from ${c.name}? They'll lose access to the company.`
-                    )
-                  )
-                    return;
-                  run(() => unassignGuideAction(guideId, cid));
-                }}
+                onClick={() => setPendingUnassign(c)}
               >
                 {c.name} ×
               </button>
@@ -112,20 +109,46 @@ export function GuideRowActions({
         type="button"
         className={styles.dangerButton}
         disabled={pending}
-        onClick={() => {
-          if (
-            !confirm(
-              "Delete this guide? They'll be removed from the platform entirely."
-            )
-          )
-            return;
-          run(() => deleteGuideAction(guideId));
-        }}
+        onClick={() => setConfirmDelete(true)}
       >
         Delete guide
       </button>
 
       {msg ? <p className={styles.inlineError}>{msg}</p> : null}
+
+      <ConfirmDialog
+        open={pendingUnassign !== null}
+        title={
+          pendingUnassign
+            ? `Unassign from ${pendingUnassign.name}?`
+            : "Unassign?"
+        }
+        message="This guide will lose access to the company. Re-assign later from this same panel if it's a temporary rotation."
+        confirmLabel="Unassign"
+        tone="danger"
+        onConfirm={() => {
+          if (!pendingUnassign) return;
+          const cid = pendingUnassign.id;
+          setPendingUnassign(null);
+          run(() => unassignGuideAction(guideId, cid));
+        }}
+        onCancel={() => setPendingUnassign(null)}
+        pending={pending}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this guide?"
+        message="They'll be removed from the platform entirely and lose access to every assigned company."
+        confirmLabel="Delete guide"
+        tone="danger"
+        onConfirm={() => {
+          setConfirmDelete(false);
+          run(() => deleteGuideAction(guideId));
+        }}
+        onCancel={() => setConfirmDelete(false)}
+        pending={pending}
+      />
     </div>
   );
 }

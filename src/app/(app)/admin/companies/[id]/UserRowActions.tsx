@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { sendInviteAction, deleteUserAction } from "@/lib/auth/users";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { ProfileStatus } from "@/lib/types";
 import styles from "../admin.module.css";
 
@@ -19,6 +20,7 @@ export function UserRowActions({
 }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const inviteLabel = status === "pending" ? "Send invite" : "Resend invite";
 
@@ -31,8 +33,8 @@ export function UserRowActions({
     });
   }
 
-  function handleDelete() {
-    if (!confirm("Delete this user? This cannot be undone.")) return;
+  function runDelete() {
+    setConfirming(false);
     startTransition(async () => {
       const result = await deleteUserAction(profileId);
       if (!result.ok) setMessage(result.message ?? "Couldn't delete.");
@@ -53,7 +55,7 @@ export function UserRowActions({
         <button
           type="button"
           className={styles.dangerButton}
-          onClick={handleDelete}
+          onClick={() => setConfirming(true)}
           disabled={pending}
         >
           Delete
@@ -64,6 +66,16 @@ export function UserRowActions({
           {message}
         </p>
       ) : null}
+      <ConfirmDialog
+        open={confirming}
+        title="Delete this user?"
+        message="This can't be undone. Any commitments they owned will remain but be unassigned."
+        confirmLabel="Delete user"
+        tone="danger"
+        onConfirm={runDelete}
+        onCancel={() => setConfirming(false)}
+        pending={pending}
+      />
     </div>
   );
 }
