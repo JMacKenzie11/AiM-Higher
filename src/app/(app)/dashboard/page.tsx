@@ -36,12 +36,17 @@ export default async function DashboardPage() {
     companyId,
     "performance_tracking"
   );
+  const isAdmin =
+    session.profile.role === "system_admin" ||
+    session.profile.role === "company_admin";
+
   const { measures: ownedMeasures, weekEnding: measuresWeekEnding } =
     perfTrackingOn
       ? await getMeasuresOwnedBy(
           companyId,
           session.profile.id,
-          data.company.timezone
+          data.company.timezone,
+          isAdmin
         )
       : { measures: [], weekEnding: "" };
   const pendingMeasures = ownedMeasures.filter(
@@ -54,10 +59,6 @@ export default async function DashboardPage() {
   const measureInsights = perfTrackingOn
     ? await getMeasureInsights(companyId, data.company.timezone)
     : null;
-
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
   // Managers get the Coach column for rows they own via
   // profiles.reports_to — same rule as the coaching_conversations
   // insert policy in migration 0021. If they don't manage anyone on

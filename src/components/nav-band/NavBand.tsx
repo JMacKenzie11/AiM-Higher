@@ -35,19 +35,32 @@ const LOGO_INTRINSIC_HEIGHT = 142;
 // top row uncluttered (Section 7): daily-use items stay top-level;
 // set-once surfaces like Foundation live under Company; multi-page
 // modules like Strengths collapse to one dropdown.
-type Feature = "execution" | "strengths";
+type Feature = "execution" | "strengths" | "performance_tracking";
 type NavRole = "system_admin" | "company_admin" | "team_member" | "aims_guide";
 // Items may declare `roles` — a caller with a role NOT in the list
 // won't see the item. Missing/null means "everyone". Applied to both
 // top-level links and to individual items within a dropdown group.
+// NavLink is the shape for a group's child items — feature is an
+// optional additional gate on top of the group's feature (child
+// hidden if either is off).
 type NavLink = {
   kind: "link";
   label: string;
   href: string;
   roles?: readonly NavRole[];
+  feature?: Feature;
 };
+// Top-level NavItems require a feature (or explicit null for
+// always-visible). Groups have children that carry their own optional
+// feature overrides.
 type NavItem =
-  | (NavLink & { feature: Feature | null })
+  | {
+      kind: "link";
+      label: string;
+      href: string;
+      roles?: readonly NavRole[];
+      feature: Feature | null;
+    }
   | {
       kind: "group";
       label: string;
@@ -85,6 +98,17 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "Chart", href: "/chart" },
       { kind: "link", label: "Commitments", href: "/commitments" },
       { kind: "link", label: "People", href: "/people" },
+      // Success Measures is a Success-Tracking surface: without that
+      // entitlement the /measures page is inert, so the per-item
+      // `feature` gate hides it even for companies that have the
+      // execution module. Placed after People because it's a
+      // lower-frequency touch (weekly, not daily).
+      {
+        kind: "link",
+        label: "Success Measures",
+        href: "/measures",
+        feature: "performance_tracking",
+      },
       // Leadership hosts meeting-transcript analyses; only admins /
       // coaches see it. Team members get the resulting commitments
       // and email, not the full write-up.
@@ -129,13 +153,23 @@ export function NavBand({
     setMobileOpen(false);
   }, [pathname]);
 
-  function linkVisible(link: NavLink): boolean {
-    return !link.roles || link.roles.includes(userRole);
+  // Accepts both group children (feature?: Feature) and top-level
+  // items (feature: Feature | null). Top-level items with feature=null
+  // have already been admitted by the outer filter; linkVisible only
+  // uses feature to reject when it's set to a specific value the
+  // company doesn't have.
+  function linkVisible(link: {
+    roles?: readonly NavRole[];
+    feature?: Feature | null;
+  }): boolean {
+    if (link.roles && !link.roles.includes(userRole)) return false;
+    if (link.feature && !features.includes(link.feature)) return false;
+    return true;
   }
 
   // Filter by module subscription + per-item role, then trim dropdown
-  // children by role too. Groups with zero visible children collapse
-  // away entirely.
+  // children by role and per-child feature too. Groups with zero
+  // visible children collapse away entirely.
   const subscribedApp = APP_ITEMS.flatMap<NavItem>((item) => {
     if (item.feature !== null && !features.includes(item.feature)) return [];
     if (item.kind === "link") return linkVisible(item) ? [item] : [];

@@ -4,11 +4,14 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addDays, thisFriday } from "@/lib/dates";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
 
-// Reads for the Performance Tracking surfaces: the /measures batch
+// Reads for the Success Tracking surfaces: the /measures batch
 // page and the dashboard "Pending this week" widget.
 //
 // Ownership is derived from function.leader_id — the person in the
-// seat is the person on the hook for the numbers.
+// seat is the person on the hook for the numbers. Admins (system_admin
+// and company_admin) pass includeAllInCompany=true to see and enter
+// values for every function in the company, e.g. when a leader is out
+// or a seat is vacant.
 
 export type OwnedMeasure = {
   id: string;
@@ -35,18 +38,23 @@ export type OwnedMeasure = {
 export async function getMeasuresOwnedBy(
   companyId: string,
   userId: string,
-  timezone: string
+  timezone: string,
+  includeAllInCompany: boolean = false
 ): Promise<{ measures: OwnedMeasure[]; weekEnding: string }> {
   const supabase = await createSupabaseServerClient();
   const weekEnding = thisFriday(timezone);
 
-  // Functions the caller leads for this company.
-  const { data: functionRows } = await supabase
+  // Functions the caller leads for this company — or every function
+  // in the company when the caller is an admin covering for others.
+  let functionsQuery = supabase
     .from("functions")
     .select("id, title")
     .eq("company_id", companyId)
-    .eq("leader_id", userId)
     .eq("archived", false);
+  if (!includeAllInCompany) {
+    functionsQuery = functionsQuery.eq("leader_id", userId);
+  }
+  const { data: functionRows } = await functionsQuery;
   const functions = (functionRows ?? []) as Array<{ id: string; title: string }>;
   if (functions.length === 0) return { measures: [], weekEnding };
   const functionIds = functions.map((f) => f.id);

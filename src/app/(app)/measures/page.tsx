@@ -7,16 +7,21 @@ import { formatShortDate } from "@/lib/dates";
 import { MeasuresBatchForm } from "./MeasuresBatchForm";
 import styles from "../admin/companies/admin.module.css";
 
-// Weekly performance logging — batch entry for every measure the
-// caller owns (via function.leader_id). One row per measure with a
-// current-week input and a mini trend of the last few weeks. Save-
-// all writes them in a single upsert. Owners come here on Fridays,
-// or from the dashboard "Pending this week" widget's deep link.
+// Weekly Success Measures logging — batch entry for every measure the
+// caller owns (via function.leader_id), or every measure in the
+// company for admins covering for others. One row per measure with a
+// current-week input and a mini trend of the last few weeks. Save-all
+// writes them in a single upsert. Owners come here on Fridays, or
+// from the dashboard "Pending this week" widget's deep link.
 
 export default async function MeasuresPage() {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
+
+  const isAdmin =
+    session.profile.role === "system_admin" ||
+    session.profile.role === "company_admin";
 
   const supabase = await createSupabaseServerClient();
   const { data: company } = await supabase
@@ -29,7 +34,8 @@ export default async function MeasuresPage() {
   const { measures, weekEnding } = await getMeasuresOwnedBy(
     companyId,
     session.profile.id,
-    timezone
+    timezone,
+    isAdmin
   );
 
   return (
@@ -37,7 +43,7 @@ export default async function MeasuresPage() {
       <header className={styles.hero}>
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>Company</p>
-          <h1 className={styles.h1}>This week&rsquo;s numbers</h1>
+          <h1 className={styles.h1}>Success Measures</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
             Log the week ending {formatShortDate(weekEnding)}. Enter a value
@@ -51,9 +57,9 @@ export default async function MeasuresPage() {
         {measures.length === 0 ? (
           <section className={styles.card}>
             <p className={styles.emptyLine}>
-              No measures assigned to you yet. Measures live under the
-              functions you lead on the Chart — the person in the seat is
-              the one on the hook for the numbers.
+              {isAdmin
+                ? "No success measures set up in this company yet. Add them on the Chart under each function's outcomes."
+                : "No success measures assigned to you yet. Measures live under the functions you lead on the Chart — the person in the seat is the one on the hook for the numbers."}
             </p>
           </section>
         ) : (
