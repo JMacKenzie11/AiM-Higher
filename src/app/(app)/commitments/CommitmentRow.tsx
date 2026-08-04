@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import {
   deleteCommitmentAction,
   linkPriorityAction,
@@ -14,6 +14,7 @@ import {
   unmarkMissedAction,
 } from "@/lib/commitments/actions";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatShortDate } from "@/lib/dates";
 import type { Priority, Profile } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
@@ -74,6 +75,19 @@ export function CommitmentRow({
   const [showClarity, setShowClarity] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  // "Just changed" chip — shows for a few seconds after resolving so
+  // the coach knows the action landed AND can undo without hunting.
+  // The prior UX had no such affordance, which is exactly how the
+  // reported real-world misclick went silent.
+  const [justResolved, setJustResolved] = useState<
+    null | "kept" | "missed"
+  >(null);
+  useEffect(() => {
+    if (!justResolved) return;
+    const t = setTimeout(() => setJustResolved(null), 6000);
+    return () => clearTimeout(t);
+  }, [justResolved]);
 
   const isOpen = commitment.status === "open";
   const isKept = commitment.status === "kept";
@@ -85,6 +99,7 @@ export function CommitmentRow({
     startTransition(async () => {
       const result = await markKeptAction(commitment.id);
       if (!result.ok) setError(result.message);
+      else setJustResolved("kept");
     });
   }
 
@@ -93,6 +108,7 @@ export function CommitmentRow({
     startTransition(async () => {
       const result = await unmarkKeptAction(commitment.id);
       if (!result.ok) setError(result.message);
+      else setJustResolved(null);
     });
   }
 
@@ -101,6 +117,7 @@ export function CommitmentRow({
     startTransition(async () => {
       const result = await unmarkMissedAction(commitment.id);
       if (!result.ok) setError(result.message);
+      else setJustResolved(null);
     });
   }
 
@@ -113,6 +130,7 @@ export function CommitmentRow({
       } else {
         setShowReason(false);
         setReason("");
+        setJustResolved("missed");
       }
     });
   }
@@ -157,14 +175,8 @@ export function CommitmentRow({
   const canDelete =
     isAdmin || (commitment.owner_id === currentUserId && isOpen);
 
-  function handleDelete() {
-    if (!canDelete) return;
-    if (
-      !confirm(
-        "Delete this commitment? This can't be undone."
-      )
-    )
-      return;
+  function runDelete() {
+    setConfirmDelete(false);
     setError(null);
     startTransition(async () => {
       const result = await deleteCommitmentAction(commitment.id);
@@ -201,6 +213,7 @@ export function CommitmentRow({
         className={buildCircleClass(isKept, isClosed, isOverdue)}
         onClick={onCircleClick}
         disabled={pending || !canResolve}
+        data-state={isKept ? "kept" : isClosed ? "missed" : "open"}
         title={
           isKept
             ? "Kept — click to reopen"
@@ -233,21 +246,6 @@ export function CommitmentRow({
           {isClosed ? "✕" : "✓"}
         </span>
       </button>
-
-      {canDelete ? (
-        <button
-          type="button"
-          className={styles.deleteRowButton}
-          onClick={handleDelete}
-          disabled={pending}
-          aria-label="Delete this commitment"
-          title="Delete this commitment"
-        >
-          <span aria-hidden>×</span>
-        </button>
-      ) : (
-        <span aria-hidden />
-      )}
 
       <div style={{ display: "flex", justifyContent: "center" }}>
         <ClarityChip
@@ -282,6 +280,29 @@ export function CommitmentRow({
         </p>
         {commitment.missed_reason ? (
           <p className={styles.reasonNote}>Reason: {commitment.missed_reason}</p>
+        ) : null}
+        {justResolved ? (
+          <span
+            className={
+              justResolved === "kept"
+                ? styles.justResolvedKept
+                : styles.justResolvedMissed
+            }
+            role="status"
+            aria-live="polite"
+          >
+            {justResolved === "kept" ? "Marked kept" : "Marked missed"}
+            <button
+              type="button"
+              className={styles.undoLink}
+              onClick={
+                justResolved === "kept" ? unmarkKept : unmarkMissed
+              }
+              disabled={pending}
+            >
+              Undo
+            </button>
+          </span>
         ) : null}
         {error ? (
           <p role="alert" className={styles.reasonNote} style={{ color: "var(--aims-danger)" }}>
@@ -452,6 +473,43 @@ export function CommitmentRow({
       )}
 
       <CommitmentResolutionChip commitment={commitment} />
+
+      {canDelete ? (
+        <button
+          type="button"
+          className={styles.deleteRowButton}
+          onClick={() => setConfirmDelete(true)}
+          disabled={pending}
+          aria-label="Delete this commitment"
+          title="Delete this commitment"
+        >
+          <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+            <path
+              d="M4 5 h8 v8 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 z M6.5 5 V3.5 a1 1 0 0 1 1 -1 h1 a1 1 0 0 1 1 1 V5 M3 5 h10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      ) : (
+        <span aria-hidden />
+      )}
+
+      {canDelete ? (
+        <ConfirmDialog
+          open={confirmDelete}
+          title="Delete this commitment?"
+          message="This can't be undone. Any linkage to a priority will be lost too."
+          confirmLabel="Delete"
+          tone="danger"
+          onConfirm={runDelete}
+          onCancel={() => setConfirmDelete(false)}
+          pending={pending}
+        />
+      ) : null}
     </li>
   );
 }

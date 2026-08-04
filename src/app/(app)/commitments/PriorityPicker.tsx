@@ -21,7 +21,7 @@ export function PriorityPicker({
   currentPriorityId,
   onSelect,
   disabled = false,
-  placeholder = "Link to a priority (optional)",
+  placeholder = "Search priorities to link…",
 }: PriorityPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");

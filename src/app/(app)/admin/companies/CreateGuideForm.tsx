@@ -139,7 +139,7 @@ export function CreateGuideForm({
           className={styles.primaryButton}
           disabled={pending || selectedCompanies.length === 0}
         >
-          {pending ? "Creating…" : "Create guide"}
+          {pending ? "Adding…" : "Add guide"}
         </button>
       </div>
     </form>
