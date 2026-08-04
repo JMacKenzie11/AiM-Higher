@@ -15,6 +15,10 @@ full write-up.
 
 - **Open a completed analysis** — click *View* on a row to see the
   meeting summary and the commitments the meeting created.
+- **Scan facilitation signals** — when the company has *Meeting
+  Facilitation Review* on, each complete row shows a Facilitation
+  chip (e.g. *Facilitation 8/10*) on a warm cobalt → chartreuse
+  scale. Never red — this is a coaching signal, not a grade.
 - **Track ingest status** — rows show *pending*, *analyzing*,
   *complete*, or *failed*. A failed row surfaces the error so you
   can decide whether to retry (Check now on the company settings

@@ -28,7 +28,13 @@ forward.
 
 - Priorities live inside an open quarter. If none is open, you'll
   see an empty state and a link to /quarters to start one.
-- **Danger zone** — bulk reset (wipes every SFA / Goal / Priority
-  in the company; commitments stay orphaned) lives in a collapsed
-  panel at the bottom of the page, not in the primary toolbar.
-  Only useful when you're restarting the cascade from scratch.
+- **Start a new planning cycle** — a collapsed panel at the bottom
+  of the page archives every active SFA, Goal, and Priority so you
+  can build the next cycle from a clean canvas. Nothing is deleted;
+  every record stays on file. Open commitments that were linked to
+  those priorities become Operational (unlinked); resolved
+  commitments keep their historical link so past-quarter progress
+  stays intact. Prefer closing individual items? Every SFA, Goal,
+  and Priority has its own Archive / Mark complete actions on its
+  detail page — SFAs often span multiple years, so closing a Goal
+  while leaving its Focus Area open is a common move.

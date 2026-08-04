@@ -431,14 +431,18 @@ export default async function PlanPage({ searchParams }: PageProps) {
         resetImpact.priorityCount > 0) ? (
         <details className={styles.dangerZone}>
           <summary className={styles.dangerZoneSummary}>
-            Danger zone — bulk actions
+            Start a new planning cycle
           </summary>
           <div className={styles.dangerZoneBody}>
             <p className={styles.dangerZoneCopy}>
-              Bulk reset wipes every Strategic Focus Area, Annual Goal,
-              and 90-Day Priority in this company. Commitments are kept
-              (they'll go orphaned). Only useful when you're starting
-              the plan cascade over from scratch.
+              Archives every active Strategic Focus Area, Annual Goal,
+              and 90-Day Priority in this company so you can build the
+              next cycle from a clean canvas. Nothing is deleted — the
+              records stay on file. Open commitments become Operational
+              (unlinked); resolved commitments keep their historical
+              link so past-quarter progress stays intact. Prefer closing
+              individual items? Every SFA, Goal, and Priority has its
+              own Archive / Mark complete actions on its detail page.
             </p>
             <BulkResetButton
               companyId={companyId}

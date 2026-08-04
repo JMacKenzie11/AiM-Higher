@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-// Bulk Reset archives all active SFAs/Goals/Priorities for a company.
-// Commitments are left untouched (linkage remains for history — reads
-// filter archived out of active surfaces).
+// Start a new planning cycle — archives every active SFA/Goal/Priority
+// for the company and unlinks every OPEN commitment that pointed at
+// those priorities so they surface as Operational rather than dangling
+// off a now-archived link. Resolved commitments (kept/missed) keep
+// their historical priority link intact.
 
 export type BulkResetResult =
   | {
@@ -56,6 +58,21 @@ export async function bulkResetPlanAction(
       ok: false,
       message: "Reset couldn't finish. Some items may still be active.",
     };
+  }
+
+  // Null out priority_id on OPEN commitments that were linked to any
+  // priority we just archived. Purposefully skips resolved commitments
+  // (kept/missed) so the historical link — and the priority progress
+  // history it feeds — stays intact.
+  const archivedPriorityIds =
+    (priorityRes.data ?? []).map((row) => row.id) as string[];
+  if (archivedPriorityIds.length > 0) {
+    await supabase
+      .from("commitments")
+      .update({ priority_id: null })
+      .eq("company_id", companyId)
+      .eq("status", "open")
+      .in("priority_id", archivedPriorityIds);
   }
 
   revalidatePath("/plan");

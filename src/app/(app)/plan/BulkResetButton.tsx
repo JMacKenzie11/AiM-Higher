@@ -5,10 +5,12 @@ import { bulkResetPlanAction } from "@/lib/plan/actions";
 import { CompleteConfirmDialog } from "@/components/plan/CompleteConfirmDialog";
 import styles from "./plan.module.css";
 
-// "Start new planning session" — archives every active SFA, goal, and
-// priority for the company. Commitments are left alone; their links to
-// (now-hidden) priorities are preserved as history. Reads filter
-// archived rows out of active surfaces.
+// "Start a new planning cycle" — archives every active SFA, goal, and
+// priority for the company. Open commitments are unlinked from those
+// priorities (they surface as Operational); resolved commitments keep
+// their historical link so past-quarter progress stays intact.
+// Nothing is ever deleted — reads filter archived rows out of active
+// surfaces and everything remains on the DB.
 
 export type BulkResetButtonProps = {
   companyId: string;
@@ -59,13 +61,13 @@ export function BulkResetButton({
 
       <CompleteConfirmDialog
         open={confirming}
-        title="Start a new planning session?"
+        title="Start a new planning cycle?"
         destructive
         body={
           <>
             <p>
-              This archives every active item on your plan so you can start
-              fresh:
+              These active items move to the archive so you can build the
+              next cycle from a clean canvas:
             </p>
             <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
               <li>
@@ -82,8 +84,10 @@ export function BulkResetButton({
               </li>
             </ul>
             <p style={{ margin: 0, color: "var(--text-muted)" }}>
-              Commitments are untouched. Their history stays intact, but the
-              old items disappear from active views.
+              Nothing is deleted — every record stays on file. Open
+              commitments that were linked to these priorities become
+              Operational (unlinked); resolved commitments keep their
+              historical link so past-quarter progress stays intact.
             </p>
             {error ? (
               <p role="alert" style={{ margin: 0, color: "var(--aims-danger)" }}>
@@ -92,7 +96,7 @@ export function BulkResetButton({
             ) : null}
           </>
         }
-        confirmLabel="Archive everything"
+        confirmLabel="Archive and start fresh"
         pending={pending}
         onConfirm={run}
         onCancel={() => {

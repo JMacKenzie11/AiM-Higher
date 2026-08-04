@@ -20,5 +20,8 @@ tell you whether it's healthy.
 
 ## Heads-up
 
-- Archiving a function keeps its history but hides it from the
-  visible chart. Nothing is deleted.
+- **Delete function** on the function detail page removes the
+  function and cascades to its sub-functions, outcomes, measures,
+  and recorded weekly values — it's a hard delete. A branded
+  confirmation dialog spells out the cascade before the click
+  lands so a stray tap can't wipe a tree.
