@@ -1,9 +1,31 @@
-/* Gradient top nav band — signature --grad-brand surface. */
+/* Gradient top nav band — signature --grad-brand surface.
+   Sticky so navigation stays reachable once the user has scrolled
+   past the hero, but not fixed — the hero moment on first paint is
+   preserved. A soft shadow fades in only after the band detaches
+   from the top edge (driven by data-scrolled on the header, set via
+   an IntersectionObserver on a zero-height sentinel above the band).
+   z-index sits above card content and dropdowns inside the page but
+   below the HelpWidget floater. */
+
+.stickySentinel {
+  height: 0;
+  width: 100%;
+  pointer-events: none;
+}
 
 .band {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   background: var(--grad-brand);
   color: var(--aims-white);
   width: 100%;
+  box-shadow: 0 0 0 rgba(17, 21, 26, 0);
+  transition: box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.band[data-scrolled="true"] {
+  box-shadow: 0 6px 20px rgba(17, 21, 26, 0.18);
 }
 
 .inner {

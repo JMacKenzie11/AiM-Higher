@@ -147,11 +147,28 @@ export function NavBand({
 }: NavBandProps) {
   const pathname = usePathname() ?? "";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  // Fade a soft shadow in only once the sticky band has detached from
+  // the top edge — cheap IntersectionObserver on a zero-height sentinel
+  // placed just above the band. Beats scroll listeners on cost and
+  // avoids layout thrashing.
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setScrolled(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
 
   // Accepts both group children (feature?: Feature) and top-level
   // items (feature: Feature | null). Top-level items with feature=null
@@ -210,7 +227,9 @@ export function NavBand({
     : subscribedApp;
 
   return (
-    <header className={styles.band}>
+    <>
+      <div ref={sentinelRef} className={styles.stickySentinel} aria-hidden="true" />
+      <header className={styles.band} data-scrolled={scrolled ? "true" : undefined}>
       <div className={styles.inner}>
         <Link href="/" className={styles.logoLink} aria-label="AiMSHigher home">
           <Image
@@ -334,7 +353,8 @@ export function NavBand({
           </div>
         </div>
       ) : null}
-    </header>
+      </header>
+    </>
   );
 }
 
