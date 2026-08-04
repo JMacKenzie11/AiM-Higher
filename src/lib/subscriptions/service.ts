@@ -22,7 +22,13 @@ export type ModuleFeature =
   // on meeting_analyses.facilitation_review_json and rendered as a
   // coaching-tone panel on the meeting detail page + a signal chip on
   // the list. Doubles per-meeting LLM cost — off by default.
-  | "meeting_facilitation_review";
+  | "meeting_facilitation_review"
+  // Opt-in shared training library. When on, users get a Classroom
+  // nav item leading to lessons and video trainings authored by AiMS
+  // system admins. Aimee also gets a search_classroom tool so she can
+  // recommend a training in conversation. Content is shared across
+  // every flag-enabled company — there is no per-company copy.
+  | "classroom";
 
 export async function getCompanyFeatures(
   companyId: string

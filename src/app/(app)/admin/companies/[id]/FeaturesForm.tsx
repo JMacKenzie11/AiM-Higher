@@ -34,6 +34,11 @@ const FEATURES: ReadonlyArray<{
     label: "Meeting Facilitation Review",
     hint: "After each meeting is analyzed, generate a coaching-tone review of how the meeting was run against the AiMS Weekly Leadership Meeting framework.",
   },
+  {
+    value: "classroom",
+    label: "Classroom",
+    hint: "Adds a shared training library — lessons, videos, and downloadable resources authored centrally by AiMS. Aimee can also recommend a training in conversation.",
+  },
 ];
 
 export function FeaturesForm({

@@ -17,6 +17,7 @@ const VALID_FEATURES = new Set([
   "strengths",
   "performance_tracking",
   "meeting_facilitation_review",
+  "classroom",
 ]);
 
 export async function createCompanyAction(

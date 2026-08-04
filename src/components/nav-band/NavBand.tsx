@@ -35,7 +35,11 @@ const LOGO_INTRINSIC_HEIGHT = 142;
 // top row uncluttered (Section 7): daily-use items stay top-level;
 // set-once surfaces like Foundation live under Company; multi-page
 // modules like Strengths collapse to one dropdown.
-type Feature = "execution" | "strengths" | "performance_tracking";
+type Feature =
+  | "execution"
+  | "strengths"
+  | "performance_tracking"
+  | "classroom";
 type NavRole = "system_admin" | "company_admin" | "team_member" | "aims_guide";
 // Items may declare `roles` — a caller with a role NOT in the list
 // won't see the item. Missing/null means "everyone". Applied to both
@@ -88,6 +92,10 @@ const APP_ITEMS: readonly NavItem[] = [
   // the surface that any user, admin or not, can rely on.
   { kind: "link", label: "Ask Aimee", href: "/ask-aimee", feature: null },
   { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
+  // Classroom is a shared library — content is authored once by AiMS
+  // and read by every flag-enabled company. Top-level because it's a
+  // frequent-touch surface for members, not just admins.
+  { kind: "link", label: "Classroom", href: "/classroom", feature: "classroom" },
   {
     kind: "group",
     label: "Company",

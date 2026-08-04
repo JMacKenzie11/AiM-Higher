@@ -1,8 +1,9 @@
 import Link from "next/link";
-import type { Meeting, TranscriptSource } from "@/lib/types";
+import type { Meeting, TranscriptAlias, TranscriptSource } from "@/lib/types";
 import { ConnectCompanyFolderForm } from "./ConnectCompanyFolderForm";
 import { ConnectGoogleButton } from "@/app/(app)/admin/transcripts/ConnectGoogleButton";
 import { SourceRowActions } from "@/app/(app)/admin/transcripts/SourceRowActions";
+import { AliasEditor } from "./AliasEditor";
 import styles from "../admin.module.css";
 
 // Per-company transcripts card. Each company connects its own
@@ -15,6 +16,7 @@ export function CompanyTranscriptsPanel({
   connectedAccount,
   sources,
   meetings,
+  aliases,
   flashConnected,
   flashError,
 }: {
@@ -22,6 +24,7 @@ export function CompanyTranscriptsPanel({
   connectedAccount: string | null;
   sources: TranscriptSource[];
   meetings: Meeting[];
+  aliases: TranscriptAlias[];
   flashConnected: string | null;
   flashError: string | null;
 }) {
@@ -138,6 +141,16 @@ export function CompanyTranscriptsPanel({
           ) : null}
 
           <ConnectCompanyFolderForm companyId={companyId} />
+
+          <div style={{ marginTop: "var(--space-4)" }}>
+            <h3 className={styles.h3}>Transcript aliases</h3>
+            <p className={styles.subtitleInline}>
+              When a shared Drive folder serves multiple companies, transcript
+              file names are matched (case-insensitive substring) against these
+              aliases to decide who a meeting belongs to.
+            </p>
+            <AliasEditor companyId={companyId} aliases={aliases} />
+          </div>
 
           {meetings.length > 0 ? (
             <div style={{ marginTop: "var(--space-4)" }}>

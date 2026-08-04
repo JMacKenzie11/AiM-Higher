@@ -15,7 +15,6 @@ import styles from "../admin.module.css";
 import { FeaturesForm } from "./FeaturesForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
-import { AliasEditor } from "./AliasEditor";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
 
 type PageProps = {
@@ -130,21 +129,10 @@ export default async function CompanyDetailPage({
           connectedAccount={connectedAccount}
           sources={sourceRows}
           meetings={meetingRows}
+          aliases={aliasRows}
           flashConnected={flash.oauth_connected ?? null}
           flashError={flash.oauth_error ?? null}
         />
-
-        <section className={styles.card} aria-labelledby="aliases">
-          <h2 id="aliases" className={styles.h2}>
-            Transcript aliases
-          </h2>
-          <p className={styles.subtitleInline}>
-            When a shared Google Drive folder serves multiple companies,
-            transcript file names are matched (case-insensitive substring)
-            against these aliases to decide who a meeting belongs to.
-          </p>
-          <AliasEditor companyId={company.id} aliases={aliasRows} />
-        </section>
       </div>
     </div>
   );

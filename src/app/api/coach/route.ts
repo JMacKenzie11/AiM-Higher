@@ -181,13 +181,15 @@ export async function POST(req: NextRequest): Promise<Response> {
   // Tool gating: subject-scoped tools are ONLY registered when there
   // is a subject to scope them to. In general mode the tool list is
   // empty — Aimee has no subject data to query and must not appear to.
-  const tools =
-    convo.mode === "about" && convo.subject_profile_id
-      ? buildCoachTools({
-          subjectProfileId: convo.subject_profile_id,
-          companyId: convo.company_id,
-        })
-      : [];
+  // Subject-scoped tools (strengths) only register in "about" mode.
+  // Company-scoped tools (classroom) register in both modes provided
+  // the feature is on — Aimee can recommend a training in Ask Aimee
+  // conversations too. buildCoachTools handles the branch.
+  const tools = await buildCoachTools({
+    subjectProfileId:
+      convo.mode === "about" ? convo.subject_profile_id ?? null : null,
+    companyId: convo.company_id,
+  });
   const toolDefs = tools.map((t) => t.definition);
 
   const stream = new ReadableStream<Uint8Array>({
