@@ -7,7 +7,7 @@ import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
 export const alt =
-  "AiM Higher · The operating system for the AiMS method";
+  "AiMS Higher™ · The operating system for the AiMS method";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -38,7 +38,7 @@ export default function OpenGraphImage() {
             opacity: 0.8,
           }}
         >
-          AiM Higher
+          AiMS Higher™
         </div>
 
         <div
@@ -57,7 +57,7 @@ export default function OpenGraphImage() {
               maxWidth: 900,
             }}
           >
-            The operating system for the AiMS method.
+            Leadership Simplified. Results Amplified.
           </div>
           <div
             style={{

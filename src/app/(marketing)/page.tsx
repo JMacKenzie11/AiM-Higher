@@ -24,14 +24,19 @@ export default function LandingPage() {
               THE OPERATING SYSTEM FOR THE AiMS METHOD
             </p>
             <h1 className={styles.heroHeadline}>
-              Your strategy, your meetings, and your follow-through. Finally in
-              one place.
+              Leadership Simplified.
+              <br />
+              Results Amplified.
             </h1>
             <span className={styles.heroRule} aria-hidden="true" />
+            <p className={styles.heroSubhead}>
+              Your strategy, your meetings, and your follow-through.
+              In one place.
+            </p>
             <p className={styles.heroSupport}>
-              AiM Higher turns your strategic plan into weekly commitments,
-              tracks whether they actually happen, and coaches your leaders
-              along the way.
+              AiMS Higher&trade; turns your strategic plan into weekly
+              commitments, tracks whether they actually happen, and coaches
+              your leaders along the way.
             </p>
             <div className={styles.heroCtas}>
               <a href={demoUrl()} className={styles.primaryCta}>
@@ -296,7 +301,7 @@ export default function LandingPage() {
                 question: "Is this EOS software?",
                 answer: (
                   <p>
-                    No. AiM Higher runs the AiMS method, an always-on operating
+                    No. AiMS Higher&trade; runs the AiMS method, an always-on operating
                     system built around appreciative inquiry, weekly
                     follow-through, and embedded coaching. If you have run EOS
                     or Scaling Up, the concepts will feel familiar and the
