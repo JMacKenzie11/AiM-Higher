@@ -144,19 +144,21 @@ export function NavBand({
     return [{ ...item, items: filteredChildren }];
   });
 
-  // A system_admin who hasn't scoped into a company can't visit any of
-  // the app pages meaningfully — every one redirects to /admin/companies.
-  // Also: while on the /admin surface itself, hide app links even if a
-  // scope cookie lingers from a prior session — the sysadmin is here to
-  // pick or manage companies, not to peek at whichever one they were
-  // last inside.
-  const onAdminSurface = pathname.startsWith("/admin");
+  // The /admin/companies picker itself is a "not inside a company yet"
+  // surface — hide app links there. A specific company's settings page
+  // (/admin/companies/[id]) is the opposite: the sysadmin IS operating
+  // on that company (middleware auto-scopes the cookie), so the top
+  // nav should behave as it would on any company-scoped page.
+  const onAdminPicker =
+    pathname === "/admin" ||
+    pathname === "/admin/companies" ||
+    pathname === "/admin/companies/";
 
   // The "operating as this company" sub-band only makes sense on
   // execution-module surfaces. Strengths is a personal assessment,
-  // coach + profile are user-scoped, and /admin is the company picker
-  // itself — none of them are "inside a company" in the way the band
-  // suggests. Exit Company still reachable via the user menu.
+  // coach + profile are user-scoped, and the /admin picker is where you
+  // pick a company, not a company you're inside. Exit Company still
+  // reachable via the user menu on all those surfaces.
   const onPersonalSurface =
     pathname.startsWith("/strengths") ||
     pathname.startsWith("/coach") ||
@@ -164,11 +166,11 @@ export function NavBand({
   const showContextBand =
     isSystemAdmin &&
     Boolean(contextLabel) &&
-    !onAdminSurface &&
+    !onAdminPicker &&
     !onPersonalSurface;
 
   const items: NavItem[] = isSystemAdmin
-    ? showExitScope && !onAdminSurface
+    ? showExitScope && !onAdminPicker
       ? [...SYSTEM_ADMIN_ITEMS, ...subscribedApp]
       : [...SYSTEM_ADMIN_ITEMS]
     : subscribedApp;
