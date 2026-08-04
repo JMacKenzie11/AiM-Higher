@@ -458,8 +458,7 @@
   font: var(--text-body);
   font-size: 17px;
   line-height: 1.65;
-  max-width: 64ch;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 .problemRule {
@@ -1416,8 +1415,7 @@
   font: var(--text-body);
   font-size: 17px;
   line-height: 1.65;
-  max-width: 64ch;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 .investmentGrid {
@@ -1458,15 +1456,16 @@
 }
 
 /* Closing line beneath the cards — bigger, editorial paragraph
-   matching the .aims-prose voice used across the app. */
+   matching the .aims-prose voice used across the app. Spans the
+   full section (no max-width) so it visually parallels the row of
+   cards above it. */
 .investmentClose {
   margin: 0;
   color: var(--text);
   font: var(--text-body);
   font-size: 20px;
   line-height: 1.55;
-  max-width: 68ch;
-  text-wrap: balance;
+  text-wrap: pretty;
   padding: var(--space-5) var(--space-6);
   background: var(--surface);
   border-left: 4px solid var(--accent);
