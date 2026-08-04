@@ -71,7 +71,7 @@
   color: var(--aims-white);
   opacity: 0.75;
   font: var(--text-body);
-  max-width: 60ch;
+  text-wrap: balance;
 }
 
 .content {

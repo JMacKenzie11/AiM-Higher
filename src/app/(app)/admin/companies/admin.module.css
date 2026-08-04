@@ -90,7 +90,11 @@
   color: var(--aims-white);
   opacity: 0.7;
   font: var(--text-body);
-  max-width: 60ch;
+  /* No hard character cap — the hero band + page max-width already
+     contain how wide a line can get. text-wrap: balance keeps any
+     natural wrap distributed evenly across lines rather than
+     stranding two words on a second line. */
+  text-wrap: balance;
 }
 
 .content {

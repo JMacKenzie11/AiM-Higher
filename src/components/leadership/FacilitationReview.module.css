@@ -33,7 +33,7 @@
   margin: var(--space-1) 0 0;
   font: var(--text-body-sm);
   color: var(--text-muted);
-  max-width: 60ch;
+  text-wrap: balance;
   grid-column: 1;
 }
 
