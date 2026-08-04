@@ -243,6 +243,220 @@
   overflow-wrap: anywhere;
 }
 
+/* ---- Person quick-view drawer ----
+   Right-side slide-in that opens when an owner name is clicked on
+   a commitment row. Contains the person's follow-through stats, a
+   Coach jump, and the reassign picker (so ownership is only ever
+   changed inside this drawer — one gesture deeper than the old
+   "click the name to reassign" model, but that gesture was the
+   ambient cause of accidental reassigns). */
+
+.drawerOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(17, 21, 26, 0.35);
+  display: flex;
+  justify-content: flex-end;
+  animation: drawerOverlayIn var(--duration-normal) var(--ease-out);
+}
+
+.drawerPanel {
+  width: min(400px, 100%);
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  animation: drawerPanelIn var(--duration-normal) var(--ease-out);
+}
+
+.drawerHeader {
+  padding: var(--space-5) var(--space-5) var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.drawerEyebrow {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.drawerTitle {
+  margin: 0;
+  font: var(--text-h2);
+  color: var(--text-heading);
+}
+
+.drawerPosition {
+  margin: var(--space-1) 0 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.drawerClose {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.drawerClose:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.drawerBody {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1;
+}
+
+.drawerMuted {
+  margin: 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.drawerError {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--aims-danger-tint);
+  border-left: 3px solid var(--aims-danger);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: var(--text-body-sm);
+}
+
+.drawerStatRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.drawerStat {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-md);
+}
+
+.drawerStatValue {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-heading);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.drawerStatLabel {
+  margin-top: 2px;
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.drawerStatCaption {
+  margin-top: 2px;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.drawerActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.drawerPrimaryAction {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  text-align: center;
+  border: none;
+  cursor: pointer;
+}
+
+.drawerPrimaryAction:hover {
+  background: var(--primary-hover);
+}
+
+.drawerSecondaryAction {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  text-align: center;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.drawerSecondaryAction:hover {
+  background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
+}
+
+.drawerReassign {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.drawerReassignHeader {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+@keyframes drawerOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes drawerPanelIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawerOverlay,
+  .drawerPanel {
+    animation: none;
+  }
+}
+
 /* "Marked kept · Undo" chip — appears for a few seconds after a
    resolve action so the coach knows the action landed AND can undo
    without hunting through the state model. Auto-hides on a client

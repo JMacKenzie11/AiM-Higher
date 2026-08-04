@@ -20,6 +20,7 @@ import type { Priority, Profile } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import { PriorityPicker } from "./PriorityPicker";
 import { OwnerPicker } from "./OwnerPicker";
+import { PersonQuickViewDrawer } from "./PersonQuickViewDrawer";
 import { ClarityChip, ClarityEditor, clarityState } from "./ClarityStrip";
 import styles from "./commitments.module.css";
 
@@ -73,6 +74,7 @@ export function CommitmentRow({
   const [rescheduleReason, setRescheduleReason] = useState("");
   const [pickingOwner, setPickingOwner] = useState(false);
   const [showClarity, setShowClarity] = useState(false);
+  const [showQuickView, setShowQuickView] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -431,9 +433,23 @@ export function CommitmentRow({
         isAdmin={isAdmin}
         pickingOwner={pickingOwner}
         setPickingOwner={setPickingOwner}
+        onOpenQuickView={() => setShowQuickView(true)}
         reassignTo={reassignTo}
         pending={pending}
       />
+
+      {commitment.owner_id ? (
+        <PersonQuickViewDrawer
+          open={showQuickView}
+          ownerId={commitment.owner_id}
+          ownerName={commitment.owner?.full_name ?? "This person"}
+          roster={roster}
+          canReassign={canReassign}
+          canCoach={isAdmin}
+          onReassign={reassignTo}
+          onClose={() => setShowQuickView(false)}
+        />
+      ) : null}
 
       <PriorityCell
         commitment={commitment}
@@ -604,7 +620,9 @@ function PriorityCell({
 }
 
 // Owner column. Three shapes:
-//   - Admin or existing owner: click owner name → full-roster picker.
+//   - Admin or existing owner: click owner name → quick-view drawer
+//     (drawer contains the reassign picker so ownership isn't
+//     changed by an accidental click, which was the old behaviour).
 //   - Team member on an unassigned row: click "Unassigned" chip → one-
 //     click self-claim (they can only assign to themselves).
 //   - Otherwise: read-only name or muted "Unassigned" chip.
@@ -616,6 +634,7 @@ function OwnerCell({
   isAdmin,
   pickingOwner,
   setPickingOwner,
+  onOpenQuickView,
   reassignTo,
   pending,
 }: {
@@ -626,6 +645,7 @@ function OwnerCell({
   isAdmin: boolean;
   pickingOwner: boolean;
   setPickingOwner: (b: boolean) => void;
+  onOpenQuickView: () => void;
   reassignTo: (id: string) => void;
   pending: boolean;
 }) {
@@ -677,18 +697,26 @@ function OwnerCell({
       <button
         type="button"
         className={styles.rowOwnerButton}
-        onClick={() => setPickingOwner(true)}
+        onClick={onOpenQuickView}
         disabled={pending}
-        aria-label="Reassign owner"
+        aria-label={`Open quick view for ${commitment.owner?.full_name ?? "owner"}`}
       >
         {commitment.owner?.full_name ?? "—"}
       </button>
     );
   }
 
+  // Non-reassign viewers still get the drawer — they can't change
+  // owner but they can see who this is and jump to the scorecard.
   return (
-    <span className={styles.rowOwner}>
+    <button
+      type="button"
+      className={styles.rowOwnerButton}
+      onClick={onOpenQuickView}
+      disabled={pending}
+      aria-label={`Open quick view for ${commitment.owner?.full_name ?? "owner"}`}
+    >
       {commitment.owner?.full_name ?? "—"}
-    </span>
+    </button>
   );
 }
