@@ -198,6 +198,287 @@
   color: var(--text-muted);
 }
 
+/* ============================================================
+   Measure insight cards — Gaining ground + Wins this week.
+   Rows stagger in via --i (row index); child animations key off
+   --delay on a per-element basis so the reveal reads as one
+   choreographed sequence rather than four independent tweens.
+   ============================================================ */
+
+.trendList,
+.winList {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.trendRow,
+.winRow {
+  display: grid;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(6px);
+  animation: measureRowIn var(--duration-slow) var(--ease-out) forwards;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+
+.trendRow:last-child,
+.winRow:last-child {
+  border-bottom: none;
+}
+
+.trendRow {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.winRow {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+@keyframes measureRowIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.trendText,
+.winText {
+  min-width: 0;
+}
+
+.trendTitle,
+.winTitle {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trendMeta,
+.winMeta {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Sparkline (Gaining ground) ---- */
+
+.sparkline {
+  display: block;
+  width: 140px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.sparklineLine {
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  animation: sparklineDraw 900ms var(--ease-out) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+.sparklineArea {
+  opacity: 0;
+  animation: sparklineFade 500ms var(--ease-out) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+.sparklineDot {
+  opacity: 0;
+  transform-origin: center;
+  animation: sparklineDotPop 400ms var(--ease-out) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes sparklineDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes sparklineFade {
+  to { opacity: 1; }
+}
+
+@keyframes sparklineDotPop {
+  0% { opacity: 0; transform: scale(0.3); transform-origin: center; }
+  60% { opacity: 1; transform: scale(1.35); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ---- Delta chip ---- */
+
+.deltaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font: var(--text-button-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+  transform: scale(0.85);
+  animation: deltaChipIn 500ms var(--ease-out) forwards;
+  animation-delay: calc((var(--i, 0) * 80ms) + 500ms);
+}
+
+.deltaChipUp {
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+}
+
+.deltaChipDown {
+  background: var(--aims-warning-tint);
+  color: var(--aims-warning);
+}
+
+.deltaChipArrow {
+  display: inline-block;
+}
+
+@keyframes deltaChipIn {
+  0% { opacity: 0; transform: scale(0.85); }
+  60% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ---- Wins this week ---- */
+
+.winBadge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--aims-success) 8%, transparent);
+  transform: scale(0.4);
+  opacity: 0;
+  animation: winBadgePop 550ms var(--ease-out) forwards;
+  animation-delay: calc((var(--i, 0) * 80ms) + 250ms);
+}
+
+@keyframes winBadgePop {
+  0% { opacity: 0; transform: scale(0.4); }
+  55% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.winMeter {
+  margin-top: 8px;
+}
+
+.winMeterTrack {
+  position: relative;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  overflow: hidden;
+}
+
+.winMeterFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fill, 0%);
+  background: linear-gradient(
+    90deg,
+    var(--aims-cobalt) 0%,
+    var(--aims-success) 100%
+  );
+  border-radius: var(--radius-pill);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: winMeterFillIn 900ms var(--ease-out) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+.winMeterTargetTick {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: var(--target-pos, 72%);
+  width: 2px;
+  background: var(--aims-navy);
+  opacity: 0.35;
+  border-radius: 1px;
+}
+
+@keyframes winMeterFillIn {
+  to { transform: scaleX(1); }
+}
+
+.winValueBlock {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.winValue {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--aims-success);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.winTargetLabel {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trendRow,
+  .winRow,
+  .sparklineLine,
+  .sparklineArea,
+  .sparklineDot,
+  .deltaChip,
+  .winBadge,
+  .winMeterFill {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    stroke-dashoffset: 0;
+  }
+  .winMeterFill {
+    transform: scaleX(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .trendRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .trendRow .sparkline {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .winRow {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .winValueBlock {
+    grid-column: 1 / -1;
+    text-align: left;
+    padding-left: 52px;
+  }
+}
+
 .emptyLine {
   margin: 0;
   padding: var(--space-4);

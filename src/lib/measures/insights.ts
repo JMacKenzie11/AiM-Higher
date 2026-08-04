@@ -26,11 +26,16 @@ export type MeasureCardItem = {
   description: string;
   functionTitle: string;
   target: string | null;
+  targetNumber: number | null;
   targetDirection: TargetDirection;
   currentValue: number | null;
   previousValue: number | null;
   streakWeeks: number; // for streaks card
   storyLine: string; // short narrative for the card
+  // Chronological (ascending) numeric values across the trend window.
+  // Powers the sparkline on Gaining Ground; may be shorter than the
+  // window if some weeks weren't logged.
+  sparkline: number[];
 };
 
 export type MeasureInsights = {
@@ -166,12 +171,14 @@ export async function getMeasureInsights(
       description: m.description,
       functionTitle,
       target: m.target,
+      targetNumber: targetValue,
       targetDirection: m.target_direction,
       currentValue: latest.value,
       previousValue: previous?.value ?? null,
       streakWeeks: 0,
       storyLine: "",
-    } satisfies Omit<MeasureCardItem, "storyLine"> & { storyLine: string };
+      sparkline: numeric.map((n) => n.value),
+    } satisfies MeasureCardItem;
 
     // Wins this week — hit target with a value logged for the
     // current week ending.
