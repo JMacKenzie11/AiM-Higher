@@ -29,6 +29,11 @@ const FEATURES: ReadonlyArray<{
     label: "Success Tracking",
     hint: "Requires targets on every success measure and turns on weekly performance nudges.",
   },
+  {
+    value: "meeting_facilitation_review",
+    label: "Meeting Facilitation Review",
+    hint: "After each meeting is analyzed, generate a coaching-tone review of how the meeting was run against the AiMS Weekly Leadership Meeting framework.",
+  },
 ];
 
 export function FeaturesForm({

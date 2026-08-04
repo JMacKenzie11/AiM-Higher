@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { companyHasFeature } from "@/lib/subscriptions/service";
+import { FacilitationListChip } from "@/components/leadership/FacilitationReview";
+import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type { Meeting } from "@/lib/types";
 import styles from "../admin/companies/admin.module.css";
 
@@ -32,6 +35,34 @@ export default async function LeadershipPage() {
     .order("created_at", { ascending: false })
     .limit(100);
   const meetings = (rows ?? []) as Meeting[];
+
+  // Facilitation column is only fetched (and only rendered) when the
+  // feature is on. One extra query for the complete-status meetings —
+  // pending/failed rows can't have a review yet.
+  const facilitationOn = await companyHasFeature(
+    companyId,
+    "meeting_facilitation_review"
+  );
+  const reviewByMeetingId = new Map<string, FacilitationReview>();
+  if (facilitationOn) {
+    const completeIds = meetings
+      .filter((m) => m.status === "complete")
+      .map((m) => m.id);
+    if (completeIds.length > 0) {
+      const { data: analysisRows } = await supabase
+        .from("meeting_analyses")
+        .select("meeting_id, facilitation_review_json")
+        .in("meeting_id", completeIds);
+      for (const row of (analysisRows ?? []) as Array<{
+        meeting_id: string;
+        facilitation_review_json: FacilitationReview | null;
+      }>) {
+        if (row.facilitation_review_json) {
+          reviewByMeetingId.set(row.meeting_id, row.facilitation_review_json);
+        }
+      }
+    }
+  }
 
   return (
     <div className={styles.stage}>
@@ -65,47 +96,60 @@ export default async function LeadershipPage() {
                   <th>Meeting</th>
                   <th>Received</th>
                   <th>Status</th>
+                  {facilitationOn ? <th>Facilitation</th> : null}
                   <th className={styles.actionHead}>Analysis</th>
                 </tr>
               </thead>
               <tbody>
-                {meetings.map((m) => (
-                  <tr key={m.id}>
-                    <td style={{ fontWeight: 600 }}>
-                      {m.meeting_title ?? m.file_name}
-                    </td>
-                    <td className={styles.mutedCell}>
-                      {new Date(m.created_at).toLocaleDateString()}
-                    </td>
-                    <td>
-                      <span
-                        className={
-                          m.status === "complete"
-                            ? styles.chipAccepted
-                            : m.status === "failed"
-                              ? styles.chipRevoked
-                              : styles.chipPending
-                        }
-                      >
-                        {m.status === "failed" && m.error
-                          ? `failed (${m.error})`
-                          : m.status}
-                      </span>
-                    </td>
-                    <td>
-                      {m.status === "complete" ? (
-                        <Link
-                          href={`/leadership/meetings/${m.id}`}
-                          className={styles.ghostButton}
+                {meetings.map((m) => {
+                  const review = reviewByMeetingId.get(m.id);
+                  return (
+                    <tr key={m.id}>
+                      <td style={{ fontWeight: 600 }}>
+                        {m.meeting_title ?? m.file_name}
+                      </td>
+                      <td className={styles.mutedCell}>
+                        {new Date(m.created_at).toLocaleDateString()}
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            m.status === "complete"
+                              ? styles.chipAccepted
+                              : m.status === "failed"
+                                ? styles.chipRevoked
+                                : styles.chipPending
+                          }
                         >
-                          View
-                        </Link>
-                      ) : (
-                        <span className={styles.mutedCell}>—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                          {m.status === "failed" && m.error
+                            ? `failed (${m.error})`
+                            : m.status}
+                        </span>
+                      </td>
+                      {facilitationOn ? (
+                        <td>
+                          {review ? (
+                            <FacilitationListChip review={review} />
+                          ) : (
+                            <span className={styles.mutedCell}>—</span>
+                          )}
+                        </td>
+                      ) : null}
+                      <td>
+                        {m.status === "complete" ? (
+                          <Link
+                            href={`/leadership/meetings/${m.id}`}
+                            className={styles.ghostButton}
+                          >
+                            View
+                          </Link>
+                        ) : (
+                          <span className={styles.mutedCell}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

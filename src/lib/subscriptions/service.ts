@@ -15,7 +15,14 @@ export type ModuleFeature =
   //   - the Saturday cron fires "update the measure" commitments
   //     for missed weekly logs
   //   - dashboards surface generative operational-performance cards
-  | "performance_tracking";
+  | "performance_tracking"
+  // Opt-in facilitation review. When on, each new meeting transcript
+  // gets a second LLM pass that scores how the meeting was run against
+  // the AiMS Weekly Leadership Meeting framework. The review is stored
+  // on meeting_analyses.facilitation_review_json and rendered as a
+  // coaching-tone panel on the meeting detail page + a signal chip on
+  // the list. Doubles per-meeting LLM cost — off by default.
+  | "meeting_facilitation_review";
 
 export async function getCompanyFeatures(
   companyId: string

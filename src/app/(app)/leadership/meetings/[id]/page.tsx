@@ -5,6 +5,9 @@ import remarkGfm from "remark-gfm";
 import { requireRole } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { companyHasFeature } from "@/lib/subscriptions/service";
+import { FacilitationReview } from "@/components/leadership/FacilitationReview";
+import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
 import type { Meeting, MeetingAnalysis, Profile } from "@/lib/types";
 import styles from "../../../admin/companies/admin.module.css";
 
@@ -47,6 +50,18 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       .select("id, description, owner_id, due_date")
       .eq("source_meeting_id", id),
   ]);
+
+  // Facilitation review only surfaces when the feature is on AND
+  // the analysis row actually carries a review (older rows, or rows
+  // analyzed while the flag was off, stay null and render nothing).
+  const facilitationOn = await companyHasFeature(
+    meeting.company_id,
+    "meeting_facilitation_review"
+  );
+  const facilitationReview =
+    facilitationOn && analysis?.facilitation_review_json
+      ? (analysis.facilitation_review_json as FacilitationReviewData)
+      : null;
 
   const commitmentRows = (commitments ?? []) as Array<{
     id: string;
@@ -132,6 +147,10 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
             <p className={styles.emptyLine}>Analysis not available.</p>
           )}
         </section>
+
+        {facilitationReview ? (
+          <FacilitationReview review={facilitationReview} />
+        ) : null}
       </div>
     </div>
   );

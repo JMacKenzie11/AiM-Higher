@@ -6,6 +6,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { fridayOf, todayInTimezone } from "@/lib/dates";
+import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyze";
+import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type {
   CompanyFoundation,
   ExtractedCommitment,
@@ -111,12 +113,34 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
     // creating a commitment we can't ground is worse than dropping.
     const validated = validateCommitments(rawCommitments, context);
 
+    // ---- Optional: facilitation review ----
+    // Second LLM pass gated on the meeting_facilitation_review feature.
+    // Best-effort: a failure here never blocks the summary/commitments
+    // pipeline — the review is additive coaching, the summary is the
+    // load-bearing output.
+    let facilitationReview: FacilitationReview | null = null;
+    if (await companyHasFacilitationReview(admin, meetingRow.company_id)) {
+      try {
+        facilitationReview = await analyzeMeetingFacilitation(client, {
+          transcript: meetingRow.transcript_text,
+          companyContextBlock: companyBlock,
+        });
+      } catch (err) {
+        // Swallow: log to server logs, keep pipeline moving.
+        console.error(
+          `[facilitation] review failed for meeting ${meetingId}:`,
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+
     // Store the analysis row so system_admin / company_admin can
     // read the markdown.
     await admin.from("meeting_analyses").insert({
       meeting_id: meetingId,
       analysis_markdown: analysisMarkdown,
       commitments_json: validated,
+      facilitation_review_json: facilitationReview,
       model,
     });
 
@@ -300,6 +324,22 @@ function formatCompanyContext(ctx: CompanyContext): string {
 async function loadAnalyzerPrompt(): Promise<string> {
   const file = path.join(process.cwd(), "prompts", "meeting-analyzer.md");
   return fs.readFile(file, "utf8");
+}
+
+// Feature check using the admin client so the pipeline (which runs
+// outside a user session) can gate the second LLM pass. Mirrors
+// companyHasFeature() but doesn't rely on RLS-scoped reads.
+async function companyHasFacilitationReview(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  companyId: string
+): Promise<boolean> {
+  const { data } = await admin
+    .from("company_features")
+    .select("feature")
+    .eq("company_id", companyId)
+    .eq("feature", "meeting_facilitation_review")
+    .maybeSingle<{ feature: string }>();
+  return Boolean(data);
 }
 
 // ============================================================

@@ -17,12 +17,15 @@ No separate "open the company" step is needed.
 ## Common things people do here
 
 - **Toggle features** — the Features card enables or disables the
-  three modules: *Execution Platform* (commitments, success
-  measures, coaching dashboard), *Strengths* (assessments, results,
-  strengths-aware coaching), and *Success Tracking* (requires
-  targets on every success measure and turns on the weekly nudge
-  + generative dashboard cards). Turning a module off hides it in
-  nav; existing data is preserved.
+  modules: *Execution Platform* (commitments, success measures,
+  coaching dashboard), *Strengths* (assessments, results,
+  strengths-aware coaching), *Success Tracking* (requires targets
+  on every success measure and turns on the weekly nudge +
+  generative dashboard cards), and *Meeting Facilitation Review*
+  (adds a coaching-tone review of how each meeting was run,
+  visible on the meeting detail page and as a signal chip on the
+  Leadership list). Turning a module off hides it in nav; existing
+  data is preserved.
 - **Connect Google Drive** — click *Connect Google account*. Each
   company has its own OAuth, so folders can live under different
   Google Workspaces. After connecting, share the transcript folder

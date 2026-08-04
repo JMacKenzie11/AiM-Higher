@@ -471,6 +471,11 @@ export type MeetingAnalysis = {
   meeting_id: string;
   analysis_markdown: string;
   commitments_json: ExtractedCommitment[];
+  // Structured facilitation review (see FacilitationReview in
+  // src/lib/leadership/facilitation/types.ts). Null when the
+  // meeting_facilitation_review feature is off or the second pass
+  // failed. Rendered by the FacilitationReview component.
+  facilitation_review_json: unknown | null;
   model: string;
   created_at: string;
 };

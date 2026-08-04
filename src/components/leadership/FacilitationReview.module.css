@@ -1,0 +1,449 @@
+/* ============================================================
+   FacilitationReview — the coaching-tone facilitation panel on
+   the meeting detail page, plus its list-chip counterpart.
+   Palette rule: never red. Low signals lean cobalt-tint; high
+   signals lean chartreuse. Warmth first.
+   ============================================================ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.subhead {
+  margin: var(--space-1) 0 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  max-width: 60ch;
+  grid-column: 1;
+}
+
+.summary {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text);
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-navy-tint);
+  border-left: 3px solid var(--aims-cobalt);
+  border-radius: var(--radius-sm);
+}
+
+.insufficient {
+  margin: 0;
+  padding: var(--space-4);
+  font-style: italic;
+  color: var(--text-muted);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Overall signal (top-right of the header) ---- */
+
+.overall {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--aims-navy-tint);
+  border: 1px solid var(--border);
+  min-width: 132px;
+  justify-content: flex-end;
+}
+
+.overall[data-tone="high"] {
+  background: var(--aims-chartreuse-tint);
+  border-color: color-mix(in srgb, var(--aims-chartreuse) 45%, transparent);
+}
+.overall[data-tone="mid"] {
+  background: var(--aims-cobalt-tint);
+  border-color: color-mix(in srgb, var(--aims-cobalt) 25%, transparent);
+}
+.overall[data-tone="low"] {
+  background: var(--aims-navy-tint);
+  border-color: var(--border);
+}
+
+.overallLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-right: var(--space-2);
+  align-self: center;
+}
+
+.overallNumber {
+  font: var(--text-stat);
+  color: var(--text-heading);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.overallDenom {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Dimension chips row ---- */
+
+.signals {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  border: 1px solid var(--border);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.chip[data-tone="high"] {
+  background: var(--aims-chartreuse-tint);
+  border-color: color-mix(in srgb, var(--aims-chartreuse) 45%, transparent);
+}
+.chip[data-tone="mid"] {
+  background: var(--aims-cobalt-tint);
+  border-color: color-mix(in srgb, var(--aims-cobalt) 25%, transparent);
+}
+.chip[data-tone="low"] {
+  background: var(--aims-navy-tint);
+  border-color: var(--border);
+}
+
+.chipLabel {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.chipValue {
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* ---- Section headings ---- */
+
+.sectionHeading {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0 0 var(--space-3) 0;
+}
+
+/* ---- Strengths ---- */
+
+.strengthsBlock {
+  background: var(--aims-success-tint);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+}
+
+.strengthList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.strengthItem {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.strengthBadge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--aims-success) 22%, white);
+  color: var(--aims-success);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.strengthTitle {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 15px;
+}
+
+.strengthEvidence {
+  font: var(--text-body-sm);
+  color: var(--text);
+  margin-top: 2px;
+}
+
+/* ---- Growth edges ---- */
+
+.growthBlock {
+  padding-top: var(--space-2);
+}
+
+.growthGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.growthColumn {
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-warning-tint);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--aims-warning);
+}
+
+.growthDimLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--aims-warning);
+  margin-bottom: var(--space-2);
+}
+
+.growthList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.growthItem {
+  padding-top: var(--space-2);
+  border-top: 1px solid color-mix(in srgb, var(--aims-warning) 20%, transparent);
+}
+
+.growthItem:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.growthTitle {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.growthEvidence {
+  font: var(--text-caption);
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.growthWhy {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* ---- Experiments (what to try next week) ---- */
+
+.experimentsBlock {
+  padding-top: var(--space-2);
+}
+
+.experimentList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.experimentItem {
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-cobalt-tint);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--aims-cobalt);
+}
+
+.experimentAction {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 15px;
+}
+
+.experimentWhy,
+.experimentNext {
+  margin-top: 4px;
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.metaLabel {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--aims-cobalt);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-right: 4px;
+}
+
+/* ---- 4Ws audit ---- */
+
+.audit {
+  padding-top: var(--space-2);
+}
+
+.auditCaption {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin: 0 0 var(--space-3);
+  max-width: 68ch;
+}
+
+.auditTableWrap {
+  overflow-x: auto;
+}
+
+.auditTable {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body-sm);
+}
+
+.auditTable th {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.auditTable td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.auditTable tr:last-child td {
+  border-bottom: none;
+}
+
+.auditColCentered {
+  text-align: center;
+}
+
+.auditIssue {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.auditNote {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  margin-top: 4px;
+  max-width: 48ch;
+}
+
+.markHit {
+  color: var(--aims-success);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.markMiss {
+  color: color-mix(in srgb, var(--aims-warning) 60%, var(--text-muted));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================
+   Meeting list chip — small pill on each row of /leadership.
+   Same warm scale, tighter footprint.
+   ============================================================ */
+
+.listChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  color: var(--text-heading);
+  background: var(--aims-navy-tint);
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.listChip[data-tone="high"] {
+  background: var(--aims-chartreuse-tint);
+  border-color: color-mix(in srgb, var(--aims-chartreuse) 45%, transparent);
+}
+.listChip[data-tone="mid"] {
+  background: var(--aims-cobalt-tint);
+  border-color: color-mix(in srgb, var(--aims-cobalt) 25%, transparent);
+}
+.listChip[data-tone="low"] {
+  background: var(--aims-navy-tint);
+  border-color: var(--border);
+}
+
+.listChipDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+  display: inline-block;
+}
+
+@media (max-width: 720px) {
+  .header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .overall {
+    grid-column: 1;
+    grid-row: auto;
+    align-self: flex-start;
+    justify-content: flex-start;
+  }
+}
