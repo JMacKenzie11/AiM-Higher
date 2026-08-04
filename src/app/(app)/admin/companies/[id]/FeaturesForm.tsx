@@ -9,9 +9,18 @@ import styles from "../admin.module.css";
 // stops feeding coaching) but leaves the underlying data intact.
 // Re-enable and it's all still there.
 
-const FEATURES: ReadonlyArray<{ value: string; label: string }> = [
+const FEATURES: ReadonlyArray<{
+  value: string;
+  label: string;
+  hint?: string;
+}> = [
   { value: "execution", label: "Execution Platform" },
   { value: "strengths", label: "Strengths" },
+  {
+    value: "performance_tracking",
+    label: "Performance tracking",
+    hint: "Turn on to require targets on every success measure and enable weekly performance nudges.",
+  },
 ];
 
 export function FeaturesForm({
@@ -63,15 +72,25 @@ export function FeaturesForm({
         <span className={styles.label}>Features</span>
         <div className={styles.checkGroup}>
           {FEATURES.map((f) => (
-            <label key={f.value} className={styles.checkOption}>
-              <input
-                type="checkbox"
-                checked={selected.has(f.value)}
-                onChange={() => toggle(f.value)}
-                disabled={pending}
-              />
-              {f.label}
-            </label>
+            <div key={f.value}>
+              <label className={styles.checkOption}>
+                <input
+                  type="checkbox"
+                  checked={selected.has(f.value)}
+                  onChange={() => toggle(f.value)}
+                  disabled={pending}
+                />
+                {f.label}
+              </label>
+              {f.hint ? (
+                <p
+                  className={styles.fieldHint}
+                  style={{ marginLeft: "var(--space-4)", marginTop: "var(--space-1)" }}
+                >
+                  {f.hint}
+                </p>
+              ) : null}
+            </div>
           ))}
         </div>
         <p className={styles.fieldHint}>

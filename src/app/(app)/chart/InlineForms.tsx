@@ -169,7 +169,17 @@ export function AddOutcomeForm({ functionId }: { functionId: string }) {
 
 // ---- Add Measure ----------------------------------------------
 
-export function AddMeasureForm({ outcomeId }: { outcomeId: string }) {
+export function AddMeasureForm({
+  outcomeId,
+  requireTarget = false,
+}: {
+  outcomeId: string;
+  // When the company has performance_tracking on, target becomes
+  // mandatory at the client + server layer. Direction + auto-track
+  // controls surface unconditionally so the metadata is available
+  // whether or not the flag is on today.
+  requireTarget?: boolean;
+}) {
   const [state, formAction, pending] = useActionState<
     ChartResult<SuccessMeasure>,
     FormData
@@ -206,13 +216,16 @@ export function AddMeasureForm({ outcomeId }: { outcomeId: string }) {
       </label>
 
       <label className={styles.formField}>
-        <span className={styles.formLabel}>Target</span>
+        <span className={styles.formLabel}>
+          Target{requireTarget ? " *" : ""}
+        </span>
         <input
           className={styles.formInput}
           type="text"
           name="target"
           placeholder="e.g. 0.95, 90%, Yes"
           disabled={pending}
+          required={requireTarget}
         />
       </label>
 
@@ -230,6 +243,43 @@ export function AddMeasureForm({ outcomeId }: { outcomeId: string }) {
             </option>
           ))}
         </select>
+      </label>
+
+      <label className={styles.formField}>
+        <span className={styles.formLabel}>Direction</span>
+        <select
+          className={styles.formSelect}
+          name="target_direction"
+          defaultValue="higher_is_better"
+          disabled={pending}
+        >
+          <option value="higher_is_better">Higher is better</option>
+          <option value="lower_is_better">Lower is better</option>
+        </select>
+      </label>
+
+      <label className={`${styles.formField} ${styles.formFieldFull}`}>
+        <span className={styles.formLabel}>
+          <input
+            type="checkbox"
+            name="auto_track"
+            defaultChecked
+            disabled={pending}
+            style={{ marginRight: "8px" }}
+          />
+          Auto-track weekly updates
+        </span>
+        <span
+          style={{
+            fontSize: "12px",
+            color: "var(--text-muted)",
+            marginTop: "2px",
+          }}
+        >
+          Include this measure in the Saturday check that creates a
+          commitment when the week&rsquo;s value wasn&rsquo;t logged.
+          Turn off for context measures like headcount.
+        </span>
       </label>
 
       {errorMessage ? (

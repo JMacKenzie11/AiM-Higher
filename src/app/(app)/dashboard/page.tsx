@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getDashboardData } from "@/lib/dashboard/service";
+import { getMeasureInsights } from "@/lib/measures/insights";
+import { getMeasuresOwnedBy } from "@/lib/measures/service";
+import { companyHasFeature } from "@/lib/subscriptions/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
@@ -11,6 +14,8 @@ import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { CardAccent } from "@/components/ui/CardAccent";
 import { BriefSection, BriefLoading } from "./BriefSection";
 import { HeroStat } from "./HeroStat";
+import { MeasureInsightsCards } from "./MeasureInsightsCards";
+import { PendingMeasuresCard } from "./PendingMeasuresCard";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./dashboard.module.css";
 
@@ -23,6 +28,32 @@ export default async function DashboardPage() {
 
   const data = await getDashboardData(companyId);
   if (!data) redirect("/admin/companies");
+
+  // Pending-measures widget only renders when performance_tracking
+  // is on for this company and the caller actually owns some
+  // measures that don't have a value for the current week yet.
+  const perfTrackingOn = await companyHasFeature(
+    companyId,
+    "performance_tracking"
+  );
+  const { measures: ownedMeasures, weekEnding: measuresWeekEnding } =
+    perfTrackingOn
+      ? await getMeasuresOwnedBy(
+          companyId,
+          session.profile.id,
+          data.company.timezone
+        )
+      : { measures: [], weekEnding: "" };
+  const pendingMeasures = ownedMeasures.filter(
+    (m) => m.auto_track && m.currentValue === null
+  );
+
+  // Generative "gaining ground / streaks / wins / worth a
+  // conversation" cards for the whole company. Only compute when
+  // the flag is on; the cards render nothing when there's no data.
+  const measureInsights = perfTrackingOn
+    ? await getMeasureInsights(companyId, data.company.timezone)
+    : null;
 
   const isAdmin =
     session.profile.role === "system_admin" ||
@@ -139,6 +170,17 @@ export default async function DashboardPage() {
               adminId={session.profile.id}
             />
           </Suspense>
+        ) : null}
+
+        {pendingMeasures.length > 0 ? (
+          <PendingMeasuresCard
+            measures={pendingMeasures}
+            weekEnding={measuresWeekEnding}
+          />
+        ) : null}
+
+        {measureInsights ? (
+          <MeasureInsightsCards insights={measureInsights} />
         ) : null}
 
         {/* --- Recent successes (admin-only) --- */}

@@ -12,7 +12,11 @@ export type CompanyResult =
   | { ok: true; company: Company }
   | { ok: false; message: string };
 
-const VALID_FEATURES = new Set(["execution", "strengths"]);
+const VALID_FEATURES = new Set([
+  "execution",
+  "strengths",
+  "performance_tracking",
+]);
 
 export async function createCompanyAction(
   _prev: CompanyResult | undefined,

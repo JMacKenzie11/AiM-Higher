@@ -7,7 +7,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // intentionally open — the DB has no CHECK constraint — so a new
 // module can ship without a migration to add its name here.
 
-export type ModuleFeature = "execution" | "strengths";
+export type ModuleFeature =
+  | "execution"
+  | "strengths"
+  // Opt-in performance tracking. When on:
+  //   - success-measure targets are required
+  //   - the Saturday cron fires "update the measure" commitments
+  //     for missed weekly logs
+  //   - dashboards surface generative operational-performance cards
+  | "performance_tracking";
 
 export async function getCompanyFeatures(
   companyId: string

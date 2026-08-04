@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { companyHasFeature } from "@/lib/subscriptions/service";
 import { nullableString } from "@/lib/utils";
 import type {
   FunctionNode,
@@ -12,6 +13,7 @@ import type {
   MetricValueType,
   SuccessMeasure,
   SuccessMeasureEntry,
+  TargetDirection,
 } from "@/lib/types";
 
 // Chart write actions. RLS gates access (admin OR the function's
@@ -28,6 +30,10 @@ function parseValueType(raw: string): MetricValueType {
   return VALUE_TYPES.includes(raw as MetricValueType)
     ? (raw as MetricValueType)
     : "number";
+}
+
+function parseTargetDirection(raw: string): TargetDirection {
+  return raw === "lower_is_better" ? "lower_is_better" : "higher_is_better";
 }
 
 // ---- Functions --------------------------------------------------
@@ -347,7 +353,7 @@ export async function createMeasureAction(
   _prev: ChartResult<SuccessMeasure> | undefined,
   formData: FormData
 ): Promise<ChartResult<SuccessMeasure>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const outcomeId = String(formData.get("outcome_id") ?? "");
   if (!outcomeId) return { ok: false, message: "Missing parent outcome." };
@@ -357,8 +363,41 @@ export async function createMeasureAction(
 
   const target = nullableString(formData.get("target"));
   const valueType = parseValueType(String(formData.get("value_type") ?? "number"));
+  const direction = parseTargetDirection(
+    String(formData.get("target_direction") ?? "higher_is_better")
+  );
+  const autoTrack = formData.get("auto_track") !== null;
 
+  // Derive the company_id via outcome → function so we can enforce
+  // the performance_tracking gate without the caller knowing which
+  // company it is.
   const supabase = await createSupabaseServerClient();
+  const { data: outcome } = await supabase
+    .from("function_outcomes")
+    .select("function_id, functions!inner(company_id)")
+    .eq("id", outcomeId)
+    .maybeSingle<{
+      function_id: string;
+      functions: { company_id: string } | { company_id: string }[];
+    }>();
+  const companyId = outcome
+    ? Array.isArray(outcome.functions)
+      ? outcome.functions[0]?.company_id ?? null
+      : outcome.functions?.company_id ?? null
+    : null;
+  if (
+    companyId &&
+    (await companyHasFeature(companyId, "performance_tracking"))
+  ) {
+    if (!target) {
+      return {
+        ok: false,
+        message:
+          "Performance tracking is on for this company — every measure needs a target.",
+      };
+    }
+  }
+
   const { data, error } = await supabase
     .from("success_measures")
     .insert({
@@ -366,6 +405,8 @@ export async function createMeasureAction(
       description,
       target,
       value_type: valueType,
+      target_direction: direction,
+      auto_track: autoTrack,
     })
     .select("*")
     .single<SuccessMeasure>();
@@ -379,7 +420,7 @@ export async function updateMeasureAction(
   _prev: ChartResult<SuccessMeasure> | undefined,
   formData: FormData
 ): Promise<ChartResult<SuccessMeasure>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing measure id." };
 
@@ -388,11 +429,66 @@ export async function updateMeasureAction(
 
   const target = nullableString(formData.get("target"));
   const valueType = parseValueType(String(formData.get("value_type") ?? "number"));
+  const direction = parseTargetDirection(
+    String(formData.get("target_direction") ?? "higher_is_better")
+  );
+  const autoTrack = formData.get("auto_track") !== null;
 
   const supabase = await createSupabaseServerClient();
+
+  // Resolve company + enforce target when the flag is on. Same
+  // derivation as create — walk measure → outcome → function.
+  const { data: existing } = await supabase
+    .from("success_measures")
+    .select(
+      "outcome_id, function_outcomes!inner(function_id, functions!inner(company_id))"
+    )
+    .eq("id", id)
+    .maybeSingle<{
+      outcome_id: string;
+      function_outcomes:
+        | {
+            function_id: string;
+            functions: { company_id: string } | { company_id: string }[];
+          }
+        | Array<{
+            function_id: string;
+            functions: { company_id: string } | { company_id: string }[];
+          }>;
+    }>();
+  const outcomeRow = existing
+    ? Array.isArray(existing.function_outcomes)
+      ? existing.function_outcomes[0] ?? null
+      : existing.function_outcomes
+    : null;
+  const fnRow = outcomeRow
+    ? Array.isArray(outcomeRow.functions)
+      ? outcomeRow.functions[0] ?? null
+      : outcomeRow.functions
+    : null;
+  const companyId = fnRow?.company_id ?? null;
+  if (
+    companyId &&
+    (await companyHasFeature(companyId, "performance_tracking"))
+  ) {
+    if (!target) {
+      return {
+        ok: false,
+        message:
+          "Performance tracking is on for this company — every measure needs a target.",
+      };
+    }
+  }
+
   const { data, error } = await supabase
     .from("success_measures")
-    .update({ description, target, value_type: valueType })
+    .update({
+      description,
+      target,
+      value_type: valueType,
+      target_direction: direction,
+      auto_track: autoTrack,
+    })
     .eq("id", id)
     .select("*")
     .single<SuccessMeasure>();

@@ -279,12 +279,21 @@ export type FunctionRole = {
   updated_at: string;
 };
 
+export type TargetDirection = "higher_is_better" | "lower_is_better";
+
 export type SuccessMeasure = {
   id: string;
   outcome_id: string;
   description: string;
   target: string | null;
   value_type: MetricValueType;
+  // Direction determines what "at or above target" means. Higher-is-
+  // better (revenue, on-time %) sees a value >= target as good;
+  // lower-is-better (defect rate, incident count) flips the comparison.
+  target_direction: TargetDirection;
+  // Opt-out for context measures (headcount, cash on hand) that are
+  // worth tracking but shouldn't fire "you didn't update" commitments.
+  auto_track: boolean;
   sort_order: number;
   archived: boolean;
   created_at: string;

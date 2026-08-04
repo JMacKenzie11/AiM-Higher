@@ -109,7 +109,7 @@ export type NavBandProps = {
   contextLabel?: string;
   showExitScope?: boolean;
   scopedCompanyName?: string;
-  features?: Array<"execution" | "strengths">;
+  features?: readonly string[];
 };
 
 export function NavBand({
