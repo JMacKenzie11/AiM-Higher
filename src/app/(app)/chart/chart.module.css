@@ -66,10 +66,10 @@
    that meet in the middle to form the L-shape. Works to any depth. */
 
 .tree {
-  /* Fit to the containing card by default; only fall back to
-     horizontal scrolling if the row genuinely can't shrink further
-     (very deep or wide trees on very narrow viewports). */
-  overflow-x: auto;
+  /* Always fit the containing card. When there are many siblings,
+     cards get narrow and text wraps aggressively — the user has
+     told us that's the right trade over a horizontal scroll. */
+  overflow-x: hidden;
   overflow-y: visible;
   padding: var(--space-4) var(--space-3) var(--space-6);
   background: var(--aims-navy-tint);
@@ -87,16 +87,15 @@
   margin: 0;
   list-style: none;
   display: flex;
-  /* `safe center` centers when everything fits, but falls back to
-     flex-start when the row overflows — so the leftmost card stays
-     reachable via the horizontal scroll instead of being clipped. */
-  justify-content: safe center;
+  justify-content: center;
   /* stretch so every card at the same depth matches the tallest
      sibling — long titles and longer outcome lists no longer make
      one box shorter than its neighbours. */
   align-items: stretch;
   position: relative;
-  gap: var(--space-5);
+  /* Gap shrinks with card count so wide rows keep breathing room
+     without eating too much horizontal space. */
+  gap: var(--space-2);
 }
 
 /* Each tree node = one function-or-company card. The class scopes
@@ -105,18 +104,19 @@
    basis 220px, shrink toward 160px when crowded, then overflow-scroll
    kicks in for the extreme case. */
 .treeNode {
-  padding: var(--space-5) var(--space-2) 0;
+  padding: var(--space-5) var(--space-1) 0;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   list-style: none;
-  /* Shrink to fit the container width instead of forcing a
-     horizontal scrollbar. Cards may get narrow when a function has
-     many siblings, but the content wraps and the tree stays in one
-     view. */
+  /* Fully divide available horizontal space — no floor, no ceiling.
+     Cards may get very narrow when a function has many siblings;
+     content wraps aggressively and the tree still fits inside the
+     card. min-width: 0 is essential so flex actually shrinks past
+     the intrinsic content width. */
   flex: 1 1 0;
-  min-width: 110px;
+  min-width: 0;
   max-width: 240px;
 }
 
@@ -255,7 +255,7 @@
   font-size: 15px;
   line-height: 1.25;
   letter-spacing: -0.01em;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   word-break: normal;
   hyphens: manual;
 }
