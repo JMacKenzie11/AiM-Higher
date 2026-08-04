@@ -74,6 +74,24 @@
   margin-top: var(--space-2);
 }
 
+/* State line — StatusChip + ProgressBar on their own row so they
+   don't compete with identity metadata (Goal, Quarter, Owner, Due)
+   in a single run-on flex line. ProgressBar gets room to breathe;
+   the chip stays right next to it as the pair that reads together. */
+.stateRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.stateProgress {
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 360px;
+}
+
 .body {
   margin-top: var(--space-4);
   display: flex;

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import {
   getPersonQuickViewAction,
   type PersonQuickView,
@@ -48,6 +49,15 @@ export function PersonQuickViewDrawer({
   const [error, setError] = useState<string | null>(null);
   const [loading, startLoad] = useTransition();
   const [showReassign, setShowReassign] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Portal target defers to after mount so SSR doesn't reach for
+  // document.body. Without this the fixed-position overlay renders
+  // inside the row's <li>, and if any grid/flex ancestor traps the
+  // containing block the panel goes off-screen or under the layout.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open || !ownerId) return;
@@ -70,11 +80,11 @@ export function PersonQuickViewDrawer({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const firstName = ownerName.split(" ")[0] ?? ownerName;
 
-  return (
+  return createPortal(
     <div
       className={styles.drawerOverlay}
       role="dialog"
@@ -195,7 +205,8 @@ export function PersonQuickViewDrawer({
           ) : null}
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body
   );
 }
 

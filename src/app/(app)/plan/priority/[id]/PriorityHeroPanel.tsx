@@ -304,13 +304,15 @@ export function PriorityHeroPanel({
                   <span>Due {priority.due_date}</span>
                 </>
               ) : null}
-              <span>·</span>
+            </div>
+            <div className={heroStyles.stateRow}>
               <StatusChip status={priority.status} />
-              <span>·</span>
-              <ProgressBar
-                percent={progressPercent}
-                label="No commitments yet"
-              />
+              <div className={heroStyles.stateProgress}>
+                <ProgressBar
+                  percent={progressPercent}
+                  label="No commitments yet"
+                />
+              </div>
             </div>
             <div className={heroStyles.body}>
               {priority.description ? (

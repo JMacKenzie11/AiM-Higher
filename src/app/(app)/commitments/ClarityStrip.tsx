@@ -126,19 +126,27 @@ export function ClarityEditor({
         onChange={setSuccess}
         disabled={pending}
       />
-      <label className={styles.stripLabel} htmlFor={`note-${commitment.id}`}>
-        Refinement note (optional)
-      </label>
-      <textarea
-        id={`note-${commitment.id}`}
-        className={styles.stripTextarea}
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        rows={2}
-        maxLength={500}
-        placeholder="A one-liner rewording that would make this crystal clear."
-        disabled={pending}
-      />
+      {/* Refinement note only makes sense when something is off — a
+          commitment that passes both checks doesn't need to be
+          reworded. Hidden entirely (not just disabled) so the editor
+          reads as "you're done" once both toggles are yes. */}
+      {!(timeline === true && success === true) ? (
+        <>
+          <label className={styles.stripLabel} htmlFor={`note-${commitment.id}`}>
+            Refinement note (optional)
+          </label>
+          <textarea
+            id={`note-${commitment.id}`}
+            className={styles.stripTextarea}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            maxLength={500}
+            placeholder="A one-liner rewording that would make this crystal clear."
+            disabled={pending}
+          />
+        </>
+      ) : null}
       <div className={styles.stripSubmitRow}>
         <button
           type="button"

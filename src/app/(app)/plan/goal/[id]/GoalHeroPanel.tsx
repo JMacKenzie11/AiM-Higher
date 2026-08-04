@@ -274,10 +274,12 @@ export function GoalHeroPanel({
                   <span>Target {goal.target_date}</span>
                 </>
               ) : null}
-              <span>·</span>
+            </div>
+            <div className={heroStyles.stateRow}>
               <StatusChip status={goal.status} />
-              <span>·</span>
-              <ProgressBar percent={percent} label="No priorities yet" />
+              <div className={heroStyles.stateProgress}>
+                <ProgressBar percent={percent} label="No priorities yet" />
+              </div>
             </div>
             <div className={heroStyles.body}>
               {goal.description ? (

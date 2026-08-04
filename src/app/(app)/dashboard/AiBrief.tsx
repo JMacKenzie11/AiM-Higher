@@ -18,7 +18,11 @@ export type AiBriefProps = {
   generatedAt: string;
 };
 
-const CHAR_INTERVAL_MS = 12; // ~80 chars/sec — brisk but readable
+const CHAR_INTERVAL_MS = 8; // ~250 chars/sec — brisk enough to feel
+// like reveal, not slow typing. Kept the effect for delight on
+// first view; a slightly faster tempo + no pre-delay closes the
+// perceptual gap with the Suspense skeleton so the whole thing
+// reads as one reveal moment rather than "loading, then typing".
 const SEEN_STORAGE_KEY = "aims.brief.lastSeenGeneratedAt";
 
 export function AiBrief({ content, generatedAt }: AiBriefProps) {
@@ -84,10 +88,11 @@ export function AiBrief({ content, generatedAt }: AiBriefProps) {
       window.setTimeout(step, CHAR_INTERVAL_MS);
     }
 
-    const start = window.setTimeout(step, 200);
+    // No pre-delay — the Suspense skeleton just resolved, so start
+    // typing immediately for a single perceived reveal beat.
+    step();
     return () => {
       cancelled = true;
-      window.clearTimeout(start);
     };
   }, [content, generatedAt]);
 

@@ -20,6 +20,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  /* Guarantee clearance under the last hero element so the -32px
+     content overlap below can't clip a long subtitle. Cheap; every
+     page using this hero benefits. */
+  padding-bottom: var(--space-4);
 }
 
 .eyebrow {

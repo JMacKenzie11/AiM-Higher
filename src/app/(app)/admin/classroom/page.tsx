@@ -25,9 +25,8 @@ export default async function AdminClassroomPage() {
           <h1 className={styles.h1}>Classroom</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Author lessons and video trainings that appear in every
-            company with the Classroom feature turned on. Drafts stay
-            hidden from consumer companies until you publish.
+            Author lessons and video trainings for every Classroom-enabled
+            company. Drafts stay hidden until you publish.
           </p>
         </div>
       </section>

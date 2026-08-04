@@ -198,10 +198,12 @@ export function SfaHeroPanel({
             <span className="aims-rule" aria-hidden="true" />
             <div className={heroStyles.meta}>
               <span>Sponsor: {sponsor?.full_name ?? "Unassigned"}</span>
-              <span>·</span>
+            </div>
+            <div className={heroStyles.stateRow}>
               <StatusChip status={sfa.status} />
-              <span>·</span>
-              <ProgressBar percent={percent} label="No progress yet" />
+              <div className={heroStyles.stateProgress}>
+                <ProgressBar percent={percent} label="No progress yet" />
+              </div>
             </div>
             <div className={heroStyles.body}>
               {sfa.description ? (
