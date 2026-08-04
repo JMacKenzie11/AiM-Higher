@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import styles from "./marketing.module.css";
 
 export function MarketingFooter() {
@@ -17,14 +16,6 @@ export function MarketingFooter() {
           <p className={styles.footerTagline}>
             AiMS Higher&trade; is built by the AiMS Institute.
           </p>
-        </div>
-        <div className={styles.footerLinks}>
-          <Link href="/sign-in" className={styles.footerLink}>
-            Sign in
-          </Link>
-          <a href="mailto:hello@aimshigher.tools" className={styles.footerLink}>
-            hello@aimshigher.tools
-          </a>
         </div>
       </div>
     </footer>

@@ -8,14 +8,14 @@ import styles from "./marketing.module.css";
 // bounced to /dashboard from /" rule; this layout only sees anons.
 
 export const metadata: Metadata = {
-  title: "AiMS Higher™ · The operating system for the AiMS method",
+  title: "AiMS Higher™ · The operating system for the AiMS Approach",
   description:
     "Turn your strategic plan into weekly commitments, track whether they actually happen, and coach your leaders along the way.",
   alternates: {
     canonical: "https://aimshigher.tools",
   },
   openGraph: {
-    title: "AiMS Higher™ · The operating system for the AiMS method",
+    title: "AiMS Higher™ · The operating system for the AiMS Approach",
     description:
       "Turn your strategic plan into weekly commitments, track whether they actually happen, and coach your leaders along the way.",
     url: "https://aimshigher.tools",

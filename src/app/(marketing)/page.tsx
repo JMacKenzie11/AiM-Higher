@@ -183,7 +183,7 @@ export default function LandingPage() {
                 what do we already know that will work? He stopped solving
                 alone and asked the room. The knowledge was already in the
                 organization. It needed a system that could reach it. That
-                became the AiMS method: $100M in new business, five
+                became the AiMS Approach: $100M in new business, five
                 warehouses eliminated, targets hit months early. AiMS
                 Higher&trade; is that system, built into software.
               </p>
@@ -300,7 +300,7 @@ export default function LandingPage() {
       <section id="platform" className={styles.platformAtGlance}>
         <div className={styles.sectionInner}>
           <h2 className={styles.sectionHeadline}>
-            Everything the AiMS method needs. Nothing it doesn&rsquo;t.
+            Everything the AiMS Approach needs. Nothing it doesn&rsquo;t.
           </h2>
           <span className={styles.sectionRule} aria-hidden="true" />
           <div className={styles.pillarGrid}>
@@ -380,7 +380,7 @@ export default function LandingPage() {
                 question: "Is this EOS software?",
                 answer: (
                   <p>
-                    No. AiMS Higher&trade; runs the AiMS method, an
+                    No. AiMS Higher&trade; runs the AiMS Approach, an
                     always-on operating system built around appreciative
                     inquiry, weekly follow-through, and embedded coaching.
                     If you have run EOS or Scaling Up, the concepts will
@@ -426,7 +426,7 @@ export default function LandingPage() {
                 answer: (
                   <p>
                     Aimee is an interactive, always-available coach trained
-                    on the AiMS approach to unlocking capacity. She uses
+                    on the AiMS Approach to unlocking capacity. She uses
                     the same tools our advisors use in the room, grounded
                     in your company&rsquo;s real data (plan, commitments,
                     follow-through, meeting outcomes) through a set of

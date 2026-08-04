@@ -89,7 +89,7 @@ export default function CoachesPage() {
             </div>
             <div className={styles.problemCard}>
               <h3 className={styles.problemCardTitle}>
-                An always-available coach trained on the AiMS approach to
+                An always-available coach trained on the AiMS Approach to
                 unlocking capacity
               </h3>
               <p className={styles.problemCardBody}>

@@ -194,7 +194,6 @@
   color: var(--text-heading);
   letter-spacing: -0.01em;
   text-wrap: balance;
-  max-width: 20ch;
 }
 
 .sectionRule {
@@ -451,7 +450,6 @@
   color: var(--text-heading);
   letter-spacing: -0.01em;
   text-wrap: balance;
-  max-width: 18ch;
 }
 
 .problemIntro {
@@ -477,6 +475,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--space-4);
+  align-items: stretch;
 }
 
 .problemCard {
@@ -485,6 +484,12 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+  /* Flex + height:100% so each card fills its stretched grid cell
+     and rows of cards read as equal height regardless of body
+     length differences. */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .problemCardTitle {
@@ -989,6 +994,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-6);
+  align-items: stretch;
 }
 
 .pillarCol {
@@ -997,6 +1003,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .pillarEyebrow {
@@ -1134,6 +1143,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-4);
+  align-items: stretch;
 }
 
 .howCard {
@@ -1141,6 +1151,7 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1258,6 +1269,7 @@
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-6);
+  align-items: stretch;
 }
 
 .investmentCard {
@@ -1269,6 +1281,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  height: 100%;
 }
 
 .investmentCardTitle {
