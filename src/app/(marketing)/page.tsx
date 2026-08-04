@@ -35,8 +35,9 @@ export default function LandingPage() {
             </p>
             <p className={styles.heroSupport}>
               AiMS Higher&trade; turns your strategic plan into weekly
-              commitments, tracks whether they actually happen, and coaches
-              your leaders along the way.
+              commitments, tracks whether they actually happen, and puts
+              always-available coaches into every leader&rsquo;s rhythm to
+              unlock the capacity already inside your team.
             </p>
             <div className={styles.heroCtas}>
               <a href={demoUrl()} className={styles.primaryCta}>
@@ -140,19 +141,21 @@ export default function LandingPage() {
           />
 
           <FeatureRow
-            eyebrow="AI COACHING"
-            title="A leadership coach who has read the data."
+            eyebrow="INTERACTIVE COACHING"
+            title="Coaches trained on the AiMS approach. Ready when your leaders are."
             body={
               <>
                 <p>
-                  Aimee coaches your leaders grounded in real execution data.
-                  Their commitments, their follow-through, their reasons. Not
-                  generic advice.
+                  Aimee is an interactive, always-available coach trained on
+                  the tools AiMS advisors use to unlock capacity in leaders,
+                  teams, and businesses. Grounded in your team&rsquo;s real
+                  execution data: their commitments, follow-through, and
+                  reasons. Not generic advice.
                 </p>
                 <p>
                   Every conversation is private to the person who starts it.
-                  Managers can keep their own private notes about people they
-                  coach; nobody else sees them.
+                  Managers can keep their own private notes about the people
+                  they coach; nobody else sees them.
                 </p>
               </>
             }
@@ -210,7 +213,7 @@ export default function LandingPage() {
               <p className={styles.pillarEyebrow}>DATA</p>
               <ul className={styles.pillarList}>
                 <li>Success measures with weekly tracking</li>
-                <li>Dashboard with a weekly AI brief</li>
+                <li>Dashboard with a weekly coaching brief</li>
                 <li>Strategic progress roll-up</li>
               </ul>
             </div>
@@ -232,9 +235,10 @@ export default function LandingPage() {
             </p>
             <p className={styles.forCoachesBody}>
               It gives an AiMS Guide every client&rsquo;s plan, rhythm, and
-              follow-through in one place. The AI carries the methodology
-              between sessions so the system keeps working when the coach
-              isn&rsquo;t in the room.
+              follow-through in one place. Aimee, an always-available coach
+              trained on the AiMS approach, carries the methodology between
+              sessions so the work of unlocking capacity keeps going when the
+              guide isn&rsquo;t in the room.
             </p>
             <div className={styles.forCoachesCtaRow}>
               <a href={demoUrl()} className={styles.primaryCta}>
@@ -247,7 +251,10 @@ export default function LandingPage() {
             <ul className={styles.forCoachesList}>
               <li>Run every client from one login</li>
               <li>Meeting analysis after every leadership call</li>
-              <li>A coach grounded in your client&rsquo;s real data</li>
+              <li>
+                An always-available coach trained on the AiMS approach to
+                unlocking capacity
+              </li>
               <li>A training library your clients can learn from</li>
             </ul>
           </div>
@@ -330,13 +337,17 @@ export default function LandingPage() {
                 ),
               },
               {
-                question: "How does the AI work?",
+                question: "How does the coaching work?",
                 answer: (
                   <p>
-                    Claude, from Anthropic, grounded in your company&rsquo;s
-                    actual data through a set of server-side tools. Your data
-                    is never used to train the model. Every AI surface tells
-                    you what it read to answer.
+                    Aimee is an interactive, always-available coach trained
+                    on the AiMS approach to unlocking capacity. She uses the
+                    same tools our advisors use in the room, grounded in
+                    your company&rsquo;s real data (plan, commitments,
+                    follow-through, meeting outcomes) through a set of
+                    server-side tools. Your data is never used to train her.
+                    Every conversation surface tells you what she read to
+                    answer.
                   </p>
                 ),
               },
