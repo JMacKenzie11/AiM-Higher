@@ -11,6 +11,11 @@ progress.
 
 ## Common things people do here
 
+- **First-run setup** — a *Set up {company}* checklist sits at the
+  top of the dashboard for admins whenever the company is missing
+  foundation, roster, an open quarter, or a plan. Each of the four
+  steps checks off automatically once its prerequisite lands; the
+  card stops rendering when everything is done.
 - **Refresh the brief** — click *Refresh brief* in the top card if
   the summary looks stale. It's regenerated at most once every few
   hours to keep costs sensible.
