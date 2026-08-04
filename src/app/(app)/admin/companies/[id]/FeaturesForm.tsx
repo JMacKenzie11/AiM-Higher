@@ -12,14 +12,22 @@ import styles from "../admin.module.css";
 const FEATURES: ReadonlyArray<{
   value: string;
   label: string;
-  hint?: string;
+  hint: string;
 }> = [
-  { value: "execution", label: "Execution Platform" },
-  { value: "strengths", label: "Strengths" },
+  {
+    value: "execution",
+    label: "Execution Platform",
+    hint: "Commitments, success measures, and the coaching dashboard.",
+  },
+  {
+    value: "strengths",
+    label: "Strengths",
+    hint: "Team strengths assessments, results, and strengths-aware coaching.",
+  },
   {
     value: "performance_tracking",
-    label: "Performance tracking",
-    hint: "Turn on to require targets on every success measure and enable weekly performance nudges.",
+    label: "Success Tracking",
+    hint: "Requires targets on every success measure and turns on weekly performance nudges.",
   },
 ];
 
@@ -70,29 +78,28 @@ export function FeaturesForm({
     <div className={styles.form}>
       <div className={`${styles.field} ${styles.formFull}`}>
         <span className={styles.label}>Features</span>
-        <div className={styles.checkGroup}>
-          {FEATURES.map((f) => (
-            <div key={f.value}>
-              <label className={styles.checkOption}>
-                <input
-                  type="checkbox"
-                  checked={selected.has(f.value)}
-                  onChange={() => toggle(f.value)}
-                  disabled={pending}
-                />
-                {f.label}
-              </label>
-              {f.hint ? (
-                <p
-                  className={styles.fieldHint}
-                  style={{ marginLeft: "var(--space-4)", marginTop: "var(--space-1)" }}
-                >
-                  {f.hint}
-                </p>
-              ) : null}
-            </div>
-          ))}
-        </div>
+        <ul className={styles.featureList}>
+          {FEATURES.map((f) => {
+            const checked = selected.has(f.value);
+            return (
+              <li key={f.value} className={styles.featureItem}>
+                <label className={styles.featureRow}>
+                  <input
+                    type="checkbox"
+                    className={styles.featureCheckbox}
+                    checked={checked}
+                    onChange={() => toggle(f.value)}
+                    disabled={pending}
+                  />
+                  <span className={styles.featureText}>
+                    <span className={styles.featureName}>{f.label}</span>
+                    <span className={styles.featureHint}>{f.hint}</span>
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
         <p className={styles.fieldHint}>
           Disabling a module hides it in the nav and stops it from feeding
           coaching guidance. Existing data is kept — re-enable later and
