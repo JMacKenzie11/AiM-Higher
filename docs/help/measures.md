@@ -1,13 +1,15 @@
 ---
-title: This week's numbers
+title: Success Measures
 ---
 
-# This week's numbers
+# Success Measures
 
-The weekly logging surface for every success measure you own — one
-row per measure, one input for the current week, a mini trend of
-the last few weeks to the right. Save-all writes them in a single
-upsert.
+The weekly logging surface for every success measure in play — one
+row per measure, one input for the current week, a mini trend of the
+last few weeks to the right. Save-all writes them in a single upsert.
+Reach it from *Company ▾ → Success Measures* (visible when Success
+Tracking is on) or from the *This week's numbers* card on the
+dashboard.
 
 ## Common things people do here
 
@@ -22,9 +24,11 @@ upsert.
 
 ## Heads-up
 
-- You'll only see measures on functions where you're in the seat
-  (i.e. `leader_id` on the function is you).
-- If your company has Performance Tracking on, missing a week's
-  update triggers an auto-commitment on Saturday reminding you to
-  log it. Turn a measure's *auto-track* off if it's context (like
-  headcount) rather than something to hit a target on.
+- **Who sees what** — leaders see measures on the functions where
+  they're in the seat. System admins and company admins see every
+  measure in the company so they can cover for a leader who's out
+  or a seat that's vacant.
+- **Missed weeks** — if the company has Success Tracking on, missing
+  a week's update triggers an auto-commitment on Saturday reminding
+  the leader to log it. Turn a measure's *auto-track* off if it's
+  context (like headcount) rather than something to hit a target on.
