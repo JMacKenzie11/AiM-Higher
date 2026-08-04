@@ -108,7 +108,23 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
                     const latest = m.entries[0] ?? null;
                     return (
                       <li key={m.id} className={styles.detailMeasureRow}>
-                        <span className={styles.detailMeasureDesc}>{m.description}</span>
+                        <span className={styles.detailMeasureDesc}>
+                          {m.description}
+                          {m.target_hint ? (
+                            <span
+                              style={{
+                                display: "block",
+                                marginTop: "4px",
+                                fontSize: "12px",
+                                color: "var(--aims-warning, #b78103)",
+                                fontStyle: "italic",
+                              }}
+                              title="AI suggestion — refine to clear it."
+                            >
+                              ⚑ {m.target_hint}
+                            </span>
+                          ) : null}
+                        </span>
                         <span className={styles.detailMeasureTarget}>
                           {m.target ? `Target ${m.target}` : "No target"}
                         </span>

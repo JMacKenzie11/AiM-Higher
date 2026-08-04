@@ -294,6 +294,12 @@ export type SuccessMeasure = {
   // Opt-out for context measures (headcount, cash on hand) that are
   // worth tracking but shouldn't fire "you didn't update" commitments.
   auto_track: boolean;
+  // Short AI-generated coaching hint about the target. Populated
+  // when Performance Tracking is on and the model thinks the target
+  // could be sharper (vague, not time-bound, not measurable, or
+  // direction doesn't match the wording). Null when the target
+  // passes or hasn't been scored yet.
+  target_hint: string | null;
   sort_order: number;
   archived: boolean;
   created_at: string;

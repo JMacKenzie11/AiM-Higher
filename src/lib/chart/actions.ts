@@ -5,6 +5,7 @@ import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
+import { scoreMeasureTarget } from "@/lib/measures/target-check";
 import { nullableString } from "@/lib/utils";
 import type {
   FunctionNode,
@@ -412,8 +413,35 @@ export async function createMeasureAction(
     .single<SuccessMeasure>();
   if (error || !data) return { ok: false, message: "Couldn't add that measure." };
 
+  // Coaching hint on the target, only when the flag is on and a
+  // target was provided. Best-effort — a null result silently
+  // skips the update. Runs after insert so a slow AI call doesn't
+  // delay the save; the row is already visible.
+  let finalRow: SuccessMeasure = data;
+  if (
+    target &&
+    companyId &&
+    (await companyHasFeature(companyId, "performance_tracking"))
+  ) {
+    const check = await scoreMeasureTarget({
+      description,
+      target,
+      valueType,
+      direction,
+    });
+    if (check) {
+      const { data: updated } = await supabase
+        .from("success_measures")
+        .update({ target_hint: check.ok ? null : check.hint })
+        .eq("id", data.id)
+        .select("*")
+        .single<SuccessMeasure>();
+      if (updated) finalRow = updated;
+    }
+  }
+
   revalidatePath("/chart");
-  return { ok: true, item: data };
+  return { ok: true, item: finalRow };
 }
 
 export async function updateMeasureAction(
@@ -494,8 +522,41 @@ export async function updateMeasureAction(
     .single<SuccessMeasure>();
   if (error || !data) return { ok: false, message: "Couldn't save changes." };
 
+  // Re-score the target when the flag is on. If the new target
+  // passes, this clears any stale hint from a prior save; if not,
+  // the hint is refreshed to reflect the current target text.
+  let finalRow: SuccessMeasure = data;
+  if (
+    target &&
+    companyId &&
+    (await companyHasFeature(companyId, "performance_tracking"))
+  ) {
+    const check = await scoreMeasureTarget({
+      description,
+      target,
+      valueType,
+      direction,
+    });
+    if (check) {
+      const { data: updated } = await supabase
+        .from("success_measures")
+        .update({ target_hint: check.ok ? null : check.hint })
+        .eq("id", data.id)
+        .select("*")
+        .single<SuccessMeasure>();
+      if (updated) finalRow = updated;
+    }
+  } else if (!target) {
+    // Target was cleared — drop any stale hint too.
+    await supabase
+      .from("success_measures")
+      .update({ target_hint: null })
+      .eq("id", data.id);
+    finalRow = { ...data, target_hint: null };
+  }
+
   revalidatePath("/chart");
-  return { ok: true, item: data };
+  return { ok: true, item: finalRow };
 }
 
 export async function archiveMeasureAction(
