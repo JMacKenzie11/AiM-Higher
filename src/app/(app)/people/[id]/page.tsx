@@ -104,9 +104,10 @@ export default async function PersonScorecardPage({ params }: PageProps) {
             {isSelf ? (
               <PrivacyNote tone="private">
                 Your follow-through numbers here are visible to system admins,
-                your company admins, and your direct manager. Your manager can
-                also keep private coaching notes about your development — those
-                notes are not visible to you.
+                your company admins, and your direct manager. Admins and your
+                direct manager can each keep private coaching notes about
+                your development — every note is visible only to whoever
+                wrote it, never to you.
               </PrivacyNote>
             ) : (
               <PrivacyNote tone="managerial">

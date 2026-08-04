@@ -39,6 +39,11 @@ export function CompanyRowActions({
         }
         onClick={() => setConfirming(true)}
         disabled={pending}
+        // Reserve a min-width equal to the widest label so the Actions
+        // column doesn't jitter left when a row swaps Archive (7 chars)
+        // for Reactivate (10). Justify-end on the parent .rowActions
+        // was pulling the whole pair leftward on wider labels.
+        style={{ minWidth: 88, textAlign: "center" }}
       >
         {pending
           ? "…"

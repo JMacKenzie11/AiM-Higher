@@ -65,10 +65,11 @@ export default async function CoachListPage({ params }: PageProps) {
       </header>
 
       <div style={{ marginTop: "var(--space-3)" }}>
-        <PrivacyNote tone="managerial">
-          Coaching threads about {firstName} are visible to system admins,
-          company admins, and {firstName}&rsquo;s direct manager. {firstName}{" "}
-          cannot see them.
+        <PrivacyNote tone="private">
+          Only you can see the coaching threads you create about{" "}
+          {firstName}. Other admins and {firstName}&rsquo;s direct manager
+          can create their own separate threads — those stay private to
+          their creator too. {firstName} cannot see any of them.
         </PrivacyNote>
       </div>
 

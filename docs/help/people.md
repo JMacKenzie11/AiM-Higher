@@ -27,8 +27,9 @@ Clicking a name opens that person's scorecard.
 
 - **Who sees your scorecard** — a note at the top of your own
   scorecard tells you. Your numbers are visible to system admins,
-  your company admins, and your direct manager. Your manager can
-  also keep private coaching notes about your development; those
-  notes are not visible to you.
+  your company admins, and your direct manager. Admins and your
+  direct manager can each keep private coaching notes about your
+  development; every note is visible only to whoever wrote it,
+  never to you.
 - Team members see the roster read-only. The *Add a person* form
   and row-action column only render for admins.
