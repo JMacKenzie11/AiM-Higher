@@ -7,11 +7,15 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./env";
 // response objects, then call getUser() so Supabase rotates the token
 // when it's near expiry.
 //
-// The RESULT of getUser() is intentionally not used here — routing
-// decisions happen inside route handlers / server components where
-// createSupabaseServerClient() reads the same rotated cookies.
+// Returns the refreshed NextResponse AND a boolean indicating whether
+// the request is authenticated. The auth signal is used by middleware
+// to route "/" (landing page for anons, redirect to /dashboard for
+// authed users). Routing anywhere else stays inside server components
+// via createSupabaseServerClient().
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(
+  request: NextRequest
+): Promise<{ response: NextResponse; isAuthenticated: boolean }> {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(SUPABASE_URL(), SUPABASE_ANON_KEY(), {
@@ -31,6 +35,6 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
-  return response;
+  const { data } = await supabase.auth.getUser();
+  return { response, isAuthenticated: Boolean(data.user) };
 }

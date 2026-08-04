@@ -1,25 +1,24 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import {
   SCOPE_COOKIE_NAME,
   SCOPE_COOKIE_MAX_AGE,
 } from "@/lib/admin/scope";
 
-// Middleware refreshes the Supabase auth session on every request.
+// Middleware handles three concerns per request:
+//   1. Supabase session refresh (always).
+//   2. "/" routing — unauthenticated visitors see the marketing
+//      landing page; authenticated visitors go to /dashboard, whose
+//      own logic routes cross-tenant roles onward to /admin/companies
+//      when no company is scoped. Keeping the routing here (not in a
+//      root page.tsx) lets the landing page render statically without
+//      a session fetch.
+//   3. Auto-scope for /admin/companies/[id] — mutate request cookies
+//      so the current render sees the new scope, and set the response
+//      cookie so subsequent clicks keep it.
 //
-// It also auto-scopes cross-company roles (system_admin, aims_guide)
-// to the company they're viewing on /admin/companies/[id]. Two moves:
-//   1. Mutate request.cookies so the current request's layout sees
-//      the new scope and renders the "inside this company" nav.
-//   2. Set the response cookie so subsequent clicks (Dashboard, Plan,
-//      etc.) resolve to the same company.
-// Non-admin callers ignore this cookie entirely (see getEffectiveCompanyId
-// in lib/admin/scope.ts), so writing it for them is inert.
-//
-// We used to clear the cookie in middleware whenever a system_admin
-// visited /admin/companies. Same pattern in reverse fights the render
-// pipeline unless we use NextResponse.next({request}) — hence the
-// pattern below, borrowed from the supabase session refresh.
+// The cookie-mutation pattern uses NextResponse.next({request}) —
+// mirrors the supabase session refresh helper so both moves compose.
 
 const COMPANY_ADMIN_PATH = /^\/admin\/companies\/([0-9a-f-]{36})(?:\/|$)/i;
 
@@ -30,14 +29,20 @@ export async function middleware(request: NextRequest) {
   const shouldSetScope = targetScope !== null && targetScope !== currentScope;
 
   if (shouldSetScope && targetScope) {
-    // Make the current request's server components see the new scope.
     request.cookies.set(SCOPE_COOKIE_NAME, targetScope);
   }
 
-  const response = await updateSession(request);
+  const { response, isAuthenticated } = await updateSession(request);
+
+  // Authenticated visitors don't see the marketing page. /dashboard is
+  // the universal landing surface for authed roles; it internally
+  // redirects to /admin/companies when the caller has no effective
+  // company (unscoped sysadmin, guide with multiple assignments).
+  if (request.nextUrl.pathname === "/" && isAuthenticated) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
 
   if (shouldSetScope && targetScope) {
-    // Persist the new scope on the browser so the next navigation keeps it.
     response.cookies.set({
       name: SCOPE_COOKIE_NAME,
       value: targetScope,
