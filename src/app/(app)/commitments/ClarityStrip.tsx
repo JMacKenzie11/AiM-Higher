@@ -92,6 +92,16 @@ export function ClarityEditor({
   const [note, setNote] = useState<string>(commitment.clarity_note ?? "");
   const [pending, startTransition] = useTransition();
 
+  // Dirty check — nothing to save when the form matches what's on
+  // the row already. Save button disables + Cancel becomes "Close"
+  // in that state, so a commitment that's already both-YES doesn't
+  // ask for a save that would be a no-op.
+  const initialNote = commitment.clarity_note ?? "";
+  const isDirty =
+    timeline !== commitment.clarity_timeline ||
+    success !== commitment.clarity_success ||
+    note.trim() !== initialNote.trim();
+
   function submit() {
     startTransition(async () => {
       const result = await setCommitmentClarityAction(commitment.id, {
@@ -154,16 +164,18 @@ export function ClarityEditor({
           onClick={onCancel}
           disabled={pending}
         >
-          Cancel
+          {isDirty ? "Cancel" : "Close"}
         </button>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          onClick={submit}
-          disabled={pending}
-        >
-          {pending ? "Saving…" : "Save clarity"}
-        </button>
+        {isDirty ? (
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={submit}
+            disabled={pending}
+          >
+            {pending ? "Saving…" : "Save clarity"}
+          </button>
+        ) : null}
       </div>
     </div>
   );
