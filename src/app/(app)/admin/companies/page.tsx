@@ -84,7 +84,7 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                   <th>Name</th>
                   <th className={styles.numHead}>People</th>
                   <th>Open quarter</th>
-                  <th>Follow-through rate</th>
+                  <th>Follow-Through Rate</th>
                   <th>Status</th>
                   <th className={styles.actionHead}>Actions</th>
                 </tr>

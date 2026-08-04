@@ -1,0 +1,122 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(17, 21, 26, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: overlayIn var(--duration-normal) var(--ease-out);
+}
+
+.dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-6);
+  max-width: 460px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  animation: dialogIn var(--duration-normal) var(--ease-out);
+}
+
+.title {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.message {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.cancel,
+.confirmDanger,
+.confirmPrimary {
+  height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.cancel {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.cancel:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+}
+
+.confirmDanger {
+  background: var(--aims-danger);
+  color: var(--aims-white);
+}
+
+.confirmDanger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--aims-danger) 88%, black);
+}
+
+.confirmPrimary {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.confirmPrimary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.cancel:disabled,
+.confirmDanger:disabled,
+.confirmPrimary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .dialog {
+    animation: none;
+  }
+}

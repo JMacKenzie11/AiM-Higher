@@ -18,8 +18,10 @@ export type FilterPillsProps = {
   type: "all" | "strategic" | "operational";
 };
 
-// "Closed" is the user-facing label for status='missed' (closed after
-// the due date). Migration 0011 removed the carried state entirely.
+// "Missed" is the user-facing label for status='missed' (resolved
+// after the due date). We used to call this "Closed" but that reads
+// as "finished" in everyday English — misleading for the meaning.
+// Migration 0011 removed the carried state entirely.
 const STATUS_OPTIONS: Array<{
   value: FilterPillsProps["status"];
   label: string;
@@ -27,7 +29,7 @@ const STATUS_OPTIONS: Array<{
   { value: "all", label: "All" },
   { value: "open", label: "Open" },
   { value: "kept", label: "Kept" },
-  { value: "missed", label: "Closed" },
+  { value: "missed", label: "Missed" },
 ];
 
 const TYPE_OPTIONS: Array<{

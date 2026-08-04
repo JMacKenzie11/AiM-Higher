@@ -38,7 +38,7 @@ export function ClarityChip({
 }) {
   const label =
     state === "clear"
-      ? "Clear — all three criteria met"
+      ? "Clear — both criteria met (timeline + success)"
       : state === "unclear"
         ? "Unclear — at least one criterion not met. Click to review."
         : "Not yet assessed for clarity. Click to review.";

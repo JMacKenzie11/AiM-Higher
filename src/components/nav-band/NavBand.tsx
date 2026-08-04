@@ -132,6 +132,17 @@ const APP_ITEMS: readonly NavItem[] = [
 
 const SYSTEM_ADMIN_ITEMS: readonly NavItem[] = [
   { kind: "link", label: "Companies", href: "/admin/companies", feature: null },
+  // Classroom authoring — sysadmin only. Guides don't create content;
+  // they consume the same shared library as company users. The
+  // per-item `roles` gate keeps this out of a guide's nav even
+  // though guides share the SYSTEM_ADMIN_ITEMS slot.
+  {
+    kind: "link",
+    label: "Classroom",
+    href: "/admin/classroom",
+    feature: null,
+    roles: ["system_admin"],
+  },
 ];
 
 export type NavBandProps = {
@@ -228,10 +239,16 @@ export function NavBand({
     !onAdminPicker &&
     !onPersonalSurface;
 
+  // Filter SYSTEM_ADMIN_ITEMS through linkVisible so per-item `roles`
+  // gates (e.g. Classroom = system_admin only) apply even though
+  // guides share this nav slot with sysadmins.
+  const adminItems = SYSTEM_ADMIN_ITEMS.filter((item) =>
+    item.kind === "link" ? linkVisible(item) : true
+  );
   const items: NavItem[] = isSystemAdmin
     ? showExitScope && !onAdminPicker
-      ? [...SYSTEM_ADMIN_ITEMS, ...subscribedApp]
-      : [...SYSTEM_ADMIN_ITEMS]
+      ? [...adminItems, ...subscribedApp]
+      : [...adminItems]
     : subscribedApp;
 
   return (

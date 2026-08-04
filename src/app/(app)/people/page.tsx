@@ -76,7 +76,7 @@ export default async function PeoplePage() {
                   <th>Role</th>
                   <th>Status</th>
                   <th className={styles.numHead}>Open</th>
-                  <th>Follow-through rate</th>
+                  <th>Follow-Through Rate</th>
                   {showActionsColumn ? (
                     <th className={styles.actionHead}>Actions</th>
                   ) : null}

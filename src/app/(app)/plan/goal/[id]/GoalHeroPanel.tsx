@@ -369,7 +369,7 @@ export function GoalHeroPanel({
             {openCommitmentsCount > 0 ? (
               <p style={{ margin: 0, color: "var(--text-muted)" }}>
                 If any of those commitments were actually abandoned, cancel
-                and resolve them as Closed with a reason first.
+                and resolve them as Missed with a reason first.
               </p>
             ) : null}
             {completeError ? (

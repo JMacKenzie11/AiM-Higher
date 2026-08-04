@@ -205,7 +205,7 @@ export function CommitmentRow({
           isKept
             ? "Kept — click to reopen"
             : isClosed
-            ? "Closed — click to reopen"
+            ? "Missed — click to reopen"
             : isOverdue
             ? "Overdue — close with a reason"
             : "Mark kept"
@@ -214,7 +214,7 @@ export function CommitmentRow({
           isKept
             ? "Kept — click to reopen"
             : isClosed
-            ? "Closed — click to reopen"
+            ? "Missed — click to reopen"
             : isOverdue
             ? "Overdue — close with a reason"
             : "Mark kept"

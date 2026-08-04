@@ -307,7 +307,7 @@ export default async function DashboardPage() {
                   <th>Name</th>
                   <th>Position</th>
                   <th className={styles.numHead}>Open</th>
-                  <th>Follow-through rate</th>
+                  <th>Follow-Through Rate</th>
                   {showCoachColumn ? <th aria-label="Coach" /> : null}
                 </tr>
               </thead>
