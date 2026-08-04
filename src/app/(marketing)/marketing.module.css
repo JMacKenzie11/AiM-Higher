@@ -984,6 +984,162 @@
   background: var(--border-strong);
 }
 
+/* ---- Coach practice mock (for the /coaches hero) ---- */
+
+.practiceMock {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.practiceMockHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.practiceMockTitle {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text-heading);
+}
+
+.practiceMockMeta {
+  margin-top: 2px;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.practiceMockChip {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt);
+  font: var(--text-caption);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.practiceMockList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.practiceMockRow {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+}
+
+.practiceMockAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.practiceMockRowText {
+  min-width: 0;
+}
+
+.practiceMockRowName {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practiceMockRowStatus {
+  margin-top: 2px;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.practiceMockRateBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 96px;
+}
+
+.practiceMockRateBar {
+  width: 96px;
+  height: 5px;
+  background: var(--surface);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.practiceMockRateFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--aims-cobalt), var(--aims-success));
+  border-radius: var(--radius-pill);
+}
+
+.practiceMockRateValue {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.practiceMockFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--aims-cobalt-tint);
+  border-radius: var(--radius-sm);
+}
+
+.practiceMockAimeeAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.practiceMockAimeeCopy {
+  font: var(--text-body-sm);
+  color: var(--text);
+  line-height: 1.4;
+}
+
 /* ---- Platform at a glance ---- */
 
 .platformAtGlance {

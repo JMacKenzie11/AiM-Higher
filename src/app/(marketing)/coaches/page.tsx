@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { demoUrl } from "../demo-url";
+import { CoachPracticeMock } from "../mocks/CoachPracticeMock";
 import styles from "../marketing.module.css";
 
 // /coaches — the audience-specific companion to the owner-led
@@ -36,6 +37,10 @@ export default function CoachesPage() {
                 Talk to us about becoming an AiMS Guide
               </a>
             </div>
+          </div>
+
+          <div className={styles.heroCard}>
+            <CoachPracticeMock />
           </div>
         </div>
       </section>
