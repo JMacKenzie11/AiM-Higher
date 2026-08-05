@@ -7,9 +7,9 @@ title: Success Measures
 The weekly logging surface for every success measure in play — one
 row per measure, one input for the current week, a mini trend of the
 last few weeks to the right. Save-all writes them in a single upsert.
-Reach it from *Company ▾ → Success Measures* (visible when Success
-Tracking is on) or from the *This week's numbers* card on the
-dashboard.
+Reach it from *Disciplines ▾ → Success Measures* (visible when
+Success Tracking is on) or from the *This week's numbers* card on
+the dashboard.
 
 ## Common things people do here
 

@@ -24,8 +24,8 @@ progress.
 - **Log this week's numbers** — when Success Tracking is on, any
   measure still open for the current week appears in *This week's
   numbers*. Enter values inline and Save; the card disappears once
-  the row is filled. Full batch view lives at *Company ▾ → Success
-  Measures*.
+  the row is filled. Full batch view lives at *Disciplines ▾ →
+  Success Measures*.
 - **Close the loop on this week's commitments** — the *This week*
   strip links straight into Commitments with the filter pre-applied.
 

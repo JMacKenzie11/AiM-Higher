@@ -87,42 +87,51 @@ const ADMIN_ROLES: readonly NavRole[] = [
 ];
 
 const APP_ITEMS: readonly NavItem[] = [
-  // Ask Aimee is the primary personal entry point — always visible
-  // to every active member, no feature gate. It leads because it's
-  // the surface that any user, admin or not, can rely on.
-  { kind: "link", label: "Ask Aimee", href: "/ask-aimee", feature: null },
-  { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
-  // Classroom is a shared library — content is authored once by AiMS
-  // and read by every flag-enabled company. Top-level because it's a
-  // frequent-touch surface for members, not just admins.
-  { kind: "link", label: "Classroom", href: "/classroom", feature: "classroom" },
   {
     kind: "group",
-    label: "Company",
+    label: "Disciplines",
     feature: "execution",
     items: [
       { kind: "link", label: "One-Page Plan", href: "/foundation" },
-      { kind: "link", label: "Plan", href: "/plan" },
-      { kind: "link", label: "Chart", href: "/chart" },
-      { kind: "link", label: "Commitments", href: "/commitments" },
       { kind: "link", label: "People", href: "/people" },
+      { kind: "link", label: "Chart", href: "/chart" },
+      { kind: "link", label: "Plan", href: "/plan" },
+      { kind: "link", label: "Commitments", href: "/commitments" },
+      // Meetings (route stays /leadership) hosts meeting-transcript
+      // analyses; only admins / coaches see it. Team members get the
+      // resulting commitments and email, not the full write-up.
+      { kind: "link", label: "Meetings", href: "/leadership", roles: ADMIN_ROLES },
       // Success Measures is a Success-Tracking surface: without that
       // entitlement the /measures page is inert, so the per-item
       // `feature` gate hides it even for companies that have the
-      // execution module. Placed after People because it's a
-      // lower-frequency touch (weekly, not daily).
+      // execution module.
       {
         kind: "link",
         label: "Success Measures",
         href: "/measures",
         feature: "performance_tracking",
       },
-      // Leadership hosts meeting-transcript analyses; only admins /
-      // coaches see it. Team members get the resulting commitments
-      // and email, not the full write-up.
-      { kind: "link", label: "Leadership", href: "/leadership", roles: ADMIN_ROLES },
     ],
   },
+  // Resources — personal-use surfaces (Ask Aimee, Classroom). Group
+  // feature is null so it always renders; Ask Aimee has no gate so
+  // the group never fully collapses. Classroom's per-child feature
+  // gate hides it for tenants without the entitlement.
+  {
+    kind: "group",
+    label: "Resources",
+    feature: null,
+    items: [
+      { kind: "link", label: "Ask Aimee", href: "/ask-aimee" },
+      {
+        kind: "link",
+        label: "Classroom",
+        href: "/classroom",
+        feature: "classroom",
+      },
+    ],
+  },
+  { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
 ];
 
 // ASSUMPTION: Scorecard route (/scorecard) still exists but is
