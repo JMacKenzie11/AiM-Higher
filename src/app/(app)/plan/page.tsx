@@ -407,19 +407,6 @@ export default async function PlanPage({ searchParams }: PageProps) {
               </section>
             ) : null}
 
-            {isAdmin && cascade.sfas.length === 0 ? (
-              <section className={styles.addCard} aria-labelledby="add-orphan-goal">
-                <h2 id="add-orphan-goal" className={styles.orphanTitle}>
-                  Add an annual goal
-                </h2>
-                <AddGoalForm
-                  defaultSfaId={null}
-                  sfaOptions={sfaOptions}
-                  people={roster}
-                />
-              </section>
-            ) : null}
-
           </div>
           </PlanCascadeController>
 
