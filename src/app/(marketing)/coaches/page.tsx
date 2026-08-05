@@ -24,7 +24,7 @@ export default function CoachesPage() {
           <div className={styles.heroCopy}>
             <p className={styles.heroEyebrow}>FOR COACHES AND ADVISORS</p>
             <h1 className={styles.heroHeadline}>
-              Your methodology, working between your sessions.
+              The AiMS Approach, working between your sessions.
             </h1>
             <span className={styles.heroRule} aria-hidden="true" />
             <p className={styles.heroSupport}>
