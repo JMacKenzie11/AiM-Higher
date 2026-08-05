@@ -1165,6 +1165,7 @@
   padding: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
+  border-top: 3px solid var(--aims-cobalt);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   display: flex;
@@ -1175,10 +1176,33 @@
     border-color var(--duration-fast) var(--ease-out);
 }
 
+/* People / Rhythms / Data — three-brand-colour code so the eye
+   can distinguish the pillars at a glance. Matches the same
+   accent-stripe pattern used on stat tiles. */
+.pillarCol:nth-child(1) {
+  border-top-color: var(--aims-cobalt);
+}
+.pillarCol:nth-child(2) {
+  border-top-color: var(--aims-sky);
+}
+.pillarCol:nth-child(3) {
+  border-top-color: var(--accent);
+}
+.pillarCol:nth-child(1) .pillarEyebrow {
+  color: var(--aims-cobalt);
+}
+.pillarCol:nth-child(2) .pillarEyebrow {
+  color: color-mix(in srgb, var(--aims-sky) 65%, var(--aims-navy));
+}
+.pillarCol:nth-child(3) .pillarEyebrow {
+  color: color-mix(in srgb, var(--accent) 55%, var(--aims-navy));
+}
+
 .pillarCol:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  border-color: color-mix(in srgb, var(--aims-cobalt) 30%, var(--border));
+  /* No border-color change on hover — the per-pillar top stripe
+     colour would get flattened. Lift + shadow give enough feedback. */
 }
 
 .pillarEyebrow {
@@ -1430,10 +1454,14 @@
   margin: 0;
 }
 
-/* ---- Investment replacement section (sand) ---- */
+/* ---- Investment replacement section (sky-tinted for variance) ---- */
 
 .investment {
-  background: var(--bg);
+  background: linear-gradient(
+    180deg,
+    var(--aims-sky-tint) 0%,
+    var(--bg) 100%
+  );
 }
 
 .investmentIntro {
@@ -1457,6 +1485,7 @@
   padding: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
+  border-top: 3px solid var(--aims-cobalt);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   display: flex;
@@ -1471,7 +1500,7 @@
 .investmentCard:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  border-color: color-mix(in srgb, var(--aims-cobalt) 30%, var(--border));
+  /* Border-color untouched so the cobalt top stripe stays crisp. */
 }
 
 .investmentCardTitle {
@@ -1563,14 +1592,24 @@
   padding: var(--space-4);
   background: var(--surface);
   border-radius: var(--radius-sm);
+  border-top: 3px solid var(--aims-cobalt);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
+/* Rotate the top-stripe colour through the brand palette so the
+   four tiles read as related-but-distinct. Nth-child ordering
+   matches the tile order in HeroDashboard...uh, the origin section:
+   revenue, engagement, work-week, growth-target. */
+.statTile:nth-child(1) { border-top-color: var(--aims-cobalt); }
+.statTile:nth-child(2) { border-top-color: var(--aims-sky); }
+.statTile:nth-child(3) { border-top-color: var(--accent); }
+.statTile:nth-child(4) { border-top-color: var(--aims-navy); }
+
 .statTileValue {
   font: var(--text-stat);
-  color: var(--text-heading);
+  color: var(--aims-cobalt);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   font-size: clamp(28px, 3vw, 36px);
