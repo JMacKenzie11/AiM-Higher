@@ -530,6 +530,72 @@ export async function setCommitmentClarityAction(
 }
 
 // ---- Delete ---------------------------------------------------
+// ---- Edit description ----------------------------------------
+// Fix typos, reword after the fact. Owner or an admin may edit,
+// on any status (resolved rows too — the description is display
+// copy, not a historical fact like status/completed_at). Clarity
+// re-scores automatically since the timeline/success verdicts
+// depend on the description text.
+export async function updateCommitmentDescriptionAction(
+  commitmentId: string,
+  description: string
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const trimmed = description.trim();
+  if (!trimmed) {
+    return { ok: false, message: "Description can't be empty." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to edit." };
+  }
+
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({ description: trimmed })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't save that change." };
+  }
+
+  // Re-run clarity autoscore — the verdicts are a function of the
+  // description text (and the due date), so an edit to either
+  // should invalidate the prior scoring. Best-effort: the save is
+  // already committed; a failed autoscore just leaves the previous
+  // clarity fields intact.
+  let finalRow: Commitment = data;
+  try {
+    const score = await scoreCommitmentClarity(trimmed, data.due_date);
+    if (score) {
+      const { data: rescored } = await supabase
+        .from("commitments")
+        .update({
+          clarity_timeline: score.timeline,
+          clarity_success: score.success,
+          clarity_note: score.note,
+        })
+        .eq("id", data.id)
+        .select("*")
+        .single<Commitment>();
+      if (rescored) finalRow = rescored;
+    }
+  } catch (err) {
+    console.warn(
+      "Clarity autoscore failed after description edit for commitment",
+      data.id,
+      err
+    );
+  }
+
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: finalRow };
+}
+
 export async function deleteCommitmentAction(
   commitmentId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {

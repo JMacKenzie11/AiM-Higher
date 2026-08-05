@@ -12,6 +12,7 @@ import {
   setCommitmentClarityAction,
   unmarkKeptAction,
   unmarkMissedAction,
+  updateCommitmentDescriptionAction,
 } from "@/lib/commitments/actions";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -78,6 +79,10 @@ export function CommitmentRow({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState(
+    commitment.description
+  );
   // "Just changed" chip — shows for a few seconds after resolving so
   // the coach knows the action landed AND can undo without hunting.
   // The prior UX had no such affordance, which is exactly how the
@@ -177,6 +182,12 @@ export function CommitmentRow({
   const canDelete =
     isAdmin || (commitment.owner_id === currentUserId && isOpen);
 
+  // Description edit follows the same admin-or-owner rule but has no
+  // status restriction — fixing a typo on a resolved commitment is
+  // useful and doesn't rewrite historical facts (status, dates).
+  const canEditDescription =
+    isAdmin || commitment.owner_id === currentUserId;
+
   function runDelete() {
     setConfirmDelete(false);
     setError(null);
@@ -184,6 +195,32 @@ export function CommitmentRow({
       const result = await deleteCommitmentAction(commitment.id);
       if (!result.ok) setError(result.message);
     });
+  }
+
+  function saveDescription() {
+    const next = descriptionDraft.trim();
+    if (!next) return;
+    if (next === commitment.description) {
+      setEditingDescription(false);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await updateCommitmentDescriptionAction(
+        commitment.id,
+        next
+      );
+      if (!result.ok) {
+        setError(result.message);
+      } else {
+        setEditingDescription(false);
+      }
+    });
+  }
+
+  function cancelDescriptionEdit() {
+    setDescriptionDraft(commitment.description);
+    setEditingDescription(false);
   }
 
   function onCircleClick() {
@@ -249,6 +286,30 @@ export function CommitmentRow({
         </span>
       </button>
 
+      {canDelete ? (
+        <button
+          type="button"
+          className={styles.deleteRowButton}
+          onClick={() => setConfirmDelete(true)}
+          disabled={pending}
+          aria-label="Delete this commitment"
+          title="Delete this commitment"
+        >
+          <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+            <path
+              d="M4 5 h8 v8 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 z M6.5 5 V3.5 a1 1 0 0 1 1 -1 h1 a1 1 0 0 1 1 1 V5 M3 5 h10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      ) : (
+        <span aria-hidden />
+      )}
+
       <div style={{ display: "flex", justifyContent: "center" }}>
         <ClarityChip
           state={clarityState(commitment)}
@@ -259,27 +320,77 @@ export function CommitmentRow({
       </div>
 
       <div>
-        <p className={styles.rowDescription}>
-          {commitment.description}
-          {commitment.source_meeting_id ? (
-            isAdmin ? (
-              <Link
-                href={`/leadership/meetings/${commitment.source_meeting_id}`}
-                className={styles.fromMeetingChip}
-                title="From a meeting transcript — click to view analysis"
+        {editingDescription ? (
+          <div className={styles.descriptionEditor}>
+            <textarea
+              className={styles.descriptionInput}
+              value={descriptionDraft}
+              onChange={(e) => setDescriptionDraft(e.target.value)}
+              rows={2}
+              autoFocus
+              disabled={pending}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  cancelDescriptionEdit();
+                } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  saveDescription();
+                }
+              }}
+            />
+            <div className={styles.descriptionEditorRow}>
+              <button
+                type="button"
+                className={styles.descriptionSaveButton}
+                onClick={saveDescription}
+                disabled={pending || !descriptionDraft.trim()}
               >
-                From meeting
-              </Link>
+                Save
+              </button>
+              <button
+                type="button"
+                className={styles.descriptionCancelButton}
+                onClick={cancelDescriptionEdit}
+                disabled={pending}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className={styles.rowDescription}>
+            {canEditDescription ? (
+              <button
+                type="button"
+                className={styles.descriptionEditable}
+                onClick={() => setEditingDescription(true)}
+                title="Click to edit"
+              >
+                {commitment.description}
+              </button>
             ) : (
-              <span
-                className={styles.fromMeetingChip}
-                title="Created from a meeting transcript"
-              >
-                From meeting
-              </span>
-            )
-          ) : null}
-        </p>
+              commitment.description
+            )}
+            {commitment.source_meeting_id ? (
+              isAdmin ? (
+                <Link
+                  href={`/leadership/meetings/${commitment.source_meeting_id}`}
+                  className={styles.fromMeetingChip}
+                  title="From a meeting transcript — click to view analysis"
+                >
+                  From meeting
+                </Link>
+              ) : (
+                <span
+                  className={styles.fromMeetingChip}
+                  title="Created from a meeting transcript"
+                >
+                  From meeting
+                </span>
+              )
+            ) : null}
+          </p>
+        )}
         {commitment.missed_reason ? (
           <p className={styles.reasonNote}>Reason: {commitment.missed_reason}</p>
         ) : null}
@@ -377,30 +488,6 @@ export function CommitmentRow({
       )}
 
       <CommitmentResolutionChip commitment={commitment} />
-
-      {canDelete ? (
-        <button
-          type="button"
-          className={styles.deleteRowButton}
-          onClick={() => setConfirmDelete(true)}
-          disabled={pending}
-          aria-label="Delete this commitment"
-          title="Delete this commitment"
-        >
-          <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
-            <path
-              d="M4 5 h8 v8 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 z M6.5 5 V3.5 a1 1 0 0 1 1 -1 h1 a1 1 0 0 1 1 1 V5 M3 5 h10"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      ) : (
-        <span aria-hidden />
-      )}
 
       {/* Full-width editor strips — direct grid children so
           grid-column: 1 / -1 spans the whole row. Previously nested

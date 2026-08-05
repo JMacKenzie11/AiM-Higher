@@ -205,22 +205,17 @@
 
 .row {
   display: grid;
-  /* resolve (✓) | clarity | description | owner | priority | due | status | delete */
-  /* Delete moved to the far right and hover-revealed so it can never
-     be misclicked in place of the resolve circle. The resolve circle
-     is enlarged to 36px for a legible projector target. */
-  grid-template-columns: 40px 28px 1fr 180px 180px 110px 90px 32px;
+  /* resolve (✓) | delete (🗑) | clarity | description | owner | priority | due | status */
+  /* Delete now sits next to the resolve circle and is always visible
+     when the caller has permission — the "hidden until hover" pattern
+     hid the affordance more than it prevented misclicks. */
+  grid-template-columns: 40px 28px 28px 1fr 180px 180px 110px 90px;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   list-style: none;
   list-style-type: none;
-}
-
-.row:hover .deleteRowButton {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .row::marker,
@@ -241,6 +236,102 @@
   color: var(--text);
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+/* ---- Description inline edit ---------------------------------
+   Clicking the description text on rows the caller can edit
+   swaps in a textarea + Save/Cancel row. Owner or an admin only. */
+.descriptionEditable {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  cursor: text;
+  text-align: left;
+  overflow-wrap: anywhere;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.descriptionEditable:hover {
+  background: var(--aims-cobalt-tint);
+  box-shadow: 0 0 0 3px var(--aims-cobalt-tint);
+}
+
+.descriptionEditable:focus-visible {
+  outline: none;
+  background: var(--aims-cobalt-tint);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.descriptionEditor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.descriptionInput {
+  width: 100%;
+  min-height: calc(var(--control-h-md) * 1.5);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  resize: vertical;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.descriptionInput:focus {
+  outline: none;
+}
+
+.descriptionEditorRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.descriptionSaveButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-4);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.descriptionSaveButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.descriptionSaveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.descriptionCancelButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.descriptionCancelButton:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
 }
 
 /* ---- Person quick-view drawer ----
@@ -792,12 +883,9 @@ a.fromMeetingChip:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  pointer-events: none;
   transition: background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    opacity var(--duration-fast) var(--ease-out);
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .deleteRowButton:hover:not(:disabled) {
@@ -808,15 +896,12 @@ a.fromMeetingChip:hover {
 
 .deleteRowButton:focus-visible {
   outline: none;
-  opacity: 1;
-  pointer-events: auto;
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .deleteRowButton:disabled {
   cursor: not-allowed;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 0.4;
 }
 
 @keyframes checkPop {

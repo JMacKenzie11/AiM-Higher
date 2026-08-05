@@ -24,10 +24,17 @@ is *owned*, *dated*, and either *open*, *kept*, or *missed*
   short reason for the shift.
 - **Add a commitment** — the always-live row at the bottom of
   *This week* creates one on save.
-- **Delete a commitment** — hover the row and the trash icon
-  appears at the far right (past the status chip). It's kept off
-  to the side and hover-revealed so it can't be mistaken for the
-  resolve circle.
+- **Edit the description** — click the commitment text to
+  swap in an inline editor. Save (⌘/Ctrl-Enter) commits the
+  change; Escape or Cancel reverts. Admins can edit any row;
+  the assigned owner can edit their own on any status. The
+  clarity dot re-scores automatically since the timeline and
+  success verdicts depend on the wording.
+- **Delete a commitment** — the trash icon sits to the right of
+  the resolve check and is always visible when you have
+  permission. Admins can delete any row; the assigned owner can
+  delete their own open rows. A confirm dialog prevents accidental
+  clicks.
 
 ## Heads-up
 
