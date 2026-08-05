@@ -121,17 +121,18 @@ export function ClarityEditor({
     <div className={styles.resolveStrip}>
       <span className={styles.stripLabel}>Clarity check</span>
       <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)" }}>
-        A clear commitment names a stated deadline and an observable
+        A clear commitment has a deadline that was explicitly agreed
+        (not a placeholder the analyzer filled in) and an observable
         definition of done. Toggle each below.
       </p>
       <ClarityToggle
-        label="Timeline is clear"
+        label="Deadline was explicitly agreed"
         value={timeline}
         onChange={setTimeline}
         disabled={pending}
       />
       <ClarityToggle
-        label="Definition of done is well-defined"
+        label="Definition of done is observable"
         value={success}
         onChange={setSuccess}
         disabled={pending}

@@ -444,34 +444,56 @@ export function CommitmentRow({
         disabled={pending}
       />
 
-      {isOpen && canResolve ? (
-        <button
-          type="button"
-          className={
-            isOverdue
-              ? `${styles.rowDueButton} ${styles.rowDueOverdue}`
-              : styles.rowDueButton
-          }
-          onClick={() => {
-            setRescheduleDate(commitment.due_date);
-            setShowReschedule((prev) => !prev);
-          }}
-          disabled={pending}
-          aria-label="Reschedule with a reason"
-        >
-          {isOverdue ? <span className={styles.rowDueDot} aria-hidden /> : null}
-          {formatShortDate(commitment.due_date)}
-        </button>
-      ) : (
-        <span
-          className={
-            isOverdue ? `${styles.rowDue} ${styles.rowDueOverdue}` : styles.rowDue
-          }
-        >
-          {isOverdue ? <span className={styles.rowDueDot} aria-hidden /> : null}
-          {formatShortDate(commitment.due_date)}
-        </span>
-      )}
+      {(() => {
+        // clarity_timeline === false means the analyzer defaulted the
+        // date because no deadline was agreed in the meeting (or a
+        // reviewer explicitly marked it that way). Surface it visually
+        // so the placeholder date doesn't read as a real commitment.
+        const dueAssigned = commitment.clarity_timeline === false;
+        const assignedTitle = dueAssigned
+          ? "No deadline was agreed in the meeting — this date is a placeholder. Reschedule to lock in a real one."
+          : undefined;
+
+        if (isOpen && canResolve) {
+          const classes = [styles.rowDueButton];
+          if (isOverdue) classes.push(styles.rowDueOverdue);
+          if (dueAssigned) classes.push(styles.rowDueAssigned);
+          return (
+            <button
+              type="button"
+              className={classes.join(" ")}
+              onClick={() => {
+                setRescheduleDate(commitment.due_date);
+                setShowReschedule((prev) => !prev);
+              }}
+              disabled={pending}
+              aria-label={assignedTitle ?? "Reschedule with a reason"}
+              title={assignedTitle}
+            >
+              {isOverdue ? (
+                <span className={styles.rowDueDot} aria-hidden />
+              ) : dueAssigned ? (
+                <span className={styles.rowDueAssignedDot} aria-hidden />
+              ) : null}
+              {formatShortDate(commitment.due_date)}
+            </button>
+          );
+        }
+
+        const classes = [styles.rowDue];
+        if (isOverdue) classes.push(styles.rowDueOverdue);
+        if (dueAssigned) classes.push(styles.rowDueAssigned);
+        return (
+          <span className={classes.join(" ")} title={assignedTitle}>
+            {isOverdue ? (
+              <span className={styles.rowDueDot} aria-hidden />
+            ) : dueAssigned ? (
+              <span className={styles.rowDueAssignedDot} aria-hidden />
+            ) : null}
+            {formatShortDate(commitment.due_date)}
+          </span>
+        );
+      })()}
 
       <CommitmentResolutionChip commitment={commitment} />
 

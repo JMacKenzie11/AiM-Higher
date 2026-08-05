@@ -765,6 +765,22 @@ a.fromMeetingChip:hover {
   display: inline-block;
 }
 
+/* Signals that clarity_timeline === false — the analyzer defaulted
+   this row to "this Friday" because no deadline was actually agreed
+   in the meeting, so the date is a placeholder awaiting a real one. */
+.rowDueAssigned {
+  border-color: var(--aims-warning);
+  color: var(--aims-warning);
+}
+
+.rowDueAssignedDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--aims-warning);
+  display: inline-block;
+}
+
 /* ---- Resolve circle ----
    Bigger than a typical checkbox so it's a legible target under
    projection and hard to confuse for the delete glyph (which now
