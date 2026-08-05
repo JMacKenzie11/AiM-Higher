@@ -13,11 +13,16 @@ Clicking a name opens that person's scorecard.
 - **Add a person** (admins only) — fill in name, email, position
   and role, then decide whether to send the invite email now or
   keep them in *pending* status to pre-stage the roster.
-- **Open a person's scorecard** — click the name. Kept / Missed
-  counts + Follow-Through Rate this quarter + a 12-week trend
-  chart. The word *Missed* is what the app calls a commitment
-  resolved after its due date (used to say "Closed" but that read
-  as "finished").
+- **Open a person's scorecard** — click the name. The page opens
+  with two reference cards at the top — *Details* (name, email,
+  position, role, reports-to) and *Strengths* (strengths +
+  superpowers) — followed by the scorecard, open commitments, and
+  history. Admins see the top two cards as editable forms with a
+  Save button; everyone else sees the same information read-only.
+  The scorecard shows Kept / Missed counts + Follow-Through Rate
+  this quarter + a 12-week trend chart. The word *Missed* is what
+  the app calls a commitment resolved after its due date (used to
+  say "Closed" but that read as "finished").
 - **Deactivate someone** — the row action toggles them to
   *inactive* and stops sign-in without deleting history. Confirms
   first via a branded dialog so a stray click can't lock someone

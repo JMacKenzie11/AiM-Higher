@@ -21,10 +21,15 @@ export function StrengthsEditor({
   userId,
   initial,
   heading = "Strengths & superpowers",
+  readOnly = false,
 }: {
   userId: string;
   initial: UserStrengthsView;
   heading?: string;
+  // Read-only mode: no auto-append trailing row, no Remove buttons,
+  // no Save button. Used on the person scorecard for non-admin
+  // viewers so Strengths renders as a reference block.
+  readOnly?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<
     SaveStrengthsResult,
@@ -39,14 +44,23 @@ export function StrengthsEditor({
     (s) => Boolean(s && "ok" in s && s.ok)
   );
 
+  // In read-only mode we don't want a trailing empty edit row.
   const [strengths, setStrengths] = useState<string[]>(
-    initial.strengths.length > 0 ? initial.strengths.map((s) => s.label) : [""]
+    initial.strengths.length > 0
+      ? initial.strengths.map((s) => s.label)
+      : readOnly
+        ? []
+        : [""]
   );
   const [superpowers, setSuperpowers] = useState<string[]>(
     initial.superpowers.length > 0
       ? initial.superpowers.map((s) => s.label)
-      : [""]
+      : readOnly
+        ? []
+        : [""]
   );
+
+  const disabled = pending || readOnly;
 
   // Editing a row: if typing into the trailing empty row, a fresh
   // empty row appears below so the user never needs an "Add" button —
@@ -78,32 +92,42 @@ export function StrengthsEditor({
 
       <fieldset className={`${styles.field} ${styles.formFull}`}>
         <legend className={styles.label}>Strengths</legend>
-        {strengths.map((value, idx) => (
-          <StrengthRow
-            key={`s-${idx}`}
-            name="strength_label"
-            value={value}
-            placeholder="e.g. Strategic thinking"
-            disabled={pending}
-            onChange={(v) => setStrengths((prev) => update(prev, idx, v))}
-            onRemove={() => setStrengths((prev) => removeAt(prev, idx))}
-          />
-        ))}
+        {strengths.length === 0 && readOnly ? (
+          <p className={styles.fieldHint}>None on file yet.</p>
+        ) : (
+          strengths.map((value, idx) => (
+            <StrengthRow
+              key={`s-${idx}`}
+              name="strength_label"
+              value={value}
+              placeholder="e.g. Strategic thinking"
+              disabled={disabled}
+              readOnly={readOnly}
+              onChange={(v) => setStrengths((prev) => update(prev, idx, v))}
+              onRemove={() => setStrengths((prev) => removeAt(prev, idx))}
+            />
+          ))
+        )}
       </fieldset>
 
       <fieldset className={`${styles.field} ${styles.formFull}`}>
         <legend className={styles.label}>Superpowers</legend>
-        {superpowers.map((value, idx) => (
-          <StrengthRow
-            key={`p-${idx}`}
-            name="superpower_label"
-            value={value}
-            placeholder="e.g. Reading a room"
-            disabled={pending}
-            onChange={(v) => setSuperpowers((prev) => update(prev, idx, v))}
-            onRemove={() => setSuperpowers((prev) => removeAt(prev, idx))}
-          />
-        ))}
+        {superpowers.length === 0 && readOnly ? (
+          <p className={styles.fieldHint}>None on file yet.</p>
+        ) : (
+          superpowers.map((value, idx) => (
+            <StrengthRow
+              key={`p-${idx}`}
+              name="superpower_label"
+              value={value}
+              placeholder="e.g. Reading a room"
+              disabled={disabled}
+              readOnly={readOnly}
+              onChange={(v) => setSuperpowers((prev) => update(prev, idx, v))}
+              onRemove={() => setSuperpowers((prev) => removeAt(prev, idx))}
+            />
+          ))
+        )}
       </fieldset>
 
       {errorMessage ? (
@@ -112,16 +136,18 @@ export function StrengthsEditor({
         </p>
       ) : null}
 
-      <div className={styles.submitRow}>
-        <button
-          type="submit"
-          className={styles.primaryButton}
-          disabled={pending}
-        >
-          {pending ? "Saving…" : "Save"}
-        </button>
-        <ConfirmationChip visible={confirmationVisible} label="Saved" />
-      </div>
+      {readOnly ? null : (
+        <div className={styles.submitRow}>
+          <button
+            type="submit"
+            className={styles.primaryButton}
+            disabled={pending}
+          >
+            {pending ? "Saving…" : "Save"}
+          </button>
+          <ConfirmationChip visible={confirmationVisible} label="Saved" />
+        </div>
+      )}
     </form>
   );
 }
@@ -131,6 +157,7 @@ function StrengthRow({
   value,
   placeholder,
   disabled,
+  readOnly,
   onChange,
   onRemove,
 }: {
@@ -138,6 +165,7 @@ function StrengthRow({
   value: string;
   placeholder: string;
   disabled: boolean;
+  readOnly?: boolean;
   onChange: (v: string) => void;
   onRemove: () => void;
 }) {
@@ -150,17 +178,20 @@ function StrengthRow({
         className={styles.input}
         placeholder={placeholder}
         disabled={disabled}
+        readOnly={readOnly}
         maxLength={120}
       />
-      <button
-        type="button"
-        className={styles.ghostButton}
-        onClick={onRemove}
-        disabled={disabled}
-        aria-label="Remove entry"
-      >
-        Remove
-      </button>
+      {readOnly ? null : (
+        <button
+          type="button"
+          className={styles.ghostButton}
+          onClick={onRemove}
+          disabled={disabled}
+          aria-label="Remove entry"
+        >
+          Remove
+        </button>
+      )}
     </div>
   );
 }

@@ -19,16 +19,22 @@ export function EditUserForm({
   initialEmail,
   roster,
   callerRole,
+  readOnly = false,
 }: {
   subject: Profile;
   initialEmail: string;
   roster: Array<Pick<Profile, "id" | "full_name">>;
   callerRole: Role;
+  // When true, all inputs are disabled and the Save button is
+  // hidden. Used on the person scorecard for non-admin viewers so
+  // Details renders as a read-only reference block, not a form.
+  readOnly?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<
     UserActionResult,
     FormData
   >(updateUserAction, INITIAL);
+  const disabled = pending || readOnly;
 
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
@@ -64,7 +70,7 @@ export function EditUserForm({
           defaultValue={firstName}
           required
           className={styles.input}
-          disabled={pending}
+          disabled={disabled}
         />
       </div>
       <div className={styles.field}>
@@ -77,7 +83,7 @@ export function EditUserForm({
           defaultValue={lastName}
           required
           className={styles.input}
-          disabled={pending}
+          disabled={disabled}
         />
       </div>
 
@@ -92,12 +98,14 @@ export function EditUserForm({
           defaultValue={initialEmail}
           required
           className={styles.input}
-          disabled={pending}
+          disabled={disabled}
         />
-        <p className={styles.fieldHint}>
-          Used to sign in. Changing this updates the Supabase auth
-          record too.
-        </p>
+        {readOnly ? null : (
+          <p className={styles.fieldHint}>
+            Used to sign in. Changing this updates the Supabase auth
+            record too.
+          </p>
+        )}
       </div>
 
       <div className={styles.field}>
@@ -110,7 +118,7 @@ export function EditUserForm({
           defaultValue={subject.position ?? ""}
           className={styles.input}
           placeholder="Job title"
-          disabled={pending}
+          disabled={disabled}
         />
       </div>
 
@@ -123,7 +131,7 @@ export function EditUserForm({
           name="role"
           defaultValue={subject.role}
           className={styles.select}
-          disabled={pending}
+          disabled={disabled}
         >
           {roleOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -142,7 +150,7 @@ export function EditUserForm({
           name="reports_to"
           defaultValue={subject.reports_to ?? ""}
           className={styles.select}
-          disabled={pending}
+          disabled={disabled}
         >
           <option value="">— No manager on file —</option>
           {roster.map((p) => (
@@ -165,15 +173,17 @@ export function EditUserForm({
         </p>
       ) : null}
 
-      <div className={styles.submitRow}>
-        <button
-          type="submit"
-          className={uiStyles.btnPrimary}
-          disabled={pending}
-        >
-          {pending ? "Saving…" : "Save changes"}
-        </button>
-      </div>
+      {readOnly ? null : (
+        <div className={styles.submitRow}>
+          <button
+            type="submit"
+            className={uiStyles.btnPrimary}
+            disabled={disabled}
+          >
+            {pending ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

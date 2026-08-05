@@ -34,13 +34,12 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   // enforces (migration 0021).
   const isManager = data.profile.reports_to === session.profile.id;
 
-  // Admins editing someone else get the details + strengths editors
-  // inline — no click-through to /edit or /strengths pages needed.
-  // The dedicated URLs still exist as deep-link fallbacks.
-  const inlineEditor = isAdmin && !isSelf;
-  const editorBundle = inlineEditor
-    ? await loadEditorBundle(id, data.profile)
-    : null;
+  // Everyone sees Details + Strengths at the top of the page.
+  // Admins get editable inputs + a Save button; team members and
+  // managers see the same fields in read-only mode. Self-serve
+  // basic edits still route through /profile for non-admins.
+  const editorBundle = await loadEditorBundle(id, data.profile);
+  const canEditPerson = isAdmin;
 
   return (
     <div className={styles.stage}>
@@ -86,6 +85,45 @@ export default async function PersonScorecardPage({ params }: PageProps) {
       </section>
 
       <div className={styles.content}>
+        {editorBundle ? (
+          <>
+            {/* ---- Details (editable for admins, read-only otherwise) ---- */}
+            <section className={styles.card} aria-labelledby="details">
+              <h2 id="details" className={styles.h2}>
+                Details
+              </h2>
+              <p className={styles.cardMeta}>
+                Name, email, position, role, and who they report to.
+              </p>
+              <EditUserForm
+                subject={data.profile}
+                initialEmail={editorBundle.email}
+                roster={editorBundle.roster}
+                callerRole={session.profile.role}
+                readOnly={!canEditPerson}
+              />
+            </section>
+
+            {/* ---- Strengths (editable for admins, read-only otherwise) ---- */}
+            <section className={styles.card} aria-labelledby="strengths">
+              <h2 id="strengths" className={styles.h2}>
+                Strengths
+              </h2>
+              <p className={styles.cardMeta}>
+                What this person is great at (Strengths) and what
+                energises them most (Superpowers). Both feed the
+                coaching prompt.
+              </p>
+              <StrengthsEditor
+                userId={data.profile.id}
+                initial={editorBundle.strengths}
+                heading=""
+                readOnly={!canEditPerson}
+              />
+            </section>
+          </>
+        ) : null}
+
         {/* ---- Scorecard ---- */}
         <section className={styles.card} aria-labelledby="scorecard">
           <h2 id="scorecard" className={styles.h2}>
@@ -192,42 +230,6 @@ export default async function PersonScorecardPage({ params }: PageProps) {
             </table>
           )}
         </section>
-
-        {/* ---- Inline editors (admin viewing someone else) ---- */}
-        {inlineEditor && editorBundle ? (
-          <>
-            <section className={styles.card} aria-labelledby="details">
-              <h2 id="details" className={styles.h2}>
-                Details
-              </h2>
-              <p className={styles.cardMeta}>
-                Name, email, position, role, and who they report to.
-              </p>
-              <EditUserForm
-                subject={data.profile}
-                initialEmail={editorBundle.email}
-                roster={editorBundle.roster}
-                callerRole={session.profile.role}
-              />
-            </section>
-
-            <section className={styles.card} aria-labelledby="strengths">
-              <h2 id="strengths" className={styles.h2}>
-                Strengths
-              </h2>
-              <p className={styles.cardMeta}>
-                What this person is great at (Strengths) and what
-                energises them most (Superpowers). Both feed the
-                coaching prompt.
-              </p>
-              <StrengthsEditor
-                userId={data.profile.id}
-                initial={editorBundle.strengths}
-                heading=""
-              />
-            </section>
-          </>
-        ) : null}
 
         {/* ---- History ---- */}
         <section className={styles.card} aria-labelledby="history">
