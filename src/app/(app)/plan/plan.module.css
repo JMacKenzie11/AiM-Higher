@@ -22,13 +22,21 @@
   margin: var(--space-3) 0 0 0;
 }
 
-/* ---- Toolbar row (quarter switcher + admin actions) ---- */
+/* ---- Toolbar row (quarter switcher + admin actions) ----
+   Card-shaped so it visually overlaps the hero when it's the first
+   child of the PageShell content area. Same treatment as the toolbar
+   on /chart. */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
   justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-4) var(--space-5);
 }
 
 .toolbarActions {

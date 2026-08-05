@@ -29,12 +29,19 @@
   margin: var(--space-3) 0 0 0;
 }
 
+/* Card-shaped so it visually overlaps the hero when it's the first
+   child of the PageShell content area. */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
   justify-content: flex-end;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-4) var(--space-5);
 }
 
 .emptyCard {

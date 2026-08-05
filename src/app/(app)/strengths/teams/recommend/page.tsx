@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import RecommendPage from "@/components/strengths/teams/RecommendPage";
+import { PageShell } from "@/components/ui/PageShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ResultsProfile } from "@/lib/strengths/types";
-import styles from "../../strengths.module.css";
 
 export default async function RecommendRoute() {
   const supabase = await createSupabaseServerClient();
@@ -37,27 +36,14 @@ export default async function RecommendRoute() {
     : [];
 
   return (
-    <>
-      <div className="hero-shell">
-
-        <div className="hero-body">
-          <div className="container-wide">
-            <Link href="/strengths/teams" className={styles.backCrumbLink}>
-              ← Back to teams
-            </Link>
-            <div className="eyebrow">Team builder</div>
-            <h1 className="hero-title">Recommend a team</h1>
-            <div className="hero-bar" aria-hidden="true" />
-            <p className="hero-sub">
-              Describe the mission and pick a size. The system proposes a
-              roster and explains the reasoning. Nothing saves until you
-              confirm. The final call is yours.
-            </p>
-          </div>
-        </div>
-      </div>
-      <div className="container-wide content-shell">
-        <RecommendPage
+    <PageShell
+      backHref="/strengths/teams"
+      backLabel="Back to teams"
+      eyebrow="Team builder"
+      title="Recommend a team"
+      subtitle="Describe the mission and pick a size. The system proposes a roster and explains the reasoning. Nothing saves until you confirm. The final call is yours."
+    >
+      <RecommendPage
           isSystemAdmin={me.role === "system_admin"}
           defaultCompanyId={defaultCompanyId}
           companies={(companies ?? []).map((c) => ({
@@ -66,8 +52,7 @@ export default async function RecommendRoute() {
           }))}
           eligible={eligible}
         />
-      </div>
-    </>
+    </PageShell>
   );
 }
 

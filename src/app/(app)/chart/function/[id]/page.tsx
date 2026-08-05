@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getChartFunctionDetail } from "@/lib/chart/service";
 import { AddMeasureForm } from "../../InlineForms";
 import { CardAccent } from "@/components/ui/CardAccent";
+import { PageShell } from "@/components/ui/PageShell";
 import { DeleteFunctionButton } from "./DeleteFunctionButton";
 import { RolesList } from "./RolesList";
 import { SeatEditor } from "./SeatEditor";
@@ -30,30 +31,22 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
   const outcomeCount = detail.outcomes.length;
 
   return (
-    <div className={styles.detailStage}>
-      <div className={styles.backCrumbBand}>
-        <Link href="/chart" className={styles.backCrumbLink}>
-          ← Back to chart
-        </Link>
-      </div>
-
-      <section className={styles.detailHero} aria-label="Function summary">
-        <div className={styles.detailHeroInner}>
-          <p className={styles.detailEyebrow}>Function</p>
-          <h1 className={styles.detailH1}>{detail.fn.title}</h1>
-          <span className={styles.detailHeroRule} aria-hidden="true" />
-          {detail.parent ? (
-            <p className={styles.detailHeroLine}>
-              Part of{" "}
-              <Link href={`/chart/function/${detail.parent.id}`}>
-                {detail.parent.title}
-              </Link>
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      <div className={styles.detailContent}>
+    <PageShell
+      backHref="/chart"
+      backLabel="Back to chart"
+      eyebrow="Function"
+      title={detail.fn.title}
+      subtitle={
+        detail.parent ? (
+          <>
+            Part of{" "}
+            <Link href={`/chart/function/${detail.parent.id}`}>
+              {detail.parent.title}
+            </Link>
+          </>
+        ) : undefined
+      }
+    >
         <section className={styles.sectionCard} aria-labelledby="seat">
           <span className={styles.fnSeatLabel} id="seat">
             In the seat
@@ -188,8 +181,7 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
             />
           </section>
         ) : null}
-      </div>
-    </div>
+    </PageShell>
   );
 }
 

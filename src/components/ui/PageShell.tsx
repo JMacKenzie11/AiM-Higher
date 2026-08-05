@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import styles from "./PageShell.module.css";
 
@@ -11,6 +12,10 @@ export type PageShellProps = {
   subtitle?: ReactNode;
   eyebrow?: ReactNode;
   heroExtras?: ReactNode;
+  // Optional back link rendered above the eyebrow. Used by detail
+  // pages that want a "← back to X" affordance without hand-rolling.
+  backHref?: string;
+  backLabel?: string;
   ariaLabel?: string;
   children: ReactNode;
 };
@@ -20,6 +25,8 @@ export function PageShell({
   subtitle,
   eyebrow,
   heroExtras,
+  backHref,
+  backLabel,
   ariaLabel,
   children,
 }: PageShellProps) {
@@ -30,6 +37,11 @@ export function PageShell({
         aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}
       >
         <div className={styles.heroInner}>
+          {backHref ? (
+            <Link href={backHref} className={styles.backLink}>
+              ← {backLabel ?? "Back"}
+            </Link>
+          ) : null}
           {eyebrow ? <p className={styles.eyebrow}>{eyebrow}</p> : null}
           <h1 className={styles.h1}>{title}</h1>
           <span className={styles.rule} aria-hidden="true" />

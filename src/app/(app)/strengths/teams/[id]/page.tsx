@@ -1,10 +1,9 @@
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
 import TeamPage from "@/components/strengths/teams/TeamPage";
+import { PageShell } from "@/components/ui/PageShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ResultsProfile } from "@/lib/strengths/types";
 import type { MissionType } from "@/lib/strengths/team-scoring";
-import styles from "../../strengths.module.css";
 
 export default async function TeamDetailPage({
   params,
@@ -140,26 +139,14 @@ export default async function TeamDetailPage({
     .maybeSingle();
 
   return (
-    <>
-      <div className="hero-shell">
-  
-        <div className="hero-body">
-          <div className="container-wide">
-            <Link href="/strengths/teams" className={styles.backCrumbLink}>
-              ← Back to teams
-            </Link>
-            <div className="eyebrow">Team builder</div>
-            <h1 className="hero-title">{team.name}</h1>
-            <div className="hero-bar" aria-hidden="true" />
-            <p className="hero-sub">
-              This shows how energy configures for this mission. It&rsquo;s not
-              a ranking, and the final call is yours.
-            </p>
-          </div>
-        </div>
-      </div>
-      <div className="container-wide content-shell">
-        <TeamPage
+    <PageShell
+      backHref="/strengths/teams"
+      backLabel="Back to teams"
+      eyebrow="Team builder"
+      title={team.name}
+      subtitle="This shows how energy configures for this mission. It's not a ranking, and the final call is yours."
+    >
+      <TeamPage
           teamId={team.id}
           name={team.name}
           missionType={team.mission_type as MissionType}
@@ -180,7 +167,6 @@ export default async function TeamDetailPage({
               : null
           }
         />
-      </div>
-    </>
+    </PageShell>
   );
 }
