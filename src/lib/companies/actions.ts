@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/current-user";
+import { calendarQuarterOf } from "@/lib/quarters/service";
 import type { Company } from "@/lib/types";
 
 // Company management — polished in Phase 8 per Section 8.9.
@@ -95,6 +96,19 @@ export async function createCompanyAction(
       sort_order: 0,
     });
   }
+
+  // Seed the current calendar quarter so admins can drop actions in
+  // immediately without an "open a quarter first" detour. Best-effort:
+  // if the insert bounces (already exists somehow, RLS quirk) the
+  // admin can still open one manually on /quarters.
+  const currentQuarter = calendarQuarterOf(new Date());
+  await supabase.from("quarters").insert({
+    company_id: data.id,
+    label: currentQuarter.label,
+    start_date: currentQuarter.startDate,
+    end_date: currentQuarter.endDate,
+    status: "open",
+  });
 
   revalidatePath("/admin/companies");
 
