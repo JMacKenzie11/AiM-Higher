@@ -116,7 +116,9 @@ const APP_ITEMS: readonly NavItem[] = [
   // Resources — personal-use surfaces (Ask Aimee, Classroom). Group
   // feature is null so it always renders; Ask Aimee has no gate so
   // the group never fully collapses. Classroom's per-child feature
-  // gate hides it for tenants without the entitlement.
+  // gate hides it for tenants without the entitlement. The authoring
+  // surface sits next to the consumer view for sysadmins only — they
+  // were the ones who found the previous top-level duplicate confusing.
   {
     kind: "group",
     label: "Resources",
@@ -128,6 +130,12 @@ const APP_ITEMS: readonly NavItem[] = [
         label: "Classroom",
         href: "/classroom",
         feature: "classroom",
+      },
+      {
+        kind: "link",
+        label: "Classroom admin",
+        href: "/admin/classroom",
+        roles: ["system_admin"],
       },
     ],
   },
@@ -141,17 +149,6 @@ const APP_ITEMS: readonly NavItem[] = [
 
 const SYSTEM_ADMIN_ITEMS: readonly NavItem[] = [
   { kind: "link", label: "Companies", href: "/admin/companies", feature: null },
-  // Classroom authoring — sysadmin only. Guides don't create content;
-  // they consume the same shared library as company users. The
-  // per-item `roles` gate keeps this out of a guide's nav even
-  // though guides share the SYSTEM_ADMIN_ITEMS slot.
-  {
-    kind: "link",
-    label: "Classroom",
-    href: "/admin/classroom",
-    feature: null,
-    roles: ["system_admin"],
-  },
 ];
 
 export type NavBandProps = {
