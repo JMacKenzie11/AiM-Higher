@@ -91,11 +91,22 @@ export async function setNewPasswordAction(
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.updateUser({ password });
-  if (error) {
+
+  // If the invite session hasn't yet landed in cookies, updateUser
+  // will fail with something like "Auth session missing" — the
+  // browser client parsed the URL hash tokens but the SSR helper
+  // hasn't seen them on this request. Surface Supabase's own error
+  // detail so the user sees what's wrong (weak password, expired
+  // session, same-as-previous protection) instead of a blanket
+  // "try again."
+  const { data, error } = await supabase.auth.updateUser({ password });
+  if (error || !data.user) {
+    const detail = error?.message?.trim();
     return {
       ok: false,
-      message: "We couldn't set that password. Please try again.",
+      message: detail
+        ? `We couldn't set that password: ${detail}`
+        : "We couldn't set that password. Try refreshing the invite link and try again.",
     };
   }
 
