@@ -64,9 +64,22 @@ export async function requestPasswordResetAction(
   }
 
   const supabase = await createSupabaseServerClient();
-  await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${APP_URL()}/reset-password`,
   });
+
+  // Log server-side so email delivery problems (rate limits, SMTP
+  // misconfig, redirectTo not on the allow-list) are debuggable —
+  // Supabase returns success even when the email itself won't be
+  // dispatched, and we still want to avoid leaking existence to
+  // the caller. Vercel logs will surface this.
+  if (error) {
+    console.warn(
+      "resetPasswordForEmail returned error for %s: %s",
+      email,
+      error.message
+    );
+  }
 
   // Always return success to avoid leaking which emails exist.
   return { ok: true };
