@@ -226,7 +226,7 @@ export type ScorecardEntry = {
   week_ending: string;
   value_number: number | null;
   value_text: string | null;
-  entered_by: string;
+  entered_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -312,7 +312,7 @@ export type SuccessMeasureEntry = {
   week_ending: string;
   value_number: number | null;
   value_text: string | null;
-  entered_by: string;
+  entered_by: string | null;
   created_at: string;
   updated_at: string;
 };

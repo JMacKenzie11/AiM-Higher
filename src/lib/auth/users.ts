@@ -302,103 +302,25 @@ export async function deleteUserAction(profileId: string): Promise<UserActionRes
 
   const admin = createSupabaseAdminClient();
 
-  // Probe the RESTRICT-FK tables that reference profiles.id BEFORE
-  // asking Supabase to delete. If anything is holding the row, name
-  // it in the error so the admin knows exactly what to clear (or
-  // reassign) first instead of chasing a generic "Couldn't delete".
-  const blockers = await describeUserDeletionBlockers(admin, profileId);
-  if (blockers) {
-    return { ok: false, message: blockers };
-  }
-
+  // Migration 0121 rewired every profile-referencing FK to either
+  // cascade (personal rows: coaching threads/messages, strengths
+  // assessment) or set null (work rows: commitments, scorecard +
+  // measure entries, strengths teams, plan ownership, chart seats).
+  // The delete just works now — no blocker probes needed.
   const { error } = await admin.auth.admin.deleteUser(profileId);
   if (error) {
-    // Belt-and-suspenders: if a RESTRICT surface slipped through
-    // (schema drift, a table we don't yet probe), surface the DB
-    // message rather than the old generic string.
+    // Surface the DB message rather than a generic string so any
+    // future schema drift (a new table with restrict FK) is
+    // debuggable at a glance.
     return {
       ok: false,
       message: `Couldn't delete that user. ${error.message ?? ""}`.trim(),
     };
   }
-  // profiles row cascades away via the auth.users FK; user_strengths
-  // in turn cascades from profiles.
 
   if (profile.company_id) revalidatePath(`/admin/companies/${profile.company_id}`);
   revalidatePath(`/people`);
   return { ok: true };
-}
-
-// Returns a human sentence like
-//   "Can't delete — user still has 3 commitments and 2 coaching threads."
-// or null when nothing blocks. Probes every ON DELETE RESTRICT FK on
-// profiles.id we know about. Ordered from most-actionable to least.
-async function describeUserDeletionBlockers(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  profileId: string
-): Promise<string | null> {
-  const countFor = async (
-    table: string,
-    column: string
-  ): Promise<number> => {
-    const { count } = await admin
-      .from(table)
-      .select("id", { count: "exact", head: true })
-      .eq(column, profileId);
-    return count ?? 0;
-  };
-
-  type Probe = { label: (n: number) => string; table: string; column: string };
-  const probes: Probe[] = [
-    {
-      label: (n) => `${n} ${n === 1 ? "commitment" : "commitments"}`,
-      table: "commitments",
-      column: "owner_id",
-    },
-    {
-      label: (n) => `${n} coaching ${n === 1 ? "thread" : "threads"}`,
-      table: "coaching_conversations",
-      column: "created_by",
-    },
-    {
-      label: (n) => `${n} coaching ${n === 1 ? "message" : "messages"}`,
-      table: "coaching_messages",
-      column: "created_by",
-    },
-    {
-      label: (n) => `${n} scorecard ${n === 1 ? "entry" : "entries"}`,
-      table: "scorecard_entries",
-      column: "entered_by",
-    },
-    {
-      label: (n) => `${n} success-measure ${n === 1 ? "entry" : "entries"}`,
-      table: "success_measure_entries",
-      column: "entered_by",
-    },
-    {
-      label: (n) => `${n} strengths ${n === 1 ? "team" : "teams"}`,
-      table: "strengths_teams",
-      column: "created_by",
-    },
-  ];
-
-  const results = await Promise.all(
-    probes.map(async (p) => ({
-      label: p.label,
-      count: await countFor(p.table, p.column),
-    }))
-  );
-  const hits = results.filter((r) => r.count > 0);
-  if (hits.length === 0) return null;
-
-  const list = hits.map((h) => h.label(h.count));
-  const joined =
-    list.length === 1
-      ? list[0]
-      : list.length === 2
-        ? `${list[0]} and ${list[1]}`
-        : `${list.slice(0, -1).join(", ")}, and ${list[list.length - 1]}`;
-  return `Can't delete — user still has ${joined}. Reassign or delete those first.`;
 }
 
 // ---- Accept invite: flip pending → active --------------------

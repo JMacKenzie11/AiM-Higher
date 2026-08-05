@@ -22,6 +22,13 @@ Clicking a name opens that person's scorecard.
   *inactive* and stops sign-in without deleting history. Confirms
   first via a branded dialog so a stray click can't lock someone
   out.
+- **Delete a user** (admins only) — the *Delete* action removes
+  the sign-in and the profile. It can't be undone. Their
+  commitments stay on file as Unassigned; weekly numbers they
+  logged and any team they were on keep their history; their
+  private coaching notes and strengths assessment are removed
+  with them. Deactivating is safer if you just want to stop
+  someone from signing in.
 
 ## Heads-up
 

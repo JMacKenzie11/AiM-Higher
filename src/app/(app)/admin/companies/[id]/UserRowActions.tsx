@@ -68,8 +68,8 @@ export function UserRowActions({
       ) : null}
       <ConfirmDialog
         open={confirming}
-        title="Delete this user?"
-        message="This can't be undone. Any commitments they owned will remain but be unassigned."
+        title="Delete this user? This can't be undone."
+        message="Their commitments stay on file as Unassigned, and their weekly numbers and team memberships keep their history. Their sign-in, private coaching notes, and strengths assessment are removed with them."
         confirmLabel="Delete user"
         tone="danger"
         onConfirm={runDelete}
