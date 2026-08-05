@@ -48,7 +48,7 @@ export function PersonQuickViewDrawer({
   const [view, setView] = useState<PersonQuickView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, startLoad] = useTransition();
-  const [showReassign, setShowReassign] = useState(false);
+  const [reassignedName, setReassignedName] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   // Portal target defers to after mount so SSR doesn't reach for
@@ -63,13 +63,31 @@ export function PersonQuickViewDrawer({
     if (!open || !ownerId) return;
     setView(null);
     setError(null);
-    setShowReassign(false);
+    setReassignedName(null);
     startLoad(async () => {
       const result = await getPersonQuickViewAction(ownerId);
       if (result.ok) setView(result.view);
       else setError(result.message);
     });
   }, [open, ownerId]);
+
+  // After a successful reassign, show a brief confirmation, then
+  // auto-close so the row can re-render with the new owner.
+  useEffect(() => {
+    if (!reassignedName) return;
+    const t = setTimeout(() => {
+      setReassignedName(null);
+      onClose();
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [reassignedName, onClose]);
+
+  function handleReassignPick(newOwnerId: string) {
+    if (newOwnerId === ownerId) return;
+    const picked = roster.find((p) => p.id === newOwnerId);
+    onReassign(newOwnerId);
+    setReassignedName(picked?.full_name ?? "the new owner");
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -180,24 +198,21 @@ export function PersonQuickViewDrawer({
                   <div className={styles.drawerReassignHeader}>
                     Reassign this commitment
                   </div>
-                  {showReassign ? (
+                  {reassignedName ? (
+                    <p
+                      className={styles.drawerReassignConfirm}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      Reassigned to {reassignedName}.
+                    </p>
+                  ) : (
                     <OwnerPicker
                       roster={roster}
                       currentOwnerId={ownerId}
-                      onSelect={(newId) => {
-                        onReassign(newId);
-                        onClose();
-                      }}
+                      onSelect={handleReassignPick}
                       disabled={false}
                     />
-                  ) : (
-                    <button
-                      type="button"
-                      className={styles.drawerSecondaryAction}
-                      onClick={() => setShowReassign(true)}
-                    >
-                      Pick a new owner
-                    </button>
                   )}
                 </section>
               ) : null}
