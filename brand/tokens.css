@@ -74,6 +74,10 @@
   --text-subhead: 700 11px/1.2 var(--font-sans);   /* + text-transform: uppercase; letter-spacing: .15em */
   /* Body: Figtree (400; 300 for large display body), sentence case, breathable line height */
   --text-body: 400 14px/1.6 var(--font-body);
+  /* Subtitle: the descriptive line that sits under a page's H1. Same
+     size + rhythm as body but semibold so it reads as a heading
+     accessory rather than more body text. */
+  --text-subtitle: 600 14px/1.6 var(--font-body);
   --text-body-sm: 400 13px/1.5 var(--font-body);
   --text-caption: 400 12px/1.4 var(--font-body);
   /* Buttons: Inter, semibold, tabular. Reference from every button

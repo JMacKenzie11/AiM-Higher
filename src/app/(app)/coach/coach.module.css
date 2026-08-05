@@ -31,7 +31,7 @@
    No max-width — the container already bounds the reading measure,
    and a shorter cap made the text wrap awkwardly mid-page. */
 .subtitle {
-  font: var(--text-body);
+  font: var(--text-subtitle);
   color: var(--text-muted);
   margin: var(--space-3) 0 0 0;
 }

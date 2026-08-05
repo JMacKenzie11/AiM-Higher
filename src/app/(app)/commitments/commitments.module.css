@@ -22,7 +22,7 @@
 
 .subtitle {
   color: var(--text-muted);
-  font: var(--text-body);
+  font: var(--text-subtitle);
   margin: 0;
 }
 

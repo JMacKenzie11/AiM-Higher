@@ -70,7 +70,7 @@
   margin: 0;
   color: var(--aims-white);
   opacity: 0.75;
-  font: var(--text-body);
+  font: var(--text-subtitle);
   text-wrap: balance;
 }
 

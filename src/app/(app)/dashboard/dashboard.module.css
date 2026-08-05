@@ -63,7 +63,7 @@
   margin: 0;
   color: var(--aims-white);
   opacity: 0.7;
-  font: var(--text-body);
+  font: var(--text-subtitle);
 }
 
 .statRow {
