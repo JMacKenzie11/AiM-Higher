@@ -21,6 +21,24 @@ import { acceptInviteAction } from "@/lib/auth/users";
 // password. Under Safari that spun the tab into an OOM kill.
 const INITIAL: AuthActionResult = { ok: false, message: "" };
 
+// Supabase surfaces token failures via the URL hash
+// (#error=access_denied&error_code=otp_expired&...). Detect it on
+// mount so a dead link renders a friendly explanation instead of a
+// form that will silently fail on submit.
+function readHashError(): string | null {
+  if (typeof window === "undefined") return null;
+  const hash = window.location.hash.replace(/^#/, "");
+  if (!hash) return null;
+  const params = new URLSearchParams(hash);
+  const code = params.get("error_code");
+  const desc = params.get("error_description");
+  if (!code && !desc) return null;
+  if (code === "otp_expired") {
+    return "This invite link has expired or has already been used. Ask whoever added you to send a fresh invitation.";
+  }
+  return desc ? desc.replace(/\+/g, " ") : "This invite link is invalid.";
+}
+
 export function AcceptInviteForm() {
   const [state, formAction, pending] = useActionState(
     setNewPasswordAction,
@@ -30,6 +48,13 @@ export function AcceptInviteForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [accepting, startAccept] = useTransition();
   const [accepted, setAccepted] = useState(false);
+  const [hashError, setHashError] = useState<string | null>(null);
+
+  // Read the hash once on mount. Cannot run during render — the hash
+  // is a browser-only property and the server has no way to see it.
+  useEffect(() => {
+    setHashError(readHashError());
+  }, []);
 
   const errorMessage = state && "ok" in state && !state.ok && state.message
     ? state.message
@@ -64,6 +89,14 @@ export function AcceptInviteForm() {
     return (
       <p className={formStyles.successMessage} role="status">
         You&rsquo;re in. Taking you to your dashboard…
+      </p>
+    );
+  }
+
+  if (hashError) {
+    return (
+      <p role="alert" className={formStyles.errorMessage}>
+        {hashError}
       </p>
     );
   }
