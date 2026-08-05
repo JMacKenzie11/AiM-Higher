@@ -56,7 +56,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                 href={`/coach/${id}`}
                 className={styles.heroCoachAction}
               >
-                Coach about {data.profile.full_name.split(" ")[0]}
+                Coach {data.profile.full_name.split(" ")[0]}
               </Link>
             ) : null}
             <Link

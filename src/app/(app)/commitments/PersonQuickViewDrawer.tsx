@@ -163,7 +163,7 @@ export function PersonQuickViewDrawer({
                     className={styles.drawerPrimaryAction}
                     onClick={onClose}
                   >
-                    Coach about {firstName}
+                    Coach {firstName}
                   </Link>
                 ) : null}
                 <Link
