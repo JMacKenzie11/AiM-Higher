@@ -197,9 +197,16 @@ export function CommitmentRow({
     });
   }
 
-  function saveDescription() {
+  // Blur-to-save: matches the owner/priority/due-date cells. Empty
+  // draft reverts (a blank description would break the row); an
+  // unchanged draft just exits edit mode without hitting the server.
+  function commitDescription() {
+    if (pending) return;
     const next = descriptionDraft.trim();
-    if (!next) return;
+    if (!next) {
+      cancelDescriptionEdit();
+      return;
+    }
     if (next === commitment.description) {
       setEditingDescription(false);
       return;
@@ -321,42 +328,21 @@ export function CommitmentRow({
 
       <div>
         {editingDescription ? (
-          <div className={styles.descriptionEditor}>
-            <textarea
-              className={styles.descriptionInput}
-              value={descriptionDraft}
-              onChange={(e) => setDescriptionDraft(e.target.value)}
-              rows={2}
-              autoFocus
-              disabled={pending}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  cancelDescriptionEdit();
-                } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  saveDescription();
-                }
-              }}
-            />
-            <div className={styles.descriptionEditorRow}>
-              <button
-                type="button"
-                className={styles.descriptionSaveButton}
-                onClick={saveDescription}
-                disabled={pending || !descriptionDraft.trim()}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                className={styles.descriptionCancelButton}
-                onClick={cancelDescriptionEdit}
-                disabled={pending}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
+          <textarea
+            className={styles.descriptionInput}
+            value={descriptionDraft}
+            onChange={(e) => setDescriptionDraft(e.target.value)}
+            rows={2}
+            autoFocus
+            disabled={pending}
+            onBlur={commitDescription}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                cancelDescriptionEdit();
+              }
+            }}
+          />
         ) : (
           <p className={styles.rowDescription}>
             {canEditDescription ? (
