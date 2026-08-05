@@ -8,8 +8,6 @@ import {
   type AuthActionResult,
 } from "@/lib/auth/actions";
 
-const INITIAL: AuthActionResult = { ok: true };
-
 export type ResetPasswordFormProps = {
   submitLabel: string;
   successMessage: string;
@@ -24,15 +22,15 @@ export function ResetPasswordForm({
   successMessage,
   redirectTo,
 }: ResetPasswordFormProps) {
-  const [state, formAction, pending] = useActionState(
-    setNewPasswordAction,
-    INITIAL
-  );
+  const [state, formAction, pending] = useActionState<
+    AuthActionResult | undefined,
+    FormData
+  >(setNewPasswordAction, undefined);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
-  const succeeded = state && "ok" in state && state.ok && !pending;
-  const errorMessage = state && "ok" in state && !state.ok ? state.message : null;
+  const succeeded = state?.ok === true && !pending;
+  const errorMessage = state && !state.ok ? state.message : null;
 
   if (succeeded) {
     // ASSUMPTION: brief pause so the success message is legible before

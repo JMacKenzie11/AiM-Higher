@@ -7,16 +7,14 @@ import {
   type AuthActionResult,
 } from "@/lib/auth/actions";
 
-const INITIAL: AuthActionResult = { ok: true };
-
 export function ForgotPasswordForm() {
-  const [state, formAction, pending] = useActionState(
-    requestPasswordResetAction,
-    INITIAL
-  );
+  const [state, formAction, pending] = useActionState<
+    AuthActionResult | undefined,
+    FormData
+  >(requestPasswordResetAction, undefined);
 
-  const submitted = state && "ok" in state && state.ok;
-  const errorMessage = state && "ok" in state && !state.ok ? state.message : null;
+  const submitted = state?.ok === true;
+  const errorMessage = state && !state.ok ? state.message : null;
 
   if (submitted && !pending) {
     return (

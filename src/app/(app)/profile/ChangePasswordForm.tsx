@@ -7,18 +7,15 @@ import {
 } from "@/lib/auth/actions";
 import styles from "./profile.module.css";
 
-const INITIAL: AuthActionResult = { ok: true };
-
 export function ChangePasswordForm() {
-  const [state, formAction, pending] = useActionState(
-    setNewPasswordAction,
-    INITIAL
-  );
+  const [state, formAction, pending] = useActionState<
+    AuthActionResult | undefined,
+    FormData
+  >(setNewPasswordAction, undefined);
   const [showPassword, setShowPassword] = useState(false);
 
-  const errorMessage =
-    state && "ok" in state && !state.ok ? state.message : null;
-  const success = state && "ok" in state && state.ok && !pending;
+  const errorMessage = state && !state.ok ? state.message : null;
+  const success = state?.ok === true && !pending;
 
   return (
     <form action={formAction} className={styles.form}>
