@@ -75,9 +75,11 @@
   /* Body: Figtree (400; 300 for large display body), sentence case, breathable line height */
   --text-body: 400 14px/1.6 var(--font-body);
   /* Subtitle: the descriptive line that sits under a page's H1. Same
-     size + rhythm as body but semibold so it reads as a heading
-     accessory rather than more body text. */
-  --text-subtitle: 600 14px/1.6 var(--font-body);
+     size + rhythm as body but bold so it reads as a heading
+     accessory rather than more body text. Weight 700 (not 600) so
+     the difference against 400 body copy stays obvious even in the
+     muted-grey color subtitles typically use. */
+  --text-subtitle: 700 14px/1.6 var(--font-body);
   --text-body-sm: 400 13px/1.5 var(--font-body);
   --text-caption: 400 12px/1.4 var(--font-body);
   /* Buttons: Inter, semibold, tabular. Reference from every button

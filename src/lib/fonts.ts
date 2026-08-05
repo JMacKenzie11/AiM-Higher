@@ -13,7 +13,7 @@ export const inter = Inter({
 // Maps to --font-body (see tokens.css).
 export const figtree = Figtree({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
   variable: "--next-font-figtree",
 });
