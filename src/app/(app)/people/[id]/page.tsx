@@ -6,6 +6,12 @@ import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { formatShortDate } from "@/lib/dates";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getUserStrengths } from "@/lib/strengths/user-strengths";
+import { EditUserForm } from "./edit/EditUserForm";
+import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
+import type { Profile } from "@/lib/types";
 import styles from "../people.module.css";
 
 // Person Scorecard — Section 8.6.
@@ -27,6 +33,14 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   // authorization the RLS insert policy on coaching_conversations
   // enforces (migration 0021).
   const isManager = data.profile.reports_to === session.profile.id;
+
+  // Admins editing someone else get the details + strengths editors
+  // inline — no click-through to /edit or /strengths pages needed.
+  // The dedicated URLs still exist as deep-link fallbacks.
+  const inlineEditor = isAdmin && !isSelf;
+  const editorBundle = inlineEditor
+    ? await loadEditorBundle(id, data.profile)
+    : null;
 
   return (
     <div className={styles.stage}>
@@ -59,20 +73,12 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                 Coach {data.profile.full_name.split(" ")[0]}
               </Link>
             ) : null}
-            <Link
-              href={`/people/${id}/strengths`}
-              className={styles.heroAction}
-            >
-              {isSelf
-                ? "Edit my strengths →"
-                : `Edit ${data.profile.full_name.split(" ")[0]}'s strengths →`}
-            </Link>
-            {isAdmin && !isSelf ? (
+            {isSelf ? (
               <Link
-                href={`/people/${id}/edit`}
+                href={`/people/${id}/strengths`}
                 className={styles.heroAction}
               >
-                Edit details →
+                Edit my strengths →
               </Link>
             ) : null}
           </div>
@@ -187,6 +193,42 @@ export default async function PersonScorecardPage({ params }: PageProps) {
           )}
         </section>
 
+        {/* ---- Inline editors (admin viewing someone else) ---- */}
+        {inlineEditor && editorBundle ? (
+          <>
+            <section className={styles.card} aria-labelledby="details">
+              <h2 id="details" className={styles.h2}>
+                Details
+              </h2>
+              <p className={styles.cardMeta}>
+                Name, email, position, role, and who they report to.
+              </p>
+              <EditUserForm
+                subject={data.profile}
+                initialEmail={editorBundle.email}
+                roster={editorBundle.roster}
+                callerRole={session.profile.role}
+              />
+            </section>
+
+            <section className={styles.card} aria-labelledby="strengths">
+              <h2 id="strengths" className={styles.h2}>
+                Strengths
+              </h2>
+              <p className={styles.cardMeta}>
+                What this person is great at (Strengths) and what
+                energises them most (Superpowers). Both feed the
+                coaching prompt.
+              </p>
+              <StrengthsEditor
+                userId={data.profile.id}
+                initial={editorBundle.strengths}
+                heading=""
+              />
+            </section>
+          </>
+        ) : null}
+
         {/* ---- History ---- */}
         <section className={styles.card} aria-labelledby="history">
           <h2 id="history" className={styles.h2}>
@@ -260,4 +302,40 @@ function PersonStat({ label, value }: { label: string; value: string }) {
       <span className={styles.personStatLabel}>{label}</span>
     </div>
   );
+}
+
+// Loads everything the inline Details + Strengths editors need for
+// an admin viewing someone else: the auth email (admin client), the
+// company roster for the reports-to picker, and the person's current
+// strengths list. Returns null if the subject has no company_id.
+async function loadEditorBundle(
+  subjectId: string,
+  profile: { company_id: string | null }
+): Promise<{
+  email: string;
+  roster: Array<Pick<Profile, "id" | "full_name">>;
+  strengths: Awaited<ReturnType<typeof getUserStrengths>>;
+} | null> {
+  const admin = createSupabaseAdminClient();
+  const supabase = await createSupabaseServerClient();
+
+  const [{ data: authUser }, strengths, rosterRes] = await Promise.all([
+    admin.auth.admin.getUserById(subjectId),
+    getUserStrengths(subjectId),
+    profile.company_id
+      ? supabase
+          .from("profiles")
+          .select("id, full_name")
+          .eq("company_id", profile.company_id)
+          .neq("id", subjectId)
+          .neq("status", "inactive")
+          .order("full_name")
+      : Promise.resolve({ data: [] as Array<Pick<Profile, "id" | "full_name">> }),
+  ]);
+
+  return {
+    email: authUser?.user?.email ?? "",
+    roster: (rosterRes.data ?? []) as Array<Pick<Profile, "id" | "full_name">>,
+    strengths,
+  };
 }
