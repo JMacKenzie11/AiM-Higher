@@ -4,6 +4,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { todayInTimezone } from "@/lib/dates";
 import { computeFollowThroughRate } from "@/lib/utils";
+import { companyHasFeature } from "@/lib/subscriptions/service";
+import { SUB_STRENGTH_LABELS } from "@/lib/strengths/types";
+import type { ResultsProfile } from "@/lib/strengths/types";
 import type {
   AnnualGoal,
   Commitment,
@@ -188,7 +191,7 @@ async function loadSubjectBundle(
     getCurrentQuarter(companyId),
     loadPriorQuarters(supabase, companyId, 2),
     loadOwnedPlanItems(supabase, subjectProfileId),
-    buildStrengthsContext({ supabase, subjectProfileId }),
+    buildStrengthsContext({ supabase, subjectProfileId, companyId }),
   ]);
 
   const quartersForRate = [openQuarter, ...priorQuarters].filter(
@@ -220,34 +223,108 @@ async function loadSubjectBundle(
   };
 }
 
-// Emit the subject's admin/self-entered strengths + superpowers.
-// Returns null when they have neither, so the block is omitted
-// entirely from the context (no "empty section" noise).
+// Emit the subject's strengths context — combines two sources:
+//   1. Admin/self-entered strengths + superpowers (always, no flag)
+//   2. Completed AiMS Strengths Assessment summary (only when the
+//      company has the strengths feature). The compact summary +
+//      top strengths ride in every turn; the coach can still call
+//      the get_strengths_profile tool for the full dimensional read.
+// Returns null when neither source has anything to report so the
+// block is omitted entirely.
 async function buildStrengthsContext(args: {
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
   subjectProfileId: string;
+  companyId: string;
 }): Promise<string | null> {
-  const { data } = await args.supabase
-    .from("user_strengths")
-    .select("kind, label, sort_order")
-    .eq("user_id", args.subjectProfileId)
-    .order("sort_order", { ascending: true });
+  const [{ data: manualRows }, assessmentSummary] = await Promise.all([
+    args.supabase
+      .from("user_strengths")
+      .select("kind, label, sort_order")
+      .eq("user_id", args.subjectProfileId)
+      .order("sort_order", { ascending: true }),
+    loadAssessmentSummaryIfAvailable(args),
+  ]);
 
-  const rows = (data ?? []) as Array<Pick<UserStrength, "kind" | "label" | "sort_order">>;
+  const rows = (manualRows ?? []) as Array<
+    Pick<UserStrength, "kind" | "label" | "sort_order">
+  >;
   const strengths = rows.filter((r) => r.kind === "strength").map((r) => r.label);
-  const superpowers = rows.filter((r) => r.kind === "superpower").map((r) => r.label);
+  const superpowers = rows
+    .filter((r) => r.kind === "superpower")
+    .map((r) => r.label);
 
-  if (strengths.length === 0 && superpowers.length === 0) return null;
+  const hasManual = strengths.length > 0 || superpowers.length > 0;
+  if (!hasManual && !assessmentSummary) return null;
 
   const lines: string[] = ["<strengths_context>"];
-  if (strengths.length > 0) {
-    lines.push(`Strengths: ${strengths.join(", ")}`);
+  if (hasManual) {
+    lines.push("Manually recorded (admin/self-entered):");
+    if (strengths.length > 0) {
+      lines.push(`- Strengths: ${strengths.join(", ")}`);
+    }
+    if (superpowers.length > 0) {
+      lines.push(`- Superpowers: ${superpowers.join(", ")}`);
+    }
   }
-  if (superpowers.length > 0) {
-    lines.push(`Superpowers: ${superpowers.join(", ")}`);
+  if (assessmentSummary) {
+    if (hasManual) lines.push("");
+    lines.push("AiMS Strengths Assessment (completed):");
+    if (assessmentSummary.topStrengths.length > 0) {
+      lines.push(`- Top strengths: ${assessmentSummary.topStrengths.join(", ")}`);
+    }
+    if (assessmentSummary.orientation) {
+      lines.push(`- Orientation lean: ${assessmentSummary.orientation}`);
+    }
+    lines.push("- Narrative summary:");
+    lines.push(assessmentSummary.summary.trim());
+    lines.push(
+      "(Call get_strengths_profile for the full dimensional read if you need it.)"
+    );
   }
   lines.push("</strengths_context>");
   return lines.join("\n");
+}
+
+// Returns null when the feature is off for the company or the
+// subject hasn't completed an assessment. Small helper so the outer
+// function stays flat.
+async function loadAssessmentSummaryIfAvailable(args: {
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+  subjectProfileId: string;
+  companyId: string;
+}): Promise<{
+  topStrengths: string[];
+  orientation: string | null;
+  summary: string;
+} | null> {
+  const enabled = await companyHasFeature(args.companyId, "strengths");
+  if (!enabled) return null;
+
+  const { data: assessment } = await args.supabase
+    .from("strengths_assessments")
+    .select("id")
+    .eq("user_id", args.subjectProfileId)
+    .eq("status", "completed")
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+  if (!assessment) return null;
+
+  const { data: results } = await args.supabase
+    .from("strengths_results")
+    .select("profile, summary")
+    .eq("assessment_id", assessment.id)
+    .maybeSingle<{ profile: ResultsProfile; summary: string }>();
+  if (!results) return null;
+
+  const topStrengths = (results.profile.top_strengths ?? []).map(
+    (key) => SUB_STRENGTH_LABELS[key] ?? key
+  );
+  return {
+    topStrengths,
+    orientation: results.profile.orientation?.lean ?? null,
+    summary: results.summary,
+  };
 }
 
 // ---- Helpers ---------------------------------------------------
