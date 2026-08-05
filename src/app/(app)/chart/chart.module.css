@@ -195,6 +195,60 @@
 
 /* ---- Function box (tree node) — compact org-chart style ---- */
 
+/* Shell wraps the card + drag handle so the handle can float on the
+   card's top-right corner without disrupting the tree scaffold's
+   sizing model (which lives on .treeNode below). */
+.fnCardShell {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.fnDragHandle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--aims-white) 25%, transparent);
+  color: var(--aims-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -1px;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+  touch-action: none;
+}
+
+.fnCardShell:hover .fnDragHandle,
+.fnDragHandle:focus-visible {
+  opacity: 1;
+}
+
+.fnDragHandle:hover {
+  background: color-mix(in srgb, var(--aims-white) 40%, transparent);
+}
+
+.fnDragHandle:active {
+  cursor: grabbing;
+}
+
+.fnDragHandle:focus-visible {
+  outline: 2px solid var(--aims-white);
+  outline-offset: 1px;
+}
+
 /* The Link wrapper takes the tree node's full height so the card
    inside can stretch to match its siblings. Width follows the parent
    .treeNode's shared-space sizing. */

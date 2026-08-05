@@ -29,9 +29,14 @@ const INITIAL_MEAS: ChartResult<SuccessMeasure> = { ok: false, message: "" };
 export function AddFunctionForm({
   people,
   parentFunctionId,
+  parentOptions,
 }: {
   people: Array<Pick<Profile, "id" | "full_name">>;
+  // Set when the form is embedded under a specific parent — the
+  // picker is hidden and the id is passed as a hidden input.
   parentFunctionId?: string;
+  // When omitted, no picker renders (top-level creation only).
+  parentOptions?: Array<{ id: string; title: string }>;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<
@@ -74,6 +79,25 @@ export function AddFunctionForm({
           disabled={pending}
         />
       </label>
+
+      {parentOptions && parentOptions.length > 0 ? (
+        <label className={styles.formField}>
+          <span className={styles.formLabel}>Sub-function of (optional)</span>
+          <select
+            className={styles.formSelect}
+            name="parent_function_id"
+            defaultValue=""
+            disabled={pending}
+          >
+            <option value="">Top level (no parent)</option>
+            {parentOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <label className={styles.formField}>
         <span className={styles.formLabel}>Who&rsquo;s in the seat</span>

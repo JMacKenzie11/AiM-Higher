@@ -119,6 +119,34 @@ export async function updateFunctionAction(
   return { ok: true, item: data };
 }
 
+// Bulk reorder for a slice of siblings. Called by the drag-and-drop
+// UI after a drop lands. The caller sends every sibling in the new
+// order (root list or one parent's children) with fresh sort_order
+// values 0..N-1. RLS on functions_update gates access to the
+// company; we simply loop the updates.
+export async function reorderFunctionsAction(
+  updates: Array<{ id: string; sort_order: number }>
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireRole(["system_admin", "company_admin"]);
+  if (updates.length === 0) return { ok: true };
+
+  const supabase = await createSupabaseServerClient();
+  const results = await Promise.all(
+    updates.map((u) =>
+      supabase
+        .from("functions")
+        .update({ sort_order: u.sort_order })
+        .eq("id", u.id)
+    )
+  );
+  const failure = results.find((r) => r.error);
+  if (failure?.error) {
+    return { ok: false, message: "Couldn't save the new order." };
+  }
+  revalidatePath("/chart");
+  return { ok: true };
+}
+
 export async function archiveFunctionAction(
   functionId: string,
   archived: boolean

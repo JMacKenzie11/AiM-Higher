@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
@@ -7,6 +6,7 @@ import {
   type ChartFunction,
 } from "@/lib/chart/service";
 import { AddFunctionForm } from "./InlineForms";
+import { DraggableTree } from "./DraggableTree";
 import styles from "./chart.module.css";
 
 // Chart — an org-chart tree of the company's functions.
@@ -31,6 +31,12 @@ export default async function ChartPage() {
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
 
+  // Flatten the tree so the Add form can offer any function as a
+  // parent. Two levels of depth is what we render nicely on the
+  // chart; the picker doesn't cap depth since a user could still
+  // want a third level in unusual shapes.
+  const parentOptions = flattenForParentPicker(roots);
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -40,6 +46,7 @@ export default async function ChartPage() {
           The functions that run the business. Each box shows who&rsquo;s in the
           seat and what they&rsquo;re obsessed with delivering. Click a
           function to see its success measures.
+          {isAdmin ? " Drag a card to reorder siblings." : null}
         </p>
       </header>
 
@@ -47,7 +54,7 @@ export default async function ChartPage() {
         <div className={styles.toolbar}>
           <details className={styles.addDetails}>
             <summary className={styles.addSummary}>+ Add function</summary>
-            <AddFunctionForm people={roster} />
+            <AddFunctionForm people={roster} parentOptions={parentOptions} />
           </details>
         </div>
       ) : null}
@@ -56,66 +63,28 @@ export default async function ChartPage() {
         <EmptyChart isAdmin={isAdmin} />
       ) : (
         <div className={styles.tree}>
-          <ul className={styles.treeBranch}>
-            {roots.map((fn) => (
-              <FunctionBranch key={fn.id} fn={fn} />
-            ))}
-          </ul>
+          <DraggableTree roots={roots} canReorder={isAdmin} />
         </div>
       )}
     </div>
   );
 }
 
-function FunctionBranch({ fn }: { fn: ChartFunction }) {
-  return (
-    <li className={styles.treeNode}>
-      <FunctionBox fn={fn} />
-      {fn.children.length > 0 ? (
-        <ul className={styles.treeBranch}>
-          {fn.children.map((child) => (
-            <FunctionBranch key={child.id} fn={child} />
-          ))}
-        </ul>
-      ) : null}
-    </li>
-  );
-}
-
-function FunctionBox({ fn }: { fn: ChartFunction }) {
-  return (
-    <Link href={`/chart/function/${fn.id}`} className={styles.fnCardLink}>
-      <article className={styles.fnCard}>
-        <header className={styles.fnHeader}>
-          <h3 className={styles.fnTitle}>{fn.title}</h3>
-        </header>
-        <div className={styles.fnSeat}>
-          <span className={styles.fnSeatLabel}>Seat</span>
-          <span
-            className={
-              fn.seatHolder
-                ? styles.fnSeatName
-                : `${styles.fnSeatName} ${styles.fnSeatEmpty}`
-            }
-          >
-            {fn.seatHolder?.full_name ?? "Unassigned"}
-          </span>
-        </div>
-        {fn.roles.length > 0 ? (
-          <div className={styles.outcomeBlock}>
-            <p className={styles.outcomeLabel}>Roles & Responsibilities</p>
-            <ul className={styles.outcomeList}>
-              {fn.roles.map((r) => (
-                <li key={r.id} className={styles.outcomeItem}>
-                  {r.title}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </article>
-    </Link>
-  );
+function flattenForParentPicker(
+  roots: ChartFunction[]
+): Array<{ id: string; title: string }> {
+  const out: Array<{ id: string; title: string }> = [];
+  const walk = (nodes: ChartFunction[], depth: number) => {
+    for (const n of nodes) {
+      out.push({
+        id: n.id,
+        title: depth === 0 ? n.title : `${"— ".repeat(depth)}${n.title}`,
+      });
+      if (n.children.length > 0) walk(n.children, depth + 1);
+    }
+  };
+  walk(roots, 0);
+  return out;
 }
 
 function EmptyChart({ isAdmin }: { isAdmin: boolean }) {
