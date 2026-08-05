@@ -284,7 +284,7 @@ export default function LandingPage() {
             body={
               <p>
                 Purpose, vision, focus areas, annual goals, quarterly
-                priorities, weekly commitments, each level hanging from the
+                actions, weekly commitments, each level hanging from the
                 one above. Progress rolls up on its own, so the dashboard
                 tells the truth about the quarter before the quarter is
                 over.

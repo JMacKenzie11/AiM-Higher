@@ -38,7 +38,7 @@ No separate "open the company" step is needed.
 - **Check now** — force-runs the ingest + analysis pipeline for a
   source. Useful right after connecting a new folder.
 - **Start a new planning cycle** — the *Planning cycle* card
-  (sysadmin only) archives every active SFA, Goal, and Priority for
+  (sysadmin only) archives every active SFA, Goal, and Action for
   this company so the team can build the next cycle from a clean
   canvas. Nothing is deleted; records stay on file. Open
   commitments become Operational (unlinked); resolved commitments

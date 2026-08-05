@@ -80,7 +80,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
         {!data.openQuarter ? (
           <div className={styles.noticeCard}>
             <p className={styles.noticeText}>
-              No open quarter yet. Priorities live inside a quarter.
+              No open quarter yet. Actions live inside a quarter.
             </p>
             {isAdmin ? (
               <Link href="/quarters" className={styles.primaryLink}>

@@ -8,7 +8,7 @@ export function HeroDashboardMock() {
   const stats = [
     { label: "Strategic Progress", value: "72%", caption: "Focus areas this quarter" },
     { label: "Follow-Through Rate", value: "84%", caption: "Resolved on time" },
-    { label: "On Track", value: "9/12", caption: "Priorities pacing" },
+    { label: "On Track", value: "9/12", caption: "Actions pacing" },
     { label: "Open This Week", value: "23", caption: "Due by Friday" },
   ];
   return (

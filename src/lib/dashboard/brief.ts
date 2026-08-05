@@ -299,7 +299,7 @@ async function buildWeeklySnapshot(
   );
   if (priorityBuckets.length > 0) {
     lines.push("");
-    lines.push("Priority statuses (open-quarter, non-archived):");
+    lines.push("90-Day Action statuses (open-quarter, non-archived):");
     for (const [status, count] of priorityBuckets) {
       lines.push(`- ${status}: ${count}`);
     }

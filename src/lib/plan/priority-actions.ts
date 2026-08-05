@@ -20,10 +20,10 @@ export async function createPriorityAction(
   if (!companyId) return { ok: false, message: "Pick a company first." };
 
   const quarterId = String(formData.get("quarter_id") ?? "").trim();
-  if (!quarterId) return { ok: false, message: "Pick a quarter for this priority." };
+  if (!quarterId) return { ok: false, message: "Pick a quarter for this action." };
 
   const title = String(formData.get("title") ?? "").trim();
-  if (!title) return { ok: false, message: "Give this priority a title." };
+  if (!title) return { ok: false, message: "Give this action a title." };
 
   const goalId = nullableString(formData.get("annual_goal_id"));
   const description = nullableString(formData.get("description"));
@@ -47,7 +47,7 @@ export async function createPriorityAction(
     })
     .select("*")
     .single<Priority>();
-  if (error || !data) return { ok: false, message: "Couldn't create that priority." };
+  if (error || !data) return { ok: false, message: "Couldn't create that action." };
 
   revalidatePath("/plan");
   if (goalId) revalidatePath(`/plan/goal/${goalId}`);
@@ -60,7 +60,7 @@ export async function updatePriorityAction(
 ): Promise<PlanResult<Priority>> {
   await requireRole(["system_admin", "company_admin"]);
   const id = String(formData.get("id") ?? "");
-  if (!id) return { ok: false, message: "Missing priority id." };
+  if (!id) return { ok: false, message: "Missing action id." };
 
   const title = String(formData.get("title") ?? "").trim();
   if (!title) return { ok: false, message: "Title can't be empty." };
@@ -109,7 +109,7 @@ export async function updatePriorityStatusAction(
     .select("*")
     .eq("id", priorityId)
     .maybeSingle<Priority>();
-  if (!existing) return { ok: false, message: "Priority not found." };
+  if (!existing) return { ok: false, message: "Action not found." };
 
   const isAdmin =
     session.profile.role === "system_admin" ||
@@ -163,7 +163,7 @@ export async function setPriorityGoalAction(
     .select("*")
     .single<Priority>();
   if (error || !data) {
-    return { ok: false, message: "Couldn't link that priority." };
+    return { ok: false, message: "Couldn't link that action." };
   }
   revalidatePath("/plan");
   revalidatePath(`/plan/priority/${priorityId}`);

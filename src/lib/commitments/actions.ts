@@ -94,7 +94,7 @@ export async function createCommitmentAction(
       .eq("id", priorityId)
       .maybeSingle<Pick<Priority, "id" | "company_id">>();
     if (!priority) {
-      return { ok: false, message: "That priority isn't accessible." };
+      return { ok: false, message: "That action isn't accessible." };
     }
     companyId = priority.company_id;
   } else {
@@ -442,7 +442,7 @@ export async function linkPriorityAction(
   if (commitment.status !== "open") {
     return {
       ok: false,
-      message: "Resolved commitments have already fed priority progress — their link is frozen.",
+      message: "Resolved commitments have already fed action progress — their link is frozen.",
     };
   }
 
@@ -453,7 +453,7 @@ export async function linkPriorityAction(
       .eq("id", priorityId)
       .maybeSingle<Pick<Priority, "id" | "company_id" | "quarter_id">>();
     if (!priority || priority.company_id !== commitment.company_id) {
-      return { ok: false, message: "That priority isn't accessible." };
+      return { ok: false, message: "That action isn't accessible." };
     }
     const { data: quarter } = await supabase
       .from("quarters")
@@ -463,7 +463,7 @@ export async function linkPriorityAction(
     if (quarter?.status !== "open") {
       return {
         ok: false,
-        message: "Only priorities in the open quarter can be linked.",
+        message: "Only actions in the open quarter can be linked.",
       };
     }
   }

@@ -80,7 +80,7 @@ export default async function DashboardPage() {
         key: "quarter",
         label: "Open a quarter",
         description:
-          "Quarters bracket every plan and priority. Nothing can be added until one is open.",
+          "Quarters bracket every plan and action. Nothing can be added until one is open.",
         href: "/quarters",
         done: hasQuarter,
       },
@@ -155,7 +155,7 @@ export default async function DashboardPage() {
             <HeroStat
               label="Strategic Progress"
               caption="Focus Areas this quarter"
-              tooltip="Average progress across your Strategic Focus Areas this quarter. Rolls up from priority-level progress and reflects only strategic commitments — operational (unlinked) commitments don't count here."
+              tooltip="Average progress across your Strategic Focus Areas this quarter. Rolls up from action-level progress and reflects only strategic commitments — operational (unlinked) commitments don't count here."
               value={
                 data.headline.executionPercent === null ? (
                   "—"
@@ -182,7 +182,7 @@ export default async function DashboardPage() {
             />
             <HeroStat
               label="On Track"
-              caption="Priorities pacing to hit target"
+              caption="Actions pacing to hit target"
               value={
                 data.headline.onTrack.total === 0 ? (
                   "—"

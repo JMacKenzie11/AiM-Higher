@@ -6,7 +6,7 @@ title: Your dashboard
 
 The Dashboard is your daily read on the company: an AI brief at the
 top of the page summarises what's worth knowing right now, and the
-panels below surface open commitments, priorities, and quarter
+panels below surface open commitments, actions, and quarter
 progress.
 
 ## Common things people do here
@@ -19,7 +19,7 @@ progress.
 - **Refresh the brief** — click *Refresh brief* in the top card if
   the summary looks stale. It's regenerated at most once every few
   hours to keep costs sensible.
-- **Jump to a stalled priority** — click a priority in the progress
+- **Jump to a stalled action** — click an action in the progress
   panel to open its detail page.
 - **Log this week's numbers** — when Success Tracking is on, any
   measure still open for the current week appears in *This week's

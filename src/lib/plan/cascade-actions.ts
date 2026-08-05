@@ -27,7 +27,7 @@ export async function completePriorityAction(
     .select("id, company_id, annual_goal_id")
     .eq("id", priorityId)
     .maybeSingle<Pick<Priority, "id" | "company_id" | "annual_goal_id">>();
-  if (!priority) return { ok: false, message: "Priority not found." };
+  if (!priority) return { ok: false, message: "Action not found." };
 
   // Cascade first so we know how many rows changed before the priority
   // update triggers a re-render.
@@ -38,7 +38,7 @@ export async function completePriorityAction(
   if (closed === null) {
     return {
       ok: false,
-      message: "Couldn't close the open commitments — priority left unchanged.",
+      message: "Couldn't close the open commitments — action left unchanged.",
     };
   }
 
@@ -47,7 +47,7 @@ export async function completePriorityAction(
     .update({ status: "complete" })
     .eq("id", priorityId);
   if (error) {
-    return { ok: false, message: "Commitments closed, but couldn't mark the priority complete." };
+    return { ok: false, message: "Commitments closed, but couldn't mark the action complete." };
   }
 
   revalidatePath("/plan");
@@ -103,7 +103,7 @@ export async function completeGoalAction(
     if (error) {
       return {
         ok: false,
-        message: "Commitments closed, but couldn't mark the priorities complete.",
+        message: "Commitments closed, but couldn't mark the actions complete.",
       };
     }
   }
@@ -115,7 +115,7 @@ export async function completeGoalAction(
   if (goalError) {
     return {
       ok: false,
-      message: "Priorities updated, but couldn't mark the goal complete.",
+      message: "Actions updated, but couldn't mark the goal complete.",
     };
   }
 

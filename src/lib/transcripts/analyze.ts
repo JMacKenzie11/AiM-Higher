@@ -312,7 +312,7 @@ function formatCompanyContext(ctx: CompanyContext): string {
   }
   if (ctx.priorities.length > 0) {
     lines.push("");
-    lines.push("Open-quarter priorities:");
+    lines.push("Open-quarter 90-Day Actions:");
     for (const pr of ctx.priorities) {
       lines.push(`- ${pr.title} (id: ${pr.id})`);
     }

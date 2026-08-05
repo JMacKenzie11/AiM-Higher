@@ -39,7 +39,7 @@ is *owned*, *dated*, and either *open*, *kept*, or *missed*
   finish line. Click it to open the quick clarity editor. A
   commitment that passes both criteria doesn't need a refinement
   note — the field hides itself when both are YES.
-- Priority linking is frozen once a commitment resolves — this
-  keeps priority progress history from silently rewriting itself.
+- Action linking is frozen once a commitment resolves — this
+  keeps action progress history from silently rewriting itself.
 - Rows tagged *From meeting* were extracted from a transcript; the
   chip links to the analysis for admins.
