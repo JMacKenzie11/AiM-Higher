@@ -345,7 +345,7 @@
 }
 
 /* Level label — small ALL-CAPS eyebrow that names the cascade tier
-   (Strategic Focus Area / Annual Goal / 90-Day Priority) so it's
+   (Strategic Focus Area / Annual Goal / 90-Day Action) so it's
    obvious at a glance which row is which. */
 .levelLabel {
   font: var(--text-subhead);

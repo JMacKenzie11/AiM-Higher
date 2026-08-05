@@ -130,7 +130,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
             {selectedQuarter && goalOptions.length > 0 ? (
               <details className={styles.toolbarAddDetails}>
                 <summary className={styles.toolbarAddSummary}>
-                  + Add 90-Day Priority
+                  + Add 90-Day Action
                 </summary>
                 <div className={styles.toolbarAddPanel}>
                   <AddPriorityForm
@@ -237,7 +237,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                                     <li key={priority.id} className={styles.priorityItem}>
                                       <div className={styles.summaryMain}>
                                         <span className={styles.levelLabel}>
-                                          90-Day Priority
+                                          90-Day Action
                                         </span>
                                         <Link
                                           href={`/plan/priority/${priority.id}`}
@@ -360,10 +360,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
               >
                 <header className={styles.orphanHeader}>
                   <h2 id="orphan-priorities" className={styles.orphanTitle}>
-                    Standalone 90-Day Priorities
+                    Standalone 90-Day Actions
                   </h2>
                   <p className={styles.orphanNote}>
-                    Priorities that aren&rsquo;t tied to an annual goal yet. Link one to a goal when the strategic plan takes shape.
+                    Actions that aren&rsquo;t tied to an annual goal yet. Link one to a goal when the strategic plan takes shape.
                   </p>
                 </header>
                 <ul className={styles.rowList}>
@@ -371,7 +371,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                     <li key={priority.id} className={styles.priorityItem}>
                       <div className={styles.summaryMain}>
                         <span className={styles.levelLabel}>
-                          90-Day Priority
+                          90-Day Action
                         </span>
                         <Link
                           href={`/plan/priority/${priority.id}`}
