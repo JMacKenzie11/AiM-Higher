@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/current-user";
 import { calendarQuarterOf } from "@/lib/quarters/service";
+import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
 import type { Company } from "@/lib/types";
 
 // Company management — polished in Phase 8 per Section 8.9.
@@ -12,14 +13,6 @@ import type { Company } from "@/lib/types";
 export type CompanyResult =
   | { ok: true; company: Company }
   | { ok: false; message: string };
-
-const VALID_FEATURES = new Set([
-  "execution",
-  "strengths",
-  "performance_tracking",
-  "meeting_facilitation_review",
-  "classroom",
-]);
 
 export async function createCompanyAction(
   _prev: CompanyResult | undefined,
@@ -36,7 +29,7 @@ export async function createCompanyAction(
       formData
         .getAll("features")
         .map((v) => String(v).trim())
-        .filter((v) => VALID_FEATURES.has(v))
+        .filter((v) => VALID_COMPANY_FEATURES.has(v))
     )
   );
 
@@ -139,7 +132,7 @@ export async function setCompanyFeaturesAction(
   await requireRole(["system_admin"]);
 
   const cleaned = Array.from(
-    new Set(features.map((f) => f.trim()).filter((f) => VALID_FEATURES.has(f)))
+    new Set(features.map((f) => f.trim()).filter((f) => VALID_COMPANY_FEATURES.has(f)))
   );
   if (cleaned.length === 0) {
     return { ok: false, message: "Pick at least one feature." };

@@ -5,6 +5,7 @@ import {
   createCompanyAction,
   type CompanyResult,
 } from "@/lib/companies/actions";
+import { COMPANY_FEATURES } from "@/lib/companies/features";
 import styles from "./admin.module.css";
 
 const INITIAL: CompanyResult = { ok: false, message: "" };
@@ -62,27 +63,26 @@ export function CreateCompanyForm() {
 
       <div className={`${styles.field} ${styles.formFull}`}>
         <span className={styles.label}>Features</span>
-        <div className={styles.checkGroup}>
-          <label className={styles.checkOption}>
-            <input
-              type="checkbox"
-              name="features"
-              value="execution"
-              defaultChecked
-              disabled={pending}
-            />
-            Execution Platform
-          </label>
-          <label className={styles.checkOption}>
-            <input
-              type="checkbox"
-              name="features"
-              value="strengths"
-              disabled={pending}
-            />
-            Strengths
-          </label>
-        </div>
+        <ul className={styles.featureList}>
+          {COMPANY_FEATURES.map((f) => (
+            <li key={f.value} className={styles.featureItem}>
+              <label className={styles.featureRow}>
+                <input
+                  type="checkbox"
+                  className={styles.featureCheckbox}
+                  name="features"
+                  value={f.value}
+                  defaultChecked={f.defaultOnCreate ?? false}
+                  disabled={pending}
+                />
+                <span className={styles.featureText}>
+                  <span className={styles.featureName}>{f.label}</span>
+                  <span className={styles.featureHint}>{f.hint}</span>
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
         <p className={styles.fieldHint}>
           Pick at least one. Controls which modules appear in the nav.
         </p>

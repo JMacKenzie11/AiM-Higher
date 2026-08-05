@@ -2,44 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { setCompanyFeaturesAction } from "@/lib/companies/actions";
+import { COMPANY_FEATURES } from "@/lib/companies/features";
 import styles from "../admin.module.css";
 
 // Toggle module entitlements for an existing company. Disabling a
 // module removes the row from company_features (hides it in nav +
 // stops feeding coaching) but leaves the underlying data intact.
 // Re-enable and it's all still there.
-
-const FEATURES: ReadonlyArray<{
-  value: string;
-  label: string;
-  hint: string;
-}> = [
-  {
-    value: "execution",
-    label: "Execution Platform",
-    hint: "Commitments, success measures, and the coaching dashboard.",
-  },
-  {
-    value: "strengths",
-    label: "Strengths",
-    hint: "Team strengths assessments, results, and strengths-aware coaching.",
-  },
-  {
-    value: "performance_tracking",
-    label: "Success Tracking",
-    hint: "Requires targets on every success measure and turns on weekly performance nudges.",
-  },
-  {
-    value: "meeting_facilitation_review",
-    label: "Meeting Facilitation Review",
-    hint: "After each meeting is analyzed, generate a coaching-tone review of how the meeting was run against the AiMS Weekly Leadership Meeting framework.",
-  },
-  {
-    value: "classroom",
-    label: "Classroom",
-    hint: "Adds a shared training library — lessons, videos, and downloadable resources authored centrally by AiMS. Aimee can also recommend a training in conversation.",
-  },
-];
 
 export function FeaturesForm({
   companyId,
@@ -89,7 +58,7 @@ export function FeaturesForm({
       <div className={`${styles.field} ${styles.formFull}`}>
         <span className={styles.label}>Features</span>
         <ul className={styles.featureList}>
-          {FEATURES.map((f) => {
+          {COMPANY_FEATURES.map((f) => {
             const checked = selected.has(f.value);
             return (
               <li key={f.value} className={styles.featureItem}>
