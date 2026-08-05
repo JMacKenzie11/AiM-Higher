@@ -55,7 +55,7 @@
   color: var(--aims-white);
   opacity: 0.9;
   font: var(--text-subtitle);
-  max-width: 65ch;
+  text-wrap: balance;
 }
 
 .content {
