@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import formStyles from "@/components/auth-shell/AuthForm.module.css";
 import {
   setNewPasswordAction,
@@ -15,7 +15,11 @@ import { acceptInviteAction } from "@/lib/auth/users";
 //   3. On success, acceptInviteAction flips their existing profile row
 //      from pending → active.
 
-const INITIAL: AuthActionResult = { ok: true };
+// Initial state must be "not yet submitted" — the previous default
+// of { ok: true } made passwordSet true on the very first render,
+// which fired acceptInviteAction before the user had typed a
+// password. Under Safari that spun the tab into an OOM kill.
+const INITIAL: AuthActionResult = { ok: false, message: "" };
 
 export function AcceptInviteForm() {
   const [state, formAction, pending] = useActionState(
@@ -27,10 +31,16 @@ export function AcceptInviteForm() {
   const [accepting, startAccept] = useTransition();
   const [accepted, setAccepted] = useState(false);
 
-  const errorMessage = state && "ok" in state && !state.ok ? state.message : null;
+  const errorMessage = state && "ok" in state && !state.ok && state.message
+    ? state.message
+    : null;
   const passwordSet = state && "ok" in state && state.ok && !pending;
 
-  if (passwordSet && !accepted && !accepting && !acceptError) {
+  // Fire the profile flip inside an effect, not during render. Guards
+  // ensure a single call: only when the password action just returned
+  // ok, and we haven't already accepted / errored / started.
+  useEffect(() => {
+    if (!passwordSet || accepted || accepting || acceptError) return;
     startAccept(async () => {
       const result = await acceptInviteAction();
       if (!result.ok) {
@@ -48,7 +58,7 @@ export function AcceptInviteForm() {
         window.location.href = "/dashboard";
       }, 900);
     });
-  }
+  }, [passwordSet, accepted, accepting, acceptError]);
 
   if (accepted) {
     return (
