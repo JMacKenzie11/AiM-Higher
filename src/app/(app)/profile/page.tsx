@@ -1,6 +1,7 @@
 import { requireProfile } from "@/lib/auth/current-user";
 import { getUserStrengths } from "@/lib/strengths/user-strengths";
 import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
+import { PageShell } from "@/components/ui/PageShell";
 import { ProfileDetailsForm } from "./ProfileDetailsForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import styles from "./profile.module.css";
@@ -14,16 +15,11 @@ export default async function ProfilePage() {
   const strengths = await getUserStrengths(session.profile.id);
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.h1}>My profile</h1>
-        <span className="aims-rule" aria-hidden="true" />
-        <p className={styles.subtitle}>
-          Keep your name, position, and password up to date. Only you can
-          edit this page.
-        </p>
-      </header>
-
+    <PageShell
+      eyebrow="You"
+      title="My profile"
+      subtitle="Keep your name, position, and password up to date. Only you can edit this page."
+    >
       <section className={styles.card} aria-labelledby="details">
         <h2 id="details" className={styles.h2}>
           Details
@@ -58,6 +54,6 @@ export default async function ProfilePage() {
         </p>
         <ChangePasswordForm />
       </section>
-    </div>
+    </PageShell>
   );
 }

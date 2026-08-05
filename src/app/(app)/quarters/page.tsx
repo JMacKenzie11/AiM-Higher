@@ -7,6 +7,7 @@ import {
   nextCalendarQuarter,
   type CalendarQuarter,
 } from "@/lib/quarters/service";
+import { PageShell } from "@/components/ui/PageShell";
 import { QuartersTable } from "./QuartersTable";
 import { OpenQuarterForm } from "./OpenQuarterForm";
 import styles from "./quarters.module.css";
@@ -44,15 +45,11 @@ export default async function QuartersPage() {
   const openQuarterExists = quarters.some((q) => q.status === "open");
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.h1}>Quarters</h1>
-        <span className="aims-rule" aria-hidden="true" />
-        <p className={styles.subtitle}>
-          Open a new quarter, close one when its 90 days end.
-        </p>
-      </header>
-
+    <PageShell
+      eyebrow="Company"
+      title="Quarters"
+      subtitle="Open a new quarter, close one when its 90 days end."
+    >
       {canWrite ? (
         <section className={styles.card} aria-labelledby="open-next">
           <h2 id="open-next" className={styles.h2}>
@@ -81,6 +78,6 @@ export default async function QuartersPage() {
         </h2>
         <QuartersTable quarters={quarters} canWrite={canWrite} />
       </section>
-    </div>
+    </PageShell>
   );
 }
