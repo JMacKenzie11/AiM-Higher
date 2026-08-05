@@ -251,17 +251,20 @@ export async function generateConversationTitleAction(
     return { ok: true, title: null };
   }
 
+  // Fire when the client has completed at least two exchanges (four
+  // messages). Loading up to six gives the model enough context to
+  // pick a specific topic instead of paraphrasing the opening chip.
   const { data: rows } = await supabase
     .from("coaching_messages")
     .select("role, content")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
-    .limit(2);
+    .limit(6);
   const messages = (rows ?? []) as Array<{
     role: "user" | "assistant";
     content: string;
   }>;
-  if (messages.length < 2) return { ok: true, title: null };
+  if (messages.length < 4) return { ok: true, title: null };
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { ok: false, message: "Model not configured." };

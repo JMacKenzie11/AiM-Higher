@@ -64,11 +64,10 @@ export default async function CoachListPage({ params }: PageProps) {
         {firstName} cannot see any of them.
       </PrivacyNote>
 
-      <div className={styles.listActions}>
-        <NewConversationButton profileId={profileId} />
-      </div>
-
       <div className={styles.card}>
+        <div className={styles.listActions}>
+          <NewConversationButton profileId={profileId} />
+        </div>
         {conversations.length === 0 ? (
           <p className={styles.emptyLine}>
             No conversations yet. Start one to talk through what&rsquo;s on

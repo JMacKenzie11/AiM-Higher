@@ -22,11 +22,10 @@ export default async function AskAimeePage() {
       title="Ask Aimee"
       subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Your Ask Aimee conversations are visible only to you."
     >
-      <div className={styles.listActions}>
-        <AskAimeeNewButton />
-      </div>
-
       <div className={styles.card}>
+        <div className={styles.listActions}>
+          <AskAimeeNewButton />
+        </div>
         {conversations.length === 0 ? (
           <p className={styles.emptyLine}>
             No conversations yet. Start one to talk something through.

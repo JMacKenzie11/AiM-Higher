@@ -162,10 +162,13 @@ export function ChatView({
               const next = prev.map((m) =>
                 m.id === assistantId ? { ...m, streaming: false } : m
               );
-              // First exchange done → ask the server for a real
-              // title (defaults look like "Coaching · Jul 30"). Only
-              // once per conversation instance.
-              if (!autoTitledRef.current && next.length === 2) {
+              // Fire auto-title after the SECOND exchange completes
+              // (four total messages). The first user turn is usually
+              // a starter chip like "I need help thinking through an
+              // issue", which produces a generic title — waiting one
+              // more round gets the actual topic. Guard on the exact
+              // count so this doesn't refire on later exchanges.
+              if (!autoTitledRef.current && next.length === 4) {
                 autoTitledRef.current = true;
                 generateConversationTitleAction(conversation.id)
                   .then((result) => {
