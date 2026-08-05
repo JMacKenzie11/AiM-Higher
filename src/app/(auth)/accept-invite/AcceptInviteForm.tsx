@@ -1,25 +1,22 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import formStyles from "@/components/auth-shell/AuthForm.module.css";
-import {
-  setNewPasswordAction,
-  type AuthActionResult,
-} from "@/lib/auth/actions";
 import { acceptInviteAction } from "@/lib/auth/users";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 // Two-step accept-invite flow:
 //   1. User arrives with a Supabase invite session already active
-//      (the invite email link exchanged for a session in the URL hash).
-//   2. They set a password (setNewPasswordAction).
-//   3. On success, acceptInviteAction flips their existing profile row
-//      from pending → active.
-
-// Initial state must be "not yet submitted" — the previous default
-// of { ok: true } made passwordSet true on the very first render,
-// which fired acceptInviteAction before the user had typed a
-// password. Under Safari that spun the tab into an OOM kill.
-const INITIAL: AuthActionResult = { ok: false, message: "" };
+//      via URL hash tokens; the Supabase browser client picks them
+//      up on mount (detectSessionInUrl: true) and stores the session
+//      in memory + cookies.
+//   2. They set a password. This has to happen through the BROWSER
+//      Supabase client — the URL-hash session isn't in the request
+//      cookies the server action would see, so a server-side
+//      updateUser fails with "Auth session missing!" on the fresh
+//      link's first submit.
+//   3. On success, acceptInviteAction (server action) flips the
+//      pending profile row to active.
 
 // Supabase surfaces token failures via the URL hash
 // (#error=access_denied&error_code=otp_expired&...). Detect it on
@@ -40,30 +37,24 @@ function readHashError(): string | null {
 }
 
 export function AcceptInviteForm() {
-  const [state, formAction, pending] = useActionState(
-    setNewPasswordAction,
-    INITIAL
-  );
-  const [acceptError, setAcceptError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [passwordSet, setPasswordSet] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const [accepting, startAccept] = useTransition();
   const [accepted, setAccepted] = useState(false);
   const [hashError, setHashError] = useState<string | null>(null);
 
-  // Read the hash once on mount. Cannot run during render — the hash
-  // is a browser-only property and the server has no way to see it.
   useEffect(() => {
     setHashError(readHashError());
   }, []);
 
-  const errorMessage = state && "ok" in state && !state.ok && state.message
-    ? state.message
-    : null;
-  const passwordSet = state && "ok" in state && state.ok && !pending;
-
-  // Fire the profile flip inside an effect, not during render. Guards
-  // ensure a single call: only when the password action just returned
-  // ok, and we haven't already accepted / errored / started.
+  // Fire the profile flip inside an effect, not during render. Only
+  // when the password update just returned ok and we haven't already
+  // moved on.
   useEffect(() => {
     if (!passwordSet || accepted || accepting || acceptError) return;
     startAccept(async () => {
@@ -73,17 +64,42 @@ export function AcceptInviteForm() {
         return;
       }
       setAccepted(true);
-      // Full-page navigate — the accept action just flipped the
-      // profile row from pending → active and Supabase set fresh
-      // auth cookies. router.push() would use the stale RSC
-      // prefetch cache from before authentication, which shows the
-      // shell but breaks subsequent client-side link clicks until a
-      // hard refresh. window.location resets everything cleanly.
+      // Full-page navigate — Supabase set fresh auth cookies and the
+      // acceptAction flipped the profile row. router.push() would
+      // reuse stale RSC prefetch payloads from the pre-auth session
+      // and break subsequent link clicks until a hard refresh.
       setTimeout(() => {
         window.location.href = "/dashboard";
       }, 900);
     });
   }, [passwordSet, accepted, accepting, acceptError]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErrorMessage(null);
+    if (password.length < 8) {
+      setErrorMessage("Choose a password of at least 8 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setErrorMessage("The two passwords don't match yet.");
+      return;
+    }
+    setSubmitting(true);
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.auth.updateUser({ password });
+    setSubmitting(false);
+    if (error || !data.user) {
+      const detail = error?.message?.trim();
+      setErrorMessage(
+        detail
+          ? `We couldn't set that password: ${detail}`
+          : "We couldn't set that password. Try refreshing the page and try again."
+      );
+      return;
+    }
+    setPasswordSet(true);
+  }
 
   if (accepted) {
     return (
@@ -109,8 +125,10 @@ export function AcceptInviteForm() {
     );
   }
 
+  const busy = submitting || accepting;
+
   return (
-    <form className={formStyles.form} action={formAction}>
+    <form className={formStyles.form} onSubmit={handleSubmit}>
       <div className={formStyles.field}>
         <label htmlFor="password" className={formStyles.label}>
           Choose a password
@@ -123,8 +141,10 @@ export function AcceptInviteForm() {
             autoComplete="new-password"
             minLength={8}
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             className={formStyles.input}
-            disabled={pending || accepting}
+            disabled={busy}
           />
           <button
             type="button"
@@ -132,7 +152,7 @@ export function AcceptInviteForm() {
             onClick={() => setShowPassword((prev) => !prev)}
             aria-pressed={showPassword}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            disabled={pending || accepting}
+            disabled={busy}
           >
             {showPassword ? "Hide" : "Show"}
           </button>
@@ -150,8 +170,10 @@ export function AcceptInviteForm() {
           autoComplete="new-password"
           minLength={8}
           required
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
           className={formStyles.input}
-          disabled={pending || accepting}
+          disabled={busy}
         />
       </div>
 
@@ -164,10 +186,10 @@ export function AcceptInviteForm() {
       <button
         type="submit"
         className={formStyles.submit}
-        disabled={pending || accepting}
-        data-loading={pending || accepting ? "true" : undefined}
+        disabled={busy}
+        data-loading={busy ? "true" : undefined}
       >
-        {pending || accepting ? "Setting up…" : "Accept invitation"}
+        {busy ? "Setting up…" : "Accept invitation"}
       </button>
     </form>
   );
