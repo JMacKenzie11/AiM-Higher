@@ -67,6 +67,14 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                 ? "Edit my strengths →"
                 : `Edit ${data.profile.full_name.split(" ")[0]}'s strengths →`}
             </Link>
+            {isAdmin && !isSelf ? (
+              <Link
+                href={`/people/${id}/edit`}
+                className={styles.heroAction}
+              >
+                Edit details →
+              </Link>
+            ) : null}
           </div>
         </div>
       </section>

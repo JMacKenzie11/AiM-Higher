@@ -123,6 +123,108 @@ export async function createUserAction(
   return { ok: true, profileId: userId };
 }
 
+// ---- Update a user (admin-only) --------------------------------
+// Full-profile edit. Handles first/last name, position, role,
+// reports_to on public.profiles AND email on auth.users. Kept
+// separate from updateProfileAction (which is the leaner
+// self-serve edit on /profile) so email changes — which require
+// the admin client — can't be triggered by a non-admin caller.
+export async function updateUserAction(
+  _prev: UserActionResult | undefined,
+  formData: FormData
+): Promise<UserActionResult> {
+  const session = await requireRole(["system_admin", "company_admin"]);
+
+  const profileId = String(formData.get("id") ?? "");
+  if (!profileId) return { ok: false, message: "Missing user id." };
+
+  const firstName = String(formData.get("first_name") ?? "").trim();
+  const lastName = String(formData.get("last_name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const position = String(formData.get("position") ?? "").trim() || null;
+  const role = String(formData.get("role") ?? "");
+  const reportsToRaw = String(formData.get("reports_to") ?? "").trim();
+  const reportsTo = reportsToRaw && reportsToRaw !== profileId ? reportsToRaw : null;
+
+  if (!firstName || !lastName) {
+    return { ok: false, message: "First and last name are required." };
+  }
+  if (!email) {
+    return { ok: false, message: "Email is required." };
+  }
+  if (
+    role !== "system_admin" &&
+    role !== "company_admin" &&
+    role !== "team_member" &&
+    role !== "aims_guide"
+  ) {
+    return { ok: false, message: "Choose a valid role." };
+  }
+  if (
+    session.profile.role === "company_admin" &&
+    (role === "system_admin" || role === "aims_guide")
+  ) {
+    return { ok: false, message: "Company admins can't grant that role." };
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  // Fetch the current row so we can scope-check + only touch email
+  // when it actually changed (avoids re-sending Supabase's magic-link
+  // confirmation for a no-op).
+  const { data: current, error: fetchErr } = await admin
+    .from("profiles")
+    .select("id, company_id")
+    .eq("id", profileId)
+    .maybeSingle<Pick<Profile, "id" | "company_id">>();
+  if (fetchErr || !current) return { ok: false, message: "User not found." };
+
+  if (
+    session.profile.role === "company_admin" &&
+    session.profile.company_id !== current.company_id
+  ) {
+    return { ok: false, message: "Not your user to edit." };
+  }
+
+  // Grab the auth email so we know whether an update is needed.
+  const { data: authUser } = await admin.auth.admin.getUserById(profileId);
+  const currentEmail = authUser?.user?.email ?? null;
+  const emailChanged = currentEmail !== email;
+
+  if (emailChanged) {
+    const { error: emailErr } = await admin.auth.admin.updateUserById(
+      profileId,
+      { email }
+    );
+    if (emailErr) {
+      const msg = emailErr.message ?? "";
+      if (/already been registered|already exists/i.test(msg)) {
+        return { ok: false, message: "That email is already in use." };
+      }
+      return { ok: false, message: "Couldn't update the email address." };
+    }
+  }
+
+  const { error: profileErr } = await admin
+    .from("profiles")
+    .update({
+      first_name: firstName,
+      last_name: lastName,
+      position,
+      role,
+      reports_to: reportsTo,
+    })
+    .eq("id", profileId);
+  if (profileErr) {
+    return { ok: false, message: "Couldn't save that user." };
+  }
+
+  if (current.company_id) revalidatePath(`/admin/companies/${current.company_id}`);
+  revalidatePath("/people");
+  revalidatePath(`/people/${profileId}`);
+  return { ok: true, profileId };
+}
+
 // ---- Send / resend an invite email ---------------------------
 export async function sendInviteAction(profileId: string): Promise<UserActionResult> {
   const session = await requireRole(["system_admin", "company_admin"]);
