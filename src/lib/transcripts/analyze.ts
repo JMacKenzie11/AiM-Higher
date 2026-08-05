@@ -26,7 +26,7 @@ import type {
 // language is treated as text to analyze, not directives.
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
-const MAX_TOKENS_ANALYSIS = 4000;
+const MAX_TOKENS_ANALYSIS = 5000;
 const MAX_TOKENS_EXTRACTION = 2000;
 const MAX_COMMITMENTS = 20;
 const DESCRIPTION_MAX = 300;

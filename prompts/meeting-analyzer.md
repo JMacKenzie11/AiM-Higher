@@ -96,6 +96,38 @@ Bullet list of:
 
 These should read like preparation notes for the next meeting. Start each bullet on a separate line.
 
+## 7. Values in Practice
+
+Include this section ONLY if company core values were provided in the context AND you have at least one observation across the three subsections below that meets the high bar. If nothing meets the bar, omit this section entirely — do not write a heading with "nothing to note" or similar. A silent section is better than a manufactured one.
+
+**Where values showed up**
+Up to 3 concrete moments where a decision, behavior, or piece of feedback clearly embodied one of the stated core values. Do not flag moments where a value word merely happened to appear near a value's name. Only flag when the action or exchange would still count as living the value if the value's name were removed from the transcript.
+
+Format:
+- **[Value name]** — [what happened, in 1–2 sentences, referencing the specific moment without naming a timestamp]
+
+**Moments to reinforce**
+At most 2 moments where the leader naturally could have named a value out loud — praise landing on a person, a decision being reasoned through, a norm being defended — where doing so would have reinforced culture without feeling manufactured. Only include a moment if a specific value fits it precisely; do not stretch.
+
+Format:
+- **[Value name]** — [what happened, then one sentence suggesting how the moment could have been tied back]
+
+**Where a value could have shaped the moment**
+At most 1 instance where a stated core value was clearly at play in a decision or exchange, and living it more visibly would have shifted what happened. Frame the observation as what the value would have looked like in that moment — not as a miss or failure. Only include if the value maps precisely AND the alternative is a reasonable concrete action, not a platitude.
+
+Format:
+- **[Value name]** — [1–2 sentences on the moment.] Living [value] here might have looked like [one specific alternative action or reframing, one sentence].
+
+DO NOT:
+- Include any subsection with zero qualifying entries
+- Score the leader or count value mentions
+- Suggest generic "this would have been a great time to reinforce our values" moments — always tie to a specific value
+- Restate a value's definition
+- Flag mere keyword matches without behavioral substance
+- Frame the third subsection as a critique or a failure — always as what living the value would have looked like
+
+When in doubt on any entry, leave it out. One weak entry poisons trust in the entire section.
+
 ANALYSIS STANDARDS
 When analyzing transcripts:
 
