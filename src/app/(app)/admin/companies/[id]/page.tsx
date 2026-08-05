@@ -4,6 +4,8 @@ import { requireRole } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { getBulkResetImpact } from "@/lib/plan/service";
+import { BulkResetButton } from "@/app/(app)/plan/BulkResetButton";
 import type {
   Company,
   Meeting,
@@ -75,6 +77,15 @@ export default async function CompanyDetailPage({
   const sourceRows = (sources ?? []) as TranscriptSource[];
   const meetingRows = (meetings ?? []) as Meeting[];
 
+  const resetImpact = isSystemAdmin
+    ? await getBulkResetImpact(company.id)
+    : { sfaCount: 0, goalCount: 0, priorityCount: 0 };
+  const hasResettable =
+    resetImpact.sfaCount +
+      resetImpact.goalCount +
+      resetImpact.priorityCount >
+    0;
+
   return (
     <div className={styles.stage}>
       <section className={styles.hero} aria-label="Company settings">
@@ -133,6 +144,32 @@ export default async function CompanyDetailPage({
           flashConnected={flash.oauth_connected ?? null}
           flashError={flash.oauth_error ?? null}
         />
+
+        {isSystemAdmin && hasResettable ? (
+          <section className={styles.card} aria-labelledby="planning-cycle">
+            <h2 id="planning-cycle" className={styles.h2}>
+              Planning cycle
+            </h2>
+            <p className={styles.subtitleInline}>
+              Archives every active Strategic Focus Area, Annual Goal, and
+              90-Day Priority in this company so the team can build the next
+              cycle from a clean canvas. Nothing is deleted — records stay
+              on file. Open commitments become Operational (unlinked);
+              resolved commitments keep their historical link so past-quarter
+              progress stays intact. Prefer closing individual items? Every
+              SFA, Goal, and Priority has its own Archive / Mark complete
+              actions on its detail page.
+            </p>
+            <div>
+              <BulkResetButton
+                companyId={company.id}
+                sfaCount={resetImpact.sfaCount}
+                goalCount={resetImpact.goalCount}
+                priorityCount={resetImpact.priorityCount}
+              />
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

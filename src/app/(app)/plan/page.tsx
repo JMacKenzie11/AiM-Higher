@@ -2,8 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
-import { getCascade, getBulkResetImpact } from "@/lib/plan/service";
-import { BulkResetButton } from "./BulkResetButton";
+import { getCascade } from "@/lib/plan/service";
 import { getQuartersForCompany } from "@/lib/quarters/service";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
@@ -43,7 +42,6 @@ export default async function PlanPage({ searchParams }: PageProps) {
     companyId,
     selectedQuarter ? selectedQuarter.id : null
   );
-  const resetImpact = await getBulkResetImpact(companyId);
 
   const supabase = await createSupabaseServerClient();
   const { data: people } = await supabase
@@ -425,34 +423,6 @@ export default async function PlanPage({ searchParams }: PageProps) {
           </div>
           </PlanCascadeController>
 
-      {isAdmin &&
-      (resetImpact.sfaCount > 0 ||
-        resetImpact.goalCount > 0 ||
-        resetImpact.priorityCount > 0) ? (
-        <details className={styles.dangerZone}>
-          <summary className={styles.dangerZoneSummary}>
-            Start a new planning cycle
-          </summary>
-          <div className={styles.dangerZoneBody}>
-            <p className={styles.dangerZoneCopy}>
-              Archives every active Strategic Focus Area, Annual Goal,
-              and 90-Day Priority in this company so you can build the
-              next cycle from a clean canvas. Nothing is deleted — the
-              records stay on file. Open commitments become Operational
-              (unlinked); resolved commitments keep their historical
-              link so past-quarter progress stays intact. Prefer closing
-              individual items? Every SFA, Goal, and Priority has its
-              own Archive / Mark complete actions on its detail page.
-            </p>
-            <BulkResetButton
-              companyId={companyId}
-              sfaCount={resetImpact.sfaCount}
-              goalCount={resetImpact.goalCount}
-              priorityCount={resetImpact.priorityCount}
-            />
-          </div>
-        </details>
-      ) : null}
     </div>
   );
 }
