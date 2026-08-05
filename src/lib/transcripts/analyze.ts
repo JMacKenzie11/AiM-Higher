@@ -353,7 +353,7 @@ You will be given a company context block listing the valid roster (names + ids)
 
 For every extracted commitment, also score it on two clarity criteria (each is a boolean answered from the transcript alone — do not assume information the participants didn't state):
 - clarity_timeline: TRUE only when a specific deadline was stated or a "by end of week / by Friday" style anchor was agreed. Vague "soon" or "next few weeks" is FALSE.
-- clarity_success:  TRUE only when the participants named an observable outcome or artefact that will show the commitment was fulfilled. Vague verbs like "look into", "think about", "explore" without a specific artefact are FALSE.
+- clarity_success:  TRUE when the commitment names an observable outcome or artefact that will show it was fulfilled. Action verbs that produce a concrete artefact — "schedule", "send", "publish", "draft", "share", "post", "create", "assign", "book", "invite", "write", "email", "review and approve" — count as TRUE even when the verb is short, because the artefact (the invite, the document, the message) either exists or doesn't. Only mark FALSE for genuinely vague verbs with no artefact — "look into", "think about", "explore", "consider", "keep in mind", "reflect on". Assess clarity_success independently of clarity_timeline; a missing deadline never makes the success check FALSE by itself.
 
 When either is FALSE, provide a short (≤160 char) refinement suggestion in clarity_note that rewrites the commitment to satisfy both. When both are TRUE, set clarity_note to null.
 
