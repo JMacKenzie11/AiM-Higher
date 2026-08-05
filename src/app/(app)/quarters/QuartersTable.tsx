@@ -18,7 +18,7 @@ export function QuartersTable({
   if (quarters.length === 0) {
     return (
       <p className={styles.empty}>
-        No quarters yet. Open your first one above to start tracking priorities.
+        No quarters yet. Open your first one above to start tracking actions.
       </p>
     );
   }
@@ -29,9 +29,11 @@ export function QuartersTable({
         <tr>
           <th>Quarter</th>
           <th>Dates</th>
-          <th className={styles.numHead}>Priorities</th>
+          <th className={styles.numHead}>Actions</th>
           <th>Status</th>
-          {canWrite ? <th className={styles.numHead}>Actions</th> : null}
+          {canWrite ? (
+            <th className={styles.numHead} aria-label="Manage" />
+          ) : null}
         </tr>
       </thead>
       <tbody>
@@ -142,7 +144,7 @@ function QuarterRow({
             <div className={styles.confirmBox}>
               <p className={styles.confirmText}>
                 Closing <strong>{quarter.label}</strong> freezes it. Its
-                priorities and commitments stay visible in history, but it
+                actions and commitments stay visible in history, but it
                 won&rsquo;t appear in the current quarter picker.
               </p>
               <div className={styles.confirmActions}>

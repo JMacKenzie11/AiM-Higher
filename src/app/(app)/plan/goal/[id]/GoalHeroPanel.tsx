@@ -278,7 +278,7 @@ export function GoalHeroPanel({
             <div className={heroStyles.stateRow}>
               <StatusChip status={goal.status} />
               <div className={heroStyles.stateProgress}>
-                <ProgressBar percent={percent} label="No priorities yet" />
+                <ProgressBar percent={percent} label="No actions yet" />
               </div>
             </div>
             <div className={heroStyles.body}>
@@ -337,7 +337,7 @@ export function GoalHeroPanel({
       <ConfirmDialog
         open={confirmArchive}
         title={`Archive "${goal.title}"?`}
-        message="Priorities and commitments under this goal stay intact and can be restored later. The goal disappears from the plan cascade."
+        message="Actions and commitments under this goal stay intact and can be restored later. The goal disappears from the plan cascade."
         confirmLabel="Archive"
         tone="danger"
         onConfirm={runArchive}
@@ -357,7 +357,7 @@ export function GoalHeroPanel({
                   , its{" "}
                   <strong>
                     {priorityCount} active{" "}
-                    {priorityCount === 1 ? "priority" : "priorities"}
+                    {priorityCount === 1 ? "action" : "actions"}
                   </strong>{" "}
                   Complete
                 </>

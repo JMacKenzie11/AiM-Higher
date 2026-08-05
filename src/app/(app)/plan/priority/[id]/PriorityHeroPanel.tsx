@@ -128,7 +128,7 @@ export function PriorityHeroPanel({
       </div>
 
       <div className={heroStyles.card}>
-        <div className={heroStyles.eyebrow}>Priority</div>
+        <div className={heroStyles.eyebrow}>Action</div>
 
         {editing ? (
           <form action={formAction} className={styles.form}>
@@ -345,7 +345,7 @@ export function PriorityHeroPanel({
                     onClick={() => setEditing(true)}
                     disabled={archiving}
                   >
-                    Edit priority
+                    Edit action
                   </button>
                   <button
                     type="button"
@@ -367,7 +367,7 @@ export function PriorityHeroPanel({
             <ConfirmDialog
               open={confirmArchive}
               title={`Archive "${priority.title}"?`}
-              message="Commitments stay in history and can be restored later. The priority disappears from the plan cascade."
+              message="Commitments stay in history and can be restored later. The action disappears from the plan cascade."
               confirmLabel="Archive"
               tone="danger"
               onConfirm={runArchive}
@@ -380,11 +380,11 @@ export function PriorityHeroPanel({
 
       <CompleteConfirmDialog
         open={confirmingComplete}
-        title="Mark priority complete?"
+        title="Mark action complete?"
         body={
           <>
             <p>
-              This marks the priority Complete
+              This marks the action Complete
               {openCommitmentsCount > 0 ? (
                 <>
                   {" "}

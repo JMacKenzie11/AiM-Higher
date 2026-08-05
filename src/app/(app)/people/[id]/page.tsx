@@ -134,7 +134,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
               <thead>
                 <tr>
                   <th>Description</th>
-                  <th>Priority</th>
+                  <th>Action</th>
                   <th>Due</th>
                   <th>Week</th>
                   <th>Flag</th>
@@ -198,7 +198,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                   <thead>
                     <tr>
                       <th>Description</th>
-                      <th>Priority</th>
+                      <th>Action</th>
                       <th>Due</th>
                       <th>Resolution</th>
                     </tr>

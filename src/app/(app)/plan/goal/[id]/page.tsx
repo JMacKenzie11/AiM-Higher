@@ -42,12 +42,12 @@ export default async function GoalDetailPage({ params }: PageProps) {
         isOwner={isOwner}
       />
 
-      <section className={styles.card} aria-labelledby="priorities">
-        <h2 id="priorities" className={styles.h2}>
-          Priorities under this goal
+      <section className={styles.card} aria-labelledby="actions">
+        <h2 id="actions" className={styles.h2}>
+          Actions under this goal
         </h2>
         {detail.priorities.length === 0 ? (
-          <p className={styles.emptyLine}>No priorities linked yet.</p>
+          <p className={styles.emptyLine}>No actions linked yet.</p>
         ) : (
           <ul className={styles.rowList}>
             {detail.priorities.map((priority) => (
@@ -73,7 +73,7 @@ export default async function GoalDetailPage({ params }: PageProps) {
           openQuarter ? (
             <details className={planStyles.addDetails}>
               <summary className={planStyles.addSummary}>
-                + Add priority
+                + Add action
               </summary>
               <AddPriorityForm
                 quarterId={openQuarter.id}
@@ -85,7 +85,7 @@ export default async function GoalDetailPage({ params }: PageProps) {
           ) : (
             <p className={styles.emptyLine}>
               Open a quarter on the <Link href="/quarters">Quarters</Link> page
-              before adding priorities.
+              before adding actions.
             </p>
           )
         ) : null}

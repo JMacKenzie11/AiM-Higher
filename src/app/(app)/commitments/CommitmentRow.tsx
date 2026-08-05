@@ -522,7 +522,7 @@ export function CommitmentRow({
         <ConfirmDialog
           open={confirmDelete}
           title="Delete this commitment?"
-          message="This can't be undone. Any linkage to a priority will be lost too."
+          message="This can't be undone. Any linkage to an action will be lost too."
           confirmLabel="Delete"
           tone="danger"
           onConfirm={runDelete}
@@ -595,7 +595,7 @@ function PriorityCell({
         className={styles.rowPriorityGhost}
         onClick={() => setPicking(true)}
         disabled={disabled}
-        aria-label="Change priority link"
+        aria-label="Change action link"
       >
         {commitment.priority.title}
       </button>

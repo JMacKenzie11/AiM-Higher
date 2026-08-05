@@ -89,7 +89,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
           />
         ) : (
           <span className={styles.toolbarMuted}>
-            No quarters yet — open one to add priorities.
+            No quarters yet — open one to add actions.
           </span>
         )}
         {isAdmin ? (
@@ -220,7 +220,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                                 <StatusChip status={goal.status} />
                                 <ProgressBar
                                   percent={goal.percent}
-                                  label="No priorities yet"
+                                  label="No actions yet"
                                 />
                               </div>
                             </summary>
@@ -228,8 +228,8 @@ export default async function PlanPage({ searchParams }: PageProps) {
                               {goal.priorities.length === 0 ? (
                                 <p className={styles.emptyLine}>
                                   {selectedQuarter
-                                    ? `No priorities for ${selectedQuarter.label} yet.`
-                                    : "No priorities yet."}
+                                    ? `No actions for ${selectedQuarter.label} yet.`
+                                    : "No actions yet."}
                                 </p>
                               ) : (
                                 <ul className={styles.rowList}>
@@ -270,7 +270,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                               {isAdmin && selectedQuarter ? (
                                 <details className={styles.addDetails}>
                                   <summary className={styles.addSummary}>
-                                    + Add priority
+                                    + Add action
                                   </summary>
                                   <AddPriorityForm
                                     quarterId={selectedQuarter.id}

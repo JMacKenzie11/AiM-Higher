@@ -37,7 +37,12 @@ export function ResetPasswordForm({
   if (succeeded) {
     // ASSUMPTION: brief pause so the success message is legible before
     // the redirect fires. Keeps the "celebrate progress" voice.
-    setTimeout(() => router.push(redirectTo), 900);
+    // Full-page navigate so the browser reissues the request with the
+    // fresh Supabase cookies — otherwise the stale RSC prefetch cache
+    // from the pre-auth session breaks subsequent link clicks.
+    setTimeout(() => {
+      window.location.href = redirectTo;
+    }, 900);
     return (
       <p className={formStyles.successMessage} role="status">
         {successMessage}

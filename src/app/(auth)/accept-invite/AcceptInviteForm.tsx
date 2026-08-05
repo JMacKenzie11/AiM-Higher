@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import formStyles from "@/components/auth-shell/AuthForm.module.css";
 import {
   setNewPasswordAction,
@@ -27,7 +26,6 @@ export function AcceptInviteForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [accepting, startAccept] = useTransition();
   const [accepted, setAccepted] = useState(false);
-  const router = useRouter();
 
   const errorMessage = state && "ok" in state && !state.ok ? state.message : null;
   const passwordSet = state && "ok" in state && state.ok && !pending;
@@ -40,7 +38,15 @@ export function AcceptInviteForm() {
         return;
       }
       setAccepted(true);
-      setTimeout(() => router.push("/"), 900);
+      // Full-page navigate — the accept action just flipped the
+      // profile row from pending → active and Supabase set fresh
+      // auth cookies. router.push() would use the stale RSC
+      // prefetch cache from before authentication, which shows the
+      // shell but breaks subsequent client-side link clicks until a
+      // hard refresh. window.location resets everything cleanly.
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 900);
     });
   }
 
