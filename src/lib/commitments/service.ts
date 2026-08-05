@@ -296,7 +296,9 @@ export async function getCommitmentsPageData(
 
   // Everything currently in play: past-week open (would've been "Needs
   // Attention") plus this-week open + resolved. One list, sorted so
-  // overdue floats to the top and resolved sinks to the bottom.
+  // commitments group by owner and, within each owner, sit in
+  // earliest-due-date-first order. Unassigned commitments fall to
+  // the end.
   const mainList = filtered
     .filter(
       (c) =>
@@ -304,7 +306,7 @@ export async function getCommitmentsPageData(
         c.week_ending === thisFri
     )
     .map(enrich)
-    .sort(byOpenFirstThenDue(todayIso));
+    .sort(byOwnerThenDue);
 
   // Prior-week groups contain ONLY resolved rows by definition — open
   // rows in past weeks live in Needs Attention above.
@@ -365,35 +367,15 @@ async function loadOpenPriorityOptions(
   return (data ?? []) as Array<Pick<Priority, "id" | "title">>;
 }
 
-// Sort helpers. "Overdue first" means: within open rows, overdue asc,
-// then non-overdue asc. Resolved rows always render at the bottom of
-// their group (60% opacity, per spec) so we handle that in the row order
-// rather than filtering here.
-function compareByDueThenOverdueFirst(todayIso: string) {
-  return (a: Commitment, b: Commitment) => {
-    const aOver = a.due_date < todayIso ? 0 : 1;
-    const bOver = b.due_date < todayIso ? 0 : 1;
-    if (aOver !== bOver) return aOver - bOver;
-    return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0;
-  };
-}
-
-function byOpenFirstThenDue(todayIso: string) {
-  return (a: Commitment, b: Commitment) => {
-    // Open above resolved.
-    const aOpen = a.status === "open" ? 0 : 1;
-    const bOpen = b.status === "open" ? 0 : 1;
-    if (aOpen !== bOpen) return aOpen - bOpen;
-
-    // Within open: overdue first, then due date asc.
-    if (aOpen === 0) {
-      return compareByDueThenOverdueFirst(todayIso)(a, b);
-    }
-
-    // Within resolved: newest completed_at first, falling back to due date.
-    const aCompleted = a.completed_at ?? "";
-    const bCompleted = b.completed_at ?? "";
-    if (aCompleted !== bCompleted) return aCompleted < bCompleted ? 1 : -1;
-    return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0;
-  };
+// Sort by owner name, then earliest due date. Unassigned rows
+// sink to the end so an assigned list doesn't get split by a null.
+function byOwnerThenDue(a: CommitmentWithMeta, b: CommitmentWithMeta): number {
+  const aName = a.owner?.full_name ?? "";
+  const bName = b.owner?.full_name ?? "";
+  // Empty string sorts last (unassigned to the bottom).
+  if (aName === "" && bName !== "") return 1;
+  if (bName === "" && aName !== "") return -1;
+  const nameCmp = aName.localeCompare(bName, undefined, { sensitivity: "base" });
+  if (nameCmp !== 0) return nameCmp;
+  return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0;
 }

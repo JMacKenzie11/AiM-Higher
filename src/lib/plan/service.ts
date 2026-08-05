@@ -73,6 +73,9 @@ export async function getCascade(
           .eq("company_id", companyId)
           .eq("archived", false)
           .eq("quarter_id", quarterId)
+          // Earliest due date first — priorities without a due date
+          // sort last, then sort_order/created_at as tiebreakers.
+          .order("due_date", { ascending: true, nullsFirst: false })
           .order("sort_order")
           .order("created_at")
       : Promise.resolve({ data: [] as Priority[], error: null }),
@@ -244,6 +247,7 @@ export async function getGoalDetail(goalId: string) {
       .select("*")
       .eq("annual_goal_id", goal.id)
       .eq("archived", false)
+      .order("due_date", { ascending: true, nullsFirst: false })
       .order("sort_order"),
     goal.sfa_id
       ? supabase
