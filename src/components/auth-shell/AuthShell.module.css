@@ -80,14 +80,25 @@
   border-radius: var(--radius-sm);
 }
 
-.footerLink:hover {
+/* The <a> inside inherits the wrapper's colour rather than picking
+   up the browser default dark-blue link colour. Previously the
+   selector only styled the wrapper, so the anchor rendered as
+   near-invisible dark blue on the dark-blue auth shell. */
+.footerLink a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.footerLink:hover,
+.footerLink a:hover {
   opacity: 1;
   color: var(--aims-white);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.footerLink:focus-visible {
+.footerLink:focus-visible,
+.footerLink a:focus-visible {
   outline: 2px solid var(--aims-white);
   outline-offset: 2px;
 }
