@@ -99,12 +99,14 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 + {quarters.length === 0 ? "Open your first quarter" : "Open next quarter"}
               </Link>
             ) : null}
-            {/* Progressive add — the cascade only reads correctly if
-                built top-down. Reveal each next level only once the
-                previous one has something to hang from. Bulk Reset
-                has moved out of this toolbar into a dedicated danger
-                zone at the bottom of the page so it can't be
-                mistaken for a primary create action. */}
+            {/* All three add buttons are always available for admins.
+                Goals and Actions save as "standalone" when their
+                parent picker is left on "Not linked (yet)", and each
+                unlinked row renders in its own section below the
+                cascade. Users can link them via the row's inline
+                picker whenever the parent exists. Bulk Reset lives
+                in the dedicated danger zone at the bottom so it
+                can't be mistaken for a primary create action. */}
             <details className={styles.toolbarAddDetails}>
               <summary className={styles.toolbarAddSummary}>
                 + Add Strategic Focus Area
@@ -113,21 +115,19 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 <AddSfaForm people={roster} />
               </div>
             </details>
-            {sfaOptions.length > 0 ? (
-              <details className={styles.toolbarAddDetails}>
-                <summary className={styles.toolbarAddSummary}>
-                  + Add Annual Goal
-                </summary>
-                <div className={styles.toolbarAddPanel}>
-                  <AddGoalForm
-                    defaultSfaId={null}
-                    sfaOptions={sfaOptions}
-                    people={roster}
-                  />
-                </div>
-              </details>
-            ) : null}
-            {selectedQuarter && goalOptions.length > 0 ? (
+            <details className={styles.toolbarAddDetails}>
+              <summary className={styles.toolbarAddSummary}>
+                + Add Annual Goal
+              </summary>
+              <div className={styles.toolbarAddPanel}>
+                <AddGoalForm
+                  defaultSfaId={null}
+                  sfaOptions={sfaOptions}
+                  people={roster}
+                />
+              </div>
+            </details>
+            {selectedQuarter ? (
               <details className={styles.toolbarAddDetails}>
                 <summary className={styles.toolbarAddSummary}>
                   + Add 90-Day Action

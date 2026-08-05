@@ -11,12 +11,16 @@ forward.
 
 ## Common things people do here
 
-- **Build the cascade top-down** — the toolbar's Add controls
-  reveal progressively: *+ Add Strategic Focus Area* is always
-  available; *+ Add Annual Goal* appears once at least one Focus
-  Area exists; *+ Add 90-Day Action* appears once at least one
-  Goal exists. That ordering prevents orphaned items and matches
-  how the cascade actually reads.
+- **Add anywhere in the cascade** — the toolbar always shows
+  *+ Add Strategic Focus Area*, *+ Add Annual Goal*, and (once a
+  quarter is open) *+ Add 90-Day Action*. If the parent above
+  doesn't exist yet, leave the picker on "Not linked (yet)" and
+  the new row lands in a *Standalone* section below the cascade.
+  Link it to a parent later via the inline picker on the row.
+- **Build top-down when you can** — the cascade reads best when
+  Focus Areas come first, then Goals under them, then Actions
+  under those. Standalone rows are a landing pad for messy
+  real-world sequencing, not the default shape.
 - **Open an action** — click its title to see the action detail
   page, owner, and the commitments feeding it. The read-view hero
   puts Status and Progress on their own row underneath the
