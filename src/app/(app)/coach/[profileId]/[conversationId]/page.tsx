@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getConversation, getMessages } from "@/lib/coach/service";
+import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "./ChatView";
 import type { Profile } from "@/lib/types";
-import styles from "../../coach.module.css";
 
 type PageProps = {
   params: Promise<{ profileId: string; conversationId: string }>;
@@ -45,10 +44,13 @@ export default async function CoachChatPage({ params }: PageProps) {
   const firstName = subject.full_name.split(" ")[0] ?? subject.full_name;
 
   return (
-    <div className={styles.page}>
-      <Link href={`/coach/${profileId}`} className={styles.crumb}>
-        ← All conversations
-      </Link>
+    <PageShell
+      backHref={`/coach/${profileId}`}
+      backLabel="All conversations"
+      eyebrow="Coaching"
+      title={subject.full_name}
+      subtitle={subject.position ?? undefined}
+    >
       <ChatView
         conversation={conversation}
         subjectName={subject.full_name}
@@ -61,6 +63,6 @@ export default async function CoachChatPage({ params }: PageProps) {
           created_at: m.created_at,
         }))}
       />
-    </div>
+    </PageShell>
   );
 }

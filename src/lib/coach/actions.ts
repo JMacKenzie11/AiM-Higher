@@ -213,7 +213,125 @@ export async function renameConversationAction(
   return { ok: true };
 }
 
+// ---- Auto-title from first exchange -----------------------------
+// After the assistant streams its first response, ChatView fires
+// this to swap the boilerplate "Coaching · Jul 30" title for a
+// short summary of what the thread is actually about. The user can
+// still rename anytime — we detect that by only touching titles
+// that still match the default pattern.
+export type GenerateTitleResult =
+  | { ok: true; title: string | null }
+  | { ok: false; message: string };
+
+export async function generateConversationTitleAction(
+  conversationId: string
+): Promise<GenerateTitleResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: convo } = await supabase
+    .from("coaching_conversations")
+    .select("id, title, created_by, subject_profile_id, mode")
+    .eq("id", conversationId)
+    .maybeSingle<
+      Pick<
+        CoachingConversation,
+        "id" | "title" | "created_by" | "subject_profile_id" | "mode"
+      >
+    >();
+  if (!convo) return { ok: false, message: "Conversation not found." };
+  if (convo.created_by !== session.profile.id) {
+    return { ok: false, message: "Not yours." };
+  }
+
+  // Only auto-title if the user hasn't renamed it. Default titles
+  // look like "Coaching · Jul 30" — if the current title doesn't
+  // match, treat that as a manual edit and leave it alone.
+  if (!DEFAULT_TITLE_PATTERN.test(convo.title)) {
+    return { ok: true, title: null };
+  }
+
+  const { data: rows } = await supabase
+    .from("coaching_messages")
+    .select("role, content")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true })
+    .limit(2);
+  const messages = (rows ?? []) as Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
+  if (messages.length < 2) return { ok: true, title: null };
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return { ok: false, message: "Model not configured." };
+
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
+  const client = new Anthropic({ apiKey });
+
+  const transcript = messages
+    .map((m) => `${m.role === "user" ? "User" : "Coach"}: ${m.content}`)
+    .join("\n\n");
+
+  let generated: string | null = null;
+  try {
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 40,
+      system:
+        "You produce short, specific titles for coaching conversations. Return 4–8 words that capture the topic, no quotes, no trailing punctuation. Prefer concrete nouns and verbs over generic labels.",
+      messages: [
+        {
+          role: "user",
+          content: `Give this coaching conversation a short title (4–8 words).\n\n${transcript}`,
+        },
+      ],
+    });
+    const text = response.content
+      .flatMap((b) => (b.type === "text" ? [b.text] : []))
+      .join("")
+      .trim()
+      .replace(/^["'`]|["'`]$/g, "")
+      .replace(/[.!?]+$/, "");
+    if (text) generated = text.slice(0, 120);
+  } catch (err) {
+    console.error("generateConversationTitleAction: model call failed", err);
+    return { ok: false, message: "Couldn't summarize the conversation." };
+  }
+
+  if (!generated) return { ok: true, title: null };
+
+  // Re-check the title right before writing — if the user renamed
+  // during the ~1s model call, don't stomp on them.
+  const { data: fresh } = await supabase
+    .from("coaching_conversations")
+    .select("title")
+    .eq("id", conversationId)
+    .maybeSingle<{ title: string }>();
+  if (!fresh || !DEFAULT_TITLE_PATTERN.test(fresh.title)) {
+    return { ok: true, title: null };
+  }
+
+  const { error } = await supabase
+    .from("coaching_conversations")
+    .update({ title: generated })
+    .eq("id", conversationId);
+  if (error) return { ok: false, message: "Couldn't save the title." };
+
+  if (convo.mode === "general") {
+    revalidatePath("/ask-aimee");
+    revalidatePath(`/ask-aimee/${conversationId}`);
+  } else if (convo.subject_profile_id) {
+    revalidatePath(`/coach/${convo.subject_profile_id}`);
+    revalidatePath(`/coach/${convo.subject_profile_id}/${conversationId}`);
+  }
+
+  return { ok: true, title: generated };
+}
+
 // ---- Helpers ----------------------------------------------------
+const DEFAULT_TITLE_PATTERN = /^Coaching · [A-Z][a-z]+ \d{1,2}$/;
+
 function defaultTitleForToday(): string {
   const now = new Date();
   const label = now.toLocaleDateString(undefined, {

@@ -9,7 +9,11 @@ import {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { renameConversationAction } from "@/lib/coach/actions";
+import { useRouter } from "next/navigation";
+import {
+  generateConversationTitleAction,
+  renameConversationAction,
+} from "@/lib/coach/actions";
 import type { CoachingConversation } from "@/lib/coach/service";
 import styles from "../../coach.module.css";
 
@@ -74,6 +78,10 @@ export function ChatView({
   const threadRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const router = useRouter();
+  // The first exchange is what triggers auto-titling. Track it so
+  // subsequent completions don't refire the model call.
+  const autoTitledRef = useRef(false);
 
   // Keep the bottom of the thread in view as the assistant streams.
   // The scroll container here is the window (sticky header + composer
@@ -150,11 +158,30 @@ export function ChatView({
             );
           },
           onDone: () => {
-            setMessages((prev) =>
-              prev.map((m) =>
+            setMessages((prev) => {
+              const next = prev.map((m) =>
                 m.id === assistantId ? { ...m, streaming: false } : m
-              )
-            );
+              );
+              // First exchange done → ask the server for a real
+              // title (defaults look like "Coaching · Jul 30"). Only
+              // once per conversation instance.
+              if (!autoTitledRef.current && next.length === 2) {
+                autoTitledRef.current = true;
+                generateConversationTitleAction(conversation.id)
+                  .then((result) => {
+                    if (result.ok && result.title) {
+                      setTitle(result.title);
+                      setRenameValue(result.title);
+                      router.refresh();
+                    }
+                  })
+                  .catch((err) => {
+                    // Non-fatal — the default title stays.
+                    console.warn("auto-title failed", err);
+                  });
+              }
+              return next;
+            });
           },
         });
       } catch (error) {

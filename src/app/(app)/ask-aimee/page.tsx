@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth/current-user";
 import { listGeneralConversationsForUser } from "@/lib/coach/service";
+import { PageShell } from "@/components/ui/PageShell";
 import { AskAimeeNewButton } from "./AskAimeeNewButton";
 import { ArchiveConversationButton } from "../coach/[profileId]/ArchiveConversationButton";
 import styles from "../coach/coach.module.css";
@@ -16,19 +17,11 @@ export default async function AskAimeePage() {
   const conversations = await listGeneralConversationsForUser(session.profile.id);
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <p className={styles.eyebrow}>Coaching</p>
-        <h1 className={styles.h1}>Ask Aimee</h1>
-        <span className="aims-rule" aria-hidden="true" />
-        <p className={styles.subtitle}>
-          A thinking partner for the situation you&rsquo;re working through: a
-          decision, a conversation to prep for, an employee not on the
-          platform, or your own leadership. Your Ask Aimee conversations are
-          visible only to you.
-        </p>
-      </header>
-
+    <PageShell
+      eyebrow="Coaching"
+      title="Ask Aimee"
+      subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Your Ask Aimee conversations are visible only to you."
+    >
       <div className={styles.listActions}>
         <AskAimeeNewButton />
       </div>
@@ -64,7 +57,7 @@ export default async function AskAimeePage() {
           ))
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }
 

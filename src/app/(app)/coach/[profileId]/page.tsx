@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listConversationsForSubject } from "@/lib/coach/service";
 import { NewConversationButton } from "./NewConversationButton";
 import { ArchiveConversationButton } from "./ArchiveConversationButton";
+import { PageShell } from "@/components/ui/PageShell";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import type { Profile } from "@/lib/types";
 import styles from "../coach.module.css";
@@ -47,31 +48,21 @@ export default async function CoachListPage({ params }: PageProps) {
   const conversations = await listConversationsForSubject(profileId);
 
   const firstName = subject.full_name.split(" ")[0] ?? subject.full_name;
-  const backHref = `/people/${profileId}`;
-  const backLabel = `Back to ${firstName}'s scorecard`;
 
   return (
-    <div className={styles.page}>
-      <Link href={backHref} className={styles.crumb}>
-        ← {backLabel}
-      </Link>
-      <header className={styles.header}>
-        <p className={styles.eyebrow}>Coaching</p>
-        <h1 className={styles.h1}>Coaching · {subject.full_name}</h1>
-        <span className="aims-rule" aria-hidden="true" />
-        {subject.position ? (
-          <p className={styles.conversationMeta}>{subject.position}</p>
-        ) : null}
-      </header>
-
-      <div style={{ marginTop: "var(--space-3)" }}>
-        <PrivacyNote tone="private">
-          Only you can see the coaching threads you create about{" "}
-          {firstName}. Other admins and {firstName}&rsquo;s direct manager
-          can create their own separate threads — those stay private to
-          their creator too. {firstName} cannot see any of them.
-        </PrivacyNote>
-      </div>
+    <PageShell
+      backHref={`/people/${profileId}`}
+      backLabel={`Back to ${firstName}'s scorecard`}
+      eyebrow="Coaching"
+      title={subject.full_name}
+      subtitle={subject.position ?? undefined}
+    >
+      <PrivacyNote tone="private">
+        Only you can see the coaching threads you create about {firstName}.
+        Other admins and {firstName}&rsquo;s direct manager can create their
+        own separate threads — those stay private to their creator too.{" "}
+        {firstName} cannot see any of them.
+      </PrivacyNote>
 
       <div className={styles.listActions}>
         <NewConversationButton profileId={profileId} />
@@ -80,8 +71,8 @@ export default async function CoachListPage({ params }: PageProps) {
       <div className={styles.card}>
         {conversations.length === 0 ? (
           <p className={styles.emptyLine}>
-            No conversations yet. Start one to talk through what&rsquo;s on your
-            mind about {subject.full_name.split(" ")[0]}.
+            No conversations yet. Start one to talk through what&rsquo;s on
+            your mind about {firstName}.
           </p>
         ) : (
           conversations.map((c) => (
@@ -109,7 +100,7 @@ export default async function CoachListPage({ params }: PageProps) {
           ))
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }
 

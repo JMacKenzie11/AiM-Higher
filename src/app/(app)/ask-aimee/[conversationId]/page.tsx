@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getConversation, getMessages } from "@/lib/coach/service";
+import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
-import styles from "../../coach/coach.module.css";
 
 type PageProps = {
   params: Promise<{ conversationId: string }>;
@@ -29,10 +28,12 @@ export default async function AskAimeeChatPage({ params }: PageProps) {
   const messages = await getMessages(conversationId);
 
   return (
-    <div className={styles.page}>
-      <Link href="/ask-aimee" className={styles.crumb}>
-        ← All conversations
-      </Link>
+    <PageShell
+      backHref="/ask-aimee"
+      backLabel="All conversations"
+      eyebrow="Coaching"
+      title="Ask Aimee"
+    >
       <ChatView
         conversation={conversation}
         subjectName={null}
@@ -45,6 +46,6 @@ export default async function AskAimeeChatPage({ params }: PageProps) {
           created_at: m.created_at,
         }))}
       />
-    </div>
+    </PageShell>
   );
 }
