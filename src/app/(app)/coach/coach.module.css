@@ -47,10 +47,18 @@
   text-decoration: underline;
 }
 
-/* ---- List view ---- */
+/* ---- List view ----
+   Card-shaped so the primary button doesn't disappear into the hero's
+   blue background when the content area overlaps the hero. Matches
+   the toolbar treatment on /plan and /chart. */
 .listActions {
   display: flex;
   justify-content: flex-end;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-3) var(--space-4);
 }
 
 .primaryButton {
