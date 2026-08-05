@@ -7,6 +7,7 @@ import {
   getCommitmentsPageData,
   type CommitmentFilters,
 } from "@/lib/commitments/service";
+import { PageShell } from "@/components/ui/PageShell";
 import { CommitmentRow } from "./CommitmentRow";
 import { FilterPills } from "./FilterPills";
 import { InlineAddRow } from "./InlineAddRow";
@@ -48,48 +49,46 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
     : "No quarter is open for this week. Ask your company admin to open one.";
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.h1}>Commitments</h1>
-        <span className="aims-rule" aria-hidden="true" />
-        <p className={styles.subtitle}>Every agreement, in one place.</p>
+    <PageShell
+      eyebrow="Company"
+      title="Commitments"
+      subtitle="Every agreement, in one place."
+    >
+      <div className={styles.statBar}>
+        <span className={styles.statPill}>
+          <span className={`${styles.statPillValue} aims-tabular`}>
+            {data.headerStats.openThisWeek}
+          </span>
+          <span className={styles.statPillLabel}>Open this week</span>
+        </span>
+        <span className={styles.statPill}>
+          <span className={`${styles.statPillValue} aims-tabular`}>
+            {data.headerStats.needsAttentionCount}
+          </span>
+          <span className={styles.statPillLabel}>Needs attention</span>
+        </span>
+        <span className={styles.statPill}>
+          <span className={`${styles.statPillValue} aims-tabular`}>
+            {data.headerStats.keepRateThisQuarter === null
+              ? "—"
+              : `${data.headerStats.keepRateThisQuarter}%`}
+          </span>
+          <span className={styles.statPillLabel}>Follow-Through Rate this quarter</span>
+        </span>
+      </div>
 
-        <div className={styles.statBar}>
-          <span className={styles.statPill}>
-            <span className={`${styles.statPillValue} aims-tabular`}>
-              {data.headerStats.openThisWeek}
-            </span>
-            <span className={styles.statPillLabel}>Open this week</span>
-          </span>
-          <span className={styles.statPill}>
-            <span className={`${styles.statPillValue} aims-tabular`}>
-              {data.headerStats.needsAttentionCount}
-            </span>
-            <span className={styles.statPillLabel}>Needs attention</span>
-          </span>
-          <span className={styles.statPill}>
-            <span className={`${styles.statPillValue} aims-tabular`}>
-              {data.headerStats.keepRateThisQuarter === null
-                ? "—"
-                : `${data.headerStats.keepRateThisQuarter}%`}
-            </span>
-            <span className={styles.statPillLabel}>Follow-Through Rate this quarter</span>
-          </span>
+      {!data.openQuarter ? (
+        <div className={styles.noticeCard}>
+          <p className={styles.noticeText}>
+            No open quarter yet. Actions live inside a quarter.
+          </p>
+          {isAdmin ? (
+            <Link href="/quarters" className={styles.primaryLink}>
+              Open this quarter →
+            </Link>
+          ) : null}
         </div>
-
-        {!data.openQuarter ? (
-          <div className={styles.noticeCard}>
-            <p className={styles.noticeText}>
-              No open quarter yet. Actions live inside a quarter.
-            </p>
-            {isAdmin ? (
-              <Link href="/quarters" className={styles.primaryLink}>
-                Open this quarter →
-              </Link>
-            ) : null}
-          </div>
-        ) : null}
-      </header>
+      ) : null}
 
       <FilterPills
         currentUserId={session.profile.id}
@@ -234,7 +233,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
           </div>
         </section>
       ) : null}
-    </div>
+    </PageShell>
   );
 }
 

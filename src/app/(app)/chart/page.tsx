@@ -5,6 +5,7 @@ import {
   getChartTree,
   type ChartFunction,
 } from "@/lib/chart/service";
+import { PageShell } from "@/components/ui/PageShell";
 import { AddFunctionForm } from "./InlineForms";
 import { DraggableTree } from "./DraggableTree";
 import styles from "./chart.module.css";
@@ -38,18 +39,18 @@ export default async function ChartPage() {
   const parentOptions = flattenForParentPicker(roots);
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.h1}>Chart</h1>
-        <span className="aims-rule" aria-hidden="true" />
-        <p className={styles.subtitle}>
-          The functions that run the business. Each box shows who&rsquo;s in the
-          seat and what they&rsquo;re obsessed with delivering. Click a
+    <PageShell
+      eyebrow="Company"
+      title="Chart"
+      subtitle={
+        <>
+          The functions that run the business. Each box shows who&rsquo;s in
+          the seat and what they&rsquo;re obsessed with delivering. Click a
           function to see its success measures.
           {isAdmin ? " Drag a card to reorder siblings." : null}
-        </p>
-      </header>
-
+        </>
+      }
+    >
       {isAdmin ? (
         <div className={styles.toolbar}>
           <details className={styles.addDetails}>
@@ -66,7 +67,7 @@ export default async function ChartPage() {
           <DraggableTree roots={roots} canReorder={isAdmin} />
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }
 

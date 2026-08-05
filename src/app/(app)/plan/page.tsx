@@ -13,6 +13,7 @@ import { AddPriorityForm } from "./AddPriorityForm";
 import { LinkGoalToSfaSelect } from "./LinkGoalToSfaSelect";
 import { LinkPriorityToGoalSelect } from "./LinkPriorityToGoalSelect";
 import { PlanCascadeController } from "./PlanCascadeController";
+import { PageShell } from "@/components/ui/PageShell";
 import styles from "./plan.module.css";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
@@ -64,15 +65,11 @@ export default async function PlanPage({ searchParams }: PageProps) {
   ];
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.h1}>Strategic Plan</h1>
-        <span className="aims-rule" aria-hidden="true" />
-        <p className={styles.subtitle}>
-          The cascade for your company, one quarter at a time.
-        </p>
-      </header>
-
+    <PageShell
+      eyebrow="Company"
+      title="Strategic Plan"
+      subtitle="The cascade for your company, one quarter at a time."
+    >
       {/* Toolbar is always visible. SFAs and annual goals aren't
           quarter-scoped, so the operator can populate the top of the
           cascade before opening a quarter. Only priorities need a
@@ -410,7 +407,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
           </div>
           </PlanCascadeController>
 
-    </div>
+    </PageShell>
   );
 }
 

@@ -5,6 +5,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationListChip } from "@/components/leadership/FacilitationReview";
+import { PageShell } from "@/components/ui/PageShell";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type { Meeting } from "@/lib/types";
 import styles from "../admin/companies/admin.module.css";
@@ -65,22 +66,12 @@ export default async function LeadershipPage() {
   }
 
   return (
-    <div className={styles.stage}>
-      <header className={styles.hero}>
-        <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>Company</p>
-          <h1 className={styles.h1}>Leadership</h1>
-          <span className={styles.rule} aria-hidden="true" />
-          <p className={styles.subtitle}>
-            Every meeting transcript this company has run through the
-            analyzer, most recent first. Click a complete analysis to see
-            the full write-up and the commitments it created.
-          </p>
-        </div>
-      </header>
-
-      <div className={styles.content}>
-        <section className={styles.card} aria-labelledby="meetings-list">
+    <PageShell
+      eyebrow="Company"
+      title="Meetings"
+      subtitle="Every meeting transcript this company has run through the analyzer, most recent first. Click a complete analysis to see the full write-up and the commitments it created."
+    >
+      <section className={styles.card} aria-labelledby="meetings-list">
           <h2 id="meetings-list" className={styles.h2}>
             Meetings
           </h2>
@@ -154,7 +145,6 @@ export default async function LeadershipPage() {
             </table>
           )}
         </section>
-      </div>
-    </div>
+    </PageShell>
   );
 }
