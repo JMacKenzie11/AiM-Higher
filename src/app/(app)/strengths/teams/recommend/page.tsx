@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import AdminBackLink from "@/components/strengths/AdminBackLink";
+import Link from "next/link";
 import RecommendPage from "@/components/strengths/teams/RecommendPage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ResultsProfile } from "@/lib/strengths/types";
+import styles from "../../strengths.module.css";
 
 export default async function RecommendRoute() {
   const supabase = await createSupabaseServerClient();
@@ -35,19 +36,15 @@ export default async function RecommendRoute() {
     ? await loadEligible(supabase, defaultCompanyId)
     : [];
 
-  const isSystemAdmin = me.role === "system_admin";
-  void isSystemAdmin;
-  // Back link goes to the Teams list, which is where the admin came from
-  // when they opened this wizard.
-  const backHref = "/strengths/teams";
-  const backLabel = "Back to Teams";
-
   return (
     <>
       <div className="hero-shell">
-  
+
         <div className="hero-body">
           <div className="container-wide">
+            <Link href="/strengths/teams" className={styles.backCrumbLink}>
+              ← Back to teams
+            </Link>
             <div className="eyebrow">Team builder</div>
             <h1 className="hero-title">Recommend a team</h1>
             <div className="hero-bar" aria-hidden="true" />
@@ -56,7 +53,6 @@ export default async function RecommendRoute() {
               roster and explains the reasoning. Nothing saves until you
               confirm. The final call is yours.
             </p>
-            <AdminBackLink href={backHref} label={backLabel} />
           </div>
         </div>
       </div>

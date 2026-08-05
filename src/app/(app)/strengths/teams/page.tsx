@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import AdminBackLink from "@/components/strengths/AdminBackLink";
 import CreateTeamForm from "@/components/strengths/teams/CreateTeamForm";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { MISSION_LABELS } from "@/lib/strengths/team-labels";
@@ -51,30 +50,6 @@ export default async function TeamsListPage() {
 
   const isSystemAdmin = me.role === "system_admin";
 
-  // Back link destination:
-  //  - company admin → their own company overview
-  //  - system admin → if every team on the list belongs to the same
-  //    company, return the admin to that specific company's overview;
-  //    otherwise fall back to the companies list.
-  const myCompanyName = me.company_id
-    ? companyById.get(me.company_id) ?? ""
-    : "";
-
-  let backHref = "/admin/companies";
-  let backLabel = `Back to ${myCompanyName || "Companies"}`;
-  if (isSystemAdmin) {
-    const distinctCompanyIds = new Set(teamRows.map((t) => t.company_id));
-    if (distinctCompanyIds.size === 1) {
-      const onlyId = Array.from(distinctCompanyIds)[0];
-      const onlyName = companyById.get(onlyId) ?? "company";
-      backHref = `/admin/companies/${onlyId}`;
-      backLabel = `Back to ${onlyName}`;
-    } else {
-      backHref = "/admin/companies";
-      backLabel = "Back to Companies";
-    }
-  }
-
   return (
     <div className={styles.stage}>
       <section className={styles.hero} aria-label="Team builder">
@@ -90,8 +65,6 @@ export default async function TeamsListPage() {
       </section>
 
       <div className={styles.content}>
-        {isSystemAdmin ? <AdminBackLink href={backHref} label={backLabel} /> : null}
-
         <section className={styles.card} aria-labelledby="teams-list">
           <div className={styles.cardHeader}>
             <h2 id="teams-list" className={styles.h2}>

@@ -1,9 +1,10 @@
 import { redirect, notFound } from "next/navigation";
-import AdminBackLink from "@/components/strengths/AdminBackLink";
+import Link from "next/link";
 import TeamPage from "@/components/strengths/teams/TeamPage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ResultsProfile } from "@/lib/strengths/types";
 import type { MissionType } from "@/lib/strengths/team-scoring";
+import styles from "../../strengths.module.css";
 
 export default async function TeamDetailPage({
   params,
@@ -34,12 +35,6 @@ export default async function TeamDetailPage({
     .single();
   if (!team) notFound();
 
-  // Back link destination is the Teams list; from there the admin can jump
-  // back to the company overview if they need to.
-  const isSystemAdmin = me.role === "system_admin";
-  const backHref = "/strengths/teams";
-  const backLabel = "Back to Teams";
-  void isSystemAdmin;
 
   // Roster
   const { data: memberships } = await supabase
@@ -150,14 +145,16 @@ export default async function TeamDetailPage({
   
         <div className="hero-body">
           <div className="container-wide">
+            <Link href="/strengths/teams" className={styles.backCrumbLink}>
+              ← Back to teams
+            </Link>
             <div className="eyebrow">Team builder</div>
             <h1 className="hero-title">{team.name}</h1>
             <div className="hero-bar" aria-hidden="true" />
             <p className="hero-sub">
-              This shows how energy configures for this mission. It's not a
-              ranking, and the final call is yours.
+              This shows how energy configures for this mission. It&rsquo;s not
+              a ranking, and the final call is yours.
             </p>
-            <AdminBackLink href={backHref} label={backLabel} />
           </div>
         </div>
       </div>
