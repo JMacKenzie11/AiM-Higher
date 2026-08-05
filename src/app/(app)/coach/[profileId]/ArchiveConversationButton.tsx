@@ -41,7 +41,7 @@ export function ArchiveConversationButton({
       <ConfirmDialog
         open={confirmOpen}
         title="Archive this conversation?"
-        message="It disappears from the list. The messages stay on file for the caller who owns the thread."
+        message="This hides the conversation from your list. The messages are kept on the server, but you won't see them here anymore."
         confirmLabel="Archive"
         tone="danger"
         onConfirm={run}

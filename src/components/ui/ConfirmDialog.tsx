@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import styles from "./ConfirmDialog.module.css";
 
 // Branded confirmation dialog — replacement for native window.confirm().
@@ -10,11 +11,12 @@ import styles from "./ConfirmDialog.module.css";
 // every "are you sure?" moment: destructive intent, kept intent, or
 // neutral confirm.
 //
-// Usage: keep a piece of state in the caller for what to confirm,
-// pass onConfirm/onCancel handlers, and render this component.
-//
-// Not a portal (the app has no portal setup today); the fixed
-// positioning + high z-index handles the overlay.
+// Renders through a portal to document.body so the overlay always
+// covers the viewport. Without the portal, any ancestor with
+// transform/perspective/filter creates a new containing block for
+// position:fixed descendants, which can leave the overlay only
+// covering part of the screen — and the exposed hover states behind
+// it flash aggressively as the mouse moves.
 
 export type ConfirmTone = "danger" | "primary";
 
@@ -40,6 +42,13 @@ export function ConfirmDialog({
   pending?: boolean;
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Defer document.body access to after mount — SSR would otherwise
+  // reach for document, which doesn't exist server-side.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Escape to cancel; auto-focus the safe (cancel) button so a
   // stray Enter keypress doesn't run the destructive action.
@@ -53,9 +62,9 @@ export function ConfirmDialog({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onCancel, pending]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       className={styles.overlay}
       role="dialog"
@@ -92,6 +101,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
