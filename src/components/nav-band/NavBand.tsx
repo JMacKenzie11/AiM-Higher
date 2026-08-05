@@ -139,6 +139,24 @@ const APP_ITEMS: readonly NavItem[] = [
       },
     ],
   },
+  // Strengths — personal assessment + admin team-recommendation
+  // surface. Whole group hides when the tenant doesn't have the
+  // feature. Teams is gated to admins because the page redirects
+  // team members away.
+  {
+    kind: "group",
+    label: "Strengths",
+    feature: "strengths",
+    items: [
+      { kind: "link", label: "My assessment", href: "/strengths/welcome" },
+      {
+        kind: "link",
+        label: "Teams",
+        href: "/strengths/teams",
+        roles: ["system_admin", "company_admin"],
+      },
+    ],
+  },
   { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
 ];
 
