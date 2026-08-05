@@ -73,8 +73,10 @@
 }
 
 .heroAction {
-  align-self: flex-start;
-  margin-top: var(--space-2);
+  /* margin-top lives on the parent .heroActions row so every
+     button (heroAction + heroCoachAction) shares one baseline.
+     Was previously margin-top: space-2 here + margin-top: 0 on
+     heroCoachAction, which put the two pills on different lines. */
   display: inline-flex;
   align-items: center;
   height: var(--control-h-sm);
@@ -97,14 +99,14 @@
 
 .heroActions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .heroCoachAction {
   composes: heroAction;
-  margin-top: 0;
 }
 
 .content {
