@@ -12,11 +12,15 @@ export default async function AssessmentPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("first_name, position, company_id")
+    .select("first_name, position")
     .eq("id", user.id)
     .single();
-  if (!profile?.company_id) redirect("/strengths/welcome");
+  if (!profile) redirect("/sign-in");
 
+  // No company_id guard here — sysadmins take the assessment without
+  // one (migration 0123). If there's no in-progress assessment we
+  // bounce to /welcome, which handles the "start it" affordance and
+  // its own eligibility rules for non-sysadmin no-company users.
   const { data: assessment } = await supabase
     .from("strengths_assessments")
     .select("id, status")
