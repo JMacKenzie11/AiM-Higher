@@ -200,7 +200,11 @@ function FunctionBox({
       {canReorder ? (
         <button
           type="button"
-          className={styles.fnDragHandle}
+          // `chart-no-pan` opts the button out of the PanZoomTree
+          // wrapper's pan trigger — otherwise dnd-kit's reorder
+          // drag and react-zoom-pan-pinch's pan drag would fight
+          // for the same pointer stream.
+          className={`${styles.fnDragHandle} chart-no-pan`}
           aria-label={`Drag to reorder ${fn.title}`}
           title="Drag to reorder"
           {...dragHandleProps}

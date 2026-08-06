@@ -7,8 +7,8 @@ import {
 } from "@/lib/chart/service";
 import { PageShell } from "@/components/ui/PageShell";
 import { AddFunctionForm } from "./InlineForms";
-import { AutoFitTree } from "./AutoFitTree";
 import { DraggableTree } from "./DraggableTree";
+import { PanZoomTree } from "./PanZoomTree";
 import styles from "./chart.module.css";
 
 // Chart — an org-chart tree of the company's functions.
@@ -66,9 +66,9 @@ export default async function ChartPage() {
           <EmptyChart isAdmin={isAdmin} />
         ) : (
           <div className={styles.tree}>
-            <AutoFitTree>
+            <PanZoomTree>
               <DraggableTree roots={roots} canReorder={isAdmin} />
-            </AutoFitTree>
+            </PanZoomTree>
           </div>
         )}
       </div>

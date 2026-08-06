@@ -78,14 +78,77 @@
    that meet in the middle to form the L-shape. Works to any depth. */
 
 .tree {
-  /* Overflow hidden because the AutoFitTree wrapper inside scales
-     the whole tree down to fit — nothing should ever spill out
-     the sides. Padding + container-type stay so cards keep their
-     inner rhythm and container queries still work if we add them
-     to card contents later. */
+  /* Fixed-height viewport for the PanZoomTree canvas that lives
+     inside — the pan/zoom library needs a bounded outer to work
+     against. overflow: hidden so nothing spills the tree card
+     during pan; the library handles clipping internally too but
+     belt-and-suspenders. */
+  height: min(70vh, 720px);
   overflow: hidden;
-  padding: var(--space-2) 0 var(--space-4);
+  position: relative;
   container-type: inline-size;
+}
+
+.panZoomFrame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.panZoomWrapper {
+  width: 100% !important;
+  height: 100% !important;
+  cursor: grab;
+}
+
+.panZoomWrapper:active {
+  cursor: grabbing;
+}
+
+.panZoomContent {
+  padding: var(--space-6) var(--space-5);
+}
+
+.panZoomControls {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 5;
+  display: inline-flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  box-shadow: var(--shadow-sm);
+}
+
+.panZoomButton {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.panZoomButton:hover {
+  background: var(--aims-navy-tint);
+  color: var(--primary);
+}
+
+.panZoomButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* Only the ULs used for the tree scaffold get flex/gap layout — an
