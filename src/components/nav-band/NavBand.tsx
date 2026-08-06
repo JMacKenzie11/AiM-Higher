@@ -353,12 +353,14 @@ export function NavBand({
           </span>
         </button>
 
-        <NotificationBell items={[...notifications]} />
-        <UserMenu
-          userName={userName}
-          showExitScope={isSystemAdmin && showExitScope}
-          scopedCompanyName={scopedCompanyName}
-        />
+        <div className={styles.userCluster}>
+          <NotificationBell items={[...notifications]} />
+          <UserMenu
+            userName={userName}
+            showExitScope={isSystemAdmin && showExitScope}
+            scopedCompanyName={scopedCompanyName}
+          />
+        </div>
       </div>
 
       {mobileOpen ? (

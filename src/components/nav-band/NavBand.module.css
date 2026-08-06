@@ -229,6 +229,16 @@
   outline-offset: 2px;
 }
 
+/* Bell + user menu ride together on the right — outer .inner gap
+   (--space-6) separates the whole cluster from the nav, but within
+   the cluster the bell should sit tight against the user pill so
+   the two right-side controls read as one group. */
+.userCluster {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* ---- Notification bell + dropdown ---- */
 .bellWrap {
   position: relative;
