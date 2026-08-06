@@ -65,9 +65,20 @@ export function AddMetricRow({
 
   // AI takes precedence on any dimension it reported on; the rule
   // layer covers the rest. Both null on that dimension = no hint.
+  //
+  // Precedence rule: when the AI flags a fit problem, hide the
+  // metric- and target-quality hints. Polishing the wording of a
+  // metric that measures the wrong thing pulls attention from the
+  // real fix — rethink what to count. The prompt asks the model to
+  // null those out itself; this is a belt-and-suspenders filter.
+  const fitBad = !!aiCritique?.fitHint;
   const shownHints = {
-    descriptionHint: aiCritique?.descriptionHint ?? ruleHints.descriptionHint,
-    targetHint: aiCritique?.targetHint ?? ruleHints.targetHint,
+    descriptionHint: fitBad
+      ? null
+      : aiCritique?.descriptionHint ?? ruleHints.descriptionHint,
+    targetHint: fitBad
+      ? null
+      : aiCritique?.targetHint ?? ruleHints.targetHint,
     fitHint: aiCritique?.fitHint ?? null,
   };
 

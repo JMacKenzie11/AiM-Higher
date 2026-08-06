@@ -36,7 +36,9 @@ Return strict JSON in exactly this shape and nothing else — no prose, no code 
 
 {"descriptionHint": string|null, "targetHint": string|null, "fitHint": string|null}
 
-Each hint is null when that dimension passes, otherwise a short coaching note (≤160 chars). Keep hints constructive and concrete — suggest a better phrasing where possible. Do not simply repeat back the problem.`;
+Each hint is null when that dimension passes, otherwise a short coaching note (≤160 chars). Keep hints constructive and concrete — suggest a better phrasing where possible. Do not simply repeat back the problem.
+
+Important precedence rule: if the fit is bad, set descriptionHint AND targetHint to null and only return fitHint. Polishing the wording of a metric that measures the wrong thing is worse than useless — the user needs to rethink what they're counting, not sharpen the phrasing. Only critique the metric or target when the metric actually fits the parent Success Measure.`;
 
 export async function scoreMeasureDraft(input: {
   description: string;

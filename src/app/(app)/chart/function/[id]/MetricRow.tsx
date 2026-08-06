@@ -297,9 +297,18 @@ function EditMetricForm({
     [description, target, valueType]
   );
 
+  // Precedence rule mirrored from AddMetricRow: a fit problem
+  // suppresses the metric/target polish hints so the user's
+  // attention lands on "measure the right thing", not "sharpen a
+  // mismeasurement".
+  const fitBad = !!aiCritique?.fitHint;
   const shownHints = {
-    descriptionHint: aiCritique?.descriptionHint ?? ruleHints.descriptionHint,
-    targetHint: aiCritique?.targetHint ?? ruleHints.targetHint,
+    descriptionHint: fitBad
+      ? null
+      : aiCritique?.descriptionHint ?? ruleHints.descriptionHint,
+    targetHint: fitBad
+      ? null
+      : aiCritique?.targetHint ?? ruleHints.targetHint,
     fitHint: aiCritique?.fitHint ?? null,
   };
 
