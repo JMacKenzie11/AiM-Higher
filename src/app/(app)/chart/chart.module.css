@@ -120,14 +120,20 @@
   flex-direction: column;
   align-items: center;
   list-style: none;
-  /* Fully divide available horizontal space — no floor, no ceiling.
-     Cards may get very narrow when a function has many siblings;
-     content wraps aggressively and the tree still fits inside the
-     card. min-width: 0 is essential so flex actually shrinks past
-     the intrinsic content width. */
-  flex: 1 1 0;
+  /* Fixed width per card. Earlier we used `flex: 1 1 0` so cards
+     shared available space, which was tidy for small sibling
+     groups but hid the tree's true intrinsic width from the
+     AutoFitTree wrapper's measurement (scrollWidth matched the
+     container). With a fixed 220px cell the tree's max-content is
+     the honest sum of every card, and AutoFitTree can scale the
+     whole thing down to fit. Small sibling groups end up
+     centred with empty space on either side — a real tradeoff we
+     accept in exchange for wide-group / deep-tree layouts that no
+     longer clip. */
+  flex: 0 0 220px;
+  width: 220px;
   min-width: 0;
-  max-width: 240px;
+  max-width: 220px;
 }
 
 .treeNode::before,
