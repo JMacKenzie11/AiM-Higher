@@ -234,6 +234,33 @@ export async function updateFunctionRoleAction(
   return { ok: true, item: data };
 }
 
+// Lightweight inline rename — updates title only, leaves body intact.
+// Used by the click-to-edit affordance on the roles list where the
+// row shows just the title and there's no body field to submit.
+export async function renameFunctionRoleAction(
+  roleId: string,
+  newTitle: string
+): Promise<ChartResult<FunctionRole>> {
+  await requireRole(["system_admin", "company_admin"]);
+  const title = newTitle.trim();
+  if (!roleId || !title) return { ok: false, message: "Title can't be empty." };
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("function_roles")
+    .update({ title })
+    .eq("id", roleId)
+    .eq("is_default", false)
+    .select("*")
+    .single<FunctionRole>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't rename (the default role is locked)." };
+  }
+  revalidatePath("/chart");
+  revalidatePath(`/chart/function/${data.function_id}`);
+  return { ok: true, item: data };
+}
+
 export async function deleteFunctionRoleAction(
   roleId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {

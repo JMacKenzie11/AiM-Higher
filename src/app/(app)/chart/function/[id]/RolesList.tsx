@@ -1,20 +1,23 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useActionState } from "react";
 import {
   createFunctionRoleAction,
-  updateFunctionRoleAction,
   deleteFunctionRoleAction,
+  renameFunctionRoleAction,
   type ChartResult,
 } from "@/lib/chart/actions";
 import type { FunctionRole } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import styles from "../../chart.module.css";
 
-// Roles & Responsibilities editor. Same rhythm as the commitment
-// row: an always-live draft input at the bottom, Enter to save,
-// focus jumps back for the next one. The trigger-created default
-// "Lead, Track, Decide" row is locked (no edit, no delete).
+// Roles & Responsibilities editor.
+//   Baseline row (Lead, Track, Decide) is locked.
+//   Every other row is click-to-edit inline: click the title, type,
+//   blur or Enter to save, Escape to cancel. A trash icon on the
+//   right deletes with a confirm.
+//   Draft row at the bottom stays live: type + Enter to add another.
 
 const INITIAL: ChartResult<FunctionRole> = { ok: false, message: "" };
 
@@ -52,96 +55,83 @@ function DefaultRoleRow({ role }: { role: FunctionRole }) {
 
 function UserRoleRow({ role, canEdit }: { role: FunctionRole; canEdit: boolean }) {
   const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(role.title);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
-  if (!editing || !canEdit) {
-    return (
-      <div className={styles.roleRow}>
-        <div className={styles.roleMain}>
-          <span className={styles.roleTitle}>{role.title}</span>
-          {role.body ? <p className={styles.roleBody}>{role.body}</p> : null}
-        </div>
-        {canEdit ? (
-          <div className={styles.roleActions}>
-            <button
-              type="button"
-              className={styles.roleGhostButton}
-              onClick={() => setEditing(true)}
-            >
-              Edit
-            </button>
-            <DeleteRoleButton roleId={role.id} />
-          </div>
-        ) : null}
-      </div>
-    );
+  useEffect(() => {
+    setDraft(role.title);
+  }, [role.title]);
+
+  function commit() {
+    if (pending) return;
+    const next = draft.trim();
+    if (!next) {
+      cancel();
+      return;
+    }
+    if (next === role.title) {
+      setEditing(false);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await renameFunctionRoleAction(role.id, next);
+      if (!result.ok) {
+        setError(result.message);
+      } else {
+        setEditing(false);
+      }
+    });
+  }
+
+  function cancel() {
+    setDraft(role.title);
+    setEditing(false);
+    setError(null);
   }
 
   return (
-    <EditRoleForm role={role} onDone={() => setEditing(false)} />
-  );
-}
-
-function EditRoleForm({
-  role,
-  onDone,
-}: {
-  role: FunctionRole;
-  onDone: () => void;
-}) {
-  const [state, formAction, pending] = useActionState<
-    ChartResult<FunctionRole>,
-    FormData
-  >(updateFunctionRoleAction, INITIAL);
-  const errorMessage =
-    state && "ok" in state && !state.ok && state.message ? state.message : null;
-
-  useEffect(() => {
-    if (state && "ok" in state && state.ok) {
-      onDone();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
-
-  return (
-    <form action={formAction} className={styles.roleEditForm}>
-      <input type="hidden" name="id" value={role.id} />
-      <input
-        type="text"
-        name="title"
-        defaultValue={role.title}
-        className={styles.roleInput}
-        placeholder="Responsibility"
-        required
-        disabled={pending}
-        autoFocus
-      />
-      <textarea
-        name="body"
-        defaultValue={role.body ?? ""}
-        className={styles.roleTextarea}
-        placeholder="Detail (optional)"
-        rows={2}
-        disabled={pending}
-      />
-      {errorMessage ? (
-        <p role="alert" className={styles.roleError}>
-          {errorMessage}
-        </p>
-      ) : null}
-      <div className={styles.roleEditActions}>
+    <div className={styles.roleRow}>
+      {editing && canEdit ? (
+        <input
+          className={styles.roleTitleInput}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              cancel();
+            }
+          }}
+          autoFocus
+          disabled={pending}
+          aria-label="Edit responsibility"
+        />
+      ) : canEdit ? (
         <button
           type="button"
-          className={styles.roleGhostButton}
-          onClick={onDone}
-          disabled={pending}
+          className={styles.roleTitleEditable}
+          onClick={() => setEditing(true)}
+          title="Click to edit"
         >
-          Cancel
+          {role.title}
         </button>
-        <button type="submit" className={styles.rolePrimaryButton} disabled={pending}>
-          {pending ? "Saving…" : "Save"}
-        </button>
-      </div>
-    </form>
+      ) : (
+        <span className={styles.roleTitle}>{role.title}</span>
+      )}
+
+      {canEdit ? <DeleteRoleButton roleId={role.id} /> : null}
+      {error ? (
+        <span role="alert" className={styles.roleError}>
+          {error}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -162,11 +152,22 @@ function DeleteRoleButton({ roleId }: { roleId: string }) {
     <>
       <button
         type="button"
-        className={styles.roleDangerButton}
+        className={styles.roleDeleteIcon}
         onClick={() => setConfirming(true)}
         disabled={pending}
+        aria-label="Delete this responsibility"
+        title="Delete this responsibility"
       >
-        Delete
+        <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+          <path
+            d="M4 5 h8 v8 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 z M6.5 5 V3.5 a1 1 0 0 1 1 -1 h1 a1 1 0 0 1 1 1 V5 M3 5 h10"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
       <ConfirmDialog
         open={confirming}

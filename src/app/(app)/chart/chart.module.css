@@ -860,6 +860,91 @@
   gap: var(--space-2);
 }
 
+/* Click-to-edit affordance for a responsibility's title. Mirrors the
+   commitments row's descriptionEditable — dashed border on rest,
+   tint + solid primary edge on hover. */
+.roleTitleEditable {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 1px dashed transparent;
+  padding: var(--space-1) var(--space-2);
+  margin: 0;
+  color: inherit;
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+  cursor: text;
+  text-align: left;
+  overflow-wrap: anywhere;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.roleTitleEditable:hover {
+  background: var(--aims-navy-tint);
+  border-color: var(--primary);
+}
+
+.roleTitleEditable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.roleTitleInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  font-weight: 600;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.roleTitleInput:focus {
+  outline: none;
+}
+
+/* Trash-icon delete button. Same shape as commitments' deleteRowButton
+   so the affordance reads the same across surfaces. */
+.roleDeleteIcon {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.roleDeleteIcon:hover:not(:disabled) {
+  color: var(--aims-danger);
+  background: var(--aims-danger-tint);
+  border-color: color-mix(in srgb, var(--aims-danger) 30%, transparent);
+}
+
+.roleDeleteIcon:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.roleDeleteIcon:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .roleEditForm {
   display: flex;
   flex-direction: column;
