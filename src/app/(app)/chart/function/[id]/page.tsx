@@ -2,13 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getChartFunctionDetail } from "@/lib/chart/service";
-import { AddMeasureForm } from "../../InlineForms";
 import { CardAccent } from "@/components/ui/CardAccent";
 import { PageShell } from "@/components/ui/PageShell";
 import { DeleteFunctionButton } from "./DeleteFunctionButton";
 import { RolesList } from "./RolesList";
 import { SeatEditor } from "./SeatEditor";
 import { AddSuccessMeasureRow } from "./AddSuccessMeasureRow";
+import { SuccessMeasureCard } from "./SuccessMeasureCard";
 import styles from "../../chart.module.css";
 
 // Function detail — the whole story for a single function.
@@ -86,66 +86,7 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
           ) : null}
 
           {detail.outcomes.map((o) => (
-            <article key={o.id} className={styles.detailOutcome}>
-              <div>
-                <p className={styles.outcomeLabel}>Success Measure</p>
-                <h3 className={styles.detailOutcomeTitle}>{o.title}</h3>
-                {o.description ? (
-                  <p className={styles.subtitle}>{o.description}</p>
-                ) : null}
-              </div>
-
-              {o.measures.length > 0 ? (
-                <ul className={styles.detailMeasureList}>
-                  {o.measures.map((m) => {
-                    const latest = m.entries[0] ?? null;
-                    return (
-                      <li key={m.id} className={styles.detailMeasureRow}>
-                        <span className={styles.detailMeasureDesc}>
-                          {m.description}
-                          {m.target_hint ? (
-                            <span
-                              style={{
-                                display: "block",
-                                marginTop: "4px",
-                                fontSize: "12px",
-                                color: "var(--aims-warning, #b78103)",
-                                fontStyle: "italic",
-                              }}
-                              title="AI suggestion — refine to clear it."
-                            >
-                              ⚑ {m.target_hint}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className={styles.detailMeasureTarget}>
-                          {m.target ? `Target ${m.target}` : "No target"}
-                        </span>
-                        <span
-                          className={
-                            latest
-                              ? styles.detailMeasureValue
-                              : `${styles.detailMeasureValue} ${styles.detailMeasureValueEmpty}`
-                          }
-                          title={latest ? `Week of ${latest.week_ending}` : "No entries yet"}
-                        >
-                          {formatValue(m.value_type, latest?.value_number ?? null, latest?.value_text ?? null)}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className={styles.emptyOutcomeLine}>No metrics yet.</p>
-              )}
-
-              {isAdmin ? (
-                <details className={styles.addDetails}>
-                  <summary className={styles.addSummary}>+ Add metric</summary>
-                  <AddMeasureForm outcomeId={o.id} />
-                </details>
-              ) : null}
-            </article>
+            <SuccessMeasureCard key={o.id} outcome={o} canEdit={isAdmin} />
           ))}
 
           {isAdmin ? (
@@ -183,15 +124,4 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         ) : null}
     </PageShell>
   );
-}
-
-function formatValue(
-  valueType: "number" | "percent" | "text",
-  n: number | null,
-  t: string | null
-): React.ReactNode {
-  if (valueType === "text") return t ?? "—";
-  if (n === null || !Number.isFinite(n)) return "—";
-  if (valueType === "percent") return `${n}%`;
-  return n.toString();
 }

@@ -703,8 +703,42 @@
   border-bottom: 1px dashed var(--border);
 }
 
+.detailMeasureRowEditable {
+  grid-template-columns: 1fr auto auto auto;
+}
+
+.detailMeasureActions {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  align-self: center;
+}
+
+.detailMeasureEditRow {
+  list-style: none;
+  padding: var(--space-3) 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.detailMeasureEditRow:last-child {
+  border-bottom: none;
+}
+
 .detailMeasureRow:last-child {
   border-bottom: none;
+}
+
+.detailOutcomeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.detailOutcomeActions {
+  display: inline-flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .detailMeasureDesc {
