@@ -240,12 +240,12 @@ export function AddMeasureForm({
       <input type="hidden" name="outcome_id" value={outcomeId} />
 
       <label className={`${styles.formField} ${styles.formFieldFull}`}>
-        <span className={styles.formLabel}>Success measure</span>
+        <span className={styles.formLabel}>Metric</span>
         <input
           className={styles.formInput}
           type="text"
           name="description"
-          placeholder="e.g. Labor productivity factor on self-perform scopes"
+          placeholder="e.g. % of projects shipped on time"
           required
           disabled={pending}
         />
