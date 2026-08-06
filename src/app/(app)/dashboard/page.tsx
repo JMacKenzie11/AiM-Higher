@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDashboardData } from "@/lib/dashboard/service";
 import { getMeasureInsights } from "@/lib/measures/insights";
@@ -41,12 +42,18 @@ export default async function DashboardPage() {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+  // Whether the caller has admin-level authority over *this* company.
+  // Broader than the local isAdmin above because it also admits an
+  // aims_guide when the current company is one of their assignments.
+  const canManageCompany = isAdminForCompany(session.profile, companyId);
 
-  // First-run setup checklist — only rendered when the caller is admin
-  // AND at least one setup step is incomplete. Cheap read: one extra
-  // query for the foundation row. Everything else is already loaded.
+  // First-run setup checklist — rendered when the caller can manage
+  // this company (sysadmin, company admin scoped here, or assigned
+  // guide) AND at least one setup step is incomplete. Cheap read: one
+  // extra query for the foundation row; everything else is already
+  // loaded.
   let setupSteps: SetupStep[] | null = null;
-  if (isAdmin) {
+  if (canManageCompany) {
     const supabase = await createSupabaseServerClient();
     const { data: foundationRow } = await supabase
       .from("company_foundation")
