@@ -516,7 +516,7 @@ export function CommitmentRow({
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             disabled={pending}
-            placeholder="A short note — this is the opportunity to improve."
+            placeholder="A short note — what did you learn from this one?"
             autoFocus
           />
           <div className={styles.stripSubmitRow}>
