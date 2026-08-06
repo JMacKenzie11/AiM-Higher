@@ -3,6 +3,7 @@ import { HelpWidget } from "@/components/help/HelpWidget";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { getHeaderNotifications } from "@/lib/notifications/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Company } from "@/lib/types";
 import type { ModuleFeature } from "@/lib/subscriptions/service";
@@ -33,6 +34,9 @@ export default async function AppLayout({
   let contextLabel: string | undefined;
   let scopedCompanyId: string | null = null;
   let scopedCompanyName: string | undefined;
+  // Timezone of the effective company — needed by notifications to
+  // compute today / this-Friday in the right zone.
+  let companyTimezone: string | null = null;
 
   if (isCrossCompanyRole) {
     scopedCompanyId = await getEffectiveCompanyId(session);
@@ -40,10 +44,11 @@ export default async function AppLayout({
       const supabase = await createSupabaseServerClient();
       const { data: company } = await supabase
         .from("companies")
-        .select("name")
+        .select("name, timezone")
         .eq("id", scopedCompanyId)
-        .maybeSingle<Pick<Company, "name">>();
+        .maybeSingle<Pick<Company, "name" | "timezone">>();
       scopedCompanyName = company?.name;
+      companyTimezone = company?.timezone ?? null;
       contextLabel = scopedCompanyName
         ? `${roleLabel} · ${scopedCompanyName}`
         : (roleLabel ?? undefined);
@@ -54,10 +59,11 @@ export default async function AppLayout({
     const supabase = await createSupabaseServerClient();
     const { data: company } = await supabase
       .from("companies")
-      .select("name")
+      .select("name, timezone")
       .eq("id", session.profile.company_id)
-      .maybeSingle<Pick<Company, "name">>();
+      .maybeSingle<Pick<Company, "name" | "timezone">>();
     if (company?.name) contextLabel = company.name;
+    companyTimezone = company?.timezone ?? null;
   }
 
   // Fetch the effective company's feature entitlements so NavBand
@@ -93,6 +99,20 @@ export default async function AppLayout({
     hasChartMeasures = (count ?? 0) > 0;
   }
 
+  // Header notifications — computed per request. State-derived, no
+  // persistence yet (see lib/notifications/service.ts). Cross-company
+  // roles with no scoped company get an empty list; nothing
+  // company-level to notify on.
+  const notifications = effectiveCompanyId
+    ? await getHeaderNotifications({
+        userId: session.profile.id,
+        companyId: effectiveCompanyId,
+        timezone: companyTimezone ?? "America/Anchorage",
+        features,
+        hasChartMeasures,
+      })
+    : [];
+
   return (
     <div className={styles.frame}>
       <NavBand
@@ -104,6 +124,7 @@ export default async function AppLayout({
         scopedCompanyName={scopedCompanyName}
         features={features}
         hasChartMeasures={hasChartMeasures}
+        notifications={notifications}
       />
       <div className={styles.main}>{children}</div>
       <HelpWidget />

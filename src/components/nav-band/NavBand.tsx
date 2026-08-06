@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { signOutAction } from "@/lib/auth/actions";
 import { exitCompanyScopeAction } from "@/lib/admin/scope-actions";
+import { NotificationBell } from "./NotificationBell";
+import type { NotificationItem } from "@/lib/notifications/service";
 import styles from "./NavBand.module.css";
 
 // Top navigation band used by every authenticated route (Section 7).
@@ -185,6 +187,9 @@ export type NavBandProps = {
   // are already using the module — so admins scoped in never wonder
   // where the menu went.
   hasChartMeasures?: boolean;
+  // Header notifications — computed per request in the layout via
+  // getHeaderNotifications. Empty array = "you're up to date".
+  notifications?: readonly NotificationItem[];
 };
 
 export function NavBand({
@@ -196,6 +201,7 @@ export function NavBand({
   scopedCompanyName,
   features = [],
   hasChartMeasures = false,
+  notifications = [],
 }: NavBandProps) {
   const pathname = usePathname() ?? "";
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -347,6 +353,7 @@ export function NavBand({
           </span>
         </button>
 
+        <NotificationBell items={[...notifications]} />
         <UserMenu
           userName={userName}
           showExitScope={isSystemAdmin && showExitScope}
