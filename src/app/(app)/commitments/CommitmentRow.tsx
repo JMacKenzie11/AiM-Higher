@@ -516,7 +516,7 @@ export function CommitmentRow({
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             disabled={pending}
-            placeholder="A short note — carry it forward."
+            placeholder="What's a lesson that we can carry forward?"
             autoFocus
           />
           <div className={styles.stripSubmitRow}>
