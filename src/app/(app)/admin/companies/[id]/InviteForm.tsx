@@ -21,6 +21,8 @@ export function InviteForm({ companyId }: { companyId: string }) {
 
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
+  const warningMessage =
+    state && "ok" in state && state.ok && state.warning ? state.warning : null;
   const { formRef, confirmationVisible } = useStayOpenForm(
     state,
     pending,
@@ -141,6 +143,13 @@ export function InviteForm({ companyId }: { companyId: string }) {
       {errorMessage ? (
         <p role="alert" className={styles.errorMessage}>
           {errorMessage}
+        </p>
+      ) : null}
+
+      {warningMessage ? (
+        <p role="status" className={styles.warningMessage}>
+          {warningMessage} Use the Resend invite button on their row to try
+          again.
         </p>
       ) : null}
 

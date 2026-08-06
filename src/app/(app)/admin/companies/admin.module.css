@@ -398,6 +398,17 @@
   color: var(--text);
 }
 
+.warningMessage {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--aims-warning, #f0b442) 18%, transparent);
+  border-left: 3px solid var(--aims-warning, #f0b442);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
 .emptyLine {
   margin: 0;
   padding: var(--space-4);
