@@ -166,12 +166,12 @@ export default async function CompanyDetailPage({
             </h2>
             <p className={styles.subtitleInline}>
               Archives every active Strategic Focus Area, Annual Goal, and
-              90-Day Action in this company so the team can build the next
+              90-Day Priority in this company so the team can build the next
               cycle from a clean canvas. Nothing is deleted — records stay
               on file. Open commitments become Operational (unlinked);
               resolved commitments keep their historical link so past-quarter
               progress stays intact. Prefer closing individual items? Every
-              SFA, Goal, and Action has its own Archive / Mark complete
+              SFA, Goal, and Priority has its own Archive / Mark complete
               controls on its detail page.
             </p>
             <div>

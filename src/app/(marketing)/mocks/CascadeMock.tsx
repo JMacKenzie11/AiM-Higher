@@ -36,7 +36,7 @@ export function CascadeMock() {
       <div className={styles.cascadeConnector} aria-hidden="true" />
 
       <div className={styles.cascadeLevel} data-level="priority">
-        <div className={styles.cascadeLabel}>90-Day Action</div>
+        <div className={styles.cascadeLabel}>90-Day Priority</div>
         <div className={styles.cascadeTitle}>
           Sign the Boise location lease
         </div>

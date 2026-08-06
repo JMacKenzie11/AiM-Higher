@@ -95,7 +95,7 @@ export default async function DashboardPage() {
         key: "plan",
         label: "Build the plan",
         description:
-          "Strategic Focus Areas → annual goals → 90-day actions. Start with one Focus Area.",
+          "Strategic Focus Areas → annual goals → 90-day priorities. Start with one Focus Area.",
         href: "/plan",
         done: hasPlan,
       },

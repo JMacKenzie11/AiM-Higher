@@ -5,7 +5,7 @@ title: Plan
 # Plan
 
 The Plan surface is the quarter's cascade: Strategic Focus Areas
-at the top, Annual Goals under them, and 90-Day Actions under
+at the top, Annual Goals under them, and 90-Day Prioritys under
 those. Each action carries the commitments that will move it
 forward.
 
@@ -13,7 +13,7 @@ forward.
 
 - **Add anywhere in the cascade** — the toolbar always shows
   *+ Add Strategic Focus Area*, *+ Add Annual Goal*, and (once a
-  quarter is open) *+ Add 90-Day Action*. If the parent above
+  quarter is open) *+ Add 90-Day Priority*. If the parent above
   doesn't exist yet, leave the picker on "Not linked (yet)" and
   the new row lands in a *Standalone* section below the cascade.
   Link it to a parent later via the inline picker on the row.

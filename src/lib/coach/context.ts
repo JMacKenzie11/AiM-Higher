@@ -556,7 +556,7 @@ function formatPersonContext({
   }
 
   lines.push("");
-  lines.push("Owned 90-Day Actions (title — status):");
+  lines.push("Owned 90-Day Priorities (title — status):");
   if (priorities.length === 0) {
     lines.push("- (none)");
   } else {
