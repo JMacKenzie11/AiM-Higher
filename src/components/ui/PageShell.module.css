@@ -27,6 +27,30 @@
   padding-bottom: var(--space-4);
 }
 
+/* Back link sits on top of the navy hero — the global `a` rule
+   paints links in --primary which is nearly the same colour as the
+   hero background, so we override to a translucent white matching
+   the eyebrow / subtitle treatment. */
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  color: var(--aims-white);
+  opacity: 0.8;
+  text-decoration: none;
+  font: var(--text-body-sm);
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.backLink:hover,
+.backLink:focus-visible {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  outline: none;
+}
+
 .eyebrow {
   margin: 0;
   color: var(--aims-white);
