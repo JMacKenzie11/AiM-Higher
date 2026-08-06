@@ -864,6 +864,53 @@
   }
 }
 
+/* Wraps the add-metric row + its critique panel so both share the
+   same card background and left/right rhythm. */
+.addMetricGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Live coaching hints under the add-metric row (also reused inside
+   the edit-metric form). Amber italic text so it reads as a nudge,
+   not an error. Each dimension (Metric / Target / Fit) is labelled
+   so the user knows which field to adjust. */
+.critiquePanel {
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-warning-tint);
+  border-left: 3px solid var(--aims-warning);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.critiqueLine {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.critiqueLabel {
+  display: inline-block;
+  min-width: 52px;
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--aims-warning, #b78103);
+  font-weight: 700;
+  margin-right: var(--space-2);
+}
+
+.critiqueLoading {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* Always-live add-metric row inside a Success Measure card. Same
    rhythm as the roles list draft row — three tight inputs + Add,
    Enter to save. */

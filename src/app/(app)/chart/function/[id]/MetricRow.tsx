@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   archiveMeasureAction,
@@ -8,6 +8,9 @@ import {
   upsertMeasureEntryAction,
   type ChartResult,
 } from "@/lib/chart/actions";
+import { critiqueMeasureDraftAction } from "@/lib/measures/actions";
+import { ruleBasedCritique } from "@/lib/measures/critique-rules";
+import type { MeasureCritique } from "@/lib/measures/critique-rules";
 import type {
   MetricValueType,
   SuccessMeasure,
@@ -32,12 +35,16 @@ export function MetricRow({
   canEdit,
   canLog,
   weekEnding,
+  outcomeTitle,
+  outcomeDescription,
 }: {
   measure: SuccessMeasure;
   entries: SuccessMeasureEntry[];
   canEdit: boolean;
   canLog: boolean;
   weekEnding: string;
+  outcomeTitle: string;
+  outcomeDescription: string | null;
 }) {
   const [editing, setEditing] = useState(false);
   const latest = entries[0] ?? null;
@@ -47,7 +54,12 @@ export function MetricRow({
   if (editing) {
     return (
       <li className={styles.detailMeasureEditRow}>
-        <EditMetricForm measure={measure} onDone={() => setEditing(false)} />
+        <EditMetricForm
+          measure={measure}
+          outcomeTitle={outcomeTitle}
+          outcomeDescription={outcomeDescription}
+          onDone={() => setEditing(false)}
+        />
       </li>
     );
   }
@@ -255,22 +267,80 @@ function formatDraft(
 
 function EditMetricForm({
   measure,
+  outcomeTitle,
+  outcomeDescription,
   onDone,
 }: {
   measure: SuccessMeasure;
+  outcomeTitle: string;
+  outcomeDescription: string | null;
   onDone: () => void;
 }) {
   const [state, formAction, pending] = useActionState<
     ChartResult<SuccessMeasure>,
     FormData
   >(updateMeasureAction, INITIAL);
+  const [description, setDescription] = useState(measure.description);
+  const [target, setTarget] = useState(measure.target ?? "");
+  const [valueType, setValueType] = useState<MetricValueType>(measure.value_type);
+  const [direction, setDirection] = useState<TargetDirection>(
+    measure.target_direction
+  );
+  const [aiCritique, setAiCritique] = useState<MeasureCritique | null>(null);
+  const [critiqueLoading, setCritiqueLoading] = useState(false);
+  const lastCritiquedKey = useRef<string | null>(null);
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
+
+  const ruleHints = useMemo(
+    () => ruleBasedCritique({ description, target, valueType }),
+    [description, target, valueType]
+  );
+
+  const shownHints = {
+    descriptionHint: aiCritique?.descriptionHint ?? ruleHints.descriptionHint,
+    targetHint: aiCritique?.targetHint ?? ruleHints.targetHint,
+    fitHint: aiCritique?.fitHint ?? null,
+  };
 
   useEffect(() => {
     if (state && "ok" in state && state.ok) onDone();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
+
+  useEffect(() => {
+    const key = `${valueType}|${direction}|${description.trim()}|${target.trim()}`;
+    if (lastCritiquedKey.current && lastCritiquedKey.current !== key) {
+      setAiCritique(null);
+    }
+  }, [description, target, valueType, direction]);
+
+  async function runAiCritique() {
+    const d = description.trim();
+    if (d.length < 4) return;
+    const key = `${valueType}|${direction}|${d}|${target.trim()}`;
+    if (lastCritiquedKey.current === key) return;
+    lastCritiquedKey.current = key;
+    setCritiqueLoading(true);
+    try {
+      const result = await critiqueMeasureDraftAction({
+        description: d,
+        target: target.trim(),
+        valueType,
+        direction,
+        outcomeTitle,
+        outcomeDescription,
+      });
+      setAiCritique(result);
+    } finally {
+      setCritiqueLoading(false);
+    }
+  }
+
+  const hasAnyHint =
+    !!shownHints.descriptionHint ||
+    !!shownHints.targetHint ||
+    !!shownHints.fitHint;
 
   return (
     <form action={formAction} className={styles.addForm}>
@@ -282,7 +352,9 @@ function EditMetricForm({
           className={styles.formInput}
           type="text"
           name="description"
-          defaultValue={measure.description}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onBlur={runAiCritique}
           required
           disabled={pending}
           autoFocus
@@ -295,7 +367,9 @@ function EditMetricForm({
           className={styles.formInput}
           type="text"
           name="target"
-          defaultValue={measure.target ?? ""}
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          onBlur={runAiCritique}
           placeholder="e.g. 0.95, 90%, Yes"
           disabled={pending}
         />
@@ -306,7 +380,8 @@ function EditMetricForm({
         <select
           className={styles.formSelect}
           name="value_type"
-          defaultValue={measure.value_type}
+          value={valueType}
+          onChange={(e) => setValueType(e.target.value as MetricValueType)}
           disabled={pending}
         >
           {VALUE_TYPES.map((t) => (
@@ -322,7 +397,8 @@ function EditMetricForm({
         <select
           className={styles.formSelect}
           name="target_direction"
-          defaultValue={measure.target_direction as TargetDirection}
+          value={direction}
+          onChange={(e) => setDirection(e.target.value as TargetDirection)}
           disabled={pending}
         >
           <option value="higher_is_better">Higher is better</option>
@@ -342,6 +418,34 @@ function EditMetricForm({
           Auto-track weekly updates
         </span>
       </label>
+
+      {(hasAnyHint || critiqueLoading) && description.trim().length > 0 ? (
+        <div
+          className={`${styles.critiquePanel} ${styles.formFieldFull}`}
+        >
+          {shownHints.descriptionHint ? (
+            <p className={styles.critiqueLine}>
+              <span className={styles.critiqueLabel}>Metric</span>{" "}
+              {shownHints.descriptionHint}
+            </p>
+          ) : null}
+          {shownHints.targetHint ? (
+            <p className={styles.critiqueLine}>
+              <span className={styles.critiqueLabel}>Target</span>{" "}
+              {shownHints.targetHint}
+            </p>
+          ) : null}
+          {shownHints.fitHint ? (
+            <p className={styles.critiqueLine}>
+              <span className={styles.critiqueLabel}>Fit</span>{" "}
+              {shownHints.fitHint}
+            </p>
+          ) : null}
+          {critiqueLoading ? (
+            <p className={styles.critiqueLoading}>Reviewing…</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {errorMessage ? (
         <p role="alert" className={styles.errorMessage}>

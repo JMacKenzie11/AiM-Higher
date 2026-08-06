@@ -31,7 +31,12 @@ with a target and the current week's number.
   (number / percent / yes-no), then click Add. Direction defaults
   to *higher is better* and auto-track stays on; both are editable
   per-metric via the row's Edit affordance if you need to change
-  them.
+  them. As you type, a coaching panel appears with amber hints
+  when the metric reads as vague (e.g. "Do your best") or when
+  the target and value type don't line up. On blur, a second-
+  opinion AI check also weighs in on whether the metric actually
+  measures the parent Success Measure. Every hint is advisory —
+  Add stays enabled so you can save regardless.
 - **Log this week's number** — if you're the function's Lead /
   Track (or an admin), click the value pill on a metric row and
   type the current week's value. Blur or press Enter to save.

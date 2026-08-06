@@ -74,6 +74,8 @@ export function SuccessMeasureCard({
               canEdit={canEdit}
               canLog={canLog}
               weekEnding={weekEnding}
+              outcomeTitle={outcome.title}
+              outcomeDescription={outcome.description}
             />
           ))}
         </ul>
@@ -81,7 +83,13 @@ export function SuccessMeasureCard({
         <p className={styles.emptyOutcomeLine}>No metrics yet.</p>
       )}
 
-      {canEdit ? <AddMetricRow outcomeId={outcome.id} /> : null}
+      {canEdit ? (
+        <AddMetricRow
+          outcomeId={outcome.id}
+          outcomeTitle={outcome.title}
+          outcomeDescription={outcome.description}
+        />
+      ) : null}
     </article>
   );
 }
