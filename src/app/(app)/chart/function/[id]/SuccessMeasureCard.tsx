@@ -13,7 +13,7 @@ import type {
 } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import uiStyles from "@/components/ui/ui.module.css";
-import { AddMeasureForm } from "../../InlineForms";
+import { AddMetricRow } from "./AddMetricRow";
 import { MetricRow } from "./MetricRow";
 import styles from "../../chart.module.css";
 
@@ -75,12 +75,7 @@ export function SuccessMeasureCard({
         <p className={styles.emptyOutcomeLine}>No metrics yet.</p>
       )}
 
-      {canEdit ? (
-        <details className={styles.addDetails}>
-          <summary className={styles.addSummary}>+ Add metric</summary>
-          <AddMeasureForm outcomeId={outcome.id} />
-        </details>
-      ) : null}
+      {canEdit ? <AddMetricRow outcomeId={outcome.id} /> : null}
     </article>
   );
 }

@@ -177,6 +177,12 @@ export type NavBandProps = {
   showExitScope?: boolean;
   scopedCompanyName?: string;
   features?: readonly string[];
+  // True when the company has at least one non-archived success
+  // measure. Lets the /measures nav link surface for companies that
+  // haven't turned on the paid Success Tracking entitlement yet but
+  // are already using the module — so admins scoped in never wonder
+  // where the menu went.
+  hasChartMeasures?: boolean;
 };
 
 export function NavBand({
@@ -187,6 +193,7 @@ export function NavBand({
   showExitScope = false,
   scopedCompanyName,
   features = [],
+  hasChartMeasures = false,
 }: NavBandProps) {
   const pathname = usePathname() ?? "";
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -223,7 +230,16 @@ export function NavBand({
     feature?: Feature | null;
   }): boolean {
     if (link.roles && !link.roles.includes(userRole)) return false;
-    if (link.feature && !features.includes(link.feature)) return false;
+    if (link.feature && !features.includes(link.feature)) {
+      // performance_tracking is entitlement-gated, but any company
+      // that has already added at least one metric on the chart gets
+      // to see the /measures nav link — the paid side-effects stay
+      // off, this is just discoverability.
+      if (link.feature === "performance_tracking" && hasChartMeasures) {
+        return true;
+      }
+      return false;
+    }
     return true;
   }
 

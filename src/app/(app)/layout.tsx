@@ -70,6 +70,29 @@ export default async function AppLayout({
     ? await getCompanyFeatures(effectiveCompanyId)
     : [];
 
+  // Companies exploring metrics before flipping the paid Success
+  // Tracking entitlement shouldn't get an invisible nav link. When
+  // there's at least one measure on the chart, we admit the
+  // /measures link even without the entitlement — the tracking
+  // side-effects (weekly nudges, mandatory target) still stay off.
+  let hasChartMeasures = false;
+  if (
+    effectiveCompanyId &&
+    !features.includes("performance_tracking")
+  ) {
+    const supabase = await createSupabaseServerClient();
+    const { count } = await supabase
+      .from("success_measures")
+      .select(
+        "id, function_outcomes!inner(function_id, functions!inner(company_id))",
+        { count: "exact", head: true }
+      )
+      .eq("archived", false)
+      .eq("function_outcomes.functions.company_id", effectiveCompanyId)
+      .limit(1);
+    hasChartMeasures = (count ?? 0) > 0;
+  }
+
   return (
     <div className={styles.frame}>
       <NavBand
@@ -80,6 +103,7 @@ export default async function AppLayout({
         showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}
         scopedCompanyName={scopedCompanyName}
         features={features}
+        hasChartMeasures={hasChartMeasures}
       />
       <div className={styles.main}>{children}</div>
       <HelpWidget />

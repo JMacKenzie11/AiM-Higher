@@ -72,11 +72,7 @@ export function MetricRow({
         {measure.target ? `Target ${measure.target}` : "No target"}
       </span>
       <span
-        className={
-          latest
-            ? styles.detailMeasureValue
-            : `${styles.detailMeasureValue} ${styles.detailMeasureValueEmpty}`
-        }
+        className={valueClassName(measure, latest, styles)}
         title={latest ? `Week of ${latest.week_ending}` : "No entries yet"}
       >
         {formatValue(
@@ -265,4 +261,58 @@ function formatValue(
   if (n === null || !Number.isFinite(n)) return "—";
   if (valueType === "percent") return `${n}%`;
   return n.toString();
+}
+
+// Colour the latest-value pill based on how it compares to the
+// target. Green when at-or-above (or at-or-below for lower_is_better
+// or matching for text). Amber when off. Neutral when there's no
+// target or no entry yet — no signal to render.
+function valueClassName(
+  measure: SuccessMeasure,
+  latest: SuccessMeasureEntry | null,
+  styles: Record<string, string>
+): string {
+  if (!latest) {
+    return `${styles.detailMeasureValue} ${styles.detailMeasureValueEmpty}`;
+  }
+  if (!measure.target) {
+    return styles.detailMeasureValue;
+  }
+  const status = compareToTarget(measure, latest);
+  if (status === "good") {
+    return `${styles.detailMeasureValue} ${styles.detailMeasureValueGood}`;
+  }
+  if (status === "off") {
+    return `${styles.detailMeasureValue} ${styles.detailMeasureValueOff}`;
+  }
+  return styles.detailMeasureValue;
+}
+
+function compareToTarget(
+  measure: SuccessMeasure,
+  latest: SuccessMeasureEntry
+): "good" | "off" | "unknown" {
+  if (measure.value_type === "text") {
+    const l = (latest.value_text ?? "").trim().toLowerCase();
+    const t = (measure.target ?? "").trim().toLowerCase();
+    if (!l || !t) return "unknown";
+    return l === t ? "good" : "off";
+  }
+  const value = latest.value_number;
+  const targetNum = parseTargetNumber(measure.target);
+  if (value == null || !Number.isFinite(value) || targetNum == null) {
+    return "unknown";
+  }
+  if (measure.target_direction === "lower_is_better") {
+    return value <= targetNum ? "good" : "off";
+  }
+  return value >= targetNum ? "good" : "off";
+}
+
+function parseTargetNumber(target: string | null): number | null {
+  if (!target) return null;
+  const cleaned = target.replace(/[^0-9.\-]/g, "");
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
 }
