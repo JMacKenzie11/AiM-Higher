@@ -57,20 +57,30 @@ export function AutoFitTree({ children }: { children: ReactNode }) {
       style={{
         width: "100%",
         overflow: "hidden",
-        textAlign: "center",
         // Fall back to a sensible min-height on first render before
         // measurement runs so the page doesn't collapse and jump.
         height: outerHeight,
         minHeight: outerHeight == null ? 320 : undefined,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
       }}
     >
       <div
         ref={innerRef}
         style={{
-          display: "inline-block",
+          // width: max-content forces the inner box to its
+          // intrinsic width — the natural size of the tree with
+          // every card at its full max-width. Without this, flex
+          // children inside would shrink to fit the available
+          // width and scrollWidth would equal outer width, so
+          // the scale would never trip.
+          width: "max-content",
           transform: `scale(${scale})`,
           transformOrigin: "top center",
-          textAlign: "left",
+          // Prevent flex from stretching the item — we want to
+          // measure the intrinsic width, not have it grow.
+          flex: "0 0 auto",
         }}
       >
         {children}
