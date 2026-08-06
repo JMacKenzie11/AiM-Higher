@@ -248,12 +248,18 @@ export async function getCommitmentsPageData(
 
   // Also pull past-week still-open rows from BEFORE the window so the
   // "Needs attention" bucket never loses a row that fell off the edge.
+  // Bounded to a one-year lookback so genuinely abandoned rows (open
+  // commitments from 2024, forgotten but never resolved) don't grow
+  // this fetch without limit — a stale row from more than 12 months
+  // ago is history, not a "needs attention" today.
+  const strandedFloor = addDays(windowStart, -365);
   const { data: strandedRows } = await supabase
     .from("commitments")
     .select("*")
     .eq("company_id", companyId)
     .eq("status", "open")
-    .lt("week_ending", windowStart);
+    .lt("week_ending", windowStart)
+    .gte("week_ending", strandedFloor);
 
   const allRows = [
     ...((rawRows ?? []) as Commitment[]),

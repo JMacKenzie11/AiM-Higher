@@ -166,9 +166,14 @@ export async function processPendingMeetings(
 ): Promise<{ processed: number }> {
   const admin = createSupabaseAdminClient();
 
+  // Project only what this loop needs — analyzeMeeting reloads the
+  // full row internally. Pulling transcript_text here (via select("*"))
+  // means a backlog of N pending meetings loads N × transcript_text
+  // into memory just to iterate ids; a bad ingest run could OOM the
+  // cron worker before any analysis starts.
   let query = admin
     .from("meetings")
-    .select("*")
+    .select("id, company_id")
     .eq("status", "pending");
   if (scope.meetingId) {
     query = query.eq("id", scope.meetingId);
@@ -176,7 +181,9 @@ export async function processPendingMeetings(
     query = query.eq("company_id", scope.companyId);
   }
   const { data: meetings } = await query;
-  const rows = (meetings ?? []) as Meeting[];
+  const rows = (meetings ?? []) as Array<
+    Pick<Meeting, "id" | "company_id">
+  >;
 
   // Analyze in bounded parallel — each meeting is 2+ LLM calls plus
   // DB writes, and later meetings don't depend on earlier ones, so
