@@ -1,20 +1,25 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getMeasuresOwnedBy } from "@/lib/measures/service";
+import { getBoardData } from "@/lib/measures/board";
 import { formatShortDate } from "@/lib/dates";
 import { MeasuresBatchForm } from "./MeasuresBatchForm";
+import { BoardView } from "./board/BoardView";
 import styles from "../admin/companies/admin.module.css";
-import boardLinkStyles from "./measures.module.css";
 
-// Weekly Success Measures logging — batch entry for every measure the
-// caller owns (via function.leader_id), or every measure in the
-// company for admins covering for others. One row per measure with a
-// current-week input and a mini trend of the last few weeks. Save-all
-// writes them in a single upsert. Owners come here on Fridays, or
-// from the dashboard "Pending this week" widget's deep link.
+// Success Measures — read at the top, write at the bottom.
+//   * Board view (top): a 13-week read of metric performance vs.
+//     target across every function. Two toggleable views (Grid +
+//     Timeline) live inside BoardView.
+//   * Batch scoreboard (bottom): the caller's own metrics with
+//     coloured inputs so a leader can log the current week without
+//     leaving the page they came to read.
+//
+// Everyone sees the board. What varies is the batch table below —
+// leaders see the metrics they own via seat holding; admins see
+// every metric in the company.
 
 export default async function MeasuresPage() {
   const session = await requireProfile();
@@ -33,12 +38,14 @@ export default async function MeasuresPage() {
     .maybeSingle<{ timezone: string }>();
   const timezone = company?.timezone ?? "America/Anchorage";
 
-  const { measures, weekEnding } = await getMeasuresOwnedBy(
-    companyId,
-    session.profile.id,
-    timezone,
-    isAdmin
-  );
+  const [{ measures, weekEnding }, board] = await Promise.all([
+    getMeasuresOwnedBy(companyId, session.profile.id, timezone, isAdmin),
+    getBoardData(companyId, timezone),
+  ]);
+
+  const boardHasContent =
+    board.functions.length > 0 &&
+    board.functions.some((f) => f.metrics.length > 0);
 
   return (
     <div className={styles.stage}>
@@ -48,19 +55,15 @@ export default async function MeasuresPage() {
           <h1 className={styles.h1}>Success Measures</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Log the week ending {formatShortDate(weekEnding)}. Enter a value
-            in every row you have data for, then Save — leave rows blank if
-            you want to come back to them.
+            The last 13 weeks vs. target, by function — then log the week
+            ending {formatShortDate(weekEnding)} below.
           </p>
         </div>
       </header>
 
       <div className={styles.content}>
-        <div className={boardLinkStyles.boardLinkRow}>
-          <Link href="/measures/board" className={boardLinkStyles.boardLink}>
-            Open Success Tracking Board →
-          </Link>
-        </div>
+        {boardHasContent ? <BoardView data={board} /> : null}
+
         {measures.length === 0 ? (
           <section className={styles.card}>
             <p className={styles.emptyLine}>

@@ -10,26 +10,30 @@ company has Success Tracking on **or** at least one metric has been
 added on the chart) or from the *This week's numbers* card on the
 dashboard.
 
-There are three places to log the current week:
+The page has two sections stacked: **read at the top, write at the
+bottom**.
 
-1. **/measures scoreboard** — a table of every metric you own with a
-   coloured input per row, three history pills, and a status dot.
-   Best when logging several metrics in one sitting.
-2. **/measures/[id] quick-log** — one metric, one big input, phone-
-   friendly. Reach it by clicking a metric name in the scoreboard or
-   from a deep link.
-3. **Chart function page** — click the value pill on any metric row
-   on the function's detail page and type a number. Blur or press
-   Enter to save; a green ✓ flashes on success.
+**Board (top).** A 13-week read of metric performance vs. target
+across every function. Two toggleable views: a *Grid* of function
+cards (each card is a per-metric sparkline with a dashed target
+line, coloured dots at each week, and a bigger "now" marker on the
+current column) and a *Timeline* where each function is a row of
+rolled-up weekly cells so cross-function patterns pop. Visionary
+and Integrator are pinned to the top of the Grid; everything else
+ranks worst-first.
 
-And one place to *read* the story across every function:
+**Scoreboard (bottom).** The batch entry table — every metric the
+caller owns with a coloured input per row, three history pills, and
+a status dot. Best when logging several metrics in one sitting.
 
-- **/measures/board — Success Tracking Board.** Two toggleable
-  views over the last 13 weeks: a *Grid* of function cards (each
-  card is a compact metric × week heatmap, ranked worst first),
-  and a *Timeline* where each function is a row of rolled-up
-  weekly cells so cross-function patterns pop. Deep-link from the
-  batch scoreboard or open directly.
+Two more places to log a value:
+
+- **/measures/[id] quick-log** — one metric, one big input, phone-
+  friendly. Reach it by clicking a metric name in the scoreboard or
+  from a deep link.
+- **Chart function page** — click the value pill on any metric row
+  on the function's detail page and type a number. Blur or press
+  Enter to save; a green ✓ flashes on success.
 
 All three write to the same row in `success_measure_entries`, upserted
 on `(measure_id, week ending)`, so the last value wins.
