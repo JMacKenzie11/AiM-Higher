@@ -51,22 +51,24 @@ export default async function ChartPage() {
         </>
       }
     >
-      {isAdmin ? (
-        <div className={styles.toolbar}>
-          <details className={styles.addDetails}>
-            <summary className={styles.addSummary}>+ Add function</summary>
-            <AddFunctionForm people={roster} parentOptions={parentOptions} />
-          </details>
-        </div>
-      ) : null}
+      <div className={styles.chartCard}>
+        {isAdmin ? (
+          <div className={styles.chartCardHeader}>
+            <details className={styles.addDetails}>
+              <summary className={styles.addSummary}>+ Add function</summary>
+              <AddFunctionForm people={roster} parentOptions={parentOptions} />
+            </details>
+          </div>
+        ) : null}
 
-      {roots.length === 0 ? (
-        <EmptyChart isAdmin={isAdmin} />
-      ) : (
-        <div className={styles.tree}>
-          <DraggableTree roots={roots} canReorder={isAdmin} />
-        </div>
-      )}
+        {roots.length === 0 ? (
+          <EmptyChart isAdmin={isAdmin} />
+        ) : (
+          <div className={styles.tree}>
+            <DraggableTree roots={roots} canReorder={isAdmin} />
+          </div>
+        )}
+      </div>
     </PageShell>
   );
 }

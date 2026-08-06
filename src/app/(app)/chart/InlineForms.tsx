@@ -126,6 +126,18 @@ export function AddFunctionForm({
         <button type="submit" className={uiStyles.btnPrimary} disabled={pending}>
           {pending ? "Adding…" : parentFunctionId ? "Add sub-function" : "Add function"}
         </button>
+        <button
+          type="button"
+          className={uiStyles.btnGhost}
+          disabled={pending}
+          onClick={() => {
+            const details = formRef.current?.closest("details");
+            if (details instanceof HTMLDetailsElement) details.open = false;
+            formRef.current?.reset();
+          }}
+        >
+          Cancel
+        </button>
         <ConfirmationChip visible={confirmationVisible} />
       </div>
     </form>

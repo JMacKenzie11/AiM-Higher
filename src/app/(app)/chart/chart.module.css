@@ -29,26 +29,31 @@
   margin: var(--space-3) 0 0 0;
 }
 
-/* Card-shaped so it visually overlaps the hero when it's the first
-   child of the PageShell content area. */
-.toolbar {
+/* One card wraps the add-function affordance and the tree together
+   so the top-right "+ Add function" reads as belonging to the chart,
+   not a separate floating pill. Navy tint + border + shadow so the
+   card overlaps the hero cleanly. */
+.chartCard {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-3);
-  align-items: center;
-  justify-content: flex-end;
-  background: var(--surface);
+  background: var(--aims-navy-tint);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   padding: var(--space-4) var(--space-5);
 }
 
+.chartCardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .emptyCard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-6);
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -78,10 +83,7 @@
      told us that's the right trade over a horizontal scroll. */
   overflow-x: hidden;
   overflow-y: visible;
-  padding: var(--space-4) var(--space-3) var(--space-6);
-  background: var(--aims-navy-tint);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  padding: var(--space-2) 0 var(--space-4);
   container-type: inline-size;
 }
 
@@ -428,6 +430,13 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+/* Inside the chart card the parent is already tinted, so an open
+   Add-function panel needs a white surface to read as an editing
+   surface rather than blending into the card behind it. */
+.chartCard .addDetails[open] {
+  background: var(--surface);
 }
 
 .addSummary {
