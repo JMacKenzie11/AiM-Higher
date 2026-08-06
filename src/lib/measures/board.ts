@@ -18,12 +18,19 @@ export type BoardCell = {
   // Pre-formatted value for the hover tooltip — the component
   // shouldn't need to re-derive from raw number/text.
   displayValue: string;
+  // Numeric value for plotting. For number/percent this is the
+  // raw number; for text/yes-no metrics we normalise to 1 (matches
+  // target) or 0 (doesn't). Null when unlogged / no target.
+  numericValue: number | null;
 };
 
 export type BoardMetric = {
   id: string;
   description: string;
   target: string | null;
+  // Numeric form of the target for plotting the reference line.
+  // Text metrics get a target of 1 to match the numericValue scale.
+  targetNumeric: number | null;
   valueType: MetricValueType;
   direction: TargetDirection;
   outcomeTitle: string;
@@ -34,6 +41,12 @@ export type BoardFunction = {
   id: string;
   title: string;
   seatHolder: string | null;
+  parentId: string | null;
+  // 0 for a root function (typically Visionary), 1 for its
+  // children (typically Integrator), 2+ for everything downstream.
+  // Used to keep the leadership seats pinned at the top of the
+  // cockpit view regardless of current-week performance.
+  depth: number;
   metrics: BoardMetric[];
 };
 
@@ -60,7 +73,7 @@ export async function getBoardData(
   const [{ data: functionsRaw }, { data: rosterRaw }] = await Promise.all([
     supabase
       .from("functions")
-      .select("id, title, lead_id, sort_order")
+      .select("id, title, lead_id, parent_function_id, sort_order")
       .eq("company_id", companyId)
       .eq("archived", false)
       .order("sort_order"),
@@ -73,6 +86,7 @@ export async function getBoardData(
     id: string;
     title: string;
     lead_id: string | null;
+    parent_function_id: string | null;
     sort_order: number;
   }>;
   if (functions.length === 0) {
@@ -152,6 +166,24 @@ export async function getBoardData(
     }
   }
 
+  // Depth = number of hops to reach a root ancestor. Used by the
+  // cockpit view so Visionary (root) and Integrator (Visionary's
+  // child) always sit at the top of the grid regardless of how
+  // this week's numbers landed.
+  const parentById = new Map(
+    functions.map((f) => [f.id, f.parent_function_id])
+  );
+  const depthCache = new Map<string, number>();
+  const computeDepth = (id: string, seen = new Set<string>()): number => {
+    if (depthCache.has(id)) return depthCache.get(id)!;
+    if (seen.has(id)) return 0; // cycle guard
+    seen.add(id);
+    const parent = parentById.get(id);
+    const d = parent ? 1 + computeDepth(parent, seen) : 0;
+    depthCache.set(id, d);
+    return d;
+  };
+
   const boardFunctions: BoardFunction[] = functions.map((fn) => {
     const fnOutcomeIds = outcomes
       .filter((o) => o.function_id === fn.id)
@@ -163,27 +195,64 @@ export async function getBoardData(
       id: fn.id,
       title: fn.title,
       seatHolder: fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null,
-      metrics: fnMeasures.map((m) => ({
-        id: m.id,
-        description: m.description,
-        target: m.target,
-        valueType: m.value_type,
-        direction: m.target_direction,
-        outcomeTitle: outcomeById.get(m.outcome_id)?.title ?? "—",
-        cells: weeks.map((w) => {
-          const entry = entriesByMeasureWeek.get(`${m.id}|${w}`) ?? null;
-          const status = computeStatus(m, entry);
-          return {
-            weekEnding: w,
-            status,
-            displayValue: formatValue(m.value_type, entry),
-          };
-        }),
-      })),
+      parentId: fn.parent_function_id,
+      depth: computeDepth(fn.id),
+      metrics: fnMeasures.map((m) => {
+        const targetNumeric =
+          m.value_type === "text"
+            ? m.target
+              ? 1
+              : null
+            : parseNum(m.target);
+        return {
+          id: m.id,
+          description: m.description,
+          target: m.target,
+          targetNumeric,
+          valueType: m.value_type,
+          direction: m.target_direction,
+          outcomeTitle: outcomeById.get(m.outcome_id)?.title ?? "—",
+          cells: weeks.map((w) => {
+            const entry = entriesByMeasureWeek.get(`${m.id}|${w}`) ?? null;
+            const status = computeStatus(m, entry);
+            return {
+              weekEnding: w,
+              status,
+              displayValue: formatValue(m.value_type, entry),
+              numericValue: extractNumericValue(m, entry),
+            };
+          }),
+        };
+      }),
     };
   });
 
   return { weeks, currentWeekEnding, functions: boardFunctions };
+}
+
+// Coerce an entry into a plottable number. For number/percent we
+// return the raw value; for text (yes/no) we return 1 when the entry
+// matches the target and 0 otherwise. Null when there's no entry —
+// the sparkline breaks its line at null points so a missed week
+// reads as a gap, not an interpolation.
+function extractNumericValue(
+  measure: {
+    value_type: MetricValueType;
+    target: string | null;
+  },
+  entry: { number: number | null; text: string | null } | null
+): number | null {
+  if (!entry) return null;
+  if (measure.value_type === "text") {
+    if (!entry.text) return null;
+    const l = entry.text.trim().toLowerCase();
+    const t = (measure.target ?? "").trim().toLowerCase();
+    if (!t) return null;
+    return l === t ? 1 : 0;
+  }
+  return entry.number != null && Number.isFinite(entry.number)
+    ? entry.number
+    : null;
 }
 
 // Compare an entry to its metric's target and return a bucketed

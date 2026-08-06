@@ -233,77 +233,173 @@
 .cockpitMetricList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
-.cockpitMetricRow {
+/* Sparkline row = label column on the left, chart on the right.
+   Chart takes remaining width so it responds to card size. */
+.sparkRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(160px, 42%) minmax(0, 1fr);
   gap: var(--space-3);
   align-items: center;
 }
 
-.cockpitMetricLabel {
+.sparkLabel {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.cockpitMetricName {
+.sparkName {
   font: var(--text-body-sm);
-  color: var(--text);
+  color: var(--text-heading);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cockpitMetricTarget {
+.sparkTarget {
   font: var(--text-caption);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
-}
-
-.cockpitCellRow {
   display: inline-flex;
-  gap: 3px;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
 }
 
-.cockpitCell {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  background: var(--border);
-  transition: transform var(--duration-fast) var(--ease-out);
-  animation: cellIn 260ms var(--ease-out) both;
+.sparkNoTarget {
+  font-style: italic;
+  color: var(--text-faint);
 }
 
-.cockpitCell:hover {
-  transform: scale(1.25);
+.sparkNowChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
 }
 
-.cockpitCell_good {
-  background: var(--aims-success);
+.sparkNowChip_good {
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
 }
 
-.cockpitCell_off {
-  background: var(--aims-danger);
+.sparkNowChip_off {
+  background: var(--aims-danger-tint);
+  color: var(--aims-danger);
 }
 
-.cockpitCell_unlogged {
-  background: color-mix(in srgb, var(--aims-warning) 25%, var(--border));
+.sparkNowChip_unlogged {
+  background: color-mix(in srgb, var(--aims-warning) 15%, var(--surface));
+  color: var(--aims-warning);
 }
 
-.cockpitCell_no_target {
-  background: transparent;
-  border: 1px dashed var(--border-strong);
+.sparkNowChip_no_target {
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
 }
 
-@keyframes cellIn {
+.sparkChart {
+  min-width: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.sparkSvg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sparkTargetLine {
+  stroke: var(--text-muted);
+  stroke-width: 0.6;
+  stroke-dasharray: 3 3;
+  opacity: 0.55;
+}
+
+.sparkTargetLabel {
+  font-family: var(--font-sans);
+  font-size: 7px;
+  fill: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+
+.sparkNowLine {
+  stroke: var(--primary);
+  stroke-width: 0.8;
+  opacity: 0.35;
+}
+
+.sparkPath {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* Draw-in effect. 400 is a value larger than any realistic path
+     length so the offset fully hides the line before animating. */
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  animation: sparkDraw 900ms var(--ease-out) forwards;
+}
+
+.sparkDot {
+  opacity: 0;
+  animation: sparkDotIn 240ms var(--ease-out) forwards;
+  transition: r var(--duration-fast) var(--ease-out);
+}
+
+.sparkDot_good {
+  fill: var(--aims-success);
+}
+
+.sparkDot_off {
+  fill: var(--aims-danger);
+}
+
+.sparkDot_unlogged {
+  fill: color-mix(in srgb, var(--aims-warning) 30%, transparent);
+  stroke: var(--aims-warning);
+  stroke-width: 0.8;
+}
+
+.sparkDot_no_target {
+  fill: transparent;
+  stroke: var(--border-strong);
+  stroke-width: 0.6;
+  stroke-dasharray: 1 1;
+}
+
+.sparkDotCurrent {
+  stroke: var(--surface);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+}
+
+@keyframes sparkDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes sparkDotIn {
   from {
     opacity: 0;
-    transform: scale(0.7);
+    transform: scale(0.4);
+    transform-origin: center;
   }
   to {
     opacity: 1;
