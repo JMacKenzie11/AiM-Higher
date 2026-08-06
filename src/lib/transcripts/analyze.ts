@@ -491,6 +491,15 @@ async function createCommitmentsFromExtraction(
   const horizonIso = horizon.toISOString().slice(0, 10);
 
   const rows = commitments.map((c) => {
+    // Always land the row in *this* week's review — /commitments only
+    // queries week_ending <= thisFri, so binding week_ending to the
+    // LLM-extracted due date used to bury any commitment the model
+    // dated beyond this Friday. The actual deadline still lives on
+    // due_date and shows on the row; unresolved rows roll into
+    // "Needs attention" next week the same as hand-typed ones.
+    // The horizon check still gates outlandish/past dates: anything
+    // outside [today, today+30d] falls back to thisFri so due_date
+    // stays trustworthy.
     const dueWithinHorizon =
       c.due_date && c.due_date <= horizonIso && c.due_date >= todayIso
         ? c.due_date
@@ -500,7 +509,7 @@ async function createCommitmentsFromExtraction(
       priority_id: c.priority_id,
       owner_id: c.owner_profile_id,
       description: c.description,
-      week_ending: fridayOf(dueWithinHorizon),
+      week_ending: thisFri,
       due_date: dueWithinHorizon,
       status: "open" as const,
       source_meeting_id: meeting.id,
