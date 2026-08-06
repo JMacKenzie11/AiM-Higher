@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import formStyles from "@/components/auth-shell/AuthForm.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -10,11 +11,15 @@ export type ResetPasswordFormProps = {
   redirectTo: string;
 };
 
-// Supabase drops the user here with a recovery session encoded in the
-// URL hash. The browser SDK picks it up on mount, but those tokens
-// never become request cookies — so the password update has to run
-// through the browser client, not a server action. Same pattern as
-// AcceptInviteForm.
+// Supabase drops the user here with a recovery session encoded in
+// one of three URL shapes:
+//   a. #access_token=…&refresh_token=…  (implicit — legacy)
+//   b. ?code=…                          (PKCE)
+//   c. ?token_hash=…&type=recovery      (OTP hash — modern default)
+// supabase-js auto-handles (a) and sometimes (b); (c) must be
+// exchanged explicitly via verifyOtp. Same bootstrap as AcceptInviteForm.
+// The password update itself runs through the browser client because
+// those tokens never become request cookies a server action could see.
 
 function readHashError(): string | null {
   if (typeof window === "undefined") return null;
@@ -42,9 +47,63 @@ export function ResetPasswordForm({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [succeeded, setSucceeded] = useState(false);
   const [hashError, setHashError] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    setHashError(readHashError());
+    const err = readHashError();
+    if (err) {
+      setHashError(err);
+      setCheckingSession(false);
+      return;
+    }
+
+    // Snapshot + strip query params up front so a re-mount (React
+    // strict-mode double-invoke in dev, back/forward navigations)
+    // can't try to re-consume a one-shot token — the second call
+    // fails and would poison an already-good session.
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    const tokenHash = url.searchParams.get("token_hash");
+    const type = url.searchParams.get("type");
+    if (code || tokenHash) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    let cancelled = false;
+    (async () => {
+      const supabase = createSupabaseBrowserClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) {
+        if (!cancelled) setCheckingSession(false);
+        return;
+      }
+
+      let exchangeErr: string | null = null;
+      if (tokenHash && type) {
+        const { error } = await supabase.auth.verifyOtp({
+          type: type as EmailOtpType,
+          token_hash: tokenHash,
+        });
+        if (error) exchangeErr = error.message;
+      } else if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) exchangeErr = error.message;
+      }
+
+      if (cancelled) return;
+      if (exchangeErr) {
+        setHashError(
+          "This reset link is invalid or has expired. Request a new one from the sign-in page."
+        );
+      }
+      setCheckingSession(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -96,6 +155,14 @@ export function ResetPasswordForm({
     return (
       <p className={formStyles.successMessage} role="status">
         {successMessage}
+      </p>
+    );
+  }
+
+  if (checkingSession) {
+    return (
+      <p className={formStyles.helperText} role="status">
+        Verifying your reset link…
       </p>
     );
   }
