@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getChartFunctionDetail } from "@/lib/chart/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { thisFriday } from "@/lib/dates";
 import { CardAccent } from "@/components/ui/CardAccent";
 import { PageShell } from "@/components/ui/PageShell";
 import { DeleteFunctionButton } from "./DeleteFunctionButton";
@@ -28,7 +30,25 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+  // Weekly logging is admin OR the function's Lead / Track. Same
+  // policy the upsertMeasureEntryAction enforces server-side — this
+  // just gates the UI affordance.
+  const canLog =
+    isAdmin ||
+    detail.fn.lead_id === session.profile.id ||
+    detail.fn.track_id === session.profile.id;
   const outcomeCount = detail.outcomes.length;
+
+  // Read the company's timezone so "this week" matches what
+  // /measures and the Saturday auto-check use. Fall back to Alaska
+  // if the row is somehow missing.
+  const supabase = await createSupabaseServerClient();
+  const { data: company } = await supabase
+    .from("companies")
+    .select("timezone")
+    .eq("id", detail.fn.company_id)
+    .maybeSingle<{ timezone: string }>();
+  const weekEnding = thisFriday(company?.timezone ?? "America/Anchorage");
 
   return (
     <PageShell
@@ -86,7 +106,13 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
           ) : null}
 
           {detail.outcomes.map((o) => (
-            <SuccessMeasureCard key={o.id} outcome={o} canEdit={isAdmin} />
+            <SuccessMeasureCard
+              key={o.id}
+              outcome={o}
+              canEdit={isAdmin}
+              canLog={canLog}
+              weekEnding={weekEnding}
+            />
           ))}
 
           {isAdmin ? (

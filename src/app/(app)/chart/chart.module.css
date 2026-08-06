@@ -787,6 +787,83 @@
   color: var(--aims-danger);
 }
 
+/* Inline weekly logger cell — replaces the read-only value pill for
+   callers who can write. The pill itself becomes a button; clicking
+   swaps it for a tight text input that saves on blur or Enter. */
+.detailMeasureLoggerCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-self: end;
+}
+
+.detailMeasureLoggerButton {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  position: relative;
+  transition: filter var(--duration-fast) var(--ease-out);
+}
+
+.detailMeasureLoggerButton:hover {
+  filter: brightness(0.96);
+}
+
+.detailMeasureLoggerButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.detailMeasureLoggerInput {
+  height: var(--control-h-sm);
+  min-width: 72px;
+  max-width: 96px;
+  padding: 0 var(--space-2);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.detailMeasureLoggerInput:focus {
+  outline: none;
+}
+
+.detailMeasureLoggerError {
+  font: var(--text-caption);
+  color: var(--aims-danger);
+}
+
+.detailMeasureFlash {
+  position: absolute;
+  right: -18px;
+  color: var(--aims-success);
+  font-weight: 700;
+  pointer-events: none;
+  animation: aimsMeasureFlash 1.5s ease-out forwards;
+}
+
+@keyframes aimsMeasureFlash {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* Always-live add-metric row inside a Success Measure card. Same
    rhythm as the roles list draft row — three tight inputs + Add,
    Enter to save. */

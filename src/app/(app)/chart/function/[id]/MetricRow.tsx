@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   archiveMeasureAction,
   updateMeasureAction,
+  upsertMeasureEntryAction,
   type ChartResult,
 } from "@/lib/chart/actions";
 import type {
@@ -26,14 +28,21 @@ const VALUE_TYPES: Array<{ value: MetricValueType; label: string }> = [
 
 export function MetricRow({
   measure,
-  latest,
+  entries,
   canEdit,
+  canLog,
+  weekEnding,
 }: {
   measure: SuccessMeasure;
-  latest: SuccessMeasureEntry | null;
+  entries: SuccessMeasureEntry[];
   canEdit: boolean;
+  canLog: boolean;
+  weekEnding: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const latest = entries[0] ?? null;
+  const currentWeekEntry =
+    entries.find((e) => e.week_ending === weekEnding) ?? null;
 
   if (editing) {
     return (
@@ -71,16 +80,25 @@ export function MetricRow({
       <span className={styles.detailMeasureTarget}>
         {measure.target ? `Target ${measure.target}` : "No target"}
       </span>
-      <span
-        className={valueClassName(measure, latest, styles)}
-        title={latest ? `Week of ${latest.week_ending}` : "No entries yet"}
-      >
-        {formatValue(
-          measure.value_type,
-          latest?.value_number ?? null,
-          latest?.value_text ?? null
-        )}
-      </span>
+      {canLog ? (
+        <InlineWeeklyLogger
+          measure={measure}
+          currentWeekEntry={currentWeekEntry}
+          latest={latest}
+          weekEnding={weekEnding}
+        />
+      ) : (
+        <span
+          className={valueClassName(measure, latest, styles)}
+          title={latest ? `Week of ${latest.week_ending}` : "No entries yet"}
+        >
+          {formatValue(
+            measure.value_type,
+            latest?.value_number ?? null,
+            latest?.value_text ?? null
+          )}
+        </span>
+      )}
       {canEdit ? (
         <span className={styles.detailMeasureActions}>
           <button
@@ -95,6 +113,144 @@ export function MetricRow({
       ) : null}
     </li>
   );
+}
+
+// Click-to-log affordance on the value pill. When the caller has
+// permission to write entries for this metric (admin or the seat's
+// Lead/Track), the pill turns into a text input on click; blur or
+// Enter upserts to success_measure_entries for the current week and
+// briefly flashes a confirmation.
+function InlineWeeklyLogger({
+  measure,
+  currentWeekEntry,
+  latest,
+  weekEnding,
+}: {
+  measure: SuccessMeasure;
+  currentWeekEntry: SuccessMeasureEntry | null;
+  latest: SuccessMeasureEntry | null;
+  weekEnding: string;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [flash, setFlash] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<string>(() =>
+    formatDraft(measure.value_type, currentWeekEntry)
+  );
+
+  useEffect(() => {
+    setDraft(formatDraft(measure.value_type, currentWeekEntry));
+  }, [measure.value_type, currentWeekEntry]);
+
+  useEffect(() => {
+    if (!flash) return;
+    const t = window.setTimeout(() => setFlash(false), 1500);
+    return () => window.clearTimeout(t);
+  }, [flash]);
+
+  function commit() {
+    if (pending) return;
+    const next = draft.trim();
+    const existing = formatDraft(measure.value_type, currentWeekEntry);
+    if (next === existing) {
+      setEditing(false);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await upsertMeasureEntryAction(
+        measure.id,
+        weekEnding,
+        next
+      );
+      if (!result.ok) {
+        setError(result.message);
+      } else {
+        setEditing(false);
+        setFlash(true);
+        router.refresh();
+      }
+    });
+  }
+
+  function cancel() {
+    setDraft(formatDraft(measure.value_type, currentWeekEntry));
+    setEditing(false);
+    setError(null);
+  }
+
+  if (editing) {
+    return (
+      <span className={styles.detailMeasureLoggerCell}>
+        <input
+          className={styles.detailMeasureLoggerInput}
+          type={measure.value_type === "text" ? "text" : "number"}
+          step="any"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              cancel();
+            }
+          }}
+          disabled={pending}
+          autoFocus
+          placeholder={
+            measure.value_type === "percent"
+              ? "0 – 100"
+              : measure.value_type === "text"
+                ? "Yes / No"
+                : "0"
+          }
+          aria-label="Log this week's value"
+        />
+        {error ? (
+          <span role="alert" className={styles.detailMeasureLoggerError}>
+            {error}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={`${valueClassName(measure, latest, styles)} ${styles.detailMeasureLoggerButton}`}
+      onClick={() => setEditing(true)}
+      title={
+        currentWeekEntry
+          ? `Logged for week of ${weekEnding} — click to update`
+          : `Click to log the week ending ${weekEnding}`
+      }
+    >
+      {formatValue(
+        measure.value_type,
+        latest?.value_number ?? null,
+        latest?.value_text ?? null
+      )}
+      {flash ? <span className={styles.detailMeasureFlash}>✓</span> : null}
+    </button>
+  );
+}
+
+function formatDraft(
+  valueType: MetricValueType,
+  entry: SuccessMeasureEntry | null
+): string {
+  if (!entry) return "";
+  if (valueType === "text") return entry.value_text ?? "";
+  if (entry.value_number == null || !Number.isFinite(entry.value_number)) {
+    return "";
+  }
+  return String(entry.value_number);
 }
 
 function EditMetricForm({
@@ -264,9 +420,9 @@ function formatValue(
 }
 
 // Colour the latest-value pill based on how it compares to the
-// target. Green when at-or-above (or at-or-below for lower_is_better
-// or matching for text). Amber when off. Neutral when there's no
-// target or no entry yet — no signal to render.
+// target. Good = at or above/below the target for the metric's
+// direction. Off = missed. Neutral covers "no target" and "no
+// entries yet" — no signal to render.
 function valueClassName(
   measure: SuccessMeasure,
   latest: SuccessMeasureEntry | null,

@@ -26,9 +26,13 @@ export type SuccessMeasureCardOutcome = FunctionOutcome & {
 export function SuccessMeasureCard({
   outcome,
   canEdit,
+  canLog,
+  weekEnding,
 }: {
   outcome: SuccessMeasureCardOutcome;
   canEdit: boolean;
+  canLog: boolean;
+  weekEnding: string;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -66,8 +70,10 @@ export function SuccessMeasureCard({
             <MetricRow
               key={m.id}
               measure={m}
-              latest={m.entries[0] ?? null}
+              entries={m.entries}
               canEdit={canEdit}
+              canLog={canLog}
+              weekEnding={weekEnding}
             />
           ))}
         </ul>
