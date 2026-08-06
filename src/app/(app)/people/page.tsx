@@ -24,6 +24,53 @@ function statusChipClass(status: Profile["status"]): string {
   }
 }
 
+// Small dot + tooltip that answers "has this person made it in yet?"
+// at a glance. profiles.status flips to 'active' inside
+// acceptInviteAction the moment the user sets a password on
+// /accept-invite, so 'active' is a reliable "signed in successfully"
+// signal without needing to peek at auth.users.last_sign_in_at.
+function statusIndicator(
+  status: Profile["status"],
+  invitedAt: string | null
+): { className: string; title: string } {
+  if (status === "active") {
+    return {
+      className: `${styles.statusDot} ${styles.statusDotActive}`,
+      title: "Active — accepted the invite",
+    };
+  }
+  if (status === "inactive") {
+    return {
+      className: `${styles.statusDot} ${styles.statusDotInactive}`,
+      title: "Inactive",
+    };
+  }
+  // pending
+  const title = invitedAt
+    ? `Invited ${formatRelativeShort(invitedAt)}, not yet accepted`
+    : "Not yet invited";
+  return {
+    className: `${styles.statusDot} ${styles.statusDotPending}`,
+    title,
+  };
+}
+
+function formatRelativeShort(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffMinutes = Math.max(0, Math.round((now - then) / 60000));
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 30) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default async function PeoplePage() {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
@@ -88,15 +135,26 @@ export default async function PeoplePage() {
                   const canCoachPerson =
                     !isSelfRow &&
                     (isAdmin || person.reports_to === session.profile.id);
+                  const indicator = statusIndicator(
+                    person.status,
+                    person.invited_at
+                  );
                   return (
                     <tr key={person.id}>
                     <td>
-                      <Link
-                        href={`/people/${person.id}`}
-                        className={styles.personLink}
-                      >
-                        {person.full_name}
-                      </Link>
+                      <span className={styles.nameCell} title={indicator.title}>
+                        <span
+                          className={indicator.className}
+                          aria-label={indicator.title}
+                          role="img"
+                        />
+                        <Link
+                          href={`/people/${person.id}`}
+                          className={styles.personLink}
+                        >
+                          {person.full_name}
+                        </Link>
+                      </span>
                     </td>
                     <td className={styles.mutedCell}>
                       {person.position ?? "—"}
