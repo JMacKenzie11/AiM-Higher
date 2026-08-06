@@ -82,6 +82,18 @@ export function ChatView({
   // The first exchange is what triggers auto-titling. Track it so
   // subsequent completions don't refire the model call.
   const autoTitledRef = useRef(false);
+  // Tracks the in-flight coach fetch so we can cancel it if the user
+  // navigates away mid-stream. Without this, the SSE reader loop
+  // keeps running on the client (leak) and the server keeps
+  // generating tokens into a dead connection until the upstream
+  // Anthropic stream times out.
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   // Keep the bottom of the thread in view as the assistant streams.
   // The scroll container here is the window (sticky header + composer
@@ -122,6 +134,14 @@ export function ChatView({
         { id: assistantId, role: "assistant", content: "", streaming: true },
       ]);
 
+      // Abort any prior in-flight send (shouldn't happen — the button
+      // is disabled while sending — but defensive) and start a fresh
+      // controller for this fetch. The unmount effect above aborts it
+      // too, which propagates through fetch → reader → server.
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       try {
         const response = await fetch("/api/coach", {
           method: "POST",
@@ -131,6 +151,7 @@ export function ChatView({
             userMessage: trimmed,
             retry: Boolean(opts.retry),
           }),
+          signal: controller.signal,
         });
         if (!response.ok || !response.body) {
           throw new Error(
@@ -138,7 +159,7 @@ export function ChatView({
           );
         }
 
-        await consumeSse(response.body, {
+        await consumeSse(response.body, controller.signal, {
           onDelta: (chunk) => {
             setMessages((prev) =>
               prev.map((m) =>
@@ -188,6 +209,16 @@ export function ChatView({
           },
         });
       } catch (error) {
+        // Aborts are expected (unmount / re-send / user cancel) —
+        // don't surface them as an error bubble the user has to
+        // dismiss. Also skip the state update if the controller
+        // already fired; the component is likely mid-unmount.
+        if (
+          controller.signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError")
+        ) {
+          return;
+        }
         const msg =
           error instanceof Error ? error.message : "Something went wrong.";
         setMessages((prev) =>
@@ -198,9 +229,11 @@ export function ChatView({
           )
         );
       } finally {
-        setSending(false);
-        if (!opts.retry) setInput("");
-        textareaRef.current?.focus();
+        if (!controller.signal.aborted) {
+          setSending(false);
+          if (!opts.retry) setInput("");
+          textareaRef.current?.focus();
+        }
       }
     },
     [conversation.id, sending]
@@ -395,8 +428,13 @@ function MessageBubble({
 }
 
 // Minimal SSE reader. Consumes `event: <name>` and `data: <json>` pairs.
+// Honours an AbortSignal so an unmount / re-send cancels the underlying
+// reader (previously the loop ran until EOF regardless — orphaning the
+// stream on the client and letting the server keep generating tokens
+// into a dead connection until its own timeout).
 async function consumeSse(
   body: ReadableStream<Uint8Array>,
+  signal: AbortSignal,
   handlers: {
     onDelta: (chunk: string) => void;
     onError: (message: string) => void;
@@ -407,43 +445,67 @@ async function consumeSse(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+  // If the signal fires (unmount or re-send), cancel the underlying
+  // reader immediately — otherwise the awaiting reader.read() promise
+  // sits there until the server closes on its own.
+  const onAbort = () => {
+    reader.cancel().catch(() => {
+      // Reader already closed / cancelled — nothing to do.
+    });
+  };
+  if (signal.aborted) {
+    onAbort();
+  } else {
+    signal.addEventListener("abort", onAbort, { once: true });
+  }
 
-    let idx = buffer.indexOf("\n\n");
-    while (idx !== -1) {
-      const raw = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 2);
-      idx = buffer.indexOf("\n\n");
+  try {
+    while (true) {
+      if (signal.aborted) break;
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-      let event = "message";
-      const dataLines: string[] = [];
-      for (const line of raw.split("\n")) {
-        if (line.startsWith("event: ")) event = line.slice(7).trim();
-        else if (line.startsWith("data: ")) dataLines.push(line.slice(6));
-      }
-      const dataStr = dataLines.join("\n");
-      let parsed: unknown = dataStr;
-      try {
-        parsed = JSON.parse(dataStr);
-      } catch {
-        // Fall back to raw string.
-      }
+      let idx = buffer.indexOf("\n\n");
+      while (idx !== -1) {
+        const raw = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        idx = buffer.indexOf("\n\n");
 
-      if (event === "delta" && parsed && typeof parsed === "object" && "text" in parsed) {
-        const t = (parsed as { text?: unknown }).text;
-        if (typeof t === "string") handlers.onDelta(t);
-      } else if (event === "error") {
-        const message =
-          parsed && typeof parsed === "object" && "message" in parsed
-            ? String((parsed as { message?: unknown }).message ?? "Error")
-            : "Error";
-        handlers.onError(message);
-      } else if (event === "done") {
-        handlers.onDone();
+        let event = "message";
+        const dataLines: string[] = [];
+        for (const line of raw.split("\n")) {
+          if (line.startsWith("event: ")) event = line.slice(7).trim();
+          else if (line.startsWith("data: ")) dataLines.push(line.slice(6));
+        }
+        const dataStr = dataLines.join("\n");
+        let parsed: unknown = dataStr;
+        try {
+          parsed = JSON.parse(dataStr);
+        } catch {
+          // Fall back to raw string.
+        }
+
+        if (event === "delta" && parsed && typeof parsed === "object" && "text" in parsed) {
+          const t = (parsed as { text?: unknown }).text;
+          if (typeof t === "string") handlers.onDelta(t);
+        } else if (event === "error") {
+          const message =
+            parsed && typeof parsed === "object" && "message" in parsed
+              ? String((parsed as { message?: unknown }).message ?? "Error")
+              : "Error";
+          handlers.onError(message);
+        } else if (event === "done") {
+          handlers.onDone();
+        }
       }
     }
+  } catch (err) {
+    // Reader.read() throws when the underlying stream is cancelled
+    // mid-await — that's the expected path when signal fires. Only
+    // rethrow if this wasn't an abort.
+    if (!signal.aborted) throw err;
+  } finally {
+    signal.removeEventListener("abort", onAbort);
   }
 }

@@ -60,6 +60,11 @@ function encodeEvent(event: string, data: unknown): Uint8Array {
 
 export async function POST(req: NextRequest): Promise<Response> {
   const session = await requireProfile();
+  // req.signal fires when the client disconnects (tab closed, nav away,
+  // fetch abort). Threading it into every Anthropic call means an
+  // abandoned request stops burning tokens instead of streaming to
+  // completion into a dead connection.
+  const abortSignal = req.signal;
 
   let body: IncomingBody;
   try {
@@ -206,19 +211,22 @@ export async function POST(req: NextRequest): Promise<Response> {
         let finalUsage: Anthropic.Usage | null = null;
 
         for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
-          const messageStream = client.messages.stream({
-            model,
-            max_tokens: MAX_TOKENS,
-            system: [
-              {
-                type: "text",
-                text: systemPromptText,
-                cache_control: { type: "ephemeral" },
-              },
-            ],
-            messages: currentMessages,
-            tools: toolDefs,
-          });
+          const messageStream = client.messages.stream(
+            {
+              model,
+              max_tokens: MAX_TOKENS,
+              system: [
+                {
+                  type: "text",
+                  text: systemPromptText,
+                  cache_control: { type: "ephemeral" },
+                },
+              ],
+              messages: currentMessages,
+              tools: toolDefs,
+            },
+            { signal: abortSignal }
+          );
 
           for await (const event of messageStream) {
             if (
@@ -303,6 +311,10 @@ export async function POST(req: NextRequest): Promise<Response> {
         );
 
         // Fire-and-forget title generation after the first exchange.
+        // Passes the request signal so a client disconnect between
+        // controller.close() and the title call landing kills the
+        // Anthropic follow-up too — previously it would run to
+        // completion on the server with dangling DB writes.
         if (isFirstExchange) {
           void generateTitleForConversation({
             client,
@@ -312,6 +324,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             assistantText,
             conversationId,
             currentUserId: session.profile.id,
+            signal: abortSignal,
           });
         }
 
@@ -430,6 +443,7 @@ async function generateTitleForConversation(args: {
   assistantText: string;
   conversationId: string;
   currentUserId: string;
+  signal?: AbortSignal;
 }): Promise<void> {
   try {
     const followup: Anthropic.MessageParam[] = [
@@ -441,18 +455,21 @@ async function generateTitleForConversation(args: {
           "Give this conversation a four-word topic label. Reply with the label only, no punctuation.",
       },
     ];
-    const response = await args.client.messages.create({
-      model: args.model,
-      max_tokens: 64,
-      messages: followup,
-      system: [
-        {
-          type: "text",
-          text: args.systemPromptText,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-    });
+    const response = await args.client.messages.create(
+      {
+        model: args.model,
+        max_tokens: 64,
+        messages: followup,
+        system: [
+          {
+            type: "text",
+            text: args.systemPromptText,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+      },
+      { signal: args.signal }
+    );
     const label = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)

@@ -178,17 +178,35 @@ export async function processPendingMeetings(
   const { data: meetings } = await query;
   const rows = (meetings ?? []) as Meeting[];
 
+  // Analyze in bounded parallel — each meeting is 2+ LLM calls plus
+  // DB writes, and later meetings don't depend on earlier ones, so
+  // the previous serial for...of scaled O(n) and put cron at timeout
+  // risk when 20+ meetings piled up. Concurrency capped at 3 to stay
+  // well under Anthropic's per-org rate limits and to avoid a
+  // Postgres connection storm on the analyze writes.
+  const CONCURRENCY = 3;
+  const routed = rows.filter((m) => Boolean(m.company_id));
   let processed = 0;
-  for (const meeting of rows) {
-    if (!meeting.company_id) continue; // unrouted safety net
-    try {
-      const result = await analyzeMeeting(meeting.id);
-      processed += 1;
-      if (result.createdCommitmentCount > 0) {
-        await sendCommitmentEmailForMeeting(meeting.id);
+  for (let i = 0; i < routed.length; i += CONCURRENCY) {
+    const batch = routed.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async (meeting) => {
+        const result = await analyzeMeeting(meeting.id);
+        if (result.createdCommitmentCount > 0) {
+          await sendCommitmentEmailForMeeting(meeting.id);
+        }
+      })
+    );
+    for (let j = 0; j < results.length; j++) {
+      const r = results[j];
+      if (r.status === "fulfilled") {
+        processed += 1;
+      } else {
+        console.error(
+          `Analysis failed for meeting ${batch[j].id}:`,
+          r.reason
+        );
       }
-    } catch (err) {
-      console.error(`Analysis failed for meeting ${meeting.id}:`, err);
     }
   }
   return { processed };
