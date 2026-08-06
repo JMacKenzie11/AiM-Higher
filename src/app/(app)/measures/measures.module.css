@@ -1,0 +1,311 @@
+/* Success Measures scoreboard — a batch table dressed up as a
+   status board. Colour lives on the current-value cell + a status
+   dot so a scanning owner can spot red rows fast. */
+
+.scoreboardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.scoreboardStats {
+  display: inline-flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.statChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.statChipCount {
+  font: var(--text-h3);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-heading);
+}
+
+.statChipLabel {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.statChipTotal {
+  color: var(--text-faint);
+}
+
+.statChip_good {
+  border-color: color-mix(in srgb, var(--aims-success) 35%, transparent);
+  background: var(--aims-success-tint);
+}
+
+.statChip_good .statChipCount {
+  color: var(--aims-success);
+}
+
+.statChip_off {
+  border-color: color-mix(in srgb, var(--aims-danger) 35%, transparent);
+  background: var(--aims-danger-tint);
+}
+
+.statChip_off .statChipCount {
+  color: var(--aims-danger);
+}
+
+.statChip_neutral {
+  border-color: var(--border);
+  background: var(--aims-navy-tint);
+}
+
+.filterToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-body-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.scoreboardTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.scoreboardTable th,
+.scoreboardTable td {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  text-align: left;
+}
+
+.scoreboardTable th {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.scoreboardTable tr:last-child td {
+  border-bottom: none;
+}
+
+.metricTitleCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.metricTitleLink {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+  text-decoration: none;
+}
+
+.metricTitleLink:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.metricTitleContext {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.targetCell {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.targetValue {
+  font: var(--text-body);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.targetDirection {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin-left: var(--space-1);
+}
+
+.targetMuted {
+  color: var(--text-faint);
+}
+
+.trendPills {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.trendPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--aims-navy-tint);
+  color: var(--text);
+  font: var(--text-body-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.trendPill_good {
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+}
+
+.trendPill_off {
+  background: var(--aims-danger-tint);
+  color: var(--aims-danger);
+}
+
+.trendEmpty {
+  color: var(--text-faint);
+}
+
+.scoreboardInput {
+  height: var(--control-h-md);
+  width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.scoreboardInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.scoreboardInput_good {
+  background: var(--aims-success-tint);
+  border-color: color-mix(in srgb, var(--aims-success) 35%, transparent);
+  color: var(--aims-success);
+  font-weight: 600;
+}
+
+.scoreboardInput_off {
+  background: var(--aims-danger-tint);
+  border-color: color-mix(in srgb, var(--aims-danger) 35%, transparent);
+  color: var(--aims-danger);
+  font-weight: 600;
+}
+
+.statusDot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.statusDot_good {
+  background: var(--aims-success);
+}
+
+.statusDot_off {
+  background: var(--aims-danger);
+}
+
+.statusDot_unlogged {
+  background: var(--aims-warning);
+}
+
+.statusDot_neutral {
+  background: var(--border);
+}
+
+/* ---- Quick-log single-metric page ---------------------------- */
+
+.quickLogCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.quickLogTargetRow {
+  display: flex;
+  gap: var(--space-4);
+  align-items: baseline;
+}
+
+.quickLogTargetLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.quickLogTargetValue {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.quickLogInput {
+  width: 100%;
+  height: 72px;
+  padding: 0 var(--space-4);
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  font: var(--text-display);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.quickLogInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.quickLogHistory {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.quickLogHistoryRow {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.quickLogHistoryRow:last-child {
+  border-bottom: none;
+}
+
+.quickLogHistoryWeek {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+.quickLogHistoryValue {
+  font: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-heading);
+  font-weight: 600;
+}
