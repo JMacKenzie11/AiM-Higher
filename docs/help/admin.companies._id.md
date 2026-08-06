@@ -16,6 +16,9 @@ No separate "open the company" step is needed.
 
 ## Common things people do here
 
+- **Set the industry** — free-text field editable on the Industry
+  card. Displayed in the settings hero and stored on the company
+  row for reference and future analytics. Optional.
 - **Toggle features** — the Features card enables or disables the
   modules: *Execution Platform* (commitments, success measures,
   coaching dashboard), *Strengths* (assessments, results,

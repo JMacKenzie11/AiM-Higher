@@ -20,6 +20,8 @@ to scope into it — the top nav flips to that company's context.
   features you pick. Every module (Execution Platform, Strengths,
   Success Tracking, Meeting Facilitation Review, Classroom) is
   available at creation; toggle them later in the company's settings.
+  The Industry field is optional at creation and editable afterwards
+  from the company's settings page.
 - **Manage AiMS Guides** (system admins only) — the Guides card
   invites coaches and assigns them to companies. A guide needs at
   least one company assignment.
