@@ -183,20 +183,16 @@
   flex-direction: column;
   align-items: center;
   list-style: none;
-  /* Fixed width per card. Earlier we used `flex: 1 1 0` so cards
-     shared available space, which was tidy for small sibling
-     groups but hid the tree's true intrinsic width from the
-     AutoFitTree wrapper's measurement (scrollWidth matched the
-     container). With a fixed 220px cell the tree's max-content is
-     the honest sum of every card, and AutoFitTree can scale the
-     whole thing down to fit. Small sibling groups end up
-     centred with empty space on either side — a real tradeoff we
-     accept in exchange for wide-group / deep-tree layouts that no
-     longer clip. */
-  flex: 0 0 220px;
-  width: 220px;
-  min-width: 0;
-  max-width: 220px;
+  /* Intrinsic width: the treeNode is as wide as MAX(its function
+     card, its subtree). This way a parent cell that has children
+     grows wide enough to hold the whole child branch under it,
+     so sub-functions never overflow into a sibling cell. The
+     function card itself is width-locked on .fnCardShell so it
+     stays consistent no matter how wide the treeNode's subtree
+     stretches; align-items: center keeps that card horizontally
+     centred above its own subtree. */
+  flex: 0 0 auto;
+  min-width: 220px;
 }
 
 .treeNode::before,
@@ -219,6 +215,19 @@
 .treeNode:only-child::before,
 .treeNode:only-child::after {
   display: none;
+}
+
+/* When a treeNode has children of its own, keep its parent card at
+   its natural height so it doesn't stretch down and visually collide
+   with the child branch. Without this the fnCardShell's flex-grow
+   fills any extra vertical space that align-items: stretch adds when
+   a sibling row is tall — making the parent card bleed past its
+   content into the child area. Extra space now collects as empty
+   room at the bottom of the treeNode, invisibly. Leaf nodes still
+   stretch (default behaviour) so a row of only-leaf siblings reads
+   as a uniform grid. */
+.treeNode:has(> .treeBranch) > .fnCardShell {
+  flex: 0 0 auto;
 }
 
 .treeNode:first-child::before,
