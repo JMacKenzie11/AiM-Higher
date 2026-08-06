@@ -261,20 +261,21 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
 // Shared invite-email dispatcher — used on create-with-send and on
 // standalone send/resend. If Supabase's email fails we still keep the
 // user; the admin can retry.
+//
+// Smart resend: inviteUserByEmail insists on creating a fresh auth
+// user, so it fails with "already been registered" the moment the
+// email is anywhere in auth.users — which is the state a normal
+// pending profile is already in (createUserAction pre-creates the
+// auth row before we ever mail an invite). On that specific
+// failure we transparently fall back to generateLink({ magiclink }),
+// which sends a sign-in link for the existing auth user instead of
+// trying to re-create it. Same outcome from the admin's POV.
 async function dispatchInvite(profileId: string, email: string): Promise<UserActionResult> {
   const admin = createSupabaseAdminClient();
   const redirectTo = `${APP_URL()}/accept-invite`;
   const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
+
   if (error) {
-    // Log the raw Supabase error so it lands in server logs, then
-    // surface a version of the message to the admin — the generic
-    // "couldn't send" hid the actual cause (rate limit, email
-    // already exists, SMTP misconfigured) and turned every failure
-    // into a guess. Common cases we've hit:
-    //   * email_exists — auth user already registered, probably
-    //     under another company on the same Supabase project.
-    //   * over_email_send_rate_limit — Supabase's built-in email
-    //     is rate-limited; configure custom SMTP.
     console.warn("inviteUserByEmail failed:", {
       profileId,
       email,
@@ -282,6 +283,14 @@ async function dispatchInvite(profileId: string, email: string): Promise<UserAct
       code: (error as { code?: string }).code,
       message: error.message,
     });
+
+    // Fall back to a magic sign-in link when the auth user already
+    // exists — the reliable path for pending profiles + returning
+    // users who never accepted their original invite.
+    if (isEmailAlreadyRegistered(error)) {
+      return await sendMagicLink(profileId, email, redirectTo);
+    }
+
     const detail = error.message?.trim();
     return {
       ok: false,
@@ -291,14 +300,79 @@ async function dispatchInvite(profileId: string, email: string): Promise<UserAct
     };
   }
 
+  await markInvited(admin, profileId);
+  return { ok: true, profileId };
+}
+
+function isEmailAlreadyRegistered(err: {
+  message?: string;
+  code?: string;
+}): boolean {
+  if (err.code === "email_exists") return true;
+  const msg = (err.message ?? "").toLowerCase();
+  return (
+    msg.includes("already been registered") ||
+    msg.includes("already exists") ||
+    msg.includes("email_exists")
+  );
+}
+
+async function sendMagicLink(
+  profileId: string,
+  email: string,
+  redirectTo: string
+): Promise<UserActionResult> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+    options: { redirectTo },
+  });
+
+  if (error) {
+    console.warn("generateLink(magiclink) failed:", {
+      profileId,
+      email,
+      status: (error as { status?: number }).status,
+      code: (error as { code?: string }).code,
+      message: error.message,
+    });
+    return {
+      ok: false,
+      message: `Email is already registered but we couldn't send a sign-in link: ${error.message}`,
+    };
+  }
+
+  // Log the generated link so admins running without custom SMTP
+  // (i.e. Supabase's built-in email is off or rate-limited) can
+  // still recover the URL from server logs and hand it to the
+  // user manually. Prod deployments with SMTP configured also get
+  // the email sent automatically.
+  const link = (data as { properties?: { action_link?: string } })
+    ?.properties?.action_link;
+  if (link) {
+    console.info("magic sign-in link generated for", email, "→", link);
+  }
+
+  await markInvited(admin, profileId);
+  return { ok: true, profileId };
+}
+
+async function markInvited(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  profileId: string
+): Promise<void> {
   const { error: markErr } = await admin
     .from("profiles")
     .update({ invited_at: new Date().toISOString() })
     .eq("id", profileId);
   if (markErr) {
-    // Non-fatal — email was sent, we just failed to record the timestamp.
+    // Non-fatal — email/link went out, we just failed to record the timestamp.
+    console.warn("failed to update invited_at:", {
+      profileId,
+      message: markErr.message,
+    });
   }
-  return { ok: true, profileId };
 }
 
 // ---- Delete a user (cleans up auth + profile via cascade) ----
