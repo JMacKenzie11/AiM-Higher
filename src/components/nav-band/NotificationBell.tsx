@@ -84,7 +84,17 @@ export function NotificationBell({ items }: { items: NotificationItem[] }) {
                   className={styles.bellMenuItem}
                   role="menuitem"
                 >
-                  {item.title}
+                  <span className={styles.bellMenuItemBody}>
+                    <span className={styles.bellMenuItemTitle}>
+                      {item.title}
+                    </span>
+                    <span className={styles.bellMenuItemHint}>
+                      {hintFor(item.href)}
+                    </span>
+                  </span>
+                  <span className={styles.bellMenuItemChevron} aria-hidden="true">
+                    →
+                  </span>
                 </Link>
               </li>
             ))}
@@ -93,6 +103,18 @@ export function NotificationBell({ items }: { items: NotificationItem[] }) {
       ) : null}
     </div>
   );
+}
+
+// Short "Go to X" hint for the notification tray. Keeps the primary
+// title focused on the *what* ("2 overdue commitments") and shows
+// the *where* below in a muted line, so a user hovering into the
+// tray sees both the situation and where clicking will take them.
+function hintFor(href: string): string {
+  if (href.startsWith("/commitments")) return "Go to Commitments";
+  if (href.startsWith("/measures")) return "Go to Success Measures";
+  if (href.startsWith("/leadership")) return "Go to Meetings";
+  if (href.startsWith("/dashboard")) return "Go to Dashboard";
+  return "Open";
 }
 
 function BellIcon() {
