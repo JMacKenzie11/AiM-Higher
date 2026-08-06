@@ -284,7 +284,11 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
 // send shows up in the Resend dashboard.
 async function dispatchInvite(profileId: string, email: string): Promise<UserActionResult> {
   const admin = createSupabaseAdminClient();
-  const redirectTo = `${APP_URL()}/accept-invite`;
+  // Route through the server-side /auth/callback so the OTP/PKCE
+  // exchange lands as a cookie session before the user ever hits
+  // /accept-invite. Avoids the client-side race that intermittently
+  // produced "Auth session missing!" on the password step.
+  const redirectTo = `${APP_URL()}/auth/callback?next=/accept-invite`;
 
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",

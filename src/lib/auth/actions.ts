@@ -65,7 +65,10 @@ export async function requestPasswordResetAction(
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${APP_URL()}/reset-password`,
+    // Route through the server-side /auth/callback so the OTP/PKCE
+    // exchange lands as a cookie session before /reset-password
+    // loads — mirrors the invite flow, avoids the client-side race.
+    redirectTo: `${APP_URL()}/auth/callback?next=/reset-password`,
   });
 
   // Log server-side so email delivery problems (rate limits, SMTP
