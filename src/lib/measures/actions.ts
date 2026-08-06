@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { MetricValueType } from "@/lib/types";
+import { scoreMeasureDraft, type MeasureCritique } from "./critique";
+import type { MetricValueType, TargetDirection } from "@/lib/types";
 
 // Batch weekly-value writer for the /measures batch page and the
 // dashboard "Pending this week" widget. Skips blank rows so a user
@@ -67,13 +68,70 @@ export async function logMeasureEntriesAction(
 
   if (rows.length === 0) return { ok: true, savedCount: 0 };
 
-  const { error } = await supabase
-    .from("success_measure_entries")
-    .upsert(rows, { onConflict: "measure_id,week_ending" });
-  if (error) return { ok: false, message: error.message };
+  // One retry on Postgres statement timeout — Supabase dev
+  // connections occasionally cold-start slow enough to trip the
+  // default statement_timeout on the first query. Upsert is
+  // idempotent on (measure_id, week_ending) so a retry is safe.
+  let attempt = 0;
+  let lastError: { message?: string; code?: string } | null = null;
+  while (attempt < 2) {
+    const { error } = await supabase
+      .from("success_measure_entries")
+      .upsert(rows, { onConflict: "measure_id,week_ending" });
+    if (!error) {
+      lastError = null;
+      break;
+    }
+    lastError = error;
+    if (!isStatementTimeout(error)) break;
+    attempt += 1;
+  }
+  if (lastError) {
+    if (isStatementTimeout(lastError)) {
+      return {
+        ok: false,
+        message:
+          "The database took too long to respond. Try again in a moment.",
+      };
+    }
+    return { ok: false, message: lastError.message ?? "Save failed." };
+  }
 
   revalidatePath("/measures");
   revalidatePath("/dashboard");
   revalidatePath("/chart");
   return { ok: true, savedCount: rows.length };
+}
+
+// Postgres cancels a query that exceeds statement_timeout with
+// SQLSTATE 57014. The Supabase JS client surfaces the raw error
+// text; we key off the message rather than a numeric code because
+// the code isn't always attached to the returned error.
+function isStatementTimeout(err: { message?: string; code?: string }): boolean {
+  const msg = (err.message ?? "").toLowerCase();
+  return (
+    err.code === "57014" ||
+    msg.includes("statement timeout") ||
+    msg.includes("canceling statement")
+  );
+}
+
+// Thin server-action wrapper around scoreMeasureDraft so the
+// AddMetricRow (client) can request AI critique on blur without an
+// API route boilerplate. Requires an authenticated session — the
+// critique doesn't leak data across tenants because inputs are
+// caller-provided strings and the caller only sees them if they're
+// looking at that outcome's card in the first place.
+export async function critiqueMeasureDraftAction(input: {
+  description: string;
+  target: string;
+  valueType: MetricValueType;
+  direction: TargetDirection;
+  outcomeTitle: string;
+  outcomeDescription: string | null;
+}): Promise<MeasureCritique | null> {
+  await requireProfile();
+  // Cheap short-circuit: nothing to critique for an empty description.
+  if (!input.description.trim()) return null;
+  return await scoreMeasureDraft(input);
 }

@@ -690,23 +690,55 @@ export async function upsertMeasureEntryAction(
     value_number = Number.isFinite(n) ? n : null;
   }
 
-  const { data, error } = await supabase
-    .from("success_measure_entries")
-    .upsert(
-      {
-        measure_id: measureId,
-        week_ending: weekEnding,
-        value_number,
-        value_text,
-        entered_by: session.profile.id,
-      },
-      { onConflict: "measure_id,week_ending" }
-    )
-    .select("*")
-    .single<SuccessMeasureEntry>();
-  if (error || !data) return { ok: false, message: "Couldn't log that entry." };
+  // One retry on Postgres statement timeout — see the same pattern
+  // in logMeasureEntriesAction for the reasoning.
+  let attempt = 0;
+  let lastError: { message?: string; code?: string } | null = null;
+  let data: SuccessMeasureEntry | null = null;
+  while (attempt < 2) {
+    const res = await supabase
+      .from("success_measure_entries")
+      .upsert(
+        {
+          measure_id: measureId,
+          week_ending: weekEnding,
+          value_number,
+          value_text,
+          entered_by: session.profile.id,
+        },
+        { onConflict: "measure_id,week_ending" }
+      )
+      .select("*")
+      .single<SuccessMeasureEntry>();
+    if (res.data && !res.error) {
+      data = res.data;
+      lastError = null;
+      break;
+    }
+    lastError = res.error ?? { message: "Couldn't log that entry." };
+    if (!isTimeoutError(lastError)) break;
+    attempt += 1;
+  }
+  if (!data) {
+    if (lastError && isTimeoutError(lastError)) {
+      return {
+        ok: false,
+        message: "The database took too long to respond. Try again in a moment.",
+      };
+    }
+    return { ok: false, message: lastError?.message ?? "Couldn't log that entry." };
+  }
 
   revalidatePath("/chart");
   revalidatePath(`/chart/function/${fn.id}`);
   return { ok: true, item: data };
+}
+
+function isTimeoutError(err: { message?: string; code?: string }): boolean {
+  const msg = (err.message ?? "").toLowerCase();
+  return (
+    err.code === "57014" ||
+    msg.includes("statement timeout") ||
+    msg.includes("canceling statement")
+  );
 }

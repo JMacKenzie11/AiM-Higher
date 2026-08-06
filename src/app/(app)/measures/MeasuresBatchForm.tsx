@@ -50,6 +50,14 @@ export function MeasuresBatchForm({
   }, [measures, showAtRiskOnly]);
 
   const stats = useMemo(() => computeStats(measures), [measures]);
+  // Only show the "on target / off" chips when there's actually a
+  // target to compare against on at least one metric. Without any
+  // targets the on/off counts read as 0/0 and imply a signal that
+  // isn't there.
+  const anyTargets = useMemo(
+    () => measures.some((m) => !!m.target?.trim()),
+    [measures]
+  );
 
   function save() {
     setMessage(null);
@@ -78,33 +86,39 @@ export function MeasuresBatchForm({
     <section className={styles.card}>
       <header className={localStyles.scoreboardHeader}>
         <div className={localStyles.scoreboardStats}>
-          <StatChip
-            tone="good"
-            label="On target"
-            count={stats.on}
-            total={stats.total}
-          />
-          <StatChip
-            tone="off"
-            label="Off"
-            count={stats.off}
-            total={stats.total}
-          />
+          {anyTargets ? (
+            <>
+              <StatChip
+                tone="good"
+                label="On target"
+                count={stats.on}
+                total={stats.total}
+              />
+              <StatChip
+                tone="off"
+                label="Off"
+                count={stats.off}
+                total={stats.total}
+              />
+            </>
+          ) : null}
           <StatChip
             tone="neutral"
-            label="Not yet logged"
+            label={anyTargets ? "Not yet logged" : "Awaiting this week"}
             count={stats.unlogged}
             total={stats.total}
           />
         </div>
-        <label className={localStyles.filterToggle}>
-          <input
-            type="checkbox"
-            checked={showAtRiskOnly}
-            onChange={(e) => setShowAtRiskOnly(e.target.checked)}
-          />
-          At-risk only
-        </label>
+        {anyTargets ? (
+          <label className={localStyles.filterToggle}>
+            <input
+              type="checkbox"
+              checked={showAtRiskOnly}
+              onChange={(e) => setShowAtRiskOnly(e.target.checked)}
+            />
+            At-risk only
+          </label>
+        ) : null}
       </header>
 
       {visible.length === 0 ? (
