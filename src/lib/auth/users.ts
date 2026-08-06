@@ -265,7 +265,31 @@ async function dispatchInvite(profileId: string, email: string): Promise<UserAct
   const admin = createSupabaseAdminClient();
   const redirectTo = `${APP_URL()}/accept-invite`;
   const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
-  if (error) return { ok: false, message: "Couldn't send the invite email." };
+  if (error) {
+    // Log the raw Supabase error so it lands in server logs, then
+    // surface a version of the message to the admin — the generic
+    // "couldn't send" hid the actual cause (rate limit, email
+    // already exists, SMTP misconfigured) and turned every failure
+    // into a guess. Common cases we've hit:
+    //   * email_exists — auth user already registered, probably
+    //     under another company on the same Supabase project.
+    //   * over_email_send_rate_limit — Supabase's built-in email
+    //     is rate-limited; configure custom SMTP.
+    console.warn("inviteUserByEmail failed:", {
+      profileId,
+      email,
+      status: (error as { status?: number }).status,
+      code: (error as { code?: string }).code,
+      message: error.message,
+    });
+    const detail = error.message?.trim();
+    return {
+      ok: false,
+      message: detail
+        ? `Couldn't send the invite email: ${detail}`
+        : "Couldn't send the invite email.",
+    };
+  }
 
   const { error: markErr } = await admin
     .from("profiles")
