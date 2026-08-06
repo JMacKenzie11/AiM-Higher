@@ -2,6 +2,32 @@
    status board. Colour lives on the current-value cell + a status
    dot so a scanning owner can spot red rows fast. */
 
+.boardLinkRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-4);
+}
+
+.boardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  color: var(--primary);
+  font: var(--text-button-sm);
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  background: var(--surface);
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.boardLink:hover {
+  background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
+}
+
 .scoreboardHeader {
   display: flex;
   align-items: center;

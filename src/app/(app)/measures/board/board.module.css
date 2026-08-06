@@ -1,0 +1,487 @@
+/* Success Tracking Board — operational read of metric performance
+   vs. targets across every function, over the last 13 weeks. Two
+   toggleable views (cockpit grid + story timeline) share the same
+   header (headline chips + view toggle) and the same status colour
+   vocabulary. */
+
+.boardStage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ---- Header (chips + view toggle) ---------------------------- */
+
+.boardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.headlineChips {
+  display: inline-flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.headlineChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.headlineChipCount {
+  font: var(--text-h2);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-heading);
+}
+
+.headlineChipLabel {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.headlineChipTotal {
+  color: var(--text-faint);
+}
+
+.headlineChip_good {
+  border-color: color-mix(in srgb, var(--aims-success) 35%, transparent);
+  background: var(--aims-success-tint);
+}
+
+.headlineChip_good .headlineChipCount {
+  color: var(--aims-success);
+}
+
+.headlineChip_off {
+  border-color: color-mix(in srgb, var(--aims-danger) 35%, transparent);
+  background: var(--aims-danger-tint);
+}
+
+.headlineChip_off .headlineChipCount {
+  color: var(--aims-danger);
+}
+
+.headlineChip_neutral {
+  border-color: var(--border);
+  background: var(--aims-navy-tint);
+}
+
+.viewToggle {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  gap: 4px;
+}
+
+.viewToggleButton {
+  padding: 6px var(--space-4);
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font: var(--text-button-sm);
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.viewToggleButton:hover:not(.viewToggleButtonActive) {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+}
+
+.viewToggleButtonActive {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* ---- Empty state --------------------------------------------- */
+
+.emptyCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.emptyLead {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.emptyLine {
+  font: var(--text-body);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ---- Cockpit grid (view A) ----------------------------------- */
+
+.cockpitGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: var(--space-4);
+}
+
+.cockpitCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  opacity: 0;
+  animation: cockpitCardIn 400ms var(--ease-out) forwards;
+}
+
+@keyframes cockpitCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cockpitCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.cockpitCardTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.cockpitCardSeat {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+.cockpitCardHealth {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  min-width: 90px;
+}
+
+.cockpitCardHealthNumber {
+  font: var(--text-h2);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.cockpitCardHealthNumber_good {
+  color: var(--aims-success);
+}
+
+.cockpitCardHealthNumber_warn {
+  color: var(--aims-warning);
+}
+
+.cockpitCardHealthNumber_off {
+  color: var(--aims-danger);
+}
+
+.cockpitCardHealthLabel {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.cockpitCardHealthMuted {
+  font: var(--text-body-sm);
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.cockpitCardEmpty {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.cockpitMetricList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cockpitMetricRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.cockpitMetricLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cockpitMetricName {
+  font: var(--text-body-sm);
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cockpitMetricTarget {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cockpitCellRow {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.cockpitCell {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--border);
+  transition: transform var(--duration-fast) var(--ease-out);
+  animation: cellIn 260ms var(--ease-out) both;
+}
+
+.cockpitCell:hover {
+  transform: scale(1.25);
+}
+
+.cockpitCell_good {
+  background: var(--aims-success);
+}
+
+.cockpitCell_off {
+  background: var(--aims-danger);
+}
+
+.cockpitCell_unlogged {
+  background: color-mix(in srgb, var(--aims-warning) 25%, var(--border));
+}
+
+.cockpitCell_no_target {
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+}
+
+@keyframes cellIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---- Story timeline (view C) --------------------------------- */
+
+.timelineScroll {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.timelineGrid {
+  display: grid;
+  gap: 4px;
+  min-width: 640px;
+}
+
+.timelineCornerCell {
+  height: 40px;
+}
+
+.timelineHeaderCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: var(--space-2);
+  gap: 2px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.timelineHeaderWeek {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.timelineHeaderNow {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.timelineFunctionCell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  border-right: 1px solid var(--border);
+  opacity: 0;
+  animation: timelineRowIn 320ms var(--ease-out) forwards;
+}
+
+.timelineFunctionName {
+  font: var(--text-body);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.timelineFunctionSeat {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.timelineDataCell {
+  height: 32px;
+  min-width: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--border);
+  cursor: default;
+  transition: transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+  opacity: 0;
+  animation: timelineCellIn 300ms var(--ease-out) forwards;
+}
+
+.timelineDataCell:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  z-index: 1;
+}
+
+.timelineDataCell_good {
+  background: var(--aims-success);
+}
+
+.timelineDataCell_off {
+  background: var(--aims-danger);
+}
+
+.timelineDataCell_mixed {
+  background: var(--aims-warning);
+}
+
+.timelineDataCell_unlogged {
+  background: color-mix(in srgb, var(--aims-warning) 22%, var(--border));
+}
+
+.timelineDataCell_no_target {
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+}
+
+@keyframes timelineRowIn {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes timelineCellIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.timelineLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.timelineLegendChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.timelineLegendSwatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.timelineLegendSwatch_good {
+  background: var(--aims-success);
+}
+
+.timelineLegendSwatch_off {
+  background: var(--aims-danger);
+}
+
+.timelineLegendSwatch_mixed {
+  background: var(--aims-warning);
+}
+
+.timelineLegendSwatch_unlogged {
+  background: color-mix(in srgb, var(--aims-warning) 22%, var(--border));
+}
+
+.timelineLegendSwatch_no_target {
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+}

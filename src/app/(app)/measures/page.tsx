@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
@@ -6,6 +7,7 @@ import { getMeasuresOwnedBy } from "@/lib/measures/service";
 import { formatShortDate } from "@/lib/dates";
 import { MeasuresBatchForm } from "./MeasuresBatchForm";
 import styles from "../admin/companies/admin.module.css";
+import boardLinkStyles from "./measures.module.css";
 
 // Weekly Success Measures logging — batch entry for every measure the
 // caller owns (via function.leader_id), or every measure in the
@@ -54,6 +56,11 @@ export default async function MeasuresPage() {
       </header>
 
       <div className={styles.content}>
+        <div className={boardLinkStyles.boardLinkRow}>
+          <Link href="/measures/board" className={boardLinkStyles.boardLink}>
+            Open Success Tracking Board →
+          </Link>
+        </div>
         {measures.length === 0 ? (
           <section className={styles.card}>
             <p className={styles.emptyLine}>

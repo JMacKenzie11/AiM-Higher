@@ -11,9 +11,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:push:dev": "scripts/db-push.sh dev",
+    "db:push:prod": "scripts/db-push.sh prod",
     "seed:admin": "node --env-file=.env.local --experimental-strip-types scripts/seed-admin.ts",
     "seed:demo": "node --env-file=.env.local --experimental-strip-types scripts/seed-demo.ts",
     "seed:construction": "node --env-file=.env.local --experimental-strip-types scripts/seed-construction.ts",
+    "seed:meridian-measures": "node --env-file=.env.local --experimental-strip-types scripts/seed-meridian-measures.ts",
     "check:help": "node --experimental-strip-types scripts/check-help-coverage.ts"
   },
   "dependencies": {

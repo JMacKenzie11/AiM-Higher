@@ -22,6 +22,15 @@ There are three places to log the current week:
    on the function's detail page and type a number. Blur or press
    Enter to save; a green ✓ flashes on success.
 
+And one place to *read* the story across every function:
+
+- **/measures/board — Success Tracking Board.** Two toggleable
+  views over the last 13 weeks: a *Grid* of function cards (each
+  card is a compact metric × week heatmap, ranked worst first),
+  and a *Timeline* where each function is a row of rolled-up
+  weekly cells so cross-function patterns pop. Deep-link from the
+  batch scoreboard or open directly.
+
 All three write to the same row in `success_measure_entries`, upserted
 on `(measure_id, week ending)`, so the last value wins.
 
