@@ -89,6 +89,11 @@ const ADMIN_ROLES: readonly NavRole[] = [
 ];
 
 const APP_ITEMS: readonly NavItem[] = [
+  // Dashboard leads: it's the daily entry point, and the surface a
+  // user opens first when they land in the app. Companies still sits
+  // ahead of it for sysadmins because their day starts by picking a
+  // company to operate on — that ordering is composed further down.
+  { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
   {
     kind: "group",
     label: "Disciplines",
@@ -161,7 +166,6 @@ const APP_ITEMS: readonly NavItem[] = [
       },
     ],
   },
-  { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
 ];
 
 // ASSUMPTION: Scorecard route (/scorecard) still exists but is
