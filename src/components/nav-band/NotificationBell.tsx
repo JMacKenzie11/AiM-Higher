@@ -85,6 +85,11 @@ export function NotificationBell({ items }: { items: NotificationItem[] }) {
                   role="menuitem"
                 >
                   <span className={styles.bellMenuItemBody}>
+                    {item.eyebrow ? (
+                      <span className={styles.bellMenuItemEyebrow}>
+                        {item.eyebrow}
+                      </span>
+                    ) : null}
                     <span className={styles.bellMenuItemTitle}>
                       {item.title}
                     </span>

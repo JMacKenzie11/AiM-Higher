@@ -24,6 +24,11 @@ export type NotificationItem = {
     | "friday-metrics"
     | "overdue-commitments"
     | "due-today-commitments";
+  // Small uppercase label above the title — e.g. "OVERDUE",
+  // "DUE TODAY". Set when title carries the concrete item name
+  // (rich single-item state) so the reader still knows what
+  // bucket it's in.
+  eyebrow?: string;
   title: string;
   href: string;
   // ISO timestamp; null for computed items where "when" isn't
@@ -61,38 +66,60 @@ export async function getHeaderNotifications({
 
   // Commitment triggers require the execution module (which owns the
   // /commitments surface). Skip both counts otherwise.
+  //
+  // Both queries fetch { id, description } LIMIT 1 alongside an exact
+  // count — one round trip per trigger returns everything we need to
+  // render either the rich single-item shape (show the description)
+  // or the aggregate shape (show "N items").
   if (features.includes("execution")) {
-    const [{ count: overdue }, { count: dueToday }] = await Promise.all([
+    const [
+      { data: overdueRows, count: overdue },
+      { data: dueTodayRows, count: dueToday },
+    ] = await Promise.all([
       supabase
         .from("commitments")
-        .select("*", { count: "exact", head: true })
+        .select("id, description", { count: "exact" })
         .eq("owner_id", userId)
         .eq("company_id", companyId)
         .eq("status", "open")
-        .lt("due_date", todayIso),
+        .lt("due_date", todayIso)
+        .order("due_date", { ascending: true })
+        .limit(1),
       supabase
         .from("commitments")
-        .select("*", { count: "exact", head: true })
+        .select("id, description", { count: "exact" })
         .eq("owner_id", userId)
         .eq("company_id", companyId)
         .eq("status", "open")
-        .eq("due_date", todayIso),
+        .eq("due_date", todayIso)
+        .order("due_date", { ascending: true })
+        .limit(1),
     ]);
 
     if ((overdue ?? 0) > 0) {
+      const firstDesc = overdueRows?.[0]?.description as string | undefined;
+      const rich = overdue === 1 && firstDesc;
       items.push({
         id: "overdue-commitments",
         kind: "overdue-commitments",
-        title: `${overdue} overdue commitment${overdue === 1 ? "" : "s"}`,
+        eyebrow: rich ? "Overdue" : undefined,
+        title: rich
+          ? firstDesc
+          : `${overdue} overdue commitments`,
         href: "/commitments",
         createdAt: null,
       });
     }
     if ((dueToday ?? 0) > 0) {
+      const firstDesc = dueTodayRows?.[0]?.description as string | undefined;
+      const rich = dueToday === 1 && firstDesc;
       items.push({
         id: "due-today-commitments",
         kind: "due-today-commitments",
-        title: `${dueToday} commitment${dueToday === 1 ? "" : "s"} due today`,
+        eyebrow: rich ? "Due today" : undefined,
+        title: rich
+          ? firstDesc
+          : `${dueToday} commitments due today`,
         href: "/commitments",
         createdAt: null,
       });
@@ -107,17 +134,21 @@ export async function getHeaderNotifications({
   const hasMeasuresSurface =
     features.includes("performance_tracking") || hasChartMeasures;
   if (isFriday && hasMeasuresSurface) {
-    const pending = await countPendingMeasuresForUser({
+    const pending = await getPendingMeasuresForUser({
       supabase,
       companyId,
       userId,
       weekEnding: thisFri,
     });
-    if (pending > 0) {
+    if (pending.count > 0) {
+      const isRich = pending.count === 1 && pending.firstDescription !== null;
       items.push({
         id: "friday-metrics",
         kind: "friday-metrics",
-        title: `Log this week's numbers — ${pending} left`,
+        eyebrow: isRich ? "Log this week's number" : undefined,
+        title: isRich
+          ? (pending.firstDescription as string)
+          : `Log this week's numbers — ${pending.count} left`,
         href: "/measures",
         createdAt: null,
       });
@@ -127,7 +158,7 @@ export async function getHeaderNotifications({
   return items;
 }
 
-async function countPendingMeasuresForUser({
+async function getPendingMeasuresForUser({
   supabase,
   companyId,
   userId,
@@ -137,10 +168,11 @@ async function countPendingMeasuresForUser({
   companyId: string;
   userId: string;
   weekEnding: string;
-}): Promise<number> {
+}): Promise<{ count: number; firstDescription: string | null }> {
   // Same ownership model as getMeasuresOwnedBy: leader_id on
   // functions decides who's on the hook. Chain the joins narrowly
   // so we don't pull full rows we'll never read.
+  const empty = { count: 0, firstDescription: null };
   const { data: functions } = await supabase
     .from("functions")
     .select("id")
@@ -148,24 +180,27 @@ async function countPendingMeasuresForUser({
     .eq("archived", false)
     .eq("leader_id", userId);
   const functionIds = (functions ?? []).map((f) => f.id as string);
-  if (functionIds.length === 0) return 0;
+  if (functionIds.length === 0) return empty;
 
   const { data: outcomes } = await supabase
     .from("function_outcomes")
     .select("id")
     .in("function_id", functionIds);
   const outcomeIds = (outcomes ?? []).map((o) => o.id as string);
-  if (outcomeIds.length === 0) return 0;
+  if (outcomeIds.length === 0) return empty;
 
+  // Pull description too — if exactly one measure ends up pending,
+  // the tray can show it by name instead of just a count.
   const { data: measures } = await supabase
     .from("success_measures")
-    .select("id, auto_track")
+    .select("id, description, auto_track")
     .in("outcome_id", outcomeIds)
     .eq("archived", false);
-  const manualIds = (measures ?? [])
-    .filter((m) => !(m as { auto_track: boolean }).auto_track)
-    .map((m) => (m as { id: string }).id);
-  if (manualIds.length === 0) return 0;
+  const manual = (measures ?? []).filter(
+    (m) => !(m as { auto_track: boolean }).auto_track
+  ) as Array<{ id: string; description: string }>;
+  if (manual.length === 0) return empty;
+  const manualIds = manual.map((m) => m.id);
 
   const { data: entries } = await supabase
     .from("success_measure_entries")
@@ -176,5 +211,9 @@ async function countPendingMeasuresForUser({
     (entries ?? []).map((e) => (e as { measure_id: string }).measure_id)
   );
 
-  return manualIds.filter((id) => !filled.has(id)).length;
+  const pending = manual.filter((m) => !filled.has(m.id));
+  return {
+    count: pending.length,
+    firstDescription: pending.length === 1 ? pending[0].description : null,
+  };
 }

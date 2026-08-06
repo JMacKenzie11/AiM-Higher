@@ -354,9 +354,25 @@
   min-width: 0;
 }
 
+.bellMenuItemEyebrow {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
 .bellMenuItemTitle {
   color: var(--text-heading);
   font-weight: 600;
+  /* Rich single-item state uses the commitment's / measure's real
+     description here, which can run long. Clamp to two lines with
+     ellipsis so the tray height stays predictable. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .bellMenuItemHint {
