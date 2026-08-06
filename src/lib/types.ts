@@ -45,6 +45,7 @@ export type Company = {
   id: string;
   name: string;
   timezone: string;
+  industry: string | null;
   status: CompanyStatus;
   created_at: string;
   updated_at: string;

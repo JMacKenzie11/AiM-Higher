@@ -36,6 +36,19 @@ export function CreateCompanyForm() {
       </div>
 
       <div className={styles.field}>
+        <label htmlFor="company-industry" className={styles.label}>
+          Industry
+        </label>
+        <input
+          id="company-industry"
+          name="industry"
+          className={styles.input}
+          placeholder="e.g. Construction, SaaS, Healthcare"
+          disabled={pending}
+        />
+      </div>
+
+      <div className={styles.field}>
         <label htmlFor="company-timezone" className={styles.label}>
           Timezone
         </label>

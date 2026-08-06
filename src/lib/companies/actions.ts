@@ -23,6 +23,8 @@ export async function createCompanyAction(
   const name = String(formData.get("name") ?? "").trim();
   const timezone =
     String(formData.get("timezone") ?? "America/Anchorage").trim();
+  const industryRaw = String(formData.get("industry") ?? "").trim();
+  const industry = industryRaw.length > 0 ? industryRaw : null;
   const redirectAfter = String(formData.get("redirect_after") ?? "");
   const features = Array.from(
     new Set(
@@ -41,7 +43,7 @@ export async function createCompanyAction(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("companies")
-    .insert({ name, timezone })
+    .insert({ name, timezone, industry })
     .select("*")
     .single<Company>();
 
@@ -175,6 +177,31 @@ export async function setCompanyFeaturesAction(
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${companyId}`);
   return { ok: true };
+}
+
+export async function setCompanyIndustryAction(
+  companyId: string,
+  industry: string | null
+): Promise<CompanyResult> {
+  await requireRole(["system_admin"]);
+
+  const cleaned =
+    industry !== null && industry.trim().length > 0 ? industry.trim() : null;
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("companies")
+    .update({ industry: cleaned })
+    .eq("id", companyId)
+    .select("*")
+    .single<Company>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't update the industry." };
+  }
+
+  revalidatePath("/admin/companies");
+  revalidatePath(`/admin/companies/${companyId}`);
+  return { ok: true, company: data };
 }
 
 export async function setCompanyStatusAction(

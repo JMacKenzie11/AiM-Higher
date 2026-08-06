@@ -15,6 +15,7 @@ import type {
 import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
 import styles from "../admin.module.css";
 import { FeaturesForm } from "./FeaturesForm";
+import { IndustryForm } from "./IndustryForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
@@ -98,6 +99,7 @@ export default async function CompanyDetailPage({
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
             {company.timezone} · {company.status}
+            {company.industry ? ` · ${company.industry}` : ""}
           </p>
         </div>
       </section>
@@ -125,6 +127,18 @@ export default async function CompanyDetailPage({
             ) : null}
           </div>
         </section>
+
+        {isSystemAdmin ? (
+          <section className={styles.card} aria-labelledby="industry-heading">
+            <h2 id="industry-heading" className={styles.h2}>
+              Industry
+            </h2>
+            <IndustryForm
+              companyId={company.id}
+              initial={company.industry}
+            />
+          </section>
+        ) : null}
 
         {isSystemAdmin ? (
           <section className={styles.card} aria-labelledby="features-heading">
