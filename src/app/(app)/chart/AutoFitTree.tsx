@@ -26,7 +26,6 @@ export function AutoFitTree({ children }: { children: ReactNode }) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [leftOffset, setLeftOffset] = useState(0);
   const [outerHeight, setOuterHeight] = useState<number | undefined>(undefined);
 
   useLayoutEffect(() => {
@@ -36,15 +35,14 @@ export function AutoFitTree({ children }: { children: ReactNode }) {
 
     const measure = () => {
       const outerW = outer.clientWidth;
-      // scrollWidth/scrollHeight return the pre-transform layout
-      // dimensions, so we can read them straight without undoing
-      // the current scale.
+      // scrollWidth/scrollHeight return pre-transform layout
+      // dimensions, so we can read them without undoing the
+      // current scale first.
       const innerW = inner.scrollWidth;
       const innerH = inner.scrollHeight;
-      const nextScale = innerW > 0 ? Math.min(1, outerW / innerW) : 1;
-      const nextLeft = Math.max(0, (outerW - innerW * nextScale) / 2);
+      if (outerW === 0 || innerW === 0) return;
+      const nextScale = Math.min(1, outerW / innerW);
       setScale(nextScale);
-      setLeftOffset(nextLeft);
       setOuterHeight(innerH * nextScale);
     };
 
@@ -73,10 +71,15 @@ export function AutoFitTree({ children }: { children: ReactNode }) {
         style={{
           position: "absolute",
           top: 0,
-          left: leftOffset,
+          left: "50%",
           width: "max-content",
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
+          // Compose right-to-left: scale first (about the element's
+          // top-centre), then translate left by 50% of the pre-scale
+          // width. The net effect keeps the scaled tree's visual
+          // centre pinned to the outer's centre regardless of scale,
+          // without needing to compute an explicit offset in JS.
+          transform: `translate(-50%, 0) scale(${scale})`,
+          transformOrigin: "50% 0",
         }}
       >
         {children}
