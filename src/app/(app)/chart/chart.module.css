@@ -285,12 +285,17 @@
 
 /* Shell wraps the card + drag handle so the handle can float on the
    card's top-right corner without disrupting the tree scaffold's
-   sizing model (which lives on .treeNode below). */
+   sizing model (which lives on .treeNode below).
+   Width capped at 220px (matching the treeNode min-width) so a parent
+   with many children — whose treeNode grows wide to fit that subtree
+   — doesn't get a comically wide card. align-items: center on the
+   treeNode centres this shell above its own subtree. */
 .fnCardShell {
   position: relative;
   display: flex;
   flex: 1 1 auto;
-  width: 100%;
+  width: 220px;
+  max-width: 100%;
   min-width: 0;
 }
 
