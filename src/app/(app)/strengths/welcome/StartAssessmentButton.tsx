@@ -8,16 +8,21 @@ import styles from "../strengths.module.css";
 export default function StartAssessmentButton({
   userId,
   companyId,
+  isSystemAdmin,
 }: {
   userId: string;
   companyId: string | null;
+  isSystemAdmin: boolean;
 }) {
   const router = useRouter();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function start() {
-    if (!companyId) {
+    // Sysadmins take the assessment against their own profile with a
+    // null company_id (migration 0123 + RLS). Everyone else must be
+    // attached to a company that has the strengths feature on.
+    if (!companyId && !isSystemAdmin) {
       setError(
         "Your profile isn't attached to a company yet — ask your admin to finish setup."
       );

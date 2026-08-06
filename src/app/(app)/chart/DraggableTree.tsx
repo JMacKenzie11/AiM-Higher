@@ -56,7 +56,7 @@ export function DraggableTree({
   };
 
   return (
-    <ul className={styles.treeBranch}>
+    <ul className={`${styles.treeBranch} ${styles.treeBranchRoot}`}>
       <SortableSiblings
         siblings={tree}
         canReorder={canReorder}

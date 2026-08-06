@@ -217,6 +217,16 @@
   display: none;
 }
 
+/* Root row never gets sibling connectors — the top of the tree has
+   no parent to connect to. Applied via an explicit class rather than
+   relying on :only-child so a future multi-root tree still reads
+   correctly (roots at the top would still not need a connector to
+   nothing above them). */
+.treeBranchRoot > .treeNode::before,
+.treeBranchRoot > .treeNode::after {
+  display: none;
+}
+
 /* When a treeNode has children of its own, keep its parent card at
    its natural height so it doesn't stretch down and visually collide
    with the child branch. Without this the fnCardShell's flex-grow

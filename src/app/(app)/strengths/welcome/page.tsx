@@ -60,6 +60,7 @@ export default async function WelcomePage() {
           <StartAssessmentButton
             userId={user.id}
             companyId={profile.company_id}
+            isSystemAdmin={profile.role === "system_admin"}
           />
         </section>
       </div>
