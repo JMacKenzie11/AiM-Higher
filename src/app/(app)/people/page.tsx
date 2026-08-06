@@ -5,8 +5,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getPeopleRoster } from "@/lib/people/service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { InviteForm } from "../admin/companies/[id]/InviteForm";
-import { UserRowActions } from "../admin/companies/[id]/UserRowActions";
-import { PersonStatusToggle } from "./PersonStatusToggle";
+import { RowActionsMenu } from "./RowActionsMenu";
 import type { Profile } from "@/lib/types";
 import styles from "./people.module.css";
 import adminStyles from "../admin/companies/admin.module.css";
@@ -187,20 +186,15 @@ export default async function PeoplePage() {
                           </Link>
                         ) : null}
                         {isAdmin ? (
-                          <>
-                            <UserRowActions
-                              profileId={person.id}
-                              status={person.status}
-                              canDelete={person.id !== session.profile.id}
-                            />
-                            {person.status !== "pending" ? (
-                              <PersonStatusToggle
-                                personId={person.id}
-                                currentStatus={person.status}
-                                disabled={person.id === session.profile.id}
-                              />
-                            ) : null}
-                          </>
+                          <RowActionsMenu
+                            profileId={person.id}
+                            status={person.status}
+                            canDelete={person.id !== session.profile.id}
+                            canToggleStatus={
+                              person.id !== session.profile.id &&
+                              person.status !== "pending"
+                            }
+                          />
                         ) : null}
                       </td>
                     ) : null}
