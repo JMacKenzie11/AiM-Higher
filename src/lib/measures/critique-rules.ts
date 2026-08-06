@@ -49,26 +49,6 @@ const WEAK_PHRASES = [
 
 const NUMERIC_HINT_RE = /[0-9%]/;
 
-const COUNTABLE_TOKENS = [
-  "count",
-  "number",
-  "rate",
-  "ratio",
-  "%",
-  "percent",
-  "days",
-  "hours",
-  "minutes",
-  "weeks",
-  "months",
-  "score",
-  "index",
-  "average",
-  "avg",
-  "median",
-  "total",
-];
-
 export function ruleBasedCritique(input: {
   description: string;
   target: string;
@@ -77,20 +57,16 @@ export function ruleBasedCritique(input: {
   const d = input.description.trim().toLowerCase();
   const t = input.target.trim();
 
+  // Only flag on things we're actually confident about — weak-phrase
+  // hits like "do your best" and "improve". Word count and generic
+  // "does this look countable?" heuristics catch too many good short
+  // metrics ("Utilization %", "Revenue", "Attrition rate"). The AI
+  // layer handles the fuzzier "is this too vague?" call.
   let descriptionHint: string | null = null;
   if (d.length > 0) {
-    const wordCount = d.split(/\s+/).filter(Boolean).length;
-    if (wordCount < 3) {
-      descriptionHint =
-        "Say what you're actually counting — a two-word metric usually isn't trackable.";
-    } else {
-      const hit = WEAK_PHRASES.find((phrase) => d.includes(phrase));
-      if (hit) {
-        descriptionHint = `"${hit}" isn't countable — try a phrase like "% of projects on time" or "average lead time (days)".`;
-      } else if (!hasCountableSignal(d)) {
-        descriptionHint =
-          "Phrase this as something you can count each week — e.g. a %, a number, or a yes/no.";
-      }
+    const hit = WEAK_PHRASES.find((phrase) => d.includes(phrase));
+    if (hit) {
+      descriptionHint = `"${hit}" isn't countable — try a phrase like "% of projects on time" or "average lead time (days)".`;
     }
   }
 
@@ -106,9 +82,4 @@ export function ruleBasedCritique(input: {
   }
 
   return { descriptionHint, targetHint };
-}
-
-function hasCountableSignal(description: string): boolean {
-  if (NUMERIC_HINT_RE.test(description)) return true;
-  return COUNTABLE_TOKENS.some((tok) => description.includes(tok));
 }
