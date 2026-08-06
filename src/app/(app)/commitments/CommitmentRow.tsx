@@ -507,7 +507,7 @@ export function CommitmentRow({
             htmlFor={`reason-${commitment.id}`}
             className={styles.stripLabel}
           >
-            What happened?
+            What did you learn?
           </label>
           <textarea
             id={`reason-${commitment.id}`}
@@ -516,7 +516,7 @@ export function CommitmentRow({
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             disabled={pending}
-            placeholder="A short note — what did you learn from this one?"
+            placeholder="A short note — carry it forward."
             autoFocus
           />
           <div className={styles.stripSubmitRow}>
