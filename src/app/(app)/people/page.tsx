@@ -13,45 +13,55 @@ import adminStyles from "../admin/companies/admin.module.css";
 
 // People roster — Section 8.6.
 
-function statusChipClass(status: Profile["status"]): string {
-  switch (status) {
-    case "pending":
-      return adminStyles.chipPending;
-    case "inactive":
-      return styles.chipInactive;
-    default:
-      return styles.chipActive;
-  }
-}
+// Supabase's Email OTP Expiration is set at its max — 24h.
+// Anything older than this on an unaccepted invite has a dead link.
+const INVITE_LINK_EXPIRY_MS = 86400 * 1000;
 
-// Small dot + tooltip that answers "has this person made it in yet?"
-// at a glance. profiles.status flips to 'active' inside
+// Status pill copy + tooltip. profiles.status flips to 'active' inside
 // acceptInviteAction the moment the user sets a password on
 // /accept-invite, so 'active' is a reliable "signed in successfully"
 // signal without needing to peek at auth.users.last_sign_in_at.
-function statusIndicator(
+// Pending rows split further: if the last invited_at is older than
+// the Supabase link expiry the pill switches to a red "Expired" so
+// admins know they need to Resend before the user can act on it.
+function statusPill(
   status: Profile["status"],
   invitedAt: string | null
-): { className: string; title: string } {
+): { className: string; label: string; title: string } {
   if (status === "active") {
     return {
-      className: `${styles.statusDot} ${styles.statusDotActive}`,
+      className: styles.chipActive,
+      label: "Active",
       title: "Active — accepted the invite",
     };
   }
   if (status === "inactive") {
     return {
-      className: `${styles.statusDot} ${styles.statusDotInactive}`,
+      className: styles.chipInactive,
+      label: "Inactive",
       title: "Inactive",
     };
   }
   // pending
-  const title = invitedAt
-    ? `Invited ${formatRelativeShort(invitedAt)}, not yet accepted`
-    : "Not yet invited";
+  if (!invitedAt) {
+    return {
+      className: adminStyles.chipPending,
+      label: "Pending",
+      title: "Not yet invited",
+    };
+  }
+  const ageMs = Date.now() - new Date(invitedAt).getTime();
+  if (ageMs > INVITE_LINK_EXPIRY_MS) {
+    return {
+      className: styles.chipExpired,
+      label: "Expired",
+      title: `Invite link expired (sent ${formatRelativeShort(invitedAt)}). Click Resend invite to send a new one.`,
+    };
+  }
   return {
-    className: `${styles.statusDot} ${styles.statusDotPending}`,
-    title,
+    className: adminStyles.chipPending,
+    label: "Pending",
+    title: `Invited ${formatRelativeShort(invitedAt)}`,
   };
 }
 
@@ -135,26 +145,16 @@ export default async function PeoplePage() {
                   const canCoachPerson =
                     !isSelfRow &&
                     (isAdmin || person.reports_to === session.profile.id);
-                  const indicator = statusIndicator(
-                    person.status,
-                    person.invited_at
-                  );
+                  const pill = statusPill(person.status, person.invited_at);
                   return (
                     <tr key={person.id}>
                     <td>
-                      <span className={styles.nameCell} title={indicator.title}>
-                        <span
-                          className={indicator.className}
-                          aria-label={indicator.title}
-                          role="img"
-                        />
-                        <Link
-                          href={`/people/${person.id}`}
-                          className={styles.personLink}
-                        >
-                          {person.full_name}
-                        </Link>
-                      </span>
+                      <Link
+                        href={`/people/${person.id}`}
+                        className={styles.personLink}
+                      >
+                        {person.full_name}
+                      </Link>
                     </td>
                     <td className={styles.mutedCell}>
                       {person.position ?? "—"}
@@ -163,8 +163,8 @@ export default async function PeoplePage() {
                       {person.role.replace("_", " ")}
                     </td>
                     <td>
-                      <span className={statusChipClass(person.status)}>
-                        {person.status}
+                      <span className={pill.className} title={pill.title}>
+                        {pill.label}
                       </span>
                     </td>
                     <td className={`${styles.numCell} aims-tabular`}>

@@ -222,39 +222,6 @@
   border-bottom: none;
 }
 
-.nameCell {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* Small dot before the name showing sign-in state at a glance.
-   Filled green = accepted the invite (profiles.status='active').
-   Hollow amber = invited but hasn't accepted yet, or never invited.
-   Grey = deactivated. Tooltip on the wrapper carries the detail
-   ("Invited 3 days ago, not yet accepted"), so this stays subtle. */
-.statusDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-sizing: border-box;
-}
-
-.statusDotActive {
-  background: var(--aims-success, #2ea043);
-}
-
-.statusDotPending {
-  background: transparent;
-  border: 1.5px solid var(--aims-warning, #f0b442);
-}
-
-.statusDotInactive {
-  background: var(--text-muted);
-  opacity: 0.5;
-}
-
 .personLink {
   color: var(--primary);
   text-decoration: none;
@@ -418,6 +385,10 @@
 
 .chipInactive {
   composes: chipInactive from "../../../components/ui/ui.module.css";
+}
+
+.chipExpired {
+  composes: chipDanger from "../../../components/ui/ui.module.css";
 }
 
 .chipPastDue {
