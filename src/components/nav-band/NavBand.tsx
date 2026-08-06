@@ -95,22 +95,24 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "One-Page Plan", href: "/foundation" },
       { kind: "link", label: "People", href: "/people" },
       { kind: "link", label: "Chart", href: "/chart" },
-      { kind: "link", label: "Plan", href: "/plan" },
-      { kind: "link", label: "Commitments", href: "/commitments" },
-      // Meetings (route stays /leadership) hosts meeting-transcript
-      // analyses; only admins / coaches see it. Team members get the
-      // resulting commitments and email, not the full write-up.
-      { kind: "link", label: "Meetings", href: "/leadership", roles: ADMIN_ROLES },
-      // Success Measures is a Success-Tracking surface: without that
-      // entitlement the /measures page is inert, so the per-item
-      // `feature` gate hides it even for companies that have the
-      // execution module.
+      // Success Measures sits directly under Chart so the metric
+      // definition (on the chart) and the weekly logging surface
+      // read as adjacent. Entitlement-gated at the item level:
+      // hidden for companies without Success Tracking unless there's
+      // already at least one metric on file (the outer layout
+      // toggles hasChartMeasures to admit this link in that case).
       {
         kind: "link",
         label: "Success Measures",
         href: "/measures",
         feature: "performance_tracking",
       },
+      { kind: "link", label: "Plan", href: "/plan" },
+      { kind: "link", label: "Commitments", href: "/commitments" },
+      // Meetings (route stays /leadership) hosts meeting-transcript
+      // analyses; only admins / coaches see it. Team members get the
+      // resulting commitments and email, not the full write-up.
+      { kind: "link", label: "Meetings", href: "/leadership", roles: ADMIN_ROLES },
     ],
   },
   // Resources — personal-use surfaces (Ask Aimee, Classroom). Group
