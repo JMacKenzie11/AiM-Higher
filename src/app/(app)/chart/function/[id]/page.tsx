@@ -10,6 +10,7 @@ import { DeleteFunctionButton } from "./DeleteFunctionButton";
 import { RolesList } from "./RolesList";
 import { SeatEditor } from "./SeatEditor";
 import { AddSuccessMeasureRow } from "./AddSuccessMeasureRow";
+import { FunctionTitleEditor } from "./FunctionTitleEditor";
 import { SuccessMeasureCard } from "./SuccessMeasureCard";
 import styles from "../../chart.module.css";
 
@@ -55,7 +56,13 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
       backHref="/chart"
       backLabel="Back to chart"
       eyebrow="Function"
-      title={detail.fn.title}
+      title={
+        <FunctionTitleEditor
+          functionId={detail.fn.id}
+          initialTitle={detail.fn.title}
+          canEdit={isAdmin}
+        />
+      }
       subtitle={
         detail.parent ? (
           <>

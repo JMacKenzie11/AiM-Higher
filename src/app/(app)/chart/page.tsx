@@ -7,6 +7,7 @@ import {
 } from "@/lib/chart/service";
 import { PageShell } from "@/components/ui/PageShell";
 import { AddFunctionForm } from "./InlineForms";
+import { AutoFitTree } from "./AutoFitTree";
 import { DraggableTree } from "./DraggableTree";
 import styles from "./chart.module.css";
 
@@ -65,7 +66,9 @@ export default async function ChartPage() {
           <EmptyChart isAdmin={isAdmin} />
         ) : (
           <div className={styles.tree}>
-            <DraggableTree roots={roots} canReorder={isAdmin} />
+            <AutoFitTree>
+              <DraggableTree roots={roots} canReorder={isAdmin} />
+            </AutoFitTree>
           </div>
         )}
       </div>

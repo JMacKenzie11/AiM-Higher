@@ -78,11 +78,12 @@
    that meet in the middle to form the L-shape. Works to any depth. */
 
 .tree {
-  /* Always fit the containing card. When there are many siblings,
-     cards get narrow and text wraps aggressively — the user has
-     told us that's the right trade over a horizontal scroll. */
-  overflow-x: hidden;
-  overflow-y: visible;
+  /* Overflow hidden because the AutoFitTree wrapper inside scales
+     the whole tree down to fit — nothing should ever spill out
+     the sides. Padding + container-type stay so cards keep their
+     inner rhythm and container queries still work if we add them
+     to card contents later. */
+  overflow: hidden;
   padding: var(--space-2) 0 var(--space-4);
   container-type: inline-size;
 }
@@ -536,6 +537,67 @@
   font: var(--text-body-sm);
   color: var(--text);
   margin: 0;
+}
+
+/* ---- Function title editor (hero H1) --------------------
+   Click-to-edit for the function name. Read state matches the H1
+   exactly (transparent + inherit font) with a dashed white border
+   revealed on hover so admins can spot the affordance without
+   ever seeing it as a "form" on the read page. */
+.functionTitleEditable {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-left: -8px;
+  background: transparent;
+  border: 1px dashed transparent;
+  color: inherit;
+  font: inherit;
+  cursor: text;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.functionTitleEditable:hover {
+  border-color: color-mix(in srgb, var(--aims-white) 45%, transparent);
+  background: color-mix(in srgb, var(--aims-white) 10%, transparent);
+}
+
+.functionTitleEditable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.functionTitleEditingSlot {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.functionTitleInput {
+  padding: 2px 8px;
+  margin-left: -8px;
+  min-width: 320px;
+  background: var(--surface);
+  color: var(--text-heading);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.functionTitleInput:focus {
+  outline: none;
+}
+
+.functionTitleError {
+  color: var(--aims-danger);
+  font: var(--text-body-sm);
+  background: var(--aims-danger-tint);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
 }
 
 /* ---- Detail page ---------------------------------------- */

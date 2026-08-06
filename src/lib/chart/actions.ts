@@ -81,6 +81,38 @@ export async function createFunctionAction(
   return { ok: true, item: data };
 }
 
+// Lightweight rename — updates only the title, leaves every other
+// field intact. Used by the click-to-edit affordance on the
+// function detail page's H1 so a caller doesn't need to round-trip
+// the full form. Same admin gate as updateFunctionAction; applies
+// to every function including the seed Visionary/Integrator boxes
+// so a company can localise the language.
+export async function renameFunctionAction(
+  functionId: string,
+  newTitle: string
+): Promise<ChartResult<FunctionNode>> {
+  await requireRole(["system_admin", "company_admin"]);
+  const title = newTitle.trim();
+  if (!functionId || !title) {
+    return { ok: false, message: "Title can't be empty." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("functions")
+    .update({ title })
+    .eq("id", functionId)
+    .select("*")
+    .single<FunctionNode>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't rename that function." };
+  }
+
+  revalidatePath("/chart");
+  revalidatePath(`/chart/function/${functionId}`);
+  return { ok: true, item: data };
+}
+
 export async function updateFunctionAction(
   _prev: ChartResult<FunctionNode> | undefined,
   formData: FormData
