@@ -284,16 +284,25 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
 // send shows up in the Resend dashboard.
 async function dispatchInvite(profileId: string, email: string): Promise<UserActionResult> {
   const admin = createSupabaseAdminClient();
-  // Route through the server-side /auth/callback so the OTP/PKCE
-  // exchange lands as a cookie session before the user ever hits
-  // /accept-invite. Avoids the client-side race that intermittently
-  // produced "Auth session missing!" on the password step.
-  const redirectTo = `${APP_URL()}/auth/callback?next=/accept-invite`;
-
+  // Ask Supabase to generate a magic-link OTP for this user. We
+  // deliberately don't use the returned action_link (which routes
+  // through Supabase's /auth/v1/verify endpoint and, on PKCE-flow
+  // projects, redirects with ?code= — which our server-side
+  // exchangeCodeForSession can't complete without a client-side
+  // code_verifier that admin-issued flows never set). Instead we
+  // pluck the hashed_token off the response and build our own link
+  // that hits /auth/callback with ?token_hash=&type= directly, so
+  // verifyOtp handles the exchange server-side. That's the pattern
+  // @supabase/ssr is designed around for admin-initiated flows.
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: { redirectTo },
+    options: {
+      // Still required by Supabase, even though we don't send the
+      // action_link to the user. Point it at the final destination
+      // so if anyone does end up on it, they land in the right place.
+      redirectTo: `${APP_URL()}/accept-invite`,
+    },
   });
 
   if (error) {
@@ -310,15 +319,24 @@ async function dispatchInvite(profileId: string, email: string): Promise<UserAct
     };
   }
 
-  const link = (data as { properties?: { action_link?: string } })
-    ?.properties?.action_link;
-  if (!link) {
-    console.warn("generateLink returned no action_link", { profileId, email });
+  const hashedToken = (
+    data as { properties?: { hashed_token?: string } }
+  )?.properties?.hashed_token;
+  if (!hashedToken) {
+    console.warn("generateLink returned no hashed_token", { profileId, email });
     return {
       ok: false,
       message: "Couldn't generate a sign-in link for this user.",
     };
   }
+
+  // Build our own link straight to /auth/callback — no PKCE hop,
+  // no client-side race, verifyOtp handles it server-side.
+  const link =
+    `${APP_URL()}/auth/callback` +
+    `?token_hash=${encodeURIComponent(hashedToken)}` +
+    `&type=magiclink` +
+    `&next=${encodeURIComponent("/accept-invite")}`;
 
   const { data: profile } = await admin
     .from("profiles")

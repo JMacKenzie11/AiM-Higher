@@ -29,9 +29,20 @@ export async function GET(request: NextRequest) {
   const next = url.searchParams.get("next") ?? "/dashboard";
 
   // Guard against open-redirect: only allow same-origin absolute paths.
-  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  const safeNext =
+    next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
 
   const supabase = await createSupabaseServerClient();
+
+  // Diagnostic — surface what Supabase actually redirected with so
+  // failures aren't a black box on Vercel logs. Redact the token
+  // values (only their lengths + presence flags matter for debugging).
+  const shape = {
+    has_code: Boolean(code),
+    has_token_hash: Boolean(tokenHash),
+    type,
+    next: safeNext,
+  };
 
   if (tokenHash && type) {
     const { error } = await supabase.auth.verifyOtp({
@@ -41,7 +52,13 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return NextResponse.redirect(new URL(safeNext, request.url));
     }
-    return redirectWithError(request, safeNext, error.message);
+    console.error("auth/callback verifyOtp failed", {
+      ...shape,
+      status: (error as { status?: number }).status,
+      code: (error as { code?: string }).code,
+      message: error.message,
+    });
+    return redirectWithError(request, safeNext, error);
   }
 
   if (code) {
@@ -49,33 +66,45 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return NextResponse.redirect(new URL(safeNext, request.url));
     }
-    return redirectWithError(request, safeNext, error.message);
+    console.error("auth/callback exchangeCodeForSession failed", {
+      ...shape,
+      status: (error as { status?: number }).status,
+      code: (error as { code?: string }).code,
+      message: error.message,
+    });
+    return redirectWithError(request, safeNext, error);
   }
 
-  // No auth material at all — likely a truncated link, an email
-  // scanner that stripped the tokens, or a manual hit.
-  return redirectWithError(
-    request,
-    safeNext,
-    "Missing authentication token."
-  );
+  console.warn("auth/callback hit with no token", {
+    ...shape,
+    raw_query: url.search,
+  });
+  return redirectWithError(request, safeNext, {
+    message: "The link didn't include an authentication token.",
+  });
 }
 
 function redirectWithError(
   request: NextRequest,
   next: string,
-  message: string
+  error: { message: string; code?: string }
 ) {
   const target = new URL(next, request.url);
-  // Match the hash-error format the target-page bootstraps in
-  // AcceptInviteForm.readHashError and ResetPasswordForm.readHashError
-  // already parse — so failures surface as the same friendly
-  // "expired/invalid, ask for a fresh link" message users see today
-  // when Supabase redirects with #error_code=otp_expired.
+  // Map only truly-expired errors to error_code=otp_expired so the
+  // target-page bootstrap surfaces its "ask for a fresh link" copy.
+  // Everything else passes the raw error_description through, so
+  // fresh-link callbacks that fail for other reasons (missing
+  // code_verifier, invalid token, config drift) show a message that
+  // actually reflects what went wrong instead of always saying
+  // "expired".
+  const rawMessage = error.message ?? "Authentication failed.";
+  const looksExpired =
+    error.code === "otp_expired" ||
+    /expired|already been used|invalid_token/i.test(rawMessage);
   const params = new URLSearchParams({
     error: "access_denied",
-    error_code: "otp_expired",
-    error_description: message,
+    error_code: looksExpired ? "otp_expired" : "callback_failed",
+    error_description: rawMessage,
   });
   target.hash = params.toString();
   return NextResponse.redirect(target);
