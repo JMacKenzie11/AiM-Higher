@@ -3,8 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { APP_URL } from "@/lib/supabase/env";
 import { clearScopedCompanyCookie } from "@/lib/admin/scope";
+import { sendResetEmail } from "@/lib/email";
+import type { Profile } from "@/lib/types";
 
 // Server actions for auth flows. Every UI form here has a matching
 // action; the UI never talks to Supabase directly for these operations.
@@ -54,37 +57,75 @@ export async function signOutAction(): Promise<never> {
 }
 
 // ---- Request password reset ------------------------------------
+// Uses the same admin.generateLink + hashed_token + Resend +
+// /auth/callback pattern as invite dispatch (see dispatchInvite in
+// src/lib/auth/users.ts), so the entire auth-link surface is
+// uniform: no Supabase /verify hop, no PKCE code_verifier race, no
+// dependency on Supabase's built-in email service, and every send
+// shows up in Resend's dashboard for debuggability.
+//
+// Always returns { ok: true } — we never leak whether the email
+// exists. All failure paths log server-side for triage.
 export async function requestPasswordResetAction(
   _prev: AuthActionResult | undefined,
   formData: FormData
 ): Promise<AuthActionResult> {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) {
     return { ok: false, message: "Enter the email tied to your account." };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    // Route through the server-side /auth/callback so the OTP/PKCE
-    // exchange lands as a cookie session before /reset-password
-    // loads — mirrors the invite flow, avoids the client-side race.
-    redirectTo: `${APP_URL()}/auth/callback?next=/reset-password`,
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: {
+      // Not delivered to the user — we build our own /auth/callback
+      // link below — but Supabase requires a valid redirectTo, so
+      // point it at the real destination as a safety net.
+      redirectTo: `${APP_URL()}/reset-password`,
+    },
   });
 
-  // Log server-side so email delivery problems (rate limits, SMTP
-  // misconfig, redirectTo not on the allow-list) are debuggable —
-  // Supabase returns success even when the email itself won't be
-  // dispatched, and we still want to avoid leaking existence to
-  // the caller. Vercel logs will surface this.
   if (error) {
-    console.warn(
-      "resetPasswordForEmail returned error for %s: %s",
-      email,
-      error.message
-    );
+    console.warn("generateLink(recovery) failed for %s: %s", email, error.message);
+    return { ok: true };
   }
 
-  // Always return success to avoid leaking which emails exist.
+  const hashedToken = (
+    data as { properties?: { hashed_token?: string } }
+  )?.properties?.hashed_token;
+  if (!hashedToken) {
+    console.warn("generateLink(recovery) returned no hashed_token for %s", email);
+    return { ok: true };
+  }
+
+  const link =
+    `${APP_URL()}/auth/callback` +
+    `?token_hash=${encodeURIComponent(hashedToken)}` +
+    `&type=recovery` +
+    `&next=${encodeURIComponent("/reset-password")}`;
+
+  // Best-effort name lookup so the email addresses them by name.
+  // Non-fatal if the profile isn't found (which shouldn't happen
+  // once the auth user exists — but we keep the leak-preventing
+  // "always return ok" contract regardless).
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("first_name")
+    .eq("id", (data as { user?: { id?: string } })?.user?.id ?? "")
+    .maybeSingle<Pick<Profile, "first_name">>();
+
+  const sent = await sendResetEmail({
+    to: email,
+    firstName: profile?.first_name ?? null,
+    actionLink: link,
+  });
+
+  if (!sent.ok) {
+    console.warn("sendResetEmail failed for %s: %s", email, sent.message);
+  }
+
   return { ok: true };
 }
 
