@@ -1,15 +1,23 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import formStyles from "@/components/auth-shell/AuthForm.module.css";
 import { acceptInviteAction } from "@/lib/auth/users";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-// Two-step accept-invite flow:
-//   1. User arrives with a Supabase invite session already active
-//      via URL hash tokens; the Supabase browser client picks them
-//      up on mount (detectSessionInUrl: true) and stores the session
-//      in memory + cookies.
+// Three-step accept-invite flow:
+//   1. User arrives from an invite email. Supabase can hand the
+//      session over in one of three URL shapes depending on which
+//      flow the project's auth is configured for:
+//        a. #access_token=…&refresh_token=…  (implicit — legacy)
+//        b. ?code=…                          (PKCE)
+//        c. ?token_hash=…&type=invite        (OTP hash — modern default)
+//      supabase-js auto-handles (a) and (with a verifier) (b); (c)
+//      must be exchanged explicitly via verifyOtp. Admin-initiated
+//      links (inviteUserByEmail / generateLink) have no client-side
+//      code_verifier, so (b) fails silently there too. We normalise
+//      all three cases in a bootstrap effect below.
 //   2. They set a password. This has to happen through the BROWSER
 //      Supabase client — the URL-hash session isn't in the request
 //      cookies the server action would see, so a server-side
@@ -47,9 +55,72 @@ export function AcceptInviteForm() {
   const [accepting, startAccept] = useTransition();
   const [accepted, setAccepted] = useState(false);
   const [hashError, setHashError] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    setHashError(readHashError());
+    const err = readHashError();
+    if (err) {
+      setHashError(err);
+      setCheckingSession(false);
+      return;
+    }
+
+    // Snapshot + strip query params up front so a re-mount (React
+    // strict-mode double-invoke in dev, back/forward navigations)
+    // can't try to re-consume a one-shot token — the second call
+    // fails and would poison an already-good session.
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    const tokenHash = url.searchParams.get("token_hash");
+    const type = url.searchParams.get("type");
+    if (code || tokenHash) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    let cancelled = false;
+    (async () => {
+      const supabase = createSupabaseBrowserClient();
+
+      // If detectSessionInUrl already picked up hash tokens, or a
+      // prior mount already exchanged, we're done.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) {
+        if (!cancelled) setCheckingSession(false);
+        return;
+      }
+
+      let exchangeErr: string | null = null;
+      if (tokenHash && type) {
+        // Modern OTP-hash flow (Supabase's default for admin-issued
+        // invite/magic-link emails). Not auto-handled by
+        // detectSessionInUrl — verifyOtp establishes the session.
+        const { error } = await supabase.auth.verifyOtp({
+          type: type as EmailOtpType,
+          token_hash: tokenHash,
+        });
+        if (error) exchangeErr = error.message;
+      } else if (code) {
+        // PKCE flow. supabase-js will try this itself when it can
+        // find the code_verifier cookie; do it explicitly here too
+        // to cover admin-issued links where no verifier exists.
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) exchangeErr = error.message;
+      }
+
+      if (cancelled) return;
+      if (exchangeErr) {
+        setHashError(
+          "This invite link is invalid or has expired. Ask whoever added you to send a fresh invitation."
+        );
+      }
+      setCheckingSession(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Fire the profile flip inside an effect, not during render. Only
@@ -121,6 +192,14 @@ export function AcceptInviteForm() {
     return (
       <p role="alert" className={formStyles.errorMessage}>
         {acceptError}
+      </p>
+    );
+  }
+
+  if (checkingSession) {
+    return (
+      <p className={formStyles.helperText} role="status">
+        Verifying your invitation…
       </p>
     );
   }
