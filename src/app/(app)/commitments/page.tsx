@@ -207,6 +207,55 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
         );
       })()}
 
+      {data.futureWeeks.length > 0 ? (
+        <>
+          {data.futureWeeks.map((week) => {
+            const rosterMinimal = data.roster.map((p) => ({
+              id: p.id,
+              full_name: p.full_name,
+            }));
+            return (
+              <section
+                key={week.weekEnding}
+                className={styles.group}
+                aria-labelledby={`future-week-${week.weekEnding}`}
+              >
+                <div className={styles.groupHeader}>
+                  <h2
+                    id={`future-week-${week.weekEnding}`}
+                    className={styles.groupTitle}
+                  >
+                    Week of {week.weekRange}
+                  </h2>
+                  <span className={styles.groupMeta}>
+                    {week.commitments.length}{" "}
+                    {week.commitments.length === 1
+                      ? "commitment"
+                      : "commitments"}
+                  </span>
+                </div>
+                <ul className={styles.rowList}>
+                  {week.commitments.map((c) => (
+                    <CommitmentRow
+                      key={c.id}
+                      commitment={c}
+                      priorityOptions={data.priorityOptions}
+                      roster={rosterMinimal}
+                      todayIso={data.todayIso}
+                      canResolve={canWriteOwnedRow(session.profile, c)}
+                      canLink={canWriteOwnedRow(session.profile, c)}
+                      canReassign={canWriteOwnedRow(session.profile, c)}
+                      currentUserId={session.profile.id}
+                      isAdmin={isAdmin}
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </>
+      ) : null}
+
       {data.priorWeeks.length > 0 ? (
         <section aria-labelledby="prior-weeks">
           <div className={styles.groupHeader} style={{ borderRadius: "var(--radius-md)", marginBottom: "var(--space-3)" }}>

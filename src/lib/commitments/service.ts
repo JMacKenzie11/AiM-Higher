@@ -122,6 +122,12 @@ export type CommitmentPriorWeek = {
   commitments: CommitmentWithMeta[]; // resolved-only; empty until expanded client-side
 };
 
+export type CommitmentFutureWeek = {
+  weekEnding: string;
+  weekRange: string;
+  commitments: CommitmentWithMeta[]; // open by definition; sorted owner→due
+};
+
 export type CommitmentsPageData = {
   timezone: string;
   todayIso: string;
@@ -134,6 +140,11 @@ export type CommitmentsPageData = {
   // resolved), sorted overdue-open → upcoming-open → resolved. Weekly
   // grouping only surfaces in the collapsed prior-weeks section below.
   mainList: CommitmentWithMeta[];
+  // Rows scheduled for a week AFTER this Friday — surfaced in a
+  // "Future weeks" section so nothing a human deliberately deferred
+  // (or the meeting-analyzer landed in a future week) can go
+  // invisible.
+  futureWeeks: CommitmentFutureWeek[];
   priorWeeks: CommitmentPriorWeek[];
   headerStats: {
     openThisWeek: number;
@@ -226,16 +237,19 @@ export async function getCommitmentsPageData(
     : [];
 
   // Fetch commitments in a wide window: from the start of the open
-  // quarter (or 12 weeks back if no open quarter) through this Friday.
-  // Prior-week resolved rows before that window are considered stale
-  // history for this page's purposes.
+  // quarter (or 12 weeks back if no open quarter) through 26 weeks
+  // forward. Prior-week resolved rows before that window are
+  // considered stale history for this page's purposes; the forward
+  // side gives Future Weeks 6 months of headroom, plenty for the
+  // AiMS weekly cadence without loading the world.
   const windowStart = openQuarter?.start_date ?? addDays(thisFri, -84);
+  const windowEnd = addDays(thisFri, 26 * 7);
   const { data: rawRows } = await supabase
     .from("commitments")
     .select("*")
     .eq("company_id", companyId)
     .gte("week_ending", windowStart)
-    .lte("week_ending", thisFri)
+    .lte("week_ending", windowEnd)
     .order("due_date", { ascending: true });
 
   // Also pull past-week still-open rows from BEFORE the window so the
@@ -308,6 +322,27 @@ export async function getCommitmentsPageData(
     .map(enrich)
     .sort(byOwnerThenDue);
 
+  // Future-week groups: everything week_ending > thisFri, grouped by
+  // week ascending. In practice these are all open (a resolved row
+  // dated in the future would be strange), but we include any status
+  // so nothing hides regardless of how it got there.
+  const futureRows = filtered.filter((c) => c.week_ending > thisFri);
+  const futureByWeek = new Map<string, CommitmentWithMeta[]>();
+  for (const c of futureRows) {
+    const bucket = futureByWeek.get(c.week_ending) ?? [];
+    bucket.push(enrich(c));
+    futureByWeek.set(c.week_ending, bucket);
+  }
+  const futureWeeks: CommitmentFutureWeek[] = Array.from(
+    futureByWeek.entries()
+  )
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([weekEnding, commitments]) => ({
+      weekEnding,
+      weekRange: formatWeekRange(weekEnding),
+      commitments: commitments.sort(byOwnerThenDue),
+    }));
+
   // Prior-week groups contain ONLY resolved rows by definition — open
   // rows in past weeks live in Needs Attention above.
   const priorRows = filtered.filter(
@@ -343,6 +378,7 @@ export async function getCommitmentsPageData(
     priorityOptions,
     roster,
     mainList,
+    futureWeeks,
     priorWeeks,
     headerStats: {
       openThisWeek,
