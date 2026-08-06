@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AssessmentFlow from "./AssessmentFlow";
 import type { Item } from "@/lib/strengths/types";
+import styles from "../strengths.module.css";
 
 export default async function AssessmentPage() {
   const supabase = await createSupabaseServerClient();
@@ -46,12 +47,25 @@ export default async function AssessmentPage() {
     .order("created_at", { ascending: true });
 
   return (
-    <AssessmentFlow
-      assessmentId={assessment.id}
-      items={(items ?? []) as Item[]}
-      existingResponses={responses ?? []}
-      existingNarrative={narrative ?? []}
-      firstName={profile.first_name}
-    />
+    <div className={styles.stage}>
+      <section className={styles.hero} aria-label="Assessment in progress">
+        <div className={styles.heroInner}>
+          <p className={styles.eyebrow}>The AiMS Strengths Assessment</p>
+          <h1 className={styles.h1}>Keep going, {profile.first_name}.</h1>
+          <span className={styles.rule} aria-hidden="true" />
+          <p className={styles.subtitle}>
+            First-instinct answers work best. You can step back to revise, or
+            forward through anything you&rsquo;ve already answered.
+          </p>
+        </div>
+      </section>
+      <AssessmentFlow
+        assessmentId={assessment.id}
+        items={(items ?? []) as Item[]}
+        existingResponses={responses ?? []}
+        existingNarrative={narrative ?? []}
+        firstName={profile.first_name}
+      />
+    </div>
   );
 }
