@@ -122,12 +122,6 @@ export type CommitmentPriorWeek = {
   commitments: CommitmentWithMeta[]; // resolved-only; empty until expanded client-side
 };
 
-export type CommitmentFutureWeek = {
-  weekEnding: string;
-  weekRange: string;
-  commitments: CommitmentWithMeta[]; // open by definition; sorted owner→due
-};
-
 export type CommitmentsPageData = {
   timezone: string;
   todayIso: string;
@@ -140,11 +134,11 @@ export type CommitmentsPageData = {
   // resolved), sorted overdue-open → upcoming-open → resolved. Weekly
   // grouping only surfaces in the collapsed prior-weeks section below.
   mainList: CommitmentWithMeta[];
-  // Rows scheduled for a week AFTER this Friday — surfaced in a
-  // "Future weeks" section so nothing a human deliberately deferred
-  // (or the meeting-analyzer landed in a future week) can go
-  // invisible.
-  futureWeeks: CommitmentFutureWeek[];
+  // Flat list of rows scheduled for a week AFTER this Friday — one
+  // "Future weeks" section on the page so nothing a human deliberately
+  // deferred (or the meeting-analyzer landed forward) can go invisible.
+  // Sorted by due date so the soonest surfaces first.
+  futureList: CommitmentWithMeta[];
   priorWeeks: CommitmentPriorWeek[];
   headerStats: {
     openThisWeek: number;
@@ -322,26 +316,18 @@ export async function getCommitmentsPageData(
     .map(enrich)
     .sort(byOwnerThenDue);
 
-  // Future-week groups: everything week_ending > thisFri, grouped by
-  // week ascending. In practice these are all open (a resolved row
-  // dated in the future would be strange), but we include any status
-  // so nothing hides regardless of how it got there.
-  const futureRows = filtered.filter((c) => c.week_ending > thisFri);
-  const futureByWeek = new Map<string, CommitmentWithMeta[]>();
-  for (const c of futureRows) {
-    const bucket = futureByWeek.get(c.week_ending) ?? [];
-    bucket.push(enrich(c));
-    futureByWeek.set(c.week_ending, bucket);
-  }
-  const futureWeeks: CommitmentFutureWeek[] = Array.from(
-    futureByWeek.entries()
-  )
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([weekEnding, commitments]) => ({
-      weekEnding,
-      weekRange: formatWeekRange(weekEnding),
-      commitments: commitments.sort(byOwnerThenDue),
-    }));
+  // Future rows: everything week_ending > thisFri. In practice these
+  // are all open (a resolved row dated in the future would be
+  // strange), but we include any status so nothing hides regardless
+  // of how it got there. Each row's due_date is visible in the UI,
+  // so a single ascending list beats week-by-week grouping here.
+  const futureList = filtered
+    .filter((c) => c.week_ending > thisFri)
+    .map(enrich)
+    .sort((a, b) => {
+      if (a.due_date !== b.due_date) return a.due_date < b.due_date ? -1 : 1;
+      return byOwnerThenDue(a, b);
+    });
 
   // Prior-week groups contain ONLY resolved rows by definition — open
   // rows in past weeks live in Needs Attention above.
@@ -378,7 +364,7 @@ export async function getCommitmentsPageData(
     priorityOptions,
     roster,
     mainList,
-    futureWeeks,
+    futureList,
     priorWeeks,
     headerStats: {
       openThisWeek,
