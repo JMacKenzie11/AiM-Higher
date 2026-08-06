@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { APP_URL } from "@/lib/supabase/env";
 import { requireRole } from "@/lib/auth/current-user";
+import { sendInviteEmail } from "@/lib/email";
 import type { Profile } from "@/lib/types";
 
 // Roster actions — replaces the old invitations flow.
@@ -267,9 +268,9 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
 // email is anywhere in auth.users — which is the state a normal
 // pending profile is already in (createUserAction pre-creates the
 // auth row before we ever mail an invite). On that specific
-// failure we transparently fall back to generateLink({ magiclink }),
-// which sends a sign-in link for the existing auth user instead of
-// trying to re-create it. Same outcome from the admin's POV.
+// failure we transparently fall back to generateLink({ magiclink })
+// and send the returned link via Resend ourselves — generateLink
+// only returns the URL, it doesn't dispatch an email.
 async function dispatchInvite(profileId: string, email: string): Promise<UserActionResult> {
   const admin = createSupabaseAdminClient();
   const redirectTo = `${APP_URL()}/accept-invite`;
@@ -339,19 +340,41 @@ async function sendMagicLink(
     });
     return {
       ok: false,
-      message: `Email is already registered but we couldn't send a sign-in link: ${error.message}`,
+      message: `Email is already registered but we couldn't generate a sign-in link: ${error.message}`,
     };
   }
 
-  // Log the generated link so admins running without custom SMTP
-  // (i.e. Supabase's built-in email is off or rate-limited) can
-  // still recover the URL from server logs and hand it to the
-  // user manually. Prod deployments with SMTP configured also get
-  // the email sent automatically.
   const link = (data as { properties?: { action_link?: string } })
     ?.properties?.action_link;
-  if (link) {
-    console.info("magic sign-in link generated for", email, "→", link);
+  if (!link) {
+    console.warn("generateLink returned no action_link", { profileId, email });
+    return {
+      ok: false,
+      message: "Couldn't generate a sign-in link for this user.",
+    };
+  }
+
+  // Look up first_name so the email can address them by name.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("first_name")
+    .eq("id", profileId)
+    .maybeSingle<Pick<Profile, "first_name">>();
+
+  const sent = await sendInviteEmail({
+    to: email,
+    firstName: profile?.first_name ?? null,
+    actionLink: link,
+  });
+
+  if (!sent.ok) {
+    // Log the link so admins can hand it to the user manually if
+    // Resend is down or unconfigured (e.g. local dev without a key).
+    console.info("invite email failed; magic link for", email, "→", link);
+    return {
+      ok: false,
+      message: `Generated a sign-in link but couldn't email it: ${sent.message}`,
+    };
   }
 
   await markInvited(admin, profileId);
