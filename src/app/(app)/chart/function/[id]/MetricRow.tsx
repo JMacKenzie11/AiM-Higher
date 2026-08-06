@@ -346,6 +346,11 @@ function EditMetricForm({
     <form action={formAction} className={styles.addForm}>
       <input type="hidden" name="id" value={measure.id} />
 
+      <p className={`${styles.addMetricAnchor} ${styles.formFieldFull}`}>
+        Should drive progress on:{" "}
+        <span className={styles.addMetricAnchorTitle}>{outcomeTitle}</span>
+      </p>
+
       <label className={`${styles.formField} ${styles.formFieldFull}`}>
         <span className={styles.formLabel}>Metric</span>
         <input
