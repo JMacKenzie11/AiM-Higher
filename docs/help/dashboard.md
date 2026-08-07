@@ -15,12 +15,13 @@ progress.
   top of the dashboard for anyone with admin authority over the
   company (system admin, company admin, or an AiMS guide assigned
   to it). The four steps are: build the team (people plus the
-  functional chart), invite the team, open a quarter and start
-  the rhythm (open quarter plus at least one commitment), and
-  build the vision and strategic plan (foundation content or a
-  Strategic Focus Area). Each step is non-blocking and checks off
-  automatically once its conditions are met; the card stops
-  rendering when everything is done.
+  functional chart), invite the team, start the rhythm (at least
+  one commitment on the books), and build the vision and strategic
+  plan (foundation content or a Strategic Focus Area). Opening a
+  quarter isn't a step because company creation auto-seeds the
+  current calendar quarter as open. Each step is non-blocking and
+  checks off automatically once its conditions are met; the card
+  stops rendering when everything is done.
 - **Refresh the brief** — click *Refresh brief* in the top card if
   the summary looks stale. It's regenerated at most once every few
   hours to keep costs sensible.

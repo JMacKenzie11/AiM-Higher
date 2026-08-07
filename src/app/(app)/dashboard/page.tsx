@@ -96,7 +96,12 @@ export default async function DashboardPage() {
     const hasPeople = data.people.length > 1; // owner alone doesn't count
     const hasFunction = (functionCount ?? 0) > 0;
     const hasInvite = (invitedCount ?? 0) > 0;
-    const hasQuarter = Boolean(data.openQuarter);
+    // Quarter presence isn't part of any step's completion: company
+    // creation auto-seeds the current calendar quarter as open (see
+    // companies/actions.ts:95-105), so hasQuarter is effectively
+    // always true and would auto-complete the step on day one.
+    // The meaningful signal for step 3 is whether the team has
+    // actually started using the rhythm — i.e. captured a commitment.
     const hasCommitment = (commitmentCount ?? 0) > 0;
     const hasPlan = data.sfas.length > 0;
 
@@ -119,11 +124,11 @@ export default async function DashboardPage() {
       },
       {
         key: "rhythm",
-        label: "Open a quarter and start the rhythm",
+        label: "Start the rhythm",
         description:
-          "Quarters bracket every plan and action. Open one, set the quarter's priorities, and run your weekly meeting. This is where execution gets proven.",
-        href: "/quarters",
-        done: hasQuarter && hasCommitment,
+          "Set this quarter's priorities and run your weekly meeting. Every commitment your team makes lives here.",
+        href: "/commitments",
+        done: hasCommitment,
       },
       {
         key: "vision",

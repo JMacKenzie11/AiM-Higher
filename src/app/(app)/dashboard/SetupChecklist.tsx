@@ -9,13 +9,15 @@ import styles from "./dashboard.module.css";
 // in as booleans so page.tsx keeps the data assembly.
 //
 // Order (people-first, plan last): build the team + chart, invite
-// the team, open a quarter and start the rhythm, then build the
-// vision + strategic plan. The vision step lands last because the
-// exercises behind it usually happen away from the app; the earlier
-// steps give people something concrete to log against in the
-// meantime. Every step is non-blocking — a user can complete them
-// in any order, and each checks off automatically as its conditions
-// become true.
+// the team, start the rhythm, then build the vision + strategic
+// plan. The vision step lands last because the exercises behind
+// it usually happen away from the app; the earlier steps give
+// people something concrete to log against in the meantime.
+// Every step is non-blocking — a user can complete them in any
+// order, and each checks off automatically as its conditions
+// become true. Note: opening a quarter isn't in the checklist
+// because company creation auto-seeds the current calendar quarter
+// as open.
 
 export type SetupStep = {
   key: string;
