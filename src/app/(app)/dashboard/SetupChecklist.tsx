@@ -8,10 +8,14 @@ import styles from "./dashboard.module.css";
 // is genuinely in use. Steps are computed by the caller and passed
 // in as booleans so page.tsx keeps the data assembly.
 //
-// Ordering matters: foundation first (frames why anything else is
-// worth setting up), then chart (who owns what), then roster, then
-// quarter, then plan. Commitments show up automatically once a plan
-// exists — no separate step, just a "great, you're ready" close.
+// Order (people-first, plan last): build the team + chart, invite
+// the team, open a quarter and start the rhythm, then build the
+// vision + strategic plan. The vision step lands last because the
+// exercises behind it usually happen away from the app; the earlier
+// steps give people something concrete to log against in the
+// meantime. Every step is non-blocking — a user can complete them
+// in any order, and each checks off automatically as its conditions
+// become true.
 
 export type SetupStep = {
   key: string;

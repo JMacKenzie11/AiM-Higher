@@ -14,9 +14,12 @@ progress.
 - **First-run setup** — a *Set up {company}* checklist sits at the
   top of the dashboard for anyone with admin authority over the
   company (system admin, company admin, or an AiMS guide assigned
-  to it) whenever the company is missing foundation, roster, an
-  open quarter, or a plan. Each of the four steps checks off
-  automatically once its prerequisite lands; the card stops
+  to it). The four steps are: build the team (people plus the
+  functional chart), invite the team, open a quarter and start
+  the rhythm (open quarter plus at least one commitment), and
+  build the vision and strategic plan (foundation content or a
+  Strategic Focus Area). Each step is non-blocking and checks off
+  automatically once its conditions are met; the card stops
   rendering when everything is done.
 - **Refresh the brief** — click *Refresh brief* in the top card if
   the summary looks stale. It's regenerated at most once every few

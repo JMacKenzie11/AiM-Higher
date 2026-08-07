@@ -49,55 +49,89 @@ export default async function DashboardPage() {
 
   // First-run setup checklist — rendered when the caller can manage
   // this company (sysadmin, company admin scoped here, or assigned
-  // guide) AND at least one setup step is incomplete. Cheap read: one
-  // extra query for the foundation row; everything else is already
-  // loaded.
+  // guide) AND at least one setup step is incomplete. Each step is
+  // non-blocking: the user can do them in any order and each checks
+  // off automatically as its conditions become true. Nothing about
+  // completion is persisted — everything is derived per render.
   let setupSteps: SetupStep[] | null = null;
   if (canManageCompany) {
     const supabase = await createSupabaseServerClient();
-    const { data: foundationRow } = await supabase
-      .from("company_foundation")
-      .select("purpose_statement, vision")
-      .eq("company_id", companyId)
-      .maybeSingle<{ purpose_statement: string | null; vision: string | null }>();
+    const [
+      { data: foundationRow },
+      { count: functionCount },
+      { count: invitedCount },
+      { count: commitmentCount },
+    ] = await Promise.all([
+      supabase
+        .from("company_foundation")
+        .select("purpose_statement, vision")
+        .eq("company_id", companyId)
+        .maybeSingle<{
+          purpose_statement: string | null;
+          vision: string | null;
+        }>(),
+      supabase
+        .from("functions")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("archived", false),
+      // "Invitation sent or accepted" is any profile with a non-null
+      // invited_at. The creating admin has invited_at=null (they
+      // signed up directly), so they don't count — exactly what we
+      // want to avoid the "invite" step being auto-complete for a
+      // brand-new company.
+      supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .not("invited_at", "is", null),
+      supabase
+        .from("commitments")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId),
+    ]);
     const hasFoundation = Boolean(
       foundationRow?.purpose_statement?.trim() || foundationRow?.vision?.trim()
     );
     const hasPeople = data.people.length > 1; // owner alone doesn't count
+    const hasFunction = (functionCount ?? 0) > 0;
+    const hasInvite = (invitedCount ?? 0) > 0;
     const hasQuarter = Boolean(data.openQuarter);
+    const hasCommitment = (commitmentCount ?? 0) > 0;
     const hasPlan = data.sfas.length > 0;
+
     const candidateSteps: SetupStep[] = [
       {
-        key: "foundation",
-        label: "Set the foundation",
+        key: "team",
+        label: "Build the team",
         description:
-          "Purpose, vision, and core values — the north star everything else hangs from.",
-        href: "/foundation",
-        done: hasFoundation,
+          "Add your people, build the functional chart, and set success measures. Everything else lands on real names.",
+        href: "/people",
+        done: hasPeople && hasFunction,
       },
       {
-        key: "people",
+        key: "invite",
         label: "Invite the team",
         description:
-          "Add the leadership team so commitments and coaching have real names to land on.",
+          "Send invitations when you're ready. People can be added now and invited later.",
         href: "/people",
-        done: hasPeople,
+        done: hasInvite,
       },
       {
-        key: "quarter",
-        label: "Open a quarter",
+        key: "rhythm",
+        label: "Open a quarter and start the rhythm",
         description:
-          "Quarters bracket every plan and action. Nothing can be added until one is open.",
+          "Quarters bracket every plan and action. Open one, set the quarter's priorities, and run your weekly meeting. This is where execution gets proven.",
         href: "/quarters",
-        done: hasQuarter,
+        done: hasQuarter && hasCommitment,
       },
       {
-        key: "plan",
-        label: "Build the plan",
+        key: "vision",
+        label: "Build the vision and strategic plan",
         description:
-          "Strategic Focus Areas → annual goals → 90-day priorities. Start with one Focus Area.",
-        href: "/plan",
-        done: hasPlan,
+          "Purpose, vision, values, and the plan cascade. These come from real exercises with your team, so they land here once that work is done, not before.",
+        href: "/foundation",
+        done: hasFoundation || hasPlan,
       },
     ];
     const anyIncomplete = candidateSteps.some((s) => !s.done);
