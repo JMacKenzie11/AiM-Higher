@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell/AuthShell";
-import formStyles from "@/components/auth-shell/AuthForm.module.css";
 import { AcceptInviteForm } from "./AcceptInviteForm";
 
 // Auth flow — the session comes from Supabase's invite email at
@@ -22,10 +21,6 @@ export default function AcceptInvitePage() {
       footer={<Link href="/sign-in">Already have an account? Sign in</Link>}
     >
       <AcceptInviteForm />
-      <p className={formStyles.helperText}>
-        If this link looks wrong or has expired, ask whoever added you to send
-        a fresh invitation.
-      </p>
     </AuthShell>
   );
 }

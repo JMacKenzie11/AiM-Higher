@@ -42,7 +42,7 @@ function readHashError(): string | null {
   const desc = params.get("error_description");
   if (!code && !desc) return null;
   if (code === "otp_expired") {
-    return "This invite link has expired or has already been used. Ask whoever added you to send a fresh invitation.";
+    return "This invite link has expired or has already been used.";
   }
   return desc ? desc.replace(/\+/g, " ") : "This invite link is invalid.";
 }
@@ -115,7 +115,7 @@ export function AcceptInviteForm() {
       if (cancelled) return;
       if (exchangeErr) {
         setHashError(
-          "This invite link is invalid or has expired. Ask whoever added you to send a fresh invitation."
+          "This invite link is invalid or has expired."
         );
       }
       setCheckingSession(false);
