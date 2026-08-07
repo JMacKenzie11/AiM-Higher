@@ -134,7 +134,7 @@ export default async function DashboardPage() {
         key: "vision",
         label: "Build the vision and strategic plan",
         description:
-          "Purpose, vision, values, and the plan cascade. These come from real exercises with your team, so they land here once that work is done, not before.",
+          "Purpose, vision, values and your strategic plan.  You'll build these with your team and capture them here.",
         href: "/foundation",
         done: hasFoundation || hasPlan,
       },
