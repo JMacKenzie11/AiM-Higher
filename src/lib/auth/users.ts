@@ -235,6 +235,73 @@ export async function updateUserAction(
   return { ok: true, profileId };
 }
 
+// ---- Self-serve fresh invite from the expired-link screen ----
+// Called from AcceptInviteForm when the invite link has expired
+// and the invitee wants a new one without pinging their admin.
+// Public endpoint (unauthenticated) — hardened accordingly:
+//   - Always returns { ok: true } so an attacker probing emails
+//     can't distinguish "unknown", "already-active", or "sent"
+//     from each other.
+//   - Only fires the actual dispatch when the profile exists AND
+//     is still `pending` — active users never trigger a magic
+//     sign-in link through this path (would let anyone spam an
+//     inbox with sign-in prompts).
+//   - 60-second per-account cooldown using profiles.invited_at
+//     as the throttle clock; the same email hammering this route
+//     silently no-ops after the first success.
+export async function requestFreshInviteAction(
+  email: string
+): Promise<{ ok: true }> {
+  const normalized = String(email ?? "").trim().toLowerCase();
+  // Every branch below returns ok:true to preserve the
+  // don't-leak-existence contract.
+  if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    return { ok: true };
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  // Paginated listUsers is the only email→user lookup the auth
+  // admin API surfaces. Fine at our scale (< a few thousand users);
+  // swap for an RPC if this ever gets hot.
+  let authUserId: string | null = null;
+  for (let page = 1; page <= 10 && !authUserId; page++) {
+    const { data } = await admin.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+    const match = data?.users?.find((u) => u.email === normalized);
+    if (match) authUserId = match.id;
+    if (!data?.users || data.users.length < 200) break;
+  }
+  if (!authUserId) return { ok: true };
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, status, invited_at")
+    .eq("id", authUserId)
+    .maybeSingle<Pick<Profile, "id" | "status" | "invited_at">>();
+  if (!profile || profile.status !== "pending") return { ok: true };
+
+  // Cooldown: silently succeed if we already sent one in the last
+  // minute. Cheap throttle without a table; dispatchInvite's
+  // markInvited() bumps invited_at so the next request within 60s
+  // hits this early return.
+  if (profile.invited_at) {
+    const ageMs = Date.now() - new Date(profile.invited_at).getTime();
+    if (ageMs < 60_000) return { ok: true };
+  }
+
+  const result = await dispatchInvite(profile.id, normalized);
+  if (!result.ok) {
+    console.warn("requestFreshInviteAction dispatch failed:", {
+      email: normalized,
+      message: result.message,
+    });
+  }
+  return { ok: true };
+}
+
 // ---- Send / resend an invite email ---------------------------
 export async function sendInviteAction(profileId: string): Promise<UserActionResult> {
   const session = await requireRole(["system_admin", "company_admin"]);

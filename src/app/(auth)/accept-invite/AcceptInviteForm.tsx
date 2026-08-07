@@ -3,7 +3,10 @@
 import { useEffect, useState, useTransition } from "react";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import formStyles from "@/components/auth-shell/AuthForm.module.css";
-import { acceptInviteAction } from "@/lib/auth/users";
+import {
+  acceptInviteAction,
+  requestFreshInviteAction,
+} from "@/lib/auth/users";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 // Three-step accept-invite flow:
@@ -181,11 +184,7 @@ export function AcceptInviteForm() {
   }
 
   if (hashError) {
-    return (
-      <p role="alert" className={formStyles.errorMessage}>
-        {hashError}
-      </p>
-    );
+    return <ExpiredInviteBlock message={hashError} />;
   }
 
   if (acceptError) {
@@ -271,5 +270,66 @@ export function AcceptInviteForm() {
         {busy ? "Setting up…" : "Accept invitation"}
       </button>
     </form>
+  );
+}
+
+// Shown when the invite link is expired / already used. Lets the
+// invitee self-serve a fresh link instead of DMing their admin.
+// The action returns { ok: true } unconditionally to avoid leaking
+// which emails are on file, so the confirmation copy is worded to
+// match ("if that email is on file...").
+function ExpiredInviteBlock({ message }: { message: string }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!email.trim() || pending) return;
+    startTransition(async () => {
+      await requestFreshInviteAction(email.trim());
+      setSent(true);
+    });
+  }
+
+  return (
+    <div className={formStyles.form}>
+      <p role="alert" className={formStyles.errorMessage}>
+        {message}
+      </p>
+      {sent ? (
+        <p className={formStyles.successMessage} role="status">
+          If that email is on our roster and still pending, a fresh
+          invitation is on its way. Check your inbox in a minute.
+        </p>
+      ) : (
+        <form onSubmit={handleSubmit} className={formStyles.form}>
+          <div className={formStyles.field}>
+            <label htmlFor="fresh-invite-email" className={formStyles.label}>
+              Send a fresh invitation to
+            </label>
+            <input
+              id="fresh-invite-email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={formStyles.input}
+              placeholder="you@company.com"
+              disabled={pending}
+            />
+          </div>
+          <button
+            type="submit"
+            className={formStyles.submit}
+            disabled={pending || !email.trim()}
+            data-loading={pending ? "true" : undefined}
+          >
+            {pending ? "Sending…" : "Send me a fresh invitation"}
+          </button>
+        </form>
+      )}
+    </div>
   );
 }
