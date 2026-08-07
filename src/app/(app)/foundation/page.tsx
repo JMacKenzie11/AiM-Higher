@@ -22,8 +22,13 @@ import type { StrategicFocusArea } from "@/lib/types";
 import styles from "./foundation.module.css";
 
 // One-Page Plan — the single-page AiMS one-pager. Two columns of
-// content plus a full-width Key Success Metrics band at the bottom.
-// Vision is now a single field; the legacy title/tagline/body split
+// content: left is identity (Purpose, Core Values, Differentiators);
+// right is direction (Vision, Strategic Focus Areas, Ideal Client
+// Avatar, Key Success Metrics). Key Success Metrics previously sat
+// full-width under both columns; it lives in the right column now
+// so the page reads as two coherent columns rather than "columns +
+// afterthought".
+// Vision is a single field; the legacy title/tagline/body split
 // and vision_milestone items were consolidated in migration 0106.
 
 export default async function OnePagePlanPage() {
@@ -321,53 +326,57 @@ export default async function OnePagePlanPage() {
                 ) : null}
               </div>
             </section>
+
+            {/* Key Success Metrics — lives in the right column so the
+                page reads as two coherent columns instead of "columns
+                + full-width strip". Grid drops from grid2 to a single
+                column here since the column is narrower than the
+                full-page grid it used to span. */}
+            <section className={styles.cardAccent} aria-labelledby="metrics">
+              <CardAccent />
+              <h2 id="metrics" className={styles.h2}>
+                Key Success Metrics
+              </h2>
+              {data.keySuccessMetrics.length === 0 ? (
+                <p className={styles.emptyLine}>
+                  No metrics yet.{" "}
+                  {isAdmin
+                    ? "Add the handful of numbers this company measures itself by."
+                    : ""}
+                </p>
+              ) : (
+                <ul className={styles.plainList}>
+                  {data.keySuccessMetrics.map((metric) => (
+                    <li key={metric.id} className={styles.plainListItem}>
+                      <h3 className={styles.h3}>{metric.title}</h3>
+                      {metric.body ? (
+                        <p className={styles.bodyText}>{metric.body}</p>
+                      ) : null}
+                      {isAdmin ? (
+                        <div className={styles.subcardActions}>
+                          <EditFoundationItemForm item={metric} />
+                          <DeleteButton
+                            action={deleteFoundationItemAction}
+                            itemId={metric.id}
+                            confirmMessage="Delete this metric?"
+                          />
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {isAdmin ? (
+                <AddFoundationItemForm
+                  kind="key_success_metric"
+                  addLabel="Add metric"
+                  titleLabel="Metric"
+                  bodyLabel="Target or definition"
+                />
+              ) : null}
+            </section>
           </div>
         </div>
-
-        {/* ============ Key Success Metrics (full width) ============ */}
-        <section className={styles.cardAccent} aria-labelledby="metrics">
-          <CardAccent />
-          <h2 id="metrics" className={styles.h2}>
-            Key Success Metrics
-          </h2>
-          {data.keySuccessMetrics.length === 0 ? (
-            <p className={styles.emptyLine}>
-              No metrics yet.{" "}
-              {isAdmin
-                ? "Add the handful of numbers this company measures itself by."
-                : ""}
-            </p>
-          ) : (
-            <div className={styles.grid2}>
-              {data.keySuccessMetrics.map((metric) => (
-                <article key={metric.id} className={styles.subcard}>
-                  <h3 className={styles.h3}>{metric.title}</h3>
-                  {metric.body ? (
-                    <p className={styles.bodyText}>{metric.body}</p>
-                  ) : null}
-                  {isAdmin ? (
-                    <div className={styles.subcardActions}>
-                      <EditFoundationItemForm item={metric} />
-                      <DeleteButton
-                        action={deleteFoundationItemAction}
-                        itemId={metric.id}
-                        confirmMessage="Delete this metric?"
-                      />
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          )}
-          {isAdmin ? (
-            <AddFoundationItemForm
-              kind="key_success_metric"
-              addLabel="Add metric"
-              titleLabel="Metric"
-              bodyLabel="Target or definition"
-            />
-          ) : null}
-        </section>
       </div>
     </div>
   );
