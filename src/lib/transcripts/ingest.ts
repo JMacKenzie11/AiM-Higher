@@ -10,7 +10,6 @@ import { getProvider } from "./provider";
 import { extractTranscript } from "./extract";
 import { contentHash, routeByFilename } from "./route";
 import { analyzeMeeting } from "./analyze";
-import { sendCommitmentEmail } from "@/lib/email";
 
 // Runs the full pipeline for a single source: list new files past
 // cursor, download + extract + hash + route + insert each, advance
@@ -198,10 +197,7 @@ export async function processPendingMeetings(
     const batch = routed.slice(i, i + CONCURRENCY);
     const results = await Promise.allSettled(
       batch.map(async (meeting) => {
-        const result = await analyzeMeeting(meeting.id);
-        if (result.createdCommitmentCount > 0) {
-          await sendCommitmentEmailForMeeting(meeting.id);
-        }
+        await analyzeMeeting(meeting.id);
       })
     );
     for (let j = 0; j < results.length; j++) {
@@ -217,76 +213,6 @@ export async function processPendingMeetings(
     }
   }
   return { processed };
-}
-
-async function sendCommitmentEmailForMeeting(meetingId: string): Promise<void> {
-  const admin = createSupabaseAdminClient();
-
-  const { data: meeting } = await admin
-    .from("meetings")
-    .select("id, company_id, meeting_title, file_name")
-    .eq("id", meetingId)
-    .maybeSingle<Pick<Meeting, "id" | "company_id" | "meeting_title" | "file_name">>();
-  if (!meeting || !meeting.company_id) return;
-
-  const [{ data: commitments }, { data: recipients }] = await Promise.all([
-    admin
-      .from("commitments")
-      .select("id, description, owner_id, due_date")
-      .eq("source_meeting_id", meetingId),
-    admin.auth.admin.listUsers(),
-  ]);
-
-  const rows = (commitments ?? []) as Array<{
-    id: string;
-    description: string;
-    owner_id: string | null;
-    due_date: string;
-  }>;
-  if (rows.length === 0) return;
-
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, full_name, status")
-    .eq("company_id", meeting.company_id)
-    .eq("status", "active");
-  const rosterById = new Map(
-    ((profiles ?? []) as Array<{ id: string; full_name: string; status: string }>).map(
-      (p) => [p.id, p.full_name]
-    )
-  );
-
-  // Recipient email addresses from Supabase auth admin. Filter to
-  // active same-company members only.
-  const activeIds = new Set(rosterById.keys());
-  const emails: string[] = [];
-  for (const u of recipients.users) {
-    if (u.email && activeIds.has(u.id)) emails.push(u.email);
-  }
-  if (emails.length === 0) return;
-
-  // Group by owner. Unassigned last.
-  const groups = new Map<string | "unassigned", typeof rows>();
-  for (const c of rows) {
-    const key = c.owner_id ?? "unassigned";
-    const arr = groups.get(key) ?? [];
-    arr.push(c);
-    groups.set(key, arr);
-  }
-  const commitmentsByOwner = Array.from(groups.entries())
-    .sort(([a], [b]) => (a === "unassigned" ? 1 : b === "unassigned" ? -1 : 0))
-    .map(([key, items]) => ({
-      ownerName: key === "unassigned" ? "Needs an owner" : rosterById.get(key) ?? "Unknown",
-      isUnassigned: key === "unassigned",
-      items: items.map((i) => ({ description: i.description, dueDate: i.due_date })),
-    }));
-
-  const title = meeting.meeting_title?.trim() || meeting.file_name;
-  await sendCommitmentEmail({
-    meetingTitle: title,
-    recipients: emails,
-    commitmentsByOwner,
-  });
 }
 
 async function loadAllAliases(
