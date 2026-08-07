@@ -335,6 +335,82 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
   return { ok: true, profileId };
 }
 
+// ---- Copy invite link (no email) -----------------------------
+// Returns a fresh magic-link URL the admin can share via any channel
+// they choose (Slack DM, SMS, in person). Same token semantics as
+// the email path: 24h expiry (Supabase's Email OTP Expiration),
+// one-shot use, verified through /auth/callback → verifyOtp.
+// Bumps invited_at so the roster status pill reflects that a link
+// is out — identical to the email path from the pipeline's POV.
+export type InviteLinkResult =
+  | { ok: true; link: string }
+  | { ok: false; message: string };
+
+export async function getInviteLinkAction(
+  profileId: string
+): Promise<InviteLinkResult> {
+  const session = await requireRole(["system_admin", "company_admin"]);
+
+  const supabase = await createSupabaseServerClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, company_id")
+    .eq("id", profileId)
+    .maybeSingle<Pick<Profile, "id" | "company_id">>();
+  if (!profile) return { ok: false, message: "That user doesn't exist." };
+  if (
+    session.profile.role === "company_admin" &&
+    session.profile.company_id !== profile.company_id
+  ) {
+    return { ok: false, message: "Not your user to invite." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: userRow, error: userErr } =
+    await admin.auth.admin.getUserById(profileId);
+  if (userErr || !userRow?.user?.email) {
+    return { ok: false, message: "Couldn't find that user's email." };
+  }
+
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email: userRow.user.email,
+    options: { redirectTo: `${APP_URL()}/accept-invite` },
+  });
+  if (error) {
+    console.warn("generateLink(magiclink) failed for getInviteLink:", {
+      profileId,
+      status: (error as { status?: number }).status,
+      code: (error as { code?: string }).code,
+      message: error.message,
+    });
+    return {
+      ok: false,
+      message: `Couldn't generate a sign-in link: ${error.message}`,
+    };
+  }
+  const hashedToken = (
+    data as { properties?: { hashed_token?: string } }
+  )?.properties?.hashed_token;
+  if (!hashedToken) {
+    return {
+      ok: false,
+      message: "Couldn't generate a sign-in link for this user.",
+    };
+  }
+  const link =
+    `${APP_URL()}/auth/callback` +
+    `?token_hash=${encodeURIComponent(hashedToken)}` +
+    `&type=magiclink` +
+    `&next=${encodeURIComponent("/accept-invite")}`;
+
+  await markInvited(admin, profileId);
+
+  if (profile.company_id) revalidatePath(`/admin/companies/${profile.company_id}`);
+  revalidatePath(`/people`);
+  return { ok: true, link };
+}
+
 // Shared invite-email dispatcher — used on create-with-send and on
 // standalone send/resend.
 //

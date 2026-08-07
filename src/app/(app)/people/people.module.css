@@ -455,6 +455,25 @@
   text-align: right;
 }
 
+/* Fallback slot for the "Copy invite link" action when
+   navigator.clipboard.writeText() is blocked (permissions denied,
+   non-secure context). Renders a readonly input so the admin can
+   still select and copy the link by hand. Kept narrow and to the
+   right of the row so it doesn't dominate the layout. */
+.manualLinkField {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  margin: var(--space-2) 0 0 auto;
+  padding: var(--space-1) var(--space-2);
+  font: var(--text-caption);
+  font-family: var(--font-mono, monospace);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
 /* ---- Chips (share the base + colour variants from ui.module.css) ---- */
 .chipActive {
   composes: chipActive from "../../../components/ui/ui.module.css";

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { sendInviteAction, deleteUserAction } from "@/lib/auth/users";
+import {
+  sendInviteAction,
+  deleteUserAction,
+  getInviteLinkAction,
+} from "@/lib/auth/users";
 import { setProfileStatusAction } from "@/lib/people/actions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { ProfileStatus } from "@/lib/types";
@@ -29,6 +33,10 @@ export function RowActionsMenu({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  // Fallback slot for the copy-link path: when navigator.clipboard
+  // fails (permissions denied, non-secure context, etc.) we surface
+  // the raw link so the admin can select + copy it manually.
+  const [manualCopyLink, setManualCopyLink] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -57,6 +65,28 @@ export function RowActionsMenu({
     startTransition(async () => {
       const result = await sendInviteAction(profileId);
       setMessage(result.ok ? "Invite sent." : result.message);
+    });
+  }
+
+  function runCopyLink() {
+    setOpen(false);
+    setManualCopyLink(null);
+    startTransition(async () => {
+      const result = await getInviteLinkAction(profileId);
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+      // Attempt the clipboard write first; fall back to inline
+      // display if the browser denies it (missing user-gesture
+      // window, non-HTTPS, permissions blocked).
+      try {
+        await navigator.clipboard.writeText(result.link);
+        setMessage("Link copied — expires in 24h.");
+      } catch {
+        setManualCopyLink(result.link);
+        setMessage("Copy this link — expires in 24h.");
+      }
     });
   }
 
@@ -103,6 +133,14 @@ export function RowActionsMenu({
           >
             {inviteLabel}
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.moreMenuItem}
+            onClick={runCopyLink}
+          >
+            Copy invite link
+          </button>
           {showDeactivate ? (
             <button
               type="button"
@@ -145,6 +183,17 @@ export function RowActionsMenu({
         <p className={styles.rowMessage} role="status">
           {message}
         </p>
+      ) : null}
+      {manualCopyLink ? (
+        <input
+          type="text"
+          readOnly
+          value={manualCopyLink}
+          className={styles.manualLinkField}
+          onFocus={(e) => e.currentTarget.select()}
+          onClick={(e) => e.currentTarget.select()}
+          aria-label="Invite link — select and copy"
+        />
       ) : null}
       <ConfirmDialog
         open={confirmingDelete}
