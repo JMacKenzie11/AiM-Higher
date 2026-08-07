@@ -22,6 +22,23 @@ import {
 
 const COMPANY_ADMIN_PATH = /^\/admin\/companies\/([0-9a-f-]{36})(?:\/|$)/i;
 
+// Paths where a pending (not-yet-accepted) user IS allowed to be
+// while signed in. Everywhere else, they get bounced back to
+// /accept-invite so the /auth/callback → verifyOtp session that
+// was created for the invite exchange can't be used to browse the
+// app before a password lands. See updateSession for the profile
+// check that drives this.
+const PENDING_ALLOWED_PATHS: readonly string[] = [
+  "/accept-invite",
+  "/sign-in",
+  "/forgot-password",
+  "/reset-password",
+];
+function pendingAllowsPath(pathname: string): boolean {
+  if (pathname.startsWith("/auth/")) return true;
+  return PENDING_ALLOWED_PATHS.includes(pathname);
+}
+
 export async function middleware(request: NextRequest) {
   const match = request.nextUrl.pathname.match(COMPANY_ADMIN_PATH);
   const targetScope = match ? match[1] : null;
@@ -32,7 +49,20 @@ export async function middleware(request: NextRequest) {
     request.cookies.set(SCOPE_COOKIE_NAME, targetScope);
   }
 
-  const { response, isAuthenticated } = await updateSession(request);
+  const path = request.nextUrl.pathname;
+  const needsPendingCheck = !pendingAllowsPath(path);
+  const { response, isAuthenticated, isPending } = await updateSession(
+    request,
+    { checkPending: needsPendingCheck }
+  );
+
+  // Pending users have a session (from the invite OTP exchange) but
+  // haven't set a password. They must not be allowed anywhere except
+  // the accept-invite surface until they do — otherwise abandoning
+  // the invite flow would leak the app to whoever holds the browser.
+  if (isPending && needsPendingCheck) {
+    return NextResponse.redirect(new URL("/accept-invite", request.url));
+  }
 
   // Authenticated visitors don't see the marketing page. /dashboard is
   // the universal landing surface for authed roles; it internally
