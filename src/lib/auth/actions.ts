@@ -201,12 +201,27 @@ export async function completeAcceptInviteAction(
 
   // Step 3: flip the profile from pending → active. Idempotent —
   // safe if the row is already active (returning user re-clicking
-  // an old link during setup).
+  // an old link during setup). Non-fatal on failure: verifyOtp +
+  // updateUser already succeeded so the user IS in and can sign in;
+  // we log so a sysadmin can inspect + flip the row manually. This
+  // was the failure mode where Jeff Bouwman signed in but stayed
+  // pending on 2026-08-08 — we silently swallowed the update result.
   const admin = createSupabaseAdminClient();
-  await admin
+  const { error: statusErr } = await admin
     .from("profiles")
     .update({ status: "active" })
     .eq("id", otpData.session.user.id);
+  if (statusErr) {
+    console.error("completeAcceptInvite: profile activation failed", {
+      userId: otpData.session.user.id,
+      error: statusErr.message,
+      code: (statusErr as { code?: string }).code,
+    });
+  } else {
+    console.log("completeAcceptInvite: activated profile", {
+      userId: otpData.session.user.id,
+    });
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };
