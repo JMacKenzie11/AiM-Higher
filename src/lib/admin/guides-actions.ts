@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { dispatchInvite } from "@/lib/auth/users";
 
 // Server actions for AiMS Guide management. System-admin only.
 //
@@ -15,7 +16,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 //     is a no-op; unassigning a pair that isn't there is a no-op.
 
 export type GuideActionResult =
-  | { ok: true; guideId?: string }
+  | { ok: true; guideId?: string; warning?: string }
   | { ok: false; message: string };
 
 async function guard(): Promise<
@@ -27,8 +28,16 @@ async function guard(): Promise<
 
 // ---- Create a guide ------------------------------------------
 // Creates an auth user + profile row with role='aims_guide' and one
-// or more guide_assignments. Password is left unset — the guide gets
-// a magic-link invite through the standard Supabase auth flow.
+// or more guide_assignments, then fires an invite email through the
+// same dispatchInvite pipeline every other new user uses (hashed
+// token → /auth/callback → verifyOtp → password).
+//
+// Previously this action created the auth user with
+// email_confirm=true and status='active' but never sent any invite
+// (the comment claimed "sends a magic link" but no code did that).
+// Result: guides existed in the DB with no password, no invite
+// link, no way to sign in — hence Jeff Boumwan's dead-end state
+// on 2026-08-08.
 export async function createGuideAction(
   formData: FormData
 ): Promise<GuideActionResult> {
@@ -55,11 +64,11 @@ export async function createGuideAction(
 
   const admin = createSupabaseAdminClient();
 
-  // Step 1: auth user (email-confirmed = false; sends a magic link
-  // via Supabase's own invite flow when confirmed).
+  // Step 1: auth user. email_confirm=false — verifyOtp will confirm
+  // the email when the guide clicks the invite link.
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
-    email_confirm: true,
+    email_confirm: false,
   });
   if (createErr || !created?.user) {
     return {
@@ -70,13 +79,16 @@ export async function createGuideAction(
   const guideId = created.user.id;
 
   // Step 2: profile row with role='aims_guide' and no company_id.
+  // status='pending' so the middleware guard bounces them back to
+  // /accept-invite if they abandon the password step, same as any
+  // other newly-invited user.
   const { error: profileErr } = await admin.from("profiles").insert({
     id: guideId,
     company_id: null,
     full_name: fullName,
     position,
     role: "aims_guide",
-    status: "active",
+    status: "pending",
   });
   if (profileErr) {
     await admin.auth.admin.deleteUser(guideId);
@@ -103,6 +115,48 @@ export async function createGuideAction(
       message: `Couldn't assign companies: ${assignErr.message}`,
     };
   }
+
+  // Step 4: fire the invite. Surfaces as a warning on the create
+  // result if the send fails — the guide is IN the system either
+  // way, an admin can hit "Resend invite" from GuideRowActions.
+  let warning: string | undefined;
+  const dispatch = await dispatchInvite(guideId, email);
+  if (!dispatch.ok) {
+    warning = `Guide added, but the invite email didn't send: ${dispatch.message}`;
+  }
+
+  revalidatePath("/admin/companies", "layout");
+  return { ok: true, guideId, warning };
+}
+
+// ---- Resend a guide's invite --------------------------------
+// For guides who never received their initial invite (Jeff), for
+// guides whose invite link has expired past the 24h Supabase cap,
+// or any time an admin wants to hand them a fresh link. Uses the
+// same dispatchInvite pipeline as regular user resends.
+export async function resendGuideInviteAction(
+  guideId: string
+): Promise<GuideActionResult> {
+  const g = await guard();
+  if (!g.ok) return g;
+
+  const admin = createSupabaseAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("id", guideId)
+    .maybeSingle<{ id: string; role: string }>();
+  if (!profile || profile.role !== "aims_guide") {
+    return { ok: false, message: "That user isn't an AiMS Guide." };
+  }
+  const { data: userRow, error: userErr } =
+    await admin.auth.admin.getUserById(guideId);
+  if (userErr || !userRow?.user?.email) {
+    return { ok: false, message: "Couldn't find that guide's email." };
+  }
+
+  const dispatch = await dispatchInvite(guideId, userRow.user.email);
+  if (!dispatch.ok) return { ok: false, message: dispatch.message };
 
   revalidatePath("/admin/companies", "layout");
   return { ok: true, guideId };

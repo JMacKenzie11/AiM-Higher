@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   assignGuideAction,
   deleteGuideAction,
+  resendGuideInviteAction,
   unassignGuideAction,
 } from "@/lib/admin/guides-actions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -104,6 +105,15 @@ export function GuideRowActions({
           })}
         </div>
       ) : null}
+
+      <button
+        type="button"
+        className={styles.ghostButton}
+        disabled={pending}
+        onClick={() => run(() => resendGuideInviteAction(guideId))}
+      >
+        Resend invite
+      </button>
 
       <button
         type="button"

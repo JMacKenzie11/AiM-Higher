@@ -425,7 +425,7 @@ export async function getInviteLinkAction(
 // Straight to generateLink({ magiclink }) + our own Resend send:
 // one Supabase call instead of two, no error-code guessing, every
 // send shows up in the Resend dashboard.
-async function dispatchInvite(profileId: string, email: string): Promise<UserActionResult> {
+export async function dispatchInvite(profileId: string, email: string): Promise<UserActionResult> {
   const admin = createSupabaseAdminClient();
   // Ask Supabase to generate a magic-link OTP for this user. We
   // deliberately don't use the returned action_link (which routes
