@@ -399,10 +399,9 @@ export async function getInviteLinkAction(
     };
   }
   const link =
-    `${APP_URL()}/auth/callback` +
+    `${APP_URL()}/accept-invite` +
     `?token_hash=${encodeURIComponent(hashedToken)}` +
-    `&type=magiclink` +
-    `&next=${encodeURIComponent("/accept-invite")}`;
+    `&type=magiclink`;
 
   await markInvited(admin, profileId);
 
@@ -473,13 +472,16 @@ export async function dispatchInvite(profileId: string, email: string): Promise<
     };
   }
 
-  // Build our own link straight to /auth/callback — no PKCE hop,
-  // no client-side race, verifyOtp handles it server-side.
+  // Link points DIRECTLY at /accept-invite with the token in the
+  // query — no /auth/callback hop. verifyOtp only fires when the
+  // user submits the password form, so link previewers / scanners
+  // (Microsoft SafeLinks, iMessage LinkPresentation, Slack unfurl)
+  // that GET the URL never consume the one-shot token. Matches the
+  // GitHub / Google / modern SaaS pattern: token-as-form-submit.
   const link =
-    `${APP_URL()}/auth/callback` +
+    `${APP_URL()}/accept-invite` +
     `?token_hash=${encodeURIComponent(hashedToken)}` +
-    `&type=magiclink` +
-    `&next=${encodeURIComponent("/accept-invite")}`;
+    `&type=magiclink`;
 
   const { data: profile } = await admin
     .from("profiles")

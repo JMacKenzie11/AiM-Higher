@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { APP_URL } from "@/lib/supabase/env";
@@ -100,11 +101,16 @@ export async function requestPasswordResetAction(
     return { ok: true };
   }
 
+  // Link points DIRECTLY at /reset-password with the token in the
+  // query, not at /auth/callback. verifyOtp only fires when the
+  // user submits the password form, so link previewers / scanners
+  // (Microsoft SafeLinks, iMessage LinkPresentation, Slack unfurl)
+  // that GET the URL never consume the token. Same pattern used
+  // by GitHub / Google / most modern SaaS.
   const link =
-    `${APP_URL()}/auth/callback` +
+    `${APP_URL()}/reset-password` +
     `?token_hash=${encodeURIComponent(hashedToken)}` +
-    `&type=recovery` +
-    `&next=${encodeURIComponent("/reset-password")}`;
+    `&type=recovery`;
 
   // Best-effort name lookup so the email addresses them by name.
   // Non-fatal if the profile isn't found (which shouldn't happen
@@ -129,7 +135,145 @@ export async function requestPasswordResetAction(
   return { ok: true };
 }
 
-// ---- Set a new password (reset OR first-time from invite) ------
+// ---- Complete accept-invite (verify OTP + set password + activate)
+// Called from AcceptInviteForm on submit. Runs the full sequence in
+// one server action so the token is only exchanged when a human has
+// typed a password — link previewers / scanners that just GET the
+// invite URL never trigger verifyOtp, so they can't burn the
+// one-shot token. This is the GitHub / Google / modern SaaS
+// pattern: token-as-form-submit, not exchange-on-arrival.
+export type CompleteAcceptResult =
+  | { ok: true }
+  | { ok: false; message: string; expired?: boolean };
+
+export async function completeAcceptInviteAction(
+  _prev: CompleteAcceptResult | undefined,
+  formData: FormData
+): Promise<CompleteAcceptResult> {
+  const tokenHash = String(formData.get("token_hash") ?? "").trim();
+  const type = String(formData.get("type") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (!tokenHash || !type) {
+    return {
+      ok: false,
+      message: "This link is missing its invitation token.",
+      expired: true,
+    };
+  }
+  if (password.length < 8) {
+    return {
+      ok: false,
+      message: "Choose a password of at least 8 characters.",
+    };
+  }
+  if (password !== confirm) {
+    return { ok: false, message: "The two passwords don't match yet." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  // Step 1: exchange the token. Sets the session cookie for this
+  // request; the next call (updateUser) uses it.
+  const { data: otpData, error: otpErr } = await supabase.auth.verifyOtp({
+    type: type as EmailOtpType,
+    token_hash: tokenHash,
+  });
+  if (otpErr || !otpData.session) {
+    return {
+      ok: false,
+      message:
+        otpErr?.message ??
+        "This invite link is invalid or has expired.",
+      expired: true,
+    };
+  }
+
+  // Step 2: set the password on the newly-signed-in user.
+  const { error: pwErr } = await supabase.auth.updateUser({ password });
+  if (pwErr) {
+    return {
+      ok: false,
+      message: `We couldn't set that password: ${pwErr.message}`,
+    };
+  }
+
+  // Step 3: flip the profile from pending → active. Idempotent —
+  // safe if the row is already active (returning user re-clicking
+  // an old link during setup).
+  const admin = createSupabaseAdminClient();
+  await admin
+    .from("profiles")
+    .update({ status: "active" })
+    .eq("id", otpData.session.user.id);
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+// ---- Complete reset-password (verify OTP + set password) --------
+// Same token-as-form-submit pattern as completeAcceptInviteAction.
+// No profile status flip — the user is already active.
+export type CompleteResetResult =
+  | { ok: true }
+  | { ok: false; message: string; expired?: boolean };
+
+export async function completeResetPasswordAction(
+  _prev: CompleteResetResult | undefined,
+  formData: FormData
+): Promise<CompleteResetResult> {
+  const tokenHash = String(formData.get("token_hash") ?? "").trim();
+  const type = String(formData.get("type") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (!tokenHash || !type) {
+    return {
+      ok: false,
+      message: "This link is missing its reset token.",
+      expired: true,
+    };
+  }
+  if (password.length < 8) {
+    return {
+      ok: false,
+      message: "Choose a password of at least 8 characters.",
+    };
+  }
+  if (password !== confirm) {
+    return { ok: false, message: "The two passwords don't match yet." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: otpData, error: otpErr } = await supabase.auth.verifyOtp({
+    type: type as EmailOtpType,
+    token_hash: tokenHash,
+  });
+  if (otpErr || !otpData.session) {
+    return {
+      ok: false,
+      message: otpErr?.message ?? "This reset link is invalid or has expired.",
+      expired: true,
+    };
+  }
+
+  const { error: pwErr } = await supabase.auth.updateUser({ password });
+  if (pwErr) {
+    return {
+      ok: false,
+      message: `We couldn't set that password: ${pwErr.message}`,
+    };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+// ---- Legacy: set-new-password from an already-established session
+// Kept for the reset-password client-side fallback path that runs
+// against old-style hash-token URLs still sitting in inboxes. New
+// links use completeResetPasswordAction above.
 export async function setNewPasswordAction(
   _prev: AuthActionResult | undefined,
   formData: FormData
@@ -148,14 +292,6 @@ export async function setNewPasswordAction(
   }
 
   const supabase = await createSupabaseServerClient();
-
-  // If the invite session hasn't yet landed in cookies, updateUser
-  // will fail with something like "Auth session missing" — the
-  // browser client parsed the URL hash tokens but the SSR helper
-  // hasn't seen them on this request. Surface Supabase's own error
-  // detail so the user sees what's wrong (weak password, expired
-  // session, same-as-previous protection) instead of a blanket
-  // "try again."
   const { data, error } = await supabase.auth.updateUser({ password });
   if (error || !data.user) {
     const detail = error?.message?.trim();

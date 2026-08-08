@@ -2,11 +2,23 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell/AuthShell";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
-// The Supabase reset email drops the user here with a recovery
-// session already applied via the URL hash. This page just needs
-// to collect a new password.
+// Reset link lands here with the OTP token in the query
+// (?token_hash=…&type=recovery). ResetPasswordForm renders the
+// password fields immediately; verifyOtp only fires when the user
+// submits, so link previewers / scanners can't consume the
+// one-shot token. Same pattern as /accept-invite.
 
-export default function ResetPasswordPage() {
+export const dynamic = "force-dynamic";
+
+type PageProps = {
+  searchParams: Promise<{
+    token_hash?: string;
+    type?: string;
+  }>;
+};
+
+export default async function ResetPasswordPage({ searchParams }: PageProps) {
+  const params = await searchParams;
   return (
     <AuthShell
       cardLabel="Set a new password"
@@ -15,9 +27,8 @@ export default function ResetPasswordPage() {
       footer={<Link href="/sign-in">Back to sign in</Link>}
     >
       <ResetPasswordForm
-        submitLabel="Save password"
-        successMessage="Password updated. Taking you to the app…"
-        redirectTo="/"
+        tokenHash={params.token_hash ?? null}
+        type={params.type ?? null}
       />
     </AuthShell>
   );

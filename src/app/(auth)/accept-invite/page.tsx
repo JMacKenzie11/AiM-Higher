@@ -2,17 +2,28 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell/AuthShell";
 import { AcceptInviteForm } from "./AcceptInviteForm";
 
-// Auth flow — the session comes from Supabase's invite email at
-// runtime, so prerendering adds no value and trips the client form's
-// initial state during SSR.
+// Auth flow — the token arrives in the URL search params from the
+// invite email; the form defers verifyOtp until the user submits
+// their password. Search params are dynamic per request, so no
+// prerendering.
 export const dynamic = "force-dynamic";
 
-// Supabase's invite email drops the user here with an auth session
-// already established via URL fragment tokens. The AcceptInviteForm
-// waits for that session, has them set a password, then flips the
-// existing profile row from pending → active.
+// Invite links land here with the OTP token in the query
+// (?token_hash=…&type=magiclink). AcceptInviteForm shows the
+// password form immediately; only the submit runs verifyOtp +
+// updateUser + status flip. This keeps link previewers /
+// scanners from consuming the one-shot token (GitHub / Google /
+// modern SaaS pattern).
 
-export default function AcceptInvitePage() {
+type PageProps = {
+  searchParams: Promise<{
+    token_hash?: string;
+    type?: string;
+  }>;
+};
+
+export default async function AcceptInvitePage({ searchParams }: PageProps) {
+  const params = await searchParams;
   return (
     <AuthShell
       cardLabel="Accept your invitation"
@@ -20,7 +31,10 @@ export default function AcceptInvitePage() {
       subtitle="Set a password to finish setting up your account."
       footer={<Link href="/sign-in">Already have an account? Sign in</Link>}
     >
-      <AcceptInviteForm />
+      <AcceptInviteForm
+        tokenHash={params.token_hash ?? null}
+        type={params.type ?? null}
+      />
     </AuthShell>
   );
 }
