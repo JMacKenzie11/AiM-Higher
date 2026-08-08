@@ -7,7 +7,10 @@ import type { Profile } from "@/lib/types";
 // each guide with the companies they're assigned to so the sysadmin
 // can see the whole coaching graph in one view.
 
-export type GuideOverviewRow = Pick<Profile, "id" | "full_name" | "status"> & {
+export type GuideOverviewRow = Pick<
+  Profile,
+  "id" | "full_name" | "status" | "invited_at"
+> & {
   email: string | null;
   assignments: Array<{ company_id: string; company_name: string }>;
 };
@@ -17,11 +20,11 @@ export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
 
   const { data: guideRows } = await supabase
     .from("profiles")
-    .select("id, full_name, status")
+    .select("id, full_name, status, invited_at")
     .eq("role", "aims_guide")
     .order("full_name");
   const guides = (guideRows ?? []) as Array<
-    Pick<Profile, "id" | "full_name" | "status">
+    Pick<Profile, "id" | "full_name" | "status" | "invited_at">
   >;
   if (guides.length === 0) return [];
 
@@ -57,6 +60,7 @@ export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
     id: g.id,
     full_name: g.full_name,
     status: g.status,
+    invited_at: g.invited_at,
     email: null,
     assignments: assignmentsByGuide.get(g.id) ?? [],
   }));

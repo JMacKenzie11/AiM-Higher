@@ -532,6 +532,101 @@
   composes: chipInactive from "../../../../components/ui/ui.module.css";
 }
 
+.chipExpired {
+  composes: chipDanger from "../../../../components/ui/ui.module.css";
+}
+
+/* ---- Row overflow menu (Assign + ⋯ layout on GuidesPanel) ---- */
+.moreWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.moreButton {
+  height: var(--control-h-sm);
+  width: var(--control-h-sm);
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.moreButton:hover:not(:disabled),
+.moreButton[aria-expanded="true"] {
+  color: var(--text);
+  background: var(--aims-navy-tint);
+}
+
+.moreButton:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.moreMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+.moreMenuItem {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.moreMenuItem:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+}
+
+.moreMenuItemDanger {
+  color: var(--aims-danger);
+}
+
+.moreMenuItemDanger:hover:not(:disabled) {
+  background: var(--aims-danger-tint);
+  color: var(--aims-danger);
+}
+
+.manualLinkField {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  margin: var(--space-2) 0 0 auto;
+  padding: var(--space-1) var(--space-2);
+  font: var(--text-caption);
+  font-family: var(--font-mono, monospace);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
 /* ---- List style used by the company detail page ---- */
 
 .list {

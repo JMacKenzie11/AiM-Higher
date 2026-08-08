@@ -1,13 +1,76 @@
-import type { Company } from "@/lib/types";
+import type { Company, Profile } from "@/lib/types";
 import type { GuideOverviewRow } from "@/lib/admin/guides-service";
 import { CreateGuideForm } from "./CreateGuideForm";
 import { GuideRowActions } from "./GuideRowActions";
 import styles from "./admin.module.css";
 
 // System-admin surface for managing AiMS Guides. Lists every guide,
-// which companies they're assigned to, and provides row-level
-// actions (assign to another company, unassign, delete) plus a
-// create form. Not rendered for aims_guides or company_admins.
+// their status (Active / Pending / Expired / Inactive), which
+// companies they're assigned to, and row-level actions (assign,
+// unassign chips, plus a ⋯ menu for Resend invite / Copy invite
+// link / Delete). Not rendered for aims_guides or company_admins.
+
+// Supabase's Email OTP Expiration is 24h (max). An unaccepted
+// invite older than this has a dead link — surface as "Expired"
+// so the sysadmin knows to resend. Same threshold as /people.
+const INVITE_LINK_EXPIRY_MS = 86400 * 1000;
+
+function statusPill(
+  status: Profile["status"],
+  invitedAt: string | null
+): { className: string; label: string; title: string } {
+  if (status === "active") {
+    return {
+      className: styles.chipActive,
+      label: "Active",
+      title: "Active — accepted the invite",
+    };
+  }
+  if (status === "inactive") {
+    return {
+      className: styles.chipInactive,
+      label: "Inactive",
+      title: "Inactive",
+    };
+  }
+  // pending
+  if (!invitedAt) {
+    return {
+      className: styles.chipPending,
+      label: "Pending",
+      title: "Not yet invited",
+    };
+  }
+  const ageMs = Date.now() - new Date(invitedAt).getTime();
+  if (ageMs > INVITE_LINK_EXPIRY_MS) {
+    return {
+      className: styles.chipExpired,
+      label: "Expired",
+      title: `Invite link expired (sent ${formatRelativeShort(invitedAt)}). Use Resend invite to send a new one.`,
+    };
+  }
+  return {
+    className: styles.chipPending,
+    label: "Pending",
+    title: `Invited ${formatRelativeShort(invitedAt)}`,
+  };
+}
+
+function formatRelativeShort(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffMinutes = Math.max(0, Math.round((now - then) / 60000));
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 30) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export function GuidesPanel({
   guides,
@@ -34,38 +97,47 @@ export function GuidesPanel({
           <thead>
             <tr>
               <th>Guide</th>
+              <th>Status</th>
               <th>Companies</th>
               <th className={styles.actionHead}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {guides.map((g) => (
-              <tr key={g.id}>
-                <td>
-                  <div style={{ fontWeight: 600 }}>{g.full_name}</div>
-                </td>
-                <td>
-                  {g.assignments.length === 0 ? (
-                    <span className={styles.mutedCell}>
-                      (no assignments — will be prompted to pick one on sign-in)
+            {guides.map((g) => {
+              const pill = statusPill(g.status, g.invited_at);
+              return (
+                <tr key={g.id}>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{g.full_name}</div>
+                  </td>
+                  <td>
+                    <span className={pill.className} title={pill.title}>
+                      {pill.label}
                     </span>
-                  ) : (
-                    <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                      {g.assignments.map((a) => (
-                        <li key={a.company_id}>{a.company_name}</li>
-                      ))}
-                    </ul>
-                  )}
-                </td>
-                <td>
-                  <GuideRowActions
-                    guideId={g.id}
-                    assignedCompanyIds={g.assignments.map((a) => a.company_id)}
-                    allCompanies={companies}
-                  />
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    {g.assignments.length === 0 ? (
+                      <span className={styles.mutedCell}>
+                        (no assignments — will be prompted to pick one on sign-in)
+                      </span>
+                    ) : (
+                      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                        {g.assignments.map((a) => (
+                          <li key={a.company_id}>{a.company_name}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                  <td>
+                    <GuideRowActions
+                      guideId={g.id}
+                      assignedCompanyIds={g.assignments.map((a) => a.company_id)}
+                      allCompanies={companies}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
