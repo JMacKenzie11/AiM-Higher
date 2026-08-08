@@ -1,48 +1,28 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import {
-  assignGuideAction,
-  unassignGuideAction,
-} from "@/lib/admin/guides-actions";
+import { unassignGuideAction } from "@/lib/admin/guides-actions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { Company } from "@/lib/types";
 import styles from "./admin.module.css";
 
 // Companies-column contents for one guide row: the currently-assigned
-// company chips (each with × to unassign), plus an inline "Assign
-// to…" picker for adding another. Split out from the row's Actions
-// cell so account-level actions (⋯ menu) can live on their own and
-// the row lays out predictably.
+// company chips (each with × to unassign). The "Assign to…" picker
+// lives in its own column (GuideAssignCell) so the row lays out
+// predictably even when a guide coaches many companies.
 
 export function GuideCompaniesCell({
   guideId,
   assignments,
-  allCompanies,
 }: {
   guideId: string;
   assignments: Array<{ company_id: string; company_name: string }>;
-  allCompanies: Pick<Company, "id" | "name">[];
 }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
-  const [pickCompanyId, setPickCompanyId] = useState<string>("");
   const [pendingUnassign, setPendingUnassign] = useState<
     Pick<Company, "id" | "name"> | null
   >(null);
-
-  const assignedIds = assignments.map((a) => a.company_id);
-  const availableToAssign = allCompanies.filter(
-    (c) => !assignedIds.includes(c.id)
-  );
-
-  function run(fn: () => Promise<{ ok: true } | { ok: false; message: string }>) {
-    setMsg(null);
-    startTransition(async () => {
-      const r = await fn();
-      if (!r.ok) setMsg(r.message);
-    });
-  }
 
   return (
     <div className={styles.guideCompaniesCell}>
@@ -69,37 +49,6 @@ export function GuideCompaniesCell({
         </div>
       )}
 
-      {availableToAssign.length > 0 ? (
-        <div className={styles.guideAssignRow}>
-          <select
-            value={pickCompanyId}
-            onChange={(e) => setPickCompanyId(e.target.value)}
-            disabled={pending}
-            className={styles.select}
-          >
-            <option value="">Assign to…</option>
-            {availableToAssign.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className={styles.ghostButton}
-            disabled={pending || !pickCompanyId}
-            onClick={() => {
-              const target = pickCompanyId;
-              if (!target) return;
-              setPickCompanyId("");
-              run(() => assignGuideAction(guideId, target));
-            }}
-          >
-            Assign
-          </button>
-        </div>
-      ) : null}
-
       {msg ? <p className={styles.inlineError}>{msg}</p> : null}
 
       <ConfirmDialog
@@ -116,7 +65,11 @@ export function GuideCompaniesCell({
           if (!pendingUnassign) return;
           const cid = pendingUnassign.id;
           setPendingUnassign(null);
-          run(() => unassignGuideAction(guideId, cid));
+          setMsg(null);
+          startTransition(async () => {
+            const r = await unassignGuideAction(guideId, cid);
+            if (!r.ok) setMsg(r.message);
+          });
         }}
         onCancel={() => setPendingUnassign(null)}
         pending={pending}

@@ -1,6 +1,7 @@
 import type { Company, Profile } from "@/lib/types";
 import type { GuideOverviewRow } from "@/lib/admin/guides-service";
 import { CreateGuideForm } from "./CreateGuideForm";
+import { GuideAssignCell } from "./GuideAssignCell";
 import { GuideCompaniesCell } from "./GuideCompaniesCell";
 import { GuideRowActions } from "./GuideRowActions";
 import styles from "./admin.module.css";
@@ -100,6 +101,7 @@ export function GuidesPanel({
               <th>Guide</th>
               <th>Status</th>
               <th>Companies</th>
+              <th>Assign To</th>
               <th className={styles.actionHead}>Actions</th>
             </tr>
           </thead>
@@ -118,6 +120,12 @@ export function GuidesPanel({
                   </td>
                   <td>
                     <GuideCompaniesCell
+                      guideId={g.id}
+                      assignments={g.assignments}
+                    />
+                  </td>
+                  <td>
+                    <GuideAssignCell
                       guideId={g.id}
                       assignments={g.assignments}
                       allCompanies={companies}
