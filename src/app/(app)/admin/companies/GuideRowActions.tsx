@@ -2,56 +2,28 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
-  assignGuideAction,
   deleteGuideAction,
   resendGuideInviteAction,
-  unassignGuideAction,
 } from "@/lib/admin/guides-actions";
 import { getInviteLinkAction } from "@/lib/auth/users";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import type { Company } from "@/lib/types";
 import styles from "./admin.module.css";
 
-// Row-level actions for one guide. Contextual actions (Assign to
-// another company, Unassign from a company) stay inline because
-// they're per-company and reference specific chips. Account-level
-// actions (Resend invite, Copy invite link, Delete) fold into a
-// ⋯ overflow menu so the row lays out predictably regardless of
-// how many companies the guide is assigned to.
+// Account-level actions for one guide (Resend invite, Copy invite
+// link, Delete) folded into a ⋯ overflow menu so the Actions column
+// stays a single narrow control regardless of how many companies
+// the guide is assigned to. Contextual per-company actions
+// (Assign / Unassign) live in the Companies cell — see
+// GuideCompaniesCell.
 
-export function GuideRowActions({
-  guideId,
-  assignedCompanyIds,
-  allCompanies,
-}: {
-  guideId: string;
-  assignedCompanyIds: string[];
-  allCompanies: Pick<Company, "id" | "name">[];
-}) {
+export function GuideRowActions({ guideId }: { guideId: string }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
-  const [pickCompanyId, setPickCompanyId] = useState<string>("");
-  const [pendingUnassign, setPendingUnassign] = useState<
-    Pick<Company, "id" | "name"> | null
-  >(null);
+  const [manualCopyLink, setManualCopyLink] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [manualCopyLink, setManualCopyLink] = useState<string | null>(null);
   const menuWrapRef = useRef<HTMLDivElement>(null);
 
-  const availableToAssign = allCompanies.filter(
-    (c) => !assignedCompanyIds.includes(c.id)
-  );
-
-  function run(fn: () => Promise<{ ok: true } | { ok: false; message: string }>) {
-    setMsg(null);
-    startTransition(async () => {
-      const r = await fn();
-      if (!r.ok) setMsg(r.message);
-    });
-  }
-
-  // Close menu on outside click / Escape.
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -71,6 +43,7 @@ export function GuideRowActions({
   function runResendInvite() {
     setMenuOpen(false);
     setMsg(null);
+    setManualCopyLink(null);
     startTransition(async () => {
       const r = await resendGuideInviteAction(guideId);
       setMsg(r.ok ? "Invite sent." : r.message);
@@ -97,66 +70,17 @@ export function GuideRowActions({
     });
   }
 
+  function runDelete() {
+    setConfirmDelete(false);
+    setMsg(null);
+    startTransition(async () => {
+      const r = await deleteGuideAction(guideId);
+      if (!r.ok) setMsg(r.message);
+    });
+  }
+
   return (
     <div className={styles.actionsCell}>
-      {availableToAssign.length > 0 ? (
-        <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-          <select
-            value={pickCompanyId}
-            onChange={(e) => setPickCompanyId(e.target.value)}
-            disabled={pending}
-            className={styles.select}
-          >
-            <option value="">Assign to…</option>
-            {availableToAssign.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className={styles.ghostButton}
-            disabled={pending || !pickCompanyId}
-            onClick={() => {
-              const target = pickCompanyId;
-              if (!target) return;
-              setPickCompanyId("");
-              run(() => assignGuideAction(guideId, target));
-            }}
-          >
-            Assign
-          </button>
-        </div>
-      ) : null}
-
-      {assignedCompanyIds.length > 0 ? (
-        <div
-          style={{
-            display: "flex",
-            gap: "var(--space-2)",
-            flexWrap: "wrap",
-          }}
-        >
-          {assignedCompanyIds.map((cid) => {
-            const c = allCompanies.find((x) => x.id === cid);
-            if (!c) return null;
-            return (
-              <button
-                key={cid}
-                type="button"
-                className={styles.ghostButton}
-                disabled={pending}
-                title={`Unassign from ${c.name}`}
-                onClick={() => setPendingUnassign(c)}
-              >
-                {c.name} ×
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-
       <div ref={menuWrapRef} className={styles.moreWrap}>
         <button
           type="button"
@@ -216,35 +140,12 @@ export function GuideRowActions({
       ) : null}
 
       <ConfirmDialog
-        open={pendingUnassign !== null}
-        title={
-          pendingUnassign
-            ? `Unassign from ${pendingUnassign.name}?`
-            : "Unassign?"
-        }
-        message="This guide will lose access to the company. Re-assign later from this same panel if it's a temporary rotation."
-        confirmLabel="Unassign"
-        tone="danger"
-        onConfirm={() => {
-          if (!pendingUnassign) return;
-          const cid = pendingUnassign.id;
-          setPendingUnassign(null);
-          run(() => unassignGuideAction(guideId, cid));
-        }}
-        onCancel={() => setPendingUnassign(null)}
-        pending={pending}
-      />
-
-      <ConfirmDialog
         open={confirmDelete}
         title="Delete this guide?"
         message="They'll be removed from the platform entirely and lose access to every assigned company."
         confirmLabel="Delete guide"
         tone="danger"
-        onConfirm={() => {
-          setConfirmDelete(false);
-          run(() => deleteGuideAction(guideId));
-        }}
+        onConfirm={runDelete}
         onCancel={() => setConfirmDelete(false)}
         pending={pending}
       />

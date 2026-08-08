@@ -1,6 +1,7 @@
 import type { Company, Profile } from "@/lib/types";
 import type { GuideOverviewRow } from "@/lib/admin/guides-service";
 import { CreateGuideForm } from "./CreateGuideForm";
+import { GuideCompaniesCell } from "./GuideCompaniesCell";
 import { GuideRowActions } from "./GuideRowActions";
 import styles from "./admin.module.css";
 
@@ -116,24 +117,14 @@ export function GuidesPanel({
                     </span>
                   </td>
                   <td>
-                    {g.assignments.length === 0 ? (
-                      <span className={styles.mutedCell}>
-                        (no assignments — will be prompted to pick one on sign-in)
-                      </span>
-                    ) : (
-                      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                        {g.assignments.map((a) => (
-                          <li key={a.company_id}>{a.company_name}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                  <td>
-                    <GuideRowActions
+                    <GuideCompaniesCell
                       guideId={g.id}
-                      assignedCompanyIds={g.assignments.map((a) => a.company_id)}
+                      assignments={g.assignments}
                       allCompanies={companies}
                     />
+                  </td>
+                  <td>
+                    <GuideRowActions guideId={g.id} />
                   </td>
                 </tr>
               );
