@@ -120,6 +120,88 @@
   line-height: 1.55;
 }
 
+.rdOutcomeValues {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+/* Measures section — grouped by outcome so it's clear which
+   KPIs serve which result. */
+.rdMeasuresBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rdMeasureGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rdMeasureGroupHeading {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-heading);
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Extra strategic-context paragraph under each responsibility
+   category. Muted so the category itself stays the primary read. */
+.rdResponsibilityContext {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Strengths & Expertise + Qualifications sub-block grid — two-column
+   layout on wider viewports, single column on mobile. */
+.rdSubBlockGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.rdSubBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rdSubBlockLabel {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.rdSubBlockBody {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.rdSubBlockList {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .rdMeasureBlock {
   margin-top: var(--space-2);
   padding: var(--space-2) var(--space-3);

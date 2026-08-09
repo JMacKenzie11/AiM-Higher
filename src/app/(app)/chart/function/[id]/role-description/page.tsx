@@ -6,25 +6,25 @@ import { getChartFunctionDetail } from "@/lib/chart/service";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { computeReadiness } from "@/lib/role-descriptions/readiness";
+import {
+  generateRoleDescription,
+  type RdDocument,
+} from "@/lib/role-descriptions/generate";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "./role-description.module.css";
 
-// Read-only rendering of the assembled Role Description for a
-// function. Composed live from the chart entities — no separate
-// draft or version table yet. Editing the RD means editing the
-// underlying Function on the chart page.
+// Full AiMS Role Description for a function. Ten sections per the
+// AiMS spec — some render from chart data, others from generated
+// prose (positionSummary, per-outcome enrichments, per-responsibility
+// strategic context, strengths & expertise, qualifications, why this
+// role matters). Generation is one Sonnet call per page load. If
+// the model call fails, the page falls back to the data-only shape.
 //
 // Access:
 //   - System admins, company admins for the function's company,
-//     and aims_guides assigned to the function's company can view
-//     any time — including in-progress drafts.
-//   - Everyone else (team_member) can only view when the readiness
-//     gates all pass. Otherwise they see an empty-state hint that
-//     the leader is still filling it in.
-//
-// Feature-gated on `role_descriptions` at the company level. If
-// the flag is off, the route 404s to match how the rest of the RD
-// surface is hidden.
+//     and aims_guides assigned to the company can view any time —
+//     including in-progress drafts.
+//   - Team members can view only when every readiness gate passes.
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -77,11 +77,26 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
     );
   }
 
-  // User-facing R&R rows (baseline "Lead, Track, Decide" row is
-  // filtered — its meaning is captured by the seat holder above
-  // rather than as a separate responsibility line).
+  // Fire the generation as we build the page. This is the slow bit
+  // (Sonnet call, ~3–6s) so we lean on Next's streaming — the page
+  // shell renders immediately and the assembled document renders
+  // once generation resolves.
+  const doc = await generateRoleDescription(detail);
+
   const responsibilities = detail.roles.filter((r) => !r.is_default);
-  const seatLine = seatSummary(detail);
+  const enrichmentByOutcome = new Map<string, { whyItMatters: string; valuesConnection: string }>();
+  const enrichmentByResponsibility = new Map<string, string>();
+  if (doc) {
+    for (const e of doc.outcomeEnrichments) {
+      enrichmentByOutcome.set(e.matchTitle, {
+        whyItMatters: e.whyItMatters,
+        valuesConnection: e.valuesConnection,
+      });
+    }
+    for (const e of doc.responsibilityEnrichments) {
+      enrichmentByResponsibility.set(e.matchTitle, e.strategicContext);
+    }
+  }
 
   return (
     <PageShell
@@ -112,91 +127,96 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
         </p>
       ) : null}
 
-      {seatLine ? (
-        <section className={styles.rdSection} aria-labelledby="rd-seat">
-          <h2 id="rd-seat" className={styles.rdSectionTitle}>
-            In the seat
-          </h2>
-          <p className={styles.rdSectionBody}>{seatLine}</p>
-        </section>
+      {/* 2 · Position Summary — generated */}
+      {doc?.positionSummary ? (
+        <Section id="rd-summary" title="Position Summary">
+          <Paragraphs text={doc.positionSummary} />
+        </Section>
       ) : null}
 
-      <section className={styles.rdSection} aria-labelledby="rd-summary">
-        <h2 id="rd-summary" className={styles.rdSectionTitle}>
-          Position summary
-        </h2>
-        <p className={styles.rdSectionBody}>
-          {positionSummary(detail, company?.name ?? null)}
-        </p>
-      </section>
-
+      {/* 3 · Core Success Outcomes — from chart + enrichment */}
       {detail.outcomes.length > 0 ? (
-        <section className={styles.rdSection} aria-labelledby="rd-outcomes">
-          <h2 id="rd-outcomes" className={styles.rdSectionTitle}>
-            Core Success Outcomes
-          </h2>
+        <Section id="rd-outcomes" title="Core Success Outcomes">
           <ol className={styles.rdOutcomeList}>
-            {detail.outcomes.map((o) => (
-              <li key={o.id} className={styles.rdOutcomeItem}>
-                <h3 className={styles.rdOutcomeTitle}>{o.title}</h3>
-                {o.description ? (
-                  <p className={styles.rdOutcomeWhy}>{o.description}</p>
-                ) : null}
-                {o.measures.length > 0 ? (
-                  <div className={styles.rdMeasureBlock}>
-                    <p className={styles.rdMeasureLabel}>
-                      How we&rsquo;ll know:
+            {detail.outcomes.map((o) => {
+              const enrichment = enrichmentByOutcome.get(o.title);
+              return (
+                <li key={o.id} className={styles.rdOutcomeItem}>
+                  <h3 className={styles.rdOutcomeTitle}>{o.title}</h3>
+                  {enrichment?.whyItMatters ? (
+                    <p className={styles.rdOutcomeWhy}>
+                      {enrichment.whyItMatters}
                     </p>
-                    <ul className={styles.rdMeasureList}>
-                      {o.measures.map((m) => (
-                        <li key={m.id}>
-                          {m.description}
-                          {m.target ? (
-                            <span className={styles.rdMeasureTarget}>
-                              {" "}
-                              — target {m.target}
-                            </span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </li>
-            ))}
+                  ) : o.description ? (
+                    <p className={styles.rdOutcomeWhy}>{o.description}</p>
+                  ) : null}
+                  {enrichment?.valuesConnection ? (
+                    <p className={styles.rdOutcomeValues}>
+                      {enrichment.valuesConnection}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
           </ol>
-        </section>
+        </Section>
       ) : null}
 
+      {/* 4 · Success Measures — from chart, per outcome */}
+      {detail.outcomes.some((o) => o.measures.length > 0) ? (
+        <Section id="rd-measures" title="Success Measures">
+          <div className={styles.rdMeasuresBlock}>
+            {detail.outcomes.map((o) =>
+              o.measures.length > 0 ? (
+                <div key={o.id} className={styles.rdMeasureGroup}>
+                  <p className={styles.rdMeasureGroupHeading}>{o.title}</p>
+                  <ul className={styles.rdSimpleList}>
+                    {o.measures.map((m) => (
+                      <li key={m.id} className={styles.rdSimpleItem}>
+                        <span className={styles.rdSimpleTitle}>
+                          {m.description}
+                        </span>
+                        {m.target ? (
+                          <span className={styles.rdSimpleBody}>
+                            {" "}
+                            — target {m.target}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null
+            )}
+          </div>
+        </Section>
+      ) : null}
+
+      {/* 5 · Key Responsibilities — from chart + enrichment */}
       {responsibilities.length > 0 ? (
-        <section
-          className={styles.rdSection}
-          aria-labelledby="rd-responsibilities"
-        >
-          <h2
-            id="rd-responsibilities"
-            className={styles.rdSectionTitle}
-          >
-            Key Responsibilities
-          </h2>
+        <Section id="rd-responsibilities" title="Key Responsibilities">
           <ul className={styles.rdSimpleList}>
-            {responsibilities.map((r) => (
-              <li key={r.id} className={styles.rdSimpleItem}>
-                <span className={styles.rdSimpleTitle}>{r.title}</span>
-                {r.body ? (
-                  <span className={styles.rdSimpleBody}>: {r.body}</span>
-                ) : null}
-              </li>
-            ))}
+            {responsibilities.map((r) => {
+              const context = enrichmentByResponsibility.get(r.title);
+              return (
+                <li key={r.id} className={styles.rdSimpleItem}>
+                  <span className={styles.rdSimpleTitle}>{r.title}</span>
+                  {r.body ? (
+                    <span className={styles.rdSimpleBody}>: {r.body}</span>
+                  ) : null}
+                  {context ? (
+                    <p className={styles.rdResponsibilityContext}>{context}</p>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
-        </section>
+        </Section>
       ) : null}
 
+      {/* 6 · Decision Rights — from chart */}
       {detail.decisionRights.length > 0 ? (
-        <section className={styles.rdSection} aria-labelledby="rd-decisions">
-          <h2 id="rd-decisions" className={styles.rdSectionTitle}>
-            Decision Rights
-          </h2>
+        <Section id="rd-decisions" title="Decision Rights">
           <ul className={styles.rdSimpleList}>
             {detail.decisionRights.map((d) => (
               <li key={d.id} className={styles.rdSimpleItem}>
@@ -207,17 +227,19 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
               </li>
             ))}
           </ul>
-        </section>
+        </Section>
       ) : null}
 
+      {/* 7 · Strengths & Expertise — generated */}
+      {doc && hasStrengths(doc) ? (
+        <Section id="rd-strengths" title="Strengths & Expertise">
+          <StrengthsBlock doc={doc} />
+        </Section>
+      ) : null}
+
+      {/* 8 · Competency Indicators — from chart */}
       {detail.competencies.length > 0 ? (
-        <section
-          className={styles.rdSection}
-          aria-labelledby="rd-competencies"
-        >
-          <h2 id="rd-competencies" className={styles.rdSectionTitle}>
-            Competency Indicators
-          </h2>
+        <Section id="rd-competencies" title="Competency Indicators">
           <ul className={styles.rdSimpleList}>
             {detail.competencies.map((c) => (
               <li key={c.id} className={styles.rdSimpleItem}>
@@ -228,40 +250,122 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
               </li>
             ))}
           </ul>
-        </section>
+        </Section>
+      ) : null}
+
+      {/* 9 · Qualifications — generated */}
+      {doc && hasQualifications(doc) ? (
+        <Section id="rd-qualifications" title="Qualifications">
+          <QualificationsBlock doc={doc} />
+        </Section>
+      ) : null}
+
+      {/* 10 · Why This Role Matters — generated */}
+      {doc?.whyThisRoleMatters ? (
+        <Section id="rd-why" title="Why This Role Matters">
+          <Paragraphs text={doc.whyThisRoleMatters} />
+        </Section>
       ) : null}
     </PageShell>
   );
 }
 
-function positionSummary(
-  detail: NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>,
-  companyName: string | null
-): string {
-  const outcomeCount = detail.outcomes.length;
-  const pieces: string[] = [];
-  const home = detail.parent
-    ? `sits within ${detail.parent.title}`
-    : companyName
-      ? `sits at the top level of ${companyName}`
-      : "sits at the top of the chart";
-  pieces.push(`The ${detail.fn.title} ${home}.`);
-  if (outcomeCount > 0) {
-    pieces.push(
-      `The seat is accountable for ${outcomeCount === 1 ? "one outcome" : `${outcomeCount} outcomes`}, laid out below with the success measures we use to know we're on track.`
-    );
-  } else {
-    pieces.push(
-      "The seat's core outcomes and success measures will land below once they're filled in."
-    );
-  }
-  return pieces.join(" ");
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={styles.rdSection} aria-labelledby={id}>
+      <h2 id={id} className={styles.rdSectionTitle}>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
 }
 
-function seatSummary(
-  detail: NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>
-): string | null {
-  const holder = detail.seatHolder?.full_name;
-  if (!holder) return null;
-  return `${holder} — Lead, Track, and Decide.`;
+function Paragraphs({ text }: { text: string }) {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return (
+    <>
+      {paragraphs.map((p, i) => (
+        <p key={i} className={styles.rdSectionBody}>
+          {p}
+        </p>
+      ))}
+    </>
+  );
+}
+
+function hasStrengths(doc: RdDocument): boolean {
+  const s = doc.strengthsAndExpertise;
+  return (
+    s.technical.length > 0 ||
+    s.strategic.length > 0 ||
+    s.interpersonal.length > 0 ||
+    s.accountability.length > 0
+  );
+}
+
+function StrengthsBlock({ doc }: { doc: RdDocument }) {
+  const s = doc.strengthsAndExpertise;
+  return (
+    <div className={styles.rdSubBlockGrid}>
+      {s.technical.length > 0 ? (
+        <SubBlock label="Technical" items={s.technical} />
+      ) : null}
+      {s.strategic.length > 0 ? (
+        <SubBlock label="Strategic" items={s.strategic} />
+      ) : null}
+      {s.interpersonal.length > 0 ? (
+        <SubBlock label="Interpersonal" items={s.interpersonal} />
+      ) : null}
+      {s.accountability ? (
+        <SubBlock label="Ownership" items={[s.accountability]} />
+      ) : null}
+    </div>
+  );
+}
+
+function hasQualifications(doc: RdDocument): boolean {
+  const q = doc.qualifications;
+  return !!(q.experience || q.education || q.certifications);
+}
+
+function QualificationsBlock({ doc }: { doc: RdDocument }) {
+  const q = doc.qualifications;
+  return (
+    <div className={styles.rdSubBlockGrid}>
+      {q.experience ? <SubBlock label="Experience" items={[q.experience]} /> : null}
+      {q.education ? <SubBlock label="Education" items={[q.education]} /> : null}
+      {q.certifications ? (
+        <SubBlock label="Certifications" items={[q.certifications]} />
+      ) : null}
+    </div>
+  );
+}
+
+function SubBlock({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div className={styles.rdSubBlock}>
+      <p className={styles.rdSubBlockLabel}>{label}</p>
+      {items.length === 1 ? (
+        <p className={styles.rdSubBlockBody}>{items[0]}</p>
+      ) : (
+        <ul className={styles.rdSubBlockList}>
+          {items.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
