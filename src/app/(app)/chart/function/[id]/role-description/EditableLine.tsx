@@ -3,33 +3,43 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveRoleDescriptionOverrideAction } from "@/lib/role-descriptions/overrides-action";
+import type { RdUserOverrides } from "@/lib/role-descriptions/generate";
 import styles from "./role-description.module.css";
 
-type ProseField = "positionSummary" | "whyThisRoleMatters";
-
-// Click-to-edit wrapper for a prose section of the RD (Position
-// Summary + Why This Role Matters in v1). Renders the current
-// merged text in read mode; Edit switches to a textarea; Save
-// posts to saveRoleDescriptionOverrideAction and refreshes the
-// page so the merged view catches up.
+// Small click-to-edit primitive shared by every RD editable line
+// that isn't the two big prose sections. Renders a paragraph (or
+// list, when kind=lines) with an Edit affordance underneath;
+// switches to a textarea + Save/Cancel on click; shows an "Edited
+// — Restore generated" pill when the value came from an override.
 //
-// Shows an "Edited — Restore generated" pill under the section
-// when the current text came from the user override (as opposed
-// to the raw model output). Restore clears the override for that
-// field.
+// Caller supplies the two things unique to their spot:
+//   1. buildPatch(nextText) — how to shape the RdUserOverrides
+//      patch when the user hits Save (identifies the field this
+//      editor writes to; for enrichment arrays, includes matchTitle).
+//   2. buildRestorePatch() — the shape of the patch that clears
+//      just this field (usually the same buildPatch called with
+//      an empty string).
 
-export function EditableProseSection({
+type Kind = "paragraph" | "lines";
+
+export function EditableLine({
   functionId,
-  field,
   text,
   isOverridden,
   canEdit,
+  kind = "paragraph",
+  labelKind,
+  buildPatch,
+  buildRestorePatch,
 }: {
   functionId: string;
-  field: ProseField;
   text: string;
   isOverridden: boolean;
   canEdit: boolean;
+  kind?: Kind;
+  labelKind: string; // used in aria-labels: "why it matters", "strategic context", etc.
+  buildPatch: (nextText: string) => RdUserOverrides;
+  buildRestorePatch: () => RdUserOverrides;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -51,14 +61,14 @@ export function EditableProseSection({
 
   function save() {
     if (draft.trim().length === 0) {
-      setError("Can't save an empty section. Use Restore generated instead.");
+      setError("Empty — use Restore generated instead.");
       return;
     }
     setError(null);
     startSave(async () => {
       const result = await saveRoleDescriptionOverrideAction({
         functionId,
-        patch: { [field]: draft },
+        patch: buildPatch(draft),
       });
       if (!result.ok) {
         setError(result.message);
@@ -74,7 +84,7 @@ export function EditableProseSection({
     startSave(async () => {
       const result = await saveRoleDescriptionOverrideAction({
         functionId,
-        patch: { [field]: "" },
+        patch: buildRestorePatch(),
       });
       if (!result.ok) {
         setError(result.message);
@@ -91,10 +101,13 @@ export function EditableProseSection({
           className={styles.editableTextarea}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          rows={Math.max(4, Math.min(20, draft.split("\n").length + 2))}
+          rows={kind === "lines" ? Math.max(4, draft.split("\n").length + 1) : 3}
           disabled={saving}
           autoFocus
-          aria-label="Edit section text"
+          aria-label={`Edit ${labelKind}`}
+          placeholder={
+            kind === "lines" ? "One item per line" : undefined
+          }
         />
         {error ? (
           <p role="alert" className={styles.editableError}>
@@ -125,7 +138,7 @@ export function EditableProseSection({
 
   return (
     <div className={styles.editableWrap}>
-      <Paragraphs text={text} />
+      <div className={styles.editableRead}>{text}</div>
       {canEdit ? (
         <div className={styles.editableMeta}>
           <button
@@ -151,21 +164,5 @@ export function EditableProseSection({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function Paragraphs({ text }: { text: string }) {
-  const paragraphs = text
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  return (
-    <>
-      {paragraphs.map((p, i) => (
-        <p key={i} className={styles.rdSectionBody}>
-          {p}
-        </p>
-      ))}
-    </>
   );
 }

@@ -4,20 +4,22 @@ import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { setUserOverride } from "./cache";
+import { patchUserOverrides } from "./cache";
 import type { RdUserOverrides } from "./generate";
 
-// Save (or clear) a single Role Description prose override for a
-// function. Admin-only per the guides-as-company-admins rule.
-// Called from EditableProseSection when the user hits Save or
-// Restore generated.
-
-export type OverrideField = keyof RdUserOverrides;
+// Save (or clear) any subset of a Role Description's user overrides
+// for a function. Admin-only per the guides-as-company-admins rule.
+// Called from every EditableProseSection / EditableOutcomeEnrichment
+// / EditableResponsibilityContext / EditableStrengths /
+// EditableQualifications component.
+//
+// Empty/whitespace strings in the patch clear that field from the
+// overrides jsonb. Empty enrichment entries drop that matchTitle
+// entry entirely — see mergeOverrides in cache.ts.
 
 export async function saveRoleDescriptionOverrideAction(input: {
   functionId: string;
-  field: OverrideField;
-  value: string | null;
+  patch: RdUserOverrides;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   const session = await requireProfile();
 
@@ -36,10 +38,9 @@ export async function saveRoleDescriptionOverrideAction(input: {
     };
   }
 
-  const result = await setUserOverride({
+  const result = await patchUserOverrides({
     functionId: input.functionId,
-    field: input.field,
-    value: input.value,
+    patch: input.patch,
   });
   if (!result.ok) return result;
 

@@ -50,13 +50,63 @@ export type RdDocument = {
 
 // Partial RdDocument shape for user-edited overrides. Stored as a
 // jsonb column on role_description_documents; merged over the
-// generated `document` at render time. v1 only accepts the two
-// prose-heavy sections — expanding to structured fields later
-// doesn't need a schema change.
+// generated `document` at render time.
+//
+//   - positionSummary / whyThisRoleMatters — free-form prose that
+//     wins as-is when non-empty.
+//   - outcomeEnrichments / responsibilityEnrichments — arrays keyed
+//     by matchTitle. Merged per key: if an override for a given
+//     matchTitle exists, its non-empty fields replace the generated
+//     ones; missing/empty fields fall back to the model output.
+//   - strengthsAndExpertise / qualifications — sub-object where any
+//     present field replaces the generated one. Arrays inside
+//     strengths (technical/strategic/interpersonal) replace the
+//     whole list when provided.
 export type RdUserOverrides = {
   positionSummary?: string;
   whyThisRoleMatters?: string;
+  outcomeEnrichments?: Array<{
+    matchTitle: string;
+    whyItMatters?: string;
+    valuesConnection?: string;
+  }>;
+  responsibilityEnrichments?: Array<{
+    matchTitle: string;
+    strategicContext?: string;
+  }>;
+  strengthsAndExpertise?: {
+    technical?: string[];
+    strategic?: string[];
+    interpersonal?: string[];
+    accountability?: string;
+  };
+  qualifications?: {
+    experience?: string;
+    education?: string;
+    certifications?: string;
+  };
 };
+
+function pickString(
+  override: string | undefined,
+  fallback: string
+): string {
+  if (typeof override !== "string") return fallback;
+  const t = override.trim();
+  return t.length > 0 ? override : fallback;
+}
+
+function pickStringArray(
+  override: string[] | undefined,
+  fallback: string[]
+): string[] {
+  if (!Array.isArray(override)) return fallback;
+  const cleaned = override
+    .filter((s): s is string => typeof s === "string")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return cleaned.length > 0 ? cleaned : fallback;
+}
 
 // Layer user overrides over the generated document. Non-empty
 // override values win; empty strings and missing fields fall back
@@ -67,18 +117,140 @@ export function mergeRoleDescription(
 ): RdDocument | null {
   if (!doc) return null;
   if (!overrides) return doc;
+
+  const outcomeOverrideByTitle = new Map<
+    string,
+    { whyItMatters?: string; valuesConnection?: string }
+  >();
+  for (const o of overrides.outcomeEnrichments ?? []) {
+    if (o.matchTitle) {
+      outcomeOverrideByTitle.set(o.matchTitle, {
+        whyItMatters: o.whyItMatters,
+        valuesConnection: o.valuesConnection,
+      });
+    }
+  }
+  const respOverrideByTitle = new Map<string, { strategicContext?: string }>();
+  for (const r of overrides.responsibilityEnrichments ?? []) {
+    if (r.matchTitle) {
+      respOverrideByTitle.set(r.matchTitle, {
+        strategicContext: r.strategicContext,
+      });
+    }
+  }
+
   return {
     ...doc,
-    positionSummary:
-      overrides.positionSummary && overrides.positionSummary.trim().length > 0
-        ? overrides.positionSummary
-        : doc.positionSummary,
-    whyThisRoleMatters:
-      overrides.whyThisRoleMatters &&
-      overrides.whyThisRoleMatters.trim().length > 0
-        ? overrides.whyThisRoleMatters
-        : doc.whyThisRoleMatters,
+    positionSummary: pickString(overrides.positionSummary, doc.positionSummary),
+    whyThisRoleMatters: pickString(
+      overrides.whyThisRoleMatters,
+      doc.whyThisRoleMatters
+    ),
+    outcomeEnrichments: doc.outcomeEnrichments.map((e) => {
+      const ov = outcomeOverrideByTitle.get(e.matchTitle);
+      if (!ov) return e;
+      return {
+        matchTitle: e.matchTitle,
+        whyItMatters: pickString(ov.whyItMatters, e.whyItMatters),
+        valuesConnection: pickString(ov.valuesConnection, e.valuesConnection),
+      };
+    }),
+    responsibilityEnrichments: doc.responsibilityEnrichments.map((e) => {
+      const ov = respOverrideByTitle.get(e.matchTitle);
+      if (!ov) return e;
+      return {
+        matchTitle: e.matchTitle,
+        strategicContext: pickString(
+          ov.strategicContext,
+          e.strategicContext
+        ),
+      };
+    }),
+    strengthsAndExpertise: {
+      technical: pickStringArray(
+        overrides.strengthsAndExpertise?.technical,
+        doc.strengthsAndExpertise.technical
+      ),
+      strategic: pickStringArray(
+        overrides.strengthsAndExpertise?.strategic,
+        doc.strengthsAndExpertise.strategic
+      ),
+      interpersonal: pickStringArray(
+        overrides.strengthsAndExpertise?.interpersonal,
+        doc.strengthsAndExpertise.interpersonal
+      ),
+      accountability: pickString(
+        overrides.strengthsAndExpertise?.accountability,
+        doc.strengthsAndExpertise.accountability
+      ),
+    },
+    qualifications: {
+      experience: pickString(
+        overrides.qualifications?.experience,
+        doc.qualifications.experience
+      ),
+      education: pickString(
+        overrides.qualifications?.education,
+        doc.qualifications.education
+      ),
+      certifications: pickString(
+        overrides.qualifications?.certifications,
+        doc.qualifications.certifications
+      ),
+    },
   };
+}
+
+// Helpers used by the UI to know which sections have been overridden
+// (drives the "Edited — Restore generated" affordance).
+export function isOutcomeOverridden(
+  overrides: RdUserOverrides | null,
+  matchTitle: string,
+  field: "whyItMatters" | "valuesConnection"
+): boolean {
+  if (!overrides?.outcomeEnrichments) return false;
+  const entry = overrides.outcomeEnrichments.find(
+    (e) => e.matchTitle === matchTitle
+  );
+  if (!entry) return false;
+  const v = entry[field];
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+export function isResponsibilityOverridden(
+  overrides: RdUserOverrides | null,
+  matchTitle: string
+): boolean {
+  if (!overrides?.responsibilityEnrichments) return false;
+  const entry = overrides.responsibilityEnrichments.find(
+    (e) => e.matchTitle === matchTitle
+  );
+  if (!entry) return false;
+  const v = entry.strategicContext;
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+export function isStrengthOverridden(
+  overrides: RdUserOverrides | null,
+  field: "technical" | "strategic" | "interpersonal" | "accountability"
+): boolean {
+  const s = overrides?.strengthsAndExpertise;
+  if (!s) return false;
+  const v = s[field];
+  if (Array.isArray(v)) {
+    return v.some((x) => typeof x === "string" && x.trim().length > 0);
+  }
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+export function isQualificationOverridden(
+  overrides: RdUserOverrides | null,
+  field: "experience" | "education" | "certifications"
+): boolean {
+  const q = overrides?.qualifications;
+  if (!q) return false;
+  const v = q[field];
+  return typeof v === "string" && v.trim().length > 0;
 }
 
 type Detail = NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>;
