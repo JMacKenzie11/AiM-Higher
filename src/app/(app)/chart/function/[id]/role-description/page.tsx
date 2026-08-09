@@ -22,10 +22,13 @@ import {
   isCacheStale,
   saveRoleDescription,
 } from "@/lib/role-descriptions/cache";
+import { listPublishedVersions } from "@/lib/role-descriptions/versions";
 import { PageShell } from "@/components/ui/PageShell";
 import { EditableLine } from "./EditableLine";
 import { EditableProseSection } from "./EditableProseSection";
+import { PublishButton } from "./PublishButton";
 import { RegenerateButton } from "./RegenerateButton";
+import { VersionsList } from "./VersionsList";
 import styles from "./role-description.module.css";
 
 // Full AiMS Role Description for a function. Ten sections per the
@@ -136,7 +139,40 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
           canRegenerate={canViewAnytime}
         />
       </Suspense>
+
+      <VersionsSection
+        functionId={detail.fn.id}
+        canManage={canViewAnytime}
+      />
     </PageShell>
+  );
+}
+
+async function VersionsSection({
+  functionId,
+  canManage,
+}: {
+  functionId: string;
+  canManage: boolean;
+}) {
+  const versions = await listPublishedVersions(functionId);
+  if (versions.length === 0 && !canManage) return null;
+  return (
+    <section className={styles.versionsSection} aria-labelledby="rd-versions">
+      <h2 id="rd-versions" className={styles.rdSectionTitle}>
+        Versions
+      </h2>
+      <VersionsList
+        functionId={functionId}
+        versions={versions.map((v) => ({
+          versionNumber: v.versionNumber,
+          publishedAt: v.publishedAt,
+          publishedByName: v.publishedByName,
+          notes: v.notes,
+        }))}
+        canManage={canManage}
+      />
+    </section>
   );
 }
 
@@ -217,7 +253,10 @@ async function AssembledDocument({
             Download .docx
           </a>
           {canRegenerate ? (
-            <RegenerateButton functionId={detail.fn.id} />
+            <>
+              <PublishButton functionId={detail.fn.id} />
+              <RegenerateButton functionId={detail.fn.id} />
+            </>
           ) : null}
         </div>
       ) : null}
