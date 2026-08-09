@@ -48,6 +48,7 @@ export function RolesList({
           functionId={functionId}
           target="responsibilities"
           buttonLabel="Suggest responsibilities"
+          hideCardBody
           onSave={async (title, body) => {
             const fd = new FormData();
             fd.set("function_id", functionId);

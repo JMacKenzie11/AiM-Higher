@@ -26,12 +26,19 @@ export function SuggestOptionsPopover({
   target,
   outcomeId,
   buttonLabel = "Suggest options",
+  hideCardBody = false,
   onSave,
 }: {
   functionId: string;
   target: RdTarget;
   outcomeId?: string;
   buttonLabel?: string;
+  // When true, the suggestion card renders just title + rationale
+  // (no middle body line) and edit mode only exposes the title.
+  // On Save, body is passed as null so we don't quietly persist
+  // something the user never saw. Used by R&R where body =
+  // sub-areas and the card reads cleaner without it.
+  hideCardBody?: boolean;
   onSave: (title: string, body: string | null) => Promise<SaveResult>;
 }) {
   const [open, setOpen] = useState(false);
@@ -139,6 +146,7 @@ export function SuggestOptionsPopover({
                 <SuggestionCard
                   key={i}
                   rec={s}
+                  hideBody={hideCardBody}
                   onSave={onSave}
                   onDismiss={() => dismissCard(i)}
                 />
@@ -164,10 +172,12 @@ export function SuggestOptionsPopover({
 
 function SuggestionCard({
   rec,
+  hideBody,
   onSave,
   onDismiss,
 }: {
   rec: Recommendation;
+  hideBody: boolean;
   onSave: (title: string, body: string | null) => Promise<SaveResult>;
   onDismiss: () => void;
 }) {
@@ -181,7 +191,10 @@ function SuggestionCard({
     if (!nextTitle.trim()) return;
     setError(null);
     startSave(async () => {
-      const result = await onSave(nextTitle.trim(), nextBody?.trim() || null);
+      // When the card hides body, don't quietly persist an
+      // auto-generated body the user never saw — pass null.
+      const bodyToSave = hideBody ? null : nextBody?.trim() || null;
+      const result = await onSave(nextTitle.trim(), bodyToSave);
       if (!result.ok) {
         setError(result.message);
         return;
@@ -203,19 +216,21 @@ function SuggestionCard({
             autoFocus
             aria-label="Edit title"
           />
-          <textarea
-            className={styles.suggestEditTextarea}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={2}
-            disabled={saving}
-            aria-label="Edit body"
-          />
+          {hideBody ? null : (
+            <textarea
+              className={styles.suggestEditTextarea}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={2}
+              disabled={saving}
+              aria-label="Edit body"
+            />
+          )}
         </>
       ) : (
         <>
           <h4 className={styles.suggestCardTitle}>{rec.title}</h4>
-          {rec.body ? (
+          {!hideBody && rec.body ? (
             <p className={styles.suggestCardBody}>{rec.body}</p>
           ) : null}
           {rec.rationale ? (

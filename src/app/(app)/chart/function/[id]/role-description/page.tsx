@@ -192,7 +192,12 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
         </Section>
       ) : null}
 
-      {/* 5 · Key Responsibilities — from chart + enrichment */}
+      {/* 5 · Key Responsibilities — from chart + enrichment.
+          Sub-areas body (comma-separated list) is deliberately not
+          shown here — it lives on the inline R&R list on the
+          chart page where it's a working reference. The RD reads
+          cleaner with just the category title and the generated
+          "why the seat owns it" context beneath. */}
       {responsibilities.length > 0 ? (
         <Section id="rd-responsibilities" title="Key Responsibilities">
           <ul className={styles.rdSimpleList}>
@@ -201,9 +206,6 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
               return (
                 <li key={r.id} className={styles.rdSimpleItem}>
                   <span className={styles.rdSimpleTitle}>{r.title}</span>
-                  {r.body ? (
-                    <span className={styles.rdSimpleBody}>: {r.body}</span>
-                  ) : null}
                   {context ? (
                     <p className={styles.rdResponsibilityContext}>{context}</p>
                   ) : null}
