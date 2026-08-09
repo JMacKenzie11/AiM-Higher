@@ -45,7 +45,7 @@ export async function createFunctionAction(
   _prev: ChartResult<FunctionNode> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionNode>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -93,7 +93,7 @@ export async function renameFunctionAction(
   functionId: string,
   newTitle: string
 ): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const title = newTitle.trim();
   if (!functionId || !title) {
     return { ok: false, message: "Title can't be empty." };
@@ -119,7 +119,7 @@ export async function updateFunctionAction(
   _prev: ChartResult<FunctionNode> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing function id." };
 
@@ -161,7 +161,7 @@ export async function updateFunctionAction(
 export async function reorderFunctionsAction(
   updates: Array<{ id: string; sort_order: number }>
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   if (updates.length === 0) return { ok: true };
 
   const supabase = await createSupabaseServerClient();
@@ -185,7 +185,7 @@ export async function archiveFunctionAction(
   functionId: string,
   archived: boolean
 ): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("functions")
@@ -207,7 +207,7 @@ export async function createFunctionRoleAction(
   _prev: ChartResult<FunctionRole> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionRole>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const functionId = String(formData.get("function_id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -246,7 +246,7 @@ export async function updateFunctionRoleAction(
   _prev: ChartResult<FunctionRole> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionRole>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -275,7 +275,7 @@ export async function renameFunctionRoleAction(
   roleId: string,
   newTitle: string
 ): Promise<ChartResult<FunctionRole>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const title = newTitle.trim();
   if (!roleId || !title) return { ok: false, message: "Title can't be empty." };
 
@@ -298,7 +298,7 @@ export async function renameFunctionRoleAction(
 export async function deleteFunctionRoleAction(
   roleId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
 
   // Grab function_id first so we can revalidate the detail path even
@@ -331,7 +331,7 @@ export async function deleteFunctionRoleAction(
 export async function deleteFunctionAction(
   functionId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("functions")
@@ -350,7 +350,7 @@ export async function setFunctionRoleAction(
   role: "lead" | "track" | "decide",
   personId: string | null
 ): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const patch: Record<string, string | null> = {};
   patch[`${role}_id`] = personId;
@@ -372,7 +372,7 @@ export async function createOutcomeAction(
   _prev: ChartResult<FunctionOutcome> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionOutcome>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const functionId = String(formData.get("function_id") ?? "");
   if (!functionId) return { ok: false, message: "Missing parent function." };
@@ -399,7 +399,7 @@ export async function updateOutcomeAction(
   _prev: ChartResult<FunctionOutcome> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionOutcome>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing outcome id." };
 
@@ -429,7 +429,7 @@ export async function renameOutcomeAction(
   outcomeId: string,
   newTitle: string
 ): Promise<ChartResult<FunctionOutcome>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const title = newTitle.trim();
   if (!outcomeId || !title) {
     return { ok: false, message: "Title can't be empty." };
@@ -452,7 +452,7 @@ export async function archiveOutcomeAction(
   outcomeId: string,
   archived: boolean
 ): Promise<ChartResult<FunctionOutcome>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("function_outcomes")
@@ -680,7 +680,7 @@ export async function archiveMeasureAction(
   measureId: string,
   archived: boolean
 ): Promise<ChartResult<SuccessMeasure>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("success_measures")
@@ -816,7 +816,7 @@ export async function createFunctionDecisionRightAction(
   _prev: ChartResult<FunctionDecisionRight> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionDecisionRight>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const functionId = String(formData.get("function_id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -848,7 +848,7 @@ export async function renameFunctionDecisionRightAction(
   id: string,
   newTitle: string
 ): Promise<ChartResult<FunctionDecisionRight>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const title = newTitle.trim();
   if (!id || !title) return { ok: false, message: "Title can't be empty." };
 
@@ -867,7 +867,7 @@ export async function renameFunctionDecisionRightAction(
 export async function deleteFunctionDecisionRightAction(
   id: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
 
   const { data: row } = await supabase
@@ -890,7 +890,7 @@ export async function createFunctionCompetencyAction(
   _prev: ChartResult<FunctionCompetency> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionCompetency>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const functionId = String(formData.get("function_id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -922,7 +922,7 @@ export async function renameFunctionCompetencyAction(
   id: string,
   newTitle: string
 ): Promise<ChartResult<FunctionCompetency>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const title = newTitle.trim();
   if (!id || !title) return { ok: false, message: "Title can't be empty." };
 
@@ -941,7 +941,7 @@ export async function renameFunctionCompetencyAction(
 export async function deleteFunctionCompetencyAction(
   id: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
 
   const { data: row } = await supabase

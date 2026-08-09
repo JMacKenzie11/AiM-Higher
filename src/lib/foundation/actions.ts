@@ -29,7 +29,7 @@ export async function upsertFoundationAction(
   _prev: Result<CompanyFoundation> | undefined,
   formData: FormData
 ): Promise<Result<CompanyFoundation>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -62,7 +62,7 @@ export async function createFoundationItemAction(
   _prev: Result<FoundationItem> | undefined,
   formData: FormData
 ): Promise<Result<FoundationItem>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -111,7 +111,7 @@ export async function updateFoundationItemAction(
   _prev: Result<FoundationItem> | undefined,
   formData: FormData
 ): Promise<Result<FoundationItem>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -133,7 +133,7 @@ export async function updateFoundationItemAction(
 export async function deleteFoundationItemAction(
   itemId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("foundation_items")
@@ -148,7 +148,7 @@ export async function moveFoundationItemAction(
   itemId: string,
   direction: "up" | "down"
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
 
   const { data: item } = await supabase
@@ -204,7 +204,7 @@ export async function upsertMarketingAction(
   _prev: Result<MarketingStrategy> | undefined,
   formData: FormData
 ): Promise<Result<MarketingStrategy>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -237,7 +237,7 @@ export async function createPillarAction(
   _prev: Result<MessagingPillar> | undefined,
   formData: FormData
 ): Promise<Result<MessagingPillar>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -280,7 +280,7 @@ export async function updatePillarAction(
   _prev: Result<MessagingPillar> | undefined,
   formData: FormData
 ): Promise<Result<MessagingPillar>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const message = nullableString(formData.get("message"));
@@ -303,7 +303,7 @@ export async function updatePillarAction(
 export async function deletePillarAction(
   pillarId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("messaging_pillars")
@@ -341,7 +341,7 @@ export async function createSnippetAction(
   _prev: Result<MarketingSnippet> | undefined,
   formData: FormData
 ): Promise<Result<MarketingSnippet>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -386,7 +386,7 @@ export async function createSnippetAction(
 export async function deleteSnippetAction(
   snippetId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("marketing_snippets")

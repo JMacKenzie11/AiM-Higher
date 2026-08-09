@@ -15,7 +15,7 @@ export async function createSfaAction(
   _prev: PlanResult<StrategicFocusArea> | undefined,
   formData: FormData
 ): Promise<PlanResult<StrategicFocusArea>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const companyId = await scopedCompanyId(
     session,
@@ -57,7 +57,7 @@ export async function updateSfaAction(
   _prev: PlanResult<StrategicFocusArea> | undefined,
   formData: FormData
 ): Promise<PlanResult<StrategicFocusArea>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing focus area id." };
 
@@ -131,7 +131,7 @@ export async function archiveSfaAction(
   sfaId: string,
   archived: boolean
 ): Promise<PlanResult<StrategicFocusArea>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("strategic_focus_areas")

@@ -29,7 +29,7 @@ export async function openQuarterAction(
   _prev: QuarterResult | undefined,
   formData: FormData
 ): Promise<QuarterResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const label = String(formData.get("label") ?? "").trim();
   const startDate = String(formData.get("start_date") ?? "").trim();
@@ -82,7 +82,7 @@ export async function openQuarterAction(
 export async function closeQuarterAction(
   quarterId: string
 ): Promise<QuarterResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const supabase = await createSupabaseServerClient();
 
@@ -121,7 +121,7 @@ export async function closeQuarterAction(
 export async function reopenQuarterAction(
   quarterId: string
 ): Promise<QuarterResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const supabase = await createSupabaseServerClient();
   const { data: existing } = await supabase

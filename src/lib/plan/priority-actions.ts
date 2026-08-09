@@ -12,7 +12,7 @@ export async function createPriorityAction(
   _prev: PlanResult<Priority> | undefined,
   formData: FormData
 ): Promise<PlanResult<Priority>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -58,7 +58,7 @@ export async function updatePriorityAction(
   _prev: PlanResult<Priority> | undefined,
   formData: FormData
 ): Promise<PlanResult<Priority>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing action id." };
 
@@ -137,7 +137,7 @@ export async function archivePriorityAction(
   priorityId: string,
   archived: boolean
 ): Promise<PlanResult<Priority>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("priorities")
@@ -154,7 +154,7 @@ export async function setPriorityGoalAction(
   priorityId: string,
   goalId: string | null
 ): Promise<PlanResult<Priority>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("priorities")

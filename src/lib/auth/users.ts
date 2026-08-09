@@ -28,7 +28,7 @@ export async function createUserAction(
   _prev: UserActionResult | undefined,
   formData: FormData
 ): Promise<UserActionResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "").trim();
@@ -143,7 +143,7 @@ export async function updateUserAction(
   _prev: UserActionResult | undefined,
   formData: FormData
 ): Promise<UserActionResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const profileId = String(formData.get("id") ?? "");
   if (!profileId) return { ok: false, message: "Missing user id." };
@@ -304,7 +304,7 @@ export async function requestFreshInviteAction(
 
 // ---- Send / resend an invite email ---------------------------
 export async function sendInviteAction(profileId: string): Promise<UserActionResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const supabase = await createSupabaseServerClient();
   const { data: profile } = await supabase
@@ -349,7 +349,7 @@ export type InviteLinkResult =
 export async function getInviteLinkAction(
   profileId: string
 ): Promise<InviteLinkResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const supabase = await createSupabaseServerClient();
   const { data: profile } = await supabase
@@ -528,7 +528,7 @@ async function markInvited(
 
 // ---- Delete a user (cleans up auth + profile via cascade) ----
 export async function deleteUserAction(profileId: string): Promise<UserActionResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   if (profileId === session.profile.id) {
     return { ok: false, message: "You can't delete your own account." };

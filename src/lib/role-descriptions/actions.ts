@@ -17,10 +17,11 @@ import {
 // table.
 //
 // Auth: any admin for the function's company can call this — system
-// admin, or the company_admin whose company_id matches. aims_guides
-// are NOT yet supported because the chart write actions and their
-// RLS policies also exclude that role. Adding guide-write across
-// the chart is a separate slice.
+// admin, the company_admin whose company_id matches, or an
+// aims_guide with the function's company in their assignments.
+// Cross-company writes are prevented by RLS on the target chart
+// tables (function_outcomes, function_decision_rights, etc.), all
+// of which grant guide access via is_guide_for(company_id).
 
 export type SuggestResult =
   | { ok: true; recommendations: Recommendation[] }

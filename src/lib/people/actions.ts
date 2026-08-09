@@ -78,7 +78,7 @@ export async function setProfileStatusAction(
   personId: string,
   status: "active" | "inactive"
 ): Promise<ProfileResult> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase

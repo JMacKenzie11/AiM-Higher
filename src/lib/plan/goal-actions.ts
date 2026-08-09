@@ -12,7 +12,7 @@ export async function createGoalAction(
   _prev: PlanResult<AnnualGoal> | undefined,
   formData: FormData
 ): Promise<PlanResult<AnnualGoal>> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -54,7 +54,7 @@ export async function updateGoalAction(
   _prev: PlanResult<AnnualGoal> | undefined,
   formData: FormData
 ): Promise<PlanResult<AnnualGoal>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing goal id." };
 
@@ -131,7 +131,7 @@ export async function archiveGoalAction(
   goalId: string,
   archived: boolean
 ): Promise<PlanResult<AnnualGoal>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("annual_goals")
@@ -149,7 +149,7 @@ export async function setGoalSfaAction(
   goalId: string,
   sfaId: string | null
 ): Promise<PlanResult<AnnualGoal>> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("annual_goals")

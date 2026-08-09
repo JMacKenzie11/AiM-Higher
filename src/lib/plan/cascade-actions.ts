@@ -19,7 +19,7 @@ export type CascadeResult =
 export async function completePriorityAction(
   priorityId: string
 ): Promise<CascadeResult> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
 
   const { data: priority } = await supabase
@@ -60,7 +60,7 @@ export async function completePriorityAction(
 export async function completeGoalAction(
   goalId: string
 ): Promise<CascadeResult> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
 
   const { data: goal } = await supabase

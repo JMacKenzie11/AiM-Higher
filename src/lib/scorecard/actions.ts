@@ -38,7 +38,7 @@ export async function createAreaAction(
   _prev: AreaResult | undefined,
   formData: FormData
 ): Promise<AreaResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -68,7 +68,7 @@ export async function updateAreaAction(
   _prev: AreaResult | undefined,
   formData: FormData
 ): Promise<AreaResult> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const accountableId = nullableString(formData.get("accountable_id"));
@@ -90,7 +90,7 @@ export async function updateAreaAction(
 export async function deleteAreaAction(
   areaId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("functional_areas")
@@ -109,7 +109,7 @@ export async function createMetricAction(
   _prev: MetricResult | undefined,
   formData: FormData
 ): Promise<MetricResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -153,7 +153,7 @@ export async function updateMetricAction(
   _prev: MetricResult | undefined,
   formData: FormData
 ): Promise<MetricResult> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const target = nullableString(formData.get("target"));
@@ -182,7 +182,7 @@ export async function archiveMetricAction(
   metricId: string,
   archived: boolean
 ): Promise<MetricResult> {
-  await requireRole(["system_admin", "company_admin"]);
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("scorecard_metrics")

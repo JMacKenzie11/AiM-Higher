@@ -22,7 +22,7 @@ export type BulkResetResult =
 export async function bulkResetPlanAction(
   companyId: string
 ): Promise<BulkResetResult> {
-  const session = await requireRole(["system_admin", "company_admin"]);
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
   if (
     session.profile.role === "company_admin" &&
     session.profile.company_id !== companyId
