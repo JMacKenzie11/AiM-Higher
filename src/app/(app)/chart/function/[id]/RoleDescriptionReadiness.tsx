@@ -1,12 +1,13 @@
 import type { getChartFunctionDetail } from "@/lib/chart/service";
+import { CompleteRoleDescriptionButton } from "./CompleteRoleDescriptionButton";
+import type { InitialGaps } from "./CompleteRoleDescriptionDrawer";
 import styles from "../../chart.module.css";
 
 // Function-level readiness for the AiMS Role Description. Renders
 // only when the company has the role_descriptions feature on (the
-// page decides that). Server component — no interactivity yet.
-// When the interview and draft/publish surface land, the strip's
-// right-side action grows into "Complete interview" / "Preview" /
-// "Publish" depending on state.
+// page decides that). Server component — computes gate state and
+// hands it to CompleteRoleDescriptionButton, which owns the drawer
+// that walks the missing sections.
 //
 // Gates (v1 — kept minimal, iterate from feedback):
 //   1. Title           — always ✓ (enforced at function creation)
@@ -90,14 +91,10 @@ export function RoleDescriptionReadiness({ detail }: { detail: Detail }) {
               : `${readyCount} of ${total} sections ready`}
           </p>
         </div>
-        <button
-          type="button"
-          className={styles.rdReadinessAction}
-          disabled
-          title="Interview and preview coming soon."
-        >
-          {allReady ? "Generate role description" : "Complete interview"}
-        </button>
+        <CompleteRoleDescriptionButton
+          gaps={buildInitialGaps(detail)}
+          allReady={allReady}
+        />
       </div>
 
       <ul className={styles.rdChecklist}>
@@ -132,3 +129,22 @@ export function RoleDescriptionReadiness({ detail }: { detail: Detail }) {
     </section>
   );
 }
+
+// Build the gap descriptor the drawer walks. Mirrors the gates
+// above; the drawer's step queue is derived from this so both the
+// checklist and the interview stay in sync from the same source.
+function buildInitialGaps(detail: Detail): InitialGaps {
+  const userRoleCount = detail.roles.filter((r) => !r.is_default).length;
+  return {
+    functionId: detail.fn.id,
+    companyId: detail.fn.company_id,
+    responsibilities: { count: userRoleCount, needed: 1 },
+    outcomes: { count: detail.outcomes.length, needed: 3 },
+    measuresNeededFor: detail.outcomes
+      .filter((o) => o.measures.length === 0)
+      .map((o) => ({ outcomeId: o.id, outcomeTitle: o.title })),
+    decisionRights: { count: detail.decisionRights.length, needed: 1 },
+    competencies: { count: detail.competencies.length, needed: 3 },
+  };
+}
+

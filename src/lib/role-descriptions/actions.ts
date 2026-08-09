@@ -1,0 +1,84 @@
+"use server";
+
+import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  recommendForFunction,
+  type Recommendation,
+  type RdTarget,
+} from "./recommend";
+
+// Server actions the Role Description drawer calls. Only the
+// suggestion path lives here — write-backs (Use this / Save) reuse
+// the existing chart actions (createOutcomeAction,
+// createMeasureAction, createFunctionDecisionRightAction,
+// createFunctionCompetencyAction) so there's one insert path per
+// table.
+//
+// Auth: any admin for the function's company can call this — system
+// admin, or the company_admin whose company_id matches. aims_guides
+// are NOT yet supported because the chart write actions and their
+// RLS policies also exclude that role. Adding guide-write across
+// the chart is a separate slice.
+
+export type SuggestResult =
+  | { ok: true; recommendations: Recommendation[] }
+  | { ok: false; message: string };
+
+export async function suggestForFunctionAction(input: {
+  functionId: string;
+  target: RdTarget;
+  outcomeId?: string;
+}): Promise<SuggestResult> {
+  const session = await requireProfile();
+
+  const supabase = await createSupabaseServerClient();
+  const { data: fn } = await supabase
+    .from("functions")
+    .select("company_id")
+    .eq("id", input.functionId)
+    .maybeSingle<{ company_id: string }>();
+  if (!fn) return { ok: false, message: "Function not found." };
+
+  if (!isAdminForCompany(session.profile, fn.company_id)) {
+    return {
+      ok: false,
+      message: "You don't have permission to complete this role description.",
+    };
+  }
+
+  // If the caller asked for measures, resolve the outcome text they
+  // want measures for. The recommendation prompt anchors on the
+  // outcome title/description so options are specific to it.
+  let outcomeTitle: string | undefined;
+  let outcomeDescription: string | null | undefined;
+  if (input.target === "measures") {
+    if (!input.outcomeId) {
+      return {
+        ok: false,
+        message: "Pick which outcome the measures should serve.",
+      };
+    }
+    const { data: outcome } = await supabase
+      .from("function_outcomes")
+      .select("title, description")
+      .eq("id", input.outcomeId)
+      .eq("function_id", input.functionId)
+      .maybeSingle<{ title: string; description: string | null }>();
+    if (!outcome) {
+      return { ok: false, message: "That outcome doesn't belong to this function." };
+    }
+    outcomeTitle = outcome.title;
+    outcomeDescription = outcome.description;
+  }
+
+  const recommendations = await recommendForFunction({
+    functionId: input.functionId,
+    target: input.target,
+    outcomeTitle,
+    outcomeDescription,
+  });
+
+  return { ok: true, recommendations };
+}
