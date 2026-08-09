@@ -1581,7 +1581,21 @@
 .rdReadinessFooter {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3);
   padding-top: var(--space-2);
+}
+
+.rdSecondaryLink {
+  color: var(--primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.rdSecondaryLink:hover {
+  text-decoration: underline;
 }
 
 .rdReadinessAction {

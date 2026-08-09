@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getChartFunctionDetail } from "@/lib/chart/service";
 import {
   createFunctionCompetencyAction,
@@ -39,9 +40,12 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
   const detail = await getChartFunctionDetail(id);
   if (!detail) notFound();
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // isAdmin controls the inline edit affordances (add/rename/delete
+  // rows, seat picker, delete function). aims_guide is admin-
+  // equivalent for their assigned companies — see the memory rule
+  // "guides = company_admin on assigned companies" — so this uses
+  // isAdminForCompany rather than a role-only check.
+  const isAdmin = isAdminForCompany(session.profile, detail.fn.company_id);
   // Weekly logging is admin OR the function's Lead / Track. Same
   // policy the upsertMeasureEntryAction enforces server-side — this
   // just gates the UI affordance.
@@ -90,7 +94,9 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         ) : undefined
       }
     >
-        {rdEnabled ? <RoleDescriptionReadiness detail={detail} /> : null}
+        {rdEnabled ? (
+          <RoleDescriptionReadiness detail={detail} canEdit={isAdmin} />
+        ) : null}
 
         <section className={styles.sectionCard} aria-labelledby="seat">
           <span className={styles.fnSeatLabel} id="seat">

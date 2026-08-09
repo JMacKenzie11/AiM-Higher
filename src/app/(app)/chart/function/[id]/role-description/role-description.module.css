@@ -1,0 +1,190 @@
+/* Read-only rendering of the Role Description assembled from the
+   Function tree. Deliberately document-shaped rather than
+   dashboard-shaped — generous line-height, clear hierarchy, no
+   affordances or edit controls. Editing means going back to the
+   Function detail page. */
+
+.emptyCard {
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.emptyTitle {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.emptyBody {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.emptyProgress {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.previewBanner {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--aims-cobalt-tint);
+  color: var(--text-heading);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rdSection {
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.rdSection:last-of-type {
+  border-bottom: none;
+}
+
+.rdSectionTitle {
+  margin: 0 0 var(--space-3);
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.rdSectionBody {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+/* Outcomes — numbered document list with an optional "why" line
+   under each and a "How we'll know" sub-block listing the metrics
+   with targets. */
+.rdOutcomeList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  counter-reset: rd-outcome;
+}
+
+.rdOutcomeItem {
+  counter-increment: rd-outcome;
+  padding-left: var(--space-6);
+  position: relative;
+}
+
+.rdOutcomeItem::before {
+  content: counter(rd-outcome);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.rdOutcomeTitle {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-heading);
+  font-size: 17px;
+}
+
+.rdOutcomeWhy {
+  margin: 0 0 var(--space-2);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.rdMeasureBlock {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-sm);
+}
+
+.rdMeasureLabel {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.rdMeasureList {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.rdMeasureTarget {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Simple bulleted list used by Key Responsibilities, Decision
+   Rights, and Competency Indicators. Title in the row's font
+   weight, optional body (comma-separated sub-areas) trailing
+   after a colon in muted text. */
+.rdSimpleList {
+  list-style: disc;
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.rdSimpleItem {
+  padding-left: var(--space-1);
+}
+
+.rdSimpleTitle {
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.rdSimpleBody {
+  color: var(--text-muted);
+}
+
+@media print {
+  .previewBanner {
+    display: none;
+  }
+  .rdSection {
+    page-break-inside: avoid;
+  }
+}

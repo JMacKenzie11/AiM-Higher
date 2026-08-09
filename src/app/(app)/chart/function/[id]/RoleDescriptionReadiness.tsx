@@ -1,23 +1,16 @@
+import Link from "next/link";
 import type { getChartFunctionDetail } from "@/lib/chart/service";
 import { CardAccent } from "@/components/ui/CardAccent";
+import { computeReadiness } from "@/lib/role-descriptions/readiness";
 import { CompleteRoleDescriptionButton } from "./CompleteRoleDescriptionButton";
 import type { InitialGaps } from "./CompleteRoleDescriptionDrawer";
 import styles from "../../chart.module.css";
 
 // Function-level readiness for the AiMS Role Description. Renders
 // only when the company has the role_descriptions feature on (the
-// page decides that). Server component — computes gate state and
-// hands it to CompleteRoleDescriptionButton, which owns the drawer
-// that walks the missing sections. Visual pattern mirrors the
-// dashboard SetupChecklist card so the two "you're setting this up"
-// surfaces feel like the same platform gesture.
-//
-// Gates (v1 — kept minimal, iterate from feedback):
-//   1. Title           — always ✓ (enforced at function creation)
-//   2. Responsibilities — ≥1 non-default row in function_roles
-//   3. Success Measures — ≥3 outcomes AND every outcome has ≥1 metric
-//   4. Decision Rights  — ≥1 row in function_decision_rights
-//   5. Competency Indicators — ≥3 rows in function_competencies
+// page decides that). Server component — reads the readiness gates
+// from the shared helper so this card and the read-only view route
+// share one source of truth.
 //
 // Anchors match the aria-labelledby ids on the page sections so a
 // pending row can jump straight to where the fix lives without
@@ -25,65 +18,15 @@ import styles from "../../chart.module.css";
 
 type Detail = NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>;
 
-type Gate = {
-  key: string;
-  title: string;
-  description: string;
-  ready: boolean;
-  href: string | null;
-};
-
-export function RoleDescriptionReadiness({ detail }: { detail: Detail }) {
-  const userRoleCount = detail.roles.filter((r) => !r.is_default).length;
-  const outcomeCount = detail.outcomes.length;
-  const outcomesAllHaveMetrics =
-    outcomeCount > 0 && detail.outcomes.every((o) => o.measures.length >= 1);
-
-  const gates: Gate[] = [
-    {
-      key: "title",
-      title: "Title",
-      description: "Give the function a clear name.",
-      ready: !!detail.fn.title.trim(),
-      href: null,
-    },
-    {
-      key: "responsibilities",
-      title: "Responsibilities",
-      description:
-        "At least one responsibility beyond Lead / Track / Decide.",
-      ready: userRoleCount >= 1,
-      href: "#roles",
-    },
-    {
-      key: "outcomes",
-      title: "Success Measures",
-      description:
-        "Three measurable outcomes, each with at least one metric.",
-      ready: outcomeCount >= 3 && outcomesAllHaveMetrics,
-      href: "#measures",
-    },
-    {
-      key: "decision_rights",
-      title: "Decision Rights",
-      description:
-        "At least one decision this seat can make without escalation.",
-      ready: detail.decisionRights.length >= 1,
-      href: "#decision-rights",
-    },
-    {
-      key: "competencies",
-      title: "Competency Indicators",
-      description:
-        "At least three observable behaviors that show excellence.",
-      ready: detail.competencies.length >= 3,
-      href: "#competencies",
-    },
-  ];
-
-  const readyCount = gates.filter((g) => g.ready).length;
-  const total = gates.length;
-  const allReady = readyCount === total;
+export function RoleDescriptionReadiness({
+  detail,
+  canEdit,
+}: {
+  detail: Detail;
+  canEdit: boolean;
+}) {
+  const { gates, readyCount, total, allReady } = computeReadiness(detail);
+  const viewHref = `/chart/function/${detail.fn.id}/role-description`;
 
   return (
     <section
@@ -147,18 +90,26 @@ export function RoleDescriptionReadiness({ detail }: { detail: Detail }) {
       </ol>
 
       <div className={styles.rdReadinessFooter}>
-        <CompleteRoleDescriptionButton
-          gaps={buildInitialGaps(detail)}
-          allReady={allReady}
-        />
+        {canEdit || allReady ? (
+          <Link href={viewHref} className={styles.rdSecondaryLink}>
+            {allReady ? "View role description →" : "Preview so far →"}
+          </Link>
+        ) : null}
+        {canEdit ? (
+          <CompleteRoleDescriptionButton
+            gaps={buildInitialGaps(detail)}
+            allReady={allReady}
+          />
+        ) : null}
       </div>
     </section>
   );
 }
 
-// Build the gap descriptor the drawer walks. Mirrors the gates
-// above; the drawer's step queue is derived from this so both the
-// checklist and the interview stay in sync from the same source.
+// Build the gap descriptor the drawer walks. Mirrors the gates in
+// computeReadiness; the drawer's step queue is derived from this
+// so both the checklist and the interview stay in sync from the
+// same source.
 function buildInitialGaps(detail: Detail): InitialGaps {
   const userRoleCount = detail.roles.filter((r) => !r.is_default).length;
   return {
