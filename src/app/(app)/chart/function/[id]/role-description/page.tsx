@@ -24,7 +24,7 @@ import {
 } from "@/lib/role-descriptions/cache";
 import { listPublishedVersions } from "@/lib/role-descriptions/versions";
 import { PageShell } from "@/components/ui/PageShell";
-import { EditableLine } from "./EditableLine";
+import { EditableLine, type PatchSpec } from "./EditableLine";
 import { EditableProseSection } from "./EditableProseSection";
 import { PublishButton } from "./PublishButton";
 import { RegenerateButton } from "./RegenerateButton";
@@ -297,16 +297,11 @@ async function AssembledDocument({
                         )}
                         canEdit={canRegenerate}
                         labelKind="why this outcome matters"
-                        buildPatch={(v) => ({
-                          outcomeEnrichments: [
-                            { matchTitle: o.title, whyItMatters: v },
-                          ],
-                        })}
-                        buildRestorePatch={() => ({
-                          outcomeEnrichments: [
-                            { matchTitle: o.title, whyItMatters: "" },
-                          ],
-                        })}
+                        spec={{
+                          kind: "outcomeEnrichment",
+                          matchTitle: o.title,
+                          field: "whyItMatters",
+                        }}
                       />
                     </div>
                   ) : null}
@@ -322,16 +317,11 @@ async function AssembledDocument({
                         )}
                         canEdit={canRegenerate}
                         labelKind="values connection"
-                        buildPatch={(v) => ({
-                          outcomeEnrichments: [
-                            { matchTitle: o.title, valuesConnection: v },
-                          ],
-                        })}
-                        buildRestorePatch={() => ({
-                          outcomeEnrichments: [
-                            { matchTitle: o.title, valuesConnection: "" },
-                          ],
-                        })}
+                        spec={{
+                          kind: "outcomeEnrichment",
+                          matchTitle: o.title,
+                          field: "valuesConnection",
+                        }}
                       />
                     </div>
                   ) : null}
@@ -395,16 +385,10 @@ async function AssembledDocument({
                         )}
                         canEdit={canRegenerate}
                         labelKind="strategic context"
-                        buildPatch={(v) => ({
-                          responsibilityEnrichments: [
-                            { matchTitle: r.title, strategicContext: v },
-                          ],
-                        })}
-                        buildRestorePatch={() => ({
-                          responsibilityEnrichments: [
-                            { matchTitle: r.title, strategicContext: "" },
-                          ],
-                        })}
+                        spec={{
+                          kind: "responsibilityEnrichment",
+                          matchTitle: r.title,
+                        }}
                       />
                     </div>
                   ) : null}
@@ -614,9 +598,7 @@ function StrengthsBlock({
         text={s.accountability}
         isOverridden={isStrengthOverridden(overrides, "accountability")}
         canEdit={canEdit}
-        buildPatch={(v) => ({
-          strengthsAndExpertise: { accountability: v },
-        })}
+        spec={{ kind: "strengthAccountability" }}
       />
     </div>
   );
@@ -647,7 +629,7 @@ function QualificationsBlock({
         text={q.experience}
         isOverridden={isQualificationOverridden(overrides, "experience")}
         canEdit={canEdit}
-        buildPatch={(v) => ({ qualifications: { experience: v } })}
+        spec={{ kind: "qualification", field: "experience" }}
       />
       <EditableStringSubBlock
         functionId={functionId}
@@ -655,7 +637,7 @@ function QualificationsBlock({
         text={q.education}
         isOverridden={isQualificationOverridden(overrides, "education")}
         canEdit={canEdit}
-        buildPatch={(v) => ({ qualifications: { education: v } })}
+        spec={{ kind: "qualification", field: "education" }}
       />
       <EditableStringSubBlock
         functionId={functionId}
@@ -663,7 +645,7 @@ function QualificationsBlock({
         text={q.certifications}
         isOverridden={isQualificationOverridden(overrides, "certifications")}
         canEdit={canEdit}
-        buildPatch={(v) => ({ qualifications: { certifications: v } })}
+        spec={{ kind: "qualification", field: "certifications" }}
       />
     </div>
   );
@@ -709,17 +691,7 @@ function EditableListSubBlock({
           canEdit
           kind="lines"
           labelKind={label.toLowerCase()}
-          buildPatch={(v) => ({
-            strengthsAndExpertise: {
-              [field]: v
-                .split("\n")
-                .map((s) => s.trim())
-                .filter(Boolean),
-            },
-          })}
-          buildRestorePatch={() => ({
-            strengthsAndExpertise: { [field]: [] },
-          })}
+          spec={{ kind: "strengthList", field }}
         />
       ) : null}
     </div>
@@ -734,14 +706,14 @@ function EditableStringSubBlock({
   text,
   isOverridden,
   canEdit,
-  buildPatch,
+  spec,
 }: {
   functionId: string;
   label: string;
   text: string;
   isOverridden: boolean;
   canEdit: boolean;
-  buildPatch: (v: string) => RdUserOverrides;
+  spec: PatchSpec;
 }) {
   if (!text && !canEdit) return null;
   return (
@@ -754,8 +726,7 @@ function EditableStringSubBlock({
           isOverridden={isOverridden}
           canEdit
           labelKind={label.toLowerCase()}
-          buildPatch={buildPatch}
-          buildRestorePatch={() => buildPatch("")}
+          spec={spec}
         />
       ) : (
         <p className={styles.rdSubBlockBody}>{text}</p>
