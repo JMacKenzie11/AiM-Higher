@@ -10,6 +10,7 @@ import {
 } from "@/lib/chart/actions";
 import type { FunctionRole } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SuggestOptionsPopover } from "./SuggestOptionsPopover";
 import styles from "../../chart.module.css";
 
 // Roles & Responsibilities editor.
@@ -25,10 +26,12 @@ export function RolesList({
   functionId,
   roles,
   canEdit,
+  rdEnabled,
 }: {
   functionId: string;
   roles: FunctionRole[];
   canEdit: boolean;
+  rdEnabled: boolean;
 }) {
   return (
     <div className={styles.roleList}>
@@ -40,6 +43,21 @@ export function RolesList({
         )
       )}
       {canEdit ? <DraftRoleRow functionId={functionId} /> : null}
+      {canEdit && rdEnabled ? (
+        <SuggestOptionsPopover
+          functionId={functionId}
+          target="responsibilities"
+          buttonLabel="Suggest responsibilities"
+          onSave={async (title, body) => {
+            const fd = new FormData();
+            fd.set("function_id", functionId);
+            fd.set("title", title);
+            if (body) fd.set("body", body);
+            const r = await createFunctionRoleAction(undefined, fd);
+            return r.ok ? { ok: true } : { ok: false, message: r.message };
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -26,14 +26,18 @@ export type SuccessMeasureCardOutcome = FunctionOutcome & {
 
 export function SuccessMeasureCard({
   outcome,
+  functionId,
   canEdit,
   canLog,
   weekEnding,
+  rdEnabled,
 }: {
   outcome: SuccessMeasureCardOutcome;
+  functionId: string;
   canEdit: boolean;
   canLog: boolean;
   weekEnding: string;
+  rdEnabled: boolean;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -94,6 +98,8 @@ export function SuccessMeasureCard({
           outcomeId={outcome.id}
           outcomeTitle={outcome.title}
           outcomeDescription={outcome.description}
+          functionId={functionId}
+          rdEnabled={rdEnabled}
         />
       ) : null}
     </article>

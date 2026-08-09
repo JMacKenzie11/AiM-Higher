@@ -115,6 +115,7 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
             functionId={detail.fn.id}
             roles={detail.roles}
             canEdit={isAdmin}
+            rdEnabled={rdEnabled}
           />
         </section>
 
@@ -136,14 +137,19 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
             <SuccessMeasureCard
               key={o.id}
               outcome={o}
+              functionId={detail.fn.id}
               canEdit={isAdmin}
               canLog={canLog}
               weekEnding={weekEnding}
+              rdEnabled={rdEnabled}
             />
           ))}
 
           {isAdmin ? (
-            <AddSuccessMeasureRow functionId={detail.fn.id} />
+            <AddSuccessMeasureRow
+              functionId={detail.fn.id}
+              rdEnabled={rdEnabled}
+            />
           ) : detail.outcomes.length === 0 ? (
             <p className={styles.emptyOutcomeLine}>No success measures yet.</p>
           ) : null}
@@ -165,6 +171,8 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
                 canEdit={isAdmin}
                 singularLabel="decision right"
                 addPlaceholder="Add a decision this role can make without escalation — press Enter to save."
+                suggestTarget="decision_rights"
+                suggestButtonLabel="Suggest decision rights"
                 createAction={createFunctionDecisionRightAction}
                 renameAction={renameFunctionDecisionRightAction}
                 deleteAction={deleteFunctionDecisionRightAction}
@@ -185,6 +193,8 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
                 canEdit={isAdmin}
                 singularLabel="competency indicator"
                 addPlaceholder="Add an observable behavior that shows excellence in this seat — press Enter to save."
+                suggestTarget="competencies"
+                suggestButtonLabel="Suggest competency indicators"
                 createAction={createFunctionCompetencyAction}
                 renameAction={renameFunctionCompetencyAction}
                 deleteAction={deleteFunctionCompetencyAction}

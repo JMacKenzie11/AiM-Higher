@@ -9,6 +9,7 @@ import { critiqueMeasureDraftAction } from "@/lib/measures/actions";
 import { ruleBasedCritique } from "@/lib/measures/critique-rules";
 import type { MeasureCritique } from "@/lib/measures/critique-rules";
 import type { MetricValueType, SuccessMeasure } from "@/lib/types";
+import { SuggestOptionsPopover } from "./SuggestOptionsPopover";
 import styles from "../../chart.module.css";
 
 // Always-live "add a metric" row matched to the roles list rhythm.
@@ -39,10 +40,14 @@ export function AddMetricRow({
   outcomeId,
   outcomeTitle,
   outcomeDescription,
+  functionId,
+  rdEnabled,
 }: {
   outcomeId: string;
   outcomeTitle: string;
   outcomeDescription: string | null;
+  functionId: string;
+  rdEnabled: boolean;
 }) {
   const [state, formAction, pending] = useActionState<
     ChartResult<SuccessMeasure>,
@@ -215,6 +220,29 @@ export function AddMetricRow({
         <CritiquePanel
           hints={shownHints}
           loading={critiqueLoading}
+        />
+      ) : null}
+
+      {rdEnabled ? (
+        <SuggestOptionsPopover
+          functionId={functionId}
+          target="measures"
+          outcomeId={outcomeId}
+          buttonLabel="Suggest metrics"
+          onSave={async (t) => {
+            // Measures inherit sensible defaults on save (number,
+            // higher_is_better, auto_track on). Target left blank —
+            // the row's inline Edit form is where a user tunes it
+            // per-metric.
+            const fd = new FormData();
+            fd.set("outcome_id", outcomeId);
+            fd.set("description", t);
+            fd.set("value_type", "number");
+            fd.set("target_direction", "higher_is_better");
+            fd.set("auto_track", "on");
+            const r = await createMeasureAction(undefined, fd);
+            return r.ok ? { ok: true } : { ok: false, message: r.message };
+          }}
         />
       ) : null}
     </div>

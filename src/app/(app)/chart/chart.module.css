@@ -1620,199 +1620,21 @@
   cursor: not-allowed;
 }
 
-/* ---- Complete role description drawer ----
-   Right-side slide-in that walks the missing role-description gaps
-   on the current function. Same visual shape as the commitments
-   PersonQuickViewDrawer but scoped to chart.module.css because
-   this drawer only ever lives on the function detail page. */
-.rdDrawerOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: rgba(17, 21, 26, 0.35);
-  display: flex;
-  justify-content: flex-end;
-  animation: rdDrawerOverlayIn var(--duration-normal, 200ms) var(--ease-out, ease-out);
-}
-
-.rdDrawerPanel {
-  width: min(560px, 100%);
-  height: 100%;
-  background: var(--surface);
-  border-left: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  flex-direction: column;
-  animation: rdDrawerPanelIn var(--duration-normal, 200ms) var(--ease-out, ease-out);
-}
-
-@keyframes rdDrawerOverlayIn {
-  from {
-    background: rgba(17, 21, 26, 0);
-  }
-  to {
-    background: rgba(17, 21, 26, 0.35);
-  }
-}
-
-@keyframes rdDrawerPanelIn {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-.rdDrawerHeader {
-  padding: var(--space-5) var(--space-5) var(--space-3);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-3);
-  border-bottom: 1px solid var(--border);
-}
-
-.rdDrawerEyebrow {
-  margin: 0 0 var(--space-1);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-muted);
-}
-
-.rdDrawerTitle {
-  margin: 0;
-  font: var(--text-h2);
-  color: var(--text-heading);
-}
-
-.rdDrawerProgress {
-  margin: var(--space-1) 0 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.rdDrawerClose {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 22px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.rdDrawerClose:hover {
-  background: var(--aims-navy-tint);
-  color: var(--text);
-  border-color: var(--border);
-}
-
-.rdDrawerBody {
-  padding: var(--space-4) var(--space-5) var(--space-5);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  flex: 1;
-}
-
-.rdDrawerDone {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.rdStepIntro {
+/* ---- Suggest options popover ----
+   Inline suggestion picker used by every RD-enabled section on the
+   function detail page. Button toggles the panel below itself; the
+   panel holds up to three suggestion cards with Use / Edit / Skip
+   actions. Self-contained — the caller only supplies onSave. */
+.suggestWrap {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
-.rdStepQuestion {
-  margin: 0;
-  font: var(--text-h3);
-  color: var(--text-heading);
-}
-
-.rdStepHelper {
-  margin: 0;
-  color: var(--text);
-  font-size: 14px;
-}
-
-.rdStepAnchor {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.rdStepCount {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.rdAddForm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-}
-
-.rdAddLabel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.rdAddLabelText {
-  font-size: 12px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.rdAddInput,
-.rdAddTextarea {
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font: var(--text-body);
-  resize: vertical;
-}
-
-.rdAddInput:focus,
-.rdAddTextarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
-}
-
-.rdActionRow {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.rdSecondaryButton {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-4);
+.suggestButton {
+  align-self: flex-start;
+  padding: 6px 14px;
   background: transparent;
   color: var(--primary);
   border: 1px solid var(--primary);
@@ -1824,34 +1646,188 @@
   white-space: nowrap;
 }
 
-.rdSecondaryButton:hover:not(:disabled) {
+.suggestButton:hover {
   background: var(--aims-cobalt-tint);
 }
 
-.rdSecondaryButton:disabled {
+.suggestPanel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.suggestPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.suggestPanelLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.suggestPanelClose {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.suggestPanelClose:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+}
+
+.suggestList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.suggestCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  background: var(--aims-navy-tint);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.suggestCardTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.suggestCardBody {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.suggestCardRationale {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.suggestCardActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.suggestPrimary {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.suggestPrimary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.rdGhostButton {
+.suggestSecondary {
   height: var(--control-h-sm);
   padding: 0 var(--space-3);
   background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.suggestSecondary:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
+}
+
+.suggestSecondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.suggestGhost {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  background: transparent;
   color: var(--text-muted);
   border: none;
-  border-radius: var(--radius-sm);
   font-family: var(--font-sans);
   font-weight: 500;
   font-size: 13px;
   cursor: pointer;
 }
 
-.rdGhostButton:hover {
-  background: var(--aims-navy-tint);
+.suggestGhost:hover {
   color: var(--text);
 }
 
-.rdError {
+.suggestEditInput {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  font-weight: 600;
+}
+
+.suggestEditInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.suggestEditTextarea {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  resize: vertical;
+}
+
+.suggestEditTextarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.suggestMuted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.suggestError {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   background: var(--aims-danger-tint);
@@ -1861,62 +1837,9 @@
   font-size: 13px;
 }
 
-.rdSuggestionList {
+.suggestPanelFooter {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.rdSuggestionHeading {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.rdSuggestionCard {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  background: var(--aims-navy-tint);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.rdSuggestionTitle {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-heading);
-}
-
-.rdSuggestionBody {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text);
-}
-
-.rdSuggestionRationale {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.rdSuggestionActions {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.rdStepFooter {
-  display: flex;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
-  margin-top: auto;
+  justify-content: flex-start;
 }
 
 /* Small inline hint that replaces the "Add" button on draft rows

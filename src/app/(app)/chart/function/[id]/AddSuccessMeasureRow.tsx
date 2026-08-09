@@ -6,6 +6,7 @@ import {
   type ChartResult,
 } from "@/lib/chart/actions";
 import type { FunctionOutcome } from "@/lib/types";
+import { SuggestOptionsPopover } from "./SuggestOptionsPopover";
 import styles from "../../chart.module.css";
 
 // Always-live entry for Success Measures — same rhythm as R&R and
@@ -15,7 +16,13 @@ import styles from "../../chart.module.css";
 
 const INITIAL: ChartResult<FunctionOutcome> = { ok: false, message: "" };
 
-export function AddSuccessMeasureRow({ functionId }: { functionId: string }) {
+export function AddSuccessMeasureRow({
+  functionId,
+  rdEnabled,
+}: {
+  functionId: string;
+  rdEnabled: boolean;
+}) {
   const [state, formAction, pending] = useActionState<
     ChartResult<FunctionOutcome>,
     FormData
@@ -60,6 +67,21 @@ export function AddSuccessMeasureRow({ functionId }: { functionId: string }) {
         <p role="alert" className={styles.roleError}>
           {errorMessage}
         </p>
+      ) : null}
+      {rdEnabled ? (
+        <SuggestOptionsPopover
+          functionId={functionId}
+          target="outcomes"
+          buttonLabel="Suggest outcomes"
+          onSave={async (t, b) => {
+            const fd = new FormData();
+            fd.set("function_id", functionId);
+            fd.set("title", t);
+            if (b) fd.set("description", b);
+            const r = await createOutcomeAction(undefined, fd);
+            return r.ok ? { ok: true } : { ok: false, message: r.message };
+          }}
+        />
       ) : null}
     </form>
   );
