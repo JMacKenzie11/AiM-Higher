@@ -22,6 +22,7 @@ const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 const MAX_TOKENS = 900;
 
 export type RdTarget =
+  | "responsibilities"
   | "outcomes"
   | "measures"
   | "decision_rights"

@@ -1231,6 +1231,24 @@
   border-radius: var(--radius-sm);
 }
 
+/* When an R&R row has a body (comma-separated sub-areas from the
+   RD interview), we stack title over body inside the middle of
+   the row. Delete icon stays right-aligned by living outside this
+   wrapper. */
+.roleRowMain {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.roleRowBody {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .roleRowDefault {
   background: var(--aims-navy-tint);
   border-style: dashed;

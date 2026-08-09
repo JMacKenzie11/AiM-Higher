@@ -93,37 +93,42 @@ function UserRoleRow({ role, canEdit }: { role: FunctionRole; canEdit: boolean }
 
   return (
     <div className={styles.roleRow}>
-      {editing && canEdit ? (
-        <input
-          className={styles.roleTitleInput}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commit();
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              cancel();
-            }
-          }}
-          autoFocus
-          disabled={pending}
-          aria-label="Edit responsibility"
-        />
-      ) : canEdit ? (
-        <button
-          type="button"
-          className={styles.roleTitleEditable}
-          onClick={() => setEditing(true)}
-          title="Click to edit"
-        >
-          {role.title}
-        </button>
-      ) : (
-        <span className={styles.roleTitle}>{role.title}</span>
-      )}
+      <div className={styles.roleRowMain}>
+        {editing && canEdit ? (
+          <input
+            className={styles.roleTitleInput}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancel();
+              }
+            }}
+            autoFocus
+            disabled={pending}
+            aria-label="Edit responsibility"
+          />
+        ) : canEdit ? (
+          <button
+            type="button"
+            className={styles.roleTitleEditable}
+            onClick={() => setEditing(true)}
+            title="Click to edit"
+          >
+            {role.title}
+          </button>
+        ) : (
+          <span className={styles.roleTitle}>{role.title}</span>
+        )}
+        {role.body ? (
+          <p className={styles.roleRowBody}>{role.body}</p>
+        ) : null}
+      </div>
 
       {canEdit ? <DeleteRoleButton roleId={role.id} /> : null}
       {error ? (

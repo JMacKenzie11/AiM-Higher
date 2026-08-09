@@ -315,7 +315,9 @@ function StepPanel({
         {step.kind !== "measures" ? (
           <label className={styles.rdAddLabel}>
             <span className={styles.rdAddLabelText}>
-              Optional context / why it matters
+              {step.kind === "responsibilities"
+                ? "Sub-areas covered (comma-separated)"
+                : "Optional context / why it matters"}
             </span>
             <textarea
               value={inputBody}
@@ -323,6 +325,11 @@ function StepPanel({
               rows={2}
               className={styles.rdAddTextarea}
               disabled={saving}
+              placeholder={
+                step.kind === "responsibilities"
+                  ? "e.g. Capacity forecasting, management, priority, and dispatch"
+                  : undefined
+              }
             />
           </label>
         ) : null}
@@ -467,8 +474,8 @@ function buildSteps(gaps: InitialGaps): Step[] {
       kind: "responsibilities",
       question: "What does this seat own?",
       helperText:
-        "Add the categories of work this seat is responsible for, beyond Lead / Track / Decide. Aim for the ones a coach would ask about first.",
-      addPlaceholder: "e.g. Owns the annual budget cycle",
+        "Add the categories of work this seat is responsible for, beyond Lead / Track / Decide. Format: a short category name, then the sub-areas it covers as a comma-separated list. Aim for 5 or fewer categories total.",
+      addPlaceholder: "e.g. Scheduling and resource allocation",
       initialCount: gaps.responsibilities.count,
       target: gaps.responsibilities.needed,
     });
@@ -527,7 +534,7 @@ function stepKeyOf(step: Step): string {
 }
 
 function rdTargetOf(kind: StepKind): RdTarget {
-  if (kind === "responsibilities") return "outcomes"; // reuse "outcomes" tone
+  if (kind === "responsibilities") return "responsibilities";
   if (kind === "outcomes") return "outcomes";
   if (kind === "measures") return "measures";
   if (kind === "decision_rights") return "decision_rights";

@@ -162,7 +162,12 @@ export async function loadFunctionContext(
 // place — the prompt file owns the philosophy, this file owns the
 // data shape.
 export function formatContextForPrompt(input: {
-  target: "outcomes" | "measures" | "decision_rights" | "competencies";
+  target:
+    | "responsibilities"
+    | "outcomes"
+    | "measures"
+    | "decision_rights"
+    | "competencies";
   company: CompanyContextSnapshot;
   fn: FunctionContextSnapshot;
   outcomeTitle?: string; // required when target === "measures"
