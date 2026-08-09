@@ -46,6 +46,60 @@
   font-weight: 600;
 }
 
+/* Suspense fallback while the RD document is being generated. Flushed
+   to the browser immediately so the user sees the page shell plus a
+   clear "we're working on it" indicator instead of a blank body. */
+.generatingCard {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.generatingSpinner {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--aims-navy-tint);
+  border-top-color: var(--primary);
+  animation: rdSpinnerRotate 900ms linear infinite;
+}
+
+@keyframes rdSpinnerRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.generatingBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.generatingTitle {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 15px;
+}
+
+.generatingHint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .rdSection {
   padding: var(--space-5) 0;
   border-bottom: 1px solid var(--border);

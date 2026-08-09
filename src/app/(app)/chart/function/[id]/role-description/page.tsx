@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
@@ -17,8 +18,13 @@ import styles from "./role-description.module.css";
 // AiMS spec — some render from chart data, others from generated
 // prose (positionSummary, per-outcome enrichments, per-responsibility
 // strategic context, strengths & expertise, qualifications, why this
-// role matters). Generation is one Sonnet call per page load. If
-// the model call fails, the page falls back to the data-only shape.
+// role matters). Generation is one Sonnet call per page load.
+//
+// The generated document renders inside a Suspense boundary so the
+// page shell + preview banner render immediately and a "Generating…"
+// skeleton fills the content area until Sonnet resolves (typically
+// 3–6s). If the model call fails, the async component falls back to
+// a data-only render — no exception ever leaves.
 //
 // Access:
 //   - System admins, company admins for the function's company,
@@ -27,6 +33,8 @@ import styles from "./role-description.module.css";
 //   - Team members can view only when every readiness gate passes.
 
 type PageProps = { params: Promise<{ id: string }> };
+
+type Detail = NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>;
 
 export default async function RoleDescriptionViewPage({ params }: PageProps) {
   const session = await requireProfile();
@@ -77,27 +85,6 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
     );
   }
 
-  // Fire the generation as we build the page. This is the slow bit
-  // (Sonnet call, ~3–6s) so we lean on Next's streaming — the page
-  // shell renders immediately and the assembled document renders
-  // once generation resolves.
-  const doc = await generateRoleDescription(detail);
-
-  const responsibilities = detail.roles.filter((r) => !r.is_default);
-  const enrichmentByOutcome = new Map<string, { whyItMatters: string; valuesConnection: string }>();
-  const enrichmentByResponsibility = new Map<string, string>();
-  if (doc) {
-    for (const e of doc.outcomeEnrichments) {
-      enrichmentByOutcome.set(e.matchTitle, {
-        whyItMatters: e.whyItMatters,
-        valuesConnection: e.valuesConnection,
-      });
-    }
-    for (const e of doc.responsibilityEnrichments) {
-      enrichmentByResponsibility.set(e.matchTitle, e.strategicContext);
-    }
-  }
-
   return (
     <PageShell
       backHref={`/chart/function/${detail.fn.id}`}
@@ -127,6 +114,35 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
         </p>
       ) : null}
 
+      <Suspense fallback={<GeneratingSkeleton />}>
+        <AssembledDocument detail={detail} />
+      </Suspense>
+    </PageShell>
+  );
+}
+
+async function AssembledDocument({ detail }: { detail: Detail }) {
+  const doc = await generateRoleDescription(detail);
+  const responsibilities = detail.roles.filter((r) => !r.is_default);
+  const enrichmentByOutcome = new Map<
+    string,
+    { whyItMatters: string; valuesConnection: string }
+  >();
+  const enrichmentByResponsibility = new Map<string, string>();
+  if (doc) {
+    for (const e of doc.outcomeEnrichments) {
+      enrichmentByOutcome.set(e.matchTitle, {
+        whyItMatters: e.whyItMatters,
+        valuesConnection: e.valuesConnection,
+      });
+    }
+    for (const e of doc.responsibilityEnrichments) {
+      enrichmentByResponsibility.set(e.matchTitle, e.strategicContext);
+    }
+  }
+
+  return (
+    <>
       {/* 2 · Position Summary — generated */}
       {doc?.positionSummary ? (
         <Section id="rd-summary" title="Position Summary">
@@ -268,7 +284,29 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
           <Paragraphs text={doc.whyThisRoleMatters} />
         </Section>
       ) : null}
-    </PageShell>
+    </>
+  );
+}
+
+// Streaming-friendly placeholder — Next.js flushes this to the
+// browser while AssembledDocument awaits the Sonnet call. Reads as
+// "we're working on it" so the user isn't staring at a blank body.
+function GeneratingSkeleton() {
+  return (
+    <div className={styles.generatingCard} role="status" aria-live="polite">
+      <div className={styles.generatingSpinner} aria-hidden="true" />
+      <div className={styles.generatingBody}>
+        <p className={styles.generatingTitle}>
+          Assembling the role description…
+        </p>
+        <p className={styles.generatingHint}>
+          Pulling in the seat&rsquo;s outcomes, measures, responsibilities,
+          decision rights, and competency indicators, then drafting the
+          Position Summary, Strengths &amp; Expertise, and Why This Role
+          Matters sections. Usually 3–6 seconds.
+        </p>
+      </div>
+    </div>
   );
 }
 
