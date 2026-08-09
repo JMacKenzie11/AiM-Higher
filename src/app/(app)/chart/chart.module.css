@@ -1540,6 +1540,7 @@
   background: rgba(17, 21, 26, 0.35);
   display: flex;
   justify-content: flex-end;
+  animation: rdDrawerOverlayIn var(--duration-normal, 200ms) var(--ease-out, ease-out);
 }
 
 .rdDrawerPanel {
@@ -1550,6 +1551,25 @@
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
+  animation: rdDrawerPanelIn var(--duration-normal, 200ms) var(--ease-out, ease-out);
+}
+
+@keyframes rdDrawerOverlayIn {
+  from {
+    background: rgba(17, 21, 26, 0);
+  }
+  to {
+    background: rgba(17, 21, 26, 0.35);
+  }
+}
+
+@keyframes rdDrawerPanelIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .rdDrawerHeader {
