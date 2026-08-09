@@ -44,15 +44,19 @@ packet, or print for a coaching conversation.
   description…" skeleton while it works. Subsequent visits are
   instant.
 - **Edit the free-form prose** — Position Summary, Why This Role
-  Matters, and each Qualifications sub-field (Experience,
-  Education, Certifications) carry an Edit button. Click, tweak
-  the wording in the textarea, Save. An "Edited" pill + "Restore
-  generated" link appears when a section carries a manual
-  override; Restore clears the override and the AI version comes
-  back. **Edits survive regeneration** — the cache preserves your
-  overrides on top of any fresh draft. Every other section on the
-  RD is either pulled from chart data (edit at the source on the
-  function page) or refreshed by hitting Regenerate.
+  Matters, each Qualifications sub-field (Experience, Education,
+  Certifications), and each Strengths & Expertise sub-field
+  (Technical / Strategic / Interpersonal as bulleted lists,
+  Ownership as a single paragraph) all carry an Edit button.
+  Click, tweak the wording, Save. Lists edit as one item per
+  line. An "Edited" pill + "Restore generated" link appears when
+  a section carries a manual override; Restore clears the
+  override and the AI version comes back. **Edits survive
+  regeneration** — the cache preserves your overrides on top of
+  any fresh draft. Chart-driven sections (Success Measures, Key
+  Responsibilities, Decision Rights, Competency Indicators) edit
+  at the source on the function page; other generated support
+  prose refreshes when you hit Regenerate.
 - **Regenerate** — admin-only pill in the toolbar. Clears the
   cache and reruns the AI draft from scratch (keeps any Position
   Summary / Why edits, since those live on user overrides).
