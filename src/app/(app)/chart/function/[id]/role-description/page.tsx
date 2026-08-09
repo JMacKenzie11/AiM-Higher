@@ -303,7 +303,7 @@ function GeneratingSkeleton() {
           Pulling in the seat&rsquo;s outcomes, measures, responsibilities,
           decision rights, and competency indicators, then drafting the
           Position Summary, Strengths &amp; Expertise, and Why This Role
-          Matters sections. Usually 3–6 seconds.
+          Matters sections.
         </p>
       </div>
     </div>
