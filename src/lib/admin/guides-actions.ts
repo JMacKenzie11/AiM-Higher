@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { dispatchInvite } from "@/lib/auth/users";
+import { reportError } from "@/lib/observability/report";
 
 // Server actions for AiMS Guide management. System-admin only.
 //
@@ -71,6 +72,7 @@ export async function createGuideAction(
     email_confirm: false,
   });
   if (createErr || !created?.user) {
+    reportError("guides.create.authUser", createErr ?? new Error("no user returned"), { email });
     return {
       ok: false,
       message: createErr?.message ?? "Couldn't create the auth user.",
@@ -91,6 +93,7 @@ export async function createGuideAction(
     status: "pending",
   });
   if (profileErr) {
+    reportError("guides.create.profile", profileErr, { guideId, email });
     await admin.auth.admin.deleteUser(guideId);
     return {
       ok: false,
@@ -107,6 +110,7 @@ export async function createGuideAction(
     .from("guide_assignments")
     .insert(rows);
   if (assignErr) {
+    reportError("guides.create.assignments", assignErr, { guideId, companyIds });
     // Roll back: delete the guide entirely so we don't leak an
     // orphan profile with no assignments.
     await admin.auth.admin.deleteUser(guideId);
@@ -122,6 +126,7 @@ export async function createGuideAction(
   let warning: string | undefined;
   const dispatch = await dispatchInvite(guideId, email);
   if (!dispatch.ok) {
+    reportError("guides.create.invite", new Error(dispatch.message), { guideId, email });
     warning = `Guide added, but the invite email didn't send: ${dispatch.message}`;
   }
 
@@ -152,11 +157,15 @@ export async function resendGuideInviteAction(
   const { data: userRow, error: userErr } =
     await admin.auth.admin.getUserById(guideId);
   if (userErr || !userRow?.user?.email) {
+    reportError("guides.resend.getUser", userErr ?? new Error("no email"), { guideId });
     return { ok: false, message: "Couldn't find that guide's email." };
   }
 
   const dispatch = await dispatchInvite(guideId, userRow.user.email);
-  if (!dispatch.ok) return { ok: false, message: dispatch.message };
+  if (!dispatch.ok) {
+    reportError("guides.resend.invite", new Error(dispatch.message), { guideId });
+    return { ok: false, message: dispatch.message };
+  }
 
   revalidatePath("/admin/companies", "layout");
   return { ok: true, guideId };
@@ -191,7 +200,10 @@ export async function assignGuideAction(
       { guide_id: guideId, company_id: companyId },
       { onConflict: "guide_id,company_id" }
     );
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    reportError("guides.assign.upsert", error, { guideId, companyId });
+    return { ok: false, message: error.message };
+  }
 
   revalidatePath("/admin/companies", "layout");
   return { ok: true };
@@ -226,7 +238,10 @@ export async function unassignGuideAction(
     .delete()
     .eq("guide_id", guideId)
     .eq("company_id", companyId);
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    reportError("guides.unassign.delete", error, { guideId, companyId });
+    return { ok: false, message: error.message };
+  }
 
   revalidatePath("/admin/companies", "layout");
   return { ok: true };
@@ -241,7 +256,10 @@ export async function deleteGuideAction(
 
   const admin = createSupabaseAdminClient();
   const { error } = await admin.auth.admin.deleteUser(guideId);
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    reportError("guides.delete.authUser", error, { guideId });
+    return { ok: false, message: error.message };
+  }
   // profile + guide_assignments cascade away with the auth row.
 
   revalidatePath("/admin/companies", "layout");
