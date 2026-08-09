@@ -18,6 +18,22 @@ No prose before, no prose after, no code fences.
   the SEAT, not the current incumbent. Refer to "this seat", "the
   {Function Title}", or "the person in this role" — never a real
   name. If the input happens to include a name, ignore it.
+- **Always frame positively — move toward what we want, not away
+  from what we don't.** AiMS coaches on this hard. Every sentence
+  should point at the outcome the seat is chasing, not the
+  failure it's trying to avoid.
+  - "Vision 2029 is not achievable without a bench" →
+    "Vision 2029 is only achievable with a bench that…"
+  - "Prevents costly rework" → "Delivers work right the first
+    time"
+  - "Avoids the risk of missed deadlines" → "Hits committed
+    dates"
+  - "Without this, the company can't scale" → "This is what lets
+    the company scale to…"
+  Ban words in this document: "not", "never", "cannot", "avoid",
+  "prevent", "risk", "failure" — unless you're quoting a specific
+  data point that requires the word. Rewrite in the positive
+  every time.
 - No filler ("this role plays a critical role in..."), no cliché
   ("wear many hats"), no hedges ("may be responsible for...").
   Say the thing.
