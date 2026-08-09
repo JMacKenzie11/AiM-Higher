@@ -27,10 +27,15 @@ No separate "open the company" step is needed.
   generative dashboard cards), *Meeting Facilitation Review*
   (adds a coaching-tone review of how each meeting was run,
   visible on the meeting detail page and as a signal chip on the
-  Leadership list), and *Classroom* (adds a shared training library
+  Leadership list), *Classroom* (adds a shared training library
   of lessons, videos, and downloadable resources authored by AiMS;
-  Aimee can also recommend a training in conversation). Turning a
-  module off hides it in nav; existing data is preserved.
+  Aimee can also recommend a training in conversation), and
+  *Role Descriptions* (adds Decision Rights + Competency
+  Indicators sections and a per-section *Suggest…* helper on
+  every function page, plus the assembled Role Description
+  document at `/chart/function/[id]/role-description` with
+  publish + version history + .docx export). Turning a module
+  off hides it in nav; existing data is preserved.
 - **Connect Google Drive** — click *Connect Google account*. Each
   company has its own OAuth, so folders can live under different
   Google Workspaces. After connecting, share the transcript folder
