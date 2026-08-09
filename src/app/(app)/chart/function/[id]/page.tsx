@@ -2,6 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getChartFunctionDetail } from "@/lib/chart/service";
+import {
+  createFunctionCompetencyAction,
+  createFunctionDecisionRightAction,
+  deleteFunctionCompetencyAction,
+  deleteFunctionDecisionRightAction,
+  renameFunctionCompetencyAction,
+  renameFunctionDecisionRightAction,
+} from "@/lib/chart/actions";
+import { companyHasFeature } from "@/lib/subscriptions/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { thisFriday } from "@/lib/dates";
 import { CardAccent } from "@/components/ui/CardAccent";
@@ -11,6 +20,7 @@ import { RolesList } from "./RolesList";
 import { SeatEditor } from "./SeatEditor";
 import { AddSuccessMeasureRow } from "./AddSuccessMeasureRow";
 import { FunctionTitleEditor } from "./FunctionTitleEditor";
+import { SimpleFunctionItemList } from "./SimpleFunctionItemList";
 import { SuccessMeasureCard } from "./SuccessMeasureCard";
 import styles from "../../chart.module.css";
 
@@ -50,6 +60,11 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
     .eq("id", detail.fn.company_id)
     .maybeSingle<{ timezone: string }>();
   const weekEnding = thisFriday(company?.timezone ?? "America/Anchorage");
+
+  const rdEnabled = await companyHasFeature(
+    detail.fn.company_id,
+    "role_descriptions"
+  );
 
   return (
     <PageShell
@@ -128,6 +143,50 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
             <p className={styles.emptyOutcomeLine}>No success measures yet.</p>
           ) : null}
         </section>
+
+        {rdEnabled ? (
+          <>
+            <section
+              className={styles.sectionCardAccent}
+              aria-labelledby="decision-rights"
+            >
+              <CardAccent />
+              <h2 id="decision-rights" className={styles.sectionTitle}>
+                Decision Rights
+              </h2>
+              <SimpleFunctionItemList
+                functionId={detail.fn.id}
+                items={detail.decisionRights}
+                canEdit={isAdmin}
+                singularLabel="decision right"
+                addPlaceholder="Add a decision this role can make without escalation — press Enter to save."
+                createAction={createFunctionDecisionRightAction}
+                renameAction={renameFunctionDecisionRightAction}
+                deleteAction={deleteFunctionDecisionRightAction}
+              />
+            </section>
+
+            <section
+              className={styles.sectionCardAccent}
+              aria-labelledby="competencies"
+            >
+              <CardAccent />
+              <h2 id="competencies" className={styles.sectionTitle}>
+                Competency Indicators
+              </h2>
+              <SimpleFunctionItemList
+                functionId={detail.fn.id}
+                items={detail.competencies}
+                canEdit={isAdmin}
+                singularLabel="competency indicator"
+                addPlaceholder="Add an observable behavior that shows excellence in this seat — press Enter to save."
+                createAction={createFunctionCompetencyAction}
+                renameAction={renameFunctionCompetencyAction}
+                deleteAction={deleteFunctionCompetencyAction}
+              />
+            </section>
+          </>
+        ) : null}
 
         {detail.children.length > 0 ? (
           <section className={styles.sectionCard} aria-labelledby="subs">

@@ -280,6 +280,34 @@ export type FunctionRole = {
   updated_at: string;
 };
 
+// Independent decisions the seat holder can make without escalation.
+// Feeds the Role Description generator's Decision Rights section and
+// shows on /chart/function/[id] when the company has the
+// role_descriptions feature on. No default row.
+export type FunctionDecisionRight = {
+  id: string;
+  function_id: string;
+  title: string;
+  body: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+// Observable behaviors / measurable standards that indicate what
+// excellence looks like in the seat. Feeds the Role Description
+// generator's Competency Indicators (Development Framework) section.
+// No default row. RD interview recommends 3–5 when generating.
+export type FunctionCompetency = {
+  id: string;
+  function_id: string;
+  title: string;
+  body: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TargetDirection = "higher_is_better" | "lower_is_better";
 
 export type SuccessMeasure = {

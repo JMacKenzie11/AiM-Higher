@@ -2,6 +2,8 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
+  FunctionCompetency,
+  FunctionDecisionRight,
   FunctionNode,
   FunctionOutcome,
   FunctionRole,
@@ -194,12 +196,17 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
 // Detail-page loader for a single function. Returns the function
 // plus its outcomes, measures, and a wider slice of entry history
 // (last 13 weeks) per measure so a chart could render a trend later.
+// Decision rights and competency indicators are always loaded — the
+// Function detail page decides whether to render them based on the
+// company's role_descriptions feature flag.
 export async function getChartFunctionDetail(functionId: string): Promise<{
   fn: FunctionNode;
   seatHolder: Pick<Profile, "id" | "full_name"> | null;
   parent: Pick<FunctionNode, "id" | "title"> | null;
   children: FunctionNode[];
   roles: FunctionRole[];
+  decisionRights: FunctionDecisionRight[];
+  competencies: FunctionCompetency[];
   outcomes: Array<
     FunctionOutcome & {
       measures: Array<SuccessMeasure & { entries: SuccessMeasureEntry[] }>;
@@ -221,6 +228,8 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
     { data: childrenRaw },
     { data: outcomesRaw },
     { data: rolesRaw },
+    { data: decisionRightsRaw },
+    { data: competenciesRaw },
     { data: rosterRaw },
   ] = await Promise.all([
     fn.parent_function_id
@@ -247,6 +256,16 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
       .select("*")
       .eq("function_id", fn.id)
       .order("is_default", { ascending: false })
+      .order("sort_order"),
+    supabase
+      .from("function_decision_rights")
+      .select("*")
+      .eq("function_id", fn.id)
+      .order("sort_order"),
+    supabase
+      .from("function_competencies")
+      .select("*")
+      .eq("function_id", fn.id)
       .order("sort_order"),
     supabase
       .from("profiles")
@@ -308,6 +327,8 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
     parent: parentRaw ?? null,
     children: (childrenRaw ?? []) as FunctionNode[],
     roles: (rolesRaw ?? []) as FunctionRole[],
+    decisionRights: (decisionRightsRaw ?? []) as FunctionDecisionRight[],
+    competencies: (competenciesRaw ?? []) as FunctionCompetency[],
     outcomes: outcomesWithMeasures,
     roster,
   };

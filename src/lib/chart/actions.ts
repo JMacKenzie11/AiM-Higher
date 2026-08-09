@@ -8,6 +8,8 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { scoreMeasureTarget } from "@/lib/measures/target-check";
 import { nullableString } from "@/lib/utils";
 import type {
+  FunctionCompetency,
+  FunctionDecisionRight,
   FunctionNode,
   FunctionOutcome,
   FunctionRole,
@@ -773,4 +775,159 @@ function isTimeoutError(err: { message?: string; code?: string }): boolean {
     msg.includes("statement timeout") ||
     msg.includes("canceling statement")
   );
+}
+
+// ---- Decision Rights & Competency Indicators --------------------
+// Both tables share the same shape (function_id, title, body,
+// sort_order) and same permission rules, so their CRUD actions
+// mirror function_roles minus the is_default handling. Kept as
+// concrete per-entity actions rather than a generic helper because
+// there are only two and the R&R actions above set the pattern.
+
+export async function createFunctionDecisionRightAction(
+  _prev: ChartResult<FunctionDecisionRight> | undefined,
+  formData: FormData
+): Promise<ChartResult<FunctionDecisionRight>> {
+  await requireRole(["system_admin", "company_admin"]);
+  const functionId = String(formData.get("function_id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const body = nullableString(formData.get("body"));
+  if (!functionId || !title) {
+    return { ok: false, message: "Missing function or title." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: existing } = await supabase
+    .from("function_decision_rights")
+    .select("sort_order")
+    .eq("function_id", functionId)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  const nextSort =
+    existing && existing.length > 0 ? (existing[0].sort_order ?? 0) + 1 : 1;
+
+  const { data, error } = await supabase
+    .from("function_decision_rights")
+    .insert({ function_id: functionId, title, body, sort_order: nextSort })
+    .select("*")
+    .single<FunctionDecisionRight>();
+  if (error || !data) return { ok: false, message: "Couldn't add that." };
+  revalidatePath(`/chart/function/${functionId}`);
+  return { ok: true, item: data };
+}
+
+export async function renameFunctionDecisionRightAction(
+  id: string,
+  newTitle: string
+): Promise<ChartResult<FunctionDecisionRight>> {
+  await requireRole(["system_admin", "company_admin"]);
+  const title = newTitle.trim();
+  if (!id || !title) return { ok: false, message: "Title can't be empty." };
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("function_decision_rights")
+    .update({ title })
+    .eq("id", id)
+    .select("*")
+    .single<FunctionDecisionRight>();
+  if (error || !data) return { ok: false, message: "Couldn't rename." };
+  revalidatePath(`/chart/function/${data.function_id}`);
+  return { ok: true, item: data };
+}
+
+export async function deleteFunctionDecisionRightAction(
+  id: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireRole(["system_admin", "company_admin"]);
+  const supabase = await createSupabaseServerClient();
+
+  const { data: row } = await supabase
+    .from("function_decision_rights")
+    .select("function_id")
+    .eq("id", id)
+    .maybeSingle<Pick<FunctionDecisionRight, "function_id">>();
+  if (!row) return { ok: false, message: "Not found." };
+
+  const { error } = await supabase
+    .from("function_decision_rights")
+    .delete()
+    .eq("id", id);
+  if (error) return { ok: false, message: "Couldn't delete." };
+  revalidatePath(`/chart/function/${row.function_id}`);
+  return { ok: true };
+}
+
+export async function createFunctionCompetencyAction(
+  _prev: ChartResult<FunctionCompetency> | undefined,
+  formData: FormData
+): Promise<ChartResult<FunctionCompetency>> {
+  await requireRole(["system_admin", "company_admin"]);
+  const functionId = String(formData.get("function_id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const body = nullableString(formData.get("body"));
+  if (!functionId || !title) {
+    return { ok: false, message: "Missing function or title." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: existing } = await supabase
+    .from("function_competencies")
+    .select("sort_order")
+    .eq("function_id", functionId)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  const nextSort =
+    existing && existing.length > 0 ? (existing[0].sort_order ?? 0) + 1 : 1;
+
+  const { data, error } = await supabase
+    .from("function_competencies")
+    .insert({ function_id: functionId, title, body, sort_order: nextSort })
+    .select("*")
+    .single<FunctionCompetency>();
+  if (error || !data) return { ok: false, message: "Couldn't add that." };
+  revalidatePath(`/chart/function/${functionId}`);
+  return { ok: true, item: data };
+}
+
+export async function renameFunctionCompetencyAction(
+  id: string,
+  newTitle: string
+): Promise<ChartResult<FunctionCompetency>> {
+  await requireRole(["system_admin", "company_admin"]);
+  const title = newTitle.trim();
+  if (!id || !title) return { ok: false, message: "Title can't be empty." };
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("function_competencies")
+    .update({ title })
+    .eq("id", id)
+    .select("*")
+    .single<FunctionCompetency>();
+  if (error || !data) return { ok: false, message: "Couldn't rename." };
+  revalidatePath(`/chart/function/${data.function_id}`);
+  return { ok: true, item: data };
+}
+
+export async function deleteFunctionCompetencyAction(
+  id: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireRole(["system_admin", "company_admin"]);
+  const supabase = await createSupabaseServerClient();
+
+  const { data: row } = await supabase
+    .from("function_competencies")
+    .select("function_id")
+    .eq("id", id)
+    .maybeSingle<Pick<FunctionCompetency, "function_id">>();
+  if (!row) return { ok: false, message: "Not found." };
+
+  const { error } = await supabase
+    .from("function_competencies")
+    .delete()
+    .eq("id", id);
+  if (error) return { ok: false, message: "Couldn't delete." };
+  revalidatePath(`/chart/function/${row.function_id}`);
+  return { ok: true };
 }
