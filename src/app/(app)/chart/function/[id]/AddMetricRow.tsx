@@ -229,17 +229,26 @@ export function AddMetricRow({
           target="measures"
           outcomeId={outcomeId}
           buttonLabel="Suggest metrics"
-          onSave={async (t) => {
-            // Measures inherit sensible defaults on save (number,
-            // higher_is_better, auto_track on). Target left blank —
-            // the row's inline Edit form is where a user tunes it
-            // per-metric.
+          onSave={async (t, _body, extras) => {
+            // The suggestion prompt returns a first-class `target`
+            // field for measures (required when the company has
+            // performance_tracking on, else createMeasureAction
+            // rejects with "every measure needs a target"). Value
+            // type is auto-detected from the target's shape so we
+            // don't need the model to emit it — % → percent,
+            // yes/no → text, everything else → number. Direction
+            // and auto_track stay at safe defaults; user can tune
+            // both per-metric from the inline Edit form after
+            // creation.
+            const targetValue = extras?.target?.trim() ?? "";
+            const valueType = guessValueType(targetValue);
             const fd = new FormData();
             fd.set("outcome_id", outcomeId);
             fd.set("description", t);
-            fd.set("value_type", "number");
+            fd.set("value_type", valueType);
             fd.set("target_direction", "higher_is_better");
             fd.set("auto_track", "on");
+            if (targetValue) fd.set("target", targetValue);
             const r = await createMeasureAction(undefined, fd);
             return r.ok ? { ok: true } : { ok: false, message: r.message };
           }}
@@ -247,6 +256,13 @@ export function AddMetricRow({
       ) : null}
     </div>
   );
+}
+
+function guessValueType(target: string): MetricValueType {
+  const t = target.trim().toLowerCase();
+  if (t.includes("%")) return "percent";
+  if (t === "yes" || t === "no" || t === "y" || t === "n") return "text";
+  return "number";
 }
 
 function CritiquePanel({

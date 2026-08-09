@@ -56,8 +56,15 @@ Suggest exactly 3 options unless told otherwise.
 - **measures**
   - `title`: the metric description (e.g. `% of projects delivered on
     time`).
-  - `body`: one sentence hinting at what a healthy target might be, plus
-    a time horizon (weekly / monthly / quarterly).
+  - `target`: **required for measures.** A short target value string
+    that fits the metric — `90%`, `0.95`, `12`, `Yes`. No units word
+    ("percent"), no ranges ("80–100%"), no wiggle words ("~90%").
+    Whatever the value_type expects. This becomes the metric's target
+    downstream, so a missing or vague target blocks the save when
+    performance tracking is on.
+  - `body`: one sentence with why this measure fits or what time
+    horizon to track it on (weekly / monthly / quarterly). Do NOT
+    put the target here — it belongs in the `target` field above.
 - **decision_rights**
   - `title`: the decision (e.g. `Budget approvals up to $10,000`).
   - `body`: one sentence noting scope — what stays escalated, or how
@@ -76,12 +83,15 @@ no code fences, no explanation before or after.
 ```
 {
   "recommendations": [
-    { "title": "…", "body": "…", "rationale": "…" },
-    { "title": "…", "body": "…", "rationale": "…" },
-    { "title": "…", "body": "…", "rationale": "…" }
+    { "title": "…", "body": "…", "rationale": "…", "target": "…" },
+    { "title": "…", "body": "…", "rationale": "…", "target": "…" },
+    { "title": "…", "body": "…", "rationale": "…", "target": "…" }
   ]
 }
 ```
+
+`target` is only used when `target === "measures"`. For every other
+target type, omit the `target` field (or set it to `""`).
 
 `rationale` is a short (≤120 chars) note in AiMS voice — the coach's
 angle on why this specific option is worth considering for this

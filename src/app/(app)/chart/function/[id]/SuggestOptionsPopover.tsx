@@ -39,7 +39,11 @@ export function SuggestOptionsPopover({
   // something the user never saw. Used by R&R where body =
   // sub-areas and the card reads cleaner without it.
   hideCardBody?: boolean;
-  onSave: (title: string, body: string | null) => Promise<SaveResult>;
+  onSave: (
+    title: string,
+    body: string | null,
+    extras?: { target?: string | null }
+  ) => Promise<SaveResult>;
 }) {
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Recommendation[]>([]);
@@ -178,23 +182,36 @@ function SuggestionCard({
 }: {
   rec: Recommendation;
   hideBody: boolean;
-  onSave: (title: string, body: string | null) => Promise<SaveResult>;
+  onSave: (
+    title: string,
+    body: string | null,
+    extras?: { target?: string | null }
+  ) => Promise<SaveResult>;
   onDismiss: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(rec.title);
   const [body, setBody] = useState(rec.body ?? "");
+  const [target, setTarget] = useState(rec.target ?? "");
   const [saving, startSave] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const hasTargetField = rec.target !== null;
 
-  function save(nextTitle: string, nextBody: string | null) {
+  function save(
+    nextTitle: string,
+    nextBody: string | null,
+    nextTarget: string | null
+  ) {
     if (!nextTitle.trim()) return;
     setError(null);
     startSave(async () => {
       // When the card hides body, don't quietly persist an
       // auto-generated body the user never saw — pass null.
       const bodyToSave = hideBody ? null : nextBody?.trim() || null;
-      const result = await onSave(nextTitle.trim(), bodyToSave);
+      const targetToSave = nextTarget?.trim() || null;
+      const result = await onSave(nextTitle.trim(), bodyToSave, {
+        target: targetToSave,
+      });
       if (!result.ok) {
         setError(result.message);
         return;
@@ -226,12 +243,29 @@ function SuggestionCard({
               aria-label="Edit body"
             />
           )}
+          {hasTargetField ? (
+            <input
+              type="text"
+              className={styles.suggestEditInput}
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              disabled={saving}
+              placeholder="Target — e.g. 90%"
+              aria-label="Edit target"
+            />
+          ) : null}
         </>
       ) : (
         <>
           <h4 className={styles.suggestCardTitle}>{rec.title}</h4>
           {!hideBody && rec.body ? (
             <p className={styles.suggestCardBody}>{rec.body}</p>
+          ) : null}
+          {hasTargetField ? (
+            <p className={styles.suggestCardTarget}>
+              <span className={styles.suggestCardTargetLabel}>Target:</span>{" "}
+              {rec.target}
+            </p>
           ) : null}
           {rec.rationale ? (
             <p className={styles.suggestCardRationale}>{rec.rationale}</p>
@@ -249,7 +283,7 @@ function SuggestionCard({
             <button
               type="button"
               className={styles.suggestPrimary}
-              onClick={() => save(title, body || null)}
+              onClick={() => save(title, body || null, target || null)}
               disabled={saving || !title.trim()}
             >
               {saving ? "Saving…" : "Save"}
@@ -273,7 +307,7 @@ function SuggestionCard({
             <button
               type="button"
               className={styles.suggestPrimary}
-              onClick={() => save(rec.title, rec.body)}
+              onClick={() => save(rec.title, rec.body, rec.target)}
               disabled={saving}
             >
               {saving ? "Saving…" : "Use this"}

@@ -1726,6 +1726,20 @@
   font-style: italic;
 }
 
+.suggestCardTarget {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.suggestCardTargetLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
 .suggestCardActions {
   display: flex;
   gap: var(--space-2);

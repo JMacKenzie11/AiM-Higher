@@ -32,6 +32,10 @@ export type Recommendation = {
   title: string;
   body: string | null;
   rationale: string | null;
+  // Only populated when target === "measures". A short target value
+  // string ("90%", "0.95", "Yes") that the AddMetricRow save uses
+  // so performance-tracking-required measures don't fail validation.
+  target: string | null;
 };
 
 let cachedSystemPrompt: string | null = null;
@@ -120,7 +124,11 @@ function parseRecommendations(raw: string): Recommendation[] {
       typeof obj.rationale === "string" && obj.rationale.trim().length > 0
         ? obj.rationale.trim().slice(0, 240)
         : null;
-    out.push({ title, body, rationale });
+    const target =
+      typeof obj.target === "string" && obj.target.trim().length > 0
+        ? obj.target.trim().slice(0, 80)
+        : null;
+    out.push({ title, body, rationale, target });
   }
   return out.slice(0, 5);
 }
