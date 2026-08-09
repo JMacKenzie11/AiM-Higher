@@ -1,4 +1,5 @@
 import type { getChartFunctionDetail } from "@/lib/chart/service";
+import { CardAccent } from "@/components/ui/CardAccent";
 import { CompleteRoleDescriptionButton } from "./CompleteRoleDescriptionButton";
 import type { InitialGaps } from "./CompleteRoleDescriptionDrawer";
 import styles from "../../chart.module.css";
@@ -7,7 +8,9 @@ import styles from "../../chart.module.css";
 // only when the company has the role_descriptions feature on (the
 // page decides that). Server component — computes gate state and
 // hands it to CompleteRoleDescriptionButton, which owns the drawer
-// that walks the missing sections.
+// that walks the missing sections. Visual pattern mirrors the
+// dashboard SetupChecklist card so the two "you're setting this up"
+// surfaces feel like the same platform gesture.
 //
 // Gates (v1 — kept minimal, iterate from feedback):
 //   1. Title           — always ✓ (enforced at function creation)
@@ -17,13 +20,15 @@ import styles from "../../chart.module.css";
 //   5. Competency Indicators — ≥3 rows in function_competencies
 //
 // Anchors match the aria-labelledby ids on the page sections so a
-// missing-gate row can jump straight to where the fix lives.
+// pending row can jump straight to where the fix lives without
+// opening the drawer.
 
 type Detail = NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>;
 
 type Gate = {
   key: string;
-  label: string;
+  title: string;
+  description: string;
   ready: boolean;
   href: string | null;
 };
@@ -37,31 +42,40 @@ export function RoleDescriptionReadiness({ detail }: { detail: Detail }) {
   const gates: Gate[] = [
     {
       key: "title",
-      label: "Title set",
+      title: "Title",
+      description: "Give the function a clear name.",
       ready: !!detail.fn.title.trim(),
       href: null,
     },
     {
       key: "responsibilities",
-      label: "At least one responsibility beyond L/T/D",
+      title: "Responsibilities",
+      description:
+        "At least one responsibility beyond Lead / Track / Decide.",
       ready: userRoleCount >= 1,
       href: "#roles",
     },
     {
       key: "outcomes",
-      label: "Three Success Measures, each with a metric",
+      title: "Success Measures",
+      description:
+        "Three measurable outcomes, each with at least one metric.",
       ready: outcomeCount >= 3 && outcomesAllHaveMetrics,
       href: "#measures",
     },
     {
       key: "decision_rights",
-      label: "At least one Decision Right",
+      title: "Decision Rights",
+      description:
+        "At least one decision this seat can make without escalation.",
       ready: detail.decisionRights.length >= 1,
       href: "#decision-rights",
     },
     {
       key: "competencies",
-      label: "At least three Competency Indicators",
+      title: "Competency Indicators",
+      description:
+        "At least three observable behaviors that show excellence.",
       ready: detail.competencies.length >= 3,
       href: "#competencies",
     },
@@ -73,59 +87,71 @@ export function RoleDescriptionReadiness({ detail }: { detail: Detail }) {
 
   return (
     <section
-      className={styles.rdReadiness}
+      className={styles.rdReadinessCard}
       aria-labelledby="rd-readiness-heading"
     >
-      <div className={styles.rdReadinessHeader}>
+      <CardAccent />
+      <div className={styles.rdReadinessHeaderNew}>
         <div>
           <h2 id="rd-readiness-heading" className={styles.rdReadinessTitle}>
             Role Description
           </h2>
-          <p
-            className={
-              allReady ? styles.rdReadinessReady : styles.rdReadinessProgress
-            }
-          >
-            {allReady
-              ? "Ready to generate"
-              : `${readyCount} of ${total} sections ready`}
+          <p className={styles.rdReadinessSubtitle}>
+            A short walk to a publishable role description. Sections check
+            off as you complete each one.
           </p>
         </div>
+        <div className={styles.rdProgressBadge} aria-hidden="true">
+          {readyCount} of {total}
+        </div>
+      </div>
+
+      <ol className={styles.rdItemList}>
+        {gates.map((g, i) => (
+          <li
+            key={g.key}
+            className={styles.rdItem}
+            data-done={g.ready ? "true" : undefined}
+          >
+            <div className={styles.rdItemBadge} aria-hidden="true">
+              {g.ready ? (
+                <svg viewBox="0 0 16 16" width={14} height={14}>
+                  <path
+                    d="M3.5 8.5 L6.5 11.5 L12.5 5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <span>{i + 1}</span>
+              )}
+            </div>
+            <div className={styles.rdItemBody}>
+              <div className={styles.rdItemTitle}>{g.title}</div>
+              <div className={styles.rdItemDescription}>{g.description}</div>
+            </div>
+            {g.ready ? (
+              <span className={styles.rdItemDoneLabel}>Done</span>
+            ) : g.href ? (
+              <a href={g.href} className={styles.rdItemLink}>
+                Open →
+              </a>
+            ) : (
+              <span className={styles.rdItemDoneLabel}>—</span>
+            )}
+          </li>
+        ))}
+      </ol>
+
+      <div className={styles.rdReadinessFooter}>
         <CompleteRoleDescriptionButton
           gaps={buildInitialGaps(detail)}
           allReady={allReady}
         />
       </div>
-
-      <ul className={styles.rdChecklist}>
-        {gates.map((g) => (
-          <li key={g.key} className={styles.rdChecklistRow}>
-            <span
-              aria-hidden
-              className={
-                g.ready ? styles.rdCheckReady : styles.rdCheckMissing
-              }
-            >
-              {g.ready ? "✓" : "○"}
-            </span>
-            {g.href && !g.ready ? (
-              <a href={g.href} className={styles.rdChecklistLink}>
-                {g.label}
-              </a>
-            ) : (
-              <span
-                className={
-                  g.ready
-                    ? styles.rdChecklistLabelReady
-                    : styles.rdChecklistLabel
-                }
-              >
-                {g.label}
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }
@@ -147,4 +173,3 @@ function buildInitialGaps(detail: Detail): InitialGaps {
     competencies: { count: detail.competencies.length, needed: 3 },
   };
 }
-

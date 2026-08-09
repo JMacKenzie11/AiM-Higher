@@ -1423,109 +1423,169 @@
 
 /* Role Description readiness — sits at the top of the Function
    detail page when the company has the role_descriptions feature
-   on. Card layout with a summary strip and a 5-row checklist that
-   anchor-links to the page section where each gate lives. */
-.rdReadiness {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
+   on. Visual pattern mirrors the dashboard SetupChecklist card
+   (CardAccent decoration, boxed rows, numbered badges, Open →
+   anchor links per row) so first-time-setup surfaces feel like
+   the same gesture across the product. */
+.rdReadinessCard {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.rdReadinessHeader {
+.rdReadinessHeaderNew {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
 .rdReadinessTitle {
-  font: var(--text-h3);
+  font: var(--text-h2);
   color: var(--text-heading);
   margin: 0;
 }
 
-.rdReadinessProgress {
+.rdReadinessSubtitle {
   margin: var(--space-1) 0 0;
-  font-size: 13px;
+  font: var(--text-body-sm);
   color: var(--text-muted);
 }
 
-.rdReadinessReady {
-  margin: var(--space-1) 0 0;
+.rdProgressBadge {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt);
+  font: var(--text-caption);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.rdItemList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rdItem {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  transition: background var(--duration-fast, 120ms) var(--ease-out, ease-out),
+    border-color var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+
+.rdItem[data-done="true"] {
+  background: color-mix(in srgb, var(--aims-success-tint) 60%, var(--surface));
+  border-color: color-mix(in srgb, var(--aims-success) 25%, transparent);
+}
+
+.rdItemBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 700;
   font-size: 13px;
-  color: var(--aims-success, var(--primary));
+}
+
+.rdItem[data-done="true"] .rdItemBadge {
+  background: var(--aims-success);
+  color: var(--aims-white, #fff);
+}
+
+.rdItemBody {
+  min-width: 0;
+}
+
+.rdItemTitle {
+  font-family: var(--font-sans);
   font-weight: 600;
+  color: var(--text-heading);
+  font-size: 15px;
+}
+
+.rdItemDescription {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.rdItemLink {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.rdItemLink:hover {
+  background: var(--primary-hover);
+}
+
+.rdItemDoneLabel {
+  font: var(--text-caption);
+  color: var(--aims-success);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.rdReadinessFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-2);
 }
 
 .rdReadinessAction {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-4);
+  padding: 10px 20px;
   background: var(--primary);
   color: var(--on-primary);
   border: none;
   border-radius: var(--radius-pill);
   font-family: var(--font-sans);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.rdReadinessAction:hover:not(:disabled) {
+  background: var(--primary-hover);
 }
 
 .rdReadinessAction:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.rdChecklist {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.rdChecklistRow {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  font-size: 14px;
-}
-
-.rdCheckReady {
-  color: var(--aims-success, var(--primary));
-  font-weight: 700;
-  width: 14px;
-  display: inline-block;
-  text-align: center;
-}
-
-.rdCheckMissing {
-  color: var(--text-muted);
-  width: 14px;
-  display: inline-block;
-  text-align: center;
-}
-
-.rdChecklistLabel {
-  color: var(--text);
-}
-
-.rdChecklistLabelReady {
-  color: var(--text-muted);
-}
-
-.rdChecklistLink {
-  color: var(--primary);
-  text-decoration: none;
-}
-
-.rdChecklistLink:hover {
-  text-decoration: underline;
 }
 
 /* ---- Complete role description drawer ----
