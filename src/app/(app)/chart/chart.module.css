@@ -900,7 +900,10 @@
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: var(--space-3);
-  align-items: baseline;
+  /* center all cells vertically — baseline alignment misfires
+     when the description wraps (target hint flag) or one cell
+     has vertical padding (the value pill / edit button). */
+  align-items: center;
   padding: var(--space-3) 0;
   border-bottom: 1px dashed var(--border);
 }
