@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState, useTransition } from "react";
 import {
   archiveOutcomeAction,
+  renameOutcomeAction,
   updateOutcomeAction,
   type ChartResult,
 } from "@/lib/chart/actions";
@@ -44,7 +45,11 @@ export function SuccessMeasureCard({
         <div className={styles.detailOutcomeHeader}>
           <div>
             <p className={styles.outcomeLabel}>Success Measure</p>
-            <h3 className={styles.detailOutcomeTitle}>{outcome.title}</h3>
+            {canEdit ? (
+              <InlineTitleEditor outcome={outcome} />
+            ) : (
+              <h3 className={styles.detailOutcomeTitle}>{outcome.title}</h3>
+            )}
             {outcome.description ? (
               <p className={styles.subtitle}>{outcome.description}</p>
             ) : null}
@@ -55,8 +60,9 @@ export function SuccessMeasureCard({
                 type="button"
                 className={styles.roleGhostButton}
                 onClick={() => setEditing(true)}
+                title="Edit description and other details"
               >
-                Edit
+                Details
               </button>
               <ArchiveOutcomeButton outcomeId={outcome.id} />
             </div>
@@ -91,6 +97,90 @@ export function SuccessMeasureCard({
         />
       ) : null}
     </article>
+  );
+}
+
+function InlineTitleEditor({
+  outcome,
+}: {
+  outcome: SuccessMeasureCardOutcome;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(outcome.title);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(outcome.title);
+  }, [outcome.title]);
+
+  function commit() {
+    if (pending) return;
+    const next = draft.trim();
+    if (!next) {
+      cancel();
+      return;
+    }
+    if (next === outcome.title) {
+      setEditing(false);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await renameOutcomeAction(outcome.id, next);
+      if (!result.ok) {
+        setError(result.message);
+      } else {
+        setEditing(false);
+      }
+    });
+  }
+
+  function cancel() {
+    setDraft(outcome.title);
+    setEditing(false);
+    setError(null);
+  }
+
+  if (editing) {
+    return (
+      <>
+        <input
+          className={styles.outcomeTitleInput}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              cancel();
+            }
+          }}
+          autoFocus
+          disabled={pending}
+          aria-label="Edit success measure title"
+        />
+        {error ? (
+          <p role="alert" className={styles.roleError}>
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={styles.outcomeTitleEditable}
+      onClick={() => setEditing(true)}
+      title="Click to rename"
+    >
+      {outcome.title}
+    </button>
   );
 }
 

@@ -420,6 +420,34 @@ export async function updateOutcomeAction(
   return { ok: true, item: data };
 }
 
+// Lightweight inline rename for the outcome title. Mirrors
+// renameFunctionRoleAction — updates title only, leaves description
+// (the "why this matters" copy) intact. Used by the click-to-edit
+// affordance on the Success Measure card header. The full-form
+// updateOutcomeAction stays for the multi-field edit flow.
+export async function renameOutcomeAction(
+  outcomeId: string,
+  newTitle: string
+): Promise<ChartResult<FunctionOutcome>> {
+  await requireRole(["system_admin", "company_admin"]);
+  const title = newTitle.trim();
+  if (!outcomeId || !title) {
+    return { ok: false, message: "Title can't be empty." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("function_outcomes")
+    .update({ title })
+    .eq("id", outcomeId)
+    .select("*")
+    .single<FunctionOutcome>();
+  if (error || !data) return { ok: false, message: "Couldn't rename." };
+
+  revalidatePath("/chart");
+  return { ok: true, item: data };
+}
+
 export async function archiveOutcomeAction(
   outcomeId: string,
   archived: boolean

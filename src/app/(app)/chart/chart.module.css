@@ -840,6 +840,53 @@
   margin: 0;
 }
 
+/* Click-to-edit affordance for the outcome (Success Measure) title.
+   Keeps the h3 typography of .detailOutcomeTitle so the display and
+   edit states look identical in weight and size — the dashed hover
+   border is the only signal that it's clickable. Mirrors
+   .roleTitleEditable but at heading scale. */
+.outcomeTitleEditable {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 1px dashed transparent;
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+  color: inherit;
+  font: var(--text-h3);
+  color: var(--text-heading);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.outcomeTitleEditable:hover {
+  background: var(--aims-navy-tint);
+  border-color: var(--primary);
+}
+
+.outcomeTitleEditable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.outcomeTitleInput {
+  display: block;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+  background: var(--surface);
+  color: var(--text-heading);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font: var(--text-h3);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.outcomeTitleInput:focus {
+  outline: none;
+}
+
 .detailMeasureList {
   list-style: none;
   padding: 0;
