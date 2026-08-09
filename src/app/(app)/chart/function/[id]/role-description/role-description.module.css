@@ -100,6 +100,69 @@
   line-height: 1.5;
 }
 
+/* Cache toolbar at the top of the assembled document — shows when
+   it was last generated + admin-only Regenerate button. Hidden from
+   print. */
+.regenerateBar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  margin: 0 0 var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.regenerateMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.regenerateButtonWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.regenerateButton {
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.regenerateButton:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
+}
+
+.regenerateButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.regenerateError {
+  margin: 0;
+  font-size: 12px;
+  color: var(--aims-danger);
+}
+
+@media print {
+  .regenerateBar,
+  .generatingCard {
+    display: none;
+  }
+}
+
 .rdSection {
   padding: var(--space-5) 0;
   border-bottom: 1px solid var(--border);

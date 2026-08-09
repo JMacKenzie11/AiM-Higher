@@ -11,7 +11,13 @@ import {
   generateRoleDescription,
   type RdDocument,
 } from "@/lib/role-descriptions/generate";
+import {
+  getCachedRoleDescription,
+  isCacheStale,
+  saveRoleDescription,
+} from "@/lib/role-descriptions/cache";
 import { PageShell } from "@/components/ui/PageShell";
+import { RegenerateButton } from "./RegenerateButton";
 import styles from "./role-description.module.css";
 
 // Full AiMS Role Description for a function. Ten sections per the
@@ -39,6 +45,7 @@ type Detail = NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>;
 export default async function RoleDescriptionViewPage({ params }: PageProps) {
   const session = await requireProfile();
   const { id } = await params;
+  const currentUserId = session.profile.id;
 
   const detail = await getChartFunctionDetail(id);
   if (!detail) notFound();
@@ -115,14 +122,49 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
       ) : null}
 
       <Suspense fallback={<GeneratingSkeleton />}>
-        <AssembledDocument detail={detail} />
+        <AssembledDocument
+          detail={detail}
+          currentUserId={currentUserId}
+          canRegenerate={canViewAnytime}
+        />
       </Suspense>
     </PageShell>
   );
 }
 
-async function AssembledDocument({ detail }: { detail: Detail }) {
-  const doc = await generateRoleDescription(detail);
+async function AssembledDocument({
+  detail,
+  currentUserId,
+  canRegenerate,
+}: {
+  detail: Detail;
+  currentUserId: string;
+  canRegenerate: boolean;
+}) {
+  const cached = await getCachedRoleDescription(detail.fn.id);
+  let doc: RdDocument | null = null;
+  let generatedAtIso: string | null = null;
+
+  if (cached && !isCacheStale(cached, detail)) {
+    doc = cached.document;
+    generatedAtIso = cached.generatedAt;
+  } else {
+    doc = await generateRoleDescription(detail);
+    if (doc) {
+      await saveRoleDescription({
+        functionId: detail.fn.id,
+        generatedBy: currentUserId,
+        document: doc,
+      });
+      generatedAtIso = new Date().toISOString();
+    } else if (cached) {
+      // Generation failed but we have a stale cache — better to
+      // show something than nothing.
+      doc = cached.document;
+      generatedAtIso = cached.generatedAt;
+    }
+  }
+
   const responsibilities = detail.roles.filter((r) => !r.is_default);
   const enrichmentByOutcome = new Map<
     string,
@@ -143,6 +185,15 @@ async function AssembledDocument({ detail }: { detail: Detail }) {
 
   return (
     <>
+      {canRegenerate && generatedAtIso ? (
+        <div className={styles.regenerateBar}>
+          <span className={styles.regenerateMeta}>
+            Last generated {formatRelative(generatedAtIso)}
+          </span>
+          <RegenerateButton functionId={detail.fn.id} />
+        </div>
+      ) : null}
+
       {/* 2 · Position Summary — generated */}
       {doc?.positionSummary ? (
         <Section id="rd-summary" title="Position Summary">
@@ -308,6 +359,22 @@ function GeneratingSkeleton() {
       </div>
     </div>
   );
+}
+
+function formatRelative(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffMinutes = Math.max(0, Math.round((now - then) / 60000));
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 30) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function Section({
