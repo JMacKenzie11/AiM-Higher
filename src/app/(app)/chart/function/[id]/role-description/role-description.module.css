@@ -678,20 +678,46 @@
    Rights, and Competency Indicators. Title in the row's font
    weight, optional body (comma-separated sub-areas) trailing
    after a colon in muted text. */
+/* Numbered list with the same circular badge as
+   Core Success Outcomes. Each list gets its own counter scope,
+   so numbering restarts per group (e.g. per outcome's success
+   measures). */
 .rdSimpleList {
-  list-style: disc;
+  list-style: none;
   margin: 0;
-  padding-left: var(--space-5);
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   color: var(--text);
   font-size: 15px;
   line-height: 1.5;
+  counter-reset: rd-simple;
 }
 
 .rdSimpleItem {
-  padding-left: var(--space-1);
+  counter-increment: rd-simple;
+  position: relative;
+  padding-left: calc(var(--space-6) + 4px);
+  min-height: 28px;
+}
+
+.rdSimpleItem::before {
+  content: counter(rd-simple);
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
 }
 
 .rdSimpleTitle {

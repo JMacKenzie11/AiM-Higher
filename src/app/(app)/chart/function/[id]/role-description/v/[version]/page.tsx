@@ -175,7 +175,7 @@ export default async function RoleDescriptionVersionPage({
               o.measures.length > 0 ? (
                 <div key={o.id} className={styles.rdMeasureGroup}>
                   <p className={styles.rdMeasureGroupHeading}>{o.title}</p>
-                  <ul className={styles.rdSimpleList}>
+                  <ol className={styles.rdSimpleList}>
                     {o.measures.map((m) => (
                       <li key={m.id} className={styles.rdSimpleItem}>
                         <span className={styles.rdSimpleTitle}>
@@ -189,7 +189,7 @@ export default async function RoleDescriptionVersionPage({
                         ) : null}
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 </div>
               ) : null
             )}
@@ -199,7 +199,7 @@ export default async function RoleDescriptionVersionPage({
 
       {responsibilities.length > 0 ? (
         <Section id="rd-responsibilities" title="Key Responsibilities">
-          <ul className={styles.rdSimpleList}>
+          <ol className={styles.rdSimpleList}>
             {responsibilities.map((r) => {
               const context = enrichmentByResponsibility.get(r.title);
               return (
@@ -213,13 +213,13 @@ export default async function RoleDescriptionVersionPage({
                 </li>
               );
             })}
-          </ul>
+          </ol>
         </Section>
       ) : null}
 
       {detail.decisionRights.length > 0 ? (
         <Section id="rd-decisions" title="Decision Rights">
-          <ul className={styles.rdSimpleList}>
+          <ol className={styles.rdSimpleList}>
             {detail.decisionRights.map((d) => (
               <li key={d.id} className={styles.rdSimpleItem}>
                 <span className={styles.rdSimpleTitle}>{d.title}</span>
@@ -228,7 +228,7 @@ export default async function RoleDescriptionVersionPage({
                 ) : null}
               </li>
             ))}
-          </ul>
+          </ol>
         </Section>
       ) : null}
 
@@ -240,7 +240,7 @@ export default async function RoleDescriptionVersionPage({
 
       {detail.competencies.length > 0 ? (
         <Section id="rd-competencies" title="Competency Indicators">
-          <ul className={styles.rdSimpleList}>
+          <ol className={styles.rdSimpleList}>
             {detail.competencies.map((c) => (
               <li key={c.id} className={styles.rdSimpleItem}>
                 <span className={styles.rdSimpleTitle}>{c.title}</span>
@@ -249,7 +249,7 @@ export default async function RoleDescriptionVersionPage({
                 ) : null}
               </li>
             ))}
-          </ul>
+          </ol>
         </Section>
       ) : null}
 

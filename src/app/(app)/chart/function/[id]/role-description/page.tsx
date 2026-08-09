@@ -300,7 +300,7 @@ async function AssembledDocument({
               o.measures.length > 0 ? (
                 <div key={o.id} className={styles.rdMeasureGroup}>
                   <p className={styles.rdMeasureGroupHeading}>{o.title}</p>
-                  <ul className={styles.rdSimpleList}>
+                  <ol className={styles.rdSimpleList}>
                     {o.measures.map((m) => (
                       <li key={m.id} className={styles.rdSimpleItem}>
                         <span className={styles.rdSimpleTitle}>
@@ -314,7 +314,7 @@ async function AssembledDocument({
                         ) : null}
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 </div>
               ) : null
             )}
@@ -328,7 +328,7 @@ async function AssembledDocument({
           on the inline R&R list on the chart page. */}
       {responsibilities.length > 0 ? (
         <Section id="rd-responsibilities" title="Key Responsibilities">
-          <ul className={styles.rdSimpleList}>
+          <ol className={styles.rdSimpleList}>
             {responsibilities.map((r) => {
               const context = enrichmentByResponsibility.get(r.title);
               return (
@@ -342,14 +342,14 @@ async function AssembledDocument({
                 </li>
               );
             })}
-          </ul>
+          </ol>
         </Section>
       ) : null}
 
       {/* 6 · Decision Rights — from chart */}
       {detail.decisionRights.length > 0 ? (
         <Section id="rd-decisions" title="Decision Rights">
-          <ul className={styles.rdSimpleList}>
+          <ol className={styles.rdSimpleList}>
             {detail.decisionRights.map((d) => (
               <li key={d.id} className={styles.rdSimpleItem}>
                 <span className={styles.rdSimpleTitle}>{d.title}</span>
@@ -358,7 +358,7 @@ async function AssembledDocument({
                 ) : null}
               </li>
             ))}
-          </ul>
+          </ol>
         </Section>
       ) : null}
 
@@ -373,7 +373,7 @@ async function AssembledDocument({
       {/* 8 · Competency Indicators — from chart */}
       {detail.competencies.length > 0 ? (
         <Section id="rd-competencies" title="Competency Indicators">
-          <ul className={styles.rdSimpleList}>
+          <ol className={styles.rdSimpleList}>
             {detail.competencies.map((c) => (
               <li key={c.id} className={styles.rdSimpleItem}>
                 <span className={styles.rdSimpleTitle}>{c.title}</span>
@@ -382,7 +382,7 @@ async function AssembledDocument({
                 ) : null}
               </li>
             ))}
-          </ul>
+          </ol>
         </Section>
       ) : null}
 
