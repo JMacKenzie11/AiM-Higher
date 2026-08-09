@@ -37,10 +37,11 @@
 }
 
 .previewBanner {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--aims-cobalt-tint);
+  border: 1px solid color-mix(in srgb, var(--aims-cobalt) 20%, transparent);
   color: var(--text-heading);
   font-size: 13px;
   font-weight: 600;
@@ -102,15 +103,19 @@
 
 /* Cache toolbar at the top of the assembled document — shows when
    it was last generated + admin-only Regenerate button. Hidden from
-   print. */
+   print. Card-styled so it doesn't float on the page backdrop. */
 .regenerateBar {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) 0;
-  margin: 0 0 var(--space-2);
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  flex-wrap: wrap;
 }
 
 .regenerateMeta {
@@ -473,13 +478,22 @@
   }
 }
 
+/* Each generated section renders as its own card — same visual
+   shape as the SetupChecklist / cards used elsewhere in the app.
+   PageShell's content column gives the vertical rhythm; individual
+   sections keep their border/shadow so they read as separate
+   surfaces on the beige backdrop. */
 .rdSection {
-  padding: var(--space-5) 0;
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-4);
 }
 
 .rdSection:last-of-type {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .rdSectionTitle {

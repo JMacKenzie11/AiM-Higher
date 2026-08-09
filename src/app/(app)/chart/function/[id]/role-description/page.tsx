@@ -9,10 +9,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { computeReadiness } from "@/lib/role-descriptions/readiness";
 import {
   generateRoleDescription,
-  isOutcomeOverridden,
-  isQualificationOverridden,
-  isResponsibilityOverridden,
-  isStrengthOverridden,
   mergeRoleDescription,
   type RdDocument,
   type RdUserOverrides,
@@ -24,7 +20,6 @@ import {
 } from "@/lib/role-descriptions/cache";
 import { listPublishedVersions } from "@/lib/role-descriptions/versions";
 import { PageShell } from "@/components/ui/PageShell";
-import { EditableLine, type PatchSpec } from "./EditableLine";
 import { EditableProseSection } from "./EditableProseSection";
 import { PublishButton } from "./PublishButton";
 import { RegenerateButton } from "./RegenerateButton";
@@ -286,44 +281,10 @@ async function AssembledDocument({
                 <li key={o.id} className={styles.rdOutcomeItem}>
                   <h3 className={styles.rdOutcomeTitle}>{o.title}</h3>
                   {whyText ? (
-                    <div className={styles.rdOutcomeWhy}>
-                      <EditableLine
-                        functionId={detail.fn.id}
-                        text={whyText}
-                        isOverridden={isOutcomeOverridden(
-                          overrides,
-                          o.title,
-                          "whyItMatters"
-                        )}
-                        canEdit={canRegenerate}
-                        labelKind="why this outcome matters"
-                        spec={{
-                          kind: "outcomeEnrichment",
-                          matchTitle: o.title,
-                          field: "whyItMatters",
-                        }}
-                      />
-                    </div>
+                    <p className={styles.rdOutcomeWhy}>{whyText}</p>
                   ) : null}
-                  {(valuesText || canRegenerate) ? (
-                    <div className={styles.rdOutcomeValues}>
-                      <EditableLine
-                        functionId={detail.fn.id}
-                        text={valuesText || "(No connection to values yet)"}
-                        isOverridden={isOutcomeOverridden(
-                          overrides,
-                          o.title,
-                          "valuesConnection"
-                        )}
-                        canEdit={canRegenerate}
-                        labelKind="values connection"
-                        spec={{
-                          kind: "outcomeEnrichment",
-                          matchTitle: o.title,
-                          field: "valuesConnection",
-                        }}
-                      />
-                    </div>
+                  {valuesText ? (
+                    <p className={styles.rdOutcomeValues}>{valuesText}</p>
                   ) : null}
                 </li>
               );
@@ -362,35 +323,20 @@ async function AssembledDocument({
         </Section>
       ) : null}
 
-      {/* 5 · Key Responsibilities — from chart + editable enrichment.
-          Sub-areas body (comma-separated list) is deliberately not
-          shown here — it lives on the inline R&R list on the
-          chart page where it's a working reference. */}
+      {/* 5 · Key Responsibilities — from chart + generated strategic
+          context (read-only; edit the underlying R&R on the chart
+          page instead). Sub-areas body isn't shown here; it lives
+          on the inline R&R list on the chart page. */}
       {responsibilities.length > 0 ? (
         <Section id="rd-responsibilities" title="Key Responsibilities">
           <ul className={styles.rdSimpleList}>
             {responsibilities.map((r) => {
-              const context = enrichmentByResponsibility.get(r.title) ?? "";
+              const context = enrichmentByResponsibility.get(r.title);
               return (
                 <li key={r.id} className={styles.rdSimpleItem}>
                   <span className={styles.rdSimpleTitle}>{r.title}</span>
-                  {context || canRegenerate ? (
-                    <div className={styles.rdResponsibilityContext}>
-                      <EditableLine
-                        functionId={detail.fn.id}
-                        text={context || "(No strategic context yet)"}
-                        isOverridden={isResponsibilityOverridden(
-                          overrides,
-                          r.title
-                        )}
-                        canEdit={canRegenerate}
-                        labelKind="strategic context"
-                        spec={{
-                          kind: "responsibilityEnrichment",
-                          matchTitle: r.title,
-                        }}
-                      />
-                    </div>
+                  {context ? (
+                    <p className={styles.rdResponsibilityContext}>{context}</p>
                   ) : null}
                 </li>
               );
@@ -415,15 +361,11 @@ async function AssembledDocument({
         </Section>
       ) : null}
 
-      {/* 7 · Strengths & Expertise — generated + editable */}
-      {doc && (hasStrengths(doc) || canRegenerate) ? (
+      {/* 7 · Strengths & Expertise — generated (read-only; regenerate
+          to refresh, no per-bullet editing). */}
+      {doc && hasStrengths(doc) ? (
         <Section id="rd-strengths" title="Strengths & Expertise">
-          <StrengthsBlock
-            doc={doc}
-            functionId={detail.fn.id}
-            overrides={overrides}
-            canEdit={canRegenerate}
-          />
+          <StrengthsBlock doc={doc} />
         </Section>
       ) : null}
 
@@ -443,15 +385,10 @@ async function AssembledDocument({
         </Section>
       ) : null}
 
-      {/* 9 · Qualifications — generated + editable */}
-      {doc && (hasQualifications(doc) || canRegenerate) ? (
+      {/* 9 · Qualifications — generated (read-only). */}
+      {doc && hasQualifications(doc) ? (
         <Section id="rd-qualifications" title="Qualifications">
-          <QualificationsBlock
-            doc={doc}
-            functionId={detail.fn.id}
-            overrides={overrides}
-            canEdit={canRegenerate}
-          />
+          <QualificationsBlock doc={doc} />
         </Section>
       ) : null}
 
@@ -554,52 +491,22 @@ function hasStrengths(doc: RdDocument): boolean {
   );
 }
 
-function StrengthsBlock({
-  doc,
-  functionId,
-  overrides,
-  canEdit,
-}: {
-  doc: RdDocument;
-  functionId: string;
-  overrides: RdUserOverrides | null;
-  canEdit: boolean;
-}) {
+function StrengthsBlock({ doc }: { doc: RdDocument }) {
   const s = doc.strengthsAndExpertise;
   return (
     <div className={styles.rdSubBlockGrid}>
-      <EditableListSubBlock
-        functionId={functionId}
-        label="Technical"
-        field="technical"
-        items={s.technical}
-        isOverridden={isStrengthOverridden(overrides, "technical")}
-        canEdit={canEdit}
-      />
-      <EditableListSubBlock
-        functionId={functionId}
-        label="Strategic"
-        field="strategic"
-        items={s.strategic}
-        isOverridden={isStrengthOverridden(overrides, "strategic")}
-        canEdit={canEdit}
-      />
-      <EditableListSubBlock
-        functionId={functionId}
-        label="Interpersonal"
-        field="interpersonal"
-        items={s.interpersonal}
-        isOverridden={isStrengthOverridden(overrides, "interpersonal")}
-        canEdit={canEdit}
-      />
-      <EditableStringSubBlock
-        functionId={functionId}
-        label="Ownership"
-        text={s.accountability}
-        isOverridden={isStrengthOverridden(overrides, "accountability")}
-        canEdit={canEdit}
-        spec={{ kind: "strengthAccountability" }}
-      />
+      {s.technical.length > 0 ? (
+        <SubBlock label="Technical" items={s.technical} />
+      ) : null}
+      {s.strategic.length > 0 ? (
+        <SubBlock label="Strategic" items={s.strategic} />
+      ) : null}
+      {s.interpersonal.length > 0 ? (
+        <SubBlock label="Interpersonal" items={s.interpersonal} />
+      ) : null}
+      {s.accountability ? (
+        <SubBlock label="Ownership" items={[s.accountability]} />
+      ) : null}
     </div>
   );
 }
@@ -609,127 +516,35 @@ function hasQualifications(doc: RdDocument): boolean {
   return !!(q.experience || q.education || q.certifications);
 }
 
-function QualificationsBlock({
-  doc,
-  functionId,
-  overrides,
-  canEdit,
-}: {
-  doc: RdDocument;
-  functionId: string;
-  overrides: RdUserOverrides | null;
-  canEdit: boolean;
-}) {
+function QualificationsBlock({ doc }: { doc: RdDocument }) {
   const q = doc.qualifications;
   return (
     <div className={styles.rdSubBlockGrid}>
-      <EditableStringSubBlock
-        functionId={functionId}
-        label="Experience"
-        text={q.experience}
-        isOverridden={isQualificationOverridden(overrides, "experience")}
-        canEdit={canEdit}
-        spec={{ kind: "qualification", field: "experience" }}
-      />
-      <EditableStringSubBlock
-        functionId={functionId}
-        label="Education"
-        text={q.education}
-        isOverridden={isQualificationOverridden(overrides, "education")}
-        canEdit={canEdit}
-        spec={{ kind: "qualification", field: "education" }}
-      />
-      <EditableStringSubBlock
-        functionId={functionId}
-        label="Certifications"
-        text={q.certifications}
-        isOverridden={isQualificationOverridden(overrides, "certifications")}
-        canEdit={canEdit}
-        spec={{ kind: "qualification", field: "certifications" }}
-      />
-    </div>
-  );
-}
-
-// Sub-block for a strengths list (technical / strategic /
-// interpersonal). Renders items as a bulleted list; editor takes
-// newline-separated text and stores as string[].
-function EditableListSubBlock({
-  functionId,
-  label,
-  field,
-  items,
-  isOverridden,
-  canEdit,
-}: {
-  functionId: string;
-  label: string;
-  field: "technical" | "strategic" | "interpersonal";
-  items: string[];
-  isOverridden: boolean;
-  canEdit: boolean;
-}) {
-  const displayText = items.length > 0 ? items.join("\n") : "";
-  if (items.length === 0 && !canEdit) return null;
-  return (
-    <div className={styles.rdSubBlock}>
-      <p className={styles.rdSubBlockLabel}>{label}</p>
-      {items.length > 0 ? (
-        <ul className={styles.rdSubBlockList}>
-          {items.map((item, i) => (
-            <li key={i}>{item}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className={styles.rdSubBlockBody}>&nbsp;</p>
-      )}
-      {canEdit ? (
-        <EditableLine
-          functionId={functionId}
-          text={displayText || "(No items yet)"}
-          isOverridden={isOverridden}
-          canEdit
-          kind="lines"
-          labelKind={label.toLowerCase()}
-          spec={{ kind: "strengthList", field }}
-        />
+      {q.experience ? (
+        <SubBlock label="Experience" items={[q.experience]} />
+      ) : null}
+      {q.education ? (
+        <SubBlock label="Education" items={[q.education]} />
+      ) : null}
+      {q.certifications ? (
+        <SubBlock label="Certifications" items={[q.certifications]} />
       ) : null}
     </div>
   );
 }
 
-// Sub-block for a single-line strength / qualification field
-// (accountability, experience, education, certifications).
-function EditableStringSubBlock({
-  functionId,
-  label,
-  text,
-  isOverridden,
-  canEdit,
-  spec,
-}: {
-  functionId: string;
-  label: string;
-  text: string;
-  isOverridden: boolean;
-  canEdit: boolean;
-  spec: PatchSpec;
-}) {
-  if (!text && !canEdit) return null;
+function SubBlock({ label, items }: { label: string; items: string[] }) {
   return (
     <div className={styles.rdSubBlock}>
       <p className={styles.rdSubBlockLabel}>{label}</p>
-      {canEdit ? (
-        <EditableLine
-          functionId={functionId}
-          text={text || `(No ${label.toLowerCase()} yet)`}
-          isOverridden={isOverridden}
-          canEdit
-          labelKind={label.toLowerCase()}
-          spec={spec}
-        />
+      {items.length === 1 ? (
+        <p className={styles.rdSubBlockBody}>{items[0]}</p>
       ) : (
-        <p className={styles.rdSubBlockBody}>{text}</p>
+        <ul className={styles.rdSubBlockList}>
+          {items.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
       )}
     </div>
   );
