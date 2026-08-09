@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { computeReadiness } from "@/lib/role-descriptions/readiness";
 import {
   generateRoleDescription,
+  isQualificationOverridden,
   mergeRoleDescription,
   type RdDocument,
   type RdUserOverrides,
@@ -21,6 +22,7 @@ import {
 import { listPublishedVersions } from "@/lib/role-descriptions/versions";
 import { PageShell } from "@/components/ui/PageShell";
 import { EditableProseSection } from "./EditableProseSection";
+import { EditableQualification } from "./EditableQualification";
 import { RichText } from "./RichText";
 import { PublishButton } from "./PublishButton";
 import { RegenerateButton } from "./RegenerateButton";
@@ -386,10 +388,20 @@ async function AssembledDocument({
         </Section>
       ) : null}
 
-      {/* 9 · Qualifications — generated (read-only). */}
+      {/* 9 · Qualifications — generated, editable per-field for
+          admins. Free-form prose that has no source elsewhere, so
+          edits get their own persistence path via user overrides
+          (survives regeneration; Restore generated flips back to
+          the AI version). */}
       {doc && hasQualifications(doc) ? (
         <Section id="rd-qualifications" title="Qualifications">
-          <QualificationsBlock doc={doc} coreValues={coreValues} />
+          <QualificationsBlock
+            doc={doc}
+            coreValues={coreValues}
+            functionId={detail.fn.id}
+            overrides={overrides}
+            canEdit={canRegenerate}
+          />
         </Section>
       ) : null}
 
@@ -511,22 +523,92 @@ function hasQualifications(doc: RdDocument): boolean {
 function QualificationsBlock({
   doc,
   coreValues,
+  functionId,
+  overrides,
+  canEdit,
 }: {
   doc: RdDocument;
   coreValues: readonly string[];
+  functionId: string;
+  overrides: RdUserOverrides | null;
+  canEdit: boolean;
 }) {
   const q = doc.qualifications;
   return (
     <div className={styles.rdSubBlockGrid}>
-      {q.experience ? (
-        <SubBlock label="Experience" items={[q.experience]} coreValues={coreValues} />
+      {q.experience || canEdit ? (
+        <QualificationSubBlock
+          label="Experience"
+          field="experience"
+          text={q.experience}
+          coreValues={coreValues}
+          functionId={functionId}
+          isOverridden={isQualificationOverridden(overrides, "experience")}
+          canEdit={canEdit}
+        />
       ) : null}
-      {q.education ? (
-        <SubBlock label="Education" items={[q.education]} coreValues={coreValues} />
+      {q.education || canEdit ? (
+        <QualificationSubBlock
+          label="Education"
+          field="education"
+          text={q.education}
+          coreValues={coreValues}
+          functionId={functionId}
+          isOverridden={isQualificationOverridden(overrides, "education")}
+          canEdit={canEdit}
+        />
       ) : null}
-      {q.certifications ? (
-        <SubBlock label="Certifications" items={[q.certifications]} coreValues={coreValues} />
+      {q.certifications || canEdit ? (
+        <QualificationSubBlock
+          label="Certifications"
+          field="certifications"
+          text={q.certifications}
+          coreValues={coreValues}
+          functionId={functionId}
+          isOverridden={isQualificationOverridden(overrides, "certifications")}
+          canEdit={canEdit}
+        />
       ) : null}
+    </div>
+  );
+}
+
+// One sub-block inside Qualifications — label at top, then either
+// the read-only bolded prose (non-admins) or the editable
+// EditableQualification field (admins).
+function QualificationSubBlock({
+  label,
+  field,
+  text,
+  coreValues,
+  functionId,
+  isOverridden,
+  canEdit,
+}: {
+  label: string;
+  field: "experience" | "education" | "certifications";
+  text: string;
+  coreValues: readonly string[];
+  functionId: string;
+  isOverridden: boolean;
+  canEdit: boolean;
+}) {
+  return (
+    <div className={styles.rdSubBlock}>
+      <p className={styles.rdSubBlockLabel}>{label}</p>
+      {canEdit ? (
+        <EditableQualification
+          functionId={functionId}
+          field={field}
+          text={text || `(No ${label.toLowerCase()} yet)`}
+          isOverridden={isOverridden}
+          canEdit
+        />
+      ) : (
+        <p className={styles.rdSubBlockBody}>
+          <RichText text={text} bold={coreValues} />
+        </p>
+      )}
     </div>
   );
 }
