@@ -94,10 +94,6 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         ) : undefined
       }
     >
-        {rdEnabled ? (
-          <RoleDescriptionReadiness detail={detail} canEdit={isAdmin} />
-        ) : null}
-
         <section className={styles.sectionCard} aria-labelledby="seat">
           <span className={styles.fnSeatLabel} id="seat">
             In the seat
@@ -212,6 +208,10 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
               ))}
             </ul>
           </section>
+        ) : null}
+
+        {rdEnabled ? (
+          <RoleDescriptionReadiness detail={detail} canEdit={isAdmin} />
         ) : null}
 
         {isAdmin ? (
