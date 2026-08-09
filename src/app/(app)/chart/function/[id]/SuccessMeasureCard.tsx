@@ -28,15 +28,11 @@ export function SuccessMeasureCard({
   outcome,
   functionId,
   canEdit,
-  canLog,
-  weekEnding,
   rdEnabled,
 }: {
   outcome: SuccessMeasureCardOutcome;
   functionId: string;
   canEdit: boolean;
-  canLog: boolean;
-  weekEnding: string;
   rdEnabled: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -80,10 +76,7 @@ export function SuccessMeasureCard({
             <MetricRow
               key={m.id}
               measure={m}
-              entries={m.entries}
               canEdit={canEdit}
-              canLog={canLog}
-              weekEnding={weekEnding}
               outcomeTitle={outcome.title}
               outcomeDescription={outcome.description}
             />

@@ -898,18 +898,18 @@
 
 .detailMeasureRow {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   gap: var(--space-3);
   /* center all cells vertically — baseline alignment misfires
-     when the description wraps (target hint flag) or one cell
-     has vertical padding (the value pill / edit button). */
+     when the description wraps (target hint flag) or a cell has
+     vertical padding (the edit button). */
   align-items: center;
   padding: var(--space-3) 0;
   border-bottom: 1px dashed var(--border);
 }
 
 .detailMeasureRowEditable {
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto;
 }
 
 .detailMeasureActions {
