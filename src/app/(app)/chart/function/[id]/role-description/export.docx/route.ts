@@ -10,7 +10,10 @@ import {
   isCacheStale,
   saveRoleDescription,
 } from "@/lib/role-descriptions/cache";
-import { generateRoleDescription } from "@/lib/role-descriptions/generate";
+import {
+  generateRoleDescription,
+  mergeRoleDescription,
+} from "@/lib/role-descriptions/generate";
 import { buildRoleDescriptionDocx } from "@/lib/role-descriptions/docx";
 
 // GET /chart/function/[id]/role-description/export.docx
@@ -64,22 +67,27 @@ export async function GET(
     .maybeSingle<{ name: string }>();
 
   const cached = await getCachedRoleDescription(detail.fn.id);
-  let doc = null;
+  let rawDoc = null;
+  let overrides = null;
   if (cached && !isCacheStale(cached, detail)) {
-    doc = cached.document;
+    rawDoc = cached.document;
+    overrides = cached.overrides;
   } else {
-    doc = await generateRoleDescription(detail);
-    if (doc) {
+    rawDoc = await generateRoleDescription(detail);
+    if (rawDoc) {
       await saveRoleDescription({
         functionId: detail.fn.id,
         generatedBy: session.profile.id,
-        document: doc,
+        document: rawDoc,
       });
+      overrides = cached?.overrides ?? null;
     } else if (cached) {
-      doc = cached.document;
+      rawDoc = cached.document;
+      overrides = cached.overrides;
     }
   }
 
+  const doc = mergeRoleDescription(rawDoc, overrides);
   const buffer = await buildRoleDescriptionDocx({
     detail,
     companyName: company?.name ?? null,

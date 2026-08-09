@@ -9,7 +9,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { computeReadiness } from "@/lib/role-descriptions/readiness";
 import {
   generateRoleDescription,
+  mergeRoleDescription,
   type RdDocument,
+  type RdUserOverrides,
 } from "@/lib/role-descriptions/generate";
 import {
   getCachedRoleDescription,
@@ -17,6 +19,7 @@ import {
   saveRoleDescription,
 } from "@/lib/role-descriptions/cache";
 import { PageShell } from "@/components/ui/PageShell";
+import { EditableProseSection } from "./EditableProseSection";
 import { RegenerateButton } from "./RegenerateButton";
 import styles from "./role-description.module.css";
 
@@ -142,28 +145,39 @@ async function AssembledDocument({
   canRegenerate: boolean;
 }) {
   const cached = await getCachedRoleDescription(detail.fn.id);
-  let doc: RdDocument | null = null;
+  let rawDoc: RdDocument | null = null;
+  let overrides: RdUserOverrides | null = null;
   let generatedAtIso: string | null = null;
 
   if (cached && !isCacheStale(cached, detail)) {
-    doc = cached.document;
+    rawDoc = cached.document;
+    overrides = cached.overrides;
     generatedAtIso = cached.generatedAt;
   } else {
-    doc = await generateRoleDescription(detail);
-    if (doc) {
+    rawDoc = await generateRoleDescription(detail);
+    if (rawDoc) {
       await saveRoleDescription({
         functionId: detail.fn.id,
         generatedBy: currentUserId,
-        document: doc,
+        document: rawDoc,
       });
+      overrides = cached?.overrides ?? null;
       generatedAtIso = new Date().toISOString();
     } else if (cached) {
       // Generation failed but we have a stale cache — better to
       // show something than nothing.
-      doc = cached.document;
+      rawDoc = cached.document;
+      overrides = cached.overrides;
       generatedAtIso = cached.generatedAt;
     }
   }
+
+  const doc = mergeRoleDescription(rawDoc, overrides);
+  const isPositionSummaryEdited =
+    !!overrides?.positionSummary && overrides.positionSummary.trim().length > 0;
+  const isWhyEdited =
+    !!overrides?.whyThisRoleMatters &&
+    overrides.whyThisRoleMatters.trim().length > 0;
 
   const responsibilities = detail.roles.filter((r) => !r.is_default);
   const enrichmentByOutcome = new Map<
@@ -203,10 +217,16 @@ async function AssembledDocument({
         </div>
       ) : null}
 
-      {/* 2 · Position Summary — generated */}
+      {/* 2 · Position Summary — generated, editable */}
       {doc?.positionSummary ? (
         <Section id="rd-summary" title="Position Summary">
-          <Paragraphs text={doc.positionSummary} />
+          <EditableProseSection
+            functionId={detail.fn.id}
+            field="positionSummary"
+            text={doc.positionSummary}
+            isOverridden={isPositionSummaryEdited}
+            canEdit={canRegenerate}
+          />
         </Section>
       ) : null}
 
@@ -338,10 +358,16 @@ async function AssembledDocument({
         </Section>
       ) : null}
 
-      {/* 10 · Why This Role Matters — generated */}
+      {/* 10 · Why This Role Matters — generated, editable */}
       {doc?.whyThisRoleMatters ? (
         <Section id="rd-why" title="Why This Role Matters">
-          <Paragraphs text={doc.whyThisRoleMatters} />
+          <EditableProseSection
+            functionId={detail.fn.id}
+            field="whyThisRoleMatters"
+            text={doc.whyThisRoleMatters}
+            isOverridden={isWhyEdited}
+            canEdit={canRegenerate}
+          />
         </Section>
       ) : null}
     </>

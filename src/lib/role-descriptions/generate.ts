@@ -48,6 +48,39 @@ export type RdDocument = {
   whyThisRoleMatters: string;
 };
 
+// Partial RdDocument shape for user-edited overrides. Stored as a
+// jsonb column on role_description_documents; merged over the
+// generated `document` at render time. v1 only accepts the two
+// prose-heavy sections — expanding to structured fields later
+// doesn't need a schema change.
+export type RdUserOverrides = {
+  positionSummary?: string;
+  whyThisRoleMatters?: string;
+};
+
+// Layer user overrides over the generated document. Non-empty
+// override values win; empty strings and missing fields fall back
+// to the model output.
+export function mergeRoleDescription(
+  doc: RdDocument | null,
+  overrides: RdUserOverrides | null
+): RdDocument | null {
+  if (!doc) return null;
+  if (!overrides) return doc;
+  return {
+    ...doc,
+    positionSummary:
+      overrides.positionSummary && overrides.positionSummary.trim().length > 0
+        ? overrides.positionSummary
+        : doc.positionSummary,
+    whyThisRoleMatters:
+      overrides.whyThisRoleMatters &&
+      overrides.whyThisRoleMatters.trim().length > 0
+        ? overrides.whyThisRoleMatters
+        : doc.whyThisRoleMatters,
+  };
+}
+
 type Detail = NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>;
 
 let cachedSystemPrompt: string | null = null;

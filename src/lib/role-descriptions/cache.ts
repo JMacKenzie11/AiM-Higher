@@ -2,22 +2,27 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { getChartFunctionDetail } from "@/lib/chart/service";
-import type { RdDocument } from "./generate";
+import type { RdDocument, RdUserOverrides } from "./generate";
 
 // Persistent cache for the assembled Role Description.
 //
-// Storing generated JSON in role_description_documents lets the
-// view page skip the multi-second Sonnet call on subsequent visits
-// while nothing has changed. Staleness is checked automatically —
-// if any of the function's chart entities (or the function row
-// itself) has an updated_at newer than the cached generated_at,
-// the next visit regenerates. Admins can also force a regenerate
-// via regenerateRoleDescriptionAction.
+// Two payloads per row:
+//   document        — the raw generated RdDocument JSON from the
+//                     last Sonnet call. Overwritten on regenerate.
+//   user_overrides  — sparse RdUserOverrides jsonb. Written when
+//                     an admin edits Position Summary or Why This
+//                     Role Matters. Left ALONE on regenerate so
+//                     user edits survive fresh generations.
+//
+// Staleness is checked automatically against the function's chart
+// entities' updated_at. Admins can also force a regenerate via
+// regenerateRoleDescriptionAction.
 
 type Detail = NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>;
 
 export type CachedRoleDescription = {
   document: RdDocument;
+  overrides: RdUserOverrides | null;
   generatedAt: string;
   generatedBy: string | null;
 };
@@ -28,21 +33,27 @@ export async function getCachedRoleDescription(
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("role_description_documents")
-    .select("document, generated_at, generated_by")
+    .select("document, user_overrides, generated_at, generated_by")
     .eq("function_id", functionId)
     .maybeSingle<{
       document: RdDocument;
+      user_overrides: RdUserOverrides | null;
       generated_at: string;
       generated_by: string | null;
     }>();
   if (!data) return null;
   return {
     document: data.document,
+    overrides: data.user_overrides,
     generatedAt: data.generated_at,
     generatedBy: data.generated_by,
   };
 }
 
+// Upsert the generated document. Deliberately does NOT touch
+// user_overrides — Postgres' upsert with a subset of columns
+// preserves the existing user_overrides row content when the
+// row already exists.
 export async function saveRoleDescription(input: {
   functionId: string;
   generatedBy: string | null;
@@ -60,6 +71,36 @@ export async function saveRoleDescription(input: {
       },
       { onConflict: "function_id" }
     );
+}
+
+// Write (or clear) a single user override field. Merges into the
+// existing user_overrides jsonb so other fields survive.
+export async function setUserOverride(input: {
+  functionId: string;
+  field: keyof RdUserOverrides;
+  value: string | null;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("role_description_documents")
+    .select("user_overrides")
+    .eq("function_id", input.functionId)
+    .maybeSingle<{ user_overrides: RdUserOverrides | null }>();
+
+  const current = data?.user_overrides ?? {};
+  const next: RdUserOverrides = { ...current };
+  if (input.value === null || input.value.trim().length === 0) {
+    delete next[input.field];
+  } else {
+    next[input.field] = input.value;
+  }
+
+  const { error } = await supabase
+    .from("role_description_documents")
+    .update({ user_overrides: Object.keys(next).length === 0 ? null : next })
+    .eq("function_id", input.functionId);
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
 }
 
 export async function deleteRoleDescriptionCache(

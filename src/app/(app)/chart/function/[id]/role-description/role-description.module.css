@@ -173,6 +173,106 @@
   color: var(--aims-danger);
 }
 
+/* Inline prose editor for Position Summary + Why This Role Matters.
+   Sits inside the section — display mode shows the merged text with
+   Edit / Restore affordances underneath; edit mode swaps in a
+   textarea + Save/Cancel. */
+.editableWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.editableTextarea {
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  line-height: 1.55;
+  resize: vertical;
+  min-height: 120px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.editableTextarea:focus {
+  outline: none;
+}
+
+.editableActions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.editablePrimary {
+  padding: 6px 14px;
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.editablePrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editableGhost {
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.editableGhost:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+}
+
+.editableGhost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editableMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-1);
+}
+
+.editableEditedLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.editableError {
+  margin: 0;
+  font-size: 12px;
+  color: var(--aims-danger);
+}
+
+@media print {
+  .editableMeta,
+  .editableActions {
+    display: none;
+  }
+}
+
 @media print {
   .regenerateBar,
   .generatingCard {
