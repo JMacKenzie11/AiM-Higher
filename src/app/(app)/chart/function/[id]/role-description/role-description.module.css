@@ -141,6 +141,23 @@
   white-space: nowrap;
 }
 
+.downloadButton {
+  padding: 6px 14px;
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.downloadButton:hover {
+  background: var(--primary-hover);
+}
+
 .regenerateButton:hover:not(:disabled) {
   background: var(--aims-cobalt-tint);
 }

@@ -185,12 +185,21 @@ async function AssembledDocument({
 
   return (
     <>
-      {canRegenerate && generatedAtIso ? (
+      {generatedAtIso ? (
         <div className={styles.regenerateBar}>
           <span className={styles.regenerateMeta}>
             Last generated {formatRelative(generatedAtIso)}
           </span>
-          <RegenerateButton functionId={detail.fn.id} />
+          <a
+            href={`/chart/function/${detail.fn.id}/role-description/export.docx`}
+            className={styles.downloadButton}
+            download
+          >
+            Download .docx
+          </a>
+          {canRegenerate ? (
+            <RegenerateButton functionId={detail.fn.id} />
+          ) : null}
         </div>
       ) : null}
 
