@@ -37,6 +37,11 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
     label: "Classroom",
     hint: "Adds a shared training library — lessons, videos, and downloadable resources authored centrally by AiMS. Aimee can also recommend a training in conversation.",
   },
+  {
+    value: "role_descriptions",
+    label: "Role Descriptions",
+    hint: "Guides users through a one-question-at-a-time interview on each Function to fill in outcomes, success measures, decision rights, and competency indicators, then renders a publishable AiMS role description.",
+  },
 ];
 
 export const VALID_COMPANY_FEATURES = new Set(

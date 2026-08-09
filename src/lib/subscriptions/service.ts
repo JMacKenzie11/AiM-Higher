@@ -28,7 +28,13 @@ export type ModuleFeature =
   // system admins. Aimee also gets a search_classroom tool so she can
   // recommend a training in conversation. Content is shared across
   // every flag-enabled company — there is no per-company copy.
-  | "classroom";
+  | "classroom"
+  // Opt-in AiMS role-description generator. When on, /chart/function/[id]
+  // exposes a "Complete this function" interview that walks any gaps
+  // in the Function's outcomes / measures / decision rights /
+  // competency indicators, then renders a publishable role
+  // description with draft + version history.
+  | "role_descriptions";
 
 export async function getCompanyFeatures(
   companyId: string
