@@ -225,13 +225,9 @@ function DraftRoleRow({ functionId }: { functionId: string }) {
         disabled={pending}
         aria-label="New responsibility"
       />
-      <button
-        type="submit"
-        className={styles.rolePrimaryButton}
-        disabled={pending || !title.trim()}
-      >
-        {pending ? "Adding…" : "Add"}
-      </button>
+      {pending ? (
+        <span className={styles.roleSavingHint}>Saving…</span>
+      ) : null}
       {errorMessage ? (
         <p role="alert" className={styles.roleError}>
           {errorMessage}

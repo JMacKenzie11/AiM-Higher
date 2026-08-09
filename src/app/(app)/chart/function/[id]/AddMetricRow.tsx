@@ -197,13 +197,12 @@ export function AddMetricRow({
           ))}
         </select>
 
-        <button
-          type="submit"
-          className={styles.rolePrimaryButton}
-          disabled={pending || !description.trim()}
-        >
-          {pending ? "Adding…" : "Add"}
-        </button>
+        {/* Enter submits the form from any field — no visible Add
+            button, consistent with the other draft rows on this
+            page (R&R, Decision Rights, Competencies). */}
+        {pending ? (
+          <span className={styles.roleSavingHint}>Saving…</span>
+        ) : null}
 
         {errorMessage ? (
           <p role="alert" className={styles.roleError}>

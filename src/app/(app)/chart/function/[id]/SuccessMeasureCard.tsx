@@ -181,11 +181,22 @@ function ArchiveOutcomeButton({ outcomeId }: { outcomeId: string }) {
     <>
       <button
         type="button"
-        className={styles.roleDangerButton}
+        className={styles.roleDeleteIcon}
         onClick={() => setConfirming(true)}
         disabled={pending}
+        aria-label="Archive this success measure"
+        title="Archive this success measure"
       >
-        Archive
+        <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+          <path
+            d="M4 5 h8 v8 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 z M6.5 5 V3.5 a1 1 0 0 1 1 -1 h1 a1 1 0 0 1 1 1 V5 M3 5 h10"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
       <ConfirmDialog
         open={confirming}
