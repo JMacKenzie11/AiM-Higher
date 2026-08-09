@@ -21,6 +21,7 @@ import {
 import { listPublishedVersions } from "@/lib/role-descriptions/versions";
 import { PageShell } from "@/components/ui/PageShell";
 import { EditableProseSection } from "./EditableProseSection";
+import { RichText } from "./RichText";
 import { PublishButton } from "./PublishButton";
 import { RegenerateButton } from "./RegenerateButton";
 import { VersionsList } from "./VersionsList";
@@ -62,41 +63,31 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
   );
   if (!rdEnabled) notFound();
 
-  const canViewAnytime = isAdminForCompany(
+  const canEditProse = isAdminForCompany(
     session.profile,
     detail.fn.company_id
   );
   const readiness = computeReadiness(detail);
 
   const supabase = await createSupabaseServerClient();
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name")
-    .eq("id", detail.fn.company_id)
-    .maybeSingle<{ name: string }>();
+  const [{ data: company }, { data: valuesRaw }] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("name")
+      .eq("id", detail.fn.company_id)
+      .maybeSingle<{ name: string }>(),
+    supabase
+      .from("foundation_items")
+      .select("title")
+      .eq("company_id", detail.fn.company_id)
+      .eq("kind", "core_value"),
+  ]);
+  const coreValues = (valuesRaw ?? []).map((v: { title: string }) => v.title);
 
-  if (!canViewAnytime && !readiness.allReady) {
-    return (
-      <PageShell
-        backHref={`/chart/function/${detail.fn.id}`}
-        backLabel={`Back to ${detail.fn.title}`}
-        eyebrow="Role description"
-        title={detail.fn.title}
-      >
-        <section className={styles.emptyCard}>
-          <h2 className={styles.emptyTitle}>Not ready yet</h2>
-          <p className={styles.emptyBody}>
-            This role description is still being built. Once the seat&rsquo;s
-            outcomes, decision rights, and competency indicators are in
-            place, it&rsquo;ll show up here for everyone.
-          </p>
-          <p className={styles.emptyProgress}>
-            {readiness.readyCount} of {readiness.total} sections ready.
-          </p>
-        </section>
-      </PageShell>
-    );
-  }
+  // Access: anyone signed in with visibility on the function (RLS
+  // enforces same-company or system_admin) can view the RD. Edit
+  // affordances (Regenerate, Publish, edit Position Summary / Why)
+  // stay gated on canEditProse via isAdminForCompany.
 
   return (
     <PageShell
@@ -131,13 +122,14 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
         <AssembledDocument
           detail={detail}
           currentUserId={currentUserId}
-          canRegenerate={canViewAnytime}
+          canRegenerate={canEditProse}
+          coreValues={coreValues}
         />
       </Suspense>
 
       <VersionsSection
         functionId={detail.fn.id}
-        canManage={canViewAnytime}
+        canManage={canEditProse}
       />
     </PageShell>
   );
@@ -175,10 +167,12 @@ async function AssembledDocument({
   detail,
   currentUserId,
   canRegenerate,
+  coreValues,
 }: {
   detail: Detail;
   currentUserId: string;
   canRegenerate: boolean;
+  coreValues: readonly string[];
 }) {
   const cached = await getCachedRoleDescription(detail.fn.id);
   let rawDoc: RdDocument | null = null;
@@ -265,6 +259,7 @@ async function AssembledDocument({
             text={doc.positionSummary}
             isOverridden={isPositionSummaryEdited}
             canEdit={canRegenerate}
+            coreValues={coreValues}
           />
         </Section>
       ) : null}
@@ -281,10 +276,14 @@ async function AssembledDocument({
                 <li key={o.id} className={styles.rdOutcomeItem}>
                   <h3 className={styles.rdOutcomeTitle}>{o.title}</h3>
                   {whyText ? (
-                    <p className={styles.rdOutcomeWhy}>{whyText}</p>
+                    <p className={styles.rdOutcomeWhy}>
+                      <RichText text={whyText} bold={coreValues} />
+                    </p>
                   ) : null}
                   {valuesText ? (
-                    <p className={styles.rdOutcomeValues}>{valuesText}</p>
+                    <p className={styles.rdOutcomeValues}>
+                      <RichText text={valuesText} bold={coreValues} />
+                    </p>
                   ) : null}
                 </li>
               );
@@ -336,7 +335,9 @@ async function AssembledDocument({
                 <li key={r.id} className={styles.rdSimpleItem}>
                   <span className={styles.rdSimpleTitle}>{r.title}</span>
                   {context ? (
-                    <p className={styles.rdResponsibilityContext}>{context}</p>
+                    <p className={styles.rdResponsibilityContext}>
+                      <RichText text={context} bold={coreValues} />
+                    </p>
                   ) : null}
                 </li>
               );
@@ -365,7 +366,7 @@ async function AssembledDocument({
           to refresh, no per-bullet editing). */}
       {doc && hasStrengths(doc) ? (
         <Section id="rd-strengths" title="Strengths & Expertise">
-          <StrengthsBlock doc={doc} />
+          <StrengthsBlock doc={doc} coreValues={coreValues} />
         </Section>
       ) : null}
 
@@ -388,7 +389,7 @@ async function AssembledDocument({
       {/* 9 · Qualifications — generated (read-only). */}
       {doc && hasQualifications(doc) ? (
         <Section id="rd-qualifications" title="Qualifications">
-          <QualificationsBlock doc={doc} />
+          <QualificationsBlock doc={doc} coreValues={coreValues} />
         </Section>
       ) : null}
 
@@ -401,6 +402,7 @@ async function AssembledDocument({
             text={doc.whyThisRoleMatters}
             isOverridden={isWhyEdited}
             canEdit={canRegenerate}
+            coreValues={coreValues}
           />
         </Section>
       ) : null}
@@ -465,22 +467,6 @@ function Section({
   );
 }
 
-function Paragraphs({ text }: { text: string }) {
-  const paragraphs = text
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  return (
-    <>
-      {paragraphs.map((p, i) => (
-        <p key={i} className={styles.rdSectionBody}>
-          {p}
-        </p>
-      ))}
-    </>
-  );
-}
-
 function hasStrengths(doc: RdDocument): boolean {
   const s = doc.strengthsAndExpertise;
   return (
@@ -491,21 +477,27 @@ function hasStrengths(doc: RdDocument): boolean {
   );
 }
 
-function StrengthsBlock({ doc }: { doc: RdDocument }) {
+function StrengthsBlock({
+  doc,
+  coreValues,
+}: {
+  doc: RdDocument;
+  coreValues: readonly string[];
+}) {
   const s = doc.strengthsAndExpertise;
   return (
     <div className={styles.rdSubBlockGrid}>
       {s.technical.length > 0 ? (
-        <SubBlock label="Technical" items={s.technical} />
+        <SubBlock label="Technical" items={s.technical} coreValues={coreValues} />
       ) : null}
       {s.strategic.length > 0 ? (
-        <SubBlock label="Strategic" items={s.strategic} />
+        <SubBlock label="Strategic" items={s.strategic} coreValues={coreValues} />
       ) : null}
       {s.interpersonal.length > 0 ? (
-        <SubBlock label="Interpersonal" items={s.interpersonal} />
+        <SubBlock label="Interpersonal" items={s.interpersonal} coreValues={coreValues} />
       ) : null}
       {s.accountability ? (
-        <SubBlock label="Ownership" items={[s.accountability]} />
+        <SubBlock label="Ownership" items={[s.accountability]} coreValues={coreValues} />
       ) : null}
     </div>
   );
@@ -516,33 +508,51 @@ function hasQualifications(doc: RdDocument): boolean {
   return !!(q.experience || q.education || q.certifications);
 }
 
-function QualificationsBlock({ doc }: { doc: RdDocument }) {
+function QualificationsBlock({
+  doc,
+  coreValues,
+}: {
+  doc: RdDocument;
+  coreValues: readonly string[];
+}) {
   const q = doc.qualifications;
   return (
     <div className={styles.rdSubBlockGrid}>
       {q.experience ? (
-        <SubBlock label="Experience" items={[q.experience]} />
+        <SubBlock label="Experience" items={[q.experience]} coreValues={coreValues} />
       ) : null}
       {q.education ? (
-        <SubBlock label="Education" items={[q.education]} />
+        <SubBlock label="Education" items={[q.education]} coreValues={coreValues} />
       ) : null}
       {q.certifications ? (
-        <SubBlock label="Certifications" items={[q.certifications]} />
+        <SubBlock label="Certifications" items={[q.certifications]} coreValues={coreValues} />
       ) : null}
     </div>
   );
 }
 
-function SubBlock({ label, items }: { label: string; items: string[] }) {
+function SubBlock({
+  label,
+  items,
+  coreValues,
+}: {
+  label: string;
+  items: string[];
+  coreValues: readonly string[];
+}) {
   return (
     <div className={styles.rdSubBlock}>
       <p className={styles.rdSubBlockLabel}>{label}</p>
       {items.length === 1 ? (
-        <p className={styles.rdSubBlockBody}>{items[0]}</p>
+        <p className={styles.rdSubBlockBody}>
+          <RichText text={items[0]} bold={coreValues} />
+        </p>
       ) : (
         <ul className={styles.rdSubBlockList}>
           {items.map((item, i) => (
-            <li key={i}>{item}</li>
+            <li key={i}>
+              <RichText text={item} bold={coreValues} />
+            </li>
           ))}
         </ul>
       )}

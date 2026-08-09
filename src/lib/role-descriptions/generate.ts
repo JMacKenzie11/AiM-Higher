@@ -336,9 +336,10 @@ function buildUserMessage(
   if (detail.fn.description) {
     lines.push(`Description: ${detail.fn.description}`);
   }
-  if (detail.seatHolder) {
-    lines.push(`Currently in the seat: ${detail.seatHolder.full_name}`);
-  }
+  // Seat holder deliberately omitted — the RD describes the SEAT,
+  // not the current person. Mentioning a name in the Position
+  // Summary ties the doc to the incumbent and makes it awkward at
+  // turnover time. The prompt also prohibits naming people.
   lines.push("</function>");
 
   const userRoles = detail.roles.filter((r) => !r.is_default);

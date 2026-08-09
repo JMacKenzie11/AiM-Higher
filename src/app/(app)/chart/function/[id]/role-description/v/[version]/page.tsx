@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mergeRoleDescription } from "@/lib/role-descriptions/generate";
 import { getPublishedVersion } from "@/lib/role-descriptions/versions";
 import { PageShell } from "@/components/ui/PageShell";
+import { RichText } from "../../RichText";
 import styles from "../../role-description.module.css";
 
 // Read-only view of a published Role Description snapshot. Frozen
@@ -46,20 +47,10 @@ export default async function RoleDescriptionVersionPage({
     session.profile,
     detail.fn.company_id
   );
-  // Non-admins can only see historical versions if a team member
-  // could see the live RD too — otherwise we'd expose in-progress
-  // drafts through the version history.
-  if (!canViewAnytime) {
-    // Cheap: only allow team members if the CURRENT live doc has
-    // enough content that they could view it. If the readiness
-    // check on the current detail passes, they're allowed to see
-    // a historical snapshot too.
-    const { computeReadiness } = await import(
-      "@/lib/role-descriptions/readiness"
-    );
-    const readiness = computeReadiness(detail);
-    if (!readiness.allReady) notFound();
-  }
+  // Any signed-in company member can view any published version.
+  // Editing / deleting is admin-only and lives elsewhere; here
+  // we're just rendering the snapshot.
+  void canViewAnytime;
 
   const snap = await getPublishedVersion(id, versionNumber);
   if (!snap) notFound();
@@ -88,11 +79,19 @@ export default async function RoleDescriptionVersionPage({
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name")
-    .eq("id", detail.fn.company_id)
-    .maybeSingle<{ name: string }>();
+  const [{ data: company }, { data: valuesRaw }] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("name")
+      .eq("id", detail.fn.company_id)
+      .maybeSingle<{ name: string }>(),
+    supabase
+      .from("foundation_items")
+      .select("title")
+      .eq("company_id", detail.fn.company_id)
+      .eq("kind", "core_value"),
+  ]);
+  const coreValues = (valuesRaw ?? []).map((v: { title: string }) => v.title);
 
   return (
     <PageShell
@@ -130,7 +129,7 @@ export default async function RoleDescriptionVersionPage({
 
       {doc?.positionSummary ? (
         <Section id="rd-summary" title="Position Summary">
-          <Paragraphs text={doc.positionSummary} />
+          <Paragraphs text={doc.positionSummary} bold={coreValues} />
         </Section>
       ) : null}
 
@@ -144,14 +143,22 @@ export default async function RoleDescriptionVersionPage({
                   <h3 className={styles.rdOutcomeTitle}>{o.title}</h3>
                   {enrichment?.whyItMatters ? (
                     <p className={styles.rdOutcomeWhy}>
-                      {enrichment.whyItMatters}
+                      <RichText
+                        text={enrichment.whyItMatters}
+                        bold={coreValues}
+                      />
                     </p>
                   ) : o.description ? (
-                    <p className={styles.rdOutcomeWhy}>{o.description}</p>
+                    <p className={styles.rdOutcomeWhy}>
+                      <RichText text={o.description} bold={coreValues} />
+                    </p>
                   ) : null}
                   {enrichment?.valuesConnection ? (
                     <p className={styles.rdOutcomeValues}>
-                      {enrichment.valuesConnection}
+                      <RichText
+                        text={enrichment.valuesConnection}
+                        bold={coreValues}
+                      />
                     </p>
                   ) : null}
                 </li>
@@ -199,7 +206,9 @@ export default async function RoleDescriptionVersionPage({
                 <li key={r.id} className={styles.rdSimpleItem}>
                   <span className={styles.rdSimpleTitle}>{r.title}</span>
                   {context ? (
-                    <p className={styles.rdResponsibilityContext}>{context}</p>
+                    <p className={styles.rdResponsibilityContext}>
+                      <RichText text={context} bold={coreValues} />
+                    </p>
                   ) : null}
                 </li>
               );
@@ -225,7 +234,7 @@ export default async function RoleDescriptionVersionPage({
 
       {doc && hasStrengths(doc) ? (
         <Section id="rd-strengths" title="Strengths & Expertise">
-          <FrozenStrengthsBlock doc={doc} />
+          <FrozenStrengthsBlock doc={doc} coreValues={coreValues} />
         </Section>
       ) : null}
 
@@ -246,13 +255,13 @@ export default async function RoleDescriptionVersionPage({
 
       {doc && hasQualifications(doc) ? (
         <Section id="rd-qualifications" title="Qualifications">
-          <FrozenQualificationsBlock doc={doc} />
+          <FrozenQualificationsBlock doc={doc} coreValues={coreValues} />
         </Section>
       ) : null}
 
       {doc?.whyThisRoleMatters ? (
         <Section id="rd-why" title="Why This Role Matters">
-          <Paragraphs text={doc.whyThisRoleMatters} />
+          <Paragraphs text={doc.whyThisRoleMatters} bold={coreValues} />
         </Section>
       ) : null}
     </PageShell>
@@ -280,7 +289,13 @@ function Section({
   );
 }
 
-function Paragraphs({ text }: { text: string }) {
+function Paragraphs({
+  text,
+  bold,
+}: {
+  text: string;
+  bold: readonly string[];
+}) {
   const paragraphs = text
     .split(/\n{2,}/)
     .map((p) => p.trim())
@@ -289,7 +304,7 @@ function Paragraphs({ text }: { text: string }) {
     <>
       {paragraphs.map((p, i) => (
         <p key={i} className={styles.rdSectionBody}>
-          {p}
+          <RichText text={p} bold={bold} />
         </p>
       ))}
     </>
@@ -315,38 +330,50 @@ function hasQualifications(doc: FrozenDoc): boolean {
   return !!(q.experience || q.education || q.certifications);
 }
 
-function FrozenStrengthsBlock({ doc }: { doc: FrozenDoc }) {
+function FrozenStrengthsBlock({
+  doc,
+  coreValues,
+}: {
+  doc: FrozenDoc;
+  coreValues: readonly string[];
+}) {
   const s = doc.strengthsAndExpertise;
   return (
     <div className={styles.rdSubBlockGrid}>
       {s.technical.length > 0 ? (
-        <FrozenSubBlock label="Technical" items={s.technical} />
+        <FrozenSubBlock label="Technical" items={s.technical} coreValues={coreValues} />
       ) : null}
       {s.strategic.length > 0 ? (
-        <FrozenSubBlock label="Strategic" items={s.strategic} />
+        <FrozenSubBlock label="Strategic" items={s.strategic} coreValues={coreValues} />
       ) : null}
       {s.interpersonal.length > 0 ? (
-        <FrozenSubBlock label="Interpersonal" items={s.interpersonal} />
+        <FrozenSubBlock label="Interpersonal" items={s.interpersonal} coreValues={coreValues} />
       ) : null}
       {s.accountability ? (
-        <FrozenSubBlock label="Ownership" items={[s.accountability]} />
+        <FrozenSubBlock label="Ownership" items={[s.accountability]} coreValues={coreValues} />
       ) : null}
     </div>
   );
 }
 
-function FrozenQualificationsBlock({ doc }: { doc: FrozenDoc }) {
+function FrozenQualificationsBlock({
+  doc,
+  coreValues,
+}: {
+  doc: FrozenDoc;
+  coreValues: readonly string[];
+}) {
   const q = doc.qualifications;
   return (
     <div className={styles.rdSubBlockGrid}>
       {q.experience ? (
-        <FrozenSubBlock label="Experience" items={[q.experience]} />
+        <FrozenSubBlock label="Experience" items={[q.experience]} coreValues={coreValues} />
       ) : null}
       {q.education ? (
-        <FrozenSubBlock label="Education" items={[q.education]} />
+        <FrozenSubBlock label="Education" items={[q.education]} coreValues={coreValues} />
       ) : null}
       {q.certifications ? (
-        <FrozenSubBlock label="Certifications" items={[q.certifications]} />
+        <FrozenSubBlock label="Certifications" items={[q.certifications]} coreValues={coreValues} />
       ) : null}
     </div>
   );
@@ -355,19 +382,25 @@ function FrozenQualificationsBlock({ doc }: { doc: FrozenDoc }) {
 function FrozenSubBlock({
   label,
   items,
+  coreValues,
 }: {
   label: string;
   items: string[];
+  coreValues: readonly string[];
 }) {
   return (
     <div className={styles.rdSubBlock}>
       <p className={styles.rdSubBlockLabel}>{label}</p>
       {items.length === 1 ? (
-        <p className={styles.rdSubBlockBody}>{items[0]}</p>
+        <p className={styles.rdSubBlockBody}>
+          <RichText text={items[0]} bold={coreValues} />
+        </p>
       ) : (
         <ul className={styles.rdSubBlockList}>
           {items.map((item, i) => (
-            <li key={i}>{item}</li>
+            <li key={i}>
+              <RichText text={item} bold={coreValues} />
+            </li>
           ))}
         </ul>
       )}

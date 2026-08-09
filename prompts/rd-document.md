@@ -14,6 +14,10 @@ No prose before, no prose after, no code fences.
   fit naturally — never force them.
 - Never mention that this document was generated. Speak as the
   company would speak about its own role.
+- **Never name a specific person.** The role description is about
+  the SEAT, not the current incumbent. Refer to "this seat", "the
+  {Function Title}", or "the person in this role" — never a real
+  name. If the input happens to include a name, ignore it.
 - No filler ("this role plays a critical role in..."), no cliché
   ("wear many hats"), no hedges ("may be responsible for...").
   Say the thing.

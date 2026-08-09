@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveRoleDescriptionOverrideAction } from "@/lib/role-descriptions/overrides-action";
+import { RichText } from "./RichText";
 import styles from "./role-description.module.css";
 
 type ProseField = "positionSummary" | "whyThisRoleMatters";
@@ -24,12 +25,14 @@ export function EditableProseSection({
   text,
   isOverridden,
   canEdit,
+  coreValues,
 }: {
   functionId: string;
   field: ProseField;
   text: string;
   isOverridden: boolean;
   canEdit: boolean;
+  coreValues: readonly string[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -125,7 +128,7 @@ export function EditableProseSection({
 
   return (
     <div className={styles.editableWrap}>
-      <Paragraphs text={text} />
+      <Paragraphs text={text} bold={coreValues} />
       {canEdit ? (
         <div className={styles.editableMeta}>
           <button
@@ -154,7 +157,13 @@ export function EditableProseSection({
   );
 }
 
-function Paragraphs({ text }: { text: string }) {
+function Paragraphs({
+  text,
+  bold,
+}: {
+  text: string;
+  bold: readonly string[];
+}) {
   const paragraphs = text
     .split(/\n{2,}/)
     .map((p) => p.trim())
@@ -163,7 +172,7 @@ function Paragraphs({ text }: { text: string }) {
     <>
       {paragraphs.map((p, i) => (
         <p key={i} className={styles.rdSectionBody}>
-          {p}
+          <RichText text={p} bold={bold} />
         </p>
       ))}
     </>
