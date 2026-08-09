@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { getChartFunctionDetail } from "@/lib/chart/service";
 import { CardAccent } from "@/components/ui/CardAccent";
 import { computeReadiness } from "@/lib/role-descriptions/readiness";
+import { getCachedRoleDescription } from "@/lib/role-descriptions/cache";
 import styles from "../../chart.module.css";
 
 // Function-level readiness for the AiMS Role Description. Pure
@@ -16,15 +17,23 @@ import styles from "../../chart.module.css";
 
 type Detail = NonNullable<Awaited<ReturnType<typeof getChartFunctionDetail>>>;
 
-export function RoleDescriptionReadiness({
+export async function RoleDescriptionReadiness({
   detail,
   canEdit,
 }: {
   detail: Detail;
   canEdit: boolean;
 }) {
-  const { gates, readyCount, total, allReady } = computeReadiness(detail);
+  const { gates, readyCount, total } = computeReadiness(detail);
   const viewHref = `/chart/function/${detail.fn.id}/role-description`;
+  // "Created" here means a cached RD document exists for this
+  // function. Once created, the button reads "View role
+  // description →"; before that it reads "Create role
+  // description →" for admins (who can trigger the initial
+  // generation by visiting the view page). Team members without
+  // a cached doc see no button.
+  const cached = await getCachedRoleDescription(detail.fn.id);
+  const hasBeenCreated = cached !== null;
 
   return (
     <section
@@ -88,9 +97,13 @@ export function RoleDescriptionReadiness({
       </ol>
 
       <div className={styles.rdReadinessFooter}>
-        {canEdit || allReady ? (
+        {hasBeenCreated ? (
           <Link href={viewHref} className={styles.rdReadinessAction}>
-            {allReady ? "View role description →" : "Preview so far →"}
+            View role description →
+          </Link>
+        ) : canEdit ? (
+          <Link href={viewHref} className={styles.rdReadinessAction}>
+            Create role description →
           </Link>
         ) : null}
       </div>
