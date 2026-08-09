@@ -1421,6 +1421,113 @@
   cursor: progress;
 }
 
+/* Role Description readiness — sits at the top of the Function
+   detail page when the company has the role_descriptions feature
+   on. Card layout with a summary strip and a 5-row checklist that
+   anchor-links to the page section where each gate lives. */
+.rdReadiness {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.rdReadinessHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.rdReadinessTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.rdReadinessProgress {
+  margin: var(--space-1) 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.rdReadinessReady {
+  margin: var(--space-1) 0 0;
+  font-size: 13px;
+  color: var(--aims-success, var(--primary));
+  font-weight: 600;
+}
+
+.rdReadinessAction {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-4);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rdReadinessAction:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rdChecklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rdChecklistRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 14px;
+}
+
+.rdCheckReady {
+  color: var(--aims-success, var(--primary));
+  font-weight: 700;
+  width: 14px;
+  display: inline-block;
+  text-align: center;
+}
+
+.rdCheckMissing {
+  color: var(--text-muted);
+  width: 14px;
+  display: inline-block;
+  text-align: center;
+}
+
+.rdChecklistLabel {
+  color: var(--text);
+}
+
+.rdChecklistLabelReady {
+  color: var(--text-muted);
+}
+
+.rdChecklistLink {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.rdChecklistLink:hover {
+  text-decoration: underline;
+}
+
 /* Small inline hint that replaces the "Add" button on draft rows
    while a save is in flight. Enter is the submit affordance —
    this only exists to signal that the save is running. */

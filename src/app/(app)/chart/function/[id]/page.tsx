@@ -20,6 +20,7 @@ import { RolesList } from "./RolesList";
 import { SeatEditor } from "./SeatEditor";
 import { AddSuccessMeasureRow } from "./AddSuccessMeasureRow";
 import { FunctionTitleEditor } from "./FunctionTitleEditor";
+import { RoleDescriptionReadiness } from "./RoleDescriptionReadiness";
 import { SimpleFunctionItemList } from "./SimpleFunctionItemList";
 import { SuccessMeasureCard } from "./SuccessMeasureCard";
 import styles from "../../chart.module.css";
@@ -89,6 +90,8 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         ) : undefined
       }
     >
+        {rdEnabled ? <RoleDescriptionReadiness detail={detail} /> : null}
+
         <section className={styles.sectionCard} aria-labelledby="seat">
           <span className={styles.fnSeatLabel} id="seat">
             In the seat
