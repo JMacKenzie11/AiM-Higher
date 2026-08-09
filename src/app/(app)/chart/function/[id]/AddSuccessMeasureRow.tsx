@@ -72,7 +72,7 @@ export function AddSuccessMeasureRow({
         <SuggestOptionsPopover
           functionId={functionId}
           target="outcomes"
-          buttonLabel="Suggest outcomes"
+          buttonLabel="Suggest success measures"
           onSave={async (t, b) => {
             const fd = new FormData();
             fd.set("function_id", functionId);
