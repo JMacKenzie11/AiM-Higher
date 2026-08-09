@@ -10,6 +10,7 @@ import { computeReadiness } from "@/lib/role-descriptions/readiness";
 import {
   generateRoleDescription,
   isQualificationOverridden,
+  isStrengthOverridden,
   mergeRoleDescription,
   type RdDocument,
   type RdUserOverrides,
@@ -23,6 +24,7 @@ import { listPublishedVersions } from "@/lib/role-descriptions/versions";
 import { PageShell } from "@/components/ui/PageShell";
 import { EditableProseSection } from "./EditableProseSection";
 import { EditableQualification } from "./EditableQualification";
+import { EditableStrength } from "./EditableStrength";
 import { RichText } from "./RichText";
 import { PublishButton } from "./PublishButton";
 import { RegenerateButton } from "./RegenerateButton";
@@ -364,11 +366,20 @@ async function AssembledDocument({
         </Section>
       ) : null}
 
-      {/* 7 · Strengths & Expertise — generated (read-only; regenerate
-          to refresh, no per-bullet editing). */}
-      {doc && hasStrengths(doc) ? (
+      {/* 7 · Strengths & Expertise — generated, editable per sub-
+          field for admins. Technical / Strategic / Interpersonal
+          are lists (one item per line in edit mode); Ownership is
+          a single string. Edits survive regeneration via user
+          overrides. */}
+      {doc && (hasStrengths(doc) || canRegenerate) ? (
         <Section id="rd-strengths" title="Strengths & Expertise">
-          <StrengthsBlock doc={doc} coreValues={coreValues} />
+          <StrengthsBlock
+            doc={doc}
+            coreValues={coreValues}
+            functionId={detail.fn.id}
+            overrides={overrides}
+            canEdit={canRegenerate}
+          />
         </Section>
       ) : null}
 
@@ -492,25 +503,142 @@ function hasStrengths(doc: RdDocument): boolean {
 function StrengthsBlock({
   doc,
   coreValues,
+  functionId,
+  overrides,
+  canEdit,
 }: {
   doc: RdDocument;
   coreValues: readonly string[];
+  functionId: string;
+  overrides: RdUserOverrides | null;
+  canEdit: boolean;
 }) {
   const s = doc.strengthsAndExpertise;
   return (
     <div className={styles.rdSubBlockGrid}>
-      {s.technical.length > 0 ? (
-        <SubBlock label="Technical" items={s.technical} coreValues={coreValues} />
+      {s.technical.length > 0 || canEdit ? (
+        <StrengthSubBlock
+          label="Technical"
+          field="technical"
+          items={s.technical}
+          coreValues={coreValues}
+          functionId={functionId}
+          isOverridden={isStrengthOverridden(overrides, "technical")}
+          canEdit={canEdit}
+        />
       ) : null}
-      {s.strategic.length > 0 ? (
-        <SubBlock label="Strategic" items={s.strategic} coreValues={coreValues} />
+      {s.strategic.length > 0 || canEdit ? (
+        <StrengthSubBlock
+          label="Strategic"
+          field="strategic"
+          items={s.strategic}
+          coreValues={coreValues}
+          functionId={functionId}
+          isOverridden={isStrengthOverridden(overrides, "strategic")}
+          canEdit={canEdit}
+        />
       ) : null}
-      {s.interpersonal.length > 0 ? (
-        <SubBlock label="Interpersonal" items={s.interpersonal} coreValues={coreValues} />
+      {s.interpersonal.length > 0 || canEdit ? (
+        <StrengthSubBlock
+          label="Interpersonal"
+          field="interpersonal"
+          items={s.interpersonal}
+          coreValues={coreValues}
+          functionId={functionId}
+          isOverridden={isStrengthOverridden(overrides, "interpersonal")}
+          canEdit={canEdit}
+        />
       ) : null}
-      {s.accountability ? (
-        <SubBlock label="Ownership" items={[s.accountability]} coreValues={coreValues} />
+      {s.accountability || canEdit ? (
+        <OwnershipSubBlock
+          text={s.accountability}
+          coreValues={coreValues}
+          functionId={functionId}
+          isOverridden={isStrengthOverridden(overrides, "accountability")}
+          canEdit={canEdit}
+        />
       ) : null}
+    </div>
+  );
+}
+
+// List sub-block (Technical / Strategic / Interpersonal). Read
+// mode: bulleted list of items, bolded core values. Admin mode:
+// EditableStrength with kind="list".
+function StrengthSubBlock({
+  label,
+  field,
+  items,
+  coreValues,
+  functionId,
+  isOverridden,
+  canEdit,
+}: {
+  label: string;
+  field: "technical" | "strategic" | "interpersonal";
+  items: string[];
+  coreValues: readonly string[];
+  functionId: string;
+  isOverridden: boolean;
+  canEdit: boolean;
+}) {
+  return (
+    <div className={styles.rdSubBlock}>
+      <p className={styles.rdSubBlockLabel}>{label}</p>
+      {canEdit ? (
+        <EditableStrength
+          functionId={functionId}
+          kind="list"
+          field={field}
+          items={items}
+          isOverridden={isOverridden}
+          canEdit
+        />
+      ) : (
+        <ul className={styles.rdSubBlockList}>
+          {items.map((item, i) => (
+            <li key={i}>
+              <RichText text={item} bold={coreValues} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// Ownership single-string sub-block. Read mode: paragraph with
+// bolded core values. Admin mode: EditableStrength with kind="single".
+function OwnershipSubBlock({
+  text,
+  coreValues,
+  functionId,
+  isOverridden,
+  canEdit,
+}: {
+  text: string;
+  coreValues: readonly string[];
+  functionId: string;
+  isOverridden: boolean;
+  canEdit: boolean;
+}) {
+  return (
+    <div className={styles.rdSubBlock}>
+      <p className={styles.rdSubBlockLabel}>Ownership</p>
+      {canEdit ? (
+        <EditableStrength
+          functionId={functionId}
+          kind="single"
+          field="accountability"
+          text={text}
+          isOverridden={isOverridden}
+          canEdit
+        />
+      ) : (
+        <p className={styles.rdSubBlockBody}>
+          <RichText text={text} bold={coreValues} />
+        </p>
+      )}
     </div>
   );
 }

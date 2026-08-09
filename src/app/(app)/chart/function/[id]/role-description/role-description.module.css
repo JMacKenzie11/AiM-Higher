@@ -159,8 +159,16 @@
   white-space: nowrap;
 }
 
-.downloadButton:hover {
-  background: var(--primary-hover);
+.downloadButton:hover,
+.downloadButton:focus,
+.downloadButton:active,
+.downloadButton:visited {
+  /* Explicit color + text-decoration on every state so a global
+     a:hover / a:visited rule can't nuke the white text against
+     the dark-blue background. */
+  background: var(--primary-hover, var(--primary));
+  color: var(--on-primary);
+  text-decoration: none;
 }
 
 .regenerateButton:hover:not(:disabled) {
