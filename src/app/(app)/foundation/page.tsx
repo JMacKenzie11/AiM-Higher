@@ -112,22 +112,30 @@ export default async function OnePagePlanPage() {
                 </p>
               ) : (
                 <div className={styles.grid2}>
-                  {data.coreValues.map((value) => (
-                    <article key={value.id} className={styles.subcard}>
-                      <h3 className={styles.h3}>{value.title}</h3>
-                      {value.body ? (
-                        <p className={styles.bodyText}>{value.body}</p>
-                      ) : null}
-                      {isAdmin ? (
-                        <div className={styles.subcardActions}>
-                          <EditFoundationItemForm item={value} />
-                          <DeleteButton
-                            action={deleteFoundationItemAction}
-                            itemId={value.id}
-                            confirmMessage="Delete this core value?"
-                          />
-                        </div>
-                      ) : null}
+                  {data.coreValues.map((value, index) => (
+                    <article key={value.id} className={styles.numberedCard}>
+                      <span
+                        className={`${styles.numberedCardNumber} aims-tabular`}
+                        aria-hidden="true"
+                      >
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <div className={styles.numberedCardMain}>
+                        <h3 className={styles.h3}>{value.title}</h3>
+                        {value.body ? (
+                          <p className={styles.bodyText}>{value.body}</p>
+                        ) : null}
+                        {isAdmin ? (
+                          <div className={styles.subcardActions}>
+                            <EditFoundationItemForm item={value} />
+                            <DeleteButton
+                              action={deleteFoundationItemAction}
+                              itemId={value.id}
+                              confirmMessage="Delete this core value?"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -158,14 +166,14 @@ export default async function OnePagePlanPage() {
               ) : (
                 <div className={styles.grid2}>
                   {data.differentiators.map((item, index) => (
-                    <article key={item.id} className={styles.differentiatorCard}>
+                    <article key={item.id} className={styles.numberedCard}>
                       <span
-                        className={`${styles.differentiatorNumber} aims-tabular`}
+                        className={`${styles.numberedCardNumber} aims-tabular`}
                         aria-hidden="true"
                       >
                         {String(index + 1).padStart(2, "0")}
                       </span>
-                      <div className={styles.differentiatorMain}>
+                      <div className={styles.numberedCardMain}>
                         <h3 className={styles.h3}>{item.title}</h3>
                         {item.body ? (
                           <p className={styles.bodyText}>{item.body}</p>
@@ -240,16 +248,24 @@ export default async function OnePagePlanPage() {
                 </p>
               ) : (
                 <>
-                  <ul className={styles.plainList}>
-                    {sfas.map((sfa) => (
-                      <li key={sfa.id} className={styles.plainListItem}>
-                        <h3 className={styles.h3}>{sfa.title}</h3>
-                        {sfa.description ? (
-                          <p className={styles.bodyText}>{sfa.description}</p>
-                        ) : null}
-                      </li>
+                  <div className={styles.grid2}>
+                    {sfas.map((sfa, index) => (
+                      <article key={sfa.id} className={styles.numberedCard}>
+                        <span
+                          className={`${styles.numberedCardNumber} aims-tabular`}
+                          aria-hidden="true"
+                        >
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <div className={styles.numberedCardMain}>
+                          <h3 className={styles.h3}>{sfa.title}</h3>
+                          {sfa.description ? (
+                            <p className={styles.bodyText}>{sfa.description}</p>
+                          ) : null}
+                        </div>
+                      </article>
                     ))}
-                  </ul>
+                  </div>
                   {isAdmin ? (
                     <p className={styles.contextLine}>
                       Manage focus areas on the{" "}
@@ -274,22 +290,30 @@ export default async function OnePagePlanPage() {
                 {data.snippets.icp_best_fit.length === 0 ? (
                   <p className={styles.emptyLine}>No entries yet.</p>
                 ) : (
-                  <ul className={styles.plainList}>
-                    {data.snippets.icp_best_fit.map((snippet) => (
-                      <li key={snippet.id} className={styles.plainListItem}>
-                        <div className={styles.itemRow}>
-                          <span>{snippet.content}</span>
+                  <div className={styles.grid2}>
+                    {data.snippets.icp_best_fit.map((snippet, index) => (
+                      <article key={snippet.id} className={styles.numberedCard}>
+                        <span
+                          className={`${styles.numberedCardNumber} aims-tabular`}
+                          aria-hidden="true"
+                        >
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <div className={styles.numberedCardMain}>
+                          <h3 className={styles.h3}>{snippet.content}</h3>
                           {isAdmin ? (
-                            <DeleteButton
-                              action={deleteSnippetAction}
-                              itemId={snippet.id}
-                              confirmMessage="Remove this entry?"
-                            />
+                            <div className={styles.subcardActions}>
+                              <DeleteButton
+                                action={deleteSnippetAction}
+                                itemId={snippet.id}
+                                confirmMessage="Remove this entry?"
+                              />
+                            </div>
                           ) : null}
                         </div>
-                      </li>
+                      </article>
                     ))}
-                  </ul>
+                  </div>
                 )}
                 {isAdmin ? (
                   <AddSnippetForm kind="icp_best_fit" addLabel="Add best-fit" />
@@ -301,22 +325,30 @@ export default async function OnePagePlanPage() {
                 {data.snippets.icp_psychographic.length === 0 ? (
                   <p className={styles.emptyLine}>No entries yet.</p>
                 ) : (
-                  <ul className={styles.plainList}>
-                    {data.snippets.icp_psychographic.map((snippet) => (
-                      <li key={snippet.id} className={styles.plainListItem}>
-                        <div className={styles.itemRow}>
-                          <span>{snippet.content}</span>
+                  <div className={styles.grid2}>
+                    {data.snippets.icp_psychographic.map((snippet, index) => (
+                      <article key={snippet.id} className={styles.numberedCard}>
+                        <span
+                          className={`${styles.numberedCardNumber} aims-tabular`}
+                          aria-hidden="true"
+                        >
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <div className={styles.numberedCardMain}>
+                          <h3 className={styles.h3}>{snippet.content}</h3>
                           {isAdmin ? (
-                            <DeleteButton
-                              action={deleteSnippetAction}
-                              itemId={snippet.id}
-                              confirmMessage="Remove this entry?"
-                            />
+                            <div className={styles.subcardActions}>
+                              <DeleteButton
+                                action={deleteSnippetAction}
+                                itemId={snippet.id}
+                                confirmMessage="Remove this entry?"
+                              />
+                            </div>
                           ) : null}
                         </div>
-                      </li>
+                      </article>
                     ))}
-                  </ul>
+                  </div>
                 )}
                 {isAdmin ? (
                   <AddSnippetForm
@@ -345,26 +377,34 @@ export default async function OnePagePlanPage() {
                     : ""}
                 </p>
               ) : (
-                <ul className={styles.plainList}>
-                  {data.keySuccessMetrics.map((metric) => (
-                    <li key={metric.id} className={styles.plainListItem}>
-                      <h3 className={styles.h3}>{metric.title}</h3>
-                      {metric.body ? (
-                        <p className={styles.bodyText}>{metric.body}</p>
-                      ) : null}
-                      {isAdmin ? (
-                        <div className={styles.subcardActions}>
-                          <EditFoundationItemForm item={metric} />
-                          <DeleteButton
-                            action={deleteFoundationItemAction}
-                            itemId={metric.id}
-                            confirmMessage="Delete this metric?"
-                          />
-                        </div>
-                      ) : null}
-                    </li>
+                <div className={styles.grid2}>
+                  {data.keySuccessMetrics.map((metric, index) => (
+                    <article key={metric.id} className={styles.numberedCard}>
+                      <span
+                        className={`${styles.numberedCardNumber} aims-tabular`}
+                        aria-hidden="true"
+                      >
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <div className={styles.numberedCardMain}>
+                        <h3 className={styles.h3}>{metric.title}</h3>
+                        {metric.body ? (
+                          <p className={styles.bodyText}>{metric.body}</p>
+                        ) : null}
+                        {isAdmin ? (
+                          <div className={styles.subcardActions}>
+                            <EditFoundationItemForm item={metric} />
+                            <DeleteButton
+                              action={deleteFoundationItemAction}
+                              itemId={metric.id}
+                              confirmMessage="Delete this metric?"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </article>
                   ))}
-                </ul>
+                </div>
               )}
               {isAdmin ? (
                 <AddFoundationItemForm
