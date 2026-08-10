@@ -188,11 +188,19 @@
   margin: 0;
 }
 
+/* Content tile for singleton statement sections (Purpose, Vision).
+   Uses the same grey/border treatment as the numbered subcards
+   inside the multi-item sections so the whole page reads with one
+   consistent "content-tile-on-white-card" pattern. */
 .sectionBody {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   position: relative;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
 }
 
 .metaLabel {
