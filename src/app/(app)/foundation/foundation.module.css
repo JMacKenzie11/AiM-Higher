@@ -109,15 +109,18 @@
   display: none;
 }
 
+/* Matches the Edit / ghost button treatment used across the app —
+   cobalt text on transparent bg with a bordered pill, cobalt-tint
+   fill on hover. Keeps the whole app's button vocabulary consistent. */
 .pageNavLink {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
   height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  background: var(--surface);
-  color: var(--text-heading);
-  border: 1px solid var(--border);
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
   font: var(--text-button-sm);
   text-decoration: none;
@@ -129,8 +132,7 @@
 
 .pageNavLink:hover {
   background: var(--aims-cobalt-tint);
-  color: var(--primary);
-  border-color: var(--aims-cobalt-tint);
+  color: var(--primary-hover);
 }
 
 .inlineLink {
