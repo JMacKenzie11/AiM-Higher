@@ -42,9 +42,9 @@ export const PRACTICES: readonly Practice[] = [
   },
   {
     id: "ask-better-questions",
-    title: "Ask better questions",
+    title: "Ask great questions",
     description:
-      "Turn frustrated or leading questions into ones that open up thinking and invite ownership.",
+      "Create generative questions that open up thinking and invite ownership.",
     promptFile: "prompts/practices/ask-better-questions.md",
     chips: [
       "I have a real conversation to prepare for",
