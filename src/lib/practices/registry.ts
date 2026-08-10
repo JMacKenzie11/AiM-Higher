@@ -36,7 +36,7 @@ export const PRACTICES: readonly Practice[] = [
     promptFile: "prompts/practices/prepare-a-hard-conversation.md",
     chips: [
       "Someone isn't following through",
-      "There's tension I need to name",
+      "Something's off between us",
       "I need to reset expectations",
     ],
   },
