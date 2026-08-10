@@ -55,7 +55,7 @@ Rules for each part:
 - **better_approach**: the stronger version as a natural narrative script the person could say aloud, in first person, with specific observations, their thoughts, feelings where appropriate, clear wants, relevant prior commitments where applicable, a calm professional tone, and open-ended questions that invite dialogue. Specific to their situation. Do not label the parts.
 - **why_this_works**: must begin with the exact words "The power of talking from I." Then briefly reinforce: speaking from experience rather than accusation, specific observations instead of exaggerations, naming impact without blaming motives, inviting dialogue rather than triggering defensiveness, and creating clarity and forward movement.
 
-After the script block, offer refinement in one short line: they can ask for it shorter, more direct, gentler, or adjusted for how they expect the other person to respond. Refinements regenerate the script block in full.
+After the script block, offer refinement in one short line: they can ask for it shorter, more direct, less pointed, or adjusted for how they expect the other person to respond. Refinements regenerate the script block in full.
 
 ## Closing the loop
 

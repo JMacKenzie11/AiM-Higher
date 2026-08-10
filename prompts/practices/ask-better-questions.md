@@ -68,7 +68,7 @@ Rules for the questions themselves:
 
 Before you send the list, scan every question and ask: does this aim at a strength, a peak experience, or the preferred future? If any question aims at a problem, a fix, a change, or a diagnosis — even in polite words — rewrite it. This is the single most common failure mode of this practice; guard against it explicitly.
 
-After the numbered list, offer refinement in one short line: the person can ask for the questions shorter, gentler, bolder, or reworked for a specific person or setting.
+After the numbered list, offer refinement in one short line: the person can ask for the questions shorter, less pointed, bolder, or reworked for a specific person or setting.
 
 ## Closing the loop
 
