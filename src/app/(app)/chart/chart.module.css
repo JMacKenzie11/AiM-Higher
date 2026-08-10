@@ -212,8 +212,16 @@
   left: 50%;
 }
 
-.treeNode:only-child::before,
-.treeNode:only-child::after {
+/* Use :*-of-type instead of :*-child throughout so the connectors
+   stay correct when dnd-kit's <DndContext> injects its aria-live
+   region as a sibling <div> next to the sortable <li>s. A plain
+   :only-child fails because the <li> is no longer the only child
+   of its parent <ul>, so this display: none stops firing and the
+   ::after leaks across the (wide-parent) treeNode as a long
+   horizontal line to the right of the only child. Counting only
+   <li> siblings via :only-of-type sidesteps the <div> entirely. */
+.treeNode:only-of-type::before,
+.treeNode:only-of-type::after {
   display: none;
 }
 
@@ -240,15 +248,15 @@
   flex: 0 0 auto;
 }
 
-.treeNode:first-child::before,
-.treeNode:last-child::after {
+.treeNode:first-of-type::before,
+.treeNode:last-of-type::after {
   border: 0 none;
 }
-.treeNode:last-child::before {
+.treeNode:last-of-type::before {
   border-right: 2px solid var(--border-strong);
   border-radius: 0 var(--radius-sm) 0 0;
 }
-.treeNode:first-child::after {
+.treeNode:first-of-type::after {
   border-radius: var(--radius-sm) 0 0 0;
 }
 
