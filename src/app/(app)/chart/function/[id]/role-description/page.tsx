@@ -243,7 +243,7 @@ async function AssembledDocument({
             className={styles.downloadButton}
             download
           >
-            Download .docx
+            Download
           </a>
           {canRegenerate ? (
             <>

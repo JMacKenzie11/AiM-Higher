@@ -117,7 +117,7 @@ export default async function RoleDescriptionVersionPage({
           className={styles.downloadButton}
           download
         >
-          Download .docx
+          Download
         </a>
       </div>
 

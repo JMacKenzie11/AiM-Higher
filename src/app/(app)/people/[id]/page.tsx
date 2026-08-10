@@ -11,6 +11,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserStrengths } from "@/lib/strengths/user-strengths";
 import { EditUserForm } from "./edit/EditUserForm";
 import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
+import { TermTooltip } from "@/components/ui/TermTooltip";
 import type { Profile } from "@/lib/types";
 import styles from "../people.module.css";
 
@@ -134,14 +135,23 @@ export default async function PersonScorecardPage({ params }: PageProps) {
           <div className={styles.personStatRow}>
             <PersonStat
               label="Follow-Through Rate"
+              term="followThroughRate"
               value={
                 data.stats.keepRate === null
                   ? "—"
                   : `${data.stats.keepRate}%`
               }
             />
-            <PersonStat label="Kept" value={String(data.stats.keptCount)} />
-            <PersonStat label="Missed" value={String(data.stats.missedCount)} />
+            <PersonStat
+              label="Kept"
+              term="kept"
+              value={String(data.stats.keptCount)}
+            />
+            <PersonStat
+              label="Missed"
+              term="missed"
+              value={String(data.stats.missedCount)}
+            />
           </div>
 
           <div className={styles.trendWrap}>
@@ -297,11 +307,25 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   );
 }
 
-function PersonStat({ label, value }: { label: string; value: string }) {
+function PersonStat({
+  label,
+  value,
+  term,
+}: {
+  label: string;
+  value: string;
+  // Optional glossary term. When provided, the label wraps in a
+  // TermTooltip so the scorecard teaches vocabulary on hover /
+  // focus — Kept, Missed, Follow-Through Rate all read as
+  // dotted-underlined links to their definition.
+  term?: import("@/lib/terminology").TermKey;
+}) {
   return (
     <div className={styles.personStat}>
       <span className={`${styles.personStatValue} aims-tabular`}>{value}</span>
-      <span className={styles.personStatLabel}>{label}</span>
+      <span className={styles.personStatLabel}>
+        {term ? <TermTooltip term={term}>{label}</TermTooltip> : label}
+      </span>
     </div>
   );
 }

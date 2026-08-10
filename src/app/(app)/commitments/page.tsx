@@ -8,6 +8,7 @@ import {
   type CommitmentFilters,
 } from "@/lib/commitments/service";
 import { PageShell } from "@/components/ui/PageShell";
+import { TermTooltip } from "@/components/ui/TermTooltip";
 import { CommitmentRow } from "./CommitmentRow";
 import { FilterPills } from "./FilterPills";
 import { InlineAddRow } from "./InlineAddRow";
@@ -73,7 +74,9 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
               ? "—"
               : `${data.headerStats.keepRateThisQuarter}%`}
           </span>
-          <span className={styles.statPillLabel}>Follow-Through Rate this quarter</span>
+          <span className={styles.statPillLabel}>
+            <TermTooltip term="followThroughRate" /> this quarter
+          </span>
         </span>
       </div>
 
@@ -129,6 +132,21 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
           />
         );
 
+        // Team-member-first sort: for non-admins, pull their own
+        // rows out of the This Week list and pin them at the top as
+        // "Yours this week", so a team member with lower software
+        // fluency doesn't have to scan the whole list for their
+        // name. Admins keep the original assigned-then-unassigned
+        // layout — they're facilitating meetings and want everyone
+        // in the same view.
+        const currentUserId = session.profile.id;
+        const yoursThisWeek = !isAdmin
+          ? thisWeekList.filter((c) => c.owner_id === currentUserId)
+          : [];
+        const restThisWeek = !isAdmin
+          ? thisWeekList.filter((c) => c.owner_id !== currentUserId)
+          : thisWeekList;
+
         return (
           <>
             {needsAttention.length > 0 ? (
@@ -153,6 +171,26 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
               </section>
             ) : null}
 
+            {!isAdmin && yoursThisWeek.length > 0 ? (
+              <section
+                className={styles.group}
+                aria-labelledby="commitments-yours"
+              >
+                <div className={styles.groupHeader}>
+                  <h2 id="commitments-yours" className={styles.groupTitle}>
+                    Yours this week
+                  </h2>
+                  <span className={styles.groupMeta}>
+                    {yoursThisWeek.length}{" "}
+                    {yoursThisWeek.length === 1 ? "commitment" : "commitments"}
+                  </span>
+                </div>
+                <ul className={styles.rowList}>
+                  {yoursThisWeek.map(renderRow)}
+                </ul>
+              </section>
+            ) : null}
+
             <section
               className={styles.group}
               aria-labelledby="commitments-this-week"
@@ -162,19 +200,19 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                   id="commitments-this-week"
                   className={styles.groupTitle}
                 >
-                  This week
+                  {isAdmin ? "This week" : "Team this week"}
                 </h2>
                 <span className={styles.groupMeta}>
-                  {thisWeekList.length}{" "}
-                  {thisWeekList.length === 1 ? "commitment" : "commitments"}
+                  {restThisWeek.length}{" "}
+                  {restThisWeek.length === 1 ? "commitment" : "commitments"}
                 </span>
               </div>
               <ul className={styles.rowList}>
                 {(() => {
-                  const assigned = thisWeekList.filter(
+                  const assigned = restThisWeek.filter(
                     (c) => c.owner_id !== null
                   );
-                  const unassigned = thisWeekList.filter(
+                  const unassigned = restThisWeek.filter(
                     (c) => c.owner_id === null
                   );
                   return (

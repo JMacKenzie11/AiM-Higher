@@ -88,7 +88,7 @@ export function VersionsList({
                 className={styles.versionLinkGhost}
                 download
               >
-                Download .docx
+                Download
               </a>
               {canManage ? (
                 <button

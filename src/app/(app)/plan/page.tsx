@@ -267,7 +267,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                               {isAdmin && selectedQuarter ? (
                                 <details className={styles.addDetails}>
                                   <summary className={styles.addSummary}>
-                                    + Add action
+                                    + Add priority
                                   </summary>
                                   <AddPriorityForm
                                     quarterId={selectedQuarter.id}

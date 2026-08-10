@@ -1,0 +1,70 @@
+.wrap {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+  outline: none;
+}
+
+.wrap:focus-visible {
+  border-radius: 3px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.term {
+  border-bottom: 1px dotted currentColor;
+  /* dotted underline sits a bit below the baseline by default;
+     tighten so it doesn't look like a scored-out word. */
+  padding-bottom: 1px;
+}
+
+/* Tooltip panel. Positioned below the term, left-anchored, with a
+   subtle border + shadow. Small enough to sit under most inline
+   contexts without pushing text around. */
+.panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 240px;
+  max-width: 320px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: default;
+  /* Reset any inherited inline styles from the caller — this panel
+     must always read the same regardless of where it's dropped. */
+  font-weight: 400;
+  font-style: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+}
+
+.panelLabel {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-heading);
+  font-size: 13px;
+}
+
+.panelDefinition {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* When the term sits near the right edge of the viewport, callers
+   can add `data-align="right"` on the wrap to flip the panel. */
+.wrap[data-align="right"] .panel {
+  left: auto;
+  right: 0;
+}
