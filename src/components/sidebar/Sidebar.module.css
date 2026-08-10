@@ -166,23 +166,57 @@
   margin-top: 0;
 }
 
+/* Section header is a real <button> now so groups can be collapsed
+   by clicking the label. Base look matches the previous plain label
+   (uppercase caption in dim white); hover brightens + tints the row
+   so the click affordance is discoverable, and the chevron rotates
+   to signal open/closed. */
 .sectionLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
   padding: var(--space-2) var(--space-3) var(--space-1);
+  background: transparent;
   color: var(--aims-white);
   opacity: 0.55;
   font: var(--text-subhead);
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
 }
 
-.sectionLabel[data-hidden="true"] {
-  /* Keep the element in the DOM for a11y (aria-hidden) but visually
-     hide it — collapsed rail has no room for labels. */
-  height: 0;
-  padding: 0;
-  overflow: hidden;
-  opacity: 0;
+.sectionLabel:hover {
+  opacity: 0.9;
+  background: color-mix(in srgb, var(--aims-white) 6%, transparent);
+}
+
+.sectionLabel:focus-visible {
+  outline: 2px solid var(--aims-chartreuse);
+  outline-offset: -2px;
+  opacity: 1;
+}
+
+.sectionChevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  font-size: 10px;
+  line-height: 1;
+  transform: rotate(-90deg);
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+
+.sectionChevron[data-open="true"] {
+  transform: rotate(0deg);
 }
 
 /* Thin divider between sections when the rail is collapsed and text

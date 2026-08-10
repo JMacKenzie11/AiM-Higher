@@ -167,6 +167,11 @@ export type SidebarProps = {
   // Initial collapsed state read from cookie server-side so first
   // paint matches the persisted preference — no post-hydration flicker.
   initialCollapsed?: boolean;
+  // Section-group labels the user has collapsed. Same cookie-driven
+  // pattern as `initialCollapsed` — layout reads the cookie, hands
+  // the parsed list in, so the first paint matches the persisted
+  // state instead of flashing all-expanded and snapping shut.
+  initialCollapsedGroups?: readonly string[];
 };
 
 export function Sidebar({
@@ -180,14 +185,20 @@ export function Sidebar({
   hasChartMeasures = false,
   notifications = [],
   initialCollapsed = false,
+  initialCollapsedGroups = [],
 }: SidebarProps) {
   const pathname = usePathname() ?? "";
   const [collapsed, setCollapsed] = useState(initialCollapsed);
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
+    () => new Set(initialCollapsedGroups)
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  const MAX_AGE = 60 * 60 * 24 * 365; // one year
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -195,10 +206,28 @@ export function Sidebar({
       // Persist for one year. Cookie (not localStorage) so the server
       // layout can read it on the next request and hand the correct
       // initial state to Sidebar — avoids a hydration jump.
-      const maxAge = 60 * 60 * 24 * 365;
       document.cookie = next
-        ? `nav-collapsed=1; path=/; max-age=${maxAge}; samesite=lax`
+        ? `nav-collapsed=1; path=/; max-age=${MAX_AGE}; samesite=lax`
         : `nav-collapsed=; path=/; max-age=0; samesite=lax`;
+      return next;
+    });
+  }
+
+  function toggleGroup(label: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      // Same cookie-persistence rationale as `nav-collapsed`. Comma-
+      // separated list of collapsed group labels; empty string clears
+      // the cookie so future sessions start from the "all expanded"
+      // default without a stale header hanging around.
+      const value = Array.from(next).join(",");
+      if (value.length === 0) {
+        document.cookie = `nav-groups-collapsed=; path=/; max-age=0; samesite=lax`;
+      } else {
+        document.cookie = `nav-groups-collapsed=${encodeURIComponent(value)}; path=/; max-age=${MAX_AGE}; samesite=lax`;
+      }
       return next;
     });
   }
@@ -306,41 +335,80 @@ export function Sidebar({
         ) : null}
 
         <nav className={styles.nav} aria-label="Primary">
-          {items.map((item, index) =>
-            item.kind === "link" ? (
-              <NavRow
-                key={item.href}
-                href={item.href}
-                icon={item.icon}
-                label={item.label}
-                active={isLinkActive(pathname, item.href)}
-                collapsed={collapsed}
-              />
-            ) : (
+          {items.map((item, index) => {
+            if (item.kind === "link") {
+              return (
+                <NavRow
+                  key={item.href}
+                  href={item.href}
+                  icon={item.icon}
+                  label={item.label}
+                  active={isLinkActive(pathname, item.href)}
+                  collapsed={collapsed}
+                />
+              );
+            }
+            // In icons-only mode, section grouping is a visual concept
+            // only — the label is hidden and we render all children as
+            // icons regardless of the group's collapsed state. Toggling
+            // groups only makes sense when the labels are visible.
+            const groupCollapsed = !collapsed && collapsedGroups.has(item.label);
+            const panelId = `nav-group-${item.label.toLowerCase().replace(/\s+/g, "-")}`;
+            return (
               <div key={item.label} className={styles.section}>
-                <div
-                  className={styles.sectionLabel}
-                  data-hidden={collapsed ? "true" : undefined}
-                  aria-hidden={collapsed || undefined}
-                >
-                  {item.label}
-                </div>
-                {index > 0 && collapsed ? (
-                  <div className={styles.sectionDivider} aria-hidden="true" />
-                ) : null}
-                {item.items.map((child) => (
-                  <NavRow
-                    key={child.href}
-                    href={child.href}
-                    icon={child.icon}
-                    label={child.label}
-                    active={isLinkActive(pathname, child.href)}
-                    collapsed={collapsed}
-                  />
-                ))}
+                {collapsed ? (
+                  <>
+                    {index > 0 ? (
+                      <div className={styles.sectionDivider} aria-hidden="true" />
+                    ) : null}
+                    {item.items.map((child) => (
+                      <NavRow
+                        key={child.href}
+                        href={child.href}
+                        icon={child.icon}
+                        label={child.label}
+                        active={isLinkActive(pathname, child.href)}
+                        collapsed={collapsed}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.sectionLabel}
+                      onClick={() => toggleGroup(item.label)}
+                      aria-expanded={!groupCollapsed}
+                      aria-controls={panelId}
+                    >
+                      <span>{item.label}</span>
+                      <span
+                        className={styles.sectionChevron}
+                        data-open={!groupCollapsed ? "true" : undefined}
+                        aria-hidden="true"
+                      >
+                        ▾
+                      </span>
+                    </button>
+                    {!groupCollapsed ? (
+                      <div id={panelId}>
+                        {item.items.map((child) => (
+                          <NavRow
+                            key={child.href}
+                            href={child.href}
+                            icon={child.icon}
+                            label={child.label}
+                            active={isLinkActive(pathname, child.href)}
+                            collapsed={collapsed}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </div>
-            )
-          )}
+            );
+          })}
         </nav>
 
         <div className={styles.footer}>

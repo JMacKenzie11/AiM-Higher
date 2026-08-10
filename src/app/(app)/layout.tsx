@@ -115,10 +115,18 @@ export default async function AppLayout({
     : [];
 
   // Read persisted collapse state so the initial render matches the
-  // user's preference (no post-hydration jump). Sidebar writes this
-  // cookie client-side on toggle.
+  // user's preference (no post-hydration jump). Sidebar writes these
+  // cookies client-side on toggle.
   const cookieStore = await cookies();
   const initialCollapsed = cookieStore.get("nav-collapsed")?.value === "1";
+  // Comma-separated list of section-group labels the user has
+  // collapsed (e.g. "Disciplines,Strengths"). Empty/unset = all
+  // expanded, which is the intended default for a new user.
+  const groupsCookie = cookieStore.get("nav-groups-collapsed")?.value ?? "";
+  const initialCollapsedGroups = groupsCookie
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   return (
     <div
@@ -136,6 +144,7 @@ export default async function AppLayout({
         hasChartMeasures={hasChartMeasures}
         notifications={notifications}
         initialCollapsed={initialCollapsed}
+        initialCollapsedGroups={initialCollapsedGroups}
       />
       <div className={styles.main}>{children}</div>
       <HelpWidget />
