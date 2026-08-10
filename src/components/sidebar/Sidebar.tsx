@@ -345,7 +345,7 @@ export function Sidebar({
 
         <div className={styles.footer}>
           <div className={styles.footerBell}>
-            <NotificationBell items={[...notifications]} />
+            <NotificationBell items={[...notifications]} placement="up" />
           </div>
           <SidebarUserMenu
             userName={userName}

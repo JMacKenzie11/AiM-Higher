@@ -304,6 +304,17 @@
   overflow: hidden;
 }
 
+/* Upward placement — used by the sidebar footer where the bell
+   sits at the bottom of the screen and "down" would go off-screen.
+   Anchors bottom-left of the wrap and extends to the right so the
+   360px tray isn't clipped by the narrow rail. */
+.bellWrap[data-placement="up"] .bellMenu {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+}
+
 .bellMenuHeader {
   display: flex;
   align-items: center;

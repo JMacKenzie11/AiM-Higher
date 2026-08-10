@@ -11,7 +11,16 @@ import styles from "./NavBand.module.css";
 // Badge = items.length. Bell hides entirely when the list is empty —
 // no dead chrome. Closes on outside click, Escape, or navigation.
 
-export function NotificationBell({ items }: { items: NotificationItem[] }) {
+export function NotificationBell({
+  items,
+  placement = "down",
+}: {
+  items: NotificationItem[];
+  // "down" opens the tray below the bell (top nav default). "up"
+  // opens it above and to the right — used by the sidebar footer,
+  // where "below" is off-screen.
+  placement?: "down" | "up";
+}) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -45,7 +54,11 @@ export function NotificationBell({ items }: { items: NotificationItem[] }) {
     // present (nav layout stays stable) but no badge, no
     // interaction. Reads as "you're up to date" at a glance.
     return (
-      <div className={styles.bellWrap} aria-hidden="false">
+      <div
+        className={styles.bellWrap}
+        data-placement={placement}
+        aria-hidden="false"
+      >
         <span className={styles.bellButtonMuted} aria-label="No notifications">
           <BellIcon />
         </span>
@@ -56,7 +69,11 @@ export function NotificationBell({ items }: { items: NotificationItem[] }) {
   const count = items.length;
 
   return (
-    <div ref={wrapRef} className={styles.bellWrap}>
+    <div
+      ref={wrapRef}
+      className={styles.bellWrap}
+      data-placement={placement}
+    >
       <button
         type="button"
         className={styles.bellButton}
