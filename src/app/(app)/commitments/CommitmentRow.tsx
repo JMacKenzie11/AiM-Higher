@@ -29,7 +29,13 @@ import styles from "./commitments.module.css";
 //
 // The circle at the left is now a *menu trigger*, not an action.
 // Click it (any state, any due date) → a small menu opens with the
-// available actions: Mark kept · Mark missed · Reschedule · Reopen.
+// available actions. Menu contents vary by state:
+//   - Open + on-time  → Mark kept · Reschedule
+//   - Open + overdue  → Mark kept · Mark missed · Reschedule
+//   - Kept or Missed  → Reopen
+// Mark missed is deliberately hidden until the commitment is
+// overdue — a commitment can't be missed before its due date, so
+// showing that option on a future-dated open row was nonsensical.
 // Rationale: the previous "click = kept for on-time, click = missed
 // strip for overdue, click = revert for kept/missed" design was
 // state-dependent and caused misclick-in-front-of-client mistakes
@@ -363,14 +369,16 @@ export function CommitmentRow({
               >
                 <span aria-hidden>✓</span> Mark kept
               </button>
-              <button
-                type="button"
-                className={styles.resolveMenuItemMissed}
-                role="menuitem"
-                onClick={() => menuChoose("missed")}
-              >
-                <span aria-hidden>✕</span> Mark missed
-              </button>
+              {isOverdue ? (
+                <button
+                  type="button"
+                  className={styles.resolveMenuItemMissed}
+                  role="menuitem"
+                  onClick={() => menuChoose("missed")}
+                >
+                  <span aria-hidden>✕</span> Mark missed
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={styles.resolveMenuItem}
