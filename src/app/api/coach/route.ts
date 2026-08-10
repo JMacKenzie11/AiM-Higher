@@ -8,6 +8,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
 import { buildCoachTools } from "@/lib/coach/tools";
+import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { findPractice, loadPracticePrompt } from "@/lib/practices/registry";
 import type {
   CoachingConversation,
@@ -387,15 +388,17 @@ async function loadSystemPrompt(
   // the practice narrows it into a specific guided flow (including
   // the script-block contract the client renders as a card).
   const practice = findPractice(practiceId);
-  if (practice) {
-    const practicePrompt = await loadPracticePrompt(practice);
-    // No Aimee preamble here: the practice prompt takes over
-    // persona/flow guidance for the session.
-    return `${base}\n\n${practicePrompt}`;
-  }
+  const composed = practice
+    ? `${base}\n\n${await loadPracticePrompt(practice)}`
+    : mode === "about"
+      ? base
+      : `${GENERAL_MODE_PREAMBLE}\n\n${base}`;
 
-  if (mode === "about") return base;
-  return `${GENERAL_MODE_PREAMBLE}\n\n${base}`;
+  // Voice rules go LAST in the system prompt so they're the freshest
+  // instruction the model reads before generating. Applies to every
+  // coach surface (about, general, practice) — the point is a single
+  // consistent voice across the whole coaching product.
+  return `${composed}\n\n${VOICE_RULES_COACH}`;
 }
 
 // Injected ahead of leadership-coach.md in general (Ask Aimee) mode.
