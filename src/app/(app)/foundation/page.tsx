@@ -63,22 +63,29 @@ export default async function OnePagePlanPage() {
 
   return (
     <div className={styles.stage}>
-      <section className={styles.hero} aria-label="One-Page Plan summary">
-        <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>Plan</p>
-          <h1 className={styles.h1}>One-Page Plan</h1>
-          <span className={styles.rule} aria-hidden="true" />
-          <p className={styles.subtitle}>
-            Who {companyName} is, where you&rsquo;re going, and what
-            you&rsquo;re measuring, all in one place.
-          </p>
-        </div>
-      </section>
+      {/* Sticky header cluster: hero band + section chip nav stay
+          pinned to the top as a group. Wrapping them in one sticky
+          container avoids the two-sticky-with-conflicting-top mess
+          and keeps the brand + navigation always in view. */}
+      <div className={styles.stickyHeader}>
+        <section className={styles.hero} aria-label="One-Page Plan summary">
+          <div className={styles.heroInner}>
+            <p className={styles.eyebrow}>Plan</p>
+            <h1 className={styles.h1}>One-Page Plan</h1>
+            <span className={styles.rule} aria-hidden="true" />
+            <p className={styles.subtitle}>
+              Who {companyName} is, where you&rsquo;re going, and what
+              you&rsquo;re measuring, all in one place.
+            </p>
+          </div>
+        </section>
 
-      <div className={styles.content}>
         <nav className={styles.pageNav} aria-label="One-Page Plan sections">
           <a href="#purpose" className={styles.pageNavLink}>
             Purpose
+          </a>
+          <a href="#vision" className={styles.pageNavLink}>
+            Vision
           </a>
           <a href="#values" className={styles.pageNavLink}>
             Core Values
@@ -86,20 +93,19 @@ export default async function OnePagePlanPage() {
           <a href="#diffs" className={styles.pageNavLink}>
             Differentiators
           </a>
-          <a href="#vision" className={styles.pageNavLink}>
-            Vision
+          <a href="#ica" className={styles.pageNavLink}>
+            Ideal Customer
           </a>
           <a href="#sfas" className={styles.pageNavLink}>
             Focus Areas
-          </a>
-          <a href="#ica" className={styles.pageNavLink}>
-            Ideal Customer
           </a>
           <a href="#metrics" className={styles.pageNavLink}>
             Success Metrics
           </a>
         </nav>
+      </div>
 
+      <div className={styles.content}>
         <div className={styles.column}>
           {/* Purpose */}
           <SectionEditToggle
@@ -124,6 +130,34 @@ export default async function OnePagePlanPage() {
               </div>
             }
             editView={<PurposeForm foundation={data.foundation} />}
+            accent
+          />
+
+          {/* Vision — sits right under Purpose so identity (why we
+              exist) and direction (where we're going) read as one
+              north-star pair. */}
+          <SectionEditToggle
+            title="Vision"
+            headingId="vision"
+            canEdit={isAdmin}
+            readView={
+              <div className={styles.sectionBody}>
+                {f?.vision ? (
+                  <p
+                    className={styles.bodyText}
+                    style={{ whiteSpace: "pre-wrap" }}
+                  >
+                    {f.vision}
+                  </p>
+                ) : (
+                  <p className={styles.emptyLine}>
+                    Add the vision so the whole team can picture the
+                    destination.
+                  </p>
+                )}
+              </div>
+            }
+            editView={<VisionForm foundation={data.foundation} />}
             accent
           />
 
@@ -230,84 +264,6 @@ export default async function OnePagePlanPage() {
             ) : null}
           </section>
 
-          {/* Vision */}
-          <SectionEditToggle
-            title="Vision"
-            headingId="vision"
-            canEdit={isAdmin}
-            readView={
-              <div className={styles.sectionBody}>
-                {f?.vision ? (
-                  <p
-                    className={styles.bodyText}
-                    style={{ whiteSpace: "pre-wrap" }}
-                  >
-                    {f.vision}
-                  </p>
-                ) : (
-                  <p className={styles.emptyLine}>
-                    Add the vision so the whole team can picture the
-                    destination.
-                  </p>
-                )}
-              </div>
-            }
-            editView={<VisionForm foundation={data.foundation} />}
-            accent
-          />
-
-          {/* Strategic Focus Areas — read-only preview; managed on /plan */}
-          <section className={styles.cardAccent} aria-labelledby="sfas">
-            <CardAccent />
-            <h2 id="sfas" className={styles.h2}>
-              Strategic Focus Areas
-            </h2>
-            {sfas.length === 0 ? (
-              <p className={styles.emptyLine}>
-                No strategic focus areas yet.{" "}
-                {isAdmin ? (
-                  <>
-                    Add them on the{" "}
-                    <Link href="/plan" className={styles.inlineLink}>
-                      Strategic Plan
-                    </Link>{" "}
-                    page.
-                  </>
-                ) : null}
-              </p>
-            ) : (
-              <>
-                <div className={styles.grid2}>
-                  {sfas.map((sfa, index) => (
-                    <article key={sfa.id} className={styles.numberedCard}>
-                      <span
-                        className={`${styles.numberedCardNumber} aims-tabular`}
-                        aria-hidden="true"
-                      >
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <div className={styles.numberedCardMain}>
-                        <h3 className={styles.h3}>{sfa.title}</h3>
-                        {sfa.description ? (
-                          <p className={styles.bodyText}>{sfa.description}</p>
-                        ) : null}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-                {isAdmin ? (
-                  <p className={styles.contextLine}>
-                    Manage focus areas on the{" "}
-                    <Link href="/plan" className={styles.inlineLink}>
-                      Strategic Plan
-                    </Link>{" "}
-                    page.
-                  </p>
-                ) : null}
-              </>
-            )}
-          </section>
-
           {/* Ideal Customer Profile */}
           <section className={styles.cardAccent} aria-labelledby="ica">
             <CardAccent />
@@ -389,6 +345,58 @@ export default async function OnePagePlanPage() {
                 />
               ) : null}
             </div>
+          </section>
+
+          {/* Strategic Focus Areas — read-only preview; managed on /plan */}
+          <section className={styles.cardAccent} aria-labelledby="sfas">
+            <CardAccent />
+            <h2 id="sfas" className={styles.h2}>
+              Strategic Focus Areas
+            </h2>
+            {sfas.length === 0 ? (
+              <p className={styles.emptyLine}>
+                No strategic focus areas yet.{" "}
+                {isAdmin ? (
+                  <>
+                    Add them on the{" "}
+                    <Link href="/plan" className={styles.inlineLink}>
+                      Strategic Plan
+                    </Link>{" "}
+                    page.
+                  </>
+                ) : null}
+              </p>
+            ) : (
+              <>
+                <div className={styles.grid2}>
+                  {sfas.map((sfa, index) => (
+                    <article key={sfa.id} className={styles.numberedCard}>
+                      <span
+                        className={`${styles.numberedCardNumber} aims-tabular`}
+                        aria-hidden="true"
+                      >
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <div className={styles.numberedCardMain}>
+                        <h3 className={styles.h3}>{sfa.title}</h3>
+                        {sfa.description ? (
+                          <p className={styles.bodyText}>{sfa.description}</p>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                {isAdmin ? (
+                  <p className={styles.contextLine}>
+                    Manage focus areas on the{" "}
+                    <Link href="/plan" className={styles.inlineLink}>
+                      Strategic Plan
+                    </Link>{" "}
+                    page.
+                  </p>
+                ) : null}
+              </>
+            )}
           </section>
 
           {/* Key Success Metrics */}
