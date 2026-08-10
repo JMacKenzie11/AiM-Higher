@@ -94,8 +94,6 @@ export function ChatView({
   const [renameValue, setRenameValue] = useState(conversation.title);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [renamePending, startRename] = useTransition();
-  const threadRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
   // The first exchange is what triggers auto-titling. Track it so
@@ -115,12 +113,19 @@ export function ChatView({
   }, []);
 
   // Keep the bottom of the thread in view as the assistant streams.
-  // The scroll container here is the window (sticky header + composer
-  // sit at page level; the thread just grows the page height), so
-  // scrollTo on the thread element itself is a no-op. scrollIntoView
-  // on a bottom anchor works regardless of which ancestor scrolls.
+  // Previous version used scrollIntoView on a bottom anchor inside the
+  // thread, but the composer is position: sticky; bottom: 0 with its
+  // natural DOM position AFTER the thread. Scrolling only to the anchor
+  // stops short of the document bottom, so the composer's natural spot
+  // is still below viewport, sticky pins it to viewport bottom, and it
+  // overlays the last message — the 12rem of thread bottom-padding
+  // meant to clear the composer never gets shown.
+  //
+  // Scrolling to the document bottom instead lands the composer at its
+  // natural position at viewport bottom, so the padding above it stays
+  // visible and the last bubble clears the composer.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    window.scrollTo({ top: document.documentElement.scrollHeight });
   }, [messages]);
 
   useEffect(() => {
@@ -338,7 +343,7 @@ export function ChatView({
         </div>
       </div>
 
-      <div className={styles.thread} ref={threadRef}>
+      <div className={styles.thread}>
         {isEmpty ? (
           <div className={styles.emptyState}>
             <p className={styles.emptyStatePrompt}>
@@ -369,7 +374,6 @@ export function ChatView({
             />
           ))
         )}
-        <div ref={bottomRef} aria-hidden />
       </div>
 
       <form
