@@ -40,6 +40,18 @@ export const PRACTICES: readonly Practice[] = [
       "I need to reset expectations",
     ],
   },
+  {
+    id: "ask-better-questions",
+    title: "Ask better questions",
+    description:
+      "Turn frustrated or leading questions into ones that open up thinking and invite ownership.",
+    promptFile: "prompts/practices/ask-better-questions.md",
+    chips: [
+      "I have a real conversation to prepare for",
+      "I'm stuck on a limiting question",
+      "Show me examples for a topic",
+    ],
+  },
 ] as const;
 
 export function findPractice(id: string | null | undefined): Practice | null {
