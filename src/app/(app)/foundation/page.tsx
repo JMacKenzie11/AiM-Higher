@@ -63,23 +63,23 @@ export default async function OnePagePlanPage() {
 
   return (
     <div className={styles.stage}>
-      {/* Sticky header cluster: hero band + section chip nav stay
-          pinned to the top as a group. Wrapping them in one sticky
-          container avoids the two-sticky-with-conflicting-top mess
-          and keeps the brand + navigation always in view. */}
-      <div className={styles.stickyHeader}>
-        <section className={styles.hero} aria-label="One-Page Plan summary">
-          <div className={styles.heroInner}>
-            <p className={styles.eyebrow}>Plan</p>
-            <h1 className={styles.h1}>One-Page Plan</h1>
-            <span className={styles.rule} aria-hidden="true" />
-            <p className={styles.subtitle}>
-              Who {companyName} is, where you&rsquo;re going, and what
-              you&rsquo;re measuring, all in one place.
-            </p>
-          </div>
-        </section>
+      <section className={styles.hero} aria-label="One-Page Plan summary">
+        <div className={styles.heroInner}>
+          <p className={styles.eyebrow}>Plan</p>
+          <h1 className={styles.h1}>One-Page Plan</h1>
+          <span className={styles.rule} aria-hidden="true" />
+          <p className={styles.subtitle}>
+            Who {companyName} is, where you&rsquo;re going, and what
+            you&rsquo;re measuring, all in one place.
+          </p>
+        </div>
+      </section>
 
+      <div className={styles.content}>
+        {/* Chip nav is sticky inside .content so it stays pinned as
+            you scroll through the sections below. Hero above it
+            scrolls normally so it doesn't eat viewport once you've
+            oriented on the page. */}
         <nav className={styles.pageNav} aria-label="One-Page Plan sections">
           <a href="#purpose" className={styles.pageNavLink}>
             Purpose
@@ -103,9 +103,7 @@ export default async function OnePagePlanPage() {
             Success Metrics
           </a>
         </nav>
-      </div>
 
-      <div className={styles.content}>
         <div className={styles.column}>
           {/* Purpose */}
           <SectionEditToggle

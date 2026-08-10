@@ -58,24 +58,17 @@
 
 .content {
   position: relative;
-  margin: 0 auto;
-  padding: var(--space-5) var(--space-6) var(--space-6);
+  /* -32px pulls .content up over the bottom of the hero band so the
+     first child (the chip nav card) visually overlaps the hero —
+     the "cards floating over the gradient" pattern used across the
+     other pages. */
+  margin: -32px auto 0;
+  padding: 0 var(--space-6) var(--space-6);
   max-width: 1160px;
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-}
-
-/* Sticky header cluster — hero + chip nav ride together at the
-   top of the viewport so the brand identity and section navigation
-   stay accessible while the plan scrolls below. Sits above section
-   cards (z-index) but below the sidebar's dropdowns (which are 30). */
-.stickyHeader {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: var(--bg);
 }
 
 /* Full-width single-column layout. The One-Page Plan used to sit in
@@ -91,14 +84,16 @@
   min-width: 0;
 }
 
-/* In-page chip nav — sits inside .stickyHeader with the hero, so
-   the whole cluster stays pinned as one. Styled as a card to match
-   the section cards below rather than as a horizontal bar. Chips
-   jump you to the matching section; scroll-margin on the section
-   h2s keeps the anchor target from hiding behind the sticky cluster. */
+/* In-page chip nav — sticky at the top of the viewport so it stays
+   reachable as you scroll through the sections. Hero is NOT sticky;
+   it scrolls up naturally, then this chip card locks to top:0 once
+   its natural position hits the viewport top. Styled as a card so
+   it reads as part of the same visual system as the section cards
+   below (matches every other page's card treatment). */
 .pageNav {
-  max-width: 1160px;
-  margin: var(--space-4) auto 0;
+  position: sticky;
+  top: 0;
+  z-index: 15;
   display: flex;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
@@ -180,16 +175,11 @@
   color: var(--text-heading);
   margin: 0;
   position: relative;
-  /* Reserve enough room for the sticky header cluster (hero band +
-     chip nav) so anchor clicks don't scroll the heading behind it.
-     Trimmed on mobile where the hero packs smaller. */
-  scroll-margin-top: 280px;
-}
-
-@media (max-width: 768px) {
-  .h2 {
-    scroll-margin-top: 200px;
-  }
+  /* Reserve room for the sticky chip nav card (~60px tall) plus a
+     little breathing room so anchor jumps don't land the heading
+     flush against the bottom of the chip nav. Hero is not sticky
+     so no need to account for it. */
+  scroll-margin-top: 96px;
 }
 
 .h3 {
