@@ -8,6 +8,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
 import { buildCoachTools } from "@/lib/coach/tools";
+import { findPractice, loadPracticePrompt } from "@/lib/practices/registry";
 import type {
   CoachingConversation,
   CoachingMessage,
@@ -167,21 +168,28 @@ export async function POST(req: NextRequest): Promise<Response> {
   // Build context. In general mode (Ask Aimee) there is no subject,
   // so person / strengths context are absent and the system prompt
   // gets an Aimee preamble. In about mode the standard leadership
-  // prompt runs against subject-scoped context.
+  // prompt runs against subject-scoped context. Practice sessions
+  // (practice_id set) load the participant's own person_context and,
+  // if a partner is named, a strict-allow-list partner_context.
+  const practice = findPractice(convo.practice_id);
   const context = await buildCoachContext({
     companyId: convo.company_id,
     subjectProfileId: convo.subject_profile_id,
     currentAdminName: session.profile.full_name,
     currentAdminProfileId: session.profile.id,
     contextKind: convo.context_kind,
+    practiceId: convo.practice_id,
+    partnerProfileId: convo.partner_profile_id,
   });
-  const systemPromptText = await loadSystemPrompt(convo.mode);
+  const systemPromptText = await loadSystemPrompt(convo.mode, convo.practice_id);
 
   const client = new Anthropic({ apiKey });
   const personBlock = context.personContext ? `${context.personContext}\n\n` : "";
+  const partnerBlock = context.partnerContext ? `${context.partnerContext}\n\n` : "";
   const strengthsBlock = context.strengthsContext ? `${context.strengthsContext}\n\n` : "";
-  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${strengthsBlock}${context.coachingContext}\n\n`;
+  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${context.coachingContext}\n\n`;
   const messages = buildMessages(history, userTurnPrefix);
+  void practice; // reserved for future per-practice tool gating
 
   // Tool gating: subject-scoped tools are ONLY registered when there
   // is a subject to scope them to. In general mode the tool list is
@@ -367,9 +375,25 @@ export async function POST(req: NextRequest): Promise<Response> {
 
 // ---- Helpers ----------------------------------------------------
 
-async function loadSystemPrompt(mode: "about" | "general"): Promise<string> {
+async function loadSystemPrompt(
+  mode: "about" | "general",
+  practiceId: string | null
+): Promise<string> {
   const filePath = path.join(process.cwd(), "prompts", "leadership-coach.md");
   const base = await fs.readFile(filePath, "utf8");
+
+  // Practice sessions layer the registered practice's prompt AFTER
+  // the base coach prompt. The base establishes the coaching stance;
+  // the practice narrows it into a specific guided flow (including
+  // the script-block contract the client renders as a card).
+  const practice = findPractice(practiceId);
+  if (practice) {
+    const practicePrompt = await loadPracticePrompt(practice);
+    // No Aimee preamble here: the practice prompt takes over
+    // persona/flow guidance for the session.
+    return `${base}\n\n${practicePrompt}`;
+  }
+
   if (mode === "about") return base;
   return `${GENERAL_MODE_PREAMBLE}\n\n${base}`;
 }

@@ -25,6 +25,16 @@ export type CoachingConversation = {
   // (migration 0018).
   context_kind: CoachingContextKind;
   mode: CoachingMode;
+  // Practices layer (migration 0132). A practice_id promotes a
+  // general conversation into a guided practice session: the
+  // registered practice's prompt is appended after the base coach
+  // prompt, and the user's own person_context is loaded (unlike
+  // vanilla general mode which loads none). partner_profile_id, if
+  // set, adds a strict-allow-list partner_context block (name,
+  // position, reports_to, open commitments, current-quarter
+  // follow-through rate — nothing else).
+  practice_id: string | null;
+  partner_profile_id: string | null;
   created_at: string;
   updated_at: string;
 };

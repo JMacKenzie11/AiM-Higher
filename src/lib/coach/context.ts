@@ -7,6 +7,8 @@ import { computeFollowThroughRate } from "@/lib/utils";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { SUB_STRENGTH_LABELS } from "@/lib/strengths/types";
 import type { ResultsProfile } from "@/lib/strengths/types";
+import { buildPartnerContext } from "@/lib/practices/partner-context";
+import { findPractice } from "@/lib/practices/registry";
 import type {
   AnnualGoal,
   Commitment,
@@ -48,12 +50,25 @@ export type CoachContextInput = {
   currentAdminName: string;
   currentAdminProfileId: string;
   contextKind?: "execution" | "strengths";
+  // Practices layer. When practiceId is set, this is a guided
+  // practice session: the user's own person_context is loaded (even
+  // though mode is 'general'), and if partnerProfileId is set a
+  // strict-allow-list partner_context block is added. See
+  // lib/practices/partner-context.ts for the allow-list rules.
+  practiceId?: string | null;
+  partnerProfileId?: string | null;
 };
 
 export type CoachContextBlocks = {
   companyContext: string;
-  // Null in general mode.
+  // Null in general mode (except for practices, which load the
+  // participant's own person_context so the coach can ground its
+  // guidance in the participant's actual role and history).
   personContext: string | null;
+  // Partner context for practice sessions where the participant
+  // named who the conversation is about. Strict allow-list — no
+  // strengths, no missed reasons, no coaching data.
+  partnerContext: string | null;
   // Null when the subject has no strengths or the mode is general.
   strengthsContext: string | null;
   coachingContext: string;
@@ -65,14 +80,22 @@ export async function buildCoachContext(
 ): Promise<CoachContextBlocks> {
   const supabase = await createSupabaseServerClient();
 
-  // Company-level fetches always run. Subject-scoped fetches only
-  // run in about-mode — in general mode they'd be pointless and
-  // could pull data the coach must not touch.
+  // Determine whose person_context to load:
+  //   about   → the named subject
+  //   practice→ the participant (they are their own subject)
+  //   general → nobody
+  const practice = findPractice(input.practiceId ?? null);
+  const isPractice = practice !== null;
+  const subjectForBundle: string | null =
+    input.subjectProfileId ??
+    (isPractice ? input.currentAdminProfileId : null);
+
   const [
     { data: company },
     { data: foundation },
     { data: foundationItems },
     subjectBundle,
+    partnerContext,
   ] = await Promise.all([
     supabase
       .from("companies")
@@ -89,8 +112,15 @@ export async function buildCoachContext(
       .select("*")
       .eq("company_id", input.companyId)
       .in("kind", ["core_value", "differentiator"]),
-    input.subjectProfileId
-      ? loadSubjectBundle(supabase, input.companyId, input.subjectProfileId)
+    subjectForBundle
+      ? loadSubjectBundle(supabase, input.companyId, subjectForBundle)
+      : Promise.resolve(null),
+    isPractice && input.partnerProfileId
+      ? buildPartnerContext({
+          callerProfileId: input.currentAdminProfileId,
+          companyId: input.companyId,
+          partnerProfileId: input.partnerProfileId,
+        })
       : Promise.resolve(null),
   ]);
 
@@ -111,9 +141,9 @@ export async function buildCoachContext(
   const mode: "about" | "general" = input.subjectProfileId ? "about" : "general";
 
   if (!subjectBundle) {
-    // General mode — Ask Aimee. No subject; no person, keep-rate, or
-    // strengths context. The coach relies on what the user shares
-    // in-thread, plus the company context above.
+    // Vanilla general mode — Ask Aimee. No subject; no person,
+    // keep-rate, or strengths context. The coach relies on what the
+    // user shares in-thread, plus the company context above.
     const coachingContext = [
       "<coaching_context>",
       "Mode: general",
@@ -126,6 +156,7 @@ export async function buildCoachContext(
     return {
       companyContext,
       personContext: null,
+      partnerContext: null,
       strengthsContext: null,
       coachingContext,
       mode,
@@ -149,19 +180,42 @@ export async function buildCoachContext(
     goals: plan.goals,
   });
 
-  const coachingContext = [
-    "<coaching_context>",
-    "Mode: about",
-    `Being coached about: ${subject?.full_name ?? "(unknown subject)"}`,
-    `Coaching participant: ${input.currentAdminName}`,
-    "This is a leadership coaching session about another person. Refer to the subject by their name.",
-    "Pronouns for the subject are unknown. Use they/them by default; never infer gender from names. If you use a name repeatedly, that's fine — just do not guess pronouns.",
-    "If strengths data is marked incomplete or unavailable, say so if asked and never invent or guess strengths.",
-    `Today: ${todayIso}`,
-    "</coaching_context>",
-  ].join("\n");
+  const coachingContext = isPractice
+    ? [
+        "<coaching_context>",
+        "Mode: practice",
+        `Coaching participant: ${input.currentAdminName}`,
+        `This is a guided practice session: ${practice.title}.`,
+        partnerContext
+          ? "The participant has named who the conversation is about. Their partner's platform data is provided in <partner_context> for grounding — use it to keep observations specific, not to escalate."
+          : "The participant has not named a partner. Draw only on what they share in-thread; do not invent names or details.",
+        `Today: ${todayIso}`,
+        "</coaching_context>",
+      ].join("\n")
+    : [
+        "<coaching_context>",
+        "Mode: about",
+        `Being coached about: ${subject?.full_name ?? "(unknown subject)"}`,
+        `Coaching participant: ${input.currentAdminName}`,
+        "This is a leadership coaching session about another person. Refer to the subject by their name.",
+        "Pronouns for the subject are unknown. Use they/them by default; never infer gender from names. If you use a name repeatedly, that's fine — just do not guess pronouns.",
+        "If strengths data is marked incomplete or unavailable, say so if asked and never invent or guess strengths.",
+        `Today: ${todayIso}`,
+        "</coaching_context>",
+      ].join("\n");
 
-  return { companyContext, personContext, strengthsContext, coachingContext, mode };
+  return {
+    companyContext,
+    personContext,
+    partnerContext,
+    // Strengths for a practice session would leak the participant's
+    // own strengths into a prompt that doesn't reference them —
+    // harmless privacy-wise (they own their strengths) but noise.
+    // Keep strengths context out of practices.
+    strengthsContext: isPractice ? null : strengthsContext,
+    coachingContext,
+    mode,
+  };
 }
 
 // ---- Subject bundle -------------------------------------------
