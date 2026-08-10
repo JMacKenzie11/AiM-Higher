@@ -18,7 +18,7 @@
   - `company_admin` — owner/leaders, full write on their company.
   - `aims_guide` — external AiMS coach assigned to one or more companies; admin-like within assigned companies, no cross-tenant privileges beyond assignments.
   - `team_member` — read + self-write.
-- **Scope-in (system_admin + aims_guide):** clicking a company on `/admin/companies` (or navigating to `/admin/companies/[id]`) auto-scopes them into that company via a signed cookie set by middleware on both the incoming request (so the current render sees it) and the response (so subsequent navigations resolve to the right tenant). Layout renders a persistent "SYSTEM ADMIN · COMPANY NAME" sub-band under the top nav with an *Exit company* affordance in the user menu.
+- **Scope-in (system_admin + aims_guide):** clicking a company on `/admin/companies` (or navigating to `/admin/companies/[id]`) auto-scopes them into that company via a signed cookie set by middleware on both the incoming request (so the current render sees it) and the response (so subsequent navigations resolve to the right tenant). The Sidebar renders a persistent "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") context pill under the logo with an *Exit company* affordance in the user menu at the bottom of the rail.
 - **Managers:** `profiles.reports_to` establishes a direct manager, unlocking manager-level affordances (e.g., coach *about* a direct report) without granting admin.
 - **Invitations:** email invite flow with expiry; role assigned at invite time. Admins can pre-stage the roster (create as pending, send invite later).
 
@@ -40,19 +40,27 @@ Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coac
 
 ## 3. Foundation Module (One-Page Plan)
 
-The "why we exist, where we're going, and who we're going after" layer. Single-tenant per company. Everything is inline-edit-on-click with autosave chips.
+The "why we exist, where we're going, who we serve, and how we'll know it's working" layer. Single-tenant per company. Full-width single-column layout: sections stack in AiMS narrative order, and lists inside each section spread horizontally via a shared numbered-card grid so a 5-item list reads as one row of 4 + 1 rather than a 5-tall stack.
 
-- **Purpose** — statement + short elaboration.
-- **Vision** — title + tagline + long-form body (3-year horizon).
-- **Vision milestones** — dated waypoints on the way to the vision.
-- **Core values** — titled + body, ordered, auto-append pattern.
-- **Differentiators** — titled + body, ordered.
-- **Marketing strategy** (rolled into Foundation, not a separate module) — positioning statement, executive summary, anchoring message, messaging pillars (named themes with a JSON language bank), and marketing snippets across 7 kinds: `short_hook`, `long_hook`, `website_copy`, `avoid`, `icp_best_fit`, `icp_psychographic`, `elevated_phrase`.
-- **Ideal Client Avatar (ICA)** — demographics + psychographics + best-fit descriptions.
-- **Key metrics** — company-level metrics (revenue, headcount, etc.) shown as one-liners.
-- **Industry field** on the company powers the foundation-level positioning surfaces and gives the AI coach a domain hint.
+**Section order (top to bottom, mirrored by the chip nav):**
 
-All items reorderable, admin-writable. Consumed by the AI coach, meeting analyzer, and marketing surfaces. Every card has a first-run empty state that teaches ("Add the purpose statement to give the whole company a shared north star.").
+1. **Purpose** — statement + short context line.
+2. **Vision** — single free-form body (3-year horizon). The legacy title/tagline/body split and vision_milestone items were consolidated in migration 0106.
+3. **Core values** — titled + body, ordered, admin-writable.
+4. **Strengths & Differentiators** — titled + body, numbered, admin-writable.
+5. **Ideal Customer Profile** — two sub-lists (best-fit clients/projects and psychographics). Each entry is a single line with delete-only management; `AddSnippetForm` per sub-list.
+6. **Strategic Focus Areas** — read-only preview here; write side lives on `/plan`. Falls through the same numbered-card grid.
+7. **Key Success Metrics** — titled + body, admin-writable.
+
+**Visual system:**
+
+- Every section wrapper is a white `cardAccent` (soft sky-tint corner accent shape).
+- Every list item inside a section renders as a **numbered card** (`.numberedCard`, formerly `.differentiatorCard`) — cobalt "01/02/03" number on a grey/bordered tile with a title, optional body, and Edit/Delete actions in a footer row. ICP snippets render the same shell but the content sits as body-weight text (no title) since snippets are single statements.
+- Singleton statement sections (Purpose, Vision) wrap their content in the same grey `.sectionBody` tile so the whole page reads as one "grey content tile inside white section card" pattern.
+- **Sticky chip nav** at the top of `.content`, `position: sticky; top: 0; z-index: 15`, styled as a card (cobalt-text-on-bordered-pill chips matching the app's ghost/edit button vocabulary). Overlaps the bottom of the hero band via `-32px` margin on `.content`. Anchors on section h2 IDs with `scroll-margin-top: 96px` so jumps clear the sticky bar. Global `scroll-behavior: smooth` on `html` (respects `prefers-reduced-motion`) makes chip clicks glide.
+- `.grid2` uses `repeat(auto-fill, minmax(320px, 1fr))` — `auto-fill` (not `auto-fit`) keeps ghost tracks so a lone card stays 320-420px wide instead of stretching to page width.
+
+All items admin-writable. Consumed by the AI coach, meeting analyzer, and marketing surfaces. Every card has a first-run empty state that teaches ("Add the purpose statement to give the whole company a shared north star.").
 
 ---
 
@@ -254,7 +262,7 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
 
 ## 16. Cross-cutting UX System
 
-- **Top NavBand** (`components/nav-band/NavBand.tsx`) — sticky, gradient (--grad-brand), primary items on top row + optional dropdown groups (Company ▾ contains One-Page Plan, Plan, Chart, Commitments, People, Leadership, Success Measures — the last two feature-gated). A soft box-shadow fades in only after the band detaches from the top edge (IntersectionObserver on a zero-height sentinel — no scroll listener). Sub-band under it reads "SYSTEM ADMIN · COMPANY NAME" when a cross-tenant role is scoped in.
+- **Left Sidebar** (`components/sidebar/Sidebar.tsx`) — fixed rail at 260px expanded, 68px collapsed (icons-only). Collapse state persists in an HTTP-only cookie (`nav-collapsed`) read server-side by the app layout so first paint matches the user's preference (no post-hydration jump). Nav items grouped as flat section headers (Disciplines, Resources, Strengths) rather than dropdowns — one click to any surface. Inline SVG icons per item; hover slides a chartreuse left-accent bar in with a subtle white-tint bg + icon color shift on a single 200ms `--ease-out` curve. Active item keeps the accent bar and a slightly stronger bg. Context pill under the logo reads "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") when a cross-tenant role is scoped in. Footer holds the notification bell (opens upward via `placement="up"` on `NotificationBell` so the tray doesn't fall off the bottom of the screen) and the user pill (opens a popover upward with Profile / Exit company / Sign out). Below 768px the rail slides off-canvas and a hamburger in a slim top strip opens it as a drawer with a backdrop scrim. `NavBand.tsx` is retained in-tree for revert parity but no longer rendered; the notification tray's placement variant lives with the bell for reuse.
 - **ConfirmDialog** (`components/ui/ConfirmDialog.tsx`) — branded replacement for native `window.confirm()`. Auto-focuses Cancel so a stray Enter can't fire destruction; Escape cancels; overlay click cancels; danger vs primary tone. Used everywhere destructive actions land — no `confirm()` or `alert()` remains in user-visible code paths.
 - **PrivacyNote** (`components/ui/PrivacyNote.tsx`) — small, subtle line telling the user who can see the surrounding content. Three tones (private / managerial / shared). Placed on coaching surfaces, meeting analyses, and the personal scorecard.
 - **Undo affordance on commitment resolves** — 6-second inline chip that reverses the state without needing to hunt for a reopen gesture.

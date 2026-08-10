@@ -4,20 +4,16 @@ title: One-Page Plan
 
 # One-Page Plan
 
-The company's foundation on a single page: purpose, vision, core
-values, plus the marketing strategy and messaging pillars that
-carry it to the outside world.
+The company's identity and direction on a single page: why you exist, where you're going, who you serve, and how you'll know it's working. Sections stack top to bottom in this order: **Purpose → Vision → Core Values → Differentiators → Ideal Customer → Focus Areas → Success Metrics**.
 
 ## Common things people do here
 
-- **Edit any section inline** — click into a field and save. Every
-  section has an autosave chip that confirms the write landed.
-- **Add or remove core values** — the values list uses the same
-  auto-append pattern as strengths: type into the trailing empty
-  row and a fresh empty row appears.
+- **Jump between sections** — the chip nav at the top of the page sticks in place as you scroll. Click any chip to glide to that section.
+- **Edit any list item inline** — every numbered card (Values, Differentiators, ICP entries, Metrics) has Edit and Delete actions in its footer.
+- **Edit Purpose or Vision** — click the *Edit* button in the card footer to swap into edit mode in place.
+- **Add or remove items** — each section has an "+ Add" disclosure at the bottom that expands into a compact form.
 
 ## Heads-up
 
-- Foundation is company-wide and rarely changes. Every edit
-  updates the whole roster's mental model — worth a moment of
-  thought before hitting save.
+- **Strategic Focus Areas** here is a read-only preview — the write side lives on the Plan page.
+- Foundation content is company-wide and rarely changes. Every edit updates the whole roster's mental model — worth a moment of thought before hitting save.
