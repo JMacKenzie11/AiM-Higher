@@ -33,18 +33,16 @@ export default async function AskAimeePage() {
       <PracticeCards practices={PRACTICES} />
 
       <div className={styles.card} style={{ marginTop: "var(--space-6)" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "var(--space-3)",
-            marginBottom: "var(--space-3)",
-          }}
-        >
+        {/* Reuse .listActions so the top strip carries the same
+            padding + divider as every conversation row below — the
+            heading and the button land on the same left/right
+            gutters as the rows. marginRight:auto pushes the heading
+            to the left while the button stays anchored right. */}
+        <div className={styles.listActions}>
           <h2
             style={{
               margin: 0,
+              marginRight: "auto",
               font: "var(--text-subhead)",
               textTransform: "uppercase",
               letterSpacing: "0.15em",
