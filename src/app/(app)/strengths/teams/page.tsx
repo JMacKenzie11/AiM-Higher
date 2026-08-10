@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import CreateTeamForm from "@/components/strengths/teams/CreateTeamForm";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth/current-user";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { MISSION_LABELS } from "@/lib/strengths/team-labels";
 import type { MissionType } from "@/lib/strengths/team-scoring";
 import styles from "../strengths.module.css";
@@ -16,22 +18,26 @@ type TeamRow = {
 };
 
 export default async function TeamsListPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/sign-in");
-
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role, company_id")
-    .eq("id", user.id)
-    .single();
-  if (!me) redirect("/");
-  if (me.role !== "company_admin" && me.role !== "system_admin") {
+  const session = await requireProfile();
+  const me = session.profile;
+  if (
+    me.role !== "company_admin" &&
+    me.role !== "system_admin" &&
+    me.role !== "aims_guide"
+  ) {
     redirect("/");
   }
+  // Locked company for the create form: company_admin uses their own
+  // company_id; aims_guide uses whichever company they're scoped
+  // into; system_admin gets null so the picker appears. Guides with
+  // no active scope are bounced to the picker.
+  const effectiveCompanyId =
+    me.role === "system_admin" ? null : await getEffectiveCompanyId(session);
+  if (me.role === "aims_guide" && !effectiveCompanyId) {
+    redirect("/admin/companies");
+  }
 
+  const supabase = await createSupabaseServerClient();
   const { data: teams } = await supabase
     .from("strengths_teams")
     .select("id, name, mission_type, status, company_id, created_at")
@@ -140,9 +146,7 @@ export default async function TeamsListPage() {
             </h2>
           </div>
           <CreateTeamForm
-            lockedCompanyId={
-              me.role === "company_admin" ? me.company_id : null
-            }
+            lockedCompanyId={effectiveCompanyId}
             companies={
               isSystemAdmin
                 ? (companies ?? []).map((c) => ({

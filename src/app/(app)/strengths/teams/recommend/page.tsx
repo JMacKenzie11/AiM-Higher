@@ -2,32 +2,36 @@ import { redirect } from "next/navigation";
 import RecommendPage from "@/components/strengths/teams/RecommendPage";
 import { PageShell } from "@/components/ui/PageShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth/current-user";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import type { ResultsProfile } from "@/lib/strengths/types";
 
 export default async function RecommendRoute() {
+  const session = await requireProfile();
+  const me = session.profile;
+  if (
+    me.role !== "company_admin" &&
+    me.role !== "system_admin" &&
+    me.role !== "aims_guide"
+  ) {
+    redirect("/");
+  }
+  // Guide with no active scope has no candidate pool — bounce to
+  // the picker rather than defaulting to some random company.
+  const effectiveCompanyId =
+    me.role === "system_admin" ? null : await getEffectiveCompanyId(session);
+  if (me.role === "aims_guide" && !effectiveCompanyId) {
+    redirect("/admin/companies");
+  }
+
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/sign-in");
-
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role, company_id")
-    .eq("id", user.id)
-    .single();
-  if (!me) redirect("/");
-  if (me.role !== "company_admin" && me.role !== "system_admin") redirect("/");
-
   const { data: companies } = await supabase
     .from("companies")
     .select("id, name")
     .order("name", { ascending: true });
 
   const defaultCompanyId =
-    me.role === "company_admin"
-      ? (me.company_id ?? "")
-      : (companies?.[0]?.id ?? "");
+    effectiveCompanyId ?? (companies?.[0]?.id ?? "");
 
   // Load the candidate pool for the default company. If system_admin switches
   // company in the form, the client will refetch by hitting the recommend API.
