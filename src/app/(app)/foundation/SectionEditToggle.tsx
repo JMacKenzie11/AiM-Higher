@@ -15,12 +15,16 @@ export function SectionEditToggle({
   editView,
   canEdit,
   accent = false,
+  headingId,
 }: {
   title: string;
   readView: ReactNode;
   editView: ReactNode;
   canEdit: boolean;
   accent?: boolean;
+  // Set to make the h2 an anchor target (used by the in-page nav on
+  // the One-Page Plan).
+  headingId?: string;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -31,7 +35,9 @@ export function SectionEditToggle({
     >
       {accent ? <CardAccent /> : null}
 
-      <h2 className={styles.h2}>{title}</h2>
+      <h2 id={headingId} className={styles.h2}>
+        {title}
+      </h2>
 
       {editing ? (
         <div className={styles.editPanel}>

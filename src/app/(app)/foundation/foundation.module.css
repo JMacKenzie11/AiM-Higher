@@ -67,16 +67,12 @@
   gap: var(--space-5);
 }
 
-/* Two-column layout for the One-Page Plan: LEFT — Purpose, Core
-   Values, Differentiators. RIGHT — Vision, Strategic Focus Areas,
-   Ideal Client Avatar. Both columns stack under 900px. */
-.columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-5);
-  align-items: start;
-}
-
+/* Full-width single-column layout. The One-Page Plan used to sit in
+   two columns, but section heights vary so much (Purpose statement
+   vs. 7-item metrics list) that keeping the columns visually balanced
+   was impossible. Full-width lets each section's internal grid
+   expand horizontally, so a list of 4 Core Values now reads as one
+   row of 4 cards rather than 4 rows of 1 in a narrow half-column. */
 .column {
   display: flex;
   flex-direction: column;
@@ -84,10 +80,52 @@
   min-width: 0;
 }
 
-@media (max-width: 900px) {
-  .columns {
-    grid-template-columns: 1fr;
-  }
+/* In-page nav — a sticky chip row that appears under the hero and
+   locks to the top of the viewport as you scroll. Chips jump you to
+   the matching section; scroll-margin on the section h2s keeps the
+   anchor target from hiding behind the sticky bar. */
+.pageNav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  margin: 0 calc(-1 * var(--space-6));
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pageNav::-webkit-scrollbar {
+  display: none;
+}
+
+.pageNavLink {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text-heading);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font: var(--text-button-sm);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.pageNavLink:hover {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
+  border-color: var(--aims-cobalt-tint);
 }
 
 .inlineLink {
@@ -132,6 +170,9 @@
   color: var(--text-heading);
   margin: 0;
   position: relative;
+  /* Reserve space so anchor clicks from the sticky in-page nav don't
+     scroll the heading behind the nav strip. */
+  scroll-margin-top: 72px;
 }
 
 .h3 {
@@ -240,11 +281,15 @@
   gap: var(--space-4);
 }
 
-/* ---- Grid for two-column card contents ---- */
+/* ---- Grid for card lists inside a section ----
+   `auto-fill` (not auto-fit) keeps ghost tracks alive so a section
+   with only 1-2 cards doesn't stretch them across the whole page.
+   Cards stay around 320-420px wide; extra space sits empty to the
+   right, which reads better than an over-wide card. */
 
 .grid2 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-4);
 }
 

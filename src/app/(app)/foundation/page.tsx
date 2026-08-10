@@ -21,13 +21,13 @@ import { CardAccent } from "@/components/ui/CardAccent";
 import type { StrategicFocusArea } from "@/lib/types";
 import styles from "./foundation.module.css";
 
-// One-Page Plan — the single-page AiMS one-pager. Two columns of
-// content: left is identity (Purpose, Core Values, Differentiators);
-// right is direction (Vision, Strategic Focus Areas, Ideal Client
-// Avatar, Key Success Metrics). Key Success Metrics previously sat
-// full-width under both columns; it lives in the right column now
-// so the page reads as two coherent columns rather than "columns +
-// afterthought".
+// One-Page Plan — the single-page AiMS one-pager. Full-width single
+// column: sections stack in the AiMS narrative order (identity →
+// direction → measurement), and lists within each section spread
+// horizontally via the numbered-card grid so the page stays compact
+// without the balancing-two-columns problem the earlier two-column
+// layout suffered from. A sticky in-page nav under the hero jumps
+// between sections since the flat scroll is long.
 // Vision is a single field; the legacy title/tagline/body split
 // and vision_milestone items were consolidated in migration 0106.
 
@@ -57,7 +57,9 @@ export default async function OnePagePlanPage() {
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
   const f = data.foundation;
-  const sfas = (sfaRows ?? []) as Array<Pick<StrategicFocusArea, "id" | "title" | "description">>;
+  const sfas = (sfaRows ?? []) as Array<
+    Pick<StrategicFocusArea, "id" | "title" | "description">
+  >;
 
   return (
     <div className={styles.stage}>
@@ -67,340 +69,276 @@ export default async function OnePagePlanPage() {
           <h1 className={styles.h1}>One-Page Plan</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Who {companyName} is, where you&rsquo;re going, and what you&rsquo;re
-            measuring, all in one place.
+            Who {companyName} is, where you&rsquo;re going, and what
+            you&rsquo;re measuring, all in one place.
           </p>
         </div>
       </section>
 
       <div className={styles.content}>
-        <div className={styles.columns}>
-          {/* ============ LEFT COLUMN ============ */}
-          <div className={styles.column}>
-            {/* Purpose */}
-            <SectionEditToggle
-              title="Purpose"
-              canEdit={isAdmin}
-              readView={
-                <div className={styles.sectionBody}>
-                  {f?.purpose_context ? (
-                    <p className={styles.contextLine}>{f.purpose_context}</p>
-                  ) : null}
-                  {f?.purpose_statement ? (
-                    <p className={styles.purposeStatement}>{f.purpose_statement}</p>
-                  ) : (
-                    <p className={styles.emptyLine}>
-                      Add the purpose statement and context to give the whole
-                      company a shared north star.
-                    </p>
-                  )}
-                </div>
-              }
-              editView={<PurposeForm foundation={data.foundation} />}
-              accent
-            />
+        <nav className={styles.pageNav} aria-label="One-Page Plan sections">
+          <a href="#purpose" className={styles.pageNavLink}>
+            Purpose
+          </a>
+          <a href="#values" className={styles.pageNavLink}>
+            Core Values
+          </a>
+          <a href="#diffs" className={styles.pageNavLink}>
+            Differentiators
+          </a>
+          <a href="#vision" className={styles.pageNavLink}>
+            Vision
+          </a>
+          <a href="#sfas" className={styles.pageNavLink}>
+            Focus Areas
+          </a>
+          <a href="#ica" className={styles.pageNavLink}>
+            Ideal Customer
+          </a>
+          <a href="#metrics" className={styles.pageNavLink}>
+            Success Metrics
+          </a>
+        </nav>
 
-            {/* Core Values */}
-            <section className={styles.cardAccent} aria-labelledby="values">
-              <CardAccent />
-              <h2 id="values" className={styles.h2}>
-                Core Values
-              </h2>
-              {data.coreValues.length === 0 ? (
-                <p className={styles.emptyLine}>
-                  No core values yet. {isAdmin ? "Add the first one below." : ""}
-                </p>
-              ) : (
-                <div className={styles.grid2}>
-                  {data.coreValues.map((value, index) => (
-                    <article key={value.id} className={styles.numberedCard}>
-                      <span
-                        className={`${styles.numberedCardNumber} aims-tabular`}
-                        aria-hidden="true"
-                      >
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <div className={styles.numberedCardMain}>
-                        <h3 className={styles.h3}>{value.title}</h3>
-                        {value.body ? (
-                          <p className={styles.bodyText}>{value.body}</p>
-                        ) : null}
-                        {isAdmin ? (
-                          <div className={styles.subcardActions}>
-                            <EditFoundationItemForm item={value} />
-                            <DeleteButton
-                              action={deleteFoundationItemAction}
-                              itemId={value.id}
-                              confirmMessage="Delete this core value?"
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-              {isAdmin ? (
-                <AddFoundationItemForm
-                  kind="core_value"
-                  addLabel="Add core value"
-                  titleLabel="Value title"
-                  bodyLabel="What it looks like in practice"
-                />
-              ) : null}
-            </section>
-
-            {/* Strengths & Differentiators */}
-            <section className={styles.cardAccent} aria-labelledby="diffs">
-              <CardAccent />
-              <h2 id="diffs" className={styles.h2}>
-                Strengths & Differentiators
-              </h2>
-              {data.differentiators.length === 0 ? (
-                <p className={styles.emptyLine}>
-                  No differentiators yet.{" "}
-                  {isAdmin
-                    ? "Name the two or three things that make this company distinct."
-                    : ""}
-                </p>
-              ) : (
-                <div className={styles.grid2}>
-                  {data.differentiators.map((item, index) => (
-                    <article key={item.id} className={styles.numberedCard}>
-                      <span
-                        className={`${styles.numberedCardNumber} aims-tabular`}
-                        aria-hidden="true"
-                      >
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <div className={styles.numberedCardMain}>
-                        <h3 className={styles.h3}>{item.title}</h3>
-                        {item.body ? (
-                          <p className={styles.bodyText}>{item.body}</p>
-                        ) : null}
-                        {isAdmin ? (
-                          <div className={styles.subcardActions}>
-                            <EditFoundationItemForm item={item} />
-                            <DeleteButton
-                              action={deleteFoundationItemAction}
-                              itemId={item.id}
-                              confirmMessage="Delete this differentiator?"
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-              {isAdmin ? (
-                <AddFoundationItemForm
-                  kind="differentiator"
-                  addLabel="Add differentiator"
-                  titleLabel="Differentiator title"
-                  bodyLabel="Supporting paragraph"
-                />
-              ) : null}
-            </section>
-          </div>
-
-          {/* ============ RIGHT COLUMN ============ */}
-          <div className={styles.column}>
-            {/* Vision */}
-            <SectionEditToggle
-              title="Vision"
-              canEdit={isAdmin}
-              readView={
-                <div className={styles.sectionBody}>
-                  {f?.vision ? (
-                    <p className={styles.bodyText} style={{ whiteSpace: "pre-wrap" }}>
-                      {f.vision}
-                    </p>
-                  ) : (
-                    <p className={styles.emptyLine}>
-                      Add the vision so the whole team can picture the destination.
-                    </p>
-                  )}
-                </div>
-              }
-              editView={<VisionForm foundation={data.foundation} />}
-              accent
-            />
-
-            {/* Strategic Focus Areas — read-only preview; managed on /plan */}
-            <section className={styles.cardAccent} aria-labelledby="sfas">
-              <CardAccent />
-              <h2 id="sfas" className={styles.h2}>
-                Strategic Focus Areas
-              </h2>
-              {sfas.length === 0 ? (
-                <p className={styles.emptyLine}>
-                  No strategic focus areas yet.{" "}
-                  {isAdmin ? (
-                    <>
-                      Add them on the{" "}
-                      <Link href="/plan" className={styles.inlineLink}>
-                        Strategic Plan
-                      </Link>{" "}
-                      page.
-                    </>
-                  ) : null}
-                </p>
-              ) : (
-                <>
-                  <div className={styles.grid2}>
-                    {sfas.map((sfa, index) => (
-                      <article key={sfa.id} className={styles.numberedCard}>
-                        <span
-                          className={`${styles.numberedCardNumber} aims-tabular`}
-                          aria-hidden="true"
-                        >
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <div className={styles.numberedCardMain}>
-                          <h3 className={styles.h3}>{sfa.title}</h3>
-                          {sfa.description ? (
-                            <p className={styles.bodyText}>{sfa.description}</p>
-                          ) : null}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                  {isAdmin ? (
-                    <p className={styles.contextLine}>
-                      Manage focus areas on the{" "}
-                      <Link href="/plan" className={styles.inlineLink}>
-                        Strategic Plan
-                      </Link>{" "}
-                      page.
-                    </p>
-                  ) : null}
-                </>
-              )}
-            </section>
-
-            {/* Ideal Customer Profile */}
-            <section className={styles.cardAccent} aria-labelledby="ica">
-              <CardAccent />
-              <h2 id="ica" className={styles.h2}>
-                Ideal Customer Profile
-              </h2>
-              <div>
-                <p className={styles.metaLabel}>Best-fit clients and projects</p>
-                {data.snippets.icp_best_fit.length === 0 ? (
-                  <p className={styles.emptyLine}>No entries yet.</p>
+        <div className={styles.column}>
+          {/* Purpose */}
+          <SectionEditToggle
+            title="Purpose"
+            headingId="purpose"
+            canEdit={isAdmin}
+            readView={
+              <div className={styles.sectionBody}>
+                {f?.purpose_context ? (
+                  <p className={styles.contextLine}>{f.purpose_context}</p>
+                ) : null}
+                {f?.purpose_statement ? (
+                  <p className={styles.purposeStatement}>
+                    {f.purpose_statement}
+                  </p>
                 ) : (
-                  <div className={styles.grid2}>
-                    {data.snippets.icp_best_fit.map((snippet, index) => (
-                      <article key={snippet.id} className={styles.numberedCard}>
-                        <span
-                          className={`${styles.numberedCardNumber} aims-tabular`}
-                          aria-hidden="true"
-                        >
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <div className={styles.numberedCardMain}>
-                          {/* ICP snippets have no separate title — rendering as
+                  <p className={styles.emptyLine}>
+                    Add the purpose statement and context to give the whole
+                    company a shared north star.
+                  </p>
+                )}
+              </div>
+            }
+            editView={<PurposeForm foundation={data.foundation} />}
+            accent
+          />
+
+          {/* Core Values */}
+          <section className={styles.cardAccent} aria-labelledby="values">
+            <CardAccent />
+            <h2 id="values" className={styles.h2}>
+              Core Values
+            </h2>
+            {data.coreValues.length === 0 ? (
+              <p className={styles.emptyLine}>
+                No core values yet. {isAdmin ? "Add the first one below." : ""}
+              </p>
+            ) : (
+              <div className={styles.grid2}>
+                {data.coreValues.map((value, index) => (
+                  <article key={value.id} className={styles.numberedCard}>
+                    <span
+                      className={`${styles.numberedCardNumber} aims-tabular`}
+                      aria-hidden="true"
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div className={styles.numberedCardMain}>
+                      <h3 className={styles.h3}>{value.title}</h3>
+                      {value.body ? (
+                        <p className={styles.bodyText}>{value.body}</p>
+                      ) : null}
+                      {isAdmin ? (
+                        <div className={styles.subcardActions}>
+                          <EditFoundationItemForm item={value} />
+                          <DeleteButton
+                            action={deleteFoundationItemAction}
+                            itemId={value.id}
+                            confirmMessage="Delete this core value?"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            {isAdmin ? (
+              <AddFoundationItemForm
+                kind="core_value"
+                addLabel="Add core value"
+                titleLabel="Value title"
+                bodyLabel="What it looks like in practice"
+              />
+            ) : null}
+          </section>
+
+          {/* Strengths & Differentiators */}
+          <section className={styles.cardAccent} aria-labelledby="diffs">
+            <CardAccent />
+            <h2 id="diffs" className={styles.h2}>
+              Strengths & Differentiators
+            </h2>
+            {data.differentiators.length === 0 ? (
+              <p className={styles.emptyLine}>
+                No differentiators yet.{" "}
+                {isAdmin
+                  ? "Name the two or three things that make this company distinct."
+                  : ""}
+              </p>
+            ) : (
+              <div className={styles.grid2}>
+                {data.differentiators.map((item, index) => (
+                  <article key={item.id} className={styles.numberedCard}>
+                    <span
+                      className={`${styles.numberedCardNumber} aims-tabular`}
+                      aria-hidden="true"
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div className={styles.numberedCardMain}>
+                      <h3 className={styles.h3}>{item.title}</h3>
+                      {item.body ? (
+                        <p className={styles.bodyText}>{item.body}</p>
+                      ) : null}
+                      {isAdmin ? (
+                        <div className={styles.subcardActions}>
+                          <EditFoundationItemForm item={item} />
+                          <DeleteButton
+                            action={deleteFoundationItemAction}
+                            itemId={item.id}
+                            confirmMessage="Delete this differentiator?"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            {isAdmin ? (
+              <AddFoundationItemForm
+                kind="differentiator"
+                addLabel="Add differentiator"
+                titleLabel="Differentiator title"
+                bodyLabel="Supporting paragraph"
+              />
+            ) : null}
+          </section>
+
+          {/* Vision */}
+          <SectionEditToggle
+            title="Vision"
+            headingId="vision"
+            canEdit={isAdmin}
+            readView={
+              <div className={styles.sectionBody}>
+                {f?.vision ? (
+                  <p
+                    className={styles.bodyText}
+                    style={{ whiteSpace: "pre-wrap" }}
+                  >
+                    {f.vision}
+                  </p>
+                ) : (
+                  <p className={styles.emptyLine}>
+                    Add the vision so the whole team can picture the
+                    destination.
+                  </p>
+                )}
+              </div>
+            }
+            editView={<VisionForm foundation={data.foundation} />}
+            accent
+          />
+
+          {/* Strategic Focus Areas — read-only preview; managed on /plan */}
+          <section className={styles.cardAccent} aria-labelledby="sfas">
+            <CardAccent />
+            <h2 id="sfas" className={styles.h2}>
+              Strategic Focus Areas
+            </h2>
+            {sfas.length === 0 ? (
+              <p className={styles.emptyLine}>
+                No strategic focus areas yet.{" "}
+                {isAdmin ? (
+                  <>
+                    Add them on the{" "}
+                    <Link href="/plan" className={styles.inlineLink}>
+                      Strategic Plan
+                    </Link>{" "}
+                    page.
+                  </>
+                ) : null}
+              </p>
+            ) : (
+              <>
+                <div className={styles.grid2}>
+                  {sfas.map((sfa, index) => (
+                    <article key={sfa.id} className={styles.numberedCard}>
+                      <span
+                        className={`${styles.numberedCardNumber} aims-tabular`}
+                        aria-hidden="true"
+                      >
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <div className={styles.numberedCardMain}>
+                        <h3 className={styles.h3}>{sfa.title}</h3>
+                        {sfa.description ? (
+                          <p className={styles.bodyText}>{sfa.description}</p>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                {isAdmin ? (
+                  <p className={styles.contextLine}>
+                    Manage focus areas on the{" "}
+                    <Link href="/plan" className={styles.inlineLink}>
+                      Strategic Plan
+                    </Link>{" "}
+                    page.
+                  </p>
+                ) : null}
+              </>
+            )}
+          </section>
+
+          {/* Ideal Customer Profile */}
+          <section className={styles.cardAccent} aria-labelledby="ica">
+            <CardAccent />
+            <h2 id="ica" className={styles.h2}>
+              Ideal Customer Profile
+            </h2>
+            <div>
+              <p className={styles.metaLabel}>Best-fit clients and projects</p>
+              {data.snippets.icp_best_fit.length === 0 ? (
+                <p className={styles.emptyLine}>No entries yet.</p>
+              ) : (
+                <div className={styles.grid2}>
+                  {data.snippets.icp_best_fit.map((snippet, index) => (
+                    <article key={snippet.id} className={styles.numberedCard}>
+                      <span
+                        className={`${styles.numberedCardNumber} aims-tabular`}
+                        aria-hidden="true"
+                      >
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <div className={styles.numberedCardMain}>
+                        {/* ICP snippets have no separate title — rendering as
                               body text (not h3) so the numbered card doesn't
                               read as an over-weighted headline. */}
-                          <p className={styles.bodyText}>{snippet.content}</p>
-                          {isAdmin ? (
-                            <div className={styles.subcardActions}>
-                              <DeleteButton
-                                action={deleteSnippetAction}
-                                itemId={snippet.id}
-                                confirmMessage="Remove this entry?"
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-                {isAdmin ? (
-                  <AddSnippetForm kind="icp_best_fit" addLabel="Add best-fit" />
-                ) : null}
-              </div>
-
-              <div>
-                <p className={styles.metaLabel}>Psychographics</p>
-                {data.snippets.icp_psychographic.length === 0 ? (
-                  <p className={styles.emptyLine}>No entries yet.</p>
-                ) : (
-                  <div className={styles.grid2}>
-                    {data.snippets.icp_psychographic.map((snippet, index) => (
-                      <article key={snippet.id} className={styles.numberedCard}>
-                        <span
-                          className={`${styles.numberedCardNumber} aims-tabular`}
-                          aria-hidden="true"
-                        >
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <div className={styles.numberedCardMain}>
-                          <p className={styles.bodyText}>{snippet.content}</p>
-                          {isAdmin ? (
-                            <div className={styles.subcardActions}>
-                              <DeleteButton
-                                action={deleteSnippetAction}
-                                itemId={snippet.id}
-                                confirmMessage="Remove this entry?"
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-                {isAdmin ? (
-                  <AddSnippetForm
-                    kind="icp_psychographic"
-                    addLabel="Add psychographic"
-                  />
-                ) : null}
-              </div>
-            </section>
-
-            {/* Key Success Metrics — lives in the right column so the
-                page reads as two coherent columns instead of "columns
-                + full-width strip". Grid drops from grid2 to a single
-                column here since the column is narrower than the
-                full-page grid it used to span. */}
-            <section className={styles.cardAccent} aria-labelledby="metrics">
-              <CardAccent />
-              <h2 id="metrics" className={styles.h2}>
-                Key Success Metrics
-              </h2>
-              {data.keySuccessMetrics.length === 0 ? (
-                <p className={styles.emptyLine}>
-                  No metrics yet.{" "}
-                  {isAdmin
-                    ? "Add the handful of numbers this company measures itself by."
-                    : ""}
-                </p>
-              ) : (
-                <div className={styles.grid2}>
-                  {data.keySuccessMetrics.map((metric, index) => (
-                    <article key={metric.id} className={styles.numberedCard}>
-                      <span
-                        className={`${styles.numberedCardNumber} aims-tabular`}
-                        aria-hidden="true"
-                      >
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <div className={styles.numberedCardMain}>
-                        <h3 className={styles.h3}>{metric.title}</h3>
-                        {metric.body ? (
-                          <p className={styles.bodyText}>{metric.body}</p>
-                        ) : null}
+                        <p className={styles.bodyText}>{snippet.content}</p>
                         {isAdmin ? (
                           <div className={styles.subcardActions}>
-                            <EditFoundationItemForm item={metric} />
                             <DeleteButton
-                              action={deleteFoundationItemAction}
-                              itemId={metric.id}
-                              confirmMessage="Delete this metric?"
+                              action={deleteSnippetAction}
+                              itemId={snippet.id}
+                              confirmMessage="Remove this entry?"
                             />
                           </div>
                         ) : null}
@@ -410,15 +348,101 @@ export default async function OnePagePlanPage() {
                 </div>
               )}
               {isAdmin ? (
-                <AddFoundationItemForm
-                  kind="key_success_metric"
-                  addLabel="Add metric"
-                  titleLabel="Metric"
-                  bodyLabel="Target or definition"
+                <AddSnippetForm kind="icp_best_fit" addLabel="Add best-fit" />
+              ) : null}
+            </div>
+
+            <div>
+              <p className={styles.metaLabel}>Psychographics</p>
+              {data.snippets.icp_psychographic.length === 0 ? (
+                <p className={styles.emptyLine}>No entries yet.</p>
+              ) : (
+                <div className={styles.grid2}>
+                  {data.snippets.icp_psychographic.map((snippet, index) => (
+                    <article key={snippet.id} className={styles.numberedCard}>
+                      <span
+                        className={`${styles.numberedCardNumber} aims-tabular`}
+                        aria-hidden="true"
+                      >
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <div className={styles.numberedCardMain}>
+                        <p className={styles.bodyText}>{snippet.content}</p>
+                        {isAdmin ? (
+                          <div className={styles.subcardActions}>
+                            <DeleteButton
+                              action={deleteSnippetAction}
+                              itemId={snippet.id}
+                              confirmMessage="Remove this entry?"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+              {isAdmin ? (
+                <AddSnippetForm
+                  kind="icp_psychographic"
+                  addLabel="Add psychographic"
                 />
               ) : null}
-            </section>
-          </div>
+            </div>
+          </section>
+
+          {/* Key Success Metrics */}
+          <section className={styles.cardAccent} aria-labelledby="metrics">
+            <CardAccent />
+            <h2 id="metrics" className={styles.h2}>
+              Key Success Metrics
+            </h2>
+            {data.keySuccessMetrics.length === 0 ? (
+              <p className={styles.emptyLine}>
+                No metrics yet.{" "}
+                {isAdmin
+                  ? "Add the handful of numbers this company measures itself by."
+                  : ""}
+              </p>
+            ) : (
+              <div className={styles.grid2}>
+                {data.keySuccessMetrics.map((metric, index) => (
+                  <article key={metric.id} className={styles.numberedCard}>
+                    <span
+                      className={`${styles.numberedCardNumber} aims-tabular`}
+                      aria-hidden="true"
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div className={styles.numberedCardMain}>
+                      <h3 className={styles.h3}>{metric.title}</h3>
+                      {metric.body ? (
+                        <p className={styles.bodyText}>{metric.body}</p>
+                      ) : null}
+                      {isAdmin ? (
+                        <div className={styles.subcardActions}>
+                          <EditFoundationItemForm item={metric} />
+                          <DeleteButton
+                            action={deleteFoundationItemAction}
+                            itemId={metric.id}
+                            confirmMessage="Delete this metric?"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            {isAdmin ? (
+              <AddFoundationItemForm
+                kind="key_success_metric"
+                addLabel="Add metric"
+                titleLabel="Metric"
+                bodyLabel="Target or definition"
+              />
+            ) : null}
+          </section>
         </div>
       </div>
     </div>
