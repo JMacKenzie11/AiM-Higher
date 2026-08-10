@@ -45,7 +45,7 @@ export function PracticeCards({
   return (
     <section className={styles.section} aria-labelledby="practices-heading">
       <h2 id="practices-heading" className={styles.sectionHeader}>
-        Work through a real situation
+        Practices
       </h2>
       <div className={styles.grid}>
         {practices.map((practice) => (
