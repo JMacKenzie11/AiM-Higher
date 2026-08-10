@@ -179,8 +179,12 @@
   width: 100%;
   padding: var(--space-2) var(--space-3) var(--space-1);
   background: transparent;
-  color: var(--aims-white);
-  opacity: 0.55;
+  /* Dim via color, not opacity: opacity on this parent would composite
+     the whole subtree and swallow the chevron along with the label,
+     which is what made the arrows nearly invisible. Using rgba keeps
+     the caption text muted while letting the chevron override to full
+     brightness through its own color property. */
+  color: rgb(255 255 255 / 0.55);
   font: var(--text-subhead);
   text-transform: uppercase;
   letter-spacing: 0.15em;
@@ -189,28 +193,32 @@
   cursor: pointer;
   text-align: left;
   transition: background var(--duration-fast) var(--ease-out),
-    opacity var(--duration-fast) var(--ease-out);
+    color var(--duration-fast) var(--ease-out);
 }
 
 .sectionLabel:hover {
-  opacity: 0.9;
+  color: rgb(255 255 255 / 0.9);
   background: color-mix(in srgb, var(--aims-white) 6%, transparent);
 }
 
 .sectionLabel:focus-visible {
   outline: 2px solid var(--aims-chartreuse);
   outline-offset: -2px;
-  opacity: 1;
+  color: var(--aims-white);
 }
 
+/* Chevron is an SVG so it renders crisp at any weight; unicode ▾
+   was tiny and disappeared against the muted label color. Setting
+   color explicitly to full white here overrides the parent label's
+   dim rgba, so the affordance stays visible while the caption text
+   stays quiet. */
 .sectionChevron {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 12px;
-  height: 12px;
-  font-size: 10px;
-  line-height: 1;
+  width: 14px;
+  height: 14px;
+  color: var(--aims-white);
   transform: rotate(-90deg);
   transition: transform var(--duration-normal) var(--ease-out);
 }
