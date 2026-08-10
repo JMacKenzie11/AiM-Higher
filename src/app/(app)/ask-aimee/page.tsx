@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireProfile } from "@/lib/auth/current-user";
 import { listGeneralConversationsForUser } from "@/lib/coach/service";
 import { PageShell } from "@/components/ui/PageShell";
+import { PracticeCards } from "@/components/practices/PracticeCards";
+import { PRACTICES, findPractice } from "@/lib/practices/registry";
 import { AskAimeeNewButton } from "./AskAimeeNewButton";
 import { ArchiveConversationButton } from "../coach/[profileId]/ArchiveConversationButton";
 import styles from "../coach/coach.module.css";
@@ -11,6 +13,12 @@ import styles from "../coach/coach.module.css";
 // company. Conversations are creator-private (RLS scopes SELECT to
 // created_by = auth.uid()); no one else, admins included, can see
 // them.
+//
+// Practices layer sits below the free-form conversation list: entry
+// cards driven by the registry, each of which opens a new practice
+// conversation. Practice conversations are stored alongside normal
+// general conversations and appear in the same list with a muted
+// practice-title prefix so it's obvious what a row is.
 
 export default async function AskAimeePage() {
   const session = await requireProfile();
@@ -31,31 +39,49 @@ export default async function AskAimeePage() {
             No conversations yet. Start one to talk something through.
           </p>
         ) : (
-          conversations.map((c) => (
-            <div key={c.id} className={styles.conversationRow}>
-              <Link
-                href={`/ask-aimee/${c.id}`}
-                className={styles.conversationLink}
-              >
-                <span className={styles.conversationTitle}>{c.title}</span>
-                {c.lastMessageSnippet ? (
-                  <span className={styles.conversationSnippet}>
-                    {c.lastMessageSnippet}
+          conversations.map((c) => {
+            const practice = findPractice(c.practice_id);
+            return (
+              <div key={c.id} className={styles.conversationRow}>
+                <Link
+                  href={`/ask-aimee/${c.id}`}
+                  className={styles.conversationLink}
+                >
+                  <span className={styles.conversationTitle}>
+                    {practice ? (
+                      <span
+                        style={{
+                          color: "var(--text-muted)",
+                          fontWeight: 500,
+                          marginRight: 6,
+                        }}
+                      >
+                        {practice.title} ·
+                      </span>
+                    ) : null}
+                    {c.title}
                   </span>
-                ) : (
-                  <span className={styles.conversationSnippet}>
-                    (no messages yet)
+                  {c.lastMessageSnippet ? (
+                    <span className={styles.conversationSnippet}>
+                      {c.lastMessageSnippet}
+                    </span>
+                  ) : (
+                    <span className={styles.conversationSnippet}>
+                      (no messages yet)
+                    </span>
+                  )}
+                  <span className={styles.conversationMeta}>
+                    Updated {formatShortDate(c.updated_at)}
                   </span>
-                )}
-                <span className={styles.conversationMeta}>
-                  Updated {formatShortDate(c.updated_at)}
-                </span>
-              </Link>
-              <ArchiveConversationButton conversationId={c.id} />
-            </div>
-          ))
+                </Link>
+                <ArchiveConversationButton conversationId={c.id} />
+              </div>
+            );
+          })
         )}
       </div>
+
+      <PracticeCards practices={PRACTICES} />
     </PageShell>
   );
 }

@@ -1,13 +1,16 @@
 "use client";
 
 import {
+  Children,
+  isValidElement,
   useCallback,
   useEffect,
   useRef,
   useState,
   useTransition,
+  type ReactNode,
 } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useRouter } from "next/navigation";
 import {
@@ -15,6 +18,12 @@ import {
   renameConversationAction,
 } from "@/lib/coach/actions";
 import type { CoachingConversation } from "@/lib/coach/service";
+import type { Practice } from "@/lib/practices/registry";
+import {
+  PracticeSetup,
+  type RosterOption,
+} from "@/components/practices/PracticeSetup";
+import { ScriptCard } from "@/components/practices/ScriptCard";
 import styles from "../../coach.module.css";
 
 // The chat UI. Handles streaming SSE from /api/coach, renders the
@@ -49,6 +58,8 @@ export function ChatView({
   subjectPosition,
   firstName,
   initialMessages,
+  practice = null,
+  practiceRoster = [],
 }: {
   conversation: CoachingConversation;
   // Null in general (Ask Aimee) mode — no subject on file.
@@ -56,16 +67,30 @@ export function ChatView({
   subjectPosition: string | null;
   firstName: string | null;
   initialMessages: UiMessage[];
+  // Populated for practice conversations. When set, the empty-state
+  // renders PracticeSetup (optional partner picker + opening chips)
+  // instead of the default chip row.
+  practice?: Practice | null;
+  practiceRoster?: readonly RosterOption[];
 }) {
   const isGeneral = conversation.mode === "general";
+  const isPractice = practice !== null;
   const suggestions = isGeneral ? GENERAL_SUGGESTION_CHIPS : ABOUT_SUGGESTION_CHIPS;
-  const emptyPrompt = isGeneral
-    ? "What's on your mind?"
-    : `What's on your mind about ${firstName ?? "them"}?`;
-  const composerPlaceholder = isGeneral ? "Ask Aimee…" : "Message coach…";
-  const headerSubject = isGeneral
-    ? "Ask Aimee · AiMS Leadership Coach"
-    : `${subjectName ?? ""}${subjectPosition ? ` · ${subjectPosition}` : ""}`;
+  const emptyPrompt = isPractice
+    ? "Share the situation below when you're ready."
+    : isGeneral
+      ? "What's on your mind?"
+      : `What's on your mind about ${firstName ?? "them"}?`;
+  const composerPlaceholder = isPractice
+    ? "Describe the situation…"
+    : isGeneral
+      ? "Ask Aimee…"
+      : "Message coach…";
+  const headerSubject = isPractice
+    ? `Practice · ${practice.title}`
+    : isGeneral
+      ? "Ask Aimee · AiMS Leadership Coach"
+      : `${subjectName ?? ""}${subjectPosition ? ` · ${subjectPosition}` : ""}`;
   const [messages, setMessages] = useState<UiMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -321,22 +346,36 @@ export function ChatView({
 
       <div className={styles.thread} ref={threadRef}>
         {isEmpty ? (
-          <div className={styles.emptyState}>
-            <p className={styles.emptyStatePrompt}>{emptyPrompt}</p>
-            <div className={styles.chipRow}>
-              {suggestions.map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  className={styles.chip}
-                  onClick={() => void sendMessage(chip)}
-                  disabled={sending}
-                >
-                  {chip}
-                </button>
-              ))}
+          isPractice ? (
+            <div className={styles.emptyState}>
+              <PracticeSetup
+                conversationId={conversation.id}
+                practice={practice}
+                roster={practiceRoster}
+                initialPartnerId={conversation.partner_profile_id}
+                onSendChip={(chip) => void sendMessage(chip)}
+                disabled={sending}
+              />
+              <p className={styles.emptyStatePrompt}>{emptyPrompt}</p>
             </div>
-          </div>
+          ) : (
+            <div className={styles.emptyState}>
+              <p className={styles.emptyStatePrompt}>{emptyPrompt}</p>
+              <div className={styles.chipRow}>
+                {suggestions.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    className={styles.chip}
+                    onClick={() => void sendMessage(chip)}
+                    disabled={sending}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
         ) : (
           messages.map((m) => (
             <MessageBubble
@@ -403,6 +442,35 @@ function MessageBubble({
   // "Thinking…" indicator until at least one token has arrived, at
   // which point the streaming content takes over.
   const isThinking = message.streaming && message.content.length === 0;
+  const isStreaming = message.streaming === true;
+
+  // Intercept ```script fenced blocks and render them as ScriptCards.
+  // Override the <pre> renderer: react-markdown wraps a fenced block
+  // in <pre><code class="language-X">…</code></pre>, so when the
+  // wrapped code carries `language-script` we swap the whole <pre>
+  // for the card. Everything else falls through to a plain <pre>.
+  const markdownComponents: Components = {
+    pre({ children }) {
+      const only = Children.toArray(children)[0];
+      if (isValidElement(only)) {
+        const props = only.props as {
+          className?: string;
+          children?: ReactNode;
+        };
+        const cls = props.className ?? "";
+        if (cls.includes("language-script")) {
+          return (
+            <ScriptCard
+              raw={extractCodeText(props.children)}
+              streaming={isStreaming}
+            />
+          );
+        }
+      }
+      return <pre>{children}</pre>;
+    },
+  };
+
   return (
     <div className={`${styles.bubbleRow} ${styles.bubbleRowAssistant}`}>
       <div className={styles.bubbleAssistant}>
@@ -416,7 +484,10 @@ function MessageBubble({
             Thinking…
           </p>
         ) : (
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
             {message.content}
           </ReactMarkdown>
         )}
@@ -442,6 +513,27 @@ function MessageBubble({
       </div>
     </div>
   );
+}
+
+// Recursively flatten react-markdown's children of a <code> node
+// back to a string. For a plain fenced block this is usually a
+// single string, but nested inline children (say syntax highlighter
+// spans) can appear — walk them defensively.
+function extractCodeText(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean") {
+    return "";
+  }
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map(extractCodeText).join("");
+  }
+  if (isValidElement(node)) {
+    const kids = (node.props as { children?: ReactNode }).children;
+    return extractCodeText(kids);
+  }
+  return "";
 }
 
 // Minimal SSE reader. Consumes `event: <name>` and `data: <json>` pairs.

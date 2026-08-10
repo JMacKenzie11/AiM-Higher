@@ -1,0 +1,308 @@
+/* Practice entry cards on the Ask Aimee landing page. Match the
+   section-card treatment used across the app: white surface, soft
+   border, hover lift. Whole card clickable. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.sectionHeader {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.card:hover,
+.card:focus-visible {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: var(--aims-cobalt-tint);
+  outline: none;
+}
+
+.cardTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.cardDescription {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body);
+}
+
+.cardError {
+  margin: 0;
+  color: var(--aims-danger);
+  font: var(--text-caption);
+}
+
+/* ---- Practice setup (empty state) ---- */
+
+.setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.setupEyebrow {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.setupTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.setupDescription {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body);
+}
+
+.setupField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.setupLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.setupSelect {
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  color: var(--text);
+}
+
+.setupSelect:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.setupError {
+  color: var(--aims-danger);
+  font: var(--text-caption);
+  margin: 0;
+}
+
+/* ---- Script card ---- */
+
+.scriptCard {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin: var(--space-3) 0;
+}
+
+.scriptHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--grad-brand);
+  color: var(--aims-white);
+}
+
+.scriptHeaderMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.scriptEyebrow {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--aims-white);
+  opacity: 0.75;
+  margin: 0;
+}
+
+.scriptTitle {
+  font: var(--text-h2);
+  color: var(--aims-white);
+  margin: 0;
+}
+
+.scriptRule {
+  display: block;
+  height: 3px;
+  width: 56px;
+  border-radius: var(--radius-pill);
+  background: var(--grad-rule);
+  margin-top: var(--space-2);
+}
+
+.copyButton {
+  flex-shrink: 0;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--aims-white);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.copyButton:hover {
+  background: var(--glass-bg);
+}
+
+.scriptBody {
+  display: flex;
+  flex-direction: column;
+}
+
+.scriptSection {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.scriptSection:last-child {
+  border-bottom: none;
+}
+
+.scriptSectionLabel {
+  margin: 0;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.scriptSectionWrong {
+  background: var(--aims-danger-tint);
+}
+
+.scriptSectionBetter {
+  background: var(--aims-success-tint);
+}
+
+.scriptExchange {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scriptLine {
+  display: grid;
+  grid-template-columns: minmax(80px, auto) 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.scriptSpeaker {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.scriptQuote {
+  font: var(--text-body);
+  color: var(--text);
+  margin: 0;
+}
+
+.scriptList {
+  margin: 0;
+  padding-left: var(--space-4);
+  color: var(--text);
+  font: var(--text-body);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.scriptBetter {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--surface);
+  border-left: 3px solid var(--aims-success);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: var(--text-body);
+  font-size: 16px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.scriptWhy {
+  margin: 0;
+  color: var(--text);
+  font: var(--text-body);
+  white-space: pre-wrap;
+}
+
+.scriptPending {
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font: var(--text-body);
+  font-style: italic;
+  margin: var(--space-3) 0;
+}
