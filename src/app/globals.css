@@ -35,6 +35,10 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* Smooth in-page anchor jumps (e.g. the One-Page Plan section
+     chips). The reduced-motion block below overrides this back to
+     "auto" for users who prefer it. */
+  scroll-behavior: smooth;
 }
 
 body {
