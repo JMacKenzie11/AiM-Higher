@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import type { Profile } from "@/lib/types";
 import type { CoachingConversation, CoachingContextKind } from "./service";
+import { cleanGeneratedTitle } from "./title";
 
 // Coaching-specific server actions. Access checks live here AND in
 // RLS — never trust one alone.
@@ -282,7 +283,7 @@ export async function generateConversationTitleAction(
       model: "claude-haiku-4-5",
       max_tokens: 40,
       system:
-        "You produce short, specific titles for coaching conversations. Return 4–8 words that capture the topic, no quotes, no trailing punctuation. Prefer concrete nouns and verbs over generic labels.",
+        "You produce short, specific titles for coaching conversations. Return 4–8 words of plain text that capture the topic. No quotes, no trailing punctuation, no markdown formatting (no asterisks, underscores, backticks, or hash marks). Prefer concrete nouns and verbs over generic labels.",
       messages: [
         {
           role: "user",
@@ -290,12 +291,11 @@ export async function generateConversationTitleAction(
         },
       ],
     });
-    const text = response.content
-      .flatMap((b) => (b.type === "text" ? [b.text] : []))
-      .join("")
-      .trim()
-      .replace(/^["'`]|["'`]$/g, "")
-      .replace(/[.!?]+$/, "");
+    const text = cleanGeneratedTitle(
+      response.content
+        .flatMap((b) => (b.type === "text" ? [b.text] : []))
+        .join("")
+    );
     if (text) generated = text.slice(0, 120);
   } catch (err) {
     console.error("generateConversationTitleAction: model call failed", err);

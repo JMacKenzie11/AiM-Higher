@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
 import { buildCoachTools } from "@/lib/coach/tools";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
+import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { findPractice, loadPracticePrompt } from "@/lib/practices/registry";
 import type {
   CoachingConversation,
@@ -479,7 +480,7 @@ async function generateTitleForConversation(args: {
       {
         role: "user",
         content:
-          "Give this conversation a four-word topic label. Reply with the label only, no punctuation.",
+          "Give this conversation a four-word topic label. Reply with the label only, as plain text — no punctuation, no quotes, no markdown formatting (no asterisks, underscores, backticks, or hash marks).",
       },
     ];
     const response = await args.client.messages.create(
@@ -497,13 +498,12 @@ async function generateTitleForConversation(args: {
       },
       { signal: args.signal }
     );
-    const label = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-      .trim()
-      .replace(/[".]+$/g, "")
-      .slice(0, 80);
+    const label = cleanGeneratedTitle(
+      response.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("")
+    ).slice(0, 80);
     if (!label) return;
     const supabase = await createSupabaseServerClient();
     await supabase
