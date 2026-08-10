@@ -19,10 +19,7 @@ import {
 } from "@/lib/coach/actions";
 import type { CoachingConversation } from "@/lib/coach/service";
 import type { Practice } from "@/lib/practices/registry";
-import {
-  PracticeSetup,
-  type RosterOption,
-} from "@/components/practices/PracticeSetup";
+import { PracticeSetup } from "@/components/practices/PracticeSetup";
 import { ScriptCard } from "@/components/practices/ScriptCard";
 import styles from "../../coach.module.css";
 
@@ -59,7 +56,6 @@ export function ChatView({
   firstName,
   initialMessages,
   practice = null,
-  practiceRoster = [],
 }: {
   conversation: CoachingConversation;
   // Null in general (Ask Aimee) mode — no subject on file.
@@ -68,10 +64,9 @@ export function ChatView({
   firstName: string | null;
   initialMessages: UiMessage[];
   // Populated for practice conversations. When set, the empty-state
-  // renders PracticeSetup (optional partner picker + opening chips)
-  // instead of the default chip row.
+  // renders PracticeSetup (practice header + opening chips) instead
+  // of the default chip row.
   practice?: Practice | null;
-  practiceRoster?: readonly RosterOption[];
 }) {
   const isGeneral = conversation.mode === "general";
   const isPractice = practice !== null;
@@ -349,10 +344,7 @@ export function ChatView({
           isPractice ? (
             <div className={styles.emptyState}>
               <PracticeSetup
-                conversationId={conversation.id}
                 practice={practice}
-                roster={practiceRoster}
-                initialPartnerId={conversation.partner_profile_id}
                 onSendChip={(chip) => void sendMessage(chip)}
                 disabled={sending}
               />

@@ -1,11 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getConversation, getMessages } from "@/lib/coach/service";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { findPractice } from "@/lib/practices/registry";
 import { PageShell } from "@/components/ui/PageShell";
-import type { RosterOption } from "@/components/practices/PracticeSetup";
-import type { Profile } from "@/lib/types";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 
 type PageProps = {
@@ -31,34 +28,11 @@ export default async function AskAimeeChatPage({ params }: PageProps) {
 
   const messages = await getMessages(conversationId);
 
-  // Practice conversations get the practice's setup UI on the empty
-  // state, plus a partner picker scoped to the caller's company
-  // roster (excluding themselves). Only fetch the roster when it
-  // will actually be shown — a normal Ask Aimee thread doesn't need
-  // it.
+  // Practice conversations swap the default empty-state chip row for
+  // the practice's own header + opening chips. Backend for optional
+  // partner context is still in place (columns + action + partner
+  // context builder) but no longer surfaced in the UI.
   const practice = findPractice(conversation.practice_id);
-  let practiceRoster: RosterOption[] = [];
-  if (practice) {
-    const supabase = await createSupabaseServerClient();
-    const { data: rows } = await supabase
-      .from("profiles")
-      .select("id, full_name, position, status")
-      .eq("company_id", conversation.company_id)
-      .order("full_name");
-    practiceRoster = ((rows ?? []) as Array<
-      Pick<Profile, "id" | "full_name" | "position" | "status">
-    >)
-      .filter(
-        (p) =>
-          p.id !== session.profile.id &&
-          (!p.status || p.status === "active")
-      )
-      .map((p) => ({
-        id: p.id,
-        full_name: p.full_name,
-        position: p.position ?? null,
-      }));
-  }
 
   return (
     <PageShell
@@ -79,7 +53,6 @@ export default async function AskAimeeChatPage({ params }: PageProps) {
           created_at: m.created_at,
         }))}
         practice={practice}
-        practiceRoster={practiceRoster}
       />
     </PageShell>
   );

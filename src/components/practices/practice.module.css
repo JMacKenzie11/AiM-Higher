@@ -131,6 +131,41 @@
   margin: 0;
 }
 
+.setupChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Chip matching the app's primary CTA vocabulary — filled cobalt
+   with white text — so the opening chips read as clear actions,
+   not as blank boxes. Same treatment as the chip nav on the
+   One-Page Plan. */
+.setupChip {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-pill);
+  font: var(--text-button-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.setupChip:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.setupChip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ---- Script card ---- */
 
 .scriptCard {

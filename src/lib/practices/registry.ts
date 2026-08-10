@@ -31,7 +31,8 @@ export const PRACTICES: readonly Practice[] = [
   {
     id: "prepare-a-hard-conversation",
     title: "Prepare a hard conversation",
-    description: "Effectively address an important issue with anyone.",
+    description:
+      "Address issues in a way that invites dialogue instead of defensiveness.",
     promptFile: "prompts/practices/prepare-a-hard-conversation.md",
     chips: [
       "Someone isn't following through",
