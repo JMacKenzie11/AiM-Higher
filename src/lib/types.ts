@@ -128,7 +128,7 @@ export type Priority = {
 // Open = still to do. Kept = closed on/before due date. Missed = closed
 // after due date (labelled "Closed" in the UI — an opportunity to
 // improve). The prior "carried" state was removed in migration 0011.
-export type CommitmentStatus = "open" | "kept" | "missed";
+export type CommitmentStatus = "open" | "in_progress" | "kept" | "missed";
 
 export type Commitment = {
   id: string;

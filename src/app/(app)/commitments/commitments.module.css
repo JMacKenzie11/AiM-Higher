@@ -578,7 +578,8 @@
    without hunting through the state model. Auto-hides on a client
    timer; either resolve action clears it explicitly too. */
 .justResolvedKept,
-.justResolvedMissed {
+.justResolvedMissed,
+.justResolvedInProgress {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -597,6 +598,11 @@
 .justResolvedMissed {
   background: var(--aims-warning-tint);
   color: var(--aims-warning);
+}
+
+.justResolvedInProgress {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
 }
 
 .undoLink {
@@ -893,6 +899,20 @@ a.fromMeetingChip:hover {
   background: var(--aims-danger);
   border-color: var(--aims-danger);
   animation: checkPop var(--duration-normal, 150ms) var(--ease-out);
+}
+
+/* In-progress circle: cobalt-tinted background, cobalt border,
+   half-filled ◐ glyph. Visually distinct from open (grey outline)
+   and resolved (solid fill), so a scan of the list surfaces which
+   commitments the owner has actively picked up. */
+.resolveCircleInProgress {
+  background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.resolveCircleInProgress .checkmark {
+  color: var(--primary);
 }
 
 .resolveCircleOverdue {

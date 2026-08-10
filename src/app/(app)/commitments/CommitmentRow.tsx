@@ -5,11 +5,13 @@ import { useState, useTransition, useMemo, useEffect, useRef } from "react";
 import {
   deleteCommitmentAction,
   linkPriorityAction,
+  markInProgressAction,
   markKeptAction,
   markMissedAction,
   reassignCommitmentAction,
   rescheduleCommitmentAction,
   setCommitmentClarityAction,
+  unmarkInProgressAction,
   unmarkKeptAction,
   unmarkMissedAction,
   updateCommitmentDescriptionAction,
@@ -101,7 +103,7 @@ export function CommitmentRow({
   // The prior UX had no such affordance, which is exactly how the
   // reported real-world misclick went silent.
   const [justResolved, setJustResolved] = useState<
-    null | "kept" | "missed"
+    null | "kept" | "missed" | "in_progress"
   >(null);
   useEffect(() => {
     if (!justResolved) return;
@@ -113,9 +115,11 @@ export function CommitmentRow({
   }, [justResolved]);
 
   const isOpen = commitment.status === "open";
+  const isInProgress = commitment.status === "in_progress";
+  const isActive = isOpen || isInProgress;
   const isKept = commitment.status === "kept";
   const isClosed = commitment.status === "missed";
-  const isOverdue = isOpen && commitment.due_date < todayIso;
+  const isOverdue = isActive && commitment.due_date < todayIso;
 
   // Menu-driven resolve: the circle opens a small popover with the
   // available actions (Mark kept · Mark missed · Reschedule · Reopen).
@@ -288,7 +292,27 @@ export function CommitmentRow({
     setShowActionMenu((prev) => !prev);
   }
 
-  function menuChoose(action: "kept" | "missed" | "reschedule" | "reopen") {
+  function markInProgress() {
+    setError(null);
+    startTransition(async () => {
+      const result = await markInProgressAction(commitment.id);
+      if (!result.ok) setError(result.message);
+      else setJustResolved("in_progress");
+    });
+  }
+
+  function unmarkInProgress() {
+    setError(null);
+    startTransition(async () => {
+      const result = await unmarkInProgressAction(commitment.id);
+      if (!result.ok) setError(result.message);
+      else setJustResolved(null);
+    });
+  }
+
+  function menuChoose(
+    action: "kept" | "missed" | "in_progress" | "reschedule" | "reopen"
+  ) {
     setShowActionMenu(false);
     setError(null);
     if (action === "kept") {
@@ -296,27 +320,41 @@ export function CommitmentRow({
     } else if (action === "missed") {
       // Missed requires a reason — reveal the existing strip.
       setShowReason(true);
+    } else if (action === "in_progress") {
+      markInProgress();
     } else if (action === "reschedule") {
       setRescheduleDate(commitment.due_date);
       setShowReschedule(true);
     } else if (action === "reopen") {
       if (isKept) unmarkKept();
       else if (isClosed) unmarkMissed();
+      else if (isInProgress) unmarkInProgress();
     }
   }
 
   return (
     <li
       className={
-        isOpen ? styles.row : `${styles.row} ${styles.rowResolved}`
+        // Active rows (open + in_progress) stay in the main row
+        // style; only resolved rows (kept/missed) get the muted
+        // resolved treatment.
+        isActive ? styles.row : `${styles.row} ${styles.rowResolved}`
       }
     >
       <button
         type="button"
-        className={buildCircleClass(isKept, isClosed, isOverdue)}
+        className={buildCircleClass(isKept, isClosed, isOverdue, isInProgress)}
         onClick={onCircleClick}
         disabled={pending || !canResolve}
-        data-state={isKept ? "kept" : isClosed ? "missed" : "open"}
+        data-state={
+          isKept
+            ? "kept"
+            : isClosed
+            ? "missed"
+            : isInProgress
+            ? "in_progress"
+            : "open"
+        }
         aria-haspopup="menu"
         aria-expanded={showActionMenu}
         title={
@@ -324,6 +362,8 @@ export function CommitmentRow({
             ? "Kept — open actions"
             : isClosed
             ? "Missed — open actions"
+            : isInProgress
+            ? "In progress — open actions"
             : isOverdue
             ? "Overdue — open actions"
             : "Open actions"
@@ -333,6 +373,8 @@ export function CommitmentRow({
             ? "Kept — open actions"
             : isClosed
             ? "Missed — open actions"
+            : isInProgress
+            ? "In progress — open actions"
             : isOverdue
             ? "Overdue — open actions"
             : "Open actions"
@@ -348,7 +390,7 @@ export function CommitmentRow({
               : { color: "var(--text-muted)" }
           }
         >
-          {isClosed ? "✕" : "✓"}
+          {isClosed ? "✕" : isInProgress ? "◐" : "✓"}
         </span>
       </button>
 
@@ -359,7 +401,7 @@ export function CommitmentRow({
           role="menu"
           aria-label="Commitment actions"
         >
-          {isOpen ? (
+          {isActive ? (
             <>
               <button
                 type="button"
@@ -379,6 +421,16 @@ export function CommitmentRow({
                   <span aria-hidden>✕</span> Mark missed
                 </button>
               ) : null}
+              {isOpen ? (
+                <button
+                  type="button"
+                  className={styles.resolveMenuItem}
+                  role="menuitem"
+                  onClick={() => menuChoose("in_progress")}
+                >
+                  <span aria-hidden>◐</span> Mark in progress
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={styles.resolveMenuItem}
@@ -387,6 +439,16 @@ export function CommitmentRow({
               >
                 <span aria-hidden>→</span> Reschedule
               </button>
+              {isInProgress ? (
+                <button
+                  type="button"
+                  className={styles.resolveMenuItem}
+                  role="menuitem"
+                  onClick={() => menuChoose("reopen")}
+                >
+                  <span aria-hidden>↺</span> Reopen (not started)
+                </button>
+              ) : null}
             </>
           ) : (
             <button
@@ -493,17 +555,27 @@ export function CommitmentRow({
             className={
               justResolved === "kept"
                 ? styles.justResolvedKept
-                : styles.justResolvedMissed
+                : justResolved === "missed"
+                ? styles.justResolvedMissed
+                : styles.justResolvedInProgress
             }
             role="status"
             aria-live="polite"
           >
-            {justResolved === "kept" ? "Marked kept" : "Marked missed"}
+            {justResolved === "kept"
+              ? "Marked kept"
+              : justResolved === "missed"
+              ? "Marked missed"
+              : "Marked in progress"}
             <button
               type="button"
               className={styles.undoLink}
               onClick={
-                justResolved === "kept" ? unmarkKept : unmarkMissed
+                justResolved === "kept"
+                  ? unmarkKept
+                  : justResolved === "missed"
+                  ? unmarkMissed
+                  : unmarkInProgress
               }
               disabled={pending}
             >
@@ -562,7 +634,7 @@ export function CommitmentRow({
           ? "No deadline was agreed in the meeting — this date is a placeholder. Reschedule to lock in a real one."
           : undefined;
 
-        if (isOpen && canResolve) {
+        if (isActive && canResolve) {
           const classes = [styles.rowDueButton];
           if (isOverdue) classes.push(styles.rowDueOverdue);
           if (dueAssigned) classes.push(styles.rowDueAssigned);
@@ -651,7 +723,7 @@ export function CommitmentRow({
         </div>
       ) : null}
 
-      {showReschedule && isOpen ? (
+      {showReschedule && isActive ? (
         <div className={styles.resolveStrip}>
           <label
             htmlFor={`reschedule-date-${commitment.id}`}
@@ -740,11 +812,13 @@ export function CommitmentRow({
 function buildCircleClass(
   isKept: boolean,
   isClosed: boolean,
-  isOverdue: boolean
+  isOverdue: boolean,
+  isInProgress: boolean
 ): string {
   const parts = [styles.resolveCircle];
   if (isKept) parts.push(styles.resolveCircleChecked);
   if (isClosed) parts.push(styles.resolveCircleClosed);
+  if (isInProgress) parts.push(styles.resolveCircleInProgress);
   if (isOverdue) parts.push(styles.resolveCircleOverdue);
   return parts.join(" ");
 }

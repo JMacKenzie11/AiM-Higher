@@ -294,10 +294,14 @@ export async function getCommitmentsPageData(
   // ---- Header stats (filter-independent so the shape of "what's open"
   // stays trustworthy regardless of what the user is looking at). ----
   const openThisWeek = allRows.filter(
-    (c) => c.week_ending === thisFri && c.status === "open"
+    (c) =>
+      c.week_ending === thisFri &&
+      (c.status === "open" || c.status === "in_progress")
   ).length;
   const needsAttentionRaw = allRows.filter(
-    (c) => c.week_ending < thisFri && c.status === "open"
+    (c) =>
+      c.week_ending < thisFri &&
+      (c.status === "open" || c.status === "in_progress")
   );
   const keepRateThisQuarter = openQuarter
     ? await computeQuarterKeepRate(companyId, openQuarter)
@@ -316,7 +320,8 @@ export async function getCommitmentsPageData(
   const mainList = filtered
     .filter(
       (c) =>
-        (c.week_ending < thisFri && c.status === "open") ||
+        (c.week_ending < thisFri &&
+          (c.status === "open" || c.status === "in_progress")) ||
         c.week_ending === thisFri
     )
     .map(enrich)

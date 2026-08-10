@@ -16,6 +16,7 @@
 export type TermKey =
   | "kept"
   | "missed"
+  | "inProgress"
   | "followThroughRate"
   | "priority"
   | "strategicFocusArea"
@@ -37,6 +38,11 @@ export const TERMS: Record<TermKey, Term> = {
     label: "Missed",
     definition:
       "A commitment that closed without being delivered on time. Missing a commitment is expected sometimes — the reflection captured on close is where the learning lives.",
+  },
+  inProgress: {
+    label: "In progress",
+    definition:
+      "A commitment that's actively being worked on but isn't done yet. Excluded from the Follow-Through Rate the same way Open commitments are — the rate only counts commitments that have actually closed.",
   },
   followThroughRate: {
     label: "Follow-Through Rate",

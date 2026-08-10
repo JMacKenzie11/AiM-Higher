@@ -229,6 +229,78 @@ export async function unmarkKeptAction(
   return { ok: true, commitment: data };
 }
 
+// ---- In progress -----------------------------------------------
+// Owner (or admin) marks an open commitment as actively being
+// worked on. Excluded from Follow-Through Rate the same way open
+// rows are — the rate only counts commitments that have actually
+// closed. Kept as its own state (rather than a flag on open) so
+// the resolve-menu can offer Reopen vs Mark kept vs Mark missed
+// without ambiguity, and so the row can render a distinct visual
+// state.
+export async function markInProgressAction(
+  commitmentId: string
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to change." };
+  }
+  if (commitment.status !== "open") {
+    return {
+      ok: false,
+      message: "Only open commitments can move to in progress.",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({ status: "in_progress" })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't update that commitment." };
+  }
+
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: data };
+}
+
+export async function unmarkInProgressAction(
+  commitmentId: string
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to change." };
+  }
+  if (commitment.status !== "in_progress") {
+    return {
+      ok: false,
+      message: "Only in-progress commitments can be reopened this way.",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({ status: "open" })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't reopen that commitment." };
+  }
+
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: data };
+}
+
 // ---- Missed (Closed late) -------------------------------------
 export async function markMissedAction(
   commitmentId: string,
