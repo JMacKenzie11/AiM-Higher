@@ -14,11 +14,11 @@ import styles from "../coach/coach.module.css";
 // created_by = auth.uid()); no one else, admins included, can see
 // them.
 //
-// Practices layer sits below the free-form conversation list: entry
-// cards driven by the registry, each of which opens a new practice
-// conversation. Practice conversations are stored alongside normal
-// general conversations and appear in the same list with a muted
-// practice-title prefix so it's obvious what a row is.
+// Practices sit at the top of the page as the deliberate entry
+// points ("I have a real thing to work through"); the free-form
+// conversation list ("resume something I started") lives underneath.
+// As the conversation history grows, practices stay in a fixed
+// place at the top instead of getting buried at the bottom.
 
 export default async function AskAimeePage() {
   const session = await requireProfile();
@@ -30,8 +30,21 @@ export default async function AskAimeePage() {
       title="Ask Aimee"
       subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Your Ask Aimee conversations are visible only to you."
     >
-      <div className={styles.card}>
+      <PracticeCards practices={PRACTICES} />
+
+      <div className={styles.card} style={{ marginTop: "var(--space-6)" }}>
         <div className={styles.listActions}>
+          <h2
+            style={{
+              margin: 0,
+              font: "var(--text-subhead)",
+              textTransform: "uppercase",
+              letterSpacing: "0.15em",
+              color: "var(--text-muted)",
+            }}
+          >
+            Recent conversations
+          </h2>
           <AskAimeeNewButton />
         </div>
         {conversations.length === 0 ? (
@@ -80,8 +93,6 @@ export default async function AskAimeePage() {
           })
         )}
       </div>
-
-      <PracticeCards practices={PRACTICES} />
     </PageShell>
   );
 }

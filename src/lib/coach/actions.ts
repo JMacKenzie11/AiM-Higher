@@ -333,7 +333,13 @@ export async function generateConversationTitleAction(
 }
 
 // ---- Helpers ----------------------------------------------------
-const DEFAULT_TITLE_PATTERN = /^Coaching · [A-Z][a-z]+ \d{1,2}$/;
+// Matches "Coaching · Aug 10" (default for about + general threads)
+// OR "Aug 10" (default for practice threads — the practice title
+// carries the context, so the stored title doesn't need to repeat
+// it). Auto-title only fires when the title still looks like one
+// of these defaults; a user rename to anything else is respected.
+const DEFAULT_TITLE_PATTERN =
+  /^(?:Coaching · )?[A-Z][a-z]+ \d{1,2}$/;
 
 function defaultTitleForToday(): string {
   const now = new Date();

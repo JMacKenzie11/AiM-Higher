@@ -19,7 +19,6 @@ import {
 } from "@/lib/coach/actions";
 import type { CoachingConversation } from "@/lib/coach/service";
 import type { Practice } from "@/lib/practices/registry";
-import { PracticeSetup } from "@/components/practices/PracticeSetup";
 import { ScriptCard } from "@/components/practices/ScriptCard";
 import styles from "../../coach.module.css";
 
@@ -341,20 +340,13 @@ export function ChatView({
 
       <div className={styles.thread} ref={threadRef}>
         {isEmpty ? (
-          isPractice ? (
-            <div className={styles.emptyState}>
-              <PracticeSetup
-                practice={practice}
-                onSendChip={(chip) => void sendMessage(chip)}
-                disabled={sending}
-              />
-              <p className={styles.emptyStatePrompt}>{emptyPrompt}</p>
-            </div>
-          ) : (
-            <div className={styles.emptyState}>
-              <p className={styles.emptyStatePrompt}>{emptyPrompt}</p>
-              <div className={styles.chipRow}>
-                {suggestions.map((chip) => (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyStatePrompt}>
+              {isPractice ? practice.title : emptyPrompt}
+            </p>
+            <div className={styles.chipRow}>
+              {(isPractice ? practice.chips ?? [] : suggestions).map(
+                (chip) => (
                   <button
                     key={chip}
                     type="button"
@@ -364,10 +356,10 @@ export function ChatView({
                   >
                     {chip}
                   </button>
-                ))}
-              </div>
+                )
+              )}
             </div>
-          )
+          </div>
         ) : (
           messages.map((m) => (
             <MessageBubble

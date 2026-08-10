@@ -48,7 +48,14 @@ export async function createPracticeConversationAction(
   }
 
   const supabase = await createSupabaseServerClient();
-  const title = `${practice.title} · ${defaultDateLabel()}`;
+  // The stored title is just the date. The Ask Aimee list renderer
+  // prepends the practice title as a muted prefix, so a stored
+  // "Prepare a hard conversation · Aug 10" would double up ("Prepare
+  // a hard conversation · Prepare a hard conversation · Aug 10").
+  // Bare "Aug 10" reads as the muted prefix + date in the list, and
+  // matches the auto-title default pattern so it gets replaced with
+  // a real summary once the conversation has a few exchanges.
+  const title = defaultDateLabel();
   const { data, error } = await supabase
     .from("coaching_conversations")
     .insert({
