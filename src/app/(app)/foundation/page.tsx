@@ -300,7 +300,10 @@ export default async function OnePagePlanPage() {
                           {String(index + 1).padStart(2, "0")}
                         </span>
                         <div className={styles.numberedCardMain}>
-                          <h3 className={styles.h3}>{snippet.content}</h3>
+                          {/* ICP snippets have no separate title — rendering as
+                              body text (not h3) so the numbered card doesn't
+                              read as an over-weighted headline. */}
+                          <p className={styles.bodyText}>{snippet.content}</p>
                           {isAdmin ? (
                             <div className={styles.subcardActions}>
                               <DeleteButton
@@ -335,7 +338,7 @@ export default async function OnePagePlanPage() {
                           {String(index + 1).padStart(2, "0")}
                         </span>
                         <div className={styles.numberedCardMain}>
-                          <h3 className={styles.h3}>{snippet.content}</h3>
+                          <p className={styles.bodyText}>{snippet.content}</p>
                           {isAdmin ? (
                             <div className={styles.subcardActions}>
                               <DeleteButton
