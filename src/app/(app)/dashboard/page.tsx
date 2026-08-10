@@ -53,14 +53,33 @@ export default async function DashboardPage() {
   // non-blocking: the user can do them in any order and each checks
   // off automatically as its conditions become true. Nothing about
   // completion is persisted — everything is derived per render.
+  //
+  // Steps reflect *real* progress, not first-boolean. Per the UX
+  // review: "Invite the team" used to tick on the first invite even
+  // when 4 others were still uninvited; "Start the rhythm" used to
+  // tick on any commitment ever created, even one from six months
+  // ago. Both let the admin close the app thinking they were done
+  // when they weren't. Now the invite step shows "n of m invited"
+  // and requires all invitable roster members to be invited; the
+  // rhythm step requires activity in the last 14 days. A new
+  // explicit "Open a quarter" step also surfaces the auto-seed's
+  // outcome so a silent seed failure doesn't strand the admin.
   let setupSteps: SetupStep[] | null = null;
   if (canManageCompany) {
     const supabase = await createSupabaseServerClient();
+    // 14-day rhythm window — anchored to the company's own timezone
+    // via the openQuarter's frame if we have one; otherwise UTC-ish
+    // ISO for a lightweight cutoff. Recent activity = a commitment
+    // whose week_ending is inside the window.
+    const cutoffDate = new Date();
+    cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 14);
+    const cutoffIso = cutoffDate.toISOString().slice(0, 10);
+
     const [
       { data: foundationRow },
       { count: functionCount },
       { count: invitedCount },
-      { count: commitmentCount },
+      { count: recentCommitmentCount },
     ] = await Promise.all([
       supabase
         .from("company_foundation")
@@ -75,37 +94,64 @@ export default async function DashboardPage() {
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .eq("archived", false),
-      // "Invitation sent or accepted" is any profile with a non-null
-      // invited_at. The creating admin has invited_at=null (they
-      // signed up directly), so they don't count — exactly what we
-      // want to avoid the "invite" step being auto-complete for a
-      // brand-new company.
+      // Profiles with invited_at set — the admin who signed up
+      // directly has invited_at=null so they don't count, exactly
+      // what we want for "have you invited people yet?"
       supabase
         .from("profiles")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .not("invited_at", "is", null),
+      // Commitments with week_ending inside the 14-day window.
+      // Captures both "just created" and "still on this week's
+      // list" — either signals the rhythm is running.
       supabase
         .from("commitments")
         .select("id", { count: "exact", head: true })
-        .eq("company_id", companyId),
+        .eq("company_id", companyId)
+        .gte("week_ending", cutoffIso),
     ]);
     const hasFoundation = Boolean(
       foundationRow?.purpose_statement?.trim() || foundationRow?.vision?.trim()
     );
     const hasPeople = data.people.length > 1; // owner alone doesn't count
     const hasFunction = (functionCount ?? 0) > 0;
-    const hasInvite = (invitedCount ?? 0) > 0;
-    // Quarter presence isn't part of any step's completion: company
-    // creation auto-seeds the current calendar quarter as open (see
-    // companies/actions.ts:95-105), so hasQuarter is effectively
-    // always true and would auto-complete the step on day one.
-    // The meaningful signal for step 3 is whether the team has
-    // actually started using the rhythm — i.e. captured a commitment.
-    const hasCommitment = (commitmentCount ?? 0) > 0;
+
+    // Total invitable people = roster minus the current admin.
+    // If we're a sysadmin scoped into the company, subtracting the
+    // current user still lands on the correct count in practice
+    // (sysadmins don't have a company_id and won't appear in
+    // data.people).
+    const invitableTotal = data.people.filter(
+      (p) => p.id !== session.profile.id
+    ).length;
+    const invited = invitedCount ?? 0;
+    const allInvited = invitableTotal > 0 && invited >= invitableTotal;
+    const inviteDescription = invitableTotal === 0
+      ? "Send invitations when you're ready. Add people first — then invite them from the People page."
+      : allInvited
+        ? `Everyone on the roster has been invited (${invited} of ${invitableTotal}).`
+        : `${invited} of ${invitableTotal} invited so far. Send the rest from the People page when you're ready.`;
+
+    const hasRecentCommitment = (recentCommitmentCount ?? 0) > 0;
+    const rhythmDescription = hasRecentCommitment
+      ? "Weekly commitments are flowing in — keep the meeting cadence going."
+      : "Set this quarter's priorities and run your weekly meeting. Every commitment your team makes lives here.";
+
     const hasPlan = data.sfas.length > 0;
+    const hasOpenQuarter = Boolean(data.openQuarter);
+    const quarterDescription = hasOpenQuarter
+      ? `Current quarter: ${data.openQuarter?.label ?? "open"}.`
+      : "Open the current quarter so commitments and priorities can live inside it. Company creation seeds one automatically — this step re-opens it if it ever closes.";
 
     const candidateSteps: SetupStep[] = [
+      {
+        key: "quarter",
+        label: "Open a quarter",
+        description: quarterDescription,
+        href: "/quarters",
+        done: hasOpenQuarter,
+      },
       {
         key: "team",
         label: "Build the team",
@@ -117,18 +163,16 @@ export default async function DashboardPage() {
       {
         key: "invite",
         label: "Invite the team",
-        description:
-          "Send invitations when you're ready. People can be added now and invited later.",
+        description: inviteDescription,
         href: "/people",
-        done: hasInvite,
+        done: allInvited,
       },
       {
         key: "rhythm",
         label: "Start the rhythm",
-        description:
-          "Set this quarter's priorities and run your weekly meeting. Every commitment your team makes lives here.",
+        description: rhythmDescription,
         href: "/commitments",
-        done: hasCommitment,
+        done: hasRecentCommitment,
       },
       {
         key: "vision",

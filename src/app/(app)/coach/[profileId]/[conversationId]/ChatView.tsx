@@ -397,13 +397,30 @@ function MessageBubble({
       </div>
     );
   }
+  // Between "send" and the first streamed token, `message.content`
+  // is empty and only the blinking cursor rendered, which reads as
+  // "did this break?" for first-time users. Show an explicit
+  // "Thinking…" indicator until at least one token has arrived, at
+  // which point the streaming content takes over.
+  const isThinking = message.streaming && message.content.length === 0;
   return (
     <div className={`${styles.bubbleRow} ${styles.bubbleRowAssistant}`}>
       <div className={styles.bubbleAssistant}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {message.content}
-        </ReactMarkdown>
-        {message.streaming ? (
+        {isThinking ? (
+          <p className={styles.thinking} role="status" aria-live="polite">
+            <span className={styles.thinkingDots} aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+            Thinking…
+          </p>
+        ) : (
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {message.content}
+          </ReactMarkdown>
+        )}
+        {message.streaming && !isThinking ? (
           <span className={styles.cursor} aria-hidden="true" />
         ) : null}
         {message.error ? (

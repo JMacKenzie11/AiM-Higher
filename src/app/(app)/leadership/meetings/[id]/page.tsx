@@ -109,9 +109,11 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       <div className={styles.content}>
         <div style={{ display: "flex" }}>
           <PrivacyNote tone="managerial">
-            Meeting analyses and facilitation reviews are visible to system
-            admins, company admins, and AiMS Guides for this company only.
-            Meeting participants don&rsquo;t see this page.
+            This meeting analysis and any facilitation review are visible to
+            system admins, company admins, and AiMS Guides for this company
+            only. Meeting participants don&rsquo;t see this page. Commitments
+            extracted from the meeting appear in each owner&rsquo;s Commitments
+            list and scorecard — same visibility as any other commitment.
           </PrivacyNote>
         </div>
 

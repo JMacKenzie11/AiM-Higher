@@ -368,6 +368,45 @@
   50% { opacity: 1; }
 }
 
+/* "Thinking…" indicator shown between hitting send and the first
+   streamed token from Aimee. Three dot pips animate in sequence
+   so the coach knows a call is in flight, not stalled. */
+.thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 14px;
+}
+
+.thinkingDots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.thinkingDots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: thinkingDot 1.2s ease-in-out infinite;
+}
+
+.thinkingDots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinkingDots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes thinkingDot {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
 .errorNote {
   color: var(--aims-danger);
   font: var(--text-body-sm);

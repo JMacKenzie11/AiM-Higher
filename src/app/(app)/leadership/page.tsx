@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationListChip } from "@/components/leadership/FacilitationReview";
 import { PageShell } from "@/components/ui/PageShell";
+import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type { Meeting } from "@/lib/types";
 import styles from "../admin/companies/admin.module.css";
@@ -71,6 +72,15 @@ export default async function LeadershipPage() {
       title="Meetings"
       subtitle="Every meeting transcript this company has run through the analyzer, most recent first. Click a complete analysis to see the full write-up and the commitments it created."
     >
+      <div style={{ display: "flex" }}>
+        <PrivacyNote tone="managerial">
+          Meeting transcripts, analyses, and facilitation reviews on this
+          page are visible to system admins, company admins, and AiMS
+          Guides for this company only. Meeting participants don&rsquo;t
+          see this list.
+        </PrivacyNote>
+      </div>
+
       <section className={styles.card} aria-labelledby="meetings-list">
           <h2 id="meetings-list" className={styles.h2}>
             Meetings
