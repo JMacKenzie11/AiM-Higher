@@ -1,4 +1,5 @@
-import { NavBand } from "@/components/nav-band/NavBand";
+import { cookies } from "next/headers";
+import { Sidebar } from "@/components/sidebar/Sidebar";
 import { HelpWidget } from "@/components/help/HelpWidget";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
@@ -113,9 +114,18 @@ export default async function AppLayout({
       })
     : [];
 
+  // Read persisted collapse state so the initial render matches the
+  // user's preference (no post-hydration jump). Sidebar writes this
+  // cookie client-side on toggle.
+  const cookieStore = await cookies();
+  const initialCollapsed = cookieStore.get("nav-collapsed")?.value === "1";
+
   return (
-    <div className={styles.frame}>
-      <NavBand
+    <div
+      className={styles.frame}
+      data-nav-collapsed={initialCollapsed ? "true" : undefined}
+    >
+      <Sidebar
         userName={session.profile.full_name}
         userRole={session.profile.role}
         isSystemAdmin={isCrossCompanyRole}
@@ -125,6 +135,7 @@ export default async function AppLayout({
         features={features}
         hasChartMeasures={hasChartMeasures}
         notifications={notifications}
+        initialCollapsed={initialCollapsed}
       />
       <div className={styles.main}>{children}</div>
       <HelpWidget />

@@ -1,12 +1,24 @@
+/* App shell with fixed left rail (Sidebar). The rail is
+   position: fixed at width 260px (68px collapsed); .main compensates
+   with padding-left so page content never slides underneath.
+
+   .frame carries data-nav-collapsed as an SSR-set attribute (read from
+   the nav-collapsed cookie) so the initial padding matches the rail
+   width — no post-hydration jump when the client-side collapsed
+   state resolves. */
+
 .frame {
   min-height: 100dvh;
   background: var(--bg);
-  display: flex;
-  flex-direction: column;
+  padding-left: 260px;
+  transition: padding-left var(--duration-normal) var(--ease-out);
+}
+
+.frame[data-nav-collapsed="true"] {
+  padding-left: 68px;
 }
 
 .main {
-  flex: 1;
   max-width: 1280px;
   width: 100%;
   margin: 0 auto;
@@ -14,6 +26,13 @@
 }
 
 @media (max-width: 768px) {
+  .frame,
+  .frame[data-nav-collapsed="true"] {
+    /* On mobile the rail is off-canvas and the top strip owns the
+       chrome. No left padding — the mobile bar provides its own
+       top spacing via its own padding. */
+    padding-left: 0;
+  }
   .main {
     padding: var(--space-5) var(--space-4);
   }

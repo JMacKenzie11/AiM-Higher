@@ -1,0 +1,535 @@
+/* Left-rail navigation. Sits on --grad-brand so it reads as a
+   continuation of the brand nav band it replaces.
+
+   Widths:
+     Expanded: 260px
+     Collapsed: 68px (icons + tooltips only)
+   The rail is fixed on the left; the layout's .main gets a matching
+   padding-left so page content doesn't slide underneath. Below 768px
+   the rail transforms off-canvas and the mobile top strip appears. */
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 260px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  border-right: 1px solid var(--glass-border);
+  transition: width var(--duration-normal) var(--ease-out);
+  overflow: hidden;
+}
+
+.sidebar[data-collapsed="true"] {
+  width: 68px;
+}
+
+/* ---- Header (logo + collapse toggle) ---- */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-4);
+  min-height: 68px;
+}
+
+.logoLink {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+}
+
+.logo {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+
+.sidebar[data-collapsed="true"] .logo {
+  /* Show only the "AH" mark region when collapsed by cropping via
+     width + object-fit. The source PNG is a wordmark so this
+     approximation keeps things visible; a dedicated mark asset would
+     be cleaner but this keeps the diff surgical. */
+  height: 28px;
+  width: 36px;
+  object-fit: cover;
+  object-position: left center;
+}
+
+.collapseToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  color: var(--aims-white);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: background var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
+}
+
+.collapseToggle:hover {
+  background: var(--glass-bg);
+  opacity: 1;
+}
+
+.collapseChevron {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.sidebar[data-collapsed="true"] .collapseToggle {
+  margin: 0 auto;
+}
+
+/* ---- Context pill (SYSTEM ADMIN · COMPANY NAME) ---- */
+.contextPill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 var(--space-4) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  color: var(--aims-white);
+  overflow: hidden;
+}
+
+.contextDot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--aims-chartreuse);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aims-chartreuse) 25%, transparent);
+}
+
+.contextText {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.sidebar[data-collapsed="true"] .contextPill {
+  justify-content: center;
+  margin: 0 var(--space-3) var(--space-3);
+  padding: var(--space-2);
+}
+
+.sidebar[data-collapsed="true"] .contextText {
+  display: none;
+}
+
+/* ---- Nav list ---- */
+.nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-2) var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  /* Slim scrollbar over the gradient */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-3);
+}
+
+.section:first-child {
+  margin-top: 0;
+}
+
+.sectionLabel {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  color: var(--aims-white);
+  opacity: 0.55;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.sectionLabel[data-hidden="true"] {
+  /* Keep the element in the DOM for a11y (aria-hidden) but visually
+     hide it — collapsed rail has no room for labels. */
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* Thin divider between sections when the rail is collapsed and text
+   labels no longer separate groups. */
+.sectionDivider {
+  height: 1px;
+  margin: var(--space-2) var(--space-2);
+  background: var(--glass-border);
+}
+
+/* ---- Nav row (link) ----
+   The signature hover: a chartreuse accent bar slides in from the
+   left while the row's background tints and the text/icon brighten.
+   Everything uses one 180ms curve so it feels like a single motion. */
+.navRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+  height: 40px;
+  color: var(--aims-white);
+  opacity: 0.78;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  overflow: hidden;
+  transition: background var(--duration-normal) var(--ease-out),
+    opacity var(--duration-normal) var(--ease-out),
+    color var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+
+/* The accent bar — always in the DOM, translated off-screen when
+   inactive so the hover animates in with GPU-cheap transform. */
+.navRow::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 3px;
+  background: var(--aims-chartreuse);
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  transform: translateX(-100%);
+  transition: transform var(--duration-normal) var(--ease-out),
+    opacity var(--duration-normal) var(--ease-out);
+  opacity: 0;
+}
+
+.navRow:hover {
+  background: color-mix(in srgb, var(--aims-white) 8%, transparent);
+  opacity: 1;
+  color: var(--aims-white);
+}
+
+.navRow:hover::before {
+  transform: translateX(0);
+  opacity: 0.7;
+}
+
+.navRow:hover .navIcon {
+  color: var(--aims-chartreuse);
+  transform: scale(1.05);
+}
+
+.navRow:focus-visible {
+  outline: 2px solid var(--aims-chartreuse);
+  outline-offset: -2px;
+}
+
+.navRow[data-active="true"] {
+  background: color-mix(in srgb, var(--aims-white) 12%, transparent);
+  opacity: 1;
+  font-weight: 700;
+  color: var(--aims-white);
+}
+
+.navRow[data-active="true"]::before {
+  transform: translateX(0);
+  opacity: 1;
+  width: 4px;
+}
+
+.navRow[data-active="true"] .navIcon {
+  color: var(--aims-chartreuse);
+}
+
+.navIcon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--aims-white);
+  opacity: 0.85;
+  transition: color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.navLabel {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.sidebar[data-collapsed="true"] .navRow {
+  justify-content: center;
+  padding: 0;
+}
+
+.sidebar[data-collapsed="true"] .navLabel {
+  /* Fully hide but preserve the row's a11y — the Link's accessible
+     name still comes from the text node; we just don't render it. */
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+/* Collapsed rail: the row is only ~44px wide, so a chartreuse accent
+   bar on the left crowds the (also chartreuse) hovered icon — the
+   two signals merge visually. Hide the bar in collapsed mode; the
+   hover/active background pill and the icon's color shift are enough
+   feedback in the narrow rail. */
+.sidebar[data-collapsed="true"] .navRow::before {
+  display: none;
+}
+
+/* ---- Footer (notification bell + user) ---- */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3);
+  border-top: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--aims-navy) 30%, transparent);
+}
+
+.footerBell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar[data-collapsed="true"] .footer {
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+
+/* ---- User pill ---- */
+.userSlot {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.userButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--aims-white);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.userButton:hover,
+.userButton[aria-expanded="true"] {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+}
+
+.userAvatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: color-mix(in srgb, var(--aims-chartreuse) 25%, transparent);
+  color: var(--aims-white);
+  border-radius: 50%;
+  font: var(--text-button-sm);
+  letter-spacing: 0.05em;
+}
+
+.userName {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar[data-collapsed="true"] .userName {
+  display: none;
+}
+
+.sidebar[data-collapsed="true"] .userButton {
+  justify-content: center;
+  padding: var(--space-1);
+}
+
+/* Popover menu — pops UP from the user pill because the pill sits at
+   the bottom of the rail. */
+.userMenu {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  min-width: 200px;
+  background: var(--aims-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  z-index: 40;
+}
+
+.sidebar[data-collapsed="true"] .userMenu {
+  left: 100%;
+  right: auto;
+  bottom: 0;
+  margin-left: var(--space-2);
+  min-width: 220px;
+}
+
+.userMenuItem {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.userMenuItem:hover {
+  background: var(--aims-cobalt-tint);
+}
+
+.userMenuItem:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ---- Mobile ---- */
+.mobileBar {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+  padding: 0;
+  background: transparent;
+  color: var(--aims-white);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.hamburger:hover {
+  background: var(--glass-bg);
+}
+
+.mobileLogoLink {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.mobileLogo {
+  height: 26px;
+  width: auto;
+  display: block;
+}
+
+.scrim {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobileBar {
+    display: flex;
+  }
+  .sidebar {
+    /* Off-canvas by default; slide in when data-mobile-open="true". */
+    transform: translateX(-100%);
+    transition: transform var(--duration-normal) var(--ease-out);
+    box-shadow: var(--shadow-lg);
+    width: 280px;
+  }
+  .sidebar[data-mobile-open="true"] {
+    transform: translateX(0);
+  }
+  /* Collapse toggle makes no sense on mobile (drawer is either open
+     or closed). Hide it in the mobile drawer. */
+  .collapseToggle {
+    display: none;
+  }
+  .scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: rgba(17, 21, 26, 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+}
