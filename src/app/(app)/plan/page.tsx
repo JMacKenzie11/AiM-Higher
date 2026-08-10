@@ -420,7 +420,7 @@ function EmptyCascade({ isAdmin }: { isAdmin: boolean }) {
       <p className={styles.emptyLine}>
         {isAdmin
           ? "Start with a focus area or drop a goal in directly — you can link it up later."
-          : "Your company admin hasn't set up the cascade yet."}
+          : "Your team's plan for this quarter will appear here once it's set up."}
       </p>
     </section>
   );

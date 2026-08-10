@@ -100,7 +100,7 @@ function EmptyChart({ isAdmin }: { isAdmin: boolean }) {
       <p className={styles.emptyLine}>
         {isAdmin
           ? "Start with the three or four functions your business needs — Field Operations, Preconstruction, Safety, Finance — and add the outcomes each one is on the hook for."
-          : "Your company admin hasn't set up the chart yet."}
+          : "Your team's accountability chart will appear here once it's set up."}
       </p>
     </section>
   );

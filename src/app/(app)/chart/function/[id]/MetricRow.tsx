@@ -69,16 +69,10 @@ export function MetricRow({
         {measure.description}
         {measure.target_hint ? (
           <span
-            style={{
-              display: "block",
-              marginTop: "4px",
-              fontSize: "12px",
-              color: "var(--aims-warning, #b78103)",
-              fontStyle: "italic",
-            }}
-            title="AI suggestion — refine to clear it."
+            className={styles.detailMeasureTargetHint}
+            title="Coaching hint — refine to clear it."
           >
-            ⚑ {measure.target_hint}
+            <span aria-hidden>⚑</span> {measure.target_hint}
           </span>
         ) : null}
       </span>

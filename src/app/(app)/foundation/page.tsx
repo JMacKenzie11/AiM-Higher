@@ -263,11 +263,11 @@ export default async function OnePagePlanPage() {
               )}
             </section>
 
-            {/* Ideal Client Avatar */}
+            {/* Ideal Customer Profile */}
             <section className={styles.cardAccent} aria-labelledby="ica">
               <CardAccent />
               <h2 id="ica" className={styles.h2}>
-                Ideal Client Avatar
+                Ideal Customer Profile
               </h2>
               <div>
                 <p className={styles.metaLabel}>Best-fit clients and projects</p>

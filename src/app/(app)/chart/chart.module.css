@@ -952,6 +952,25 @@
   min-width: 0;
 }
 
+/* Target hint on a metric row — surfaces the coaching suggestion
+   inline under the description. Larger + tinted background so it's
+   legible from projection distance in a shared-screen meeting;
+   the previous 12px italic muted amber was routinely called out as
+   unreadable in the UX review. */
+.detailMeasureTargetHint {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: var(--space-2);
+  padding: 4px 10px;
+  background: var(--aims-warning-tint, color-mix(in srgb, #b78103 12%, transparent));
+  color: var(--aims-warning, #8a6103);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .detailMeasureTarget {
   font: var(--text-body-sm);
   color: var(--text-muted);
