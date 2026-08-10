@@ -204,6 +204,7 @@
 }
 
 .row {
+  position: relative; /* anchors the resolveMenu popover */
   display: grid;
   /* resolve (✓) | delete (🗑) | clarity | description | owner | priority | due | status */
   /* Delete now sits next to the resolve circle and is always visible
@@ -216,6 +217,68 @@
   border-bottom: 1px solid var(--border);
   list-style: none;
   list-style-type: none;
+}
+
+/* Menu popover anchored under the resolve circle. Opens on circle
+   click; closes on Escape or click-outside. Deliberately positioned
+   as an absolute layer so it doesn't consume a grid cell and shift
+   the row layout. */
+.resolveMenu {
+  position: absolute;
+  top: calc(100% - 4px);
+  left: var(--space-4);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.resolveMenuItem,
+.resolveMenuItemKept,
+.resolveMenuItemMissed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.resolveMenuItem:hover,
+.resolveMenuItemKept:hover,
+.resolveMenuItemMissed:hover {
+  background: var(--aims-navy-tint);
+}
+
+.resolveMenuItemKept {
+  color: var(--aims-success, var(--primary));
+  font-weight: 600;
+}
+
+.resolveMenuItemKept:hover {
+  background: var(--aims-success-tint, var(--aims-navy-tint));
+}
+
+.resolveMenuItemMissed {
+  color: var(--aims-danger);
+  font-weight: 600;
+}
+
+.resolveMenuItemMissed:hover {
+  background: var(--aims-danger-tint);
 }
 
 .row::marker,

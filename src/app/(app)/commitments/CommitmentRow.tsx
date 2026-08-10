@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition, useMemo, useEffect } from "react";
+import { useState, useTransition, useMemo, useEffect, useRef } from "react";
 import {
   deleteCommitmentAction,
   linkPriorityAction,
@@ -26,17 +26,24 @@ import { ClarityChip, ClarityEditor, clarityState } from "./ClarityStrip";
 import styles from "./commitments.module.css";
 
 // A single commitment row.
-//   - On-time open + click circle    → Kept
-//   - Overdue open + click circle    → inline "What happened?" strip
-//                                      → Save closes it (status=missed)
-//   - Kept + click circle            → revert to Open
-//   - Closed (missed) + click circle → revert to Open
-//   - Overdue open shows danger dot + danger due-date + danger ring
-//     on the circle. No row-wide background fill.
-//   - Priority cell: cobalt link when linked, ghost "Link" when
-//     unlinked; both open a searchable picker while status='open'.
-//     Once resolved the linkage is frozen (would silently rewrite
-//     priority progress history).
+//
+// The circle at the left is now a *menu trigger*, not an action.
+// Click it (any state, any due date) → a small menu opens with the
+// available actions: Mark kept · Mark missed · Reschedule · Reopen.
+// Rationale: the previous "click = kept for on-time, click = missed
+// strip for overdue, click = revert for kept/missed" design was
+// state-dependent and caused misclick-in-front-of-client mistakes
+// (the UX review's Blocker finding). A menu is one extra click on
+// the fast path and buys total safety on every path.
+//
+// After a resolve, a "Marked kept · Undo" chip persists for 30
+// seconds — long enough to survive a sentence in a facilitated
+// meeting. The chip is aria-live so screen readers announce it.
+//
+// Priority cell: cobalt link when linked, ghost "Link" when
+// unlinked; both open a searchable picker while status='open'.
+// Once resolved the linkage is frozen (would silently rewrite
+// priority progress history).
 
 export type CommitmentRowProps = {
   commitment: CommitmentWithMeta;
@@ -92,7 +99,10 @@ export function CommitmentRow({
   >(null);
   useEffect(() => {
     if (!justResolved) return;
-    const t = setTimeout(() => setJustResolved(null), 6000);
+    // 30 seconds — long enough to survive a sentence or two in a
+    // facilitated meeting. The prior 6s window was routinely lost
+    // when someone started talking, per the UX review.
+    const t = setTimeout(() => setJustResolved(null), 30000);
     return () => clearTimeout(t);
   }, [justResolved]);
 
@@ -100,6 +110,39 @@ export function CommitmentRow({
   const isKept = commitment.status === "kept";
   const isClosed = commitment.status === "missed";
   const isOverdue = isOpen && commitment.due_date < todayIso;
+
+  // Menu-driven resolve: the circle opens a small popover with the
+  // available actions (Mark kept · Mark missed · Reschedule · Reopen).
+  // Clicking outside or pressing Escape dismisses without action.
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showActionMenu) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setShowActionMenu(false);
+    }
+    function onClick(e: MouseEvent) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node)
+      ) {
+        setShowActionMenu(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    // Defer the outside-click listener a tick so the click that
+    // opened the menu doesn't immediately close it.
+    const t = setTimeout(
+      () => document.addEventListener("mousedown", onClick),
+      0
+    );
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      clearTimeout(t);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [showActionMenu]);
 
   function markKept() {
     setError(null);
@@ -232,20 +275,28 @@ export function CommitmentRow({
 
   function onCircleClick() {
     if (!canResolve) return;
-    if (isKept) {
-      unmarkKept();
-      return;
+    // Every state opens the same menu now. Circle is a *trigger*,
+    // not an action — see the comment atop this file. The menu
+    // then handles Kept / Missed / Reschedule / Reopen with the
+    // existing action helpers.
+    setShowActionMenu((prev) => !prev);
+  }
+
+  function menuChoose(action: "kept" | "missed" | "reschedule" | "reopen") {
+    setShowActionMenu(false);
+    setError(null);
+    if (action === "kept") {
+      markKept();
+    } else if (action === "missed") {
+      // Missed requires a reason — reveal the existing strip.
+      setShowReason(true);
+    } else if (action === "reschedule") {
+      setRescheduleDate(commitment.due_date);
+      setShowReschedule(true);
+    } else if (action === "reopen") {
+      if (isKept) unmarkKept();
+      else if (isClosed) unmarkMissed();
     }
-    if (isClosed) {
-      unmarkMissed();
-      return;
-    }
-    if (!isOpen) return;
-    if (isOverdue) {
-      setShowReason((prev) => !prev);
-      return;
-    }
-    markKept();
   }
 
   return (
@@ -260,23 +311,25 @@ export function CommitmentRow({
         onClick={onCircleClick}
         disabled={pending || !canResolve}
         data-state={isKept ? "kept" : isClosed ? "missed" : "open"}
+        aria-haspopup="menu"
+        aria-expanded={showActionMenu}
         title={
           isKept
-            ? "Kept — click to reopen"
+            ? "Kept — open actions"
             : isClosed
-            ? "Missed — click to reopen"
+            ? "Missed — open actions"
             : isOverdue
-            ? "Overdue — close with a reason"
-            : "Mark kept"
+            ? "Overdue — open actions"
+            : "Open actions"
         }
         aria-label={
           isKept
-            ? "Kept — click to reopen"
+            ? "Kept — open actions"
             : isClosed
-            ? "Missed — click to reopen"
+            ? "Missed — open actions"
             : isOverdue
-            ? "Overdue — close with a reason"
-            : "Mark kept"
+            ? "Overdue — open actions"
+            : "Open actions"
         }
         aria-pressed={isKept || isClosed}
       >
@@ -292,6 +345,53 @@ export function CommitmentRow({
           {isClosed ? "✕" : "✓"}
         </span>
       </button>
+
+      {showActionMenu ? (
+        <div
+          ref={menuRef}
+          className={styles.resolveMenu}
+          role="menu"
+          aria-label="Commitment actions"
+        >
+          {isOpen ? (
+            <>
+              <button
+                type="button"
+                className={styles.resolveMenuItemKept}
+                role="menuitem"
+                onClick={() => menuChoose("kept")}
+              >
+                <span aria-hidden>✓</span> Mark kept
+              </button>
+              <button
+                type="button"
+                className={styles.resolveMenuItemMissed}
+                role="menuitem"
+                onClick={() => menuChoose("missed")}
+              >
+                <span aria-hidden>✕</span> Mark missed
+              </button>
+              <button
+                type="button"
+                className={styles.resolveMenuItem}
+                role="menuitem"
+                onClick={() => menuChoose("reschedule")}
+              >
+                <span aria-hidden>→</span> Reschedule
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className={styles.resolveMenuItem}
+              role="menuitem"
+              onClick={() => menuChoose("reopen")}
+            >
+              <span aria-hidden>↺</span> Reopen
+            </button>
+          )}
+        </div>
+      ) : null}
 
       {canDelete ? (
         <button
