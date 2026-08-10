@@ -33,7 +33,15 @@ export default async function AskAimeePage() {
       <PracticeCards practices={PRACTICES} />
 
       <div className={styles.card} style={{ marginTop: "var(--space-6)" }}>
-        <div className={styles.listActions}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "var(--space-3)",
+            marginBottom: "var(--space-3)",
+          }}
+        >
           <h2
             style={{
               margin: 0,
