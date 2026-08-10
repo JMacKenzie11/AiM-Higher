@@ -47,7 +47,7 @@ export const PRACTICES: readonly Practice[] = [
       "Create generative questions that open up thinking and invite ownership.",
     promptFile: "prompts/practices/ask-better-questions.md",
     chips: [
-      "I have a real conversation to prepare for",
+      "I have a conversation to prepare for",
       "I'm stuck on a limiting question",
       "Show me examples for a topic",
     ],
