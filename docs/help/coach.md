@@ -18,6 +18,10 @@ guess who can read what.
 
 ## Heads-up
 
+- **Thinking…** — after you send a message, a *Thinking…* indicator
+  with a subtle animated dot appears while the model reads context
+  and reasons. Once tokens start streaming, the indicator
+  disappears and a cursor tracks the response.
 - **Who can see this** — every thread is private to the person who
   created it. Only you see the threads you write. Another admin or
   the person's direct manager can create their own separate

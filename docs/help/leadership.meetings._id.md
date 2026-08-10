@@ -22,3 +22,12 @@ page is the source-of-truth for *where they came from*.
   opportunities, and the "what to try next week" section is the
   point. The overall number is a signal, not a grade — the shape
   over several meetings matters more than any single week.
+
+## Heads-up
+
+- **Who sees this page** — a privacy note at the top spells it out:
+  the analysis and facilitation review are visible to system
+  admins, company admins, and AiMS Guides for this company only.
+  Meeting participants don't see this page. Commitments the meeting
+  spawned *do* show up on each owner's Commitments list and
+  scorecard — same visibility as any other commitment.

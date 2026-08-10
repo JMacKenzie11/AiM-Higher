@@ -4,24 +4,33 @@ title: Your dashboard
 
 # Your dashboard
 
-The Dashboard is your daily read on the company: an AI brief at the
-top of the page summarises what's worth knowing right now, and the
-panels below surface open commitments, actions, and quarter
-progress.
+The Dashboard is your daily read on the company. The hero band
+opens on **Follow-Through Rate this quarter** — the number weekly
+meetings tend to open on — with four secondary stats below
+(Strategic Progress, On Track, Open This Week, Commitment Clarity).
+An AI brief and the operating panels sit underneath.
 
 ## Common things people do here
 
 - **First-run setup** — a *Set up {company}* checklist sits at the
   top of the dashboard for anyone with admin authority over the
   company (system admin, company admin, or an AiMS guide assigned
-  to it). The four steps are: build the team (people plus the
-  functional chart), invite the team, start the rhythm (at least
-  one commitment on the books), and build the vision and strategic
-  plan (foundation content or a Strategic Focus Area). Opening a
-  quarter isn't a step because company creation auto-seeds the
-  current calendar quarter as open. Each step is non-blocking and
-  checks off automatically once its conditions are met; the card
-  stops rendering when everything is done.
+  to it). The five steps are: open a quarter, build the team
+  (people plus the functional chart), invite the team, start the
+  rhythm, and build the vision and strategic plan. Each step
+  reflects **real** progress:
+  - *Open a quarter* — company creation auto-seeds one, but if the
+    seed ever fails or the current quarter closes this step
+    re-surfaces so it can't strand you silently.
+  - *Invite the team* — shows "N of M invited" and only ticks
+    when everyone on the roster has been invited, not on the first
+    invite.
+  - *Start the rhythm* — requires a commitment with a week-ending
+    inside the last **14 days**, so a commitment created six months
+    ago doesn't paper over a stalled cadence.
+  Each step is non-blocking and checks off automatically once its
+  conditions are met; the card stops rendering when everything is
+  done.
 - **Refresh the brief** — click *Refresh brief* in the top card if
   the summary looks stale. It's regenerated at most once every few
   hours to keep costs sensible.
@@ -37,6 +46,12 @@ progress.
 
 ## Heads-up
 
+- **Follow-Through Rate is the primary hero stat** — it gets the
+  full-width top row of the hero band and a larger value font. The
+  four secondary stats (Strategic Progress, On Track, Open This
+  Week, Commitment Clarity) sit in the strip below at normal
+  weight. Any stat with a dotted-underline label has a one-sentence
+  definition on hover or keyboard focus.
 - **The generative cards** (Gaining ground, Wins this week, Streaks,
   Where a conversation could help) only render when Success Tracking
   is on and there's real data behind them. An empty quarter shows

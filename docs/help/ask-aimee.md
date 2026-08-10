@@ -23,6 +23,11 @@ what you personally have permission to see).
 
 ## Heads-up
 
+- **Thinking…** — after you hit send, Aimee shows a *Thinking…*
+  indicator with a subtle animated dot while she reads context and
+  reasons about the answer. That's normal — the first token can
+  take a few seconds. Once content starts streaming, the indicator
+  disappears and a cursor tracks the response.
 - **Private to you** — nobody else on the platform (not admins, not
   managers, not AiMS Guides) can read your Ask Aimee conversations.
   Same visibility as any other coaching thread you create: only the

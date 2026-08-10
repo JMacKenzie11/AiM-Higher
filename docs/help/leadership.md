@@ -26,6 +26,13 @@ full write-up.
 
 ## Heads-up
 
+- **Who sees this page** — a privacy note at the top spells it out:
+  transcripts, analyses, and facilitation reviews are visible to
+  system admins, company admins, and AiMS Guides for this company
+  only. Meeting participants don't see this list. Extracted
+  commitments *do* land on the participants' Commitments page — the
+  privacy note on the analysis detail page makes that split
+  explicit.
 - Meetings are ingested from Google Drive folders you connect on
   the company settings page. If nothing shows up here, that's the
   first place to look.
