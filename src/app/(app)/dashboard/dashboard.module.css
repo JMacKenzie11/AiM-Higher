@@ -66,11 +66,43 @@
   font: var(--text-subtitle);
 }
 
+/* Weekly meetings open on Follow-Through Rate — one big number
+   that fills the eye first. .statPrimary gives it a full-width
+   row above the secondary strip; descendant selectors scale the
+   inner HeroStat value up and add a bit of internal breathing
+   room so the stat feels weighty from projection distance. */
+.statPrimary {
+  margin-top: var(--space-5);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.statPrimary .heroStat {
+  padding: var(--space-5) var(--space-6);
+}
+
+.statPrimary .heroStatValue {
+  font-size: clamp(56px, 8vw, 96px);
+  line-height: 1;
+}
+
+.statPrimary .heroStatLabel {
+  font-size: 14px;
+  letter-spacing: 0.18em;
+}
+
+.statPrimary .heroStatCaption {
+  font-size: 14px;
+}
+
+/* Secondary strip — the four supporting stats. Now that Follow-
+   Through Rate is out of this row, we have four instead of five,
+   which lays out cleaner at every breakpoint. */
 .statRow {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-4);
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
 }
 
 .heroStat {

@@ -241,6 +241,27 @@ export default async function DashboardPage() {
             How this quarter and this week are going.
           </p>
 
+          {/* Primary stat: Follow-Through Rate. Weekly meetings
+              open on this number, so it gets a full-width row of
+              its own with a larger value font. Everything else
+              lives in the secondary strip below. */}
+          <div className={styles.statPrimary}>
+            <HeroStat
+              label="Follow-Through Rate"
+              caption="Resolved on time this quarter"
+              tooltip="Of all commitments resolved this quarter, the share that closed on time. Both strategic and operational commitments count."
+              value={
+                data.headline.keepRatePercent === null ? (
+                  "—"
+                ) : (
+                  <>
+                    <AnimatedNumber value={data.headline.keepRatePercent} />%
+                  </>
+                )
+              }
+            />
+          </div>
+
           <div className={styles.statRow}>
             <HeroStat
               label="Strategic Progress"
@@ -257,22 +278,8 @@ export default async function DashboardPage() {
               }
             />
             <HeroStat
-              label="Follow-Through Rate"
-              caption="Resolved on time this quarter"
-              tooltip="Of all commitments resolved this quarter, the share that closed on time. Both strategic and operational commitments count."
-              value={
-                data.headline.keepRatePercent === null ? (
-                  "—"
-                ) : (
-                  <>
-                    <AnimatedNumber value={data.headline.keepRatePercent} />%
-                  </>
-                )
-              }
-            />
-            <HeroStat
               label="On Track"
-              caption="Actions pacing to hit target"
+              caption="Priorities pacing to hit target"
               value={
                 data.headline.onTrack.total === 0 ? (
                   "—"
