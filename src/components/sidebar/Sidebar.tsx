@@ -193,10 +193,37 @@ export function Sidebar({
     () => new Set(initialCollapsedGroups)
   );
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Ref to the inner scrollable nav so we can position the current
+  // page's link into view when the mobile drawer opens. Without this,
+  // the nav's scrollTop persists between opens (or ends up scrolled
+  // into the middle when the content is longer than the drawer),
+  // making it look like top items — Dashboard, Companies — have
+  // vanished when in fact they're just above the scroll fold.
+  const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    // Wait for the transform-based slide-in to start (rAF is enough)
+    // before measuring positions, then bring the active link (or the
+    // scroll top if no active link) into view. Prefer nearest so a
+    // small scroll adjustment doesn't blow past the top when the
+    // active item is already visible.
+    const raf = requestAnimationFrame(() => {
+      const nav = navRef.current;
+      if (!nav) return;
+      const active = nav.querySelector<HTMLElement>('[data-active="true"]');
+      if (active) {
+        active.scrollIntoView({ block: "nearest" });
+      } else {
+        nav.scrollTop = 0;
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [mobileOpen]);
 
   const MAX_AGE = 60 * 60 * 24 * 365; // one year
 
@@ -334,7 +361,7 @@ export function Sidebar({
           </div>
         ) : null}
 
-        <nav className={styles.nav} aria-label="Primary">
+        <nav className={styles.nav} aria-label="Primary" ref={navRef}>
           {items.map((item, index) => {
             if (item.kind === "link") {
               return (

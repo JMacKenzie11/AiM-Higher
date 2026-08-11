@@ -96,7 +96,12 @@
   z-index: 15;
   display: flex;
   gap: var(--space-2);
-  justify-content: center;
+  /* safe center: center the pills when they fit; fall back to
+     flex-start when the row would overflow, so the leftmost pill
+     stays reachable at scrollLeft: 0. Plain "center" symmetrically
+     clips both edges when overflow happens, hiding the first and
+     last pills at the natural scroll position. */
+  justify-content: safe center;
   padding: var(--space-3) var(--space-4);
   background: var(--surface);
   border: 1px solid var(--border);
