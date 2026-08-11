@@ -101,14 +101,19 @@
   min-width: 0;
 }
 
+/* Title matches .conversationTitle in coach.module.css so the
+   Practices list and Recent conversations underneath read as one
+   visual system. Same font token, same weight, same tightened
+   letter-spacing, same heading color. */
 .rowTitle {
-  font: var(--text-body);
-  font-weight: 600;
+  font: var(--text-h3);
   color: var(--text-heading);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .rowDescription {
-  font: var(--text-body-sm);
+  font: var(--text-body);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
