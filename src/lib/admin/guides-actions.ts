@@ -148,11 +148,27 @@ export async function resendGuideInviteAction(
   const admin = createSupabaseAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("id, role")
+    .select("id, role, status")
     .eq("id", guideId)
-    .maybeSingle<{ id: string; role: string }>();
+    .maybeSingle<{ id: string; role: string; status: string }>();
   if (!profile || profile.role !== "aims_guide") {
     return { ok: false, message: "That user isn't an AiMS Guide." };
+  }
+  // Same guard as sendInviteAction for regular users: an active
+  // guide has already accepted, a deactivated one shouldn't be
+  // re-invited. GuideRowActions currently always shows "Resend
+  // invite" regardless of status; this catches the misclick.
+  if (profile.status === "active") {
+    return {
+      ok: false,
+      message: "That guide is already active — they don't need an invite.",
+    };
+  }
+  if (profile.status === "inactive") {
+    return {
+      ok: false,
+      message: "That guide is deactivated. Reactivate them first.",
+    };
   }
   const { data: userRow, error: userErr } =
     await admin.auth.admin.getUserById(guideId);

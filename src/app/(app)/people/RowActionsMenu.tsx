@@ -58,7 +58,12 @@ export function RowActionsMenu({
     };
   }, [open]);
 
-  const inviteLabel = status === "pending" ? "Send invite" : "Resend invite";
+  // Invite actions (send email, copy link) only apply while the user
+  // hasn't accepted yet. An active user is already in the app; a
+  // deactivated user should be Reactivated, not re-invited. Both cases
+  // used to render "Resend invite" which was misleading.
+  const showInviteActions = status === "pending";
+  const inviteLabel = "Send invite";
 
   function runInvite() {
     setOpen(false);
@@ -125,22 +130,26 @@ export function RowActionsMenu({
       </button>
       {open ? (
         <div className={styles.moreMenu} role="menu">
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.moreMenuItem}
-            onClick={runInvite}
-          >
-            {inviteLabel}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.moreMenuItem}
-            onClick={runCopyLink}
-          >
-            Copy invite link
-          </button>
+          {showInviteActions ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.moreMenuItem}
+                onClick={runInvite}
+              >
+                {inviteLabel}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.moreMenuItem}
+                onClick={runCopyLink}
+              >
+                Copy invite link
+              </button>
+            </>
+          ) : null}
           {showDeactivate ? (
             <button
               type="button"

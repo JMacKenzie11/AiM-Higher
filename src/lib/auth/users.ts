@@ -320,6 +320,24 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
   ) {
     return { ok: false, message: "Not your user to invite." };
   }
+  // Invites only make sense while the user hasn't accepted yet.
+  // Sending one to an active user emails them an "you've been invited"
+  // link they don't need; sending one to an inactive user is worse
+  // (they were intentionally deactivated). UI already hides the
+  // action for these cases; this is the belt-and-braces guard for a
+  // direct action call.
+  if (profile.status === "active") {
+    return {
+      ok: false,
+      message: "That user is already active — they don't need an invite.",
+    };
+  }
+  if (profile.status === "inactive") {
+    return {
+      ok: false,
+      message: "That user is deactivated. Reactivate them first.",
+    };
+  }
 
   const admin = createSupabaseAdminClient();
   const { data: userRow, error: userErr } = await admin.auth.admin.getUserById(profileId);
@@ -354,15 +372,29 @@ export async function getInviteLinkAction(
   const supabase = await createSupabaseServerClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, company_id")
+    .select("id, company_id, status")
     .eq("id", profileId)
-    .maybeSingle<Pick<Profile, "id" | "company_id">>();
+    .maybeSingle<Pick<Profile, "id" | "company_id" | "status">>();
   if (!profile) return { ok: false, message: "That user doesn't exist." };
   if (
     session.profile.role === "company_admin" &&
     session.profile.company_id !== profile.company_id
   ) {
     return { ok: false, message: "Not your user to invite." };
+  }
+  // Same guard as sendInviteAction: no invite link for an active or
+  // deactivated user. See the comment there for rationale.
+  if (profile.status === "active") {
+    return {
+      ok: false,
+      message: "That user is already active — no invite link needed.",
+    };
+  }
+  if (profile.status === "inactive") {
+    return {
+      ok: false,
+      message: "That user is deactivated. Reactivate them first.",
+    };
   }
 
   const admin = createSupabaseAdminClient();
