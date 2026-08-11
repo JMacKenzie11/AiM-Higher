@@ -520,3 +520,14 @@
 .chip:hover:not(:disabled) {
   background: var(--glass-bg);
 }
+
+/* Small hint under the chips so the empty state does not read as
+   "pick one of these three." The chips are starters; a person is
+   free to describe their own situation in the composer. Muted white
+   so it sits below the chips as guidance rather than a fourth
+   option. */
+.chipHint {
+  margin: 0;
+  color: color-mix(in srgb, var(--aims-white) 75%, transparent);
+  font: var(--text-body-sm);
+}

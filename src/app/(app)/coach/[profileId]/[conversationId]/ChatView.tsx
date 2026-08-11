@@ -364,6 +364,9 @@ export function ChatView({
                 )
               )}
             </div>
+            <p className={styles.chipHint}>
+              Or type your own in the box below.
+            </p>
           </div>
         ) : (
           messages.map((m) => (
