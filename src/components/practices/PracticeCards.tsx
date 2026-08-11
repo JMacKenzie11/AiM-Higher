@@ -66,28 +66,45 @@ export function PracticeCards({
       {grouped.map(({ category, items }) => (
         <div key={category} className={styles.categoryGroup}>
           <h3 className={styles.categoryHeader}>{category}</h3>
-          <div className={styles.grid}>
+          <ul className={styles.rowList}>
             {items.map((practice) => (
-              <button
-                key={practice.id}
-                type="button"
-                className={styles.card}
-                onClick={() => open(practice)}
-                disabled={pending}
-                aria-busy={pendingId === practice.id}
-              >
-                <h4 className={styles.cardTitle}>{practice.title}</h4>
-                <p className={styles.cardDescription}>
-                  {practice.description}
-                </p>
-                {errorFor?.id === practice.id ? (
-                  <p className={styles.cardError} role="alert">
-                    {errorFor.message}
-                  </p>
-                ) : null}
-              </button>
+              <li key={practice.id}>
+                <button
+                  type="button"
+                  className={styles.row}
+                  onClick={() => open(practice)}
+                  disabled={pending}
+                  aria-busy={pendingId === practice.id}
+                >
+                  <span className={styles.rowMain}>
+                    <span className={styles.rowTitle}>{practice.title}</span>
+                    <span className={styles.rowDescription}>
+                      {practice.description}
+                    </span>
+                    {errorFor?.id === practice.id ? (
+                      <span className={styles.rowError} role="alert">
+                        {errorFor.message}
+                      </span>
+                    ) : null}
+                  </span>
+                  <svg
+                    className={styles.rowChevron}
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="9 6 15 12 9 18" />
+                  </svg>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       ))}
     </section>

@@ -25,74 +25,113 @@
   color: var(--text-muted);
 }
 
-/* Category groups the practice cards under a subheading. Cards
-   inside share the same grid as before; the group just adds a
-   labelled band so users can scan by intent (Communication vs.
-   Facilitation) without reading every description. */
+/* Category groups the practice list under a small caption. Rows
+   inside share a dense list layout — one row per practice, title
+   bold on top, description muted underneath, chevron on the right.
+   Cards were fine at one practice; as the list grows they took
+   over the page vertically, so we swapped to a denser list. */
 .categoryGroup {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .categoryHeader {
   margin: 0;
-  font: var(--text-h3);
-  color: var(--text-heading);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
   font-weight: 600;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-4);
-}
-
-/* Inner practice card lives inside the section wrapper (white
-   surface). Uses the subcard treatment used elsewhere across the
-   app for nested items — grey bg + border, no shadow — so nested
-   card-in-card doesn't feel busy. Hover lifts + tints the border
-   to signal the whole card is clickable. */
-.card {
+.rowList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-5);
-  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.rowList > li + li {
+  border-top: 1px solid var(--border);
+}
+
+/* Row is a full-width button that reads as a list item — title
+   on top, description below in muted text, chevron right-aligned.
+   Hover tints the row + shifts the chevron so the click affordance
+   is clear without heavy chrome. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
   text-align: left;
   cursor: pointer;
   color: inherit;
-  transition: box-shadow var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out),
+    border-left-color var(--duration-fast) var(--ease-out);
 }
 
-.card:hover,
-.card:focus-visible {
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
-  border-color: var(--aims-cobalt-tint);
+.row:hover:not(:disabled),
+.row:focus-visible {
+  background: var(--aims-navy-tint);
+  border-left-color: var(--primary);
   outline: none;
 }
 
-.cardTitle {
-  font: var(--text-h3);
-  color: var(--text-heading);
-  margin: 0;
+.row:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
 
-.cardDescription {
-  margin: 0;
-  color: var(--text);
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rowTitle {
   font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
 }
 
-.cardError {
-  margin: 0;
-  color: var(--aims-danger);
+.rowDescription {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowError {
   font: var(--text-caption);
+  color: var(--aims-danger);
+  margin-top: 2px;
+}
+
+.rowChevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.row:hover:not(:disabled) .rowChevron,
+.row:focus-visible .rowChevron {
+  color: var(--primary);
+  transform: translateX(2px);
 }
 
 /* The practice empty state reuses the shared coach empty-state
