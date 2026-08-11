@@ -95,32 +95,14 @@
   top: 0;
   z-index: 15;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  justify-content: flex-start;
+  justify-content: center;
   padding: var(--space-3) var(--space-4);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-/* Auto-margins on the first and last pill push the row toward
-   center when there's slack, but collapse to 0 when the pills
-   overflow — so at overflow the leftmost pill sits at scrollLeft: 0
-   and is reachable. Bulletproof cross-browser pattern; safer than
-   "justify-content: safe center" which older WebKit silently
-   downgrades to plain "center". */
-.pageNav > .pageNavLink:first-child {
-  margin-left: auto;
-}
-.pageNav > .pageNavLink:last-child {
-  margin-right: auto;
-}
-
-.pageNav::-webkit-scrollbar {
-  display: none;
 }
 
 /* Filled cobalt pill matching the primary CTA button treatment used
