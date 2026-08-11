@@ -1,6 +1,7 @@
 import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import type { PracticeCategory } from "./categories";
 
 // Practices are prompt modules layered onto the existing coaching
 // infrastructure. Same chat UI, same streaming, same tools, same
@@ -19,10 +20,18 @@ import path from "node:path";
 // both server components (prompt assembly) and passed as JSON to
 // client components (entry cards, chip lists).
 
+// Re-export categories so consumers that already import from this
+// module keep working; new code can import from ./categories directly
+// when only categories are needed (client components should, to avoid
+// pulling in server-only fs code).
+export { PRACTICE_CATEGORIES } from "./categories";
+export type { PracticeCategory } from "./categories";
+
 export type Practice = {
   id: string;
   title: string;
   description: string;
+  category: PracticeCategory;
   promptFile: string;
   chips?: readonly string[];
 };
@@ -33,6 +42,7 @@ export const PRACTICES: readonly Practice[] = [
     title: "Prepare a hard conversation",
     description:
       "Address issues in a way that invites dialogue instead of defensiveness.",
+    category: "Communication",
     promptFile: "prompts/practices/prepare-a-hard-conversation.md",
     chips: [
       "Someone isn't following through",
@@ -41,10 +51,25 @@ export const PRACTICES: readonly Practice[] = [
     ],
   },
   {
+    id: "navigate-emotionally-charged-conversation",
+    title: "Navigate an emotionally charged conversation",
+    description:
+      "Handle a moment where someone is upset or reactive so they feel heard, using the LEAD Model.",
+    category: "Communication",
+    promptFile:
+      "prompts/practices/navigate-emotionally-charged-conversation.md",
+    chips: [
+      "Someone on my team gets easily upset",
+      "I keep making things worse when they're stressed",
+      "I need to talk to someone who's already frustrated",
+    ],
+  },
+  {
     id: "ask-better-questions",
     title: "Ask great questions",
     description:
       "Create generative questions that open up thinking and invite ownership.",
+    category: "Facilitation",
     promptFile: "prompts/practices/ask-better-questions.md",
     chips: [
       "I have a conversation to prepare for",

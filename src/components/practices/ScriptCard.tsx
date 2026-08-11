@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { parsePracticeScript } from "@/lib/practices/parse-script";
 import styles from "./practice.module.css";
 
@@ -94,8 +96,15 @@ export function ScriptCard({
           aria-label="A better way in"
         >
           <p className={styles.scriptSectionLabel}>A better way in</p>
+          {/* Rendered as markdown so structured scripts (LEAD, etc.)
+              can use bold headers and sub-sections inline. For narrative
+              scripts (prepare-a-hard-conversation) plain text still
+              renders as plain paragraphs — no formatting means no
+              formatting. */}
           <blockquote className={styles.scriptBetter}>
-            {script.better_approach}
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {script.better_approach}
+            </ReactMarkdown>
           </blockquote>
         </section>
 

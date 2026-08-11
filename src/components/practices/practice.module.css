@@ -25,6 +25,23 @@
   color: var(--text-muted);
 }
 
+/* Category groups the practice cards under a subheading. Cards
+   inside share the same grid as before; the group just adds a
+   labelled band so users can scan by intent (Communication vs.
+   Facilitation) without reading every description. */
+.categoryGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.categoryHeader {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -239,7 +256,43 @@
   font: var(--text-body);
   font-size: 16px;
   line-height: 1.55;
-  white-space: pre-wrap;
+}
+
+/* Markdown-rendered content inside .scriptBetter (LEAD headers,
+   sub-sections). Keep spacing tight so a multi-step script does
+   not sprawl; headers get a small top margin so each LEAD stage
+   reads as its own beat. */
+.scriptBetter :global(p) {
+  margin: 0 0 var(--space-3);
+}
+.scriptBetter :global(p:last-child) {
+  margin-bottom: 0;
+}
+.scriptBetter :global(strong) {
+  color: var(--text-heading);
+}
+.scriptBetter :global(h1),
+.scriptBetter :global(h2),
+.scriptBetter :global(h3),
+.scriptBetter :global(h4) {
+  font: var(--text-subhead);
+  color: var(--text-heading);
+  margin: var(--space-3) 0 var(--space-2);
+}
+.scriptBetter :global(h1:first-child),
+.scriptBetter :global(h2:first-child),
+.scriptBetter :global(h3:first-child),
+.scriptBetter :global(h4:first-child) {
+  margin-top: 0;
+}
+.scriptBetter :global(ul),
+.scriptBetter :global(ol) {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-4);
+}
+.scriptBetter :global(em) {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .scriptWhy {
