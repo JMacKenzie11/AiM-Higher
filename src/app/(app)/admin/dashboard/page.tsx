@@ -9,6 +9,7 @@ import {
   getSignupStats,
   getLatestThemes,
 } from "@/lib/admin/dashboard-service";
+import { readAnthropicCostSummary } from "@/lib/admin/anthropic-cost";
 import { PageShell } from "@/components/ui/PageShell";
 import { PulseNumber } from "./PulseNumber";
 import { ActivityTable } from "./ActivityTable";
@@ -28,7 +29,7 @@ export default async function AdminDashboardPage() {
   // Gate: only system_admin. Non-admins get redirected to /.
   await requireRole(["system_admin"]);
 
-  const [pulse, activity, practices, costs, signups, themes] =
+  const [pulse, activity, practices, costs, signups, themes, realCosts] =
     await Promise.all([
       getPlatformPulse(),
       getCompanyActivity(),
@@ -36,8 +37,27 @@ export default async function AdminDashboardPage() {
       getModelCostSummary(),
       getSignupStats(),
       getLatestThemes(),
+      readAnthropicCostSummary(),
     ]);
   const atRisk = computeAtRisk(activity);
+  // Prefer real invoiced numbers from the Anthropic Admin API when
+  // the workspace is configured and at least one bucket has been
+  // pulled; fall back to the local estimator otherwise. Per-company
+  // mini-bars always use the local estimator (Anthropic doesn't
+  // segment cost by our companies).
+  const useRealCosts =
+    realCosts.configured && realCosts.latestBucketDate !== null;
+  const displayedCosts = useRealCosts
+    ? {
+        totalCents7d: realCosts.totalCents7d,
+        totalCents30d: realCosts.totalCents30d,
+        byDay: realCosts.byDay,
+      }
+    : {
+        totalCents7d: costs.totalCents7d,
+        totalCents30d: costs.totalCents30d,
+        byDay: costs.byDay,
+      };
 
   const maxCompanyConvos = Math.max(
     1,
@@ -93,15 +113,21 @@ export default async function AdminDashboardPage() {
         </div>
         <div className={styles.pulseCard}>
           <PulseNumber
-            value={pulse.costUsdCents7d}
+            value={displayedCosts.totalCents7d}
             format="cents"
           />
           <span className={`${styles.pulseLabel} ${styles.tipLabel}`}>
             Coach spend · 7d
-            <InfoTip text="Estimated Anthropic API cost across all coach features in the last 7 days. Computed from token counts using hardcoded per-model rates. Verify against the Anthropic Console for billing." />
+            <InfoTip
+              text={
+                useRealCosts
+                  ? "Real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Updated nightly at 05:00 UTC."
+                  : "Estimated Anthropic API cost across all coach features in the last 7 days. Computed from token counts using hardcoded per-model rates. Configure ANTHROPIC_ADMIN_KEY and ANTHROPIC_WORKSPACE_ID to see real invoiced numbers instead."
+              }
+            />
           </span>
           <span className={styles.pulseCaption}>
-            ${(costs.totalCents30d / 100).toFixed(2)} in 30d
+            ${(displayedCosts.totalCents30d / 100).toFixed(2)} in 30d
           </span>
         </div>
       </section>
@@ -297,28 +323,36 @@ export default async function AdminDashboardPage() {
         <header className={styles.cardHeader}>
           <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
             Coach spend
-            <InfoTip text="Estimated Anthropic API cost. Sums the cost_usd_cents column on coach_token_usage, where each row is one API call (a coach turn, a title generation, or a themes clustering run). Rates are hardcoded per model — verify against the Anthropic Console for billing." />
+            <InfoTip
+              text={
+                useRealCosts
+                  ? "Totals and daily chart pull real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Per-company mini-bars below stay on the local token-count estimator (Anthropic doesn't segment cost by our companies)."
+                  : "Sums the local cost_usd_cents column on coach_token_usage — token counts times hardcoded per-model rates. Set ANTHROPIC_ADMIN_KEY + ANTHROPIC_WORKSPACE_ID to switch this card to real invoiced numbers from Anthropic."
+              }
+            />
           </h2>
-          <span className={styles.cardMeta}>Daily, last 30 days</span>
+          <span className={styles.cardMeta}>
+            {useRealCosts ? "Real · daily · last 30 days" : "Estimated · daily · last 30 days"}
+          </span>
         </header>
         <div className={styles.costLayout}>
           <div className={styles.costTotals}>
             <div>
               <span className={styles.costTotalLabel}>Last 7 days</span>
               <span className={styles.costTotalValue}>
-                ${(costs.totalCents7d / 100).toFixed(2)}
+                ${(displayedCosts.totalCents7d / 100).toFixed(2)}
               </span>
             </div>
             <div>
               <span className={styles.costTotalLabel}>Last 30 days</span>
               <span className={styles.costTotalValue}>
-                ${(costs.totalCents30d / 100).toFixed(2)}
+                ${(displayedCosts.totalCents30d / 100).toFixed(2)}
               </span>
             </div>
           </div>
           <div className={styles.costSparkWrap}>
             <Sparkline
-              points={costs.byDay.map((d) => d.cents)}
+              points={displayedCosts.byDay.map((d) => d.cents)}
               ariaLabel="Daily coach spend over the last 30 days"
             />
           </div>

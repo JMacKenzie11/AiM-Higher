@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/themes",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/anthropic-cost",
+      "schedule": "0 5 * * *"
     }
   ]
 }
