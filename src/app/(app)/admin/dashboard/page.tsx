@@ -67,10 +67,10 @@ export default async function AdminDashboardPage() {
           </span>
         </div>
         <div className={styles.pulseCard}>
-          <PulseNumber value={pulse.conversations7d} />
+          <PulseNumber value={pulse.turns7d} />
           <span className={styles.pulseLabel}>Coaching turns · 7d</span>
           <span className={styles.pulseCaption}>
-            {activity.reduce((s, r) => s + r.conversations30d, 0)} in 30d
+            {pulse.turns30d.toLocaleString()} in 30d
           </span>
         </div>
         <div className={styles.pulseCard}>

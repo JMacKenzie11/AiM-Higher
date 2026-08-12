@@ -29,7 +29,15 @@ export type PlatformPulse = {
   newCompanies7d: number;
   activeUsers7d: number;
   activeUsers30d: number;
-  conversations7d: number;
+  // A "turn" is one exchange: one user message + one coach response.
+  // We count assistant messages as the canonical turn count because
+  // every completed turn produces exactly one assistant row (a user
+  // message that never got a response would inflate a user-count).
+  // A long thread of 20 exchanges therefore counts as 20 turns, not
+  // 1 conversation — which is what the "engagement volume" metric
+  // is meant to reflect.
+  turns7d: number;
+  turns30d: number;
   costUsdCents7d: number;
 };
 
@@ -38,30 +46,37 @@ export async function getPlatformPulse(): Promise<PlatformPulse> {
   const since7 = daysAgo(7);
   const since30 = daysAgo(30);
 
-  const [newCompanies, msgs7, msgs30, convos7, cost7] = await Promise.all([
-    admin
-      .from("companies")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", since7),
-    admin
-      .from("coaching_messages")
-      .select("created_by")
-      .gte("created_at", since7)
-      .eq("role", "user"),
-    admin
-      .from("coaching_messages")
-      .select("created_by")
-      .gte("created_at", since30)
-      .eq("role", "user"),
-    admin
-      .from("coaching_conversations")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", since7),
-    admin
-      .from("coach_token_usage")
-      .select("cost_usd_cents")
-      .gte("created_at", since7),
-  ]);
+  const [newCompanies, msgs7, msgs30, turns7, turns30, cost7] =
+    await Promise.all([
+      admin
+        .from("companies")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since7),
+      admin
+        .from("coaching_messages")
+        .select("created_by")
+        .gte("created_at", since7)
+        .eq("role", "user"),
+      admin
+        .from("coaching_messages")
+        .select("created_by")
+        .gte("created_at", since30)
+        .eq("role", "user"),
+      admin
+        .from("coaching_messages")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since7)
+        .eq("role", "assistant"),
+      admin
+        .from("coaching_messages")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since30)
+        .eq("role", "assistant"),
+      admin
+        .from("coach_token_usage")
+        .select("cost_usd_cents")
+        .gte("created_at", since7),
+    ]);
 
   const distinct = (rows: Array<{ created_by: string }> | null | undefined) =>
     new Set((rows ?? []).map((r) => r.created_by)).size;
@@ -72,7 +87,8 @@ export async function getPlatformPulse(): Promise<PlatformPulse> {
     newCompanies7d: newCompanies.count ?? 0,
     activeUsers7d: distinct(msgs7.data),
     activeUsers30d: distinct(msgs30.data),
-    conversations7d: convos7.count ?? 0,
+    turns7d: turns7.count ?? 0,
+    turns30d: turns30.count ?? 0,
     costUsdCents7d: sum(cost7.data),
   };
 }
