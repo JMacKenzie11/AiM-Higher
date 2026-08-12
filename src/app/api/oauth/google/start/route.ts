@@ -4,7 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { requireProfile } from "@/lib/auth/current-user";
-import { transcriptSourcesAllowed } from "@/lib/auth/permissions";
+import {
+  isAdminForCompany,
+  transcriptSourcesAllowed,
+} from "@/lib/auth/permissions";
 import { buildConsentUrl } from "@/lib/transcripts/providers/google-drive";
 
 // Starts the Google OAuth handshake. Gated to system_admin because
@@ -30,6 +33,13 @@ export async function GET(req: NextRequest): Promise<Response> {
   const companyId = new URL(req.url).searchParams.get("company_id") ?? "";
   if (!UUID_RE.test(companyId)) {
     return new Response("Missing or invalid company_id", { status: 400 });
+  }
+  // Belt and braces on top of transcriptSourcesAllowed: the caller
+  // must actually admin THIS company. Without this a company_admin
+  // could pass another company's id in the query string and pin
+  // their OAuth token to it.
+  if (!isAdminForCompany(session.profile, companyId)) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   // State value is nonce|company_id. The nonce guards CSRF; the

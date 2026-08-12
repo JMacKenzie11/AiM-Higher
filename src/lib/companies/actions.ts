@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { calendarQuarterOf } from "@/lib/quarters/service";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
 import type { Company } from "@/lib/types";
@@ -183,7 +184,18 @@ export async function setCompanyIndustryAction(
   companyId: string,
   industry: string | null
 ): Promise<CompanyResult> {
-  await requireRole(["system_admin"]);
+  // Any admin role can edit their own company's industry — system
+  // admins unconditionally, company admins on their own company,
+  // aims_guides on assigned companies. isAdminForCompany enforces
+  // the per-company scope.
+  const session = await requireRole([
+    "system_admin",
+    "company_admin",
+    "aims_guide",
+  ]);
+  if (!isAdminForCompany(session.profile, companyId)) {
+    return { ok: false, message: "Not your company to edit." };
+  }
 
   const cleaned =
     industry !== null && industry.trim().length > 0 ? industry.trim() : null;

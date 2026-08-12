@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth/current-user";
-import { transcriptSourcesAllowed } from "@/lib/auth/permissions";
+import {
+  isAdminForCompany,
+  transcriptSourcesAllowed,
+} from "@/lib/auth/permissions";
+import type { SessionProfileLike } from "@/lib/auth/permissions";
 import { ingestSource, processPendingMeetings } from "./ingest";
 import { getProvider } from "./provider";
 import { parseGoogleFolderId } from "./providers/google-drive";
@@ -18,14 +22,74 @@ export type ActionResult<T = null> =
   | { ok: false; message: string };
 
 async function guard(): Promise<
-  | { ok: true; profileId: string }
+  | { ok: true; profileId: string; profile: SessionProfileLike }
   | { ok: false; message: string }
 > {
   const session = await requireProfile();
   if (!transcriptSourcesAllowed(session.profile)) {
-    return { ok: false, message: "Only system admins manage transcript sources." };
+    return {
+      ok: false,
+      message: "You don't have access to manage transcript sources.",
+    };
   }
-  return { ok: true, profileId: session.profile.id };
+  return {
+    ok: true,
+    profileId: session.profile.id,
+    profile: session.profile,
+  };
+}
+
+// Look up a transcript source's company id so per-source actions
+// (pause / resume / remove / check-now) can verify the caller
+// admins THAT company. System admins pass this trivially; company
+// admins and guides get blocked if the source belongs to a
+// different company than they can admin.
+async function guardForSource(
+  sourceId: string
+): Promise<
+  | { ok: true; profileId: string; companyId: string | null }
+  | { ok: false; message: string }
+> {
+  const g = await guard();
+  if (!g.ok) return g;
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("transcript_sources")
+    .select("company_id")
+    .eq("id", sourceId)
+    .maybeSingle<{ company_id: string | null }>();
+  if (!data) return { ok: false, message: "Source not found." };
+  // Shared-scope sources (company_id null) are system-admin only —
+  // no per-company owner to check against.
+  if (data.company_id === null) {
+    if (g.profile.role !== "system_admin") {
+      return { ok: false, message: "Not your source to manage." };
+    }
+  } else if (!isAdminForCompany(g.profile, data.company_id)) {
+    return { ok: false, message: "Not your source to manage." };
+  }
+  return {
+    ok: true,
+    profileId: g.profileId,
+    companyId: data.company_id,
+  };
+}
+
+// Same idea for actions that take a companyId directly.
+function guardForCompany(
+  session: { ok: true; profile: SessionProfileLike; profileId: string },
+  companyId: string | null
+): { ok: true } | { ok: false; message: string } {
+  if (companyId === null) {
+    if (session.profile.role !== "system_admin") {
+      return { ok: false, message: "Not your company." };
+    }
+    return { ok: true };
+  }
+  if (!isAdminForCompany(session.profile, companyId)) {
+    return { ok: false, message: "Not your company." };
+  }
+  return { ok: true };
 }
 
 // ---- Connect a folder (Google Drive only in v1) ----
@@ -56,6 +120,10 @@ export async function connectGoogleFolderAction(
   if (!companyId) {
     return { ok: false, message: "Pick a company for this folder." };
   }
+  // Company admins and guides can only connect folders to a company
+  // they can admin. System admins pass unconditionally.
+  const c = guardForCompany(g, companyId);
+  if (!c.ok) return c;
   const provider = await getProvider("google_drive");
   let folderName: string;
   try {
@@ -100,7 +168,7 @@ export async function connectGoogleFolderAction(
 
 // ---- Pause / Resume / Remove ----
 export async function pauseSourceAction(id: string): Promise<ActionResult> {
-  const g = await guard();
+  const g = await guardForSource(id);
   if (!g.ok) return g;
   const admin = createSupabaseAdminClient();
   const { error } = await admin
@@ -113,7 +181,7 @@ export async function pauseSourceAction(id: string): Promise<ActionResult> {
 }
 
 export async function resumeSourceAction(id: string): Promise<ActionResult> {
-  const g = await guard();
+  const g = await guardForSource(id);
   if (!g.ok) return g;
   const admin = createSupabaseAdminClient();
   const { error } = await admin
@@ -126,7 +194,7 @@ export async function resumeSourceAction(id: string): Promise<ActionResult> {
 }
 
 export async function removeSourceAction(id: string): Promise<ActionResult> {
-  const g = await guard();
+  const g = await guardForSource(id);
   if (!g.ok) return g;
   const admin = createSupabaseAdminClient();
   // Detach meetings so the history stays; the FK is on delete cascade
@@ -159,7 +227,7 @@ export type CheckSourceResult =
 export async function checkSourceNowAction(
   id: string
 ): Promise<CheckSourceResult> {
-  const g = await guard();
+  const g = await guardForSource(id);
   if (!g.ok) return g;
   try {
     const admin = createSupabaseAdminClient();
@@ -197,6 +265,8 @@ export async function analyzePendingForCompanyAction(
 ): Promise<AnalyzeResult> {
   const g = await guard();
   if (!g.ok) return g;
+  const c = guardForCompany(g, companyId);
+  if (!c.ok) return c;
   try {
     const result = await processPendingMeetings({ companyId });
     revalidatePath("/admin/companies", "layout");

@@ -56,15 +56,20 @@ export function canWriteOwnedRow(
 /**
  * Guard for transcript-source management (Google Drive folders and
  * future providers). System admins have unconditional access.
- * aims_guides are admitted so they can set up transcripts for the
- * companies they coach; whether a specific company is theirs is
- * checked separately (via isAdminForCompany) at the action layer.
- * Every caller reads through this so the policy stays in one spot.
+ * Company admins and aims_guides are admitted so they can set up
+ * transcripts for their own company / the companies they coach;
+ * whether a specific company is theirs is checked separately (via
+ * isAdminForCompany) at the action layer. Every caller reads through
+ * this so the policy stays in one spot.
  */
 export function transcriptSourcesAllowed(
   profile: Pick<Profile, "role">
 ): boolean {
-  return profile.role === "system_admin" || profile.role === "aims_guide";
+  return (
+    profile.role === "system_admin" ||
+    profile.role === "aims_guide" ||
+    profile.role === "company_admin"
+  );
 }
 
 /**
