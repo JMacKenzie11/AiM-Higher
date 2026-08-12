@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCompaniesOverview } from "@/lib/admin/companies-service";
 import { getGuidesOverview } from "@/lib/admin/guides-service";
@@ -26,7 +27,25 @@ type PageProps = {
 };
 
 export default async function AdminCompaniesPage({ searchParams }: PageProps) {
-  const session = await requireRole(["system_admin", "aims_guide"]);
+  const session = await requireRole([
+    "system_admin",
+    "aims_guide",
+    "company_admin",
+  ]);
+  // Company admins don't have a list view — they only ever manage
+  // their own company. Send them straight to that company's settings
+  // page so /admin/companies is a single navigable entry point for
+  // every admin role, even though what they see when they land is
+  // scoped to one company.
+  if (session.profile.role === "company_admin") {
+    if (!session.profile.company_id) {
+      // Defensive — a company_admin without a company_id shouldn't
+      // exist, but if one somehow does, kick them home instead of
+      // 500ing.
+      redirect("/");
+    }
+    redirect(`/admin/companies/${session.profile.company_id}`);
+  }
   const isSystemAdmin = session.profile.role === "system_admin";
 
   const [companies, flash, guides] = await Promise.all([

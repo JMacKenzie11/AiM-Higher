@@ -29,11 +29,18 @@ export default async function CompanyDetailPage({
   params,
   searchParams,
 }: PageProps) {
-  const session = await requireRole(["system_admin", "aims_guide"]);
+  const session = await requireRole([
+    "system_admin",
+    "aims_guide",
+    "company_admin",
+  ]);
   const { id } = await params;
   const flash = await searchParams;
   const isSystemAdmin = session.profile.role === "system_admin";
-  // A guide can only view companies they're assigned to.
+  const isCompanyAdmin = session.profile.role === "company_admin";
+  // A guide can only view companies they're assigned to; a company
+  // admin can only view their own company. isAdminForCompany covers
+  // both cases (see src/lib/auth/permissions.ts).
   if (!isAdminForCompany(session.profile, id)) {
     redirect("/admin/companies");
   }
@@ -78,9 +85,13 @@ export default async function CompanyDetailPage({
   const sourceRows = (sources ?? []) as TranscriptSource[];
   const meetingRows = (meetings ?? []) as Meeting[];
 
-  const resetImpact = isSystemAdmin
-    ? await getBulkResetImpact(company.id)
-    : { sfaCount: 0, goalCount: 0, priorityCount: 0 };
+  // Fetch the "how many things will this archive" counts for anyone
+  // who might see the Planning cycle card (system admin or company
+  // admin). Guides never see the card so they skip the query.
+  const resetImpact =
+    isSystemAdmin || isCompanyAdmin
+      ? await getBulkResetImpact(company.id)
+      : { sfaCount: 0, goalCount: 0, priorityCount: 0 };
   const hasResettable =
     resetImpact.sfaCount +
       resetImpact.goalCount +
@@ -105,30 +116,38 @@ export default async function CompanyDetailPage({
       </section>
 
       <div className={styles.content}>
-        <section className={styles.card} aria-labelledby="company-controls">
-          <h2 id="company-controls" className={styles.h2}>
-            Actions
-          </h2>
-          <p className={styles.subtitleInline}>
-            {isSystemAdmin
-              ? "Open the company to work inside it, or archive to hide it from picker lists and stop sign-ins."
-              : "Open the company to work inside it."}
-          </p>
-          <div className={styles.rowActions}>
-            <CompanyNameLink
-              companyId={company.id}
-              name="Open this company →"
-            />
-            {isSystemAdmin ? (
-              <CompanyRowActions
+        {/* Actions card is only for system admins (archive controls)
+            and guides (open + jump). Company admins reach this page
+            from their own nav — they don't need a re-entry point
+            back into the company they already run. */}
+        {!isCompanyAdmin ? (
+          <section className={styles.card} aria-labelledby="company-controls">
+            <h2 id="company-controls" className={styles.h2}>
+              Actions
+            </h2>
+            <p className={styles.subtitleInline}>
+              {isSystemAdmin
+                ? "Open the company to work inside it, or archive to hide it from picker lists and stop sign-ins."
+                : "Open the company to work inside it."}
+            </p>
+            <div className={styles.rowActions}>
+              <CompanyNameLink
                 companyId={company.id}
-                status={company.status}
+                name="Open this company →"
               />
-            ) : null}
-          </div>
-        </section>
+              {isSystemAdmin ? (
+                <CompanyRowActions
+                  companyId={company.id}
+                  status={company.status}
+                />
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
-        {isSystemAdmin ? (
+        {/* Industry — visible to system admins and company admins,
+            not to guides (guides don't set brand-level metadata). */}
+        {isSystemAdmin || isCompanyAdmin ? (
           <section className={styles.card} aria-labelledby="industry-heading">
             <h2 id="industry-heading" className={styles.h2}>
               Industry
@@ -140,6 +159,7 @@ export default async function CompanyDetailPage({
           </section>
         ) : null}
 
+        {/* Features — system-admin only (module entitlements). */}
         {isSystemAdmin ? (
           <section className={styles.card} aria-labelledby="features-heading">
             <h2 id="features-heading" className={styles.h2}>
@@ -159,7 +179,11 @@ export default async function CompanyDetailPage({
           flashError={flash.oauth_error ?? null}
         />
 
-        {isSystemAdmin && hasResettable ? (
+        {/* Planning cycle — open to system admins and company admins.
+            hasResettable is currently only fetched for system admins
+            (see getBulkResetImpact guard above); do the fetch for
+            company admins too so the card can decide whether to show. */}
+        {(isSystemAdmin || isCompanyAdmin) && hasResettable ? (
           <section className={styles.card} aria-labelledby="planning-cycle">
             <h2 id="planning-cycle" className={styles.h2}>
               Planning cycle

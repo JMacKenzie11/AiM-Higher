@@ -174,6 +174,28 @@ const SYSTEM_ADMIN_BOTTOM_ITEMS: readonly NavItem[] = [
   },
 ];
 
+// Bottom band for company admins. Sends them to the /admin/companies
+// entry which redirects straight to their own company's settings
+// page (see src/app/(app)/admin/companies/page.tsx). Symmetric with
+// the system-admin bottom group so both admin roles have a distinct
+// "platform tools" band at the bottom.
+const COMPANY_ADMIN_BOTTOM_ITEMS: readonly NavItem[] = [
+  {
+    kind: "group",
+    label: "Admin",
+    feature: null,
+    items: [
+      {
+        kind: "link",
+        label: "Company settings",
+        href: "/admin/companies",
+        icon: "building",
+        roles: ["company_admin"],
+      },
+    ],
+  },
+];
+
 export type SidebarProps = {
   userName: string;
   userRole: NavRole;
@@ -309,15 +331,21 @@ export function Sidebar({
   const adminItems = SYSTEM_ADMIN_ITEMS.filter((item) =>
     item.kind === "link" ? linkVisible(item) : true
   );
-  // The bottom-band admin group is always available to system
-  // admins (they can jump to the platform dashboard from any
-  // company scope, or from the admin picker itself).
-  const bottomAdminItems = isSystemAdmin ? SYSTEM_ADMIN_BOTTOM_ITEMS : [];
+  // Bottom-band group is admin-role specific:
+  //  - system_admin → "System admin" (Platform dashboard)
+  //  - company_admin → "Admin" (Company settings)
+  // aims_guides don't get a bottom band; their per-company settings
+  // are reached from /admin/companies (list) → click a company.
+  const bottomAdminItems: readonly NavItem[] = isSystemAdmin
+    ? SYSTEM_ADMIN_BOTTOM_ITEMS
+    : userRole === "company_admin"
+      ? COMPANY_ADMIN_BOTTOM_ITEMS
+      : [];
   const items: NavItem[] = isSystemAdmin
     ? showExitScope && !onAdminPicker
       ? [...adminItems, ...subscribedApp, ...bottomAdminItems]
       : [...adminItems, ...bottomAdminItems]
-    : subscribedApp;
+    : [...subscribedApp, ...bottomAdminItems];
 
   return (
     <>
