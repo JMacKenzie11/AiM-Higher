@@ -613,6 +613,87 @@
   font-style: italic;
 }
 
+/* ---- Info tooltips ---- */
+
+/* The label + tip pair renders inline so the icon sits right next
+   to the term it explains. On dark pulse cards the trigger picks
+   up a lighter color via the parent's currentColor cascade. */
+.tipLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.infoTipTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: currentColor;
+  opacity: 0.5;
+  cursor: help;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.infoTipTrigger:hover,
+.infoTipTrigger:focus-visible {
+  opacity: 1;
+  outline: none;
+}
+
+.infoTip {
+  position: absolute;
+  z-index: 100;
+  max-width: 280px;
+  padding: var(--space-3) var(--space-3);
+  background: var(--aims-navy);
+  color: var(--aims-white);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font: var(--text-body-sm);
+  line-height: 1.4;
+  pointer-events: none;
+  animation: tipIn 140ms var(--ease-out) both;
+}
+
+@keyframes tipIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Small caret at the bottom of the tip when it sits above the
+   trigger, and at the top when it sits below. */
+.infoTipAbove::after,
+.infoTipBelow::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+.infoTipAbove::after {
+  bottom: -6px;
+  border-top: 6px solid var(--aims-navy);
+}
+.infoTipBelow::after {
+  top: -6px;
+  border-bottom: 6px solid var(--aims-navy);
+}
+
 /* ---- Respect reduced motion ---- */
 
 @media (prefers-reduced-motion: reduce) {

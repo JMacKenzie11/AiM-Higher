@@ -13,6 +13,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { PulseNumber } from "./PulseNumber";
 import { ActivityTable } from "./ActivityTable";
 import { Sparkline } from "./Sparkline";
+import { InfoTip } from "./InfoTip";
 import styles from "./dashboard.module.css";
 
 // System-admin cross-company dashboard. Every module is fetched
@@ -61,21 +62,30 @@ export default async function AdminDashboardPage() {
       >
         <div className={styles.pulseCard}>
           <PulseNumber value={pulse.activeUsers7d} />
-          <span className={styles.pulseLabel}>Active users · 7d</span>
+          <span className={`${styles.pulseLabel} ${styles.tipLabel}`}>
+            Active users · 7d
+            <InfoTip text="Distinct users who sent at least one message to the coach (Ask Aimee, About mode, or a Practice) in the last 7 days." />
+          </span>
           <span className={styles.pulseCaption}>
             {pulse.activeUsers30d} in the last 30
           </span>
         </div>
         <div className={styles.pulseCard}>
           <PulseNumber value={pulse.turns7d} />
-          <span className={styles.pulseLabel}>Coaching turns · 7d</span>
+          <span className={`${styles.pulseLabel} ${styles.tipLabel}`}>
+            Coaching turns · 7d
+            <InfoTip text="One exchange = one turn (user message + coach response). A single conversation with 20 back-and-forths counts as 20 turns." />
+          </span>
           <span className={styles.pulseCaption}>
             {pulse.turns30d.toLocaleString()} in 30d
           </span>
         </div>
         <div className={styles.pulseCard}>
           <PulseNumber value={pulse.newCompanies7d} />
-          <span className={styles.pulseLabel}>New companies · 7d</span>
+          <span className={`${styles.pulseLabel} ${styles.tipLabel}`}>
+            New companies · 7d
+            <InfoTip text="Companies whose account was created in the last 7 days." />
+          </span>
           <span className={styles.pulseCaption}>
             {signups.newUsers7d} new users, {signups.pendingInvites} invites
             pending
@@ -86,7 +96,10 @@ export default async function AdminDashboardPage() {
             value={pulse.costUsdCents7d}
             format="cents"
           />
-          <span className={styles.pulseLabel}>Coach spend · 7d</span>
+          <span className={`${styles.pulseLabel} ${styles.tipLabel}`}>
+            Coach spend · 7d
+            <InfoTip text="Estimated Anthropic API cost across all coach features in the last 7 days. Computed from token counts using hardcoded per-model rates. Verify against the Anthropic Console for billing." />
+          </span>
           <span className={styles.pulseCaption}>
             ${(costs.totalCents30d / 100).toFixed(2)} in 30d
           </span>
@@ -101,7 +114,10 @@ export default async function AdminDashboardPage() {
         >
           <div className={styles.atRiskHeader}>
             <span className={styles.atRiskDot} aria-hidden="true" />
-            <h2 className={styles.cardTitle}>Needs attention</h2>
+            <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
+              Needs attention
+              <InfoTip text="Companies flagged for: silent 14+ days (no coach activity), a big drop this week (was 4+ in 30 days, now 0), or keep rate under 40% over the last 30 days. Click any row to jump into that company." />
+            </h2>
             <span className={styles.atRiskCount}>{atRisk.length}</span>
           </div>
           <ul className={styles.atRiskList}>
@@ -127,7 +143,10 @@ export default async function AdminDashboardPage() {
           aria-label="Top coaching themes"
         >
           <header className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>Top coaching themes</h2>
+            <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
+              Top coaching themes
+              <InfoTip text="Nightly clustering job (runs at 06:00 UTC) samples the most recent conversation titles and openings across the platform, and asks Haiku to bucket them into the 5 most common themes." />
+            </h2>
             <span className={styles.cardMeta}>
               {themes.refreshedAt
                 ? `${themes.sourceCount} conversations · updated ${relativeDay(themes.refreshedAt)}`
@@ -172,7 +191,10 @@ export default async function AdminDashboardPage() {
           aria-label="Conversations per company"
         >
           <header className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>Conversations per company</h2>
+            <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
+              Conversations per company
+              <InfoTip text="Distinct coaching threads started in the last 30 days, per company. A single thread with many turns still counts as one conversation." />
+            </h2>
             <span className={styles.cardMeta}>Last 30 days</span>
           </header>
           {activity.length === 0 ? (
@@ -217,7 +239,10 @@ export default async function AdminDashboardPage() {
         aria-label="Practice adoption"
       >
         <header className={styles.cardHeader}>
-          <h2 className={styles.cardTitle}>Practice adoption</h2>
+          <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
+            Practice adoption
+            <InfoTip text="How the guided practices are being used across the platform in the last 30 days. Hover the sub-labels for each column's definition." />
+          </h2>
           <span className={styles.cardMeta}>Last 30 days</span>
         </header>
         <div className={styles.practiceGrid}>
@@ -229,19 +254,34 @@ export default async function AdminDashboardPage() {
                   <span className={styles.practiceStatValue}>
                     {p.started30d}
                   </span>
-                  <span className={styles.practiceStatLabel}>started</span>
+                  <span
+                    className={`${styles.practiceStatLabel} ${styles.tipLabel}`}
+                  >
+                    started
+                    <InfoTip text="Practice conversations created in the last 30 days, whether or not the person went past the opening chip." />
+                  </span>
                 </div>
                 <div className={styles.practiceStat}>
                   <span className={styles.practiceStatValue}>
                     {p.multiTurn30d}
                   </span>
-                  <span className={styles.practiceStatLabel}>engaged</span>
+                  <span
+                    className={`${styles.practiceStatLabel} ${styles.tipLabel}`}
+                  >
+                    engaged
+                    <InfoTip text="Practice conversations with 3+ messages — proxy for 'the person actually engaged past the opener.'" />
+                  </span>
                 </div>
                 <div className={styles.practiceStat}>
                   <span className={styles.practiceStatValue}>
                     {p.companies30d}
                   </span>
-                  <span className={styles.practiceStatLabel}>companies</span>
+                  <span
+                    className={`${styles.practiceStatLabel} ${styles.tipLabel}`}
+                  >
+                    companies
+                    <InfoTip text="Distinct companies whose users started this practice at least once in the last 30 days." />
+                  </span>
                 </div>
               </div>
             </div>
@@ -255,7 +295,10 @@ export default async function AdminDashboardPage() {
         aria-label="Coach spend"
       >
         <header className={styles.cardHeader}>
-          <h2 className={styles.cardTitle}>Coach spend</h2>
+          <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
+            Coach spend
+            <InfoTip text="Estimated Anthropic API cost. Sums the cost_usd_cents column on coach_token_usage, where each row is one API call (a coach turn, a title generation, or a themes clustering run). Rates are hardcoded per model — verify against the Anthropic Console for billing." />
+          </h2>
           <span className={styles.cardMeta}>Daily, last 30 days</span>
         </header>
         <div className={styles.costLayout}>
@@ -308,7 +351,10 @@ export default async function AdminDashboardPage() {
         aria-label="Company activity"
       >
         <header className={styles.cardHeader}>
-          <h2 className={styles.cardTitle}>Company activity</h2>
+          <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
+            Company activity
+            <InfoTip text="One row per company. Users = distinct people who sent a coach message in the window. Conv. = coaching threads started. Practices = practice conversations started (30d). Keep rate = kept ÷ (kept + missed) commitments (30d). Cost = estimated Anthropic API spend for this company (30d)." />
+          </h2>
           <span className={styles.cardMeta}>
             Click a header to sort. Click a company to open it.
           </span>
