@@ -37,9 +37,6 @@ export async function createUserAction(
   const companyIdRaw = String(formData.get("company_id") ?? "");
   const sendInviteNow = formData.get("send_invite_now") === "on";
 
-  const rawStrengths = formData.getAll("strength_label").map((v) => String(v).trim()).filter(Boolean);
-  const rawSuperpowers = formData.getAll("superpower_label").map((v) => String(v).trim()).filter(Boolean);
-
   if (!email || !fullName) {
     return { ok: false, message: "Name and email are required." };
   }
@@ -95,26 +92,7 @@ export async function createUserAction(
     return { ok: false, message: "Couldn't set up that user's profile." };
   }
 
-  // Step 3: strengths + superpowers.
-  const strengthsRows = [
-    ...rawStrengths.map((label, i) => ({
-      user_id: userId,
-      kind: "strength" as const,
-      label,
-      sort_order: i,
-    })),
-    ...rawSuperpowers.map((label, i) => ({
-      user_id: userId,
-      kind: "superpower" as const,
-      label,
-      sort_order: i,
-    })),
-  ];
-  if (strengthsRows.length > 0) {
-    await admin.from("user_strengths").insert(strengthsRows);
-  }
-
-  // Step 4: optionally fire the invite immediately. We surface any
+  // Step 3: optionally fire the invite immediately. We surface any
   // send failure as a warning on the (still-successful) create result
   // — the user IS in the system; they just need a manual resend.
   // Previously we awaited dispatchInvite and threw the result away,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { createUserAction, type UserActionResult } from "@/lib/auth/users";
 import { useStayOpenForm } from "@/lib/hooks/use-stay-open-form";
 import { ConfirmationChip } from "@/components/ui/ConfirmationChip";
@@ -9,7 +9,7 @@ import styles from "../admin.module.css";
 // Add a user to a company. The person can be created without sending
 // the invite email — admins can pre-stage the roster, assign work,
 // then send the invite when they're ready. Strengths + superpowers
-// entered here feed the coaching context immediately (no assessment).
+// are set later on the person's profile.
 
 const INITIAL: UserActionResult = { ok: false, message: "" };
 
@@ -28,20 +28,6 @@ export function InviteForm({ companyId }: { companyId: string }) {
     pending,
     (s) => Boolean(s && "ok" in s && s.ok)
   );
-
-  const [strengths, setStrengths] = useState<string[]>([""]);
-  const [superpowers, setSuperpowers] = useState<string[]>([""]);
-
-  // Typing into the trailing empty row auto-appends a new empty row
-  // below, so the last row is always in edit mode and there's no
-  // explicit + Add button to press. Matches StrengthsEditor's model.
-  function updateAt(list: string[], idx: number, value: string) {
-    const next = list.slice();
-    next[idx] = value;
-    const isLast = idx === next.length - 1;
-    if (isLast && value.trim() !== "") next.push("");
-    return next;
-  }
 
   return (
     <form action={formAction} className={styles.form} ref={formRef}>
@@ -102,38 +88,6 @@ export function InviteForm({ companyId }: { companyId: string }) {
           <option value="company_admin">Company Admin</option>
         </select>
       </div>
-
-      <fieldset className={`${styles.field} ${styles.formFull}`}>
-        <legend className={styles.label}>Strengths</legend>
-        {strengths.map((value, idx) => (
-          <input
-            key={`s-${idx}`}
-            name="strength_label"
-            value={value}
-            onChange={(e) => setStrengths((prev) => updateAt(prev, idx, e.target.value))}
-            className={styles.input}
-            placeholder="e.g. Strategic thinking"
-            disabled={pending}
-            maxLength={120}
-          />
-        ))}
-      </fieldset>
-
-      <fieldset className={`${styles.field} ${styles.formFull}`}>
-        <legend className={styles.label}>Superpowers</legend>
-        {superpowers.map((value, idx) => (
-          <input
-            key={`p-${idx}`}
-            name="superpower_label"
-            value={value}
-            onChange={(e) => setSuperpowers((prev) => updateAt(prev, idx, e.target.value))}
-            className={styles.input}
-            placeholder="e.g. Reading a room"
-            disabled={pending}
-            maxLength={120}
-          />
-        ))}
-      </fieldset>
 
       <label className={`${styles.checkOption} ${styles.formFull}`}>
         <input type="checkbox" name="send_invite_now" disabled={pending} />
