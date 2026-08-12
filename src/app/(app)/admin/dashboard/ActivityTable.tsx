@@ -17,7 +17,6 @@ type SortKey =
   | "conversations7d"
   | "conversations30d"
   | "practicesStarted30d"
-  | "costUsdCents30d"
   | "keepRate30d";
 
 type SortDir = "asc" | "desc";
@@ -53,12 +52,6 @@ const HEADERS: Array<{
   {
     key: "keepRate30d",
     label: "Keep rate",
-    numeric: true,
-    align: "right",
-  },
-  {
-    key: "costUsdCents30d",
-    label: "Cost 30d",
     numeric: true,
     align: "right",
   },
@@ -164,9 +157,6 @@ export function ActivityTable({ rows }: { rows: CompanyActivityRow[] }) {
                   {r.keepRate30d === null
                     ? "—"
                     : `${Math.round(r.keepRate30d)}%`}
-                </td>
-                <td className={styles.tdRight}>
-                  ${(r.costUsdCents30d / 100).toFixed(2)}
                 </td>
               </tr>
             ))

@@ -64,10 +64,6 @@ export default async function AdminDashboardPage() {
     ...activity.map((r) => r.conversations30d)
   );
   const maxThemeCount = Math.max(1, ...themes.themes.map((t) => t.count));
-  const maxCostCents = Math.max(
-    1,
-    ...costs.byCompany.slice(0, 8).map((c) => c.cents30d)
-  );
 
   return (
     <PageShell
@@ -326,7 +322,7 @@ export default async function AdminDashboardPage() {
             <InfoTip
               text={
                 useRealCosts
-                  ? "Totals and daily chart pull real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Every model call the platform makes is included — coach, meeting analyzer, RD generator, strengths narrative, dashboard brief, themes clustering. Per-company mini-bars below stay on the local token log, which currently only covers coach turns (Anthropic doesn't segment cost by our companies)."
+                  ? "Totals and daily chart pull real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Every model call the platform makes is included — coach, meeting analyzer, RD generator, strengths narrative, dashboard brief, themes clustering. Not attributable per company: Anthropic doesn't segment cost by our companies."
                   : "Sums the local coach_token_usage table — coach turns and title generation only. Under-counts non-coach model calls (meeting analyzer, RD generator, strengths narrative, dashboard brief). Set ANTHROPIC_ADMIN_KEY + ANTHROPIC_WORKSPACE_ID for real invoiced totals across every model call the platform makes."
               }
             />
@@ -359,39 +355,6 @@ export default async function AdminDashboardPage() {
             />
           </div>
         </div>
-        {costs.byCompany.length > 0 ? (
-          <>
-            <div className={styles.subCardHeader}>
-              <span className={`${styles.subCardTitle} ${styles.tipLabel}`}>
-                Coach spend per company · 30d
-                <InfoTip text="Coach-only estimated spend per company (turns + auto-title generation). Non-coach model calls — meeting analyzer, RD generator, strengths narrative, dashboard brief — are not attributed per company." />
-              </span>
-            </div>
-            <ol className={styles.costCompanyList}>
-              {costs.byCompany.slice(0, 8).map((c) => (
-                <li
-                  key={c.companyId ?? "none"}
-                  className={styles.costCompanyRow}
-                >
-                  <span className={styles.costCompanyName}>
-                    {c.companyName}
-                  </span>
-                  <div className={styles.costCompanyTrack} aria-hidden="true">
-                    <div
-                      className={styles.costCompanyFill}
-                      style={{
-                        width: `${(c.cents30d / maxCostCents) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className={styles.costCompanyValue}>
-                    ${(c.cents30d / 100).toFixed(2)}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </>
-        ) : null}
       </section>
 
       {/* ---- Full company activity table ---- */}
@@ -402,7 +365,7 @@ export default async function AdminDashboardPage() {
         <header className={styles.cardHeader}>
           <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
             Company activity
-            <InfoTip text="One row per company. Users = distinct people who sent a coach message in the window. Conv. = coaching threads started. Practices = practice conversations started (30d). Keep rate = kept ÷ (kept + missed) commitments (30d). Cost = estimated coach-only spend for this company (30d); non-coach model calls are not attributed per company." />
+            <InfoTip text="One row per company. Users = distinct people who sent a coach message in the window. Conv. = coaching threads started. Practices = practice conversations started (30d). Keep rate = kept ÷ (kept + missed) commitments (30d). Model cost is not shown per company because Anthropic doesn't segment API spend by our companies — see the platform total in the Token spend card above." />
           </h2>
           <span className={styles.cardMeta}>
             Click a header to sort. Click a company to open it.
