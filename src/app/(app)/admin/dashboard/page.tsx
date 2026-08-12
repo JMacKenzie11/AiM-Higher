@@ -117,12 +117,12 @@ export default async function AdminDashboardPage() {
             format="cents"
           />
           <span className={`${styles.pulseLabel} ${styles.tipLabel}`}>
-            Coach spend · 7d
+            Token spend · 7d
             <InfoTip
               text={
                 useRealCosts
-                  ? "Real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Updated nightly at 05:00 UTC."
-                  : "Estimated Anthropic API cost across all coach features in the last 7 days. Computed from token counts using hardcoded per-model rates. Configure ANTHROPIC_ADMIN_KEY and ANTHROPIC_WORKSPACE_ID to see real invoiced numbers instead."
+                  ? "Real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Covers every model call the platform makes — coach turns, title generation, meeting analyzer, RD generator, strengths narrative, dashboard brief, themes clustering. Updated nightly at 05:00 UTC."
+                  : "Estimated cost from the local token log. IMPORTANT: only the coach records tokens today, so this number under-counts everything else (meeting analyzer, RD generator, strengths narrative, dashboard brief). Configure ANTHROPIC_ADMIN_KEY and ANTHROPIC_WORKSPACE_ID for real, complete numbers."
               }
             />
           </span>
@@ -315,24 +315,26 @@ export default async function AdminDashboardPage() {
         </div>
       </section>
 
-      {/* ---- Coach spend ---- */}
+      {/* ---- Token spend ---- */}
       <section
         className={`${styles.card} ${styles.cardStagger6}`}
-        aria-label="Coach spend"
+        aria-label="Token spend"
       >
         <header className={styles.cardHeader}>
           <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
-            Coach spend
+            Token spend
             <InfoTip
               text={
                 useRealCosts
-                  ? "Totals and daily chart pull real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Per-company mini-bars below stay on the local token-count estimator (Anthropic doesn't segment cost by our companies)."
-                  : "Sums the local cost_usd_cents column on coach_token_usage — token counts times hardcoded per-model rates. Set ANTHROPIC_ADMIN_KEY + ANTHROPIC_WORKSPACE_ID to switch this card to real invoiced numbers from Anthropic."
+                  ? "Totals and daily chart pull real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Every model call the platform makes is included — coach, meeting analyzer, RD generator, strengths narrative, dashboard brief, themes clustering. Per-company mini-bars below stay on the local token log, which currently only covers coach turns (Anthropic doesn't segment cost by our companies)."
+                  : "Sums the local coach_token_usage table — coach turns and title generation only. Under-counts non-coach model calls (meeting analyzer, RD generator, strengths narrative, dashboard brief). Set ANTHROPIC_ADMIN_KEY + ANTHROPIC_WORKSPACE_ID for real invoiced totals across every model call the platform makes."
               }
             />
           </h2>
           <span className={styles.cardMeta}>
-            {useRealCosts ? "Real · daily · last 30 days" : "Estimated · daily · last 30 days"}
+            {useRealCosts
+              ? "Real · all model calls · daily · last 30 days"
+              : "Estimated · coach only · daily · last 30 days"}
           </span>
         </header>
         <div className={styles.costLayout}>
@@ -353,29 +355,42 @@ export default async function AdminDashboardPage() {
           <div className={styles.costSparkWrap}>
             <Sparkline
               points={displayedCosts.byDay.map((d) => d.cents)}
-              ariaLabel="Daily coach spend over the last 30 days"
+              ariaLabel="Daily token spend over the last 30 days"
             />
           </div>
         </div>
         {costs.byCompany.length > 0 ? (
-          <ol className={styles.costCompanyList}>
-            {costs.byCompany.slice(0, 8).map((c) => (
-              <li key={c.companyId ?? "none"} className={styles.costCompanyRow}>
-                <span className={styles.costCompanyName}>{c.companyName}</span>
-                <div className={styles.costCompanyTrack} aria-hidden="true">
-                  <div
-                    className={styles.costCompanyFill}
-                    style={{
-                      width: `${(c.cents30d / maxCostCents) * 100}%`,
-                    }}
-                  />
-                </div>
-                <span className={styles.costCompanyValue}>
-                  ${(c.cents30d / 100).toFixed(2)}
-                </span>
-              </li>
-            ))}
-          </ol>
+          <>
+            <div className={styles.subCardHeader}>
+              <span className={`${styles.subCardTitle} ${styles.tipLabel}`}>
+                Coach spend per company · 30d
+                <InfoTip text="Coach-only estimated spend per company (turns + auto-title generation). Non-coach model calls — meeting analyzer, RD generator, strengths narrative, dashboard brief — are not attributed per company." />
+              </span>
+            </div>
+            <ol className={styles.costCompanyList}>
+              {costs.byCompany.slice(0, 8).map((c) => (
+                <li
+                  key={c.companyId ?? "none"}
+                  className={styles.costCompanyRow}
+                >
+                  <span className={styles.costCompanyName}>
+                    {c.companyName}
+                  </span>
+                  <div className={styles.costCompanyTrack} aria-hidden="true">
+                    <div
+                      className={styles.costCompanyFill}
+                      style={{
+                        width: `${(c.cents30d / maxCostCents) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <span className={styles.costCompanyValue}>
+                    ${(c.cents30d / 100).toFixed(2)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </>
         ) : null}
       </section>
 
@@ -387,7 +402,7 @@ export default async function AdminDashboardPage() {
         <header className={styles.cardHeader}>
           <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
             Company activity
-            <InfoTip text="One row per company. Users = distinct people who sent a coach message in the window. Conv. = coaching threads started. Practices = practice conversations started (30d). Keep rate = kept ÷ (kept + missed) commitments (30d). Cost = estimated Anthropic API spend for this company (30d)." />
+            <InfoTip text="One row per company. Users = distinct people who sent a coach message in the window. Conv. = coaching threads started. Practices = practice conversations started (30d). Keep rate = kept ÷ (kept + missed) commitments (30d). Cost = estimated coach-only spend for this company (30d); non-coach model calls are not attributed per company." />
           </h2>
           <span className={styles.cardMeta}>
             Click a header to sort. Click a company to open it.
