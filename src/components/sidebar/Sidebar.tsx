@@ -154,6 +154,26 @@ const SYSTEM_ADMIN_ITEMS: readonly NavItem[] = [
   },
 ];
 
+// Rendered at the very bottom of the nav for system admins only,
+// regardless of which company they are currently scoped into.
+// Kept in its own group so it reads as a distinct "platform tools"
+// band rather than mixing with the current company's rail.
+const SYSTEM_ADMIN_BOTTOM_ITEMS: readonly NavItem[] = [
+  {
+    kind: "group",
+    label: "System admin",
+    feature: null,
+    items: [
+      {
+        kind: "link",
+        label: "Platform",
+        href: "/admin/dashboard",
+        icon: "measure",
+      },
+    ],
+  },
+];
+
 export type SidebarProps = {
   userName: string;
   userRole: NavRole;
@@ -289,10 +309,14 @@ export function Sidebar({
   const adminItems = SYSTEM_ADMIN_ITEMS.filter((item) =>
     item.kind === "link" ? linkVisible(item) : true
   );
+  // The bottom-band admin group is always available to system
+  // admins (they can jump to the platform dashboard from any
+  // company scope, or from the admin picker itself).
+  const bottomAdminItems = isSystemAdmin ? SYSTEM_ADMIN_BOTTOM_ITEMS : [];
   const items: NavItem[] = isSystemAdmin
     ? showExitScope && !onAdminPicker
-      ? [...adminItems, ...subscribedApp]
-      : [...adminItems]
+      ? [...adminItems, ...subscribedApp, ...bottomAdminItems]
+      : [...adminItems, ...bottomAdminItems]
     : subscribedApp;
 
   return (
