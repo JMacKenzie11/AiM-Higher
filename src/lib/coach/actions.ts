@@ -8,6 +8,7 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import type { Profile } from "@/lib/types";
 import type { CoachingConversation, CoachingContextKind } from "./service";
 import { cleanGeneratedTitle } from "./title";
+import { logCoachTokenUsage } from "./usage";
 
 // Coaching-specific server actions. Access checks live here AND in
 // RLS — never trust one alone.
@@ -232,12 +233,17 @@ export async function generateConversationTitleAction(
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
-    .select("id, title, created_by, subject_profile_id, mode")
+    .select("id, title, created_by, subject_profile_id, mode, company_id")
     .eq("id", conversationId)
     .maybeSingle<
       Pick<
         CoachingConversation,
-        "id" | "title" | "created_by" | "subject_profile_id" | "mode"
+        | "id"
+        | "title"
+        | "created_by"
+        | "subject_profile_id"
+        | "mode"
+        | "company_id"
       >
     >();
   if (!convo) return { ok: false, message: "Conversation not found." };
@@ -291,6 +297,15 @@ export async function generateConversationTitleAction(
         },
       ],
     });
+    if (response.usage) {
+      void logCoachTokenUsage({
+        conversationId: convo.id,
+        companyId: convo.company_id,
+        purpose: "title",
+        model: "claude-haiku-4-5",
+        usage: response.usage,
+      });
+    }
     const text = cleanGeneratedTitle(
       response.content
         .flatMap((b) => (b.type === "text" ? [b.text] : []))

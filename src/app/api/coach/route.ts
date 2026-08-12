@@ -10,6 +10,7 @@ import { buildCoachContext } from "@/lib/coach/context";
 import { buildCoachTools } from "@/lib/coach/tools";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
+import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { findPractice, loadPracticePrompt } from "@/lib/practices/registry";
 import type {
   CoachingConversation,
@@ -219,6 +220,18 @@ export async function POST(req: NextRequest): Promise<Response> {
         let currentMessages: Anthropic.MessageParam[] = messages;
         let combinedAssistantText = "";
         let finalUsage: Anthropic.Usage | null = null;
+        // Accumulate token usage across every tool-loop iteration so
+        // the usage log records one row per user-visible turn no
+        // matter how many round-trips of tool calls happened
+        // underneath. finalUsage above still holds only the last
+        // iteration's usage (returned to the client via the done
+        // event) — keep that shape for backwards compatibility.
+        const turnUsage = {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        };
 
         for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
           const messageStream = client.messages.stream(
@@ -256,6 +269,12 @@ export async function POST(req: NextRequest): Promise<Response> {
             .join("");
           combinedAssistantText += textThisTurn;
           finalUsage = final.usage;
+          turnUsage.input_tokens += final.usage.input_tokens ?? 0;
+          turnUsage.output_tokens += final.usage.output_tokens ?? 0;
+          turnUsage.cache_creation_input_tokens +=
+            final.usage.cache_creation_input_tokens ?? 0;
+          turnUsage.cache_read_input_tokens +=
+            final.usage.cache_read_input_tokens ?? 0;
 
           if (final.stop_reason !== "tool_use") break;
 
@@ -307,6 +326,17 @@ export async function POST(req: NextRequest): Promise<Response> {
           .select("*")
           .single<CoachingMessage>();
 
+        // Fire-and-forget usage log — dashboard-facing cost tracking.
+        // Not awaited so a logging hiccup can never stall the client's
+        // done event or leave the stream half-closed.
+        void logCoachTokenUsage({
+          conversationId,
+          companyId: convo.company_id,
+          purpose: "turn",
+          model,
+          usage: turnUsage,
+        });
+
         // Bump updated_at so the list view re-sorts.
         await supabase
           .from("coaching_conversations")
@@ -333,6 +363,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             messages,
             assistantText,
             conversationId,
+            companyId: convo.company_id,
             currentUserId: session.profile.id,
             signal: abortSignal,
           });
@@ -470,6 +501,7 @@ async function generateTitleForConversation(args: {
   messages: Anthropic.MessageParam[];
   assistantText: string;
   conversationId: string;
+  companyId: string | null;
   currentUserId: string;
   signal?: AbortSignal;
 }): Promise<void> {
@@ -498,6 +530,16 @@ async function generateTitleForConversation(args: {
       },
       { signal: args.signal }
     );
+    // Log title-generation cost before we branch on success.
+    if (response.usage) {
+      void logCoachTokenUsage({
+        conversationId: args.conversationId,
+        companyId: args.companyId,
+        purpose: "title",
+        model: args.model,
+        usage: response.usage,
+      });
+    }
     const label = cleanGeneratedTitle(
       response.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
