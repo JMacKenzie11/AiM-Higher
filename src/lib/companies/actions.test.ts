@@ -306,7 +306,9 @@ describe("createCompanyAction", () => {
       throw new Error("Expected a redirect");
     } catch (err) {
       if (err && typeof err === "object" && REDIRECT_SIGNAL in err) {
-        expect((err as { url: string }).url).toBe("/admin/companies/co_new");
+        expect((err as unknown as { url: string }).url).toBe(
+          "/admin/companies/co_new"
+        );
       } else {
         throw err;
       }

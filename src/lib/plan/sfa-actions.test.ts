@@ -166,7 +166,7 @@ describe("createSfaAction", () => {
     );
 
     expect(res.ok).toBe(true);
-    if (res.ok) expect(res.status ?? res.item.status).toBe("not_started");
+    if (res.ok) expect(res.item.status).toBe("not_started");
   });
 });
 

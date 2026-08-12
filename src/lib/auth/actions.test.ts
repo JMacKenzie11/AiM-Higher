@@ -117,7 +117,7 @@ function captureRedirect<T>(fn: () => Promise<T>): Promise<string> {
     },
     (err: unknown) => {
       if (err && typeof err === "object" && REDIRECT_SIGNAL in err) {
-        return (err as { url: string }).url;
+        return (err as unknown as { url: string }).url;
       }
       throw err;
     }
