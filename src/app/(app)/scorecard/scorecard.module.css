@@ -282,7 +282,7 @@
 .cardCta {
   margin-top: auto;
   padding-top: var(--space-2);
-  color: var(--aims-brand, #4f46e5);
+  color: var(--primary, #3551A4);
   font: var(--text-body);
   font-weight: 600;
   text-decoration: none;
@@ -312,7 +312,7 @@
 }
 
 .issuesSummary:hover {
-  color: var(--aims-brand, #4f46e5);
+  color: var(--primary, #3551A4);
 }
 
 .issuesList {

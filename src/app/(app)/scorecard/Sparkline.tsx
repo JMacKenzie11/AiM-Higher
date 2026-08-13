@@ -97,7 +97,7 @@ export function Sparkline({
           key={i}
           d={d}
           fill="none"
-          stroke="var(--aims-brand, #4f46e5)"
+          stroke="var(--primary, #3551A4)"
           strokeWidth={1.75}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -108,7 +108,7 @@ export function Sparkline({
           cx={lastX}
           cy={lastY}
           r={2.5}
-          fill="var(--aims-brand, #4f46e5)"
+          fill="var(--primary, #3551A4)"
         />
       ) : null}
     </svg>

@@ -18,7 +18,7 @@ import { clampScore, type DisciplineScore } from "../types";
 
 type FnRow = {
   id: string;
-  name: string;
+  title: string;
   lead_id: string | null;
   track_id: string | null;
 };
@@ -33,9 +33,14 @@ export async function scoreChart(
   admin: SupabaseClient,
   companyId: string
 ): Promise<DisciplineScore> {
+  // Column is `title`, not `name` — selecting a non-existent column
+  // in Supabase silently fails the whole query and we end up with
+  // zero functions, which was showing as "No functions on the chart
+  // yet" even for populated charts. Same for lead_id / track_id —
+  // those were correct; the `name` typo was the killer.
   const { data: fnRows } = await admin
     .from("functions")
-    .select("id, name, lead_id, track_id")
+    .select("id, title, lead_id, track_id")
     .eq("company_id", companyId)
     .eq("archived", false);
 
@@ -102,7 +107,7 @@ export async function scoreChart(
       if (!f.track_id) missing.push("track");
       if (!fnsWithOutcome.has(f.id)) missing.push("outcome");
       if (!fnsWithMeasure.has(f.id)) missing.push("measure");
-      return { id: f.id, name: f.name, missing };
+      return { id: f.id, name: f.title, missing };
     })
     .filter((row) => row.missing.length > 0);
 
