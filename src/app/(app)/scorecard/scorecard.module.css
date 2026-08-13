@@ -1,396 +1,282 @@
-.page {
+/* AiMS Scorecard page — matches the dashboard.module.css shape:
+   full-bleed hero at the top, content area re-establishes horizontal
+   padding and overlaps the hero. Uses brand tokens throughout. */
+
+.stage {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: 0;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
 }
 
-.header {
+.hero {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+
+.heroInner {
+  max-width: 1160px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.8;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
 }
 
 .h1 {
-  font: var(--text-h1);
-  color: var(--text-heading);
   margin: 0;
-}
-
-.h3 {
-  font: var(--text-h3);
-  color: var(--text-heading);
-  margin: 0 0 var(--space-3) 0;
+  color: var(--aims-white);
+  font: var(--text-display);
 }
 
 .subtitle {
-  font: var(--text-subtitle);
-  color: var(--text-muted);
-  margin: var(--space-3) 0 0 0;
-}
-
-/* ---- Grid ---- */
-
-.gridWrap {
-  position: relative;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  overflow: auto;
-  max-width: 100%;
-}
-
-/* Scroll affordance — a soft fade on the right edge signals there's
-   more table off-screen when the sticky columns and week columns
-   don't all fit at narrow viewports. Fades away as the user scrolls
-   near the right end (background-attachment:local trick). */
-.gridWrap::after {
-  content: "";
-  position: sticky;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  float: right;
-  width: var(--space-6);
-  height: 100%;
-  pointer-events: none;
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in srgb, var(--surface) 90%, transparent)
-  );
-}
-
-.grid {
-  border-collapse: separate;
-  border-spacing: 0;
-  width: max-content;
-  min-width: 100%;
+  margin: var(--space-1) 0 0;
+  color: var(--aims-white);
+  opacity: 0.85;
   font: var(--text-body);
 }
 
-.grid thead th {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  background: var(--surface);
-  color: var(--text-muted);
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  text-align: left;
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+.overallRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-6);
+  align-items: center;
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.weekHead {
-  text-align: right !important;
-  min-width: 88px;
+@media (max-width: 720px) {
+  .overallRow {
+    grid-template-columns: 1fr;
+  }
 }
 
-.stickyCol {
-  position: sticky;
-  background: var(--surface);
-  z-index: 2;
-  border-right: 1px solid var(--border);
+.overallDial {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25em;
+  padding: var(--space-4) var(--space-5);
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: var(--aims-white);
 }
 
-.stickyArea {
-  left: 0;
-  min-width: 200px;
-}
-
-.stickyMetric {
-  left: 200px;
-  min-width: 220px;
-}
-
-.stickyTarget {
-  left: 420px;
-  min-width: 100px;
-  text-align: right;
-}
-
-.grid thead .stickyCol {
-  z-index: 4;
-}
-
-/* Row hover — spans sticky + scrolling cells. */
-.grid tbody tr:hover td,
-.grid tbody tr:hover th {
-  background: var(--aims-navy-tint);
-}
-
-.grid tbody th,
-.grid tbody td {
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  vertical-align: middle;
-}
-
-.areaCell {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  vertical-align: top;
-}
-
-.areaName {
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-heading);
-}
-
-.areaAccountable {
-  font: var(--text-caption);
-  color: var(--text-muted);
-}
-
-.metricName {
-  font-family: var(--font-body);
-  font-weight: 500;
-  color: var(--text);
-}
-
-.metricType {
-  font: var(--text-caption);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.targetCell {
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.emptyMetricLine {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-/* ---- Individual cells ---- */
-
-.cell {
-  position: relative;
-  min-width: 88px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.cellNumeric {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.cellText {
-  text-align: left;
-}
-
-.cellSuccess {
-  color: var(--aims-success);
-  font-weight: 600;
-}
-
-/* Editable cell affordance — subtle dashed border at rest so users see
-   the cell is interactive without visual clutter. */
-.cellEditable {
-  box-shadow: inset 0 0 0 1px var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.cellEditable:hover {
-  background: var(--aims-cobalt-tint);
-  box-shadow: inset 0 0 0 1px var(--aims-cobalt);
-}
-
-/* Below-target coloring — a gentle sky-tint background rather than
-   danger red so it signals "worth noticing" not "you failed." */
-.cellBelowTarget {
-  background: color-mix(in srgb, var(--aims-sky-tint) 60%, transparent);
-}
-
-.cellBelowTarget.cellEditable:hover {
-  background: var(--aims-cobalt-tint);
-}
-
-.cellPending {
+.overallDialMuted {
   opacity: 0.6;
 }
 
-.cellEmpty {
-  color: var(--text-faint);
+.overallDialNumber {
+  font-size: 2.75rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
-.cellInput {
-  width: 100%;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--primary);
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-variant-numeric: inherit;
-  text-align: inherit;
-  color: var(--text);
-  background: var(--surface);
-  outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+.overallDialOutOf {
+  opacity: 0.75;
+  font-size: 1rem;
 }
 
-.cellError {
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  padding: var(--space-1) var(--space-2);
-  background: var(--aims-danger-tint);
-  color: var(--text);
-  border-left: 3px solid var(--aims-danger);
-  font: var(--text-caption);
-  border-radius: var(--radius-sm);
-  z-index: 10;
-  white-space: nowrap;
+.overallMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
-/* ---- Empty state (gradient tile) ---- */
-
-.emptyTile {
-  background: var(--grad-brand);
-  color: var(--aims-white);
-  padding: var(--space-7) var(--space-6);
-  border-radius: var(--radius-lg);
-  text-align: center;
-}
-
-.emptyTileText {
+.overallLabel {
   margin: 0;
   color: var(--aims-white);
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 20px;
-  letter-spacing: -0.01em;
+  opacity: 0.85;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
 }
 
-/* ---- Admin add cards ---- */
+.overallCaption {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.75;
+  font-size: 0.85rem;
+}
 
-.adminGrid {
+.overallSpark {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-end;
+}
+
+.overallSparkCaption {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+.content {
+  max-width: 1160px;
+  margin: calc(-1 * var(--space-8)) auto 0;
+  padding: 0 var(--space-6) var(--space-8);
+  position: relative;
+}
+
+.grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: var(--space-4);
 }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-}
-
-.form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-5);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.fieldWide {
-  grid-column: 1 / -1;
+  background: var(--aims-white);
+  border: 1px solid var(--aims-line-muted, #e4e4e7);
+  border-radius: var(--radius-lg, 16px);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-card, 0 2px 12px rgba(15, 23, 42, 0.05));
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.label {
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-muted);
-}
-
-.input,
-.select {
-  height: var(--control-h-md);
-  width: 100%;
-  padding: 0 var(--space-3);
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font: var(--text-body);
-  transition: border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.input:focus,
-.select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
-}
-
-.submitRow {
-  grid-column: 1 / -1;
+.cardHeader {
   display: flex;
-  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
-.primaryButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.errorMessage {
-  grid-column: 1 / -1;
+.cardTitle {
   margin: 0;
-  padding: var(--space-3);
-  background: var(--aims-danger-tint);
-  border-left: 3px solid var(--aims-danger);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-  color: var(--text);
+  font: var(--text-h3);
+  color: var(--aims-ink);
 }
 
-@media (max-width: 900px) {
-  .stickyMetric {
-    left: 160px;
-    min-width: 180px;
-  }
-  .stickyArea {
-    min-width: 160px;
-  }
-  .stickyTarget {
-    left: 340px;
-    min-width: 80px;
-  }
+.cardBlurb {
+  margin: 0;
+  color: var(--aims-ink-muted, #52525b);
+  font: var(--text-body-sm);
+}
+
+.cardTrendRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.cardSpark {
+  flex-shrink: 0;
+}
+
+.breakdown {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-top: 1px dashed var(--aims-line-muted, #e4e4e7);
+  padding-top: var(--space-2);
+}
+
+.breakdown li {
+  color: var(--aims-ink-muted, #52525b);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.breakdownMuted {
+  margin: var(--space-2) 0 0;
+  color: var(--aims-ink-muted, #71717a);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* Score pill — colour band via 0–4 low, 4–7 mid, 7–10 good. */
+.pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.pillOutOf {
+  font-weight: 500;
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+.pillMuted {
+  background: var(--aims-line-muted, #e4e4e7);
+  color: var(--aims-ink-muted, #71717a);
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.pillGood {
+  background: var(--aims-good-bg, #dcfce7);
+  color: var(--aims-good-fg, #166534);
+}
+
+.pillMid {
+  background: var(--aims-warn-bg, #fef3c7);
+  color: var(--aims-warn-fg, #854d0e);
+}
+
+.pillLow {
+  background: var(--aims-bad-bg, #fee2e2);
+  color: var(--aims-bad-fg, #991b1b);
+}
+
+/* Trend chip — arrow + delta vs prior. Colour follows direction. */
+.trendChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--aims-white);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Inside the light cards, override to a subtle grey chip. */
+.card .trendChip {
+  background: var(--aims-line-muted, #f4f4f5);
+  color: var(--aims-ink-muted, #52525b);
+}
+
+.trendUp {
+  background: var(--aims-good-bg, #dcfce7) !important;
+  color: var(--aims-good-fg, #166534) !important;
+}
+
+.trendDown {
+  background: var(--aims-bad-bg, #fee2e2) !important;
+  color: var(--aims-bad-fg, #991b1b) !important;
+}
+
+.trendFlat {
+  background: var(--aims-line-muted, #f4f4f5) !important;
+  color: var(--aims-ink-muted, #52525b) !important;
+}
+
+.footer {
+  margin: var(--space-6) 0 0;
+  color: var(--aims-ink-muted, #71717a);
+  font-size: 0.8rem;
+  text-align: center;
 }

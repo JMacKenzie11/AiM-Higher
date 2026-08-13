@@ -94,6 +94,11 @@ const APP_ITEMS: readonly NavItem[] = [
   // ahead of it for sysadmins because their day starts by picking a
   // company to operate on — that ordering is composed further down.
   { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
+  // AiMS Scorecard — bird's-eye view of how the disciplines are
+  // landing. Sits next to Dashboard because it's the other daily
+  // "how are we doing" entry point; everyone in the company can
+  // see it (transparency by design).
+  { kind: "link", label: "AiMS Scorecard", href: "/scorecard", feature: "execution" },
   {
     kind: "group",
     label: "Disciplines",

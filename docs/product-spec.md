@@ -118,7 +118,24 @@ Real-time single-page view for admins + members.
 
 ---
 
-## 7. People / Person Scorecard
+## 7. AiMS Scorecard (discipline maturity)
+
+Company-wide "how are we doing at running the AiMS disciplines?" view at `/scorecard`. Visible to **everyone in the company** (transparency by design — team members see the same view leaders do).
+
+- **Six disciplines, each rated 0–10.** Foundation, Accountability Chart, Strategic Plan, Execution, Success Tracking (feature-gated on `performance_tracking`), Weekly Leadership Meeting (feature-gated on `meeting_facilitation_review`). Feature-gated disciplines whose feature is OFF render as a muted "Not enabled" tile and are dropped from the overall average — the weight redistributes across the ones that scored, so a company without Success Tracking isn't dinged for not having it.
+- **Overall score** — weighted average across scored disciplines. Planning and Execution weight 2× (the two the whole system is oriented around); the others weight 1×.
+- **Rolling by construction.** Every scorer uses a recent-window aggregate (Execution = 30 days, Measures = 7 days, Meetings = 8 weeks). If meeting cadence drops off, the Meetings score falls the following week without any manual intervention.
+- **Trajectory arrow vs 90 days ago.** Each discipline (and the overall number) shows ↑ / ↓ / flat vs the oldest snapshot inside the 90-day window. Absolute score AND trajectory both live on the card so "low but climbing" reads distinctly from "high but sliding."
+- **26-week sparkline** under each score using hand-rolled SVG — nulls (feature-was-off periods) render as gaps, not fake zeros.
+- **Live compute + weekly snapshot.** The current score is computed **live** on every page load (six small reads, no cache) so behavior changes show up immediately. A weekly Sunday cron (`/api/cron/scorecard`) writes one row per (company, snapshot_date, discipline) to `company_discipline_snapshots` for the historical trend line.
+- **Score breakdowns** — each card shows evidence lines pulled from the scorer's `breakdown_json` (e.g., "74% follow-through, 3 open more than 14 days past due, 60% linked to a priority"). Discipline-specific rendering lives alongside the page.
+- **Explicit non-goal: leader attendance.** Transcript speaker-to-profile matching isn't reliable enough to score, so attendance is out. Meeting quality still surfaces via the facilitation-review `overall` score.
+
+Scoring code lives in `src/lib/maturity/` (config in `disciplines.ts`, one file per discipline in `scorers/`, orchestrator in `compute.ts`, read helpers in `service.ts`). Adding a new discipline is a three-file change: add the key to `disciplines.ts` + `DISCIPLINES` array, extend the `discipline` CHECK constraint on `company_discipline_snapshots`, add a scorer, wire it into `compute.ts`, and add an evidence case to `evidenceLines` on the page.
+
+---
+
+## 8. People / Person Scorecard
 
 - **Roster** (`/people`) — everyone in the company, with role, status, open count, Follow-Through Rate. Team members read-only; admin actions column hidden.
 - **Person scorecard** (`/people/[id]`) — per person: Follow-Through Rate for the open quarter, Kept / Missed counts, 12-week trend chart, open commitments, resolved-commitment history grouped by week (with missed reasons visible verbatim).
@@ -129,7 +146,7 @@ Real-time single-page view for admins + members.
 
 ---
 
-## 8. Chart (Org Chart of Functions)
+## 9. Chart (Org Chart of Functions)
 
 The functional org chart. Distinct from the reporting hierarchy in `profiles.reports_to`.
 
@@ -147,7 +164,7 @@ The functional org chart. Distinct from the reporting hierarchy in `profiles.rep
 
 ---
 
-## 9. Success Measures / Success Tracking
+## 10. Success Measures / Success Tracking
 
 Feature-gated (`performance_tracking`). When on:
 
@@ -162,7 +179,7 @@ Feature-gated (`performance_tracking`). When on:
 
 ---
 
-## 10. Meeting Analysis Pipeline
+## 11. Meeting Analysis Pipeline
 
 Ingest → analyse → extract commitments → optionally review facilitation → email participants — all from meeting transcripts dropped in a Google Drive folder.
 
@@ -180,7 +197,7 @@ Ingest → analyse → extract commitments → optionally review facilitation �
 
 ---
 
-## 11. Meeting Facilitation Review
+## 12. Meeting Facilitation Review
 
 Feature-gated (`meeting_facilitation_review`) opt-in second LLM pass on every ingested meeting. Scores how the meeting was run against the AiMS Weekly Leadership Meeting framework + the 4Ws Solution Framework.
 
@@ -200,13 +217,13 @@ Feature-gated (`meeting_facilitation_review`) opt-in second LLM pass on every in
 
 ---
 
-## 12. Coaching Module (AI)
+## 13. Coaching Module (AI)
 
 Streaming AI coach modeled on the AiMS methodology. Same backend powers both directed coaching (`about` mode) and personal reflection (`general` mode, aka Ask Aimee).
 
 - **Modes:**
   - `about` — leader/manager thinks through someone specific. Access: system_admin anywhere, company_admin within the subject's company, or the subject's direct manager. Self-coaching via `/coach/{me}` is redirected to Ask Aimee (self-mode is retired at the entry-point level).
-  - `general` — Ask Aimee (see Section 13). Same request path (`/api/coach`), same backend, same tool loop; distinguished by absent `subjectProfileId` and a `GENERAL_MODE_PREAMBLE` prepended to the system prompt.
+  - `general` — Ask Aimee (see Section 14). Same request path (`/api/coach`), same backend, same tool loop; distinguished by absent `subjectProfileId` and a `GENERAL_MODE_PREAMBLE` prepended to the system prompt.
 - **Context kinds:** `execution` (default — commitments, keep rates, priorities, missed reasons). Other kinds gate on the corresponding company features.
 - **Prompt selection** — single system prompt in `prompts/leadership-coach.md` reused for both modes.
 - **Injected context per turn:** company block (purpose, values, differentiators), person block (role, keep rates across quarters, kept/missed counts, missed reasons *verbatim*, open + chronic commitments, plan items owned), coaching mode metadata.
@@ -222,7 +239,7 @@ Streaming AI coach modeled on the AiMS methodology. Same backend powers both dir
 
 ---
 
-## 13. Ask Aimee (Personal Reflection AI)
+## 14. Ask Aimee (Personal Reflection AI)
 
 Top-level nav item, always visible to any active member.
 
@@ -233,7 +250,7 @@ Top-level nav item, always visible to any active member.
 
 ---
 
-## 14. Classroom (Shared Training Library)
+## 15. Classroom (Shared Training Library)
 
 Feature-gated (`classroom`). Content is authored centrally by system admins and shared across every enabled company — one library, many audiences.
 
@@ -248,19 +265,19 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
 
 ---
 
-## 15. Admin & Ops
+## 16. Admin & Ops
 
 - **Companies list** (`/admin/companies`, cross-tenant) — table of every company for system admins, filtered to assignments for guides. Create company + timezone + industry + initial features; archive / reactivate; AiMS Guides admin panel (invite, assign, unassign, delete).
 - **Company settings** (`/admin/companies/[id]`) — features toggle card, transcript sources + aliases (folded into one *Meeting transcripts* panel), Google Drive account connection.
   - Opening this page auto-scopes the caller into the company (middleware sets the scope cookie on the request + response so the top nav flips immediately AND subsequent clicks resolve to the correct company).
 - **Meeting transcripts admin** (`/admin/transcripts`) — unrouted queue for the scoped company, with detail at `/admin/transcripts/meetings/[id]` for routing a single meeting to a specific tenant.
-- **Classroom authoring** (`/admin/classroom`, sysadmin only) — see Section 14.
+- **Classroom authoring** (`/admin/classroom`, sysadmin only) — see Section 15.
 - **AiMS Guides admin** — system admins can add / assign / unassign guides. Guides have admin-like scope inside their assigned companies only.
 - **Dashboard AI briefs** — cached per company with prompt-hash invalidation; `AiBrief` React component types out the reveal on first view of a fresh brief, then renders instantly on revisits (localStorage-tracked, respects `prefers-reduced-motion`).
 
 ---
 
-## 16. Cross-cutting UX System
+## 17. Cross-cutting UX System
 
 - **Left Sidebar** (`components/sidebar/Sidebar.tsx`) — fixed rail at 260px expanded, 68px collapsed (icons-only). Collapse state persists in an HTTP-only cookie (`nav-collapsed`) read server-side by the app layout so first paint matches the user's preference (no post-hydration jump). Nav items grouped as flat section headers (Disciplines, Resources, Strengths) rather than dropdowns — one click to any surface. Inline SVG icons per item; hover slides a chartreuse left-accent bar in with a subtle white-tint bg + icon color shift on a single 200ms `--ease-out` curve. Active item keeps the accent bar and a slightly stronger bg. Context pill under the logo reads "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") when a cross-tenant role is scoped in. Footer holds the notification bell (opens upward via `placement="up"` on `NotificationBell` so the tray doesn't fall off the bottom of the screen) and the user pill (opens a popover upward with Profile / Exit company / Sign out). Below 768px the rail slides off-canvas and a hamburger in a slim top strip opens it as a drawer with a backdrop scrim. `NavBand.tsx` is retained in-tree for revert parity but no longer rendered; the notification tray's placement variant lives with the bell for reuse.
 - **ConfirmDialog** (`components/ui/ConfirmDialog.tsx`) — branded replacement for native `window.confirm()`. Auto-focuses Cancel so a stray Enter can't fire destruction; Escape cancels; overlay click cancels; danger vs primary tone. Used everywhere destructive actions land — no `confirm()` or `alert()` remains in user-visible code paths.
@@ -273,7 +290,7 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
 
 ---
 
-## 17. Non-Functional Characteristics
+## 18. Non-Functional Characteristics
 
 - **Auth:** Supabase Auth (email + password). Flows:
   - Sign-in at `/sign-in`.
@@ -310,7 +327,7 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
 
 ---
 
-## 18. Explicit Non-Goals / Gaps
+## 19. Explicit Non-Goals / Gaps
 
 Things intentionally not built (yet):
 
@@ -331,7 +348,7 @@ Things intentionally not built (yet):
 
 ---
 
-## 19. Competitor Scoring Rubric
+## 20. Competitor Scoring Rubric
 
 When evaluating a competitor, score them on:
 

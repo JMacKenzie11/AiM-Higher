@@ -73,6 +73,13 @@ const APP_ITEMS: readonly NavItem[] = [
     feature: "execution",
   },
   {
+    kind: "link",
+    label: "AiMS Scorecard",
+    href: "/scorecard",
+    icon: "gauge",
+    feature: "execution",
+  },
+  {
     kind: "group",
     label: "Disciplines",
     feature: "execution",
@@ -662,7 +669,8 @@ type IconName =
   | "sparkle"
   | "book"
   | "spark"
-  | "building";
+  | "building"
+  | "gauge";
 
 function Icon({ name }: { name: IconName }): ReactNode {
   switch (name) {
@@ -753,6 +761,16 @@ function Icon({ name }: { name: IconName }): ReactNode {
         <Stroke>
           <path d="M4 21V6l8-3 8 3v15" />
           <path d="M4 21h16M9 10h.01M15 10h.01M9 14h.01M15 14h.01M9 18h.01M15 18h.01" />
+        </Stroke>
+      );
+    case "gauge":
+      // Speedometer arc + needle — reads as "how are we doing?" for
+      // the AiMS Scorecard nav item.
+      return (
+        <Stroke>
+          <path d="M4 15a8 8 0 0 1 16 0" />
+          <path d="M12 15l4-4" />
+          <circle cx="12" cy="15" r="1" />
         </Stroke>
       );
   }
