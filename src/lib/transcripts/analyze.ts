@@ -214,7 +214,7 @@ type CompanyContext = {
   priorities: Array<Pick<Priority, "id" | "title" | "owner_id" | "quarter_id">>;
 };
 
-async function loadCompanyContext(
+export async function loadCompanyContext(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   companyId: string
 ): Promise<CompanyContext> {
@@ -299,7 +299,7 @@ async function loadCompanyContext(
   };
 }
 
-function formatCompanyContext(ctx: CompanyContext): string {
+export function formatCompanyContext(ctx: CompanyContext): string {
   const lines: string[] = ["<company_context>"];
   lines.push(`Name: ${ctx.companyName}`);
   if (ctx.purpose) {

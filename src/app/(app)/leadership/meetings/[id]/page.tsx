@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationReview } from "@/components/leadership/FacilitationReview";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
+import { RerunFacilitationButton } from "./RerunFacilitationButton";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
 import type { Meeting, MeetingAnalysis, Profile } from "@/lib/types";
 import styles from "../../../admin/companies/admin.module.css";
@@ -161,6 +162,26 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
 
         {facilitationReview ? (
           <FacilitationReview review={facilitationReview} />
+        ) : null}
+
+        {facilitationOn ? (
+          <section
+            aria-label="Facilitation review actions"
+            style={{ marginTop: "var(--space-6)" }}
+          >
+            <p
+              style={{
+                margin: "0 0 var(--space-2) 0",
+                fontSize: "13px",
+                color: "var(--aims-ink-muted, #52525b)",
+              }}
+            >
+              {facilitationReview
+                ? "Re-runs the facilitation-review LLM pass and overwrites this meeting's review with the latest prompt output. Doesn't touch the summary or commitments."
+                : "This meeting's facilitation review is missing. Re-runs the facilitation-review LLM pass. Doesn't touch the summary or commitments."}
+            </p>
+            <RerunFacilitationButton meetingId={id} />
+          </section>
         ) : null}
       </div>
     </div>
