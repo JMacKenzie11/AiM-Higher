@@ -124,7 +124,11 @@
 
 .content {
   max-width: 1160px;
-  margin: calc(-1 * var(--space-8)) auto 0;
+  /* Small negative pull so the top of the card row still overlaps the
+     hero — the overlap says "these belong to the summary above" — but
+     nowhere near as much as before. Reduced from --space-8 to
+     --space-4 based on the top row swallowing too much of the hero. */
+  margin: calc(-1 * var(--space-4)) auto 0;
   padding: 0 var(--space-6) var(--space-8);
   position: relative;
 }
