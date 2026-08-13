@@ -22,15 +22,24 @@ Six disciplines, each rated 0–10:
 
 - **Foundation** — purpose statement, vision, and at least three
   core values / differentiators / key success metrics on the One-Page
-  Plan.
+  Plan. State-based: either the surfaces are filled in or they
+  aren't, so no trend line is shown.
 - **Accountability chart** — every function has a Lead and a Track
   assigned, at least one outcome, and something being measured.
-- **Strategic plan** — an open quarter exists, and the cascade
-  (focus areas → annual goals → priorities) is actually populated,
-  not orphaned rows.
+  Also state-based. The card lists which specific functions are
+  incomplete so you can go fix the ones dragging the score.
+- **Strategic plan** — an open quarter with the cascade (focus areas
+  → annual goals → priorities) actually populated, plus how well
+  those annual goals and quarterly priorities are being **closed by
+  their due dates**. Populated cascade is a 2-point baseline; goal
+  closure and priority closure each contribute up to 4 points.
+  When no goals or priorities have passed their date yet, we award
+  full credit for that half — a fresh plan shouldn't drag the score.
 - **Execution** — weekly commitments landing on time (follow-through
-  rate over the last 30 days), linked to a priority, without piling
-  up more than 14 days past due.
+  rate over the last 30 days) without piling up more than 14 days
+  past due. Priority linkage is deliberately **not** scored: some
+  commitments are operational floaters by design, so the linked ÷
+  total ratio isn't a discipline signal.
 - **Success tracking** — every measure has a target set, has been
   logged in the last 7 days, and auto-track measures aren't sitting
   empty. Only scored when Success Tracking is enabled for the

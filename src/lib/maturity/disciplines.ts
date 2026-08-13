@@ -34,6 +34,12 @@ export type DisciplineConfig = {
   // Copy for the drill-down link. Kept beside href so a designer can
   // tune the wording without hunting through JSX.
   hrefLabel: string;
+  // Whether the card carries a trend chip + sparkline. State-based
+  // disciplines (foundation, accountability chart) are essentially
+  // done-or-not, so a "vs 90 days ago" arrow just adds noise. The
+  // behaviorally-rolling ones (planning closure, execution, measures,
+  // meetings) do benefit from the arc.
+  showsTrend: boolean;
   // If set, this discipline only scores when the company has the
   // named feature. When the feature is off, the scorecard shows a
   // muted "not enabled" tile in place of a number. The value must
@@ -49,6 +55,7 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
     weight: 1,
     href: "/foundation",
     hrefLabel: "Open the One-Page Plan",
+    showsTrend: false,
   },
   {
     key: "chart",
@@ -57,22 +64,25 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
     weight: 1,
     href: "/chart",
     hrefLabel: "Open the chart",
+    showsTrend: false,
   },
   {
     key: "planning",
     label: "Strategic plan",
-    blurb: "Focus areas → annual goals → quarterly actions, all populated in the open quarter.",
+    blurb: "Cascade populated in the open quarter, and annual goals + quarterly priorities closing by their due dates.",
     weight: 2,
     href: "/plan",
     hrefLabel: "Open the plan",
+    showsTrend: true,
   },
   {
     key: "execution",
     label: "Execution",
-    blurb: "Weekly commitments landing on time, linked to priorities, without piling up overdue.",
+    blurb: "Weekly commitments landing on time and not piling up past due.",
     weight: 2,
     href: "/commitments",
     hrefLabel: "Open commitments",
+    showsTrend: true,
   },
   {
     key: "measures",
@@ -82,6 +92,7 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
     feature: "performance_tracking",
     href: "/measures",
     hrefLabel: "Open success measures",
+    showsTrend: true,
   },
   {
     key: "meetings",
@@ -91,6 +102,7 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
     feature: "meeting_facilitation_review",
     href: "/leadership",
     hrefLabel: "Open meetings",
+    showsTrend: true,
   },
 ];
 

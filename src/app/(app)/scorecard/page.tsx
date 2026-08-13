@@ -102,17 +102,19 @@ export default async function ScorecardPage() {
                 </header>
                 <p className={styles.cardBlurb}>{config.blurb}</p>
 
-                <div className={styles.cardTrendRow}>
-                  <TrendChip trajectory={trend} />
-                  <div className={styles.cardSpark}>
-                    <Sparkline
-                      points={spark.map((p) => ({ x: p.date, y: p.score }))}
-                      width={140}
-                      height={36}
-                      ariaLabel={`${config.label} score over the last 26 weeks`}
-                    />
+                {config.showsTrend ? (
+                  <div className={styles.cardTrendRow}>
+                    <TrendChip trajectory={trend} />
+                    <div className={styles.cardSpark}>
+                      <Sparkline
+                        points={spark.map((p) => ({ x: p.date, y: p.score }))}
+                        width={140}
+                        height={36}
+                        ariaLabel={`${config.label} score over the last 26 weeks`}
+                      />
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
                 <Breakdown
                   discipline={config.key}
@@ -313,17 +315,22 @@ function evidenceLines(
             `${n("withMeasure")} have at least one measure`,
           ];
     case "planning":
-      return bool("openQuarter")
-        ? [
-            `${n("sfas")} focus areas, ${n("goals")} annual goals, ${n("priorities")} priorities in the open quarter`,
-            `${n("goalCoverage")}% of focus areas have at least one goal`,
-            `${n("priorityCoverage")}% of goals have at least one priority`,
-          ]
-        : ["No open quarter — open one to begin scoring this discipline"];
+      if (!bool("openQuarter")) {
+        return ["No open quarter — open one to begin scoring this discipline"];
+      }
+      return [
+        `${n("sfas")} focus areas, ${n("goals")} annual goals, ${n("priorities")} priorities in the open quarter`,
+        n("goalsPastDue") === 0
+          ? "No annual goals past their target date yet"
+          : `${n("goalsClosed")} of ${n("goalsPastDue")} past-target annual goals complete (${n("goalClosureRate")}%)`,
+        n("prioritiesPastDue") === 0
+          ? "No priorities past their due date yet"
+          : `${n("prioritiesClosed")} of ${n("prioritiesPastDue")} past-due priorities complete (${n("priorityClosureRate")}%)`,
+      ];
     case "execution":
       return [
         `${n("followThroughPct")}% follow-through (kept ÷ resolved) over the last ${n("windowDays")} days`,
-        `${n("openCount")} commitments open, ${n("linkedPct")}% linked to a priority`,
+        `${n("openCount")} commitments open`,
         `${n("agingCount")} open more than 14 days past due`,
       ];
     case "measures":

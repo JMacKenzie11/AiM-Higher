@@ -1,15 +1,29 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clampScore, type DisciplineScore } from "../types";
 
-// Planning score = the cascade is populated in the open quarter.
-//   - open quarter exists          → 1 pt (gate — if not, score = 0)
-//   - ≥1 SFA                       → 2 pts
-//   - ≥1 annual goal               → 2 pts
-//   - ≥1 priority in open quarter  → 2 pts
-//   - % of SFAs with ≥1 goal       → 1.5 pts (proportional)
-//   - % of goals with ≥1 priority  → 1.5 pts (proportional)
-// The two "coverage" ratios reward companies that don't leave orphan
-// rows dangling in the cascade.
+// Planning score = the plan is populated AND it's actually being
+// closed on time.
+//
+//   - Cascade populated (SFAs + goals + priorities present in the
+//     open quarter): 2 pts baseline. Missing pieces knock this down
+//     to zero; a healthy cascade earns the floor but doesn't drive
+//     the score on its own.
+//   - Annual goal closure — of goals whose target_date has passed,
+//     what fraction are `complete`? Up to 4 pts. When no goals have
+//     hit their date yet, we award full credit because there's
+//     nothing to close (fresh plan shouldn't drag the score).
+//   - Priority closure — same idea against priority.due_date. Up to
+//     4 pts. Same "nothing due yet" fallback.
+//
+// We don't have a completed_at column on goals or priorities, so the
+// signal is really "past-due AND still not complete" — which is a
+// reasonable proxy for "we're behind." When completed_at ships, we
+// can tighten this to "closed by the target date" instead of "closed
+// at all."
+
+const CASCADE_POINTS = 2;
+const GOAL_POINTS = 4;
+const PRIORITY_POINTS = 4;
 
 export async function scorePlanning(
   admin: SupabaseClient,
@@ -31,11 +45,17 @@ export async function scorePlanning(
         sfas: 0,
         goals: 0,
         priorities: 0,
-        goalCoverage: 0,
-        priorityCoverage: 0,
+        goalsPastDue: 0,
+        goalsClosed: 0,
+        goalClosureRate: 0,
+        prioritiesPastDue: 0,
+        prioritiesClosed: 0,
+        priorityClosureRate: 0,
       },
     };
   }
+
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const [sfaRes, goalRes, priorityRes] = await Promise.all([
     admin
@@ -45,12 +65,12 @@ export async function scorePlanning(
       .eq("archived", false),
     admin
       .from("annual_goals")
-      .select("id, sfa_id")
+      .select("id, target_date, status")
       .eq("company_id", companyId)
       .eq("archived", false),
     admin
       .from("priorities")
-      .select("id, annual_goal_id")
+      .select("id, due_date, status")
       .eq("company_id", companyId)
       .eq("archived", false)
       .eq("quarter_id", openQuarter.id),
@@ -59,31 +79,46 @@ export async function scorePlanning(
   const sfas = (sfaRes.data ?? []) as Array<{ id: string }>;
   const goals = (goalRes.data ?? []) as Array<{
     id: string;
-    sfa_id: string | null;
+    target_date: string | null;
+    status: string;
   }>;
   const priorities = (priorityRes.data ?? []) as Array<{
     id: string;
-    annual_goal_id: string | null;
+    due_date: string | null;
+    status: string;
   }>;
 
-  const sfasWithGoal = new Set(
-    goals.map((g) => g.sfa_id).filter((id): id is string => !!id)
-  );
-  const goalsWithPriority = new Set(
-    priorities.map((p) => p.annual_goal_id).filter((id): id is string => !!id)
-  );
+  const cascadePopulated =
+    sfas.length > 0 && goals.length > 0 && priorities.length > 0;
 
-  const goalCoverage = sfas.length > 0 ? sfasWithGoal.size / sfas.length : 0;
-  const priorityCoverage =
-    goals.length > 0 ? goalsWithPriority.size / goals.length : 0;
+  // Closure rate helper. Denominator = items whose due date has passed
+  // (nothing to close yet ⇒ full credit, no denominator ambiguity).
+  function closure<T extends { status: string }>(
+    items: T[],
+    dateOf: (item: T) => string | null
+  ): { pastDue: number; closed: number; rate: number } {
+    const withPastDate = items.filter((i) => {
+      const d = dateOf(i);
+      return !!d && d <= todayIso;
+    });
+    if (withPastDate.length === 0) {
+      return { pastDue: 0, closed: 0, rate: 1 };
+    }
+    const closed = withPastDate.filter((i) => i.status === "complete").length;
+    return {
+      pastDue: withPastDate.length,
+      closed,
+      rate: closed / withPastDate.length,
+    };
+  }
+
+  const goalClosure = closure(goals, (g) => g.target_date);
+  const priorityClosure = closure(priorities, (p) => p.due_date);
 
   const points =
-    1 + // openQuarter is true here
-    (sfas.length > 0 ? 2 : 0) +
-    (goals.length > 0 ? 2 : 0) +
-    (priorities.length > 0 ? 2 : 0) +
-    goalCoverage * 1.5 +
-    priorityCoverage * 1.5;
+    (cascadePopulated ? CASCADE_POINTS : 0) +
+    goalClosure.rate * GOAL_POINTS +
+    priorityClosure.rate * PRIORITY_POINTS;
 
   return {
     key: "planning",
@@ -93,8 +128,12 @@ export async function scorePlanning(
       sfas: sfas.length,
       goals: goals.length,
       priorities: priorities.length,
-      goalCoverage: Math.round(goalCoverage * 100),
-      priorityCoverage: Math.round(priorityCoverage * 100),
+      goalsPastDue: goalClosure.pastDue,
+      goalsClosed: goalClosure.closed,
+      goalClosureRate: Math.round(goalClosure.rate * 100),
+      prioritiesPastDue: priorityClosure.pastDue,
+      prioritiesClosed: priorityClosure.closed,
+      priorityClosureRate: Math.round(priorityClosure.rate * 100),
     },
   };
 }
