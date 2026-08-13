@@ -70,7 +70,7 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
   {
     key: "meetings",
     label: "Weekly leadership meeting",
-    blurb: "Meetings happen weekly and are being run well.",
+    blurb: "Meetings happen weekly and are being run effectively.",
     weight: 1,
     feature: "meeting_facilitation_review",
   },
