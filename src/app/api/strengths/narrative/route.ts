@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { anthropic, ANTHROPIC_MODEL } from "@/lib/strengths/anthropic";
+import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { VOICE_RULES } from "@/lib/strengths/voice-rules";
 
 export const runtime = "nodejs";
@@ -66,6 +67,15 @@ export async function POST(request: Request) {
       content: m.content,
     })),
   });
+  if (response.usage) {
+    void logCoachTokenUsage({
+      conversationId: null,
+      companyId: null,
+      purpose: "strengths",
+      model: ANTHROPIC_MODEL,
+      usage: response.usage,
+    });
+  }
 
   const text = response.content
     .filter((c): c is Anthropic.TextBlock => c.type === "text")

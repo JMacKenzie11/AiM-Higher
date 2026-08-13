@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { anthropic, ANTHROPIC_MODEL } from "@/lib/strengths/anthropic";
+import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { VOICE_RULES } from "@/lib/strengths/voice-rules";
 import { scoreResponses } from "@/lib/strengths/scoring";
 import { tenurePhrase } from "@/lib/strengths/tenure";
@@ -164,6 +165,15 @@ export async function POST(request: Request) {
       },
     ],
   });
+  if (response.usage) {
+    void logCoachTokenUsage({
+      conversationId: null,
+      companyId: null,
+      purpose: "strengths",
+      model: ANTHROPIC_MODEL,
+      usage: response.usage,
+    });
+  }
 
   const text = response.content
     .filter((c): c is Anthropic.TextBlock => c.type === "text")

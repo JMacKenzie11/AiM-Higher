@@ -118,7 +118,7 @@ export default async function AdminDashboardPage() {
               text={
                 useRealCosts
                   ? "Real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Covers every model call the platform makes — coach turns, title generation, meeting analyzer, RD generator, strengths narrative, dashboard brief, themes clustering. Updated nightly at 05:00 UTC."
-                  : "Estimated cost from the local token log. IMPORTANT: only the coach records tokens today, so this number under-counts everything else (meeting analyzer, RD generator, strengths narrative, dashboard brief). Configure ANTHROPIC_ADMIN_KEY and ANTHROPIC_WORKSPACE_ID for real, complete numbers."
+                  : "Estimated cost from the local token log. Covers every subsystem that makes a model call — coach turns and titles, meeting analyzer, RD generator, strengths narrative + results + team insights, dashboard brief, themes clustering, commitment clarity, measure critique + target check, facilitation review. Configure ANTHROPIC_ADMIN_KEY and ANTHROPIC_WORKSPACE_ID for real invoiced totals."
               }
             />
           </span>
@@ -323,14 +323,14 @@ export default async function AdminDashboardPage() {
               text={
                 useRealCosts
                   ? "Totals and daily chart pull real invoiced spend from Anthropic's Admin API, scoped to the AiMHigher workspace. Every model call the platform makes is included — coach, meeting analyzer, RD generator, strengths narrative, dashboard brief, themes clustering. Not attributable per company: Anthropic doesn't segment cost by our companies."
-                  : "Sums the local coach_token_usage table — coach turns and title generation only. Under-counts non-coach model calls (meeting analyzer, RD generator, strengths narrative, dashboard brief). Set ANTHROPIC_ADMIN_KEY + ANTHROPIC_WORKSPACE_ID for real invoiced totals across every model call the platform makes."
+                  : "Sums the local coach_token_usage table. Every subsystem that makes a model call now logs here — coach turns and titles, meeting analyzer, RD generator, strengths narrative + results + team insights, dashboard brief, themes clustering, commitment clarity, measure critique + target check, facilitation review. Numbers are estimated from local rates; set ANTHROPIC_ADMIN_KEY + ANTHROPIC_WORKSPACE_ID for real invoiced totals."
               }
             />
           </h2>
           <span className={styles.cardMeta}>
             {useRealCosts
               ? "Real · all model calls · daily · last 30 days"
-              : "Estimated · coach only · daily · last 30 days"}
+              : "Estimated · all model calls · daily · last 30 days"}
           </span>
         </header>
         <div className={styles.costLayout}>

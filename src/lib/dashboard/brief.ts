@@ -5,6 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { todayInTimezone } from "@/lib/dates";
+import { logCoachTokenUsage } from "@/lib/coach/usage";
 import type { Commitment, Priority } from "@/lib/types";
 
 // Once-a-day AI "Week in review" for the dashboard.
@@ -115,6 +116,15 @@ export async function getOrGenerateDashboardBrief(
       ],
       messages: [{ role: "user", content: snapshot }],
     });
+    if (response.usage) {
+      void logCoachTokenUsage({
+        conversationId: null,
+        companyId,
+        purpose: "brief",
+        model,
+        usage: response.usage,
+      });
+    }
     content = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)

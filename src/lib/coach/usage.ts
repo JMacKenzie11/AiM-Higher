@@ -67,7 +67,20 @@ export function estimateCostCents(model: string, usage: UsageInput): number {
   return Math.round(dollars * 100);
 }
 
-export type CoachUsagePurpose = "turn" | "title" | "themes" | "other";
+// Purpose enum mirrors the CHECK constraint on coach_token_usage.purpose
+// (migration 0136). The name "coach" in the type/function/table is a
+// historical artifact — every platform model call logs here now.
+export type CoachUsagePurpose =
+  | "turn" // coach conversation turn
+  | "title" // coach conversation auto-title
+  | "themes" // nightly themes clustering cron
+  | "analyzer" // meeting transcript analysis
+  | "rd" // role description generator + recommend
+  | "strengths" // strengths assessment narrative / results / team insights
+  | "brief" // dashboard "Week in review" brief
+  | "clarity" // commitment clarity, measure critique, measure target check
+  | "facilitation" // leadership facilitation review
+  | "other";
 
 // Fire-and-forget log. Callers should NOT await this in the
 // hot path — errors are swallowed with a warn so a logging

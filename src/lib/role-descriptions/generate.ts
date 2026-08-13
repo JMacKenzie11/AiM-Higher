@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { loadFunctionContext } from "./context";
+import { logCoachTokenUsage } from "@/lib/coach/usage";
 import type { getChartFunctionDetail } from "@/lib/chart/service";
 
 // Full-document Role Description generation. One Sonnet call, one
@@ -285,6 +286,19 @@ export async function generateRoleDescription(
       system: [{ type: "text", text: systemPrompt }],
       messages: [{ role: "user", content: userMessage }],
     });
+    if (res.usage) {
+      void logCoachTokenUsage({
+        conversationId: null,
+        // company_id isn't threaded into the RD generator today —
+        // logging without per-company attribution is better than not
+        // logging at all. Thread it through if per-tenant RD cost
+        // reporting becomes a real need.
+        companyId: null,
+        purpose: "rd",
+        model,
+        usage: res.usage,
+      });
+    }
     const raw = res.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)

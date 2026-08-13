@@ -3,6 +3,7 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
+import { logCoachTokenUsage } from "@/lib/coach/usage";
 import type {
   FacilitationDimension,
   FacilitationReview,
@@ -57,6 +58,18 @@ export async function analyzeMeetingFacilitation(
       },
     ],
   });
+  if (response.usage) {
+    void logCoachTokenUsage({
+      conversationId: null,
+      // company_id isn't threaded through the facilitation entry
+      // point; the caller (analyzeMeeting) has it but doesn't pass
+      // it here. Logging without attribution beats not logging.
+      companyId: null,
+      purpose: "facilitation",
+      model: useModel,
+      usage: response.usage,
+    });
+  }
 
   const toolUse = response.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"

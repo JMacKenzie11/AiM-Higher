@@ -1,6 +1,7 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { logCoachTokenUsage } from "@/lib/coach/usage";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
 
 // AI-scored quality check on a success-measure target. Called from
@@ -57,6 +58,15 @@ export async function scoreMeasureTarget(input: {
       system: [{ type: "text", text: SYSTEM_PROMPT }],
       messages: [{ role: "user", content: userMessage }],
     });
+    if (res.usage) {
+      void logCoachTokenUsage({
+        conversationId: null,
+        companyId: null,
+        purpose: "clarity",
+        model,
+        usage: res.usage,
+      });
+    }
     const raw = res.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)

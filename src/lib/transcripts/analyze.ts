@@ -6,6 +6,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { fridayOf, todayInTimezone } from "@/lib/dates";
+import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyze";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type {
@@ -85,6 +86,15 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
         },
       ],
     });
+    if (analysisMessage.usage) {
+      void logCoachTokenUsage({
+        conversationId: null,
+        companyId: meetingRow.company_id,
+        purpose: "analyzer",
+        model,
+        usage: analysisMessage.usage,
+      });
+    }
     const analysisMarkdown = analysisMessage.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
@@ -102,6 +112,15 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
         },
       ],
     });
+    if (rawExtraction.usage) {
+      void logCoachTokenUsage({
+        conversationId: null,
+        companyId: meetingRow.company_id,
+        purpose: "analyzer",
+        model,
+        usage: rawExtraction.usage,
+      });
+    }
     const rawText = rawExtraction.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
