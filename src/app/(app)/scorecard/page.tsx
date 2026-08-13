@@ -346,6 +346,12 @@ function evidenceLines(
       if (!bool("openQuarter")) {
         return ["No open quarter — open one to begin scoring this discipline"];
       }
+      if (!bool("cascadePopulated")) {
+        return [
+          `${n("sfas")} focus areas, ${n("goals")} annual goals, ${n("priorities")} priorities in the open quarter`,
+          "Cascade not yet populated — add focus areas, annual goals, and quarterly priorities to begin scoring",
+        ];
+      }
       return [
         `${n("sfas")} focus areas, ${n("goals")} annual goals, ${n("priorities")} priorities in the open quarter`,
         n("goalsPastDue") === 0

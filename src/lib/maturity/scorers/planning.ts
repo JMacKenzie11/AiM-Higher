@@ -91,8 +91,12 @@ export async function scorePlanning(
   const cascadePopulated =
     sfas.length > 0 && goals.length > 0 && priorities.length > 0;
 
-  // Closure rate helper. Denominator = items whose due date has passed
-  // (nothing to close yet ⇒ full credit, no denominator ambiguity).
+  // Closure rate helper. Denominator = items whose due date has passed.
+  // Nothing past due yet is "nothing to close" — full credit, since a
+  // fresh plan shouldn't drag the score down for future work.
+  // Empty item list is DIFFERENT — the caller (below) handles that by
+  // gating on cascadePopulated before we ever get here, so an empty
+  // plan can't sneak into full closure credit.
   function closure<T extends { status: string }>(
     items: T[],
     dateOf: (item: T) => string | null
@@ -115,16 +119,22 @@ export async function scorePlanning(
   const goalClosure = closure(goals, (g) => g.target_date);
   const priorityClosure = closure(priorities, (p) => p.due_date);
 
-  const points =
-    (cascadePopulated ? CASCADE_POINTS : 0) +
-    goalClosure.rate * GOAL_POINTS +
-    priorityClosure.rate * PRIORITY_POINTS;
+  // No cascade in the open quarter ⇒ score is 0. The closure halves
+  // are only meaningful once there's a plan to execute against — an
+  // empty plan reading as 8/10 (because "nothing past due yet, full
+  // credit") is the bug this branch prevents.
+  const points = cascadePopulated
+    ? CASCADE_POINTS +
+      goalClosure.rate * GOAL_POINTS +
+      priorityClosure.rate * PRIORITY_POINTS
+    : 0;
 
   return {
     key: "planning",
     score: clampScore(points),
     breakdown: {
       openQuarter: true,
+      cascadePopulated,
       sfas: sfas.length,
       goals: goals.length,
       priorities: priorities.length,
