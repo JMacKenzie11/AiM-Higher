@@ -8,11 +8,18 @@ const nextConfig: NextConfig = {
   // Vercel the file is missing from /var/task and analysis fails with
   // ENOENT. Force it into every serverless bundle.
   outputFileTracingIncludes: {
-    // Both directories are read at runtime via fs.readFile — Next.js
+    // These directories are read at runtime via fs.readFile — Next.js
     // file tracing can't see the dependency, so on Vercel they're
     // missing from /var/task and the reads ENOENT. Force them into
-    // every serverless bundle.
-    "*": ["./prompts/**/*", "./docs/help/**/*"],
+    // every serverless bundle. The facilitation prompt lives under
+    // src/lib/leadership/facilitation/ (versioned as prompt.vN.md);
+    // if it's not bundled the second LLM pass fails silently and the
+    // meetings list shows a blank Facilitation cell.
+    "*": [
+      "./prompts/**/*",
+      "./docs/help/**/*",
+      "./src/lib/leadership/facilitation/*.md",
+    ],
   },
 };
 
