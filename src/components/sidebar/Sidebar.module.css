@@ -160,6 +160,12 @@
   flex-direction: column;
   gap: 2px;
   margin-top: var(--space-3);
+  /* Nav is a column flex with overflow-y: auto. Without an explicit
+     flex-shrink: 0, sections compress vertically when the total
+     content exceeds the rail height instead of letting the scroll
+     kick in — which shows up as rows visually stacked on top of
+     each other. */
+  flex-shrink: 0;
 }
 
 .section:first-child {
@@ -246,6 +252,9 @@
   gap: var(--space-3);
   padding: 0 var(--space-3);
   height: 40px;
+  /* See .section — same rationale. Fixed 40px height only holds if
+     the row refuses to shrink under column-flex pressure. */
+  flex-shrink: 0;
   color: var(--aims-white);
   opacity: 0.78;
   font-family: var(--font-body);
