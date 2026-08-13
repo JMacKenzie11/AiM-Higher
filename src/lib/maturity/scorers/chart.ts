@@ -2,45 +2,44 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { clampScore, type DisciplineScore } from "../types";
 
 // Chart score = how populated the accountability chart is.
-// Each non-archived function contributes to four ratios:
-//   - has lead_id                → 3 pts
-//   - has track_id               → 2 pts
-//   - has ≥1 outcome             → 3 pts
+// Each non-archived function contributes to three ratios:
+//   - has lead_id                  → 5 pts
+//   - has ≥1 outcome               → 3 pts
 //   - has ≥1 measure (via outcome) → 2 pts
 // Ratios are computed as (functions passing / total non-archived).
-// Attendance is deliberately NOT scored — the transcript speaker-to-
+//
+// Track / Decide (the T and D of LTD) used to be scored separately
+// against their own columns, but in practice there's no UI to assign
+// a different person to those roles — the seat holder always covers
+// LTD. Their weight collapses into Lead so the score reads what a
+// user can actually act on.
+//
+// Attendance is deliberately NOT scored — transcript speaker-to-
 // profile matching isn't reliable enough for a rating.
 //
 // The breakdown also carries a per-function `issues` list so the UI
 // can show WHICH functions are dragging the score, not just the
-// aggregate. Complete functions are omitted from the list so the UI
-// only surfaces things a user could act on.
+// aggregate. Complete functions are omitted from the list.
 
 type FnRow = {
   id: string;
   title: string;
   lead_id: string | null;
-  track_id: string | null;
 };
 
 export type ChartFunctionIssue = {
   id: string;
   name: string;
-  missing: readonly ("lead" | "track" | "outcome" | "measure")[];
+  missing: readonly ("lead" | "outcome" | "measure")[];
 };
 
 export async function scoreChart(
   admin: SupabaseClient,
   companyId: string
 ): Promise<DisciplineScore> {
-  // Column is `title`, not `name` — selecting a non-existent column
-  // in Supabase silently fails the whole query and we end up with
-  // zero functions, which was showing as "No functions on the chart
-  // yet" even for populated charts. Same for lead_id / track_id —
-  // those were correct; the `name` typo was the killer.
   const { data: fnRows } = await admin
     .from("functions")
-    .select("id, title, lead_id, track_id")
+    .select("id, title, lead_id")
     .eq("company_id", companyId)
     .eq("archived", false);
 
@@ -54,7 +53,6 @@ export async function scoreChart(
       breakdown: {
         totalFunctions: 0,
         withLead: 0,
-        withTrack: 0,
         withOutcome: 0,
         withMeasure: 0,
         issues: [],
@@ -63,7 +61,6 @@ export async function scoreChart(
   }
 
   const withLead = functions.filter((f) => !!f.lead_id).length;
-  const withTrack = functions.filter((f) => !!f.track_id).length;
 
   const fnIds = functions.map((f) => f.id);
 
@@ -95,8 +92,7 @@ export async function scoreChart(
   }
 
   const points =
-    (withLead / total) * 3 +
-    (withTrack / total) * 2 +
+    (withLead / total) * 5 +
     (fnsWithOutcome.size / total) * 3 +
     (fnsWithMeasure.size / total) * 2;
 
@@ -104,7 +100,6 @@ export async function scoreChart(
     .map((f) => {
       const missing: ChartFunctionIssue["missing"][number][] = [];
       if (!f.lead_id) missing.push("lead");
-      if (!f.track_id) missing.push("track");
       if (!fnsWithOutcome.has(f.id)) missing.push("outcome");
       if (!fnsWithMeasure.has(f.id)) missing.push("measure");
       return { id: f.id, name: f.title, missing };
@@ -117,7 +112,6 @@ export async function scoreChart(
     breakdown: {
       totalFunctions: total,
       withLead,
-      withTrack,
       withOutcome: fnsWithOutcome.size,
       withMeasure: fnsWithMeasure.size,
       issues,

@@ -24,10 +24,12 @@ Six disciplines, each rated 0–10:
   core values / differentiators / key success metrics on the One-Page
   Plan. State-based: either the surfaces are filled in or they
   aren't, so no trend line is shown.
-- **Accountability chart** — every function has a Lead and a Track
-  assigned, at least one outcome, and something being measured.
-  Also state-based. The card lists which specific functions are
-  incomplete so you can go fix the ones dragging the score.
+- **Accountability chart** — every function has a Lead assigned, at
+  least one outcome, and something being measured. Also state-based.
+  The card lists which specific functions are incomplete so you can
+  go fix the ones dragging the score. (LTD's Track and Decide
+  responsibilities always sit with the Lead — there's no UI to
+  assign them separately — so the scorer doesn't check them.)
 - **Strategic plan** — an open quarter with the cascade (focus areas
   → annual goals → priorities) actually populated, plus how well
   those annual goals and quarterly priorities are being **closed by
