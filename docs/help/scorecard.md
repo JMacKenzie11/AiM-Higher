@@ -50,12 +50,30 @@ Six disciplines, each rated 0–10:
   (rolling 8 weeks) and the AI facilitation reviews are landing
   well. Only scored when Meeting Facilitation Review is enabled;
   otherwise the tile shows "Not enabled".
+- **Solution seeking** — how well the team runs the AiMS 4Ws
+  framework on issues surfaced in leadership meetings. Aggregates
+  every issue's What / Want / Way / Who-by-when checks across the
+  rolling 8-week window; closure rate maps directly to 0–10. When
+  no issues have come up yet, the tile isn't scored (it won't drag
+  the average down). Feature-gated on Meeting Facilitation Review.
+- **Appreciative practice** — the appreciative-inquiry signal from
+  the meeting reviews: whether the team celebrates wins, reframes
+  problems as opportunities, and asks generative questions rather
+  than dwelling on deficits. Rolls up the review's positive-framing
+  dimension across the rolling 8-week window; the card also counts
+  observed appreciation moments, generative questions, and reframes.
+  Feature-gated on Meeting Facilitation Review. Not scored until
+  the v2 review has run at least once (v1 reviews don't carry the
+  dimension).
 
 The **overall score** is a weighted average across the disciplines
 that were actually scored — Planning and Execution weight double
 because they're the two the whole system is oriented around.
 Disciplines whose feature is off don't drag the average down; their
 weight is redistributed across the ones that did score.
+
+Every card has a small `?` info icon next to its title — hover to
+see the exact scoring rubric for that tile without leaving the page.
 
 ## Rolling and trajectory
 

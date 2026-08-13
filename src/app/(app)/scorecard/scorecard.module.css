@@ -159,10 +159,43 @@
   gap: var(--space-2);
 }
 
+.cardTitleGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
 .cardTitle {
   margin: 0;
   font: var(--text-h3);
   color: var(--aims-ink);
+}
+
+/* Info affordance next to the card title. Muted circle-with-i icon
+   button; uses the native `title` attribute for the tooltip so we
+   don't need to build a popover. Focusable for keyboard users. */
+.infoTip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--aims-ink-muted, #71717a);
+  cursor: help;
+  transition: color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.infoTip:hover,
+.infoTip:focus-visible {
+  color: var(--primary, #3551A4);
+  background: var(--aims-cobalt-tint, #EBEFF9);
+  outline: none;
 }
 
 .cardBlurb {

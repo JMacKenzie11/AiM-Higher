@@ -11,6 +11,8 @@ import { scorePlanning } from "./scorers/planning";
 import { scoreExecution } from "./scorers/execution";
 import { scoreMeasures } from "./scorers/measures";
 import { scoreMeetings } from "./scorers/meetings";
+import { scoreSolutionSeeking } from "./scorers/solution-seeking";
+import { scorePositiveFraming } from "./scorers/positive-framing";
 
 // Orchestrates every scorer for a company and returns the current
 // snapshot. Feature-gated disciplines whose feature is OFF get a
@@ -50,9 +52,26 @@ export async function computeCompanyScorecard(
   const measures: DisciplineScore = measuresEnabled
     ? await scoreMeasures(db, companyId)
     : { key: "measures", score: null, breakdown: { notEnabled: true } };
-  const meetings: DisciplineScore = meetingsEnabled
-    ? await scoreMeetings(db, companyId)
-    : { key: "meetings", score: null, breakdown: { notEnabled: true } };
+  const [meetings, solutionSeeking, positiveFraming]: DisciplineScore[] =
+    meetingsEnabled
+      ? await Promise.all([
+          scoreMeetings(db, companyId),
+          scoreSolutionSeeking(db, companyId),
+          scorePositiveFraming(db, companyId),
+        ])
+      : [
+          { key: "meetings", score: null, breakdown: { notEnabled: true } },
+          {
+            key: "solution_seeking",
+            score: null,
+            breakdown: { notEnabled: true },
+          },
+          {
+            key: "positive_framing",
+            score: null,
+            breakdown: { notEnabled: true },
+          },
+        ];
 
   const all: DisciplineScore[] = [
     foundation,
@@ -61,6 +80,8 @@ export async function computeCompanyScorecard(
     execution,
     measures,
     meetings,
+    solutionSeeking,
+    positiveFraming,
   ];
 
   return {

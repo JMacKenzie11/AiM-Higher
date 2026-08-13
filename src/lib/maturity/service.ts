@@ -57,6 +57,8 @@ export async function loadCompanyScorecard(
     execution: [],
     measures: [],
     meetings: [],
+    solution_seeking: [],
+    positive_framing: [],
   };
   for (const s of snapshots) {
     const bucket = timeseries[s.discipline];

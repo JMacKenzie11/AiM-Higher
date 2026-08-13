@@ -97,7 +97,10 @@ export default async function ScorecardPage() {
                 aria-label={config.label}
               >
                 <header className={styles.cardHeader}>
-                  <h2 className={styles.cardTitle}>{config.label}</h2>
+                  <div className={styles.cardTitleGroup}>
+                    <h2 className={styles.cardTitle}>{config.label}</h2>
+                    <InfoTip note={config.scoringNote} label={config.label} />
+                  </div>
                   <ScorePill score={score?.score ?? null} />
                 </header>
                 <p className={styles.cardBlurb}>{config.blurb}</p>
@@ -143,6 +146,38 @@ export default async function ScorecardPage() {
 // Presentation bits — small enough to keep inline. Extract into
 // their own files when they grow past one screen.
 // -----------------------------------------------------------------
+
+// Small "?" affordance in the card header. Uses the browser's native
+// title tooltip so we don't have to build our own popover — cheap,
+// works on hover + long-press, screen readers pick it up via aria-
+// label. Not visually cute, but functional and zero-JS.
+function InfoTip({ note, label }: { note: string; label: string }) {
+  return (
+    <button
+      type="button"
+      className={styles.infoTip}
+      aria-label={`How ${label} is scored: ${note}`}
+      title={note}
+      tabIndex={0}
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" />
+      </svg>
+    </button>
+  );
+}
 
 function OverallDial({ score }: { score: number | null }) {
   if (score === null) {
@@ -343,6 +378,27 @@ function evidenceLines(
         n("reviewsCounted") > 0
           ? `Avg facilitation score ${n("meanQuality")}/10 across ${n("reviewsCounted")} reviewed meetings`
           : "No facilitation reviews recorded yet",
+      ];
+    case "solution_seeking":
+      if (n("issuesSurfaced") === 0) {
+        return [
+          `No issues surfaced in the last ${n("windowWeeks")} weeks — nothing to score yet`,
+        ];
+      }
+      return [
+        `${n("issuesSurfaced")} issues across ${n("meetingsReviewed")} meetings in the last ${n("windowWeeks")} weeks`,
+        `${n("closureRate")}% of the 4 Ws closed on average`,
+        `What: ${n("hasWhat")} · Want: ${n("hasWant")} · Way: ${n("hasWay")} · Who/When: ${n("hasWhoWhen")}`,
+      ];
+    case "positive_framing":
+      if (n("reviewsWithFraming") === 0) {
+        return [
+          `No positive-framing scores in the last ${n("windowWeeks")} weeks — the review pipeline needs to re-run against the v2 prompt`,
+        ];
+      }
+      return [
+        `Avg appreciative-practice score ${n("meanFraming")}/10 across ${n("reviewsWithFraming")} reviewed meetings`,
+        `${n("appreciationCount")} appreciations · ${n("generativeCount")} generative questions · ${n("reframeCount")} reframes`,
       ];
     default:
       return [];

@@ -29,6 +29,8 @@ function scorecardFrom(overrides: {
         execution: [],
         measures: [],
         meetings: [],
+        solution_seeking: [],
+        positive_framing: [],
       } as CompanyScorecard["timeseries"]),
     overallTimeseries: overrides.overallTimeseries ?? [],
   };
@@ -66,6 +68,8 @@ describe("trajectoryFor", () => {
         ],
         measures: [],
         meetings: [],
+        solution_seeking: [],
+        positive_framing: [],
       },
     });
 
@@ -92,6 +96,8 @@ describe("trajectoryFor", () => {
           { date: daysAgoIso(40), score: 3 },
         ],
         meetings: [],
+        solution_seeking: [],
+        positive_framing: [],
       },
     });
 
@@ -110,6 +116,8 @@ describe("trajectoryFor", () => {
         execution: [],
         measures: [{ date: daysAgoIso(40), score: 8 }],
         meetings: [],
+        solution_seeking: [],
+        positive_framing: [],
       },
     });
 

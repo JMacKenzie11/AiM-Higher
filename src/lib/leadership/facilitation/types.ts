@@ -3,13 +3,24 @@
 // schemaless — this type is the single source of truth; iterating on
 // the prompt doesn't require a migration as long as the shape holds.
 //
-// If the shape needs a breaking change, bump prompt.vN.md AND add a
+// If the shape needs a breaking change, bump prompt.vN.md AND the
 // `version` sentinel below so old rows can be rendered by the right
-// legacy adapter. v1 is the initial cut.
+// legacy adapter.
+//
+// v2 (2026-08-13) — adds `positive_framing` as a fourth dimension
+// plus three new "moment" arrays (appreciation_moments,
+// generative_questions, reframes) to capture the appreciative-inquiry
+// signal the AiMS meeting model is oriented around. v1 rows still
+// render — the renderer treats the new fields as optional and shows
+// them only when present.
 
-export const FACILITATION_REVIEW_VERSION = 1;
+export const FACILITATION_REVIEW_VERSION = 2;
 
-export type FacilitationDimension = "rhythm" | "accountability" | "alignment";
+export type FacilitationDimension =
+  | "rhythm"
+  | "accountability"
+  | "alignment"
+  | "positive_framing";
 
 export type FacilitationStrength = {
   title: string;
@@ -41,6 +52,15 @@ export type FacilitationFourWsRow = {
   note?: string | null;
 };
 
+// v2 — a single observed moment of appreciative-inquiry practice.
+// `quote` is a paraphrase from the transcript; `context` is a one-
+// line "why this counts" note so a reader can skim without opening
+// the transcript.
+export type FacilitationMoment = {
+  quote: string;
+  context: string;
+};
+
 export type FacilitationDimensionScore = {
   score: number | null; // 0–10; null when insufficient_transcript
   notes: string;
@@ -62,9 +82,18 @@ export type FacilitationReview = {
     rhythm: FacilitationDimensionScore;
     accountability: FacilitationDimensionScore;
     alignment: FacilitationDimensionScore;
+    // v2. Optional on the type so v1 rows still validate; the
+    // normalizer defaults it to { score: null, notes: "" } when the
+    // prompt hasn't been re-run.
+    positive_framing?: FacilitationDimensionScore;
   };
   agenda_adherence: {
     score_out_of_5: number | null;
     notes: string;
   };
+  // v2 arrays — optional so v1 rows still validate. Populated by the
+  // v2 prompt only; renderers skip when empty.
+  appreciation_moments?: FacilitationMoment[];
+  generative_questions?: FacilitationMoment[];
+  reframes?: FacilitationMoment[];
 };

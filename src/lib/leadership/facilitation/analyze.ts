@@ -100,6 +100,9 @@ const FACILITATION_TOOL: Anthropic.Tool = {
       "fourws_audit",
       "dimensions",
       "agenda_adherence",
+      "appreciation_moments",
+      "generative_questions",
+      "reframes",
     ],
     properties: {
       insufficient_transcript: {
@@ -155,7 +158,12 @@ const FACILITATION_TOOL: Anthropic.Tool = {
           properties: {
             dimension: {
               type: "string",
-              enum: ["rhythm", "accountability", "alignment"],
+              enum: [
+                "rhythm",
+                "accountability",
+                "alignment",
+                "positive_framing",
+              ],
             },
             title: {
               type: "string",
@@ -235,7 +243,12 @@ const FACILITATION_TOOL: Anthropic.Tool = {
       },
       dimensions: {
         type: "object",
-        required: ["rhythm", "accountability", "alignment"],
+        required: [
+          "rhythm",
+          "accountability",
+          "alignment",
+          "positive_framing",
+        ],
         properties: {
           rhythm: {
             type: "object",
@@ -272,6 +285,65 @@ const FACILITATION_TOOL: Anthropic.Tool = {
               },
               notes: { type: "string" },
             },
+          },
+          positive_framing: {
+            type: "object",
+            required: ["score", "notes"],
+            description:
+              "How well the meeting practised appreciative inquiry — celebrating wins, reframing problems as opportunities, asking generative questions vs. dwelling on deficits.",
+            properties: {
+              score: {
+                type: ["integer", "null"],
+                minimum: 0,
+                maximum: 10,
+              },
+              notes: { type: "string" },
+            },
+          },
+        },
+      },
+      appreciation_moments: {
+        type: "array",
+        minItems: 0,
+        maxItems: 8,
+        description:
+          "Specific moments where the team celebrated a win, thanked someone, or acknowledged progress. Paraphrase the quote and add a one-line 'why this counts' context.",
+        items: {
+          type: "object",
+          required: ["quote", "context"],
+          properties: {
+            quote: { type: "string" },
+            context: { type: "string" },
+          },
+        },
+      },
+      generative_questions: {
+        type: "array",
+        minItems: 0,
+        maxItems: 8,
+        description:
+          "Questions that opened new possibilities — future-oriented, curious, 'what would better look like', 'what if we', 'how might we'. NOT diagnostic questions ('why did that fail'). Paraphrase + one-line context.",
+        items: {
+          type: "object",
+          required: ["quote", "context"],
+          properties: {
+            quote: { type: "string" },
+            context: { type: "string" },
+          },
+        },
+      },
+      reframes: {
+        type: "array",
+        minItems: 0,
+        maxItems: 8,
+        description:
+          "Moments where a problem was turned into an opportunity, or a complaint was reshaped into a want. Paraphrase + one-line context.",
+        items: {
+          type: "object",
+          required: ["quote", "context"],
+          properties: {
+            quote: { type: "string" },
+            context: { type: "string" },
           },
         },
       },
@@ -330,12 +402,34 @@ function normalizeReview(raw: Record<string, unknown>): FacilitationReview {
         (raw.dimensions as Record<string, unknown> | undefined)?.alignment,
         insufficient
       ),
+      positive_framing: normalizeDimensionScore(
+        (raw.dimensions as Record<string, unknown> | undefined)?.positive_framing,
+        insufficient
+      ),
     },
     agenda_adherence: normalizeAgendaAdherence(
       raw.agenda_adherence,
       insufficient
     ),
+    appreciation_moments: normalizeMoments(raw.appreciation_moments),
+    generative_questions: normalizeMoments(raw.generative_questions),
+    reframes: normalizeMoments(raw.reframes),
   };
+}
+
+function normalizeMoments(
+  v: unknown
+): NonNullable<FacilitationReview["appreciation_moments"]> {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter(
+      (x): x is Record<string, unknown> => typeof x === "object" && x !== null
+    )
+    .map((x) => ({
+      quote: typeof x.quote === "string" ? x.quote.trim() : "",
+      context: typeof x.context === "string" ? x.context.trim() : "",
+    }))
+    .filter((x) => x.quote.length > 0);
 }
 
 function clampInt(v: unknown, min: number, max: number): number | null {
@@ -364,6 +458,7 @@ function normalizeGrowthEdges(
     "rhythm",
     "accountability",
     "alignment",
+    "positive_framing",
   ]);
   return v
     .filter(
@@ -451,7 +546,7 @@ async function loadFacilitationPrompt(): Promise<string> {
     "lib",
     "leadership",
     "facilitation",
-    "prompt.v1.md"
+    "prompt.v2.md"
   );
   return fs.readFile(file, "utf8");
 }

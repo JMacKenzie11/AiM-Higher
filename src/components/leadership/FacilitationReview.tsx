@@ -328,6 +328,8 @@ function labelFor(dim: FacilitationDimension): string {
       return "Accountability";
     case "alignment":
       return "Alignment";
+    case "positive_framing":
+      return "Appreciative practice";
   }
 }
 
