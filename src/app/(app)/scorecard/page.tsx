@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   loadCompanyScorecard,
   trajectoryFor,
@@ -34,16 +35,23 @@ export default async function ScorecardPage() {
   const scorecard = await loadCompanyScorecard(companyId);
   const overallTrend = overallTrajectory(scorecard);
 
+  const supabase = await createSupabaseServerClient();
+  const { data: companyRow } = await supabase
+    .from("companies")
+    .select("name")
+    .eq("id", companyId)
+    .maybeSingle<{ name: string }>();
+  const companyName = companyRow?.name ?? "your company";
+
   return (
     <div className={styles.stage}>
       <section className={styles.hero} aria-label="Scorecard summary">
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>AiMS Scorecard</p>
-          <h1 className={styles.h1}>How the disciplines are landing</h1>
+          <h1 className={styles.h1}>AiMS Implementation Status</h1>
           <p className={styles.subtitle}>
-            A read on how consistently the AiMS disciplines are being
-            practiced across this company. Scores move as behavior does —
-            weekly meetings, plan cascade, follow-through, and the rest.
+            An overview of how consistently the AiMS disciplines are being
+            practiced across {companyName}.
           </p>
 
           <div className={styles.overallRow}>

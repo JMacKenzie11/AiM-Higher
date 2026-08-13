@@ -168,7 +168,7 @@
 .cardBlurb {
   margin: 0;
   color: var(--aims-ink-muted, #52525b);
-  font: var(--text-body-sm);
+  font: var(--text-body);
 }
 
 .cardTrendRow {
@@ -196,14 +196,13 @@
 
 .breakdown li {
   color: var(--aims-ink-muted, #52525b);
-  font-size: 0.85rem;
-  line-height: 1.4;
+  font: var(--text-body);
 }
 
 .breakdownMuted {
   margin: var(--space-2) 0 0;
   color: var(--aims-ink-muted, #71717a);
-  font-size: 0.85rem;
+  font: var(--text-body);
   font-style: italic;
 }
 
