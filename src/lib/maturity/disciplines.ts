@@ -28,6 +28,12 @@ export type DisciplineConfig = {
   // that are OFF for a company are dropped from the average — a
   // company without Success Tracking isn't dinged for not having it.
   weight: number;
+  // Where the card should send the user to actually work on this
+  // discipline. Rendered as a "Go to X →" affordance on the card.
+  href: string;
+  // Copy for the drill-down link. Kept beside href so a designer can
+  // tune the wording without hunting through JSX.
+  hrefLabel: string;
   // If set, this discipline only scores when the company has the
   // named feature. When the feature is off, the scorecard shows a
   // muted "not enabled" tile in place of a number. The value must
@@ -41,24 +47,32 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
     label: "Foundation",
     blurb: "Purpose, vision, values, differentiators — the strategic anchor everything else lines up to.",
     weight: 1,
+    href: "/foundation",
+    hrefLabel: "Open the One-Page Plan",
   },
   {
     key: "chart",
     label: "Accountability chart",
     blurb: "Every function has a leader, an outcome, and something being measured.",
     weight: 1,
+    href: "/chart",
+    hrefLabel: "Open the chart",
   },
   {
     key: "planning",
     label: "Strategic plan",
     blurb: "Focus areas → annual goals → quarterly actions, all populated in the open quarter.",
     weight: 2,
+    href: "/plan",
+    hrefLabel: "Open the plan",
   },
   {
     key: "execution",
     label: "Execution",
     blurb: "Weekly commitments landing on time, linked to priorities, without piling up overdue.",
     weight: 2,
+    href: "/commitments",
+    hrefLabel: "Open commitments",
   },
   {
     key: "measures",
@@ -66,6 +80,8 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
     blurb: "Every measure has a target, gets logged weekly, and is trending on-track.",
     weight: 1,
     feature: "performance_tracking",
+    href: "/measures",
+    hrefLabel: "Open success measures",
   },
   {
     key: "meetings",
@@ -73,6 +89,8 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
     blurb: "Meetings happen weekly and are being run effectively.",
     weight: 1,
     feature: "meeting_facilitation_review",
+    href: "/leadership",
+    hrefLabel: "Open meetings",
   },
 ];
 

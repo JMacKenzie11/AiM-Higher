@@ -279,6 +279,77 @@
   color: var(--aims-ink-muted, #52525b) !important;
 }
 
+.cardCta {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  color: var(--aims-brand, #4f46e5);
+  font: var(--text-body);
+  font-weight: 600;
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.cardCta:hover {
+  text-decoration: underline;
+}
+
+/* Chart-specific per-function issue list. <details> collapses by
+   default — the aggregate breakdown already tells the story, this
+   section is the "who specifically" drill for people who want it. */
+.issues {
+  margin-top: var(--space-2);
+  border-top: 1px dashed var(--aims-line-muted, #e4e4e7);
+  padding-top: var(--space-2);
+}
+
+.issuesSummary {
+  cursor: pointer;
+  color: var(--aims-ink, #18181b);
+  font: var(--text-body);
+  font-weight: 600;
+  padding: 0;
+  list-style: revert;
+}
+
+.issuesSummary:hover {
+  color: var(--aims-brand, #4f46e5);
+}
+
+.issuesList {
+  list-style: none;
+  padding: var(--space-2) 0 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.issuesList li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  color: var(--aims-ink-muted, #52525b);
+  font: var(--text-body);
+}
+
+.issuesName {
+  font-weight: 600;
+  color: var(--aims-ink, #18181b);
+}
+
+.issuesMissing {
+  color: var(--aims-ink-muted, #71717a);
+  font-size: 0.9em;
+}
+
+.issuesMore {
+  margin: var(--space-2) 0 0;
+  color: var(--aims-ink-muted, #71717a);
+  font: var(--text-body);
+  font-style: italic;
+}
+
 .footer {
   margin: var(--space-6) 0 0;
   color: var(--aims-ink-muted, #71717a);

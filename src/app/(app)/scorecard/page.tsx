@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
@@ -8,6 +9,7 @@ import {
   overallTrajectory,
 } from "@/lib/maturity/service";
 import { DISCIPLINES } from "@/lib/maturity/disciplines";
+import type { ChartFunctionIssue } from "@/lib/maturity/scorers/chart";
 import { Sparkline } from "./Sparkline";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./scorecard.module.css";
@@ -117,6 +119,10 @@ export default async function ScorecardPage() {
                   breakdown={score?.breakdown ?? {}}
                   scoreIsNull={score?.score === null || score?.score === undefined}
                 />
+
+                <Link href={config.href} className={styles.cardCta}>
+                  {config.hrefLabel} →
+                </Link>
               </article>
             );
           })}
@@ -216,13 +222,65 @@ function Breakdown({
   }
 
   const lines = evidenceLines(discipline, breakdown);
-  if (lines.length === 0) return null;
   return (
-    <ul className={styles.breakdown}>
-      {lines.map((line, i) => (
-        <li key={i}>{line}</li>
-      ))}
-    </ul>
+    <>
+      {lines.length > 0 ? (
+        <ul className={styles.breakdown}>
+          {lines.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      ) : null}
+      {discipline === "chart" ? (
+        <ChartIssuesList
+          issues={
+            Array.isArray(breakdown.issues)
+              ? (breakdown.issues as ChartFunctionIssue[])
+              : []
+          }
+        />
+      ) : null}
+    </>
+  );
+}
+
+// Chart-specific footnote: which functions are missing what. Complete
+// functions are already filtered out server-side, so this list only
+// surfaces things a user could act on. Trims to the first 5 to keep
+// the card compact — "+N more" prompts the user to click through.
+function ChartIssuesList({ issues }: { issues: ChartFunctionIssue[] }) {
+  if (issues.length === 0) return null;
+  const visible = issues.slice(0, 5);
+  const remaining = issues.length - visible.length;
+  const missingLabel = (m: ChartFunctionIssue["missing"][number]) =>
+    m === "lead"
+      ? "Lead"
+      : m === "track"
+        ? "Track"
+        : m === "outcome"
+          ? "outcome"
+          : "measure";
+  return (
+    <details className={styles.issues}>
+      <summary className={styles.issuesSummary}>
+        {issues.length === 1
+          ? "1 function needs attention"
+          : `${issues.length} functions need attention`}
+      </summary>
+      <ul className={styles.issuesList}>
+        {visible.map((fn) => (
+          <li key={fn.id}>
+            <span className={styles.issuesName}>{fn.name}</span>
+            <span className={styles.issuesMissing}>
+              missing {fn.missing.map(missingLabel).join(", ")}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {remaining > 0 ? (
+        <p className={styles.issuesMore}>+{remaining} more</p>
+      ) : null}
+    </details>
   );
 }
 

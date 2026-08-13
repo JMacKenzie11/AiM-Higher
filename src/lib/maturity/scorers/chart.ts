@@ -10,8 +10,24 @@ import { clampScore, type DisciplineScore } from "../types";
 // Ratios are computed as (functions passing / total non-archived).
 // Attendance is deliberately NOT scored — the transcript speaker-to-
 // profile matching isn't reliable enough for a rating.
+//
+// The breakdown also carries a per-function `issues` list so the UI
+// can show WHICH functions are dragging the score, not just the
+// aggregate. Complete functions are omitted from the list so the UI
+// only surfaces things a user could act on.
 
-type FnRow = { id: string; lead_id: string | null; track_id: string | null };
+type FnRow = {
+  id: string;
+  name: string;
+  lead_id: string | null;
+  track_id: string | null;
+};
+
+export type ChartFunctionIssue = {
+  id: string;
+  name: string;
+  missing: readonly ("lead" | "track" | "outcome" | "measure")[];
+};
 
 export async function scoreChart(
   admin: SupabaseClient,
@@ -19,7 +35,7 @@ export async function scoreChart(
 ): Promise<DisciplineScore> {
   const { data: fnRows } = await admin
     .from("functions")
-    .select("id, lead_id, track_id")
+    .select("id, name, lead_id, track_id")
     .eq("company_id", companyId)
     .eq("archived", false);
 
@@ -36,6 +52,7 @@ export async function scoreChart(
         withTrack: 0,
         withOutcome: 0,
         withMeasure: 0,
+        issues: [],
       },
     };
   }
@@ -78,6 +95,17 @@ export async function scoreChart(
     (fnsWithOutcome.size / total) * 3 +
     (fnsWithMeasure.size / total) * 2;
 
+  const issues: ChartFunctionIssue[] = functions
+    .map((f) => {
+      const missing: ChartFunctionIssue["missing"][number][] = [];
+      if (!f.lead_id) missing.push("lead");
+      if (!f.track_id) missing.push("track");
+      if (!fnsWithOutcome.has(f.id)) missing.push("outcome");
+      if (!fnsWithMeasure.has(f.id)) missing.push("measure");
+      return { id: f.id, name: f.name, missing };
+    })
+    .filter((row) => row.missing.length > 0);
+
   return {
     key: "chart",
     score: clampScore(points),
@@ -87,6 +115,7 @@ export async function scoreChart(
       withTrack,
       withOutcome: fnsWithOutcome.size,
       withMeasure: fnsWithMeasure.size,
+      issues,
     },
   };
 }
