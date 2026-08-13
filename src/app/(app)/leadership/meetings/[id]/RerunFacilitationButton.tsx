@@ -20,7 +20,15 @@ export function RerunFacilitationButton({ meetingId }: { meetingId: string }) {
       const result = await rerunFacilitationReviewAction(meetingId);
       if (result.ok) {
         setStatus("ok");
-        setMessage("Facilitation review updated.");
+        if (result.insufficient) {
+          setMessage(
+            "Facilitation review updated — model flagged the transcript as insufficient, so no score was recorded."
+          );
+        } else if (result.overall == null) {
+          setMessage("Facilitation review updated — no overall score returned.");
+        } else {
+          setMessage(`Facilitation review updated (${result.overall}/10).`);
+        }
       } else {
         setStatus("err");
         setMessage(result.message);

@@ -164,22 +164,17 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           <FacilitationReview review={facilitationReview} />
         ) : null}
 
-        {facilitationOn ? (
+        {/* Show the re-run affordance ONLY when the feature is on and
+            the facilitation didn't land — either the review is absent
+            entirely or it exists but returned no overall score. Once a
+            real score is present, hide it: rerunning would just churn
+            the review. */}
+        {facilitationOn &&
+        (!facilitationReview || facilitationReview.overall == null) ? (
           <section
             aria-label="Facilitation review actions"
             style={{ marginTop: "var(--space-6)" }}
           >
-            <p
-              style={{
-                margin: "0 0 var(--space-2) 0",
-                fontSize: "13px",
-                color: "var(--aims-ink-muted, #52525b)",
-              }}
-            >
-              {facilitationReview
-                ? "Re-runs the facilitation-review LLM pass and overwrites this meeting's review with the latest prompt output. Doesn't touch the summary or commitments."
-                : "This meeting's facilitation review is missing. Re-runs the facilitation-review LLM pass. Doesn't touch the summary or commitments."}
-            </p>
             <RerunFacilitationButton meetingId={id} />
           </section>
         ) : null}

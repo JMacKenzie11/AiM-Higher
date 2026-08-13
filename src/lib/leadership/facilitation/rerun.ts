@@ -23,7 +23,10 @@ import { analyzeMeetingFacilitation } from "./analyze";
 
 export async function rerunFacilitationReviewAction(
   meetingId: string
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<
+  | { ok: true; overall: number | null; insufficient: boolean }
+  | { ok: false; message: string }
+> {
   const session = await requireProfile();
 
   const admin = createSupabaseAdminClient();
@@ -118,5 +121,9 @@ export async function rerunFacilitationReviewAction(
   // needs to appear on the list too).
   revalidatePath(`/leadership/meetings/${meetingId}`);
   revalidatePath("/leadership");
-  return { ok: true };
+  return {
+    ok: true,
+    overall: review.overall,
+    insufficient: review.insufficient_transcript,
+  };
 }
