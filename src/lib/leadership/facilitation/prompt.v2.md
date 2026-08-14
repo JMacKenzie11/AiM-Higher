@@ -118,6 +118,13 @@ Return a single tool-use call to `record_facilitation_review` with the structure
 
 A 9–10 meeting has multiple concrete appreciations, several generative questions, and at least one clear reframe. A 4–5 meeting is transactional but not toxic (updates + decisions, no celebration, few open-ended questions). A 1–2 meeting is complaint-heavy, blame-adjacent, or drains rather than energizes.
 
+**Score must match evidence.** Your positive_framing dimension score has to be justified by the moments you enumerate in the three arrays:
+- **Score ≥ 7 requires ≥ 3 moments** across appreciation_moments / generative_questions / reframes combined.
+- **Score 5–6 requires ≥ 1 moment.**
+- **Score < 5** is fine with empty arrays (there weren't enough to point to).
+
+If you find yourself wanting to give a middle-ish score but can't cite specific moments, the score is too high — drop it. Scoring 6/10 with zero enumerated moments is the failure mode we're trying to avoid.
+
 ---
 
 ## SCORING NOTES

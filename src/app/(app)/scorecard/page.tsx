@@ -396,16 +396,29 @@ function evidenceLines(
         `${n("closureRate")}% of the 4 Ws closed on average`,
         `What: ${n("hasWhat")} · Want: ${n("hasWant")} · Way: ${n("hasWay")} · Who/When: ${n("hasWhoWhen")}`,
       ];
-    case "positive_framing":
+    case "positive_framing": {
       if (n("reviewsWithFraming") === 0) {
         return [
           `No positive-framing scores in the last ${n("windowWeeks")} weeks — the review pipeline needs to re-run against the v2 prompt`,
         ];
       }
-      return [
-        `Avg appreciative-practice score ${n("meanFraming")}/10 across ${n("reviewsWithFraming")} reviewed meetings`,
+      const lines = [
+        `Model read ${n("modelScore")}/10 across ${n("reviewsWithFraming")} reviewed meetings`,
         `${n("appreciationCount")} appreciations · ${n("generativeCount")} generative questions · ${n("reframeCount")} reframes`,
       ];
+      const totalMoments =
+        n("appreciationCount") + n("generativeCount") + n("reframeCount");
+      if (totalMoments === 0) {
+        lines.push(
+          "Score capped at 3 — the model gave a read but flagged no concrete moments"
+        );
+      } else if (totalMoments < 3) {
+        lines.push(
+          "Score capped at 6 — limited moments to point to; strengthens as the team names more appreciations, generative questions, and reframes"
+        );
+      }
+      return lines;
+    }
     default:
       return [];
   }

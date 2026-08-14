@@ -74,6 +74,7 @@ export async function scorePositiveFraming(
         generativeCount,
         reframeCount,
         meanFraming: 0,
+        modelScore: 0,
       },
     };
   }
@@ -81,9 +82,22 @@ export async function scorePositiveFraming(
   const meanFraming =
     framingScores.reduce((a, b) => a + b, 0) / framingScores.length;
 
+  // Cap the model's dimension score by the concrete evidence it
+  // actually enumerated. Prevents the "6/10 but zero moments" tile
+  // that reads as internally contradictory. Rule of thumb:
+  //   0 moments across all arrays              → hard cap at 3
+  //   1–2 moments                              → hard cap at 6
+  //   3+ moments                               → trust the model
+  // Note this is applied to the MEAN across all reviewed meetings, so
+  // one strong week can lift the cap for a quieter week.
+  const totalMoments = appreciationCount + generativeCount + reframeCount;
+  const evidenceCap =
+    totalMoments >= 3 ? 10 : totalMoments >= 1 ? 6 : 3;
+  const effectiveScore = Math.min(meanFraming, evidenceCap);
+
   return {
     key: "positive_framing",
-    score: clampScore(meanFraming),
+    score: clampScore(effectiveScore),
     breakdown: {
       windowWeeks: WINDOW_WEEKS,
       meetingsReviewed: analyses.length,
@@ -92,6 +106,8 @@ export async function scorePositiveFraming(
       generativeCount,
       reframeCount,
       meanFraming: Math.round(meanFraming * 10) / 10,
+      modelScore: Math.round(meanFraming * 10) / 10,
+      evidenceCap,
     },
   };
 }
