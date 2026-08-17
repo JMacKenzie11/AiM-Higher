@@ -127,10 +127,15 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
       .join("");
     const rawCommitments = parseExtractionJson(rawText);
 
-    // Server-side validation. Any row that fails is dropped, not
-    // "cleaned up" — the AI's own output is untrusted, and silently
-    // creating a commitment we can't ground is worse than dropping.
-    const validated = validateCommitments(rawCommitments, context);
+    // Server-side validation. Any row that fails ownership or content
+    // checks is dropped; date violations are ADJUSTED (not dropped) to
+    // preserve extraction work per the date-floor rule below.
+    const meetingDateIso = meetingRow.created_at.slice(0, 10);
+    const validated = validateCommitments(
+      rawCommitments,
+      context,
+      meetingDateIso
+    );
 
     // ---- Optional: facilitation review ----
     // Second LLM pass gated on the meeting_facilitation_review feature.
@@ -391,7 +396,8 @@ Rules:
 Due-date resolution rules:
 - Preferred vs fallback: when a speaker states both a preferred date and a fallback ("ideally by X, worst case by Y", "target Wed, must be done by Fri"), use the PREFERRED date as due_date. AiMS holds people to what they committed to, not the safety net.
 - Day-of-week vs numerical date: when the stated day-of-week disagrees with the stated numerical date (e.g., "Wednesday August 6" when August 6 is a Thursday), prefer the numerical date, set clarity_timeline to FALSE (the participants contradicted themselves so a human should eyeball it), and note the mismatch in clarity_note (e.g., "Speaker said 'Wednesday August 6' but Aug 6 is a Thursday — confirm which they meant.").
-- Vague anchors: "next week" alone is not a specific deadline. "By end of next week" without a stated day is still vague — set due_date to null and clarity_timeline to FALSE.`;
+- Vague anchors: "next week" alone is not a specific deadline. "By end of next week" without a stated day is still vague — set due_date to null and clarity_timeline to FALSE.
+- No stated deadline at all: leave due_date null and clarity_timeline FALSE. The server will default the row to meeting_date + 7 days. Do NOT guess a nearer date to be helpful — the floor exists precisely because "I'll aim for Wednesday" without an explicit commitment shouldn't turn into a Wednesday deadline. Any date you emit without a genuinely explicit statement will be adjusted up to meeting + 7 anyway; save yourself the guess and null it.`;
 
 function buildExtractionUserMessage(
   ctx: CompanyContext,
@@ -434,8 +440,10 @@ export function parseExtractionJson(raw: string): ExtractedCommitment[] {
 export function validateExtracted(
   raw: ExtractedCommitment[],
   allowedOwnerIds: Set<string>,
-  allowedPriorityIds: Set<string>
+  allowedPriorityIds: Set<string>,
+  meetingDateIso: string
 ): ExtractedCommitment[] {
+  const floorIso = addIsoDays(meetingDateIso, 7);
   const out: ExtractedCommitment[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
@@ -451,14 +459,6 @@ export function validateExtracted(
       allowedPriorityIds.has(item.priority_id)
         ? item.priority_id
         : null;
-    const due =
-      typeof item.due_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.due_date)
-        ? item.due_date
-        : null;
-    // Clarity: only accept explicit booleans. Anything else stays
-    // null (== unassessed) rather than defaulting to false, which
-    // would misrepresent "the model didn't emit this" as an
-    // explicit failure.
     const claTimeline =
       typeof item.clarity_timeline === "boolean" ? item.clarity_timeline : null;
     const claSuccess =
@@ -467,6 +467,29 @@ export function validateExtracted(
       typeof item.clarity_note === "string"
         ? item.clarity_note.trim().slice(0, 200) || null
         : null;
+
+    // Date-floor rule. When a transcript states no due date, the
+    // extraction pass leaves due_date null → we default to
+    // meeting_date + 7. When it emits a date but never captured an
+    // explicit statement (clarity_timeline !== true → the deadline
+    // wasn't explicitly agreed), we ADJUST any earlier-than-floor
+    // guess up to meeting + 7 rather than dropping the row —
+    // extraction work should be preserved, just corrected. An
+    // explicitly stated date (clarity_timeline === true) is trusted
+    // as-is even if it's before the floor.
+    const rawDate =
+      typeof item.due_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.due_date)
+        ? item.due_date
+        : null;
+    let due: string;
+    if (!rawDate) {
+      due = floorIso;
+    } else if (claTimeline === true) {
+      due = rawDate;
+    } else {
+      due = rawDate < floorIso ? floorIso : rawDate;
+    }
+
     out.push({
       owner_profile_id: owner,
       description: desc,
@@ -483,13 +506,21 @@ export function validateExtracted(
 
 export function validateCommitments(
   raw: ExtractedCommitment[],
-  ctx: CompanyContext
+  ctx: CompanyContext,
+  meetingDateIso: string
 ): ExtractedCommitment[] {
   return validateExtracted(
     raw,
     new Set(ctx.roster.map((p) => p.id)),
-    new Set(ctx.priorities.map((p) => p.id))
+    new Set(ctx.priorities.map((p) => p.id)),
+    meetingDateIso
   );
+}
+
+function addIsoDays(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map((n) => Number.parseInt(n, 10));
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
 }
 
 // ============================================================
@@ -510,26 +541,25 @@ async function createCommitmentsFromExtraction(
   const horizonIso = horizon.toISOString().slice(0, 10);
 
   const rows = commitments.map((c) => {
-    // Always land the row in *this* week's review — /commitments only
-    // queries week_ending <= thisFri, so binding week_ending to the
-    // LLM-extracted due date used to bury any commitment the model
-    // dated beyond this Friday. The actual deadline still lives on
-    // due_date and shows on the row; unresolved rows roll into
-    // "Needs attention" next week the same as hand-typed ones.
-    // The horizon check still gates outlandish/past dates: anything
-    // outside [today, today+30d] falls back to thisFri so due_date
-    // stays trustworthy.
-    const dueWithinHorizon =
-      c.due_date && c.due_date <= horizonIso && c.due_date >= todayIso
+    // Due date arrives already floored/adjusted by validateExtracted
+    // per the meeting+7 rule (see the extractor). If a date somehow
+    // still lands outside a sane band, fall back to thisFri so
+    // downstream queries stay trustworthy.
+    const due =
+      c.due_date &&
+      c.due_date <= horizonIso &&
+      c.due_date >= todayIso.slice(0, 10)
         ? c.due_date
-        : thisFri;
+        : c.due_date && c.due_date > horizonIso
+          ? c.due_date // future beyond horizon is fine — meetings can plan ahead
+          : thisFri;
     return {
       company_id: meeting.company_id!,
       priority_id: c.priority_id,
       owner_id: c.owner_profile_id,
       description: c.description,
       week_ending: thisFri,
-      due_date: dueWithinHorizon,
+      due_date: due,
       status: "open" as const,
       source_meeting_id: meeting.id,
       clarity_timeline: c.clarity_timeline,

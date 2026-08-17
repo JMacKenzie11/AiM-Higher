@@ -473,6 +473,14 @@ export default async function DashboardPage() {
                   <th>Name</th>
                   <th>Position</th>
                   <th className={styles.numHead}>Open</th>
+                  <th className={styles.numHead}>Kept</th>
+                  <th
+                    className={styles.numHead}
+                    title="Completed after the due date — same 'did the work' signal, but not counted in Follow-Through Rate"
+                  >
+                    Late
+                  </th>
+                  <th className={styles.numHead}>Missed</th>
                   <th>Follow-Through Rate</th>
                   {showCoachColumn ? <th aria-label="Coach" /> : null}
                 </tr>
@@ -494,6 +502,15 @@ export default async function DashboardPage() {
                     <td className={styles.mutedCell}>{person.position ?? "—"}</td>
                     <td className={`${styles.numCell} aims-tabular`}>
                       {person.openCount}
+                    </td>
+                    <td className={`${styles.numCell} aims-tabular`}>
+                      {person.keptOnTimeCount}
+                    </td>
+                    <td className={`${styles.numCell} aims-tabular`}>
+                      {person.keptLateCount}
+                    </td>
+                    <td className={`${styles.numCell} aims-tabular`}>
+                      {person.missedCount}
                     </td>
                     <td className={styles.keepRateCell}>
                       <ProgressBar

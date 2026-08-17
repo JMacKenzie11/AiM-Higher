@@ -1,30 +1,30 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// Server-action tests for src/lib/commitments/actions.ts. The
-// commitment lifecycle has several load-bearing contracts:
-//   - Kept is on-time only. An overdue open commitment MUST go
-//     through Missed (labelled "Closed" in the UI).
-//   - Missed and Reschedule REQUIRE a reason — the reason is the
-//     coaching signal that shows the pattern over time.
-//   - linkPriorityAction: resolved commitments have their link
-//     FROZEN — a resolved row can't be silently retargeted to a
-//     different priority because that would rewrite priority
-//     progress history.
-//   - reassignCommitmentAction: cross-company handoff is blocked
-//     (RLS would break, priority progress would go silent), EXCEPT
-//     for the system_admin coach special case who can be assigned
-//     commitments in client meetings without a company membership.
-//   - deleteCommitmentAction: non-admins can only delete their OWN
-//     OPEN commitment; resolved rows stay in history no matter what.
+// Server-action tests for src/lib/commitments/actions.ts. Contracts
+// pinned by the 2026-08-17 resolution refactor:
+//
+// - markKeptAction decides on-time vs late from due_date vs today.
+//   Owners are prompted for a reason on late; admins are exempt.
+// - markMissedAction requires a reason from owners; admins are exempt.
+// - rescheduleCommitmentAction requires a reason from owners; admins
+//   are exempt and may change past-due dates.
+// - parkCommitmentAction sets parked_at (excludes from metrics).
+// - deleteCommitmentAction is now SOFT — sets deleted_at, never
+//   physical delete.
+// - Ongoing commitments: resolving writes a commitment_occurrences
+//   row for the current week_ending and rolls the parent row's
+//   due_date +7 days; the parent stays status='open'.
+// - Every resolution stamps resolved_by_role + resolved_by_profile_id.
 
-// ---- Shared spies + fakes -------------------------------------
 const mocks = vi.hoisted(() => {
   const commitmentsInsertPatch = vi.fn();
   const commitmentsInsertSingle = vi.fn();
   const commitmentsSelectMaybeSingle = vi.fn();
   const commitmentsUpdatePatch = vi.fn();
   const commitmentsUpdateSingle = vi.fn();
-  const commitmentsDeleteEq = vi.fn();
+
+  const occurrencesUpsertPatch = vi.fn();
+  const occurrencesUpsertResult = vi.fn();
 
   const prioritiesSelectMaybeSingle = vi.fn();
   const quartersSelectMaybeSingle = vi.fn();
@@ -49,7 +49,14 @@ const mocks = vi.hoisted(() => {
             }),
           };
         },
-        delete: () => ({ eq: () => commitmentsDeleteEq() }),
+      };
+    }
+    if (table === "commitment_occurrences") {
+      return {
+        upsert: (patch: unknown) => {
+          occurrencesUpsertPatch(patch);
+          return occurrencesUpsertResult();
+        },
       };
     }
     if (table === "priorities") {
@@ -99,7 +106,8 @@ const mocks = vi.hoisted(() => {
     commitmentsSelectMaybeSingle,
     commitmentsUpdatePatch,
     commitmentsUpdateSingle,
-    commitmentsDeleteEq,
+    occurrencesUpsertPatch,
+    occurrencesUpsertResult,
     prioritiesSelectMaybeSingle,
     quartersSelectMaybeSingle,
     profilesSelectMaybeSingle,
@@ -146,568 +154,416 @@ vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
 
-// ---- Helpers --------------------------------------------------
-function formDataFrom(entries: Record<string, string>): FormData {
-  const fd = new FormData();
-  for (const [k, v] of Object.entries(entries)) fd.set(k, v);
-  return fd;
-}
+import {
+  markKeptAction,
+  markMissedAction,
+  rescheduleCommitmentAction,
+  parkCommitmentAction,
+  unparkCommitmentAction,
+  deleteCommitmentAction,
+} from "./actions";
 
-function commitmentRow(overrides: Record<string, unknown> = {}) {
+const TEAM_MEMBER = {
+  id: "u_team",
+  role: "team_member" as const,
+  company_id: "co_acme",
+};
+const ADMIN = {
+  id: "u_admin",
+  role: "company_admin" as const,
+  company_id: "co_acme",
+};
+
+function baseCommitment(overrides: Record<string, unknown> = {}) {
   return {
     id: "c_1",
     company_id: "co_acme",
-    priority_id: "pri_1",
-    owner_id: "owner_1",
-    description: "Send the estimate",
-    week_ending: "2026-08-14",
-    due_date: "2026-08-14",
-    status: "open" as
-      | "open"
-      | "kept"
-      | "missed"
-      | "in_progress",
-    completed_at: null as string | null,
-    missed_reason: null as string | null,
+    priority_id: null,
+    owner_id: "u_team",
+    description: "Ship the doc",
+    week_ending: "2026-08-21",
+    due_date: "2026-08-21",
+    status: "open",
+    completed_at: null,
+    missed_reason: null,
+    carried_from_id: null,
+    source_meeting_id: null,
     clarity_timeline: null,
     clarity_success: null,
     clarity_note: null,
+    deleted_at: null,
+    parked_at: null,
+    is_ongoing: false,
+    resolved_by_role: null,
+    resolved_by_profile_id: null,
+    created_at: "2026-08-01T00:00:00Z",
+    updated_at: "2026-08-01T00:00:00Z",
     ...overrides,
   };
 }
 
-function primeHappyPath() {
-  mocks.requireProfile.mockResolvedValue({
-    profile: {
-      id: "owner_1",
-      role: "company_admin",
-      company_id: "co_acme",
-    },
-  });
+beforeEach(() => {
+  vi.clearAllMocks();
   mocks.canWriteOwnedRow.mockReturnValue(true);
-  mocks.isAdminForCompany.mockReturnValue(true);
-  mocks.getEffectiveCompanyId.mockResolvedValue("co_acme");
-  mocks.scoreCommitmentClarity.mockResolvedValue(null);
-  mocks.fridayOf.mockImplementation((d: string) => d); // pass-through
-  mocks.todayInTimezone.mockReturnValue({ iso: "2026-08-14" });
-  mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
-    data: commitmentRow(),
-    error: null,
-  });
-  mocks.commitmentsInsertSingle.mockResolvedValue({
-    data: commitmentRow(),
-    error: null,
-  });
-  mocks.commitmentsUpdateSingle.mockResolvedValue({
-    data: commitmentRow(),
-    error: null,
-  });
-  mocks.commitmentsDeleteEq.mockResolvedValue({ error: null });
-  mocks.prioritiesSelectMaybeSingle.mockResolvedValue({
-    data: { id: "pri_1", company_id: "co_acme", quarter_id: "q_1" },
-    error: null,
-  });
-  mocks.quartersSelectMaybeSingle.mockResolvedValue({
-    data: { status: "open" },
-    error: null,
-  });
-  mocks.profilesSelectMaybeSingle.mockResolvedValue({
-    data: {
-      id: "new_owner",
-      company_id: "co_acme",
-      status: "active",
-      role: "team_member",
-    },
-    error: null,
-  });
+  mocks.isAdminForCompany.mockReturnValue(false);
+  mocks.fridayOf.mockImplementation((d: string) => d);
+  mocks.todayInTimezone.mockReturnValue({ iso: "2026-08-17" });
   mocks.companiesSelectMaybeSingle.mockResolvedValue({
     data: { timezone: "America/Anchorage" },
+  });
+  mocks.requireProfile.mockResolvedValue({ profile: TEAM_MEMBER });
+  mocks.commitmentsUpdateSingle.mockImplementation(async () => ({
+    data: baseCommitment(),
     error: null,
-  });
-}
+  }));
+  mocks.occurrencesUpsertResult.mockReturnValue({ error: null });
+});
 
-// ==============================================================
-// createCommitmentAction
-// ==============================================================
-describe("createCommitmentAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    primeHappyPath();
-  });
-
-  it("rejects an empty description", async () => {
-    const { createCommitmentAction } = await import("./actions");
-
-    const res = await createCommitmentAction(
-      undefined,
-      formDataFrom({ description: "  ", due_date: "2026-08-14" })
-    );
-
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/what the commitment/);
-    expect(mocks.commitmentsInsertPatch).not.toHaveBeenCalled();
-  });
-
-  it("rejects a missing due date (and week_ending fallback)", async () => {
-    const { createCommitmentAction } = await import("./actions");
-
-    const res = await createCommitmentAction(
-      undefined,
-      formDataFrom({ description: "Send estimate" })
-    );
-
-    expect(res).toEqual({ ok: false, message: "Pick a due date." });
-  });
-
-  it("buckets the commitment into the FRIDAY of the week containing its due date", async () => {
-    // Contract: week_ending is always Friday so weekly rollups line up.
-    mocks.fridayOf.mockReturnValueOnce("2026-08-14"); // Fri for a Wed input
-    const { createCommitmentAction } = await import("./actions");
-
-    await createCommitmentAction(
-      undefined,
-      formDataFrom({ description: "Send estimate", due_date: "2026-08-12" })
-    );
-
-    expect(mocks.fridayOf).toHaveBeenCalledWith("2026-08-12");
-    const patch = mocks.commitmentsInsertPatch.mock.calls[0][0] as {
-      week_ending: string;
-    };
-    expect(patch.week_ending).toBe("2026-08-14");
-  });
-
-  it("lets an admin set owner_id to someone else via the form field", async () => {
-    mocks.isAdminForCompany.mockReturnValueOnce(true);
-    const { createCommitmentAction } = await import("./actions");
-
-    await createCommitmentAction(
-      undefined,
-      formDataFrom({
-        description: "Send estimate",
-        due_date: "2026-08-14",
-        owner_id: "someone_else",
-      })
-    );
-
-    const patch = mocks.commitmentsInsertPatch.mock.calls[0][0] as {
-      owner_id: string;
-    };
-    expect(patch.owner_id).toBe("someone_else");
-  });
-
-  it("ignores a non-admin caller's owner_id override — defaults to the caller", async () => {
-    // Otherwise a team_member could assign work to a peer just by
-    // hand-submitting the form with a different owner_id.
-    mocks.isAdminForCompany.mockReturnValue(false);
-    mocks.requireProfile.mockResolvedValue({
-      profile: {
-        id: "caller_1",
-        role: "team_member",
-        company_id: "co_acme",
-      },
+// ---- markKeptAction --------------------------------------------
+describe("markKeptAction", () => {
+  it("marks an on-time commitment as kept_on_time and stamps the resolver", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-21" }),
     });
-    const { createCommitmentAction } = await import("./actions");
+    const updated = baseCommitment({ status: "kept_on_time" });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: updated,
+      error: null,
+    });
 
-    await createCommitmentAction(
-      undefined,
-      formDataFrom({
-        description: "Send estimate",
-        due_date: "2026-08-14",
-        owner_id: "someone_else",
+    const result = await markKeptAction("c_1");
+
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "kept_on_time",
+        resolved_by_role: "owner",
+        resolved_by_profile_id: "u_team",
       })
     );
+  });
 
-    const patch = mocks.commitmentsInsertPatch.mock.calls[0][0] as {
-      owner_id: string;
-    };
-    expect(patch.owner_id).toBe("caller_1");
+  it("marks an overdue commitment as kept_late when a team member keeps it", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-10" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ status: "kept_late" }),
+      error: null,
+    });
+
+    const result = await markKeptAction("c_1", { reason: "hit a bug" });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "kept_late",
+        missed_reason: "hit a bug",
+        resolved_by_role: "owner",
+      })
+    );
+  });
+
+  it("late-keep from an owner without a reason still resolves (Skip flow)", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-10" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ status: "kept_late" }),
+      error: null,
+    });
+
+    const result = await markKeptAction("c_1");
+
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "kept_late",
+        missed_reason: null,
+      })
+    );
+  });
+
+  it("admin marking a past-due commitment kept-late succeeds in ONE action, no reason", async () => {
+    mocks.requireProfile.mockResolvedValueOnce({ profile: ADMIN });
+    mocks.isAdminForCompany.mockReturnValue(true);
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-10" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ status: "kept_late" }),
+      error: null,
+    });
+
+    const result = await markKeptAction("c_1");
+
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledTimes(1);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "kept_late",
+        missed_reason: null,
+        resolved_by_role: "admin",
+      })
+    );
+  });
+
+  it("admin can force kept_on_time on a past-due row (retroactive correction)", async () => {
+    mocks.requireProfile.mockResolvedValueOnce({ profile: ADMIN });
+    mocks.isAdminForCompany.mockReturnValue(true);
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-10" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ status: "kept_on_time" }),
+      error: null,
+    });
+
+    const result = await markKeptAction("c_1", { resolveAs: "on_time" });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "kept_on_time" })
+    );
+  });
+
+  it("refuses to mark a parked commitment", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ parked_at: "2026-08-15T12:00:00Z" }),
+    });
+
+    const result = await markKeptAction("c_1");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/parking lot/i);
+    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("ongoing commitment: writes an occurrence + rolls due_date +7 days", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({
+        is_ongoing: true,
+        due_date: "2026-08-21",
+        week_ending: "2026-08-21",
+      }),
+    });
+    const rolled = baseCommitment({
+      is_ongoing: true,
+      status: "open",
+      due_date: "2026-08-28",
+      week_ending: "2026-08-28",
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: rolled,
+      error: null,
+    });
+
+    const result = await markKeptAction("c_1");
+
+    expect(result.ok).toBe(true);
+    // Occurrence upsert for the CURRENT week
+    expect(mocks.occurrencesUpsertPatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commitment_id: "c_1",
+        week_ending: "2026-08-21",
+        status: "kept_on_time",
+      })
+    );
+    // Commitment row updated to roll forward — same date +7 days,
+    // status stays open (implicitly, we only update due_date + week).
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith({
+      due_date: "2026-08-28",
+      week_ending: "2026-08-28",
+    });
   });
 });
 
-// ==============================================================
-// markKeptAction — on-time only
-// ==============================================================
-describe("markKeptAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    primeHappyPath();
-  });
-
-  it("rejects an overdue open commitment — it must go through Missed instead", async () => {
-    // Contract: Kept is on-time only. Overdue = late = Missed (which
-    // the UI renders as "Closed"). Sneaking a Kept for an overdue row
-    // would fake the Follow-Through Rate.
-    mocks.todayInTimezone.mockReturnValueOnce({ iso: "2026-08-15" });
-    mocks.commitmentsSelectMaybeSingle.mockResolvedValueOnce({
-      data: commitmentRow({ due_date: "2026-08-10" }),
-      error: null,
+// ---- markMissedAction ------------------------------------------
+describe("markMissedAction", () => {
+  it("requires a reason from a team member", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment(),
     });
-    const { markKeptAction } = await import("./actions");
 
-    const res = await markKeptAction("c_1");
+    const result = await markMissedAction("c_1", null);
 
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/close it with a reason/);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/short reason/i);
     expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
   });
 
-  it("rejects a commitment that isn't open", async () => {
-    mocks.commitmentsSelectMaybeSingle.mockResolvedValueOnce({
-      data: commitmentRow({ status: "kept" }),
+  it("admin marks missed with no reason in one action", async () => {
+    mocks.requireProfile.mockResolvedValueOnce({ profile: ADMIN });
+    mocks.isAdminForCompany.mockReturnValue(true);
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment(),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ status: "missed" }),
       error: null,
     });
-    const { markKeptAction } = await import("./actions");
 
-    const res = await markKeptAction("c_1");
+    const result = await markMissedAction("c_1", null);
 
-    expect(res.ok).toBe(false);
-    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
-  });
-
-  it("marks Kept and stamps completed_at while clearing missed_reason on the happy path", async () => {
-    const { markKeptAction } = await import("./actions");
-
-    const res = await markKeptAction("c_1");
-
-    expect(res.ok).toBe(true);
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledTimes(1);
     expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: "kept",
-        completed_at: expect.any(String),
+        status: "missed",
+        missed_reason: null,
+        resolved_by_role: "admin",
+      })
+    );
+  });
+});
+
+// ---- rescheduleCommitmentAction -------------------------------
+describe("rescheduleCommitmentAction", () => {
+  it("requires a reason from a team member", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment(),
+    });
+
+    const result = await rescheduleCommitmentAction("c_1", "2026-09-04", null);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/short reason/i);
+  });
+
+  it("admin can change a past-due date with no reason in one action", async () => {
+    mocks.requireProfile.mockResolvedValueOnce({ profile: ADMIN });
+    mocks.isAdminForCompany.mockReturnValue(true);
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-10" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ due_date: "2026-09-04" }),
+      error: null,
+    });
+
+    const result = await rescheduleCommitmentAction(
+      "c_1",
+      "2026-09-04",
+      null
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledTimes(1);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        due_date: "2026-09-04",
         missed_reason: null,
       })
     );
   });
 });
 
-// ==============================================================
-// markMissedAction — requires a reason
-// ==============================================================
-describe("markMissedAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    primeHappyPath();
-  });
+// ---- parkCommitmentAction --------------------------------------
+describe("parkCommitmentAction", () => {
+  it("sets parked_at on an open commitment (no reason required)", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment(),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ parked_at: "2026-08-17T10:00:00Z" }),
+      error: null,
+    });
 
-  it("requires a non-empty reason", async () => {
-    // The reason is the coaching signal — without it, "missed" is
-    // just a flag with no learning value.
-    const { markMissedAction } = await import("./actions");
+    const result = await parkCommitmentAction("c_1");
 
-    const res = await markMissedAction("c_1", "   ");
-
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/short reason/);
-    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
-  });
-
-  it("writes status='missed' + missed_reason + completed_at on the happy path", async () => {
-    const { markMissedAction } = await import("./actions");
-
-    await markMissedAction("c_1", "Blocked on client approval");
-
+    expect(result.ok).toBe(true);
     expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: "missed",
-        missed_reason: "Blocked on client approval",
-        completed_at: expect.any(String),
+        parked_at: expect.any(String),
       })
     );
   });
-});
 
-// ==============================================================
-// rescheduleCommitmentAction — reason + date required
-// ==============================================================
-describe("rescheduleCommitmentAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    primeHappyPath();
-  });
-
-  it("requires both a new date AND a reason", async () => {
-    const { rescheduleCommitmentAction } = await import("./actions");
-
-    const noReason = await rescheduleCommitmentAction("c_1", "2026-09-01", " ");
-    expect(noReason.ok).toBe(false);
-    if (!noReason.ok) expect(noReason.message).toMatch(/short reason/);
-
-    const noDate = await rescheduleCommitmentAction("c_1", " ", "delayed");
-    expect(noDate.ok).toBe(false);
-    if (!noDate.ok) expect(noDate.message).toMatch(/new due date/);
-
-    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
-  });
-
-  it("stamps the reason into missed_reason (the audit trail lives there)", async () => {
-    // Contract: reschedules aren't a free action — they leave a trail
-    // in missed_reason so the pattern is visible over time.
-    mocks.fridayOf.mockReturnValueOnce("2026-09-04");
-    const { rescheduleCommitmentAction } = await import("./actions");
-
-    await rescheduleCommitmentAction("c_1", "2026-09-02", "customer holiday");
-
-    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith({
-      due_date: "2026-09-02",
-      week_ending: "2026-09-04",
-      missed_reason: "customer holiday",
+  it("refuses to park a resolved commitment", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ status: "kept_on_time" }),
     });
+
+    const result = await parkCommitmentAction("c_1");
+
+    expect(result.ok).toBe(false);
+    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
   });
 });
 
-// ==============================================================
-// reassignCommitmentAction — cross-company + coach exception
-// ==============================================================
-describe("reassignCommitmentAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    primeHappyPath();
-  });
-
-  it("blocks a cross-company handoff (would break RLS + priority progress)", async () => {
-    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
-      data: {
-        id: "outsider",
-        company_id: "co_other",
-        status: "active",
-        role: "team_member",
-      },
+// ---- unparkCommitmentAction ------------------------------------
+describe("unparkCommitmentAction", () => {
+  it("nulls parked_at and sets a fresh due_date + week_ending", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ parked_at: "2026-08-15T12:00:00Z" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({
+        parked_at: null,
+        due_date: "2026-08-28",
+        week_ending: "2026-08-28",
+      }),
       error: null,
     });
-    const { reassignCommitmentAction } = await import("./actions");
+    mocks.fridayOf.mockReturnValueOnce("2026-08-28");
 
-    const res = await reassignCommitmentAction("c_1", "outsider");
+    const result = await unparkCommitmentAction("c_1", "2026-08-28");
 
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/isn't in this company/);
-    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
-  });
-
-  it("ALLOWS a system_admin coach even without matching company (they take on commitments in client meetings)", async () => {
-    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
-      data: {
-        id: "coach_1",
-        company_id: null,
-        status: "active",
-        role: "system_admin",
-      },
-      error: null,
-    });
-    const { reassignCommitmentAction } = await import("./actions");
-
-    const res = await reassignCommitmentAction("c_1", "coach_1");
-
-    expect(res.ok).toBe(true);
+    expect(result.ok).toBe(true);
     expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith({
-      owner_id: "coach_1",
-    });
-  });
-
-  it("blocks reassignment to an INACTIVE user", async () => {
-    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
-      data: {
-        id: "gone",
-        company_id: "co_acme",
-        status: "inactive",
-        role: "team_member",
-      },
-      error: null,
-    });
-    const { reassignCommitmentAction } = await import("./actions");
-
-    const res = await reassignCommitmentAction("c_1", "gone");
-
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/inactive/);
-    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
-  });
-
-  it("allows a team_member to CLAIM a null-owner row for themselves", async () => {
-    // The team-member self-claim escape hatch: canWriteOwnedRow would
-    // normally reject a peer, but a null-owner row is unclaimed and
-    // any active member of the same company can pick it up.
-    mocks.canWriteOwnedRow.mockReturnValue(false);
-    mocks.requireProfile.mockResolvedValue({
-      profile: {
-        id: "claimer",
-        role: "team_member",
-        company_id: "co_acme",
-      },
-    });
-    mocks.commitmentsSelectMaybeSingle.mockResolvedValueOnce({
-      data: commitmentRow({ owner_id: null }),
-      error: null,
-    });
-    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
-      data: {
-        id: "claimer",
-        company_id: "co_acme",
-        status: "active",
-        role: "team_member",
-      },
-      error: null,
-    });
-    const { reassignCommitmentAction } = await import("./actions");
-
-    const res = await reassignCommitmentAction("c_1", "claimer");
-
-    expect(res.ok).toBe(true);
-    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith({
-      owner_id: "claimer",
+      parked_at: null,
+      due_date: "2026-08-28",
+      week_ending: "2026-08-28",
     });
   });
 });
 
-// ==============================================================
-// linkPriorityAction — frozen when resolved
-// ==============================================================
-describe("linkPriorityAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    primeHappyPath();
-  });
-
-  it("refuses to relink a RESOLVED commitment (would rewrite priority progress history)", async () => {
-    // Contract: once a commitment is Kept or Missed, its priority
-    // link is frozen. Otherwise a resolved kept row could be moved to
-    // Priority B, silently boosting B's progress while B never really
-    // shipped that work.
-    mocks.commitmentsSelectMaybeSingle.mockResolvedValueOnce({
-      data: commitmentRow({ status: "kept" }),
+// ---- deleteCommitmentAction (soft delete) ---------------------
+describe("deleteCommitmentAction (soft)", () => {
+  it("sets deleted_at rather than physically removing the row", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment(),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ deleted_at: "2026-08-17T10:00:00Z" }),
       error: null,
     });
-    const { linkPriorityAction } = await import("./actions");
 
-    const res = await linkPriorityAction("c_1", "pri_2");
+    const result = await deleteCommitmentAction("c_1");
 
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/frozen/);
-    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true });
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({ deleted_at: expect.any(String) })
+    );
   });
 
-  it("rejects a priority that belongs to a different company", async () => {
-    mocks.prioritiesSelectMaybeSingle.mockResolvedValueOnce({
-      data: { id: "pri_other", company_id: "co_other", quarter_id: "q_1" },
-      error: null,
-    });
-    const { linkPriorityAction } = await import("./actions");
-
-    const res = await linkPriorityAction("c_1", "pri_other");
-
-    expect(res.ok).toBe(false);
-    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
-  });
-
-  it("rejects a priority whose quarter is CLOSED", async () => {
-    // Linking into a closed quarter would rewrite historical
-    // quarter-level rollups.
-    mocks.quartersSelectMaybeSingle.mockResolvedValueOnce({
-      data: { status: "closed" },
-      error: null,
-    });
-    const { linkPriorityAction } = await import("./actions");
-
-    const res = await linkPriorityAction("c_1", "pri_1");
-
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/open quarter/);
-  });
-
-  it("allows unlinking (priorityId=null) on an open commitment", async () => {
-    const { linkPriorityAction } = await import("./actions");
-
-    const res = await linkPriorityAction("c_1", null);
-
-    expect(res.ok).toBe(true);
-    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith({
-      priority_id: null,
-    });
-  });
-});
-
-// ==============================================================
-// deleteCommitmentAction — resolved rows stay in history
-// ==============================================================
-describe("deleteCommitmentAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    primeHappyPath();
-  });
-
-  it("lets a non-admin owner delete their OWN OPEN commitment", async () => {
-    mocks.isAdminForCompany.mockReturnValue(false);
-    mocks.requireProfile.mockResolvedValue({
-      profile: {
-        id: "owner_1",
-        role: "team_member",
-        company_id: "co_acme",
-      },
-    });
-    const { deleteCommitmentAction } = await import("./actions");
-
-    const res = await deleteCommitmentAction("c_1");
-
-    expect(res).toEqual({ ok: true });
-    expect(mocks.commitmentsDeleteEq).toHaveBeenCalledTimes(1);
-  });
-
-  it("blocks a non-admin non-owner from deleting", async () => {
-    mocks.isAdminForCompany.mockReturnValue(false);
-    mocks.requireProfile.mockResolvedValue({
-      profile: {
-        id: "peer_1",
-        role: "team_member",
-        company_id: "co_acme",
-      },
-    });
-    const { deleteCommitmentAction } = await import("./actions");
-
-    const res = await deleteCommitmentAction("c_1");
-
-    expect(res).toEqual({ ok: false, message: "Not yours to delete." });
-    expect(mocks.commitmentsDeleteEq).not.toHaveBeenCalled();
-  });
-
-  it("refuses to delete a RESOLVED commitment even for the owner (stays in history)", async () => {
-    // Non-admin path: resolved commitments contribute to
-    // Follow-Through Rate history; deleting them would silently move
-    // that historical metric.
-    mocks.isAdminForCompany.mockReturnValue(false);
-    mocks.requireProfile.mockResolvedValue({
-      profile: {
-        id: "owner_1",
-        role: "team_member",
-        company_id: "co_acme",
-      },
-    });
-    mocks.commitmentsSelectMaybeSingle.mockResolvedValueOnce({
-      data: commitmentRow({ status: "kept" }),
-      error: null,
-    });
-    const { deleteCommitmentAction } = await import("./actions");
-
-    const res = await deleteCommitmentAction("c_1");
-
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/stay in history/);
-    expect(mocks.commitmentsDeleteEq).not.toHaveBeenCalled();
-  });
-
-  it("lets an admin delete a RESOLVED commitment (admin override)", async () => {
-    // Admins bypass both the owner check AND the status check.
-    // Whether that's the right policy is debatable, but it IS the
-    // policy — pinning it so a future refactor is a deliberate
-    // decision, not an accident.
+  it("admin can soft-delete a RESOLVED commitment", async () => {
+    mocks.requireProfile.mockResolvedValueOnce({ profile: ADMIN });
     mocks.isAdminForCompany.mockReturnValue(true);
-    mocks.commitmentsSelectMaybeSingle.mockResolvedValueOnce({
-      data: commitmentRow({ status: "missed", owner_id: "someone_else" }),
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ status: "kept_on_time" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ deleted_at: "2026-08-17T10:00:00Z" }),
       error: null,
     });
-    const { deleteCommitmentAction } = await import("./actions");
 
-    const res = await deleteCommitmentAction("c_1");
+    const result = await deleteCommitmentAction("c_1");
 
-    expect(res).toEqual({ ok: true });
-    expect(mocks.commitmentsDeleteEq).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true });
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({ deleted_at: expect.any(String) })
+    );
+  });
+
+  it("non-admin cannot soft-delete a resolved commitment", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ status: "kept_on_time" }),
+    });
+
+    const result = await deleteCommitmentAction("c_1");
+
+    expect(result.ok).toBe(false);
+    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
   });
 });

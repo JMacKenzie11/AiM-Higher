@@ -38,6 +38,11 @@ export function InlineAddRow({
   const [ownerId, setOwnerId] = useState<string>(currentUserId);
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState(thisFriday);
+  // Ongoing (weekly): resolving rolls the due_date forward 7 days
+  // and records the resolution as a per-week occurrence. Toggled
+  // alongside the date picker so a user can choose "one-shot Friday
+  // date" vs "repeat every week" with one click.
+  const [isOngoing, setIsOngoing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, formAction, pending] = useActionState<
     CommitmentResult,
@@ -49,6 +54,7 @@ export function InlineAddRow({
     setPriorityId(null);
     setDueDate(thisFriday);
     setOwnerId(currentUserId);
+    setIsOngoing(false);
     inputRef.current?.focus();
   }
 
@@ -78,6 +84,11 @@ export function InlineAddRow({
         <input type="hidden" name="week_ending" value={thisFriday} />
         <input type="hidden" name="priority_id" value={priorityId ?? ""} />
         <input type="hidden" name="owner_id" value={ownerId} />
+        <input
+          type="hidden"
+          name="is_ongoing"
+          value={isOngoing ? "true" : "false"}
+        />
 
         <input
           ref={inputRef}
@@ -134,9 +145,29 @@ export function InlineAddRow({
           className={styles.addField}
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
-          disabled={pending}
+          disabled={pending || isOngoing}
           aria-label="Due date"
         />
+
+        <label
+          className={styles.addField}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.35rem",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+          title="Repeats every week — resolving rolls the due date forward"
+        >
+          <input
+            type="checkbox"
+            checked={isOngoing}
+            onChange={(e) => setIsOngoing(e.target.checked)}
+            disabled={pending}
+          />
+          Ongoing (weekly)
+        </label>
 
         <button
           type="submit"

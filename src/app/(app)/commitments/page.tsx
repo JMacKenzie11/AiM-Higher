@@ -311,6 +311,44 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
           </div>
         </section>
       ) : null}
+
+      {data.parkedList.length > 0 ? (
+        <section
+          className={styles.group}
+          aria-labelledby="commitments-parked"
+          style={{ opacity: 0.85 }}
+        >
+          <div className={styles.groupHeader}>
+            <h2 id="commitments-parked" className={styles.groupTitle}>
+              Parking lot
+            </h2>
+            <span className={styles.groupMeta}>
+              {data.parkedList.length}{" "}
+              {data.parkedList.length === 1 ? "commitment" : "commitments"}
+              {" — excluded from all counts"}
+            </span>
+          </div>
+          <ul className={styles.rowList}>
+            {data.parkedList.map((c) => (
+              <CommitmentRow
+                key={c.id}
+                commitment={c}
+                priorityOptions={data.priorityOptions}
+                roster={data.roster.map((p) => ({
+                  id: p.id,
+                  full_name: p.full_name,
+                }))}
+                todayIso={data.todayIso}
+                canResolve={canWriteOwnedRow(session.profile, c)}
+                canLink={canWriteOwnedRow(session.profile, c)}
+                canReassign={canWriteOwnedRow(session.profile, c)}
+                currentUserId={session.profile.id}
+                isAdmin={isAdmin}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </PageShell>
   );
 }
