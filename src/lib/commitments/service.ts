@@ -96,6 +96,8 @@ export async function computeQuarterKeepRate(
     .from("commitments")
     .select("status")
     .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .is("parked_at", null)
     .gte("week_ending", quarter.start_date)
     .lte("week_ending", quarter.end_date);
   const statuses = ((data ?? []) as Array<{ status: string }>).map((r) => r.status);
@@ -108,15 +110,15 @@ export async function computeQuarterKeepRate(
 
 export type CommitmentFilters = {
   owner: "all" | "me" | string;
-  // "missed" is labelled "Closed" in the UI (closed after due date).
-  status: "all" | "open" | "kept" | "missed";
+  status: "all" | "open" | "kept" | "kept_late" | "missed";
   type: "all" | "strategic" | "operational";
 };
 
 export type CommitmentPriorWeek = {
   weekEnding: string;
   weekRange: string;
-  keptCount: number;
+  keptOnTimeCount: number;
+  keptLateCount: number;
   missedCount: number;
   keepRate: number | null;
   commitments: CommitmentWithMeta[]; // resolved-only; empty until expanded client-side
@@ -140,6 +142,10 @@ export type CommitmentsPageData = {
   // Sorted by due date so the soonest surfaces first.
   futureList: CommitmentWithMeta[];
   priorWeeks: CommitmentPriorWeek[];
+  // Parking lot: commitments with parked_at set. Excluded from every
+  // metric + weekly flow; rendered as its own section at the bottom
+  // of the page so a user knows what's been set aside.
+  parkedList: CommitmentWithMeta[];
   headerStats: {
     openThisWeek: number;
     needsAttentionCount: number;
@@ -159,9 +165,20 @@ function matchesFilters(
     if (commitment.owner_id !== filters.owner) return false;
   }
 
-  // Status
-  if (filters.status !== "all" && commitment.status !== filters.status) {
-    return false;
+  // Status. The "kept" pill collapses kept_on_time + kept_late into
+  // a single "did the work" filter — users want to see both kinds
+  // together, not force a choice between the two.
+  if (filters.status !== "all") {
+    if (filters.status === "kept") {
+      if (
+        commitment.status !== "kept_on_time" &&
+        commitment.status !== "kept_late"
+      ) {
+        return false;
+      }
+    } else if (commitment.status !== filters.status) {
+      return false;
+    }
   }
 
   // Type
@@ -238,10 +255,15 @@ export async function getCommitmentsPageData(
   // AiMS weekly cadence without loading the world.
   const windowStart = openQuarter?.start_date ?? addDays(thisFri, -84);
   const windowEnd = addDays(thisFri, 26 * 7);
+  // Filter out soft-deleted and parked rows in every query — they
+  // don't belong in any list, count, or metric on this page. Parked
+  // rows come back through their own dedicated query below.
   const { data: rawRows } = await supabase
     .from("commitments")
     .select("*")
     .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .is("parked_at", null)
     .gte("week_ending", windowStart)
     .lte("week_ending", windowEnd)
     .order("due_date", { ascending: true });
@@ -258,8 +280,20 @@ export async function getCommitmentsPageData(
     .select("*")
     .eq("company_id", companyId)
     .eq("status", "open")
+    .is("deleted_at", null)
+    .is("parked_at", null)
     .lt("week_ending", windowStart)
     .gte("week_ending", strandedFloor);
+
+  // Parking lot: everything with parked_at set, no date window.
+  // Displayed as its own muted section at the bottom of the page.
+  const { data: parkedRows } = await supabase
+    .from("commitments")
+    .select("*")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .not("parked_at", "is", null)
+    .order("parked_at", { ascending: false });
 
   const allRows = [
     ...((rawRows ?? []) as Commitment[]),
@@ -294,14 +328,10 @@ export async function getCommitmentsPageData(
   // ---- Header stats (filter-independent so the shape of "what's open"
   // stays trustworthy regardless of what the user is looking at). ----
   const openThisWeek = allRows.filter(
-    (c) =>
-      c.week_ending === thisFri &&
-      (c.status === "open" || c.status === "in_progress")
+    (c) => c.week_ending === thisFri && c.status === "open"
   ).length;
   const needsAttentionRaw = allRows.filter(
-    (c) =>
-      c.week_ending < thisFri &&
-      (c.status === "open" || c.status === "in_progress")
+    (c) => c.week_ending < thisFri && c.status === "open"
   );
   const keepRateThisQuarter = openQuarter
     ? await computeQuarterKeepRate(companyId, openQuarter)
@@ -320,8 +350,7 @@ export async function getCommitmentsPageData(
   const mainList = filtered
     .filter(
       (c) =>
-        (c.week_ending < thisFri &&
-          (c.status === "open" || c.status === "in_progress")) ||
+        (c.week_ending < thisFri && c.status === "open") ||
         c.week_ending === thisFri
     )
     .map(enrich)
@@ -359,11 +388,20 @@ export async function getCommitmentsPageData(
       return {
         weekEnding,
         weekRange: formatWeekRange(weekEnding),
-        keptCount: summary.kept,
+        keptOnTimeCount: summary.keptOnTime,
+        keptLateCount: summary.keptLate,
         missedCount: summary.missed,
         keepRate: summary.keepRate,
         commitments,
       };
+    });
+
+  const parkedList = ((parkedRows ?? []) as Commitment[])
+    .map(enrich)
+    .sort((a, b) => {
+      const aParked = a.parked_at ?? "";
+      const bParked = b.parked_at ?? "";
+      return aParked < bParked ? 1 : aParked > bParked ? -1 : 0;
     });
 
   return {
@@ -377,6 +415,7 @@ export async function getCommitmentsPageData(
     mainList,
     futureList,
     priorWeeks,
+    parkedList,
     headerStats: {
       openThisWeek,
       needsAttentionCount: needsAttentionRaw.length,

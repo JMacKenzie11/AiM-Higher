@@ -125,10 +125,25 @@ export type Priority = {
 };
 
 // ---- commitments ------------------------------------------------
-// Open = still to do. Kept = closed on/before due date. Missed = closed
-// after due date (labelled "Closed" in the UI — an opportunity to
-// improve). The prior "carried" state was removed in migration 0011.
-export type CommitmentStatus = "open" | "in_progress" | "kept" | "missed";
+// Resolution model (as of migration 0139):
+//   open          — still to do.
+//   kept_on_time  — resolved on/before the due date.
+//   kept_late     — resolved after the due date. Same "did it" signal,
+//                   distinct display (check + clock badge, never X or
+//                   red), NOT counted in the Follow-Through numerator.
+//   missed        — not done.
+// The old `in_progress` and `kept` values are retired; `in_progress`
+// collapses into `open`, `kept` becomes `kept_on_time`.
+export type CommitmentStatus =
+  | "open"
+  | "kept_on_time"
+  | "kept_late"
+  | "missed";
+
+// Roles allowed to resolve a commitment, recorded on the row so
+// downstream (coaching context, scoring) can distinguish "no reason
+// given by owner" from "resolved by admin in the meeting."
+export type CommitmentResolverRole = "owner" | "admin" | "guide";
 
 export type Commitment = {
   id: string;
@@ -160,8 +175,37 @@ export type Commitment = {
   clarity_timeline: boolean | null;
   clarity_success: boolean | null;
   clarity_note: string | null;
+  // Soft-delete: filtered from every UI + metric. Retention only for
+  // future coaching-signal work — see migration 0139 rationale.
+  deleted_at: string | null;
+  // Parking lot: excluded from weekly flow, overdue logic, and
+  // Follow-Through. Bring-back nulls this and sets a fresh due_date.
+  parked_at: string | null;
+  // Repeating weekly commitment. Per-week resolutions live in
+  // commitment_occurrences; the commitments row itself stays 'open'
+  // and rolls its due_date forward on each resolution.
+  is_ongoing: boolean;
+  // Populated at resolution time; null for open rows.
+  resolved_by_role: CommitmentResolverRole | null;
+  resolved_by_profile_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+// Per-week resolution row for ongoing commitments (migration 0140).
+// One row per (commitment_id, week_ending). Non-ongoing commitments
+// don't produce these — their single resolution lives on the
+// commitments row itself.
+export type CommitmentOccurrence = {
+  id: string;
+  commitment_id: string;
+  week_ending: string;
+  status: "kept_on_time" | "kept_late" | "missed";
+  missed_reason: string | null;
+  resolved_at: string;
+  resolved_by_profile_id: string | null;
+  resolved_by_role: CommitmentResolverRole | null;
+  created_at: string;
 };
 
 // ---- derived-progress views -------------------------------------

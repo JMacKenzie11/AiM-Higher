@@ -19,7 +19,8 @@ export type PersonQuickView = {
   reportsTo: string | null;
   stats: {
     keepRate: number | null; // 0-100 for open quarter
-    keptCount: number;
+    keptOnTimeCount: number;
+    keptLateCount: number;
     missedCount: number;
     openCount: number;
   };
@@ -52,23 +53,28 @@ export async function getPersonQuickViewAction(
       .from("commitments")
       .select("id", { count: "exact", head: true })
       .eq("owner_id", profileId)
+      .is("deleted_at", null)
+      .is("parked_at", null)
       .eq("status", "open"),
     supabase
       .from("commitments")
       .select("status")
       .eq("owner_id", profileId)
-      .in("status", ["kept", "missed"]),
+      .is("deleted_at", null)
+      .is("parked_at", null)
+      .in("status", ["kept_on_time", "kept_late", "missed"]),
   ]);
 
   const openCount = openRes.count ?? 0;
   const resolvedRows = (resolvedRes.data ?? []) as Array<{
-    status: "kept" | "missed";
+    status: "kept_on_time" | "kept_late" | "missed";
   }>;
 
   // Keep rate is scoped to the current quarter for consistency with
   // the person scorecard and dashboard. When there's no open quarter
   // yet (early days of a company), return null and let the UI show —.
-  let keptCount = 0;
+  let keptOnTimeCount = 0;
+  let keptLateCount = 0;
   let missedCount = 0;
   const openQuarter = profile.company_id
     ? await getCurrentQuarter(profile.company_id)
@@ -78,20 +84,24 @@ export async function getPersonQuickViewAction(
       .from("commitments")
       .select("status, week_ending")
       .eq("owner_id", profileId)
+      .is("deleted_at", null)
+      .is("parked_at", null)
       .gte("week_ending", openQuarter.start_date)
       .lte("week_ending", openQuarter.end_date)
-      .in("status", ["kept", "missed"]);
+      .in("status", ["kept_on_time", "kept_late", "missed"]);
     for (const r of (quarterRows ?? []) as Array<{
-      status: "kept" | "missed";
+      status: "kept_on_time" | "kept_late" | "missed";
     }>) {
-      if (r.status === "kept") keptCount += 1;
+      if (r.status === "kept_on_time") keptOnTimeCount += 1;
+      else if (r.status === "kept_late") keptLateCount += 1;
       else missedCount += 1;
     }
   } else {
     // Fall back to lifetime resolved counts so the drawer still shows
     // *something* meaningful pre-quarter.
     for (const r of resolvedRows) {
-      if (r.status === "kept") keptCount += 1;
+      if (r.status === "kept_on_time") keptOnTimeCount += 1;
+      else if (r.status === "kept_late") keptLateCount += 1;
       else missedCount += 1;
     }
   }
@@ -104,8 +114,13 @@ export async function getPersonQuickViewAction(
       position: profile.position,
       reportsTo: profile.reports_to,
       stats: {
-        keepRate: computeRateFromCounts(keptCount, missedCount),
-        keptCount,
+        keepRate: computeRateFromCounts(
+          keptOnTimeCount,
+          keptLateCount,
+          missedCount
+        ),
+        keptOnTimeCount,
+        keptLateCount,
         missedCount,
         openCount,
       },

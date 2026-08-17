@@ -145,7 +145,11 @@ export default async function PersonScorecardPage({ params }: PageProps) {
             <PersonStat
               label="Kept"
               term="kept"
-              value={String(data.stats.keptCount)}
+              value={String(data.stats.keptOnTimeCount)}
+            />
+            <PersonStat
+              label="Kept late"
+              value={String(data.stats.keptLateCount)}
             />
             <PersonStat
               label="Missed"

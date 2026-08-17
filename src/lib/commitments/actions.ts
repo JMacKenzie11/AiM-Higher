@@ -2,28 +2,43 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
-import { canWriteOwnedRow, isAdminForCompany } from "@/lib/auth/permissions";
+import {
+  canWriteOwnedRow,
+  isAdminForCompany,
+  type SessionProfileLike,
+} from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { scoreCommitmentClarity } from "./clarity";
-import type { Commitment, Priority } from "@/lib/types";
+import type {
+  Commitment,
+  CommitmentOccurrence,
+  CommitmentResolverRole,
+  Priority,
+} from "@/lib/types";
 import { fridayOf, todayInTimezone } from "@/lib/dates";
 
-// Commitment server actions — simplified per the "Open / Kept / Missed"
-// model (migration 0011 dropped the carried state).
+// Commitment server actions. Resolution model per migration 0139:
 //
-//   Kept:    status='kept', completed_at=now(). Server rejects on
-//            overdue open rows — those go through Missed.
-//   Missed:  status='missed', missed_reason=<text>. In the UI this is
-//            labelled "Closed" — a commitment closed after its due
-//            date. The reason is required (DB check enforces too).
-//   Unmark:  either resolved state → open (drops completed_at and
-//            missed_reason). Any owner or admin can revert any week.
-//   Link:    priority_id may be null (operational commitment). Only
-//            mutable while status='open' — resolved rows have
-//            already fed priority progress.
-//   Delete:  owner may delete their own OPEN commitment, any week.
-//            Admins may delete any in their company.
+//   Kept on time: due_date >= today AND owner clicked Keep. No reason.
+//   Kept late:    due_date <  today AND owner (or admin) clicked Keep.
+//                 Owner is prompted for a reason with an explicit Skip;
+//                 admins are exempt from the prompt entirely.
+//   Missed:       explicit "not done" resolution. Owner supplies a
+//                 reason; admins are exempt.
+//   Reschedule:   moves due_date + week_ending. Owner supplies a reason;
+//                 admins are exempt and may change past-due dates.
+//   Park:         clears due_date, sets parked_at. No reason. Excluded
+//                 from all metrics + weekly flow. Bring back = unpark.
+//   Delete:       soft delete (deleted_at) — retained for future signals.
+//   Ongoing:      is_ongoing=true. Each resolution creates a row in
+//                 commitment_occurrences for the current week and rolls
+//                 due_date forward 7 days. The commitments row itself
+//                 stays 'open' until Stop Repeating is invoked.
+//
+// resolved_by_role is stamped on every resolution ('owner' | 'admin' |
+// 'guide') so downstream can distinguish "no reason from owner" from
+// "resolved by admin in the meeting."
 
 export type CommitmentResult =
   | { ok: true; commitment: Commitment }
@@ -59,6 +74,45 @@ async function getCompanyTimezone(
   return data?.timezone ?? "America/Anchorage";
 }
 
+// Classify who's doing the resolving. Owner vs admin vs guide drives
+// the reason-requirement rules: admins + guides are exempt from every
+// reason prompt (they typically resolve during the weekly meeting on
+// someone else's behalf and there's nothing more to say). Owner acts
+// on their own commitment.
+function resolverRoleFor(
+  profile: SessionProfileLike,
+  commitment: Pick<Commitment, "company_id" | "owner_id">
+): CommitmentResolverRole | null {
+  if (profile.role === "system_admin") return "admin";
+  if (
+    profile.role === "company_admin" &&
+    profile.company_id === commitment.company_id
+  ) {
+    return "admin";
+  }
+  if (
+    profile.role === "aims_guide" &&
+    (profile.guide_company_ids ?? []).includes(commitment.company_id)
+  ) {
+    return "guide";
+  }
+  if (commitment.owner_id === profile.id) return "owner";
+  return null;
+}
+
+function isAdminOrGuide(role: CommitmentResolverRole | null): boolean {
+  return role === "admin" || role === "guide";
+}
+
+// Add N days to an ISO date (YYYY-MM-DD) and return the new ISO date.
+// Used to roll ongoing commitments' due_date forward one week on
+// each resolution.
+function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map((n) => Number.parseInt(n, 10));
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
 // ---- Create ---------------------------------------------------
 export async function createCommitmentAction(
   _prev: CommitmentResult | undefined,
@@ -72,6 +126,7 @@ export async function createCommitmentAction(
   const weekEndingRaw = String(formData.get("week_ending") ?? "").trim();
   const dueDateRaw = String(formData.get("due_date") ?? "").trim();
   const ownerIdRaw = String(formData.get("owner_id") ?? "").trim();
+  const isOngoing = String(formData.get("is_ongoing") ?? "") === "true";
 
   if (!description) {
     return { ok: false, message: "Say what the commitment is." };
@@ -80,8 +135,6 @@ export async function createCommitmentAction(
   if (!dueDate) {
     return { ok: false, message: "Pick a due date." };
   }
-  // Bucket the commitment into the Friday of the week that contains its
-  // due date — free-form dates would otherwise skew weekly rollups.
   const weekEnding = fridayOf(dueDate);
 
   const supabase = await createSupabaseServerClient();
@@ -117,6 +170,7 @@ export async function createCommitmentAction(
       week_ending: weekEnding,
       due_date: dueDate,
       status: "open",
+      is_ongoing: isOngoing,
     })
     .select("*")
     .single<Commitment>();
@@ -124,11 +178,6 @@ export async function createCommitmentAction(
     return { ok: false, message: "Couldn't save that commitment." };
   }
 
-  // Auto-score against the three clarity criteria so hand-typed
-  // rows get the same feedback as analyzer-extracted ones. Best-
-  // effort: a failed / null score leaves the fields null (== muted
-  // grey dot) and the user can still open the strip and toggle
-  // manually. The save itself is already committed.
   let finalRow: Commitment = data;
   try {
     const score = await scoreCommitmentClarity(description, dueDate);
@@ -153,53 +202,107 @@ export async function createCommitmentAction(
   return { ok: true, commitment: finalRow };
 }
 
-// ---- Kept -----------------------------------------------------
+// ---- Mark kept (on time OR late) ------------------------------
+// Single entry point for both cases. The server decides on-time vs
+// late by comparing due_date to today in the company timezone.
+//
+// Options:
+//   reason:    optional. Owners can skip when late; admins never need
+//              one. Empty string / null is treated as "no reason."
+//   resolveAs: 'on_time' | 'late'. ADMIN-ONLY override for cases where
+//              a coach is retroactively recording resolutions and
+//              wants to force the classification. Non-admin callers
+//              passing this are silently ignored (server decides).
+//
+// For ongoing commitments: writes a row to commitment_occurrences
+// for the current week_ending, then rolls the commitments row's
+// due_date and week_ending forward 7 days. The commitments row
+// itself stays 'open'.
 export async function markKeptAction(
-  commitmentId: string
+  commitmentId: string,
+  options?: { reason?: string | null; resolveAs?: "on_time" | "late" }
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
   const supabase = await createSupabaseServerClient();
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
-  if (!canWriteOwnedRow(session.profile, commitment)) {
-    return { ok: false, message: "Not yours to resolve." };
-  }
+  const role = resolverRoleFor(session.profile, commitment);
+  if (!role) return { ok: false, message: "Not yours to resolve." };
   if (commitment.status !== "open") {
     return { ok: false, message: "That commitment isn't open anymore." };
   }
-
-  // Overdue open rows go through Missed (which is labelled "Closed" in
-  // the UI). Kept is on-time only. Enforced here so a stale UI or
-  // crafted request can't sneak past.
-  const tz = await getCompanyTimezone(supabase, commitment.company_id);
-  const { iso: todayIso } = todayInTimezone(tz);
-  if (commitment.due_date < todayIso) {
+  if (commitment.parked_at !== null) {
     return {
       ok: false,
-      message: "Past its due date — close it with a reason instead.",
+      message: "This commitment is in the parking lot — bring it back first.",
     };
   }
 
+  const tz = await getCompanyTimezone(supabase, commitment.company_id);
+  const { iso: todayIso } = todayInTimezone(tz);
+
+  // Determine on-time vs late.
+  //   - Non-admin: server decides based on due_date vs today.
+  //   - Admin: may override via options.resolveAs to force one or the
+  //     other (retroactive corrections during coaching).
+  const derived: "on_time" | "late" =
+    commitment.due_date >= todayIso ? "on_time" : "late";
+  const resolveAs: "on_time" | "late" = isAdminOrGuide(role)
+    ? (options?.resolveAs ?? derived)
+    : derived;
+  const newStatus =
+    resolveAs === "on_time" ? "kept_on_time" : "kept_late";
+
+  // Reason handling. Non-admin late keeps may include an optional
+  // reason from the ghost-skip prompt; on-time keeps don't collect
+  // one. Admins never need one but may attach anyway.
+  const trimmedReason =
+    typeof options?.reason === "string" && options.reason.trim().length > 0
+      ? options.reason.trim()
+      : null;
+
+  const now = new Date().toISOString();
+
+  // Ongoing rows: record the occurrence, roll forward, keep row open.
+  if (commitment.is_ongoing) {
+    const rolled = await recordOngoingResolution(supabase, commitment, {
+      status: newStatus,
+      resolvedAt: now,
+      resolverProfileId: session.profile.id,
+      resolverRole: role,
+      reason: trimmedReason,
+    });
+    if (!rolled.ok) return rolled;
+    revalidateCommitmentSurfaces(commitment.priority_id);
+    return { ok: true, commitment: rolled.commitment };
+  }
+
+  // One-shot commitment: update the row itself.
   const { data, error } = await supabase
     .from("commitments")
     .update({
-      status: "kept",
-      completed_at: new Date().toISOString(),
-      missed_reason: null,
+      status: newStatus,
+      completed_at: now,
+      missed_reason: trimmedReason,
+      resolved_by_role: role,
+      resolved_by_profile_id: session.profile.id,
     })
     .eq("id", commitmentId)
     .select("*")
     .single<Commitment>();
-  if (error || !data) return { ok: false, message: "Couldn't mark that kept." };
+  if (error || !data) {
+    return { ok: false, message: "Couldn't mark that kept." };
+  }
 
   revalidateCommitmentSurfaces(commitment.priority_id);
   return { ok: true, commitment: data };
 }
 
-// ---- Unmark kept (revert to open) ------------------------------
-// Any owner or admin, any week. Absorbs misclicks and lets people fix
-// history without an admin gate.
+// ---- Unmark kept (revert one-shot commitment to open) ---------
+// Only applies to non-ongoing commitments. Ongoing "unmark" would
+// mean deleting the most recent occurrence and rolling the due_date
+// back; not spec'd in this build.
 export async function unmarkKeptAction(
   commitmentId: string
 ): Promise<CommitmentResult> {
@@ -211,13 +314,22 @@ export async function unmarkKeptAction(
   if (!canWriteOwnedRow(session.profile, commitment)) {
     return { ok: false, message: "Not yours to change." };
   }
-  if (commitment.status !== "kept") {
+  if (
+    commitment.status !== "kept_on_time" &&
+    commitment.status !== "kept_late"
+  ) {
     return { ok: false, message: "Only kept commitments can be reverted." };
   }
 
   const { data, error } = await supabase
     .from("commitments")
-    .update({ status: "open", completed_at: null, missed_reason: null })
+    .update({
+      status: "open",
+      completed_at: null,
+      missed_reason: null,
+      resolved_by_role: null,
+      resolved_by_profile_id: null,
+    })
     .eq("id", commitmentId)
     .select("*")
     .single<Commitment>();
@@ -229,108 +341,66 @@ export async function unmarkKeptAction(
   return { ok: true, commitment: data };
 }
 
-// ---- In progress -----------------------------------------------
-// Owner (or admin) marks an open commitment as actively being
-// worked on. Excluded from Follow-Through Rate the same way open
-// rows are — the rate only counts commitments that have actually
-// closed. Kept as its own state (rather than a flag on open) so
-// the resolve-menu can offer Reopen vs Mark kept vs Mark missed
-// without ambiguity, and so the row can render a distinct visual
-// state.
-export async function markInProgressAction(
-  commitmentId: string
-): Promise<CommitmentResult> {
-  const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
-
-  const commitment = await loadCommitment(supabase, commitmentId);
-  if (!commitment) return { ok: false, message: "Commitment not found." };
-  if (!canWriteOwnedRow(session.profile, commitment)) {
-    return { ok: false, message: "Not yours to change." };
-  }
-  if (commitment.status !== "open") {
-    return {
-      ok: false,
-      message: "Only open commitments can move to in progress.",
-    };
-  }
-
-  const { data, error } = await supabase
-    .from("commitments")
-    .update({ status: "in_progress" })
-    .eq("id", commitmentId)
-    .select("*")
-    .single<Commitment>();
-  if (error || !data) {
-    return { ok: false, message: "Couldn't update that commitment." };
-  }
-
-  revalidateCommitmentSurfaces(commitment.priority_id);
-  return { ok: true, commitment: data };
-}
-
-export async function unmarkInProgressAction(
-  commitmentId: string
-): Promise<CommitmentResult> {
-  const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
-
-  const commitment = await loadCommitment(supabase, commitmentId);
-  if (!commitment) return { ok: false, message: "Commitment not found." };
-  if (!canWriteOwnedRow(session.profile, commitment)) {
-    return { ok: false, message: "Not yours to change." };
-  }
-  if (commitment.status !== "in_progress") {
-    return {
-      ok: false,
-      message: "Only in-progress commitments can be reopened this way.",
-    };
-  }
-
-  const { data, error } = await supabase
-    .from("commitments")
-    .update({ status: "open" })
-    .eq("id", commitmentId)
-    .select("*")
-    .single<Commitment>();
-  if (error || !data) {
-    return { ok: false, message: "Couldn't reopen that commitment." };
-  }
-
-  revalidateCommitmentSurfaces(commitment.priority_id);
-  return { ok: true, commitment: data };
-}
-
-// ---- Missed (Closed late) -------------------------------------
+// ---- Missed --------------------------------------------------
+// Owners must supply a reason; admins + guides are exempt (typically
+// resolving during the weekly meeting).
 export async function markMissedAction(
   commitmentId: string,
-  reason: string
+  reason: string | null
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const trimmed = reason.trim();
-  if (!trimmed) {
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  const role = resolverRoleFor(session.profile, commitment);
+  if (!role) return { ok: false, message: "Not yours to resolve." };
+  if (commitment.status !== "open") {
+    return { ok: false, message: "That commitment isn't open anymore." };
+  }
+  if (commitment.parked_at !== null) {
+    return {
+      ok: false,
+      message: "This commitment is in the parking lot — bring it back first.",
+    };
+  }
+
+  const trimmedReason =
+    typeof reason === "string" && reason.trim().length > 0
+      ? reason.trim()
+      : null;
+
+  // Owners: reason required. Admins/guides: exempt.
+  if (!isAdminOrGuide(role) && !trimmedReason) {
     return {
       ok: false,
       message: "Add a short reason so the pattern is visible over time.",
     };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const commitment = await loadCommitment(supabase, commitmentId);
-  if (!commitment) return { ok: false, message: "Commitment not found." };
-  if (!canWriteOwnedRow(session.profile, commitment)) {
-    return { ok: false, message: "Not yours to resolve." };
-  }
-  if (commitment.status !== "open") {
-    return { ok: false, message: "That commitment isn't open anymore." };
+  const now = new Date().toISOString();
+
+  if (commitment.is_ongoing) {
+    const rolled = await recordOngoingResolution(supabase, commitment, {
+      status: "missed",
+      resolvedAt: now,
+      resolverProfileId: session.profile.id,
+      resolverRole: role,
+      reason: trimmedReason,
+    });
+    if (!rolled.ok) return rolled;
+    revalidateCommitmentSurfaces(commitment.priority_id);
+    return { ok: true, commitment: rolled.commitment };
   }
 
   const { data, error } = await supabase
     .from("commitments")
     .update({
       status: "missed",
-      missed_reason: trimmed,
-      completed_at: new Date().toISOString(),
+      missed_reason: trimmedReason,
+      completed_at: now,
+      resolved_by_role: role,
+      resolved_by_profile_id: session.profile.id,
     })
     .eq("id", commitmentId)
     .select("*")
@@ -342,7 +412,6 @@ export async function markMissedAction(
 }
 
 // ---- Unmark missed (revert Closed → Open) ---------------------
-// Same permission story as unmark kept: any owner or admin, any week.
 export async function unmarkMissedAction(
   commitmentId: string
 ): Promise<CommitmentResult> {
@@ -355,12 +424,21 @@ export async function unmarkMissedAction(
     return { ok: false, message: "Not yours to change." };
   }
   if (commitment.status !== "missed") {
-    return { ok: false, message: "Only closed commitments can be reopened." };
+    return {
+      ok: false,
+      message: "Only missed commitments can be reopened this way.",
+    };
   }
 
   const { data, error } = await supabase
     .from("commitments")
-    .update({ status: "open", completed_at: null, missed_reason: null })
+    .update({
+      status: "open",
+      missed_reason: null,
+      completed_at: null,
+      resolved_by_role: null,
+      resolved_by_profile_id: null,
+    })
     .eq("id", commitmentId)
     .select("*")
     .single<Commitment>();
@@ -372,37 +450,45 @@ export async function unmarkMissedAction(
   return { ok: true, commitment: data };
 }
 
-// ---- Reschedule (change due date on an open commitment) ------
-// In-place: same row keeps status='open' but moves to the new date.
-// A reason is required and stamped in missed_reason so the pattern is
-// visible over time — moving a date is a signal, not a free action.
+// ---- Reschedule ----------------------------------------------
+// Owners need a reason; admins/guides are exempt and may change any
+// date including past-due ones (retroactive corrections happen).
 export async function rescheduleCommitmentAction(
   commitmentId: string,
   newDueDate: string,
-  reason: string
+  reason: string | null
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const trimmedReason = reason.trim();
   const trimmedDate = newDueDate.trim();
-
   if (!trimmedDate) {
     return { ok: false, message: "Pick a new due date." };
-  }
-  if (!trimmedReason) {
-    return {
-      ok: false,
-      message: "Add a short reason so the pattern is visible over time.",
-    };
   }
 
   const supabase = await createSupabaseServerClient();
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
-  if (!canWriteOwnedRow(session.profile, commitment)) {
-    return { ok: false, message: "Not yours to change." };
-  }
+  const role = resolverRoleFor(session.profile, commitment);
+  if (!role) return { ok: false, message: "Not yours to change." };
   if (commitment.status !== "open") {
     return { ok: false, message: "Only open commitments can be rescheduled." };
+  }
+  if (commitment.parked_at !== null) {
+    return {
+      ok: false,
+      message: "Parked commitments don't have a schedule — bring it back first.",
+    };
+  }
+
+  const trimmedReason =
+    typeof reason === "string" && reason.trim().length > 0
+      ? reason.trim()
+      : null;
+
+  if (!isAdminOrGuide(role) && !trimmedReason) {
+    return {
+      ok: false,
+      message: "Add a short reason so the pattern is visible over time.",
+    };
   }
 
   const { data, error } = await supabase
@@ -410,6 +496,8 @@ export async function rescheduleCommitmentAction(
     .update({
       due_date: trimmedDate,
       week_ending: fridayOf(trimmedDate),
+      // Reason stored in the audit column when supplied; may be null
+      // for admin-driven reschedules with no reason attached.
       missed_reason: trimmedReason,
     })
     .eq("id", commitmentId)
@@ -423,11 +511,113 @@ export async function rescheduleCommitmentAction(
   return { ok: true, commitment: data };
 }
 
-// ---- Reassign owner -------------------------------------------
-// Change who a commitment belongs to. The old owner or an admin can
-// hand it off to any other active member of the same company. Works
-// on any status — reassigning a resolved row corrects the record;
-// reassigning an open one hands the work over.
+// ---- Park / unpark -------------------------------------------
+// Park clears the due date and hides the row from every metric,
+// overdue count, and Needs Attention grouping. Bring back nulls
+// parked_at and sets a fresh due_date. No reason on either side.
+export async function parkCommitmentAction(
+  commitmentId: string
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to park." };
+  }
+  if (commitment.status !== "open") {
+    return { ok: false, message: "Only open commitments can be parked." };
+  }
+  if (commitment.parked_at !== null) {
+    return { ok: true, commitment };
+  }
+
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({ parked_at: new Date().toISOString() })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't park that commitment." };
+  }
+
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: data };
+}
+
+export async function unparkCommitmentAction(
+  commitmentId: string,
+  newDueDate: string
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const trimmedDate = newDueDate.trim();
+  if (!trimmedDate) {
+    return { ok: false, message: "Pick a due date to bring it back." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to bring back." };
+  }
+  if (commitment.parked_at === null) {
+    return { ok: true, commitment };
+  }
+
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({
+      parked_at: null,
+      due_date: trimmedDate,
+      week_ending: fridayOf(trimmedDate),
+    })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't bring that back." };
+  }
+
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: data };
+}
+
+// ---- Stop repeating (ongoing → normal) ----------------------
+// Converts an ongoing commitment into a one-shot due at its current
+// date. Owner or admin may invoke.
+export async function stopRepeatingAction(
+  commitmentId: string
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to change." };
+  }
+  if (!commitment.is_ongoing) {
+    return { ok: true, commitment };
+  }
+
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({ is_ongoing: false })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't stop the cycle." };
+  }
+
+  revalidateCommitmentSurfaces(commitment.priority_id);
+  return { ok: true, commitment: data };
+}
+
+// ---- Reassign owner ------------------------------------------
 export async function reassignCommitmentAction(
   commitmentId: string,
   newOwnerId: string
@@ -438,8 +628,6 @@ export async function reassignCommitmentAction(
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
 
-  // Team-member self-claim on a null-owner row is allowed; otherwise
-  // fall back to the standard "admin or existing owner" check.
   const isClaimForSelf =
     commitment.owner_id === null &&
     newOwnerId === session.profile.id &&
@@ -454,11 +642,6 @@ export async function reassignCommitmentAction(
     return { ok: true, commitment };
   }
 
-  // The new owner must belong to the same company OR be an AiMS
-  // coach (system admin). Coaches routinely take on commitments in
-  // client meetings, so they're valid owners even without a company
-  // membership. Anything else is a cross-company handoff and would
-  // break RLS reads and priority progress.
   const { data: newOwner } = await supabase
     .from("profiles")
     .select("id, company_id, status, role")
@@ -494,11 +677,7 @@ export async function reassignCommitmentAction(
   return { ok: true, commitment: data };
 }
 
-// ---- Link / unlink priority -----------------------------------
-// Only mutable while open, so resolved rows can't be silently retargeted
-// between priorities (that would rewrite priority progress history).
-// priorityId=null unlinks (turns the row operational). When linking,
-// the priority must belong to the open quarter.
+// ---- Link / unlink priority ---------------------------------
 export async function linkPriorityAction(
   commitmentId: string,
   priorityId: string | null
@@ -514,7 +693,8 @@ export async function linkPriorityAction(
   if (commitment.status !== "open") {
     return {
       ok: false,
-      message: "Resolved commitments have already fed action progress — their link is frozen.",
+      message:
+        "Resolved commitments have already fed action progress — their link is frozen.",
     };
   }
 
@@ -556,11 +736,7 @@ export async function linkPriorityAction(
   return { ok: true, commitment: data };
 }
 
-// ---- Clarity assessment --------------------------------------
-// Set (or clear) the two clarity booleans + coaching note on a
-// commitment. Owner or admin may edit any time — clarity is a
-// coaching signal, not a permission gate. Null values represent
-// "unassessed"; the row indicator uses that to show a muted dot.
+// ---- Clarity assessment -------------------------------------
 export type ClarityInput = {
   timeline: boolean | null;
   success: boolean | null;
@@ -601,13 +777,7 @@ export async function setCommitmentClarityAction(
   return { ok: true, commitment: data };
 }
 
-// ---- Delete ---------------------------------------------------
-// ---- Edit description ----------------------------------------
-// Fix typos, reword after the fact. Owner or an admin may edit,
-// on any status (resolved rows too — the description is display
-// copy, not a historical fact like status/completed_at). Clarity
-// re-scores automatically since the timeline/success verdicts
-// depend on the description text.
+// ---- Edit description ---------------------------------------
 export async function updateCommitmentDescriptionAction(
   commitmentId: string,
   description: string
@@ -635,11 +805,6 @@ export async function updateCommitmentDescriptionAction(
     return { ok: false, message: "Couldn't save that change." };
   }
 
-  // Re-run clarity autoscore — the verdicts are a function of the
-  // description text (and the due date), so an edit to either
-  // should invalidate the prior scoring. Best-effort: the save is
-  // already committed; a failed autoscore just leaves the previous
-  // clarity fields intact.
   let finalRow: Commitment = data;
   try {
     const score = await scoreCommitmentClarity(trimmed, data.due_date);
@@ -668,6 +833,11 @@ export async function updateCommitmentDescriptionAction(
   return { ok: true, commitment: finalRow };
 }
 
+// ---- Delete (soft) ------------------------------------------
+// Sets deleted_at rather than removing the row. Filtered from every
+// UI + metric. INTENTIONALLY REVERSIBLE — retained so future
+// coaching signals (churn, abandonment patterns) can be built if
+// wanted. No user-facing recovery UI in this build.
 export async function deleteCommitmentAction(
   commitmentId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -685,17 +855,79 @@ export async function deleteCommitmentAction(
     if (commitment.status !== "open") {
       return {
         ok: false,
-        message: "Resolved commitments stay in history — they can't be deleted.",
+        message:
+          "Resolved commitments stay in history — they can't be deleted.",
       };
     }
   }
 
   const { error } = await supabase
     .from("commitments")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", commitmentId);
   if (error) return { ok: false, message: "Couldn't delete that commitment." };
 
   revalidateCommitmentSurfaces(commitment.priority_id);
   return { ok: true };
+}
+
+// ---- Ongoing helpers ----------------------------------------
+// Records a per-week occurrence + rolls the commitment row's
+// due_date and week_ending forward 7 days. Idempotent per week via
+// the unique (commitment_id, week_ending) constraint — a second
+// call for the same week upserts in place. The commitments row
+// itself stays 'open' the whole time.
+async function recordOngoingResolution(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  commitment: Commitment,
+  input: {
+    status: "kept_on_time" | "kept_late" | "missed";
+    resolvedAt: string;
+    resolverProfileId: string;
+    resolverRole: CommitmentResolverRole;
+    reason: string | null;
+  }
+): Promise<CommitmentResult> {
+  const currentWeekEnding = commitment.week_ending;
+
+  const { error: occErr } = await supabase
+    .from("commitment_occurrences")
+    .upsert(
+      {
+        commitment_id: commitment.id,
+        week_ending: currentWeekEnding,
+        status: input.status,
+        missed_reason: input.reason,
+        resolved_at: input.resolvedAt,
+        resolved_by_profile_id: input.resolverProfileId,
+        resolved_by_role: input.resolverRole,
+      } satisfies Partial<CommitmentOccurrence> & {
+        commitment_id: string;
+        week_ending: string;
+        status: "kept_on_time" | "kept_late" | "missed";
+      },
+      { onConflict: "commitment_id,week_ending" }
+    );
+  if (occErr) {
+    return { ok: false, message: "Couldn't record the weekly resolution." };
+  }
+
+  // Roll the commitment forward one week — new due_date is +7 days,
+  // new week_ending is +7 days. The row itself stays 'open' so it
+  // keeps appearing in the weekly flow.
+  const nextDueDate = addDaysIso(commitment.due_date, 7);
+  const nextWeekEnding = addDaysIso(currentWeekEnding, 7);
+  const { data: rolled, error: rollErr } = await supabase
+    .from("commitments")
+    .update({
+      due_date: nextDueDate,
+      week_ending: nextWeekEnding,
+    })
+    .eq("id", commitment.id)
+    .select("*")
+    .single<Commitment>();
+  if (rollErr || !rolled) {
+    return { ok: false, message: "Couldn't roll the ongoing forward." };
+  }
+  return { ok: true, commitment: rolled };
 }

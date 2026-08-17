@@ -14,14 +14,14 @@ export type FilterPillsProps = {
   currentUserId: string;
   roster: Array<Pick<Profile, "id" | "full_name">>;
   owner: "all" | "me" | string;
-  status: "all" | "open" | "kept" | "missed";
+  // "kept" here means "did the work" — on-time OR late, both under
+  // the same success umbrella. "kept_late" is a separate opt-in
+  // filter for the "who's chronically running behind but still
+  // shipping?" question.
+  status: "all" | "open" | "kept" | "kept_late" | "missed";
   type: "all" | "strategic" | "operational";
 };
 
-// "Missed" is the user-facing label for status='missed' (resolved
-// after the due date). We used to call this "Closed" but that reads
-// as "finished" in everyday English — misleading for the meaning.
-// Migration 0011 removed the carried state entirely.
 const STATUS_OPTIONS: Array<{
   value: FilterPillsProps["status"];
   label: string;
@@ -29,6 +29,7 @@ const STATUS_OPTIONS: Array<{
   { value: "all", label: "All" },
   { value: "open", label: "Open" },
   { value: "kept", label: "Kept" },
+  { value: "kept_late", label: "Kept late" },
   { value: "missed", label: "Missed" },
 ];
 

@@ -166,7 +166,11 @@ export function PersonQuickViewDrawer({
                 />
                 <QuickStat
                   label="Kept"
-                  value={String(view.stats.keptCount)}
+                  value={String(view.stats.keptOnTimeCount)}
+                />
+                <QuickStat
+                  label="Kept late"
+                  value={String(view.stats.keptLateCount)}
                 />
                 <QuickStat
                   label="Missed"

@@ -165,16 +165,29 @@ export async function buildCoachContext(
 
   const { subject, openQuarter, keepRatesByQuarter, commitmentStats, plan, strengthsContext } =
     subjectBundle;
-  const { keptCount, missedCount, missed, openCommitments } = commitmentStats;
+  const {
+    keptOnTimeCount,
+    keptLateCount,
+    missedCount,
+    parkedCount,
+    adminResolvedWithoutReasonCount,
+    missed,
+    keptLate,
+    openCommitments,
+  } = commitmentStats;
 
   const personContext = formatPersonContext({
     subject,
     todayIso,
     keepRatesByQuarter,
     openQuarter,
-    keptCount,
+    keptOnTimeCount,
+    keptLateCount,
     missedCount,
+    parkedCount,
+    adminResolvedWithoutReasonCount,
     missed,
+    keptLate,
     openCommitments,
     priorities: plan.priorities,
     goals: plan.goals,
@@ -420,35 +433,82 @@ async function loadSubjectCommitments(
   subjectId: string,
   openQuarter: Quarter | null
 ): Promise<{
-  keptCount: number;
+  keptOnTimeCount: number;
+  keptLateCount: number;
   missedCount: number;
-  missed: Array<Pick<Commitment, "description" | "missed_reason" | "week_ending" | "due_date">>;
-  openCommitments: Array<Pick<Commitment, "description" | "due_date" | "week_ending">>;
+  parkedCount: number;
+  adminResolvedWithoutReasonCount: number;
+  missed: Array<
+    Pick<Commitment, "description" | "missed_reason" | "week_ending" | "due_date"> & {
+      resolved_by_role: string | null;
+    }
+  >;
+  keptLate: Array<
+    Pick<Commitment, "description" | "week_ending" | "due_date">
+  >;
+  openCommitments: Array<
+    Pick<Commitment, "description" | "due_date" | "week_ending">
+  >;
 }> {
-  const missed: Array<Pick<Commitment, "description" | "missed_reason" | "week_ending" | "due_date">> = [];
-  let keptCount = 0;
+  const missed: Array<
+    Pick<Commitment, "description" | "missed_reason" | "week_ending" | "due_date"> & {
+      resolved_by_role: string | null;
+    }
+  > = [];
+  const keptLate: Array<
+    Pick<Commitment, "description" | "week_ending" | "due_date">
+  > = [];
+  let keptOnTimeCount = 0;
+  let keptLateCount = 0;
   let missedCount = 0;
+  let adminResolvedWithoutReasonCount = 0;
 
   if (openQuarter) {
+    // Filter out soft-deleted + parked rows — those don't belong in
+    // the coaching signal for this quarter (parked appears as its
+    // own count below).
     const { data } = await supabase
       .from("commitments")
-      .select("description, status, missed_reason, week_ending, due_date")
+      .select(
+        "description, status, missed_reason, week_ending, due_date, resolved_by_role"
+      )
       .eq("owner_id", subjectId)
+      .is("deleted_at", null)
+      .is("parked_at", null)
       .gte("week_ending", openQuarter.start_date)
       .lte("week_ending", openQuarter.end_date);
     const rows = (data ?? []) as Array<
-      Pick<Commitment, "description" | "status" | "missed_reason" | "week_ending" | "due_date">
+      Pick<
+        Commitment,
+        "description" | "status" | "missed_reason" | "week_ending" | "due_date"
+      > & { resolved_by_role: string | null }
     >;
     for (const row of rows) {
-      if (row.status === "kept") keptCount += 1;
-      else if (row.status === "missed") {
+      if (row.status === "kept_on_time") {
+        keptOnTimeCount += 1;
+      } else if (row.status === "kept_late") {
+        keptLateCount += 1;
+        keptLate.push({
+          description: row.description,
+          week_ending: row.week_ending,
+          due_date: row.due_date,
+        });
+      } else if (row.status === "missed") {
         missedCount += 1;
         missed.push({
           description: row.description,
           missed_reason: row.missed_reason,
           week_ending: row.week_ending,
           due_date: row.due_date,
+          resolved_by_role: row.resolved_by_role,
         });
+        if (
+          (row.resolved_by_role === "admin" ||
+            row.resolved_by_role === "guide") &&
+          !row.missed_reason?.trim()
+        ) {
+          adminResolvedWithoutReasonCount += 1;
+        }
       }
     }
   }
@@ -458,12 +518,32 @@ async function loadSubjectCommitments(
     .select("description, due_date, week_ending")
     .eq("owner_id", subjectId)
     .eq("status", "open")
+    .is("deleted_at", null)
+    .is("parked_at", null)
     .order("due_date", { ascending: true });
   const openCommitments = (openRows ?? []) as Array<
     Pick<Commitment, "description" | "due_date" | "week_ending">
   >;
 
-  return { keptCount, missedCount, missed, openCommitments };
+  // Parked count — surfaced in the coaching context when nonzero so
+  // a coach can see how much has been set aside.
+  const { count: parkedCount } = await supabase
+    .from("commitments")
+    .select("id", { head: true, count: "exact" })
+    .eq("owner_id", subjectId)
+    .is("deleted_at", null)
+    .not("parked_at", "is", null);
+
+  return {
+    keptOnTimeCount,
+    keptLateCount,
+    missedCount,
+    parkedCount: parkedCount ?? 0,
+    adminResolvedWithoutReasonCount,
+    missed,
+    keptLate,
+    openCommitments,
+  };
 }
 
 async function loadOwnedPlanItems(
@@ -541,9 +621,13 @@ function formatPersonContext({
   todayIso,
   keepRatesByQuarter,
   openQuarter,
-  keptCount,
+  keptOnTimeCount,
+  keptLateCount,
   missedCount,
+  parkedCount,
+  adminResolvedWithoutReasonCount,
   missed,
+  keptLate,
   openCommitments,
   priorities,
   goals,
@@ -554,9 +638,17 @@ function formatPersonContext({
   todayIso: string;
   keepRatesByQuarter: Array<{ quarter: Quarter; keepRate: number | null }>;
   openQuarter: Quarter | null;
-  keptCount: number;
+  keptOnTimeCount: number;
+  keptLateCount: number;
   missedCount: number;
-  missed: Array<Pick<Commitment, "description" | "missed_reason" | "week_ending" | "due_date">>;
+  parkedCount: number;
+  adminResolvedWithoutReasonCount: number;
+  missed: Array<
+    Pick<Commitment, "description" | "missed_reason" | "week_ending" | "due_date"> & {
+      resolved_by_role: string | null;
+    }
+  >;
+  keptLate: Array<Pick<Commitment, "description" | "week_ending" | "due_date">>;
   openCommitments: Array<Pick<Commitment, "description" | "due_date" | "week_ending">>;
   priorities: Array<Pick<Priority, "title" | "status">>;
   goals: Array<Pick<AnnualGoal, "title" | "status">>;
@@ -568,7 +660,9 @@ function formatPersonContext({
   lines.push(`Today: ${todayIso}`);
 
   lines.push("");
-  lines.push("Follow-through rate by quarter (most recent first):");
+  lines.push(
+    "Follow-through rate by quarter (kept on time ÷ all resolved; most recent first):"
+  );
   if (keepRatesByQuarter.length === 0) {
     lines.push("- (no quarters on record)");
   } else {
@@ -581,14 +675,34 @@ function formatPersonContext({
   lines.push("");
   if (openQuarter) {
     lines.push(
-      `This quarter (${openQuarter.label}) — kept: ${keptCount}, closed (missed): ${missedCount}.`
+      `This quarter (${openQuarter.label}) — kept on time: ${keptOnTimeCount}, kept late: ${keptLateCount}, missed: ${missedCount}.`
     );
+    if (parkedCount > 0) {
+      lines.push(`Currently parked (set aside): ${parkedCount}.`);
+    }
+    if (adminResolvedWithoutReasonCount > 0) {
+      lines.push(
+        `Note: ${adminResolvedWithoutReasonCount} missed commitment${adminResolvedWithoutReasonCount === 1 ? " was" : "s were"} resolved by an admin without a reason. Admin-resolved rows without a reason are typically closed during the weekly meeting on the person's behalf — the absence of a reason is not itself a signal about them.`
+      );
+    }
   } else {
     lines.push("This quarter: no open quarter.");
   }
 
   lines.push("");
-  lines.push("Every closed-late (missed) commitment this quarter, verbatim reason:");
+  lines.push(
+    "Kept-late commitments this quarter (did the work, just after the due date):"
+  );
+  if (keptLate.length === 0) {
+    lines.push("- (none)");
+  } else {
+    for (const k of keptLate) {
+      lines.push(`- [${k.due_date}] ${k.description.trim()}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("Every missed commitment this quarter, verbatim reason:");
   if (missed.length === 0) {
     lines.push("- (none)");
   } else {

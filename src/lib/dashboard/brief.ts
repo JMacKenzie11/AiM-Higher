@@ -253,7 +253,9 @@ async function buildWeeklySnapshot(
     ])
   );
 
-  const kept = rows.filter((r) => r.status === "kept").length;
+  const kept = rows.filter(
+    (r) => r.status === "kept_on_time" || r.status === "kept_late"
+  ).length;
   const closedLate = rows.filter((r) => r.status === "missed").length;
   const stillOpen = rows.filter((r) => r.status === "open").length;
 

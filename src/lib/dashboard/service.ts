@@ -39,7 +39,11 @@ export type DashboardPerson = {
   // the row subject's manager (in addition to admins).
   reports_to: string | null;
   openCount: number;
-  keptCount: number;
+  // Split out kept-on-time from kept-late so the dashboard can show
+  // the two signals distinctly — Follow-Through is on-time-only, but
+  // "did the work eventually" still deserves visibility.
+  keptOnTimeCount: number;
+  keptLateCount: number;
   missedCount: number;
   keepRate: number | null;
 };
@@ -305,7 +309,8 @@ export async function getDashboardData(
       position: person.position ?? null,
       reports_to: person.reports_to ?? null,
       openCount: openByOwner.get(person.id) ?? 0,
-      keptCount: bucket?.kept ?? 0,
+      keptOnTimeCount: bucket?.keptOnTime ?? 0,
+      keptLateCount: bucket?.keptLate ?? 0,
       missedCount: bucket?.missed ?? 0,
       keepRate: bucket?.keepRate ?? null,
     };

@@ -108,16 +108,11 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
         // the same page) has always promised this grouping; the render
         // path had drifted to a single flat list.
         const needsAttention = data.mainList.filter(
-          (c) =>
-            (c.status === "open" || c.status === "in_progress") &&
-            c.due_date < data.thisFriday
+          (c) => c.status === "open" && c.due_date < data.thisFriday
         );
         const thisWeekList = data.mainList.filter(
           (c) =>
-            !(
-              (c.status === "open" || c.status === "in_progress") &&
-              c.due_date < data.thisFriday
-            )
+            !(c.status === "open" && c.due_date < data.thisFriday)
         );
         const rosterMinimal = data.roster.map((p) => ({
           id: p.id,

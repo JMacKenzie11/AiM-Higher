@@ -45,7 +45,11 @@ export function PriorWeekRow({
       >
         <span className={styles.summaryLabel}>Week of {week.weekRange}</span>
         <span className={styles.summaryCounts}>
-          {week.keptCount} kept · {week.missedCount} closed ·{" "}
+          {week.keptOnTimeCount} kept
+          {week.keptLateCount > 0
+            ? ` (+${week.keptLateCount} late)`
+            : ""}{" "}
+          · {week.missedCount} missed ·{" "}
           {week.keepRate === null ? "—" : `${week.keepRate}%`}
         </span>
         <span className={styles.summaryBar} aria-hidden>

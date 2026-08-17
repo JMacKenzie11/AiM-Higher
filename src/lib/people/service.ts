@@ -102,7 +102,8 @@ export type PersonScorecard = {
   company: { id: string; name: string; timezone: string };
   stats: {
     keepRate: number | null;
-    keptCount: number;
+    keptOnTimeCount: number;
+    keptLateCount: number;
     missedCount: number;
   };
   keepRateTrend: KeepRateBar[];
@@ -137,8 +138,10 @@ export async function getPersonScorecard(
 
   // Quarter stats — kept/missed counts for this person, derived from
   // week_ending falling inside the quarter window so operational
-  // commitments count identically to strategic ones.
-  let keptCount = 0;
+  // commitments count identically to strategic ones. Filter out
+  // soft-deleted + parked rows — those don't feed any metric.
+  let keptOnTimeCount = 0;
+  let keptLateCount = 0;
   let missedCount = 0;
   if (openQuarter) {
     const { data: cRows } = await supabase
@@ -146,14 +149,21 @@ export async function getPersonScorecard(
       .select("status")
       .eq("owner_id", personId)
       .eq("company_id", profile.company_id)
+      .is("deleted_at", null)
+      .is("parked_at", null)
       .gte("week_ending", openQuarter.start_date)
       .lte("week_ending", openQuarter.end_date);
     for (const row of (cRows ?? []) as Pick<Commitment, "status">[]) {
-      if (row.status === "kept") keptCount += 1;
+      if (row.status === "kept_on_time") keptOnTimeCount += 1;
+      else if (row.status === "kept_late") keptLateCount += 1;
       else if (row.status === "missed") missedCount += 1;
     }
   }
-  const keepRate = computeRateFromCounts(keptCount, missedCount);
+  const keepRate = computeRateFromCounts(
+    keptOnTimeCount,
+    keptLateCount,
+    missedCount
+  );
 
   // 12-week trend for this person.
   const trendWeeks: string[] = [];
@@ -245,7 +255,8 @@ export async function getPersonScorecard(
     company: companyRow,
     stats: {
       keepRate,
-      keptCount,
+      keptOnTimeCount,
+      keptLateCount,
       missedCount,
     },
     keepRateTrend,

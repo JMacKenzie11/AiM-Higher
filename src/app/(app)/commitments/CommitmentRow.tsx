@@ -5,15 +5,16 @@ import { useState, useTransition, useMemo, useEffect, useRef } from "react";
 import {
   deleteCommitmentAction,
   linkPriorityAction,
-  markInProgressAction,
   markKeptAction,
   markMissedAction,
+  parkCommitmentAction,
   reassignCommitmentAction,
   rescheduleCommitmentAction,
   setCommitmentClarityAction,
-  unmarkInProgressAction,
+  stopRepeatingAction,
   unmarkKeptAction,
   unmarkMissedAction,
+  unparkCommitmentAction,
   updateCommitmentDescriptionAction,
 } from "@/lib/commitments/actions";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
@@ -29,29 +30,31 @@ import styles from "./commitments.module.css";
 
 // A single commitment row.
 //
-// The circle at the left is now a *menu trigger*, not an action.
-// Click it (any state, any due date) → a small menu opens with the
-// available actions. Menu contents vary by state:
-//   - Open + on-time  → Mark kept · Reschedule
-//   - Open + overdue  → Mark kept · Mark missed · Reschedule
-//   - Kept or Missed  → Reopen
-// Mark missed is deliberately hidden until the commitment is
-// overdue — a commitment can't be missed before its due date, so
-// showing that option on a future-dated open row was nonsensical.
-// Rationale: the previous "click = kept for on-time, click = missed
-// strip for overdue, click = revert for kept/missed" design was
-// state-dependent and caused misclick-in-front-of-client mistakes
-// (the UX review's Blocker finding). A menu is one extra click on
-// the fast path and buys total safety on every path.
+// Resolution model (migration 0139):
+//   open          — still to do.
+//   kept_on_time  — completed on/before the due date. Green ✓.
+//   kept_late     — completed after the due date. Green ✓ with a
+//                   small clock badge — same "did the work" signal,
+//                   never styled as failure.
+//   missed        — not done. Red ✕.
 //
-// After a resolve, a "Marked kept · Undo" chip persists for 30
-// seconds — long enough to survive a sentence in a facilitated
-// meeting. The chip is aria-live so screen readers announce it.
+// The circle at the left is a *menu trigger*. Menu contents depend
+// on state and the caller's role:
+//   open + on-time      → Mark kept · Reschedule · Park
+//   open + overdue      → Mark kept (records late) · Mark missed ·
+//                         Reschedule · Park
+//   kept_* / missed     → Reopen
+// Ongoing (weekly) rows always sit in the open bucket — resolving
+// records the occurrence + rolls the due_date forward one week; the
+// menu also carries a "Stop repeating" affordance.
 //
-// Priority cell: cobalt link when linked, ghost "Link" when
-// unlinked; both open a searchable picker while status='open'.
-// Once resolved the linkage is frozen (would silently rewrite
-// priority progress history).
+// Reason prompts:
+//   - Owners marking missed: reason required.
+//   - Owners marking late-keep: reason optional (ghost Skip button).
+//   - Owners rescheduling: reason required.
+//   - Admins / guides on any of the above: no reason prompt at all
+//     — they typically resolve during the weekly meeting on
+//     someone else's behalf.
 
 export type CommitmentRowProps = {
   commitment: CommitmentWithMeta;
@@ -60,14 +63,7 @@ export type CommitmentRowProps = {
   todayIso: string;
   canResolve: boolean;
   canLink: boolean;
-  // Reassign follows the same admin-or-owner rule as resolve. Kept
-  // as its own prop so callers can gate it independently later if the
-  // policy diverges.
   canReassign: boolean;
-  // The caller's own profile id + whether they're an admin. Together
-  // these decide (a) whether a team member can claim an unassigned
-  // row for themselves, and (b) whether the "From meeting" chip
-  // deep-links to the analysis page.
   currentUserId: string;
   isAdmin: boolean;
 };
@@ -85,9 +81,16 @@ export function CommitmentRow({
 }: CommitmentRowProps) {
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState("");
+  // "late" reason strip is a distinct flow — the owner might still
+  // want to log context ("stuck on X for two days") even though the
+  // work landed.
+  const [showLateReason, setShowLateReason] = useState(false);
+  const [lateReason, setLateReason] = useState("");
   const [showReschedule, setShowReschedule] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState(commitment.due_date);
   const [rescheduleReason, setRescheduleReason] = useState("");
+  const [showUnpark, setShowUnpark] = useState(false);
+  const [unparkDate, setUnparkDate] = useState(todayIso);
   const [pickingOwner, setPickingOwner] = useState(false);
   const [showClarity, setShowClarity] = useState(false);
   const [showQuickView, setShowQuickView] = useState(false);
@@ -98,32 +101,25 @@ export function CommitmentRow({
   const [descriptionDraft, setDescriptionDraft] = useState(
     commitment.description
   );
-  // "Just changed" chip — shows for a few seconds after resolving so
-  // the coach knows the action landed AND can undo without hunting.
-  // The prior UX had no such affordance, which is exactly how the
-  // reported real-world misclick went silent.
+
   const [justResolved, setJustResolved] = useState<
-    null | "kept" | "missed" | "in_progress"
+    null | "kept_on_time" | "kept_late" | "missed" | "parked"
   >(null);
   useEffect(() => {
     if (!justResolved) return;
-    // 30 seconds — long enough to survive a sentence or two in a
-    // facilitated meeting. The prior 6s window was routinely lost
-    // when someone started talking, per the UX review.
     const t = setTimeout(() => setJustResolved(null), 30000);
     return () => clearTimeout(t);
   }, [justResolved]);
 
   const isOpen = commitment.status === "open";
-  const isInProgress = commitment.status === "in_progress";
-  const isActive = isOpen || isInProgress;
-  const isKept = commitment.status === "kept";
-  const isClosed = commitment.status === "missed";
-  const isOverdue = isActive && commitment.due_date < todayIso;
+  const isParked = commitment.parked_at !== null;
+  const isKeptOnTime = commitment.status === "kept_on_time";
+  const isKeptLate = commitment.status === "kept_late";
+  const isKept = isKeptOnTime || isKeptLate;
+  const isMissed = commitment.status === "missed";
+  const isOverdue = isOpen && !isParked && commitment.due_date < todayIso;
+  const isOngoing = commitment.is_ongoing;
 
-  // Menu-driven resolve: the circle opens a small popover with the
-  // available actions (Mark kept · Mark missed · Reschedule · Reopen).
-  // Clicking outside or pressing Escape dismisses without action.
   const [showActionMenu, setShowActionMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -141,8 +137,6 @@ export function CommitmentRow({
       }
     }
     window.addEventListener("keydown", onKey);
-    // Defer the outside-click listener a tick so the click that
-    // opened the menu doesn't immediately close it.
     const t = setTimeout(
       () => document.addEventListener("mousedown", onClick),
       0
@@ -154,12 +148,24 @@ export function CommitmentRow({
     };
   }, [showActionMenu]);
 
-  function markKept() {
+  // ---- Server calls ----
+  function markKept(reasonInput?: string | null) {
     setError(null);
     startTransition(async () => {
-      const result = await markKeptAction(commitment.id);
-      if (!result.ok) setError(result.message);
-      else setJustResolved("kept");
+      const result = await markKeptAction(commitment.id, {
+        reason: reasonInput ?? null,
+      });
+      if (!result.ok) {
+        setError(result.message);
+      } else {
+        // Server decides on-time vs late; reflect what we know from
+        // the returned row so the undo chip picks the right verb.
+        setShowLateReason(false);
+        setLateReason("");
+        setJustResolved(
+          result.commitment.status === "kept_late" ? "kept_late" : "kept_on_time"
+        );
+      }
     });
   }
 
@@ -181,10 +187,13 @@ export function CommitmentRow({
     });
   }
 
-  function submitClose() {
+  function submitMissed() {
     setError(null);
     startTransition(async () => {
-      const result = await markMissedAction(commitment.id, reason);
+      const result = await markMissedAction(
+        commitment.id,
+        reason.trim() || null
+      );
       if (!result.ok) {
         setError(result.message);
       } else {
@@ -192,6 +201,49 @@ export function CommitmentRow({
         setReason("");
         setJustResolved("missed");
       }
+    });
+  }
+
+  function submitReschedule() {
+    setError(null);
+    startTransition(async () => {
+      const result = await rescheduleCommitmentAction(
+        commitment.id,
+        rescheduleDate,
+        rescheduleReason.trim() || null
+      );
+      if (!result.ok) {
+        setError(result.message);
+      } else {
+        setShowReschedule(false);
+        setRescheduleReason("");
+      }
+    });
+  }
+
+  function park() {
+    setError(null);
+    startTransition(async () => {
+      const result = await parkCommitmentAction(commitment.id);
+      if (!result.ok) setError(result.message);
+      else setJustResolved("parked");
+    });
+  }
+
+  function submitUnpark() {
+    setError(null);
+    startTransition(async () => {
+      const result = await unparkCommitmentAction(commitment.id, unparkDate);
+      if (!result.ok) setError(result.message);
+      else setShowUnpark(false);
+    });
+  }
+
+  function stopRepeating() {
+    setError(null);
+    startTransition(async () => {
+      const result = await stopRepeatingAction(commitment.id);
+      if (!result.ok) setError(result.message);
     });
   }
 
@@ -212,32 +264,9 @@ export function CommitmentRow({
     });
   }
 
-  function submitReschedule() {
-    setError(null);
-    startTransition(async () => {
-      const result = await rescheduleCommitmentAction(
-        commitment.id,
-        rescheduleDate,
-        rescheduleReason
-      );
-      if (!result.ok) {
-        setError(result.message);
-      } else {
-        setShowReschedule(false);
-        setRescheduleReason("");
-      }
-    });
-  }
-
-  // Admins can delete any commitment in their company; owners can
-  // delete their own open commitments. Resolved rows stay in history
-  // for non-admins (the server enforces both rules).
   const canDelete =
     isAdmin || (commitment.owner_id === currentUserId && isOpen);
 
-  // Description edit follows the same admin-or-owner rule but has no
-  // status restriction — fixing a typo on a resolved commitment is
-  // useful and doesn't rewrite historical facts (status, dates).
   const canEditDescription =
     isAdmin || commitment.owner_id === currentUserId;
 
@@ -250,9 +279,6 @@ export function CommitmentRow({
     });
   }
 
-  // Blur-to-save: matches the owner/priority/due-date cells. Empty
-  // draft reverts (a blank description would break the row); an
-  // unchanged draft just exits edit mode without hitting the server.
   function commitDescription() {
     if (pending) return;
     const next = descriptionDraft.trim();
@@ -285,113 +311,137 @@ export function CommitmentRow({
 
   function onCircleClick() {
     if (!canResolve) return;
-    // Every state opens the same menu now. Circle is a *trigger*,
-    // not an action — see the comment atop this file. The menu
-    // then handles Kept / Missed / Reschedule / Reopen with the
-    // existing action helpers.
     setShowActionMenu((prev) => !prev);
   }
 
-  function markInProgress() {
-    setError(null);
-    startTransition(async () => {
-      const result = await markInProgressAction(commitment.id);
-      if (!result.ok) setError(result.message);
-      else setJustResolved("in_progress");
-    });
-  }
-
-  function unmarkInProgress() {
-    setError(null);
-    startTransition(async () => {
-      const result = await unmarkInProgressAction(commitment.id);
-      if (!result.ok) setError(result.message);
-      else setJustResolved(null);
-    });
-  }
-
   function menuChoose(
-    action: "kept" | "missed" | "in_progress" | "reschedule" | "reopen"
+    action:
+      | "kept"
+      | "missed"
+      | "reschedule"
+      | "park"
+      | "stop_repeating"
+      | "unpark"
+      | "reopen"
   ) {
     setShowActionMenu(false);
     setError(null);
     if (action === "kept") {
-      markKept();
+      // Overdue + non-admin: show the late-reason strip with Skip.
+      // Admins skip the prompt entirely; on-time keeps never prompt.
+      if (isOverdue && !isAdmin) {
+        setShowLateReason(true);
+      } else {
+        markKept(null);
+      }
     } else if (action === "missed") {
-      // Missed requires a reason — reveal the existing strip.
-      setShowReason(true);
-    } else if (action === "in_progress") {
-      markInProgress();
+      // Admins bypass the reason strip — mark immediately.
+      if (isAdmin) {
+        setError(null);
+        startTransition(async () => {
+          const result = await markMissedAction(commitment.id, null);
+          if (!result.ok) setError(result.message);
+          else setJustResolved("missed");
+        });
+      } else {
+        setShowReason(true);
+      }
     } else if (action === "reschedule") {
       setRescheduleDate(commitment.due_date);
       setShowReschedule(true);
+    } else if (action === "park") {
+      park();
+    } else if (action === "stop_repeating") {
+      stopRepeating();
+    } else if (action === "unpark") {
+      setUnparkDate(todayIso);
+      setShowUnpark(true);
     } else if (action === "reopen") {
       if (isKept) unmarkKept();
-      else if (isClosed) unmarkMissed();
-      else if (isInProgress) unmarkInProgress();
+      else if (isMissed) unmarkMissed();
     }
   }
+
+  const isActive = isOpen;
 
   return (
     <li
       className={
-        // Active rows (open + in_progress) stay in the main row
-        // style; only resolved rows (kept/missed) get the muted
-        // resolved treatment.
-        isActive ? styles.row : `${styles.row} ${styles.rowResolved}`
+        isParked
+          ? `${styles.row} ${styles.rowResolved}`
+          : isActive
+            ? styles.row
+            : `${styles.row} ${styles.rowResolved}`
       }
     >
       <button
         type="button"
-        className={buildCircleClass(isKept, isClosed, isOverdue, isInProgress)}
+        className={buildCircleClass(
+          isKeptOnTime,
+          isKeptLate,
+          isMissed,
+          isOverdue
+        )}
         onClick={onCircleClick}
         disabled={pending || !canResolve}
         data-state={
-          isKept
-            ? "kept"
-            : isClosed
-            ? "missed"
-            : isInProgress
-            ? "in_progress"
-            : "open"
+          isKeptOnTime
+            ? "kept_on_time"
+            : isKeptLate
+              ? "kept_late"
+              : isMissed
+                ? "missed"
+                : isParked
+                  ? "parked"
+                  : "open"
         }
         aria-haspopup="menu"
         aria-expanded={showActionMenu}
         title={
-          isKept
-            ? "Kept — open actions"
-            : isClosed
-            ? "Missed — open actions"
-            : isInProgress
-            ? "In progress — open actions"
-            : isOverdue
-            ? "Overdue — open actions"
-            : "Open actions"
+          isKeptOnTime
+            ? "Kept on time — open actions"
+            : isKeptLate
+              ? "Kept, late — open actions"
+              : isMissed
+                ? "Missed — open actions"
+                : isParked
+                  ? "Parked — open actions"
+                  : isOverdue
+                    ? "Overdue — open actions"
+                    : "Open actions"
         }
-        aria-label={
-          isKept
-            ? "Kept — open actions"
-            : isClosed
-            ? "Missed — open actions"
-            : isInProgress
-            ? "In progress — open actions"
-            : isOverdue
-            ? "Overdue — open actions"
-            : "Open actions"
-        }
-        aria-pressed={isKept || isClosed}
+        aria-label="Open actions"
+        aria-pressed={isKept || isMissed}
       >
         <span
           className={styles.checkmark}
           aria-hidden
           style={
-            isKept || isClosed
+            isKept || isMissed
               ? undefined
               : { color: "var(--text-muted)" }
           }
         >
-          {isClosed ? "✕" : isInProgress ? "◐" : "✓"}
+          {isMissed ? "✕" : isKeptLate ? "✓" : "✓"}
         </span>
+        {isKeptLate ? (
+          <span
+            aria-hidden
+            title="Kept, late"
+            style={{
+              position: "absolute",
+              bottom: -2,
+              right: -2,
+              fontSize: 10,
+              lineHeight: 1,
+              background: "var(--aims-white, #fff)",
+              borderRadius: "50%",
+              padding: "1px 2px",
+            }}
+          >
+            🕒
+          </span>
+        ) : null}
       </button>
 
       {showActionMenu ? (
@@ -401,7 +451,16 @@ export function CommitmentRow({
           role="menu"
           aria-label="Commitment actions"
         >
-          {isActive ? (
+          {isParked ? (
+            <button
+              type="button"
+              className={styles.resolveMenuItem}
+              role="menuitem"
+              onClick={() => menuChoose("unpark")}
+            >
+              <span aria-hidden>↻</span> Bring back
+            </button>
+          ) : isActive ? (
             <>
               <button
                 type="button"
@@ -409,7 +468,8 @@ export function CommitmentRow({
                 role="menuitem"
                 onClick={() => menuChoose("kept")}
               >
-                <span aria-hidden>✓</span> Mark kept
+                <span aria-hidden>✓</span>{" "}
+                {isOverdue ? "Mark kept (late)" : "Mark kept"}
               </button>
               {isOverdue ? (
                 <button
@@ -421,16 +481,6 @@ export function CommitmentRow({
                   <span aria-hidden>✕</span> Mark missed
                 </button>
               ) : null}
-              {isOpen ? (
-                <button
-                  type="button"
-                  className={styles.resolveMenuItem}
-                  role="menuitem"
-                  onClick={() => menuChoose("in_progress")}
-                >
-                  <span aria-hidden>◐</span> Mark in progress
-                </button>
-              ) : null}
               <button
                 type="button"
                 className={styles.resolveMenuItem}
@@ -439,14 +489,22 @@ export function CommitmentRow({
               >
                 <span aria-hidden>→</span> Reschedule
               </button>
-              {isInProgress ? (
+              <button
+                type="button"
+                className={styles.resolveMenuItem}
+                role="menuitem"
+                onClick={() => menuChoose("park")}
+              >
+                <span aria-hidden>⏸</span> Park
+              </button>
+              {isOngoing ? (
                 <button
                   type="button"
                   className={styles.resolveMenuItem}
                   role="menuitem"
-                  onClick={() => menuChoose("reopen")}
+                  onClick={() => menuChoose("stop_repeating")}
                 >
-                  <span aria-hidden>↺</span> Reopen (not started)
+                  <span aria-hidden>⏹</span> Stop repeating
                 </button>
               ) : null}
             </>
@@ -527,6 +585,14 @@ export function CommitmentRow({
             ) : (
               commitment.description
             )}
+            {isOngoing ? (
+              <span
+                className={styles.fromMeetingChip}
+                title="Repeats weekly — resolving rolls the due date forward"
+              >
+                Ongoing (weekly)
+              </span>
+            ) : null}
             {commitment.source_meeting_id ? (
               isAdmin ? (
                 <Link
@@ -553,38 +619,42 @@ export function CommitmentRow({
         {justResolved ? (
           <span
             className={
-              justResolved === "kept"
+              justResolved === "kept_on_time" || justResolved === "kept_late"
                 ? styles.justResolvedKept
                 : justResolved === "missed"
-                ? styles.justResolvedMissed
-                : styles.justResolvedInProgress
+                  ? styles.justResolvedMissed
+                  : styles.justResolvedInProgress
             }
             role="status"
             aria-live="polite"
           >
-            {justResolved === "kept"
+            {justResolved === "kept_on_time"
               ? "Marked kept"
-              : justResolved === "missed"
-              ? "Marked missed"
-              : "Marked in progress"}
-            <button
-              type="button"
-              className={styles.undoLink}
-              onClick={
-                justResolved === "kept"
-                  ? unmarkKept
-                  : justResolved === "missed"
-                  ? unmarkMissed
-                  : unmarkInProgress
-              }
-              disabled={pending}
-            >
-              Undo
-            </button>
+              : justResolved === "kept_late"
+                ? "Marked kept (late)"
+                : justResolved === "missed"
+                  ? "Marked missed"
+                  : "Parked"}
+            {justResolved !== "parked" ? (
+              <button
+                type="button"
+                className={styles.undoLink}
+                onClick={
+                  justResolved === "missed" ? unmarkMissed : unmarkKept
+                }
+                disabled={pending}
+              >
+                Undo
+              </button>
+            ) : null}
           </span>
         ) : null}
         {error ? (
-          <p role="alert" className={styles.reasonNote} style={{ color: "var(--aims-danger)" }}>
+          <p
+            role="alert"
+            className={styles.reasonNote}
+            style={{ color: "var(--aims-danger)" }}
+          >
             {error}
           </p>
         ) : null}
@@ -625,14 +695,22 @@ export function CommitmentRow({
       />
 
       {(() => {
-        // clarity_timeline === false means the analyzer defaulted the
-        // date because no deadline was agreed in the meeting (or a
-        // reviewer explicitly marked it that way). Surface it visually
-        // so the placeholder date doesn't read as a real commitment.
         const dueAssigned = commitment.clarity_timeline === false;
         const assignedTitle = dueAssigned
           ? "No deadline was agreed in the meeting — this date is a placeholder. Reschedule to lock in a real one."
           : undefined;
+
+        if (isParked) {
+          return (
+            <span
+              className={styles.rowDue}
+              title="Parked — no scheduled date"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Parked
+            </span>
+          );
+        }
 
         if (isActive && canResolve) {
           const classes = [styles.rowDueButton];
@@ -647,7 +725,7 @@ export function CommitmentRow({
                 setShowReschedule((prev) => !prev);
               }}
               disabled={pending}
-              aria-label={assignedTitle ?? "Reschedule with a reason"}
+              aria-label={assignedTitle ?? "Reschedule"}
               title={assignedTitle}
             >
               {isOverdue ? (
@@ -677,10 +755,8 @@ export function CommitmentRow({
 
       <CommitmentResolutionChip commitment={commitment} />
 
-      {/* Full-width editor strips — direct grid children so
-          grid-column: 1 / -1 spans the whole row. Previously nested
-          inside the description cell, which cramped them to one
-          column while the row furniture stranded off to the right. */}
+      {/* Missed reason strip: only shown for non-admin owners. Admin
+          missed clicks bypass the strip entirely (see menuChoose). */}
       {showReason && isOverdue ? (
         <div className={styles.resolveStrip}>
           <label
@@ -714,10 +790,52 @@ export function CommitmentRow({
             <button
               type="button"
               className={styles.primaryButton}
-              onClick={submitClose}
+              onClick={submitMissed}
               disabled={pending || !reason.trim()}
             >
-              {pending ? "Saving…" : "Close it"}
+              {pending ? "Saving…" : "Mark missed"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Late-keep reason strip: reason optional, ghost Skip button.
+          Owners see this when they keep an overdue commitment; admins
+          skip the prompt entirely and mark kept in one click. */}
+      {showLateReason && isOverdue ? (
+        <div className={styles.resolveStrip}>
+          <label
+            htmlFor={`late-reason-${commitment.id}`}
+            className={styles.stripLabel}
+          >
+            What slowed it down? (optional)
+          </label>
+          <textarea
+            id={`late-reason-${commitment.id}`}
+            className={styles.stripTextarea}
+            value={lateReason}
+            onChange={(e) => setLateReason(e.target.value)}
+            rows={2}
+            disabled={pending}
+            placeholder="Anything worth remembering — or leave blank and skip."
+            autoFocus
+          />
+          <div className={styles.stripSubmitRow}>
+            <button
+              type="button"
+              className={styles.ghostButton}
+              onClick={() => markKept(null)}
+              disabled={pending}
+            >
+              Skip
+            </button>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={() => markKept(lateReason.trim() || null)}
+              disabled={pending}
+            >
+              {pending ? "Saving…" : "Mark kept (late)"}
             </button>
           </div>
         </div>
@@ -739,21 +857,25 @@ export function CommitmentRow({
             onChange={(e) => setRescheduleDate(e.target.value)}
             disabled={pending}
           />
-          <label
-            htmlFor={`reschedule-reason-${commitment.id}`}
-            className={styles.stripLabel}
-          >
-            Reason
-          </label>
-          <textarea
-            id={`reschedule-reason-${commitment.id}`}
-            className={styles.stripTextarea}
-            value={rescheduleReason}
-            onChange={(e) => setRescheduleReason(e.target.value)}
-            rows={2}
-            disabled={pending}
-            placeholder="Enter a reason for moving the due date"
-          />
+          {!isAdmin ? (
+            <>
+              <label
+                htmlFor={`reschedule-reason-${commitment.id}`}
+                className={styles.stripLabel}
+              >
+                Reason
+              </label>
+              <textarea
+                id={`reschedule-reason-${commitment.id}`}
+                className={styles.stripTextarea}
+                value={rescheduleReason}
+                onChange={(e) => setRescheduleReason(e.target.value)}
+                rows={2}
+                disabled={pending}
+                placeholder="Enter a reason for moving the due date"
+              />
+            </>
+          ) : null}
           <div className={styles.stripSubmitRow}>
             <button
               type="button"
@@ -773,12 +895,49 @@ export function CommitmentRow({
               onClick={submitReschedule}
               disabled={
                 pending ||
-                !rescheduleReason.trim() ||
+                (!isAdmin && !rescheduleReason.trim()) ||
                 !rescheduleDate ||
                 rescheduleDate === commitment.due_date
               }
             >
               {pending ? "Saving…" : "Reschedule"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showUnpark && isParked ? (
+        <div className={styles.resolveStrip}>
+          <label
+            htmlFor={`unpark-date-${commitment.id}`}
+            className={styles.stripLabel}
+          >
+            Bring back with due date
+          </label>
+          <input
+            id={`unpark-date-${commitment.id}`}
+            type="date"
+            className={styles.stripInput}
+            value={unparkDate}
+            onChange={(e) => setUnparkDate(e.target.value)}
+            disabled={pending}
+          />
+          <div className={styles.stripSubmitRow}>
+            <button
+              type="button"
+              className={styles.ghostButton}
+              onClick={() => setShowUnpark(false)}
+              disabled={pending}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={submitUnpark}
+              disabled={pending || !unparkDate}
+            >
+              {pending ? "Saving…" : "Bring back"}
             </button>
           </div>
         </div>
@@ -810,15 +969,14 @@ export function CommitmentRow({
 }
 
 function buildCircleClass(
-  isKept: boolean,
-  isClosed: boolean,
-  isOverdue: boolean,
-  isInProgress: boolean
+  isKeptOnTime: boolean,
+  isKeptLate: boolean,
+  isMissed: boolean,
+  isOverdue: boolean
 ): string {
   const parts = [styles.resolveCircle];
-  if (isKept) parts.push(styles.resolveCircleChecked);
-  if (isClosed) parts.push(styles.resolveCircleClosed);
-  if (isInProgress) parts.push(styles.resolveCircleInProgress);
+  if (isKeptOnTime || isKeptLate) parts.push(styles.resolveCircleChecked);
+  if (isMissed) parts.push(styles.resolveCircleClosed);
   if (isOverdue) parts.push(styles.resolveCircleOverdue);
   return parts.join(" ");
 }
@@ -900,13 +1058,6 @@ function PriorityCell({
   );
 }
 
-// Owner column. Three shapes:
-//   - Admin or existing owner: click owner name → quick-view drawer
-//     (drawer contains the reassign picker so ownership isn't
-//     changed by an accidental click, which was the old behaviour).
-//   - Team member on an unassigned row: click "Unassigned" chip → one-
-//     click self-claim (they can only assign to themselves).
-//   - Otherwise: read-only name or muted "Unassigned" chip.
 function OwnerCell({
   commitment,
   roster,
@@ -932,9 +1083,6 @@ function OwnerCell({
 }) {
   const canClaim =
     commitment.owner_id === null && !isAdmin && !canReassign;
-  // Admins + existing owners see the full-roster picker; a team
-  // member on an unassigned row gets a self-only picker so the
-  // action can't silently target another person.
   const pickerRoster = useMemo(
     () =>
       canReassign
@@ -987,8 +1135,6 @@ function OwnerCell({
     );
   }
 
-  // Non-reassign viewers still get the drawer — they can't change
-  // owner but they can see who this is and jump to the scorecard.
   return (
     <button
       type="button"
