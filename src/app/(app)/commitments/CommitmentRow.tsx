@@ -462,6 +462,14 @@ export function CommitmentRow({
             </button>
           ) : isActive ? (
             <>
+              {/* Resolve menu: Mark kept (or late), Reschedule, Park.
+                  No Missed — if the work got done, Kept (late); if it
+                  didn't happen this week, Reschedule (new intent) or
+                  Park (set aside). Missed still exists as a state —
+                  it's reached by the ongoing weekly-rollover flow and
+                  by admin tooling, not by an owner clicking a menu
+                  item. Stop repeating lives on the Ongoing (weekly)
+                  chip. */}
               <button
                 type="button"
                 className={styles.resolveMenuItemKept}
@@ -471,16 +479,6 @@ export function CommitmentRow({
                 <span aria-hidden>✓</span>{" "}
                 {isOverdue ? "Mark kept (late)" : "Mark kept"}
               </button>
-              {isOverdue ? (
-                <button
-                  type="button"
-                  className={styles.resolveMenuItemMissed}
-                  role="menuitem"
-                  onClick={() => menuChoose("missed")}
-                >
-                  <span aria-hidden>✕</span> Mark missed
-                </button>
-              ) : null}
               <button
                 type="button"
                 className={styles.resolveMenuItem}
@@ -497,16 +495,6 @@ export function CommitmentRow({
               >
                 <span aria-hidden>⏸</span> Park
               </button>
-              {isOngoing ? (
-                <button
-                  type="button"
-                  className={styles.resolveMenuItem}
-                  role="menuitem"
-                  onClick={() => menuChoose("stop_repeating")}
-                >
-                  <span aria-hidden>⏹</span> Stop repeating
-                </button>
-              ) : null}
             </>
           ) : (
             <button
@@ -586,12 +574,25 @@ export function CommitmentRow({
               commitment.description
             )}
             {isOngoing ? (
-              <span
-                className={styles.fromMeetingChip}
-                title="Repeats weekly — resolving rolls the due date forward"
-              >
-                Ongoing (weekly)
-              </span>
+              canResolve ? (
+                <button
+                  type="button"
+                  className={styles.fromMeetingChip}
+                  onClick={stopRepeating}
+                  disabled={pending}
+                  title="Repeats weekly — click to stop repeating"
+                  style={{ cursor: "pointer" }}
+                >
+                  Ongoing (weekly) — click to stop
+                </button>
+              ) : (
+                <span
+                  className={styles.fromMeetingChip}
+                  title="Repeats weekly — resolving rolls the due date forward"
+                >
+                  Ongoing (weekly)
+                </span>
+              )
             ) : null}
             {commitment.source_meeting_id ? (
               isAdmin ? (
