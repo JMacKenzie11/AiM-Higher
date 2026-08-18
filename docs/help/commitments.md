@@ -19,13 +19,19 @@ the denominator only.
 - **Resolve a commitment** — click the circle at the left of the
   row to open a small menu. Options depend on state:
   - Open (on time): *Mark kept* · *Reschedule* · *Park*
-  - Open (overdue): *Mark kept (late)* · *Mark missed* · *Reschedule* · *Park*
-  - Ongoing rows also carry: *Stop repeating*
+  - Open (overdue): *Mark kept (late)* · *Reschedule* · *Park*
   - Parked rows: *Bring back*
   - Kept or Missed: *Reopen*
   A "Marked kept · Undo" chip appears in the row for **30 seconds**
   after each resolve so a misclick during a meeting can be reversed
   without hunting.
+
+  Notice there's no *Mark missed* in the menu. If the work got
+  done, use *Mark kept (late)*. If it didn't happen this week,
+  either *Reschedule* (you'll do it later) or *Park* (set aside).
+  The Missed state still exists in the system — it's used by the
+  ongoing-weekly rollover when a week ends unresolved, and by
+  admin tooling — but owners don't reach it from the row menu.
 - **Late keeps** — when you mark an overdue commitment kept, an
   optional "What slowed it down?" strip appears with a **Skip**
   button. The reason is welcome but never required. Admins skip
@@ -38,12 +44,13 @@ the denominator only.
   weekly flow.
 - **Ongoing (weekly) commitments** — tick the *Ongoing (weekly)*
   box next to the date picker when adding a commitment. Ongoing
-  rows always show a current due date; resolving them (kept or
-  missed) records the resolution for the completed week and rolls
-  the due date forward to the same weekday next week. One row,
-  many weeks of history — each week counts individually in
-  Follow-Through math. Use *Stop repeating* to convert the row
-  back to a one-shot commitment due at its current date.
+  rows always show a current due date; resolving them records the
+  resolution for the completed week and rolls the due date forward
+  to the same weekday next week. One row, many weeks of history —
+  each week counts individually in Follow-Through math. On the row
+  itself, the "Ongoing (weekly)" chip is a click-to-stop
+  affordance — clicking it converts the row back to a one-shot
+  commitment due at its current date.
 - **Reschedule** — pick *Reschedule* from the circle menu (or
   click the due date directly). Move the row and capture a short
   reason for the shift. Admins can reschedule any date — including
