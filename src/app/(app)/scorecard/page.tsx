@@ -135,7 +135,7 @@ export default async function ScorecardPage() {
 
         <p className={styles.footer}>
           Snapshots taken every Sunday. Live score as of{" "}
-          {formatShortDate(scorecard.computedAt)}.
+          {formatShortDate(scorecard.computedAt.slice(0, 10))}.
         </p>
       </div>
     </div>
