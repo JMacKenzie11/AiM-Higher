@@ -149,17 +149,22 @@ export function CommitmentRow({
   }, [showActionMenu]);
 
   // ---- Server calls ----
-  function markKept(reasonInput?: string | null) {
+  function markKept(
+    reasonInput?: string | null,
+    resolveAs?: "on_time" | "late"
+  ) {
     setError(null);
     startTransition(async () => {
       const result = await markKeptAction(commitment.id, {
         reason: reasonInput ?? null,
+        resolveAs,
       });
       if (!result.ok) {
         setError(result.message);
       } else {
-        // Server decides on-time vs late; reflect what we know from
-        // the returned row so the undo chip picks the right verb.
+        // Server decides on-time vs late (or trusts the admin
+        // override); reflect what we know from the returned row so
+        // the undo chip picks the right verb.
         setShowLateReason(false);
         setLateReason("");
         setJustResolved(
@@ -317,6 +322,7 @@ export function CommitmentRow({
   function menuChoose(
     action:
       | "kept"
+      | "kept_on_time_admin"
       | "missed"
       | "reschedule"
       | "park"
@@ -334,6 +340,11 @@ export function CommitmentRow({
       } else {
         markKept(null);
       }
+    } else if (action === "kept_on_time_admin") {
+      // Admin-only override on past-due rows — records the resolution
+      // as kept_on_time even though today > due_date. Use case: the
+      // work was actually completed on time but never marked.
+      markKept(null, "on_time");
     } else if (action === "missed") {
       // Admins bypass the reason strip — mark immediately.
       if (isAdmin) {
@@ -470,6 +481,20 @@ export function CommitmentRow({
                   by admin tooling, not by an owner clicking a menu
                   item. Stop repeating lives on the Ongoing (weekly)
                   chip. */}
+              {/* On overdue rows, admins see BOTH kept-on-time and
+                  kept-late as separate options. Non-admins only see
+                  kept-late — the honest signal for their own row. */}
+              {isOverdue && isAdmin ? (
+                <button
+                  type="button"
+                  className={styles.resolveMenuItemKept}
+                  role="menuitem"
+                  onClick={() => menuChoose("kept_on_time_admin")}
+                  title="Record as kept on time even though the due date has passed"
+                >
+                  <span aria-hidden>✓</span> Mark kept (on time)
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={styles.resolveMenuItemKept}
