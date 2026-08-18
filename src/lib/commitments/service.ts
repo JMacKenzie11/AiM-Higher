@@ -46,21 +46,33 @@ export async function getCommitmentHistoryForPriority(
 ): Promise<WeekGroup[]> {
   const supabase = await createSupabaseServerClient();
 
+  // Ascending by week_ending → earliest week at the TOP of the page.
+  // Within a week, ascending due_date so rows read left-to-right in
+  // chronological order (a commitment due Monday sits above one due
+  // Friday within the same week bucket). Filter out soft-deleted and
+  // parked rows — priority history reflects the actual work stream,
+  // not stashed intentions.
   const { data: commitments } = await supabase
     .from("commitments")
     .select("*")
     .eq("priority_id", priorityId)
-    .order("week_ending", { ascending: false })
-    .order("created_at", { ascending: true });
+    .is("deleted_at", null)
+    .is("parked_at", null)
+    .order("week_ending", { ascending: true })
+    .order("due_date", { ascending: true });
 
   const rows = (commitments ?? []) as Commitment[];
   if (rows.length === 0) return [];
 
-  const ownerIds = Array.from(new Set(rows.map((row) => row.owner_id)));
-  const { data: owners } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .in("id", ownerIds);
+  const ownerIds = Array.from(
+    new Set(rows.map((row) => row.owner_id).filter((id): id is string => !!id))
+  );
+  const { data: owners } = ownerIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ownerIds)
+    : { data: [] };
   const ownerById = new Map(
     (owners ?? []).map((owner) => [owner.id, owner as Pick<Profile, "id" | "full_name">])
   );
@@ -69,7 +81,7 @@ export async function getCommitmentHistoryForPriority(
   for (const row of rows) {
     const enriched: CommitmentWithOwner = {
       ...row,
-      owner: ownerById.get(row.owner_id) ?? null,
+      owner: row.owner_id ? (ownerById.get(row.owner_id) ?? null) : null,
     };
     if (!grouped.has(row.week_ending)) grouped.set(row.week_ending, []);
     grouped.get(row.week_ending)!.push(enriched);
