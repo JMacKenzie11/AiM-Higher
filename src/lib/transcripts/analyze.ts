@@ -168,13 +168,24 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
       model,
     });
 
-    // Create real commitments on the routed company.
-    const created = await createCommitmentsFromExtraction(
+    // Create real commitments on the routed company — only when
+    // Automated Commitment Tracking is enabled. When off, the
+    // summary + facilitation review still run and the extracted
+    // commitments still land in meeting_analyses.commitments_json
+    // for reference on the meeting detail page, but they don't
+    // spawn rows on /commitments. Manual adds still work.
+    const autoTrackOn = await companyHasAutomatedCommitmentTracking(
       admin,
-      meetingRow,
-      validated,
-      context
+      meetingRow.company_id
     );
+    const created = autoTrackOn
+      ? await createCommitmentsFromExtraction(
+          admin,
+          meetingRow,
+          validated,
+          context
+        )
+      : 0;
 
     await admin
       .from("meetings")
@@ -353,6 +364,19 @@ async function loadAnalyzerPrompt(): Promise<string> {
 // Feature check using the admin client so the pipeline (which runs
 // outside a user session) can gate the second LLM pass. Mirrors
 // companyHasFeature() but doesn't rely on RLS-scoped reads.
+async function companyHasAutomatedCommitmentTracking(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  companyId: string
+): Promise<boolean> {
+  const { data } = await admin
+    .from("company_features")
+    .select("feature")
+    .eq("company_id", companyId)
+    .eq("feature", "automated_commitment_tracking")
+    .maybeSingle<{ feature: string }>();
+  return Boolean(data);
+}
+
 async function companyHasFacilitationReview(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   companyId: string
