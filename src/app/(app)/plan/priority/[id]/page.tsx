@@ -53,16 +53,17 @@ export default async function PriorityDetailPage({ params }: PageProps) {
           </p>
         ) : (
           <>
-            {/* Show the 4 most recent weeks by default; older weeks
-                collapse behind a summary so long-running priorities
-                don't produce a wall of text. */}
+            {/* Sort is ascending (earliest week at the top), so the
+                first 4 visible groups are the START of the priority.
+                Later weeks collapse behind a summary so long-running
+                priorities don't produce a wall of text. */}
             {history.slice(0, 4).map((group) => (
               <HistoryWeek key={group.weekEnding} group={group} />
             ))}
             {history.length > 4 ? (
               <details className={styles.olderDetails}>
                 <summary className={styles.olderSummary}>
-                  Show {history.length - 4} earlier{" "}
+                  Show {history.length - 4} later{" "}
                   {history.length - 4 === 1 ? "week" : "weeks"}
                 </summary>
                 {history.slice(4).map((group) => (
