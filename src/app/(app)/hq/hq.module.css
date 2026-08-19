@@ -1,0 +1,328 @@
+/* Guide HQ styles. Reuses the admin-hero band pattern from other
+   scoped pages; introduces its own list treatments for the four
+   sections (My commitments, Needs your attention, Your companies,
+   Recent activity). */
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+}
+
+.hero {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+
+.heroInner {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.8;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.h1 {
+  margin: 0;
+  color: var(--aims-white);
+  font: var(--text-display);
+  letter-spacing: -0.02em;
+}
+
+.rule {
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: var(--grad-rule);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--aims-white);
+  opacity: 0.7;
+  font: var(--text-subtitle);
+  text-wrap: balance;
+}
+
+.content {
+  position: relative;
+  margin: -32px auto 0;
+  padding: 0 var(--space-6) var(--space-6);
+  max-width: 1160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.sectionCaption {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body);
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body);
+}
+
+/* ---- Zero-assignments empty state ---------------------------- */
+.zeroCard {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: left;
+}
+
+.zeroTitle {
+  margin: 0;
+  color: var(--text-heading);
+  font: var(--text-h3);
+}
+
+.zeroBody {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body);
+}
+
+.zeroLink {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- Needs your attention list ------------------------------ */
+.attentionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.attentionItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.attentionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.attentionName {
+  font: var(--text-subhead);
+  font-weight: 700;
+  color: var(--text-heading);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.attentionNameLink {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.attentionNameLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.attentionSeverity {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.attentionReasons {
+  list-style: disc;
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-body);
+  font: var(--text-body-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* ---- Your companies compact rows ---------------------------- */
+.companiesTable {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body);
+}
+
+.companiesTable th,
+.companiesTable td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  text-align: left;
+}
+
+.companiesTable th {
+  font: var(--text-subhead);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.companiesTable tr:last-child td {
+  border-bottom: none;
+}
+
+.companyNumCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.companyNumHead {
+  text-align: right;
+}
+
+.companyNameLink {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.companyNameLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.actionsCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.actionButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.actionButton:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
+}
+
+.actionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Recent activity feed ----------------------------------- */
+.activityList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.activityItem {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.activityItem:last-child {
+  border-bottom: none;
+}
+
+.activityWhen {
+  color: var(--text-muted);
+  font: var(--text-caption);
+  min-width: 96px;
+}
+
+.activityMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.activityCompany {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.activityText {
+  font: var(--text-body);
+  color: var(--text-body);
+}
+
+.activityLink {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.activityLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- Read-only banner on sysadmin oversight view ------------ */
+.readOnlyBanner {
+  background: var(--aims-navy-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}

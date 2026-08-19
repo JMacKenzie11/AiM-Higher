@@ -151,6 +151,21 @@ const APP_ITEMS: readonly NavItem[] = [
   },
 ];
 
+// Cross-tenant top items shown for aims_guide + system_admin. Guide
+// HQ is the guide's home base — commitments, attention queue, caseload,
+// recent activity across every assigned company. Sits ABOVE Companies
+// so a guide's first click is the coaching view, not the fleet list.
+const GUIDE_HQ_ITEMS: readonly NavItem[] = [
+  {
+    kind: "link",
+    label: "Guide HQ",
+    href: "/hq",
+    icon: "dashboard",
+    feature: null,
+    roles: ["system_admin", "aims_guide"],
+  },
+];
+
 const SYSTEM_ADMIN_ITEMS: readonly NavItem[] = [
   {
     kind: "link",
@@ -335,6 +350,9 @@ export function Sidebar({
     pathname === "/admin/companies" ||
     pathname === "/admin/companies/";
 
+  const guideHqItems = GUIDE_HQ_ITEMS.filter((item) =>
+    item.kind === "link" ? linkVisible(item) : true
+  );
   const adminItems = SYSTEM_ADMIN_ITEMS.filter((item) =>
     item.kind === "link" ? linkVisible(item) : true
   );
@@ -350,9 +368,11 @@ export function Sidebar({
       : [];
   const items: NavItem[] = isSystemAdmin
     ? showExitScope && !onAdminPicker
-      ? [...adminItems, ...subscribedApp, ...bottomAdminItems]
-      : [...adminItems, ...bottomAdminItems]
-    : [...subscribedApp, ...bottomAdminItems];
+      ? [...guideHqItems, ...adminItems, ...subscribedApp, ...bottomAdminItems]
+      : [...guideHqItems, ...adminItems, ...bottomAdminItems]
+    : userRole === "aims_guide"
+      ? [...guideHqItems, ...subscribedApp, ...bottomAdminItems]
+      : [...subscribedApp, ...bottomAdminItems];
 
   return (
     <>

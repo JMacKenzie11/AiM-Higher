@@ -27,10 +27,20 @@ import styles from "./dashboard.module.css";
 export default async function DashboardPage() {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
-  if (!companyId) redirect("/admin/companies");
+  // Cross-tenant roles land on Guide HQ as their default home base
+  // (own commitments across companies, attention queue, caseload).
+  // Company admins / team members still fall through to the company
+  // picker at /admin/companies, though in practice a company_admin
+  // always has a company_id so companyId shouldn't be null for them.
+  const crossTenantHome =
+    session.profile.role === "system_admin" ||
+    session.profile.role === "aims_guide"
+      ? "/hq"
+      : "/admin/companies";
+  if (!companyId) redirect(crossTenantHome);
 
   const data = await getDashboardData(companyId);
-  if (!data) redirect("/admin/companies");
+  if (!data) redirect(crossTenantHome);
 
   // Pending-measures widget only renders when performance_tracking
   // is on for this company and the caller actually owns some
