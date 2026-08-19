@@ -7,6 +7,8 @@ import {
   removeSourceAction,
   checkSourceNowAction,
   analyzePendingForCompanyAction,
+  previewDriveListingAction,
+  type PreviewDriveListingResult,
 } from "@/lib/transcripts/actions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { TranscriptSourceStatus } from "@/lib/types";
@@ -36,6 +38,9 @@ export function SourceRowActions({
   const [msg, setMsg] = useState<string | null>(null);
   const [msgTone, setMsgTone] = useState<"info" | "success" | "error">("info");
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [preview, setPreview] = useState<PreviewDriveListingResult | null>(
+    null
+  );
 
   function report(text: string, tone: "info" | "success" | "error" = "info") {
     setMsg(text);
@@ -118,6 +123,21 @@ export function SourceRowActions({
       )}
       <button
         type="button"
+        className={styles.ghostButton}
+        onClick={() => {
+          setPreview(null);
+          startTransition(async () => {
+            const r = await previewDriveListingAction(sourceId);
+            setPreview(r);
+          });
+        }}
+        disabled={pending}
+        title="Show what the connected Drive account can see in this folder — no MIME filter, no cursor filter"
+      >
+        Preview listing
+      </button>
+      <button
+        type="button"
         className={styles.dangerButton}
         onClick={() => setConfirmRemove(true)}
         disabled={pending}
@@ -125,6 +145,61 @@ export function SourceRowActions({
         Remove
       </button>
       {msg ? <p className={msgStyle}>{msg}</p> : null}
+      {preview ? (
+        <div
+          style={{
+            marginTop: "var(--space-2)",
+            padding: "var(--space-3)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+            background: "var(--surface-subtle, #fafafa)",
+            fontSize: "13px",
+            maxWidth: "100%",
+            overflowX: "auto",
+          }}
+        >
+          {preview.ok ? (
+            preview.files.length === 0 ? (
+              <p style={{ margin: 0 }}>
+                Drive returned 0 files for this folder. The connected account
+                can&rsquo;t see anything here — usually a sharing quirk.
+              </p>
+            ) : (
+              <>
+                <p style={{ margin: "0 0 var(--space-2)" }}>
+                  {preview.files.length} file
+                  {preview.files.length === 1 ? "" : "s"} visible to the
+                  connected account:
+                </p>
+                <table style={{ fontSize: "12px", width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left" }}>Name</th>
+                      <th style={{ textAlign: "left" }}>MIME</th>
+                      <th style={{ textAlign: "left" }}>Modified</th>
+                      <th style={{ textAlign: "left" }}>Owner</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.files.map((f) => (
+                      <tr key={f.id}>
+                        <td>{f.name}</td>
+                        <td style={{ fontFamily: "monospace" }}>{f.mimeType}</td>
+                        <td>{f.modifiedTime}</td>
+                        <td>{f.ownerEmail ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )
+          ) : (
+            <p style={{ margin: 0, color: "var(--aims-danger)" }}>
+              API error: {preview.message}
+            </p>
+          )}
+        </div>
+      ) : null}
       <ConfirmDialog
         open={confirmRemove}
         title="Remove this source?"

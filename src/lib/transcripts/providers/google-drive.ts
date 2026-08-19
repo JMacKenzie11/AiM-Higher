@@ -162,6 +162,51 @@ async function driveClient(companyId: string): Promise<drive_v3.Drive> {
   return google.drive({ version: "v3", auth });
 }
 
+// Debug helper: raw file listing for a source, ignoring the cursor
+// and MIME filters entirely. Used by the transcripts panel's
+// "Preview Drive listing" button so an admin can see exactly what
+// the OAuth-connected account can see through the API — helps
+// diagnose "why did nothing get ingested" cases where the folder
+// looks populated in the browser but the API returns empty.
+export async function debugListFolder(source: TranscriptSource): Promise<{
+  ok: true;
+  files: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    modifiedTime: string;
+    ownerEmail: string | null;
+  }>;
+} | { ok: false; message: string }> {
+  if (!source.company_id) {
+    return { ok: false, message: "Source has no company_id." };
+  }
+  try {
+    const drive = await driveClient(source.company_id);
+    const res = await drive.files.list({
+      q: `'${source.folder_id}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
+      fields: "files(id, name, mimeType, modifiedTime, owners(emailAddress))",
+      orderBy: "modifiedTime desc",
+      pageSize: 100,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    const files = (res.data.files ?? []).map((f) => ({
+      id: f.id ?? "",
+      name: f.name ?? "",
+      mimeType: f.mimeType ?? "",
+      modifiedTime: f.modifiedTime ?? "",
+      ownerEmail: f.owners?.[0]?.emailAddress ?? null,
+    }));
+    return { ok: true, files };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 // Parses a folder id from a raw Drive URL or from the id itself.
 export function parseGoogleFolderId(input: string): string | null {
   const trimmed = input.trim();

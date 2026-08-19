@@ -253,6 +253,39 @@ export async function checkSourceNowAction(
   }
 }
 
+// Debug: raw Drive listing for a source, no cursor filter, no MIME
+// filter — shows exactly what the OAuth-connected account can see.
+// Powered by debugListFolder in the Google Drive provider; safe to
+// call because it's read-only, admin-gated, and never mutates.
+export type PreviewDriveListingResult =
+  | {
+      ok: true;
+      files: Array<{
+        id: string;
+        name: string;
+        mimeType: string;
+        modifiedTime: string;
+        ownerEmail: string | null;
+      }>;
+    }
+  | { ok: false; message: string };
+
+export async function previewDriveListingAction(
+  sourceId: string
+): Promise<PreviewDriveListingResult> {
+  const g = await guardForSource(sourceId);
+  if (!g.ok) return g;
+  const admin = createSupabaseAdminClient();
+  const { data: source } = await admin
+    .from("transcript_sources")
+    .select("*")
+    .eq("id", sourceId)
+    .maybeSingle<TranscriptSource>();
+  if (!source) return { ok: false, message: "Source not found." };
+  const { debugListFolder } = await import("./providers/google-drive");
+  return debugListFolder(source);
+}
+
 // Analysis leg. Called by the client after checkSourceNowAction so
 // the panel first shows the pending row and then updates as each
 // meeting flips through analyzing → complete.
