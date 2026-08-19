@@ -131,6 +131,7 @@ If you find yourself wanting to give a middle-ish score but can't cite specific 
 
 - All dimension scores are out of 10 unless noted; treat 7+ as strong, 5–6 as room to grow, below 5 as "worth a real conversation".
 - The overall score is your integrated read across all four dimensions — not a mean.
+- **Overall is required whenever `insufficient_transcript` is false.** Give an integer 0–10 even if the meeting doesn't look like a standard AiMS weekly leadership meeting. Grade what actually happened — an onboarding session, a strategy offsite, or any other purposeful gathering still deserves a read on rhythm/accountability/alignment/positive_framing given its intent. `overall: null` is only permitted when you also set `insufficient_transcript: true`. If you find yourself wanting to withhold the number, either mark insufficient (if the transcript truly isn't scoreable) or commit to a score.
 - Never introduce a low score without an accompanying growth edge that includes a concrete next-week experiment.
 - `positive_framing` is a real dimension — a meeting that hits its agenda but never celebrates or reframes is not a great AiMS meeting.
 

@@ -166,11 +166,14 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
 
         {/* Show the re-run affordance ONLY when the feature is on and
             the facilitation didn't land — either the review is absent
-            entirely or it exists but returned no overall score. Once a
-            real score is present, hide it: rerunning would just churn
-            the review. */}
+            entirely or it exists with a null overall AND wasn't
+            flagged insufficient (a truly-insufficient transcript
+            won't score any better on re-run; hiding the button avoids
+            futile clicks). Once a real score is present, hide it too. */}
         {facilitationOn &&
-        (!facilitationReview || facilitationReview.overall == null) ? (
+        (!facilitationReview ||
+          (facilitationReview.overall == null &&
+            !facilitationReview.insufficient_transcript)) ? (
           <section
             aria-label="Facilitation review actions"
             style={{ marginTop: "var(--space-6)" }}

@@ -344,14 +344,35 @@ function signalTone(score: number): "low" | "mid" | "high" {
 
 // Small helper for the meeting list chip. Kept in this file so the
 // tone scale and denominator lives in one place.
+//
+// Three states, in order of specificity:
+//   - Insufficient transcript: the review ran and honestly reported
+//     the meeting wasn't scoreable. Muted chip so it's visible on the
+//     list as "yes reviewed, no grade" instead of looking identical
+//     to "never reviewed."
+//   - Overall null (no dimensions either): treat as "no review yet"
+//     and render nothing. Rare — the normalizer now falls back to a
+//     dimension-mean when dimensions ARE present, so this only fires
+//     when the model gave up entirely.
+//   - Real overall score: coloured chip with the number.
 export function FacilitationListChip({
   review,
 }: {
   review: FacilitationReviewData;
 }) {
-  if (review.insufficient_transcript || review.overall == null) {
-    return null;
+  if (review.insufficient_transcript) {
+    return (
+      <span
+        className={styles.listChip}
+        data-tone="low"
+        title="Facilitation review ran but the transcript wasn't a scoreable weekly leadership meeting"
+      >
+        <span className={styles.listChipDot} aria-hidden="true" />
+        Insufficient
+      </span>
+    );
   }
+  if (review.overall == null) return null;
   const tone = signalTone(review.overall);
   return (
     <span className={styles.listChip} data-tone={tone}>

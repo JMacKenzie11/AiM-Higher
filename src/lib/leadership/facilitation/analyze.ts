@@ -373,6 +373,53 @@ const FACILITATION_TOOL: Anthropic.Tool = {
 // ----------------------------------------------------------------
 function normalizeReview(raw: Record<string, unknown>): FacilitationReview {
   const insufficient = Boolean(raw.insufficient_transcript);
+  const dims = {
+    rhythm: normalizeDimensionScore(
+      (raw.dimensions as Record<string, unknown> | undefined)?.rhythm,
+      insufficient
+    ),
+    accountability: normalizeDimensionScore(
+      (raw.dimensions as Record<string, unknown> | undefined)?.accountability,
+      insufficient
+    ),
+    alignment: normalizeDimensionScore(
+      (raw.dimensions as Record<string, unknown> | undefined)?.alignment,
+      insufficient
+    ),
+    positive_framing: normalizeDimensionScore(
+      (raw.dimensions as Record<string, unknown> | undefined)?.positive_framing,
+      insufficient
+    ),
+  };
+
+  // The model is instructed to give an integer `overall` whenever
+  // insufficient_transcript is false, but occasionally emits null
+  // anyway (usually when the meeting doesn't fit the AiMS agenda
+  // and the model hedges). If we have real dimension scores, fall
+  // back to their rounded mean so the list chip never reads as
+  // "no review" when a review actually ran. When insufficient, we
+  // force null — no invented score.
+  let overall: number | null;
+  if (insufficient) {
+    overall = null;
+  } else {
+    const modelOverall = clampInt(raw.overall, 0, 10);
+    if (modelOverall !== null) {
+      overall = modelOverall;
+    } else {
+      const scored = [
+        dims.rhythm.score,
+        dims.accountability.score,
+        dims.alignment.score,
+        dims.positive_framing.score,
+      ].filter((n): n is number => typeof n === "number");
+      overall =
+        scored.length > 0
+          ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length)
+          : null;
+    }
+  }
+
   return {
     version: FACILITATION_REVIEW_VERSION,
     insufficient_transcript: insufficient,
@@ -380,7 +427,7 @@ function normalizeReview(raw: Record<string, unknown>): FacilitationReview {
       typeof raw.missing_context === "string" && raw.missing_context.trim()
         ? raw.missing_context.trim()
         : null,
-    overall: insufficient ? null : clampInt(raw.overall, 0, 10),
+    overall,
     executive_summary:
       typeof raw.executive_summary === "string"
         ? raw.executive_summary.trim()
@@ -389,24 +436,7 @@ function normalizeReview(raw: Record<string, unknown>): FacilitationReview {
     growth_edges: normalizeGrowthEdges(raw.growth_edges),
     experiments: normalizeExperiments(raw.experiments),
     fourws_audit: normalizeFourWs(raw.fourws_audit),
-    dimensions: {
-      rhythm: normalizeDimensionScore(
-        (raw.dimensions as Record<string, unknown> | undefined)?.rhythm,
-        insufficient
-      ),
-      accountability: normalizeDimensionScore(
-        (raw.dimensions as Record<string, unknown> | undefined)?.accountability,
-        insufficient
-      ),
-      alignment: normalizeDimensionScore(
-        (raw.dimensions as Record<string, unknown> | undefined)?.alignment,
-        insufficient
-      ),
-      positive_framing: normalizeDimensionScore(
-        (raw.dimensions as Record<string, unknown> | undefined)?.positive_framing,
-        insufficient
-      ),
-    },
+    dimensions: dims,
     agenda_adherence: normalizeAgendaAdherence(
       raw.agenda_adherence,
       insufficient
