@@ -19,10 +19,10 @@ import styles from "./Sidebar.module.css";
 // Below 768px the rail hides and a hamburger button in a slim top
 // strip opens the same rail as a slide-over drawer.
 
-const LOGO_WHITE_SRC = "/brand/aimshigher-logo-white.png";
+const LOGO_WHITE_SRC = "/brand/aims-hq-logo-white.png";
 const LOGO_INTRINSIC_WIDTH = 620;
 const LOGO_INTRINSIC_HEIGHT = 142;
-const LOGO_MARK_SRC = "/brand/aimshigher-logo-white.png"; // reused; collapsed rail crops via object-fit
+const LOGO_MARK_SRC = "/brand/aims-hq-logo-white.png"; // reused; collapsed rail crops via object-fit
 
 type Feature =
   | "execution"

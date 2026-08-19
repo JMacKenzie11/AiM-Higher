@@ -24,7 +24,7 @@ import styles from "./NavBand.module.css";
 // band sits on the --grad-brand surface.
 // ASSUMPTION: /public/brand mirrors brand/assets/ so Next.js' static-PNG
 // blur pipeline (which requires sharp) isn't invoked at build time.
-const LOGO_WHITE_SRC = "/brand/aimshigher-logo-white.png";
+const LOGO_WHITE_SRC = "/brand/aims-hq-logo-white.png";
 // Source PNG is 620×142 (≈4.37:1). Container height is set in CSS.
 const LOGO_INTRINSIC_WIDTH = 620;
 const LOGO_INTRINSIC_HEIGHT = 142;

@@ -5,7 +5,7 @@ import styles from "./AuthShell.module.css";
 // AiMS Higher wordmark, white on the --grad-brand auth stage.
 // ASSUMPTION: served from /public/brand (mirror of brand/assets/) to
 // avoid the static-import blur pipeline that requires sharp.
-const LOGO_WHITE_SRC = "/brand/aimshigher-logo-white.png";
+const LOGO_WHITE_SRC = "/brand/aims-hq-logo-white.png";
 // Source PNG is 620×142; container height set in CSS.
 const LOGO_INTRINSIC_WIDTH = 620;
 const LOGO_INTRINSIC_HEIGHT = 142;
