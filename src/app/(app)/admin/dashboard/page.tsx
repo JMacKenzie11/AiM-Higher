@@ -138,7 +138,7 @@ export default async function AdminDashboardPage() {
             <span className={styles.atRiskDot} aria-hidden="true" />
             <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
               Needs attention
-              <InfoTip text="Companies flagged for: silent 14+ days (no coach activity), a big drop this week (was 4+ in 30 days, now 0), or keep rate under 40% over the last 30 days. Click any row to jump into that company." />
+              <InfoTip text="Companies flagged for one of three coach-chat signals: nobody has held a coach conversation in 14+ days, coach conversations dropped from 4+ (last 30 days) to zero this week, or Follow-Through Rate is under 40% over the last 30 days. Meeting-transcript ingest is a separate pipeline and does NOT count as coach activity here. Click any row to jump into that company." />
             </h2>
             <span className={styles.atRiskCount}>{atRisk.length}</span>
           </div>

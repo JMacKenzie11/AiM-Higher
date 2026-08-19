@@ -247,10 +247,15 @@ export type AtRiskCompany = {
 };
 
 // v1 signal set (compose from the activity rows so we don't
-// re-query the DB):
-//   - No coaching activity in 14+ days
-//   - Zero conversations this week AND >2 last week (steep drop)
-//   - Keep rate below 40% over the last 30 days
+// re-query the DB). "Coach activity" here means specifically a
+// coach-chat conversation — NOT meeting-transcript ingest, which
+// runs on its own pipeline. Reason strings say exactly that so an
+// admin reading them doesn't wonder whether their transcript-heavy
+// company has fallen off.
+//   - No coach conversations in 14+ days
+//   - Zero coach conversations this week AND ≥4 in the last 30
+//     (steep drop)
+//   - Follow-Through Rate below 40% over the last 30 days
 export function computeAtRisk(
   rows: CompanyActivityRow[]
 ): AtRiskCompany[] {
@@ -263,15 +268,17 @@ export function computeAtRisk(
     if (!lastMs || lastMs < cutoff14) {
       reasons.push(
         lastMs
-          ? `Silent for ${Math.floor((now - lastMs) / DAY_MS)} days`
-          : "No coaching activity on record"
+          ? `No coach conversations in ${Math.floor((now - lastMs) / DAY_MS)} days`
+          : "No coach conversations on record"
       );
     }
     if (r.conversations7d === 0 && r.conversations30d >= 4) {
-      reasons.push("Coach usage dropped to zero this week");
+      reasons.push("Coach conversations dropped to zero this week");
     }
     if (r.keepRate30d !== null && r.keepRate30d < 40) {
-      reasons.push(`Keep rate ${Math.round(r.keepRate30d)}% (below 40%)`);
+      reasons.push(
+        `Follow-Through Rate ${Math.round(r.keepRate30d)}% (below 40%)`
+      );
     }
     if (reasons.length > 0) {
       out.push({

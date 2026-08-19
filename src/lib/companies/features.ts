@@ -35,7 +35,7 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "automated_commitment_tracking",
     label: "Automated Commitment Tracking",
-    hint: "When on, commitments extracted from meeting transcripts are automatically created as rows on the Commitments page. Turn off if the team wants to author commitments manually — the meeting summary and facilitation review still run either way.",
+    hint: "Auto-create commitments from meeting transcripts. Off = the analyzer still runs; commitments are added manually.",
     defaultOnCreate: true,
   },
   {
@@ -46,7 +46,7 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "role_descriptions",
     label: "Role Descriptions",
-    hint: "Guides users through a one-question-at-a-time interview on each Function to fill in outcomes, success measures, decision rights, and competency indicators, then renders a publishable AiMS role description.",
+    hint: "Interview-driven role documents per Function — outcomes, measures, decision rights, and competencies.",
   },
 ];
 
