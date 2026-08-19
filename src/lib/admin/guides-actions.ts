@@ -188,6 +188,10 @@ export async function resendGuideInviteAction(
 }
 
 // ---- Assign a guide to a company -----------------------------
+// Accepts either an aims_guide profile (assignment IS their access
+// grant) or a system_admin profile (assignment is a caseload marker
+// only; their access is already unrestricted). Anything else is
+// rejected as a defensive check against stale form state.
 export async function assignGuideAction(
   guideId: string,
   companyId: string
@@ -199,15 +203,19 @@ export async function assignGuideAction(
   }
 
   const admin = createSupabaseAdminClient();
-  // Confirm the target profile is actually a guide — belt-and-braces
-  // so a stale form field can't quietly promote a company_admin.
   const { data: profile } = await admin
     .from("profiles")
     .select("id, role")
     .eq("id", guideId)
     .maybeSingle<{ id: string; role: string }>();
-  if (!profile || profile.role !== "aims_guide") {
-    return { ok: false, message: "That user isn't an AiMS Guide." };
+  if (
+    !profile ||
+    (profile.role !== "aims_guide" && profile.role !== "system_admin")
+  ) {
+    return {
+      ok: false,
+      message: "That user isn't an AiMS Guide or system admin.",
+    };
   }
 
   const { error } = await admin
@@ -225,10 +233,67 @@ export async function assignGuideAction(
   return { ok: true };
 }
 
+// ---- Assign a system admin as a working guide (bulk) --------
+// Called from the "Give a system admin a coaching caseload" mini-form
+// on the Guides panel. Same semantics as assignGuideAction, but takes
+// N companies at once so the sysadmin can seed a caseload without
+// N separate clicks. Idempotent per pair (upsert on conflict).
+export async function assignExistingAsGuideAction(
+  formData: FormData
+): Promise<GuideActionResult> {
+  const g = await guard();
+  if (!g.ok) return g;
+
+  const guideId = String(formData.get("guide_id") ?? "").trim();
+  const companyIds = formData
+    .getAll("company_id")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+
+  if (!guideId) return { ok: false, message: "Pick a person." };
+  if (companyIds.length === 0) {
+    return { ok: false, message: "Pick at least one company." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("id", guideId)
+    .maybeSingle<{ id: string; role: string }>();
+  if (
+    !profile ||
+    (profile.role !== "aims_guide" && profile.role !== "system_admin")
+  ) {
+    return {
+      ok: false,
+      message: "That user isn't an AiMS Guide or system admin.",
+    };
+  }
+
+  const rows = companyIds.map((cid) => ({
+    guide_id: guideId,
+    company_id: cid,
+  }));
+  const { error } = await admin
+    .from("guide_assignments")
+    .upsert(rows, { onConflict: "guide_id,company_id" });
+  if (error) {
+    reportError("guides.assignExisting.upsert", error, { guideId, companyIds });
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/admin/companies", "layout");
+  return { ok: true, guideId };
+}
+
 // ---- Unassign a guide from a company -------------------------
-// Never leaves a guide with zero assignments — the /people invite
-// flow would let a zero-assignment guide be created, but this action
-// keeps the invariant intact for existing guides.
+// For aims_guide profiles, the "not the last company" invariant
+// still holds — a zero-assignment guide has no access to anything.
+// For system_admin profiles, the last assignment is safe to remove
+// because their cross-tenant access is role-based, not
+// assignment-based; unassigning is a caseload cleanup, not an
+// access change.
 export async function unassignGuideAction(
   guideId: string,
   companyId: string
@@ -237,16 +302,25 @@ export async function unassignGuideAction(
   if (!g.ok) return g;
 
   const admin = createSupabaseAdminClient();
-  const { count } = await admin
-    .from("guide_assignments")
-    .select("*", { count: "exact", head: true })
-    .eq("guide_id", guideId);
-  if ((count ?? 0) <= 1) {
-    return {
-      ok: false,
-      message:
-        "This is the guide's only company. Delete the guide instead if they're no longer coaching.",
-    };
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", guideId)
+    .maybeSingle<{ role: string }>();
+
+  if (profile?.role === "aims_guide") {
+    const { count } = await admin
+      .from("guide_assignments")
+      .select("*", { count: "exact", head: true })
+      .eq("guide_id", guideId);
+    if ((count ?? 0) <= 1) {
+      return {
+        ok: false,
+        message:
+          "This is the guide's only company. Delete the guide instead if they're no longer coaching.",
+      };
+    }
   }
 
   const { error } = await admin

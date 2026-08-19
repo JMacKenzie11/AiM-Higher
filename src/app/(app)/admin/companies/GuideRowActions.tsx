@@ -16,7 +16,18 @@ import styles from "./admin.module.css";
 // (Assign / Unassign) live in the Companies cell — see
 // GuideCompaniesCell.
 
-export function GuideRowActions({ guideId }: { guideId: string }) {
+export function GuideRowActions({
+  guideId,
+  canManageAccount = true,
+}: {
+  guideId: string;
+  // False when the row is a system_admin — invite/delete are not
+  // meaningful for them (they already have an account and their
+  // profile shouldn't be nuked from this panel). Rendering nothing
+  // keeps the column tidy vs a disabled menu.
+  canManageAccount?: boolean;
+}) {
+  if (!canManageAccount) return null;
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [manualCopyLink, setManualCopyLink] = useState<string | null>(null);

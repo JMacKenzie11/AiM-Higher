@@ -2,7 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCompaniesOverview } from "@/lib/admin/companies-service";
-import { getGuidesOverview } from "@/lib/admin/guides-service";
+import {
+  getGuidesOverview,
+  getSysadminsForCaseloadPicker,
+} from "@/lib/admin/guides-service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import type { Meeting } from "@/lib/types";
@@ -48,10 +51,13 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
   }
   const isSystemAdmin = session.profile.role === "system_admin";
 
-  const [companies, flash, guides] = await Promise.all([
+  const [companies, flash, guides, sysadminCandidates] = await Promise.all([
     getCompaniesOverview(),
     searchParams,
     isSystemAdmin ? getGuidesOverview() : Promise.resolve([]),
+    isSystemAdmin
+      ? getSysadminsForCaseloadPicker()
+      : Promise.resolve([]),
   ]);
 
   const supabase = await createSupabaseServerClient();
@@ -177,6 +183,7 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
           <GuidesPanel
             guides={guides}
             companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+            sysadminCandidates={sysadminCandidates}
           />
         ) : null}
 

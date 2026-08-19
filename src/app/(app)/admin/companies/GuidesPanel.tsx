@@ -1,5 +1,7 @@
+import Link from "next/link";
 import type { Company, Profile } from "@/lib/types";
 import type { GuideOverviewRow } from "@/lib/admin/guides-service";
+import { AssignSysadminForm } from "./AssignSysadminForm";
 import { CreateGuideForm } from "./CreateGuideForm";
 import { GuideAssignCell } from "./GuideAssignCell";
 import { GuideCompaniesCell } from "./GuideCompaniesCell";
@@ -77,9 +79,11 @@ function formatRelativeShort(iso: string): string {
 export function GuidesPanel({
   guides,
   companies,
+  sysadminCandidates,
 }: {
   guides: GuideOverviewRow[];
   companies: Pick<Company, "id" | "name">[];
+  sysadminCandidates: Pick<Profile, "id" | "full_name">[];
 }) {
   return (
     <section className={styles.card} aria-labelledby="aims-guides">
@@ -87,9 +91,9 @@ export function GuidesPanel({
         AiMS Guides
       </h2>
       <p className={styles.subtitleInline}>
-        Guides act as company admins on the companies they coach. They
-        can&rsquo;t create or archive companies. Every guide must be
-        assigned to at least one company.
+        Guides act as company admins on the companies they coach. System
+        admins can also carry a coaching caseload — their row appears
+        here once they&rsquo;re assigned to at least one company.
       </p>
 
       {guides.length === 0 ? (
@@ -100,7 +104,9 @@ export function GuidesPanel({
             <tr>
               <th>Guide</th>
               <th>Status</th>
-              <th>Companies</th>
+              <th className={styles.numHead}>Companies</th>
+              <th className={styles.numHead}>Attention</th>
+              <th>Assigned</th>
               <th>Assign To</th>
               <th className={styles.actionHead}>Actions</th>
             </tr>
@@ -108,16 +114,36 @@ export function GuidesPanel({
           <tbody>
             {guides.map((g) => {
               const pill = statusPill(g.status, g.invited_at);
+              const isSysadmin = g.role === "system_admin";
               return (
                 <tr key={g.id}>
                   <td>
-                    <div style={{ fontWeight: 600 }}>{g.full_name}</div>
+                    <div style={{ fontWeight: 600 }}>
+                      {g.full_name}
+                      {isSysadmin ? (
+                        <span
+                          className={styles.roleBadge}
+                          title="Carries a coaching caseload alongside their system-admin role"
+                        >
+                          System admin
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td>
-                    <span className={pill.className} title={pill.title}>
-                      {pill.label}
+                    <span
+                      className={
+                        isSysadmin ? styles.chipActive : pill.className
+                      }
+                      title={isSysadmin ? "Active" : pill.title}
+                    >
+                      {isSysadmin ? "Active" : pill.label}
                     </span>
                   </td>
+                  <td className={`${styles.numCell} aims-tabular`}>
+                    {g.assignments.length}
+                  </td>
+                  <td className={`${styles.numCell} aims-tabular`}>—</td>
                   <td>
                     <GuideCompaniesCell
                       guideId={g.id}
@@ -132,7 +158,18 @@ export function GuidesPanel({
                     />
                   </td>
                   <td>
-                    <GuideRowActions guideId={g.id} />
+                    <div className={styles.rowActions}>
+                      <Link
+                        href={`/admin/guides/${g.id}/hq`}
+                        className={styles.ghostButton}
+                      >
+                        View Guide HQ
+                      </Link>
+                      <GuideRowActions
+                        guideId={g.id}
+                        canManageAccount={!isSysadmin}
+                      />
+                    </div>
                   </td>
                 </tr>
               );
@@ -144,6 +181,25 @@ export function GuidesPanel({
       <div style={{ marginTop: "var(--space-4)" }}>
         <h3 className={styles.h3}>Add a guide</h3>
         <CreateGuideForm companies={companies} />
+      </div>
+
+      <div style={{ marginTop: "var(--space-4)" }}>
+        <h3 className={styles.h3}>Give a system admin a coaching caseload</h3>
+        <p className={styles.subtitleInline}>
+          Existing system-admin accounts only. No invite is sent —
+          they already have platform access. Removing an assignment
+          later never reduces the sysadmin&rsquo;s access to that
+          company; it&rsquo;s just a caseload marker.
+        </p>
+        <AssignSysadminForm
+          sysadmins={sysadminCandidates}
+          companies={companies}
+        />
+        {sysadminCandidates.length === 0 ? (
+          <p className={styles.emptyLine}>
+            No system-admin accounts to assign.
+          </p>
+        ) : null}
       </div>
     </section>
   );
