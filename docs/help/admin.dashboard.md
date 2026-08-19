@@ -15,10 +15,13 @@ cards run off nightly jobs.
   days: active users (people who sent a coach message), coaching
   turns (one exchange = one turn), new companies, and token
   spend.
-- **Needs attention** — companies flagged as silent 14+ days,
-  dropped to zero coach usage this week (after having 4+ in the
-  30-day window), or with a keep rate under 40%. Click a row to
-  jump straight into that company.
+- **Needs attention** — companies flagged on one of three
+  coach-chat signals: no coach conversations in 14+ days, coach
+  conversations dropped from 4+ (last 30 days) to zero this week,
+  or Follow-Through Rate under 40% over the last 30 days.
+  Meeting-transcript ingest is a separate pipeline and does NOT
+  count as coach activity here. Click a row to jump straight into
+  that company.
 - **Top coaching themes** — five themes clustered nightly by a
   small Haiku call from recent conversation titles and openings.
   First card populates after the first nightly run at 06:00 UTC.
@@ -37,8 +40,9 @@ cards run off nightly jobs.
 - **Company activity table** — sortable client-side (click any
   header). Users = distinct people who sent a coach message in
   the window. Conv. = coaching threads started. Practices =
-  practice conversations started (30 days). Keep rate = kept ÷
-  (kept + missed) commitments over 30 days.
+  practice conversations started (30 days). Follow-Through Rate
+  = kept-on-time ÷ (kept-on-time + kept-late + missed) commitments
+  over 30 days.
 
 ## Common things you'd do here
 

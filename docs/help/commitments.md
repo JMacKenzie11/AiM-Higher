@@ -112,7 +112,10 @@ someone else's behalf."
 - Priority linking is frozen once a commitment resolves — this
   keeps priority progress history from silently rewriting itself.
 - Rows tagged *From meeting* were extracted from a transcript; the
-  chip links to the analysis for admins.
+  chip links to the analysis for admins. Auto-creation depends on
+  the *Automated Commitment Tracking* company feature — with it
+  off, the meeting analysis and facilitation review still run but
+  the team authors commitments manually.
 - **Meeting-extracted dates** — when a transcript doesn't state a
   specific deadline, the extracted commitment defaults to
   **meeting date + 7 days**. Explicitly stated dates come through

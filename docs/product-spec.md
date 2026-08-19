@@ -33,7 +33,9 @@ Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coac
 | `execution` | Core: commitments, plan cascade, chart, coaching, dashboard |
 | `performance_tracking` (labelled **Success Tracking**) | Requires targets on every success measure; enables the weekly measure log page, the Saturday "log this week" nudge cron, the AI target-quality check on measure creation, the AI metric-draft critique panel, and the four generative dashboard insight cards |
 | `meeting_facilitation_review` | Second LLM pass on every ingested meeting scoring how the meeting was run against the AiMS Weekly Leadership Meeting framework; renders as a coaching-tone panel on the meeting detail page + a signal chip on the Leadership list |
+| `automated_commitment_tracking` (default ON at create) | Auto-create commitments extracted from meeting transcripts as rows on `/commitments`. When OFF, the analyzer + facilitation review still run but the team authors commitments manually — extractions surface only in the meeting analysis, not on the Commitments board |
 | `classroom` | Adds the shared training library (top-level nav item, consumer surfaces at `/classroom`) + a `search_classroom` tool for the coach + Ask Aimee |
+| `role_descriptions` | Adds Decision Rights + Competency Indicators to functions, a per-section *Suggest…* helper, and the assembled Role Description document at `/chart/function/[id]/role-description` with publish + version history + `.docx` export |
 | `strengths` | *(out of scope for this spec — noted for completeness only)* |
 
 ---
@@ -201,7 +203,7 @@ Ingest → analyse → extract commitments → optionally review facilitation �
 - **Two-call analysis pipeline** (`src/lib/transcripts/analyze.ts`) using Anthropic Claude:
   - **Call 1 — Analysis:** feeds the transcript + a `<company_context>` block (foundation, roster + AiMS coaches, open-quarter priorities) into the AiMS meeting-analyzer prompt (`prompts/meeting-analyzer.md`). Uses `ANTHROPIC_SUMMARY_MODEL` (Sonnet 4.6 default). Output is a structured markdown write-up stored in `meeting_analyses.analysis_markdown`.
   - **Call 2 — Extraction:** JSON-strict extraction of commitments, validated against the roster + priority whitelist. Each extracted commitment includes clarity scoring (timeline + success criteria) + a refinement note when unclear. Due-date resolution rules: prefer stated over fallback ("ideally by X, worst case by Y" → X); handle day-of-week vs numerical date mismatch by preferring the number and flagging in clarity_note.
-- **Commitments creation** — validated extractions become real `commitments` rows carrying `source_meeting_id` (renders as the *From meeting* chip on `/commitments`).
+- **Commitments creation** — gated on the `automated_commitment_tracking` feature (default ON). When enabled, validated extractions become real `commitments` rows carrying `source_meeting_id` (renders as the *From meeting* chip on `/commitments`). When disabled, the extractions still surface in the meeting analysis so the team can author commitments manually — the summary + facilitation review run either way.
 - **Post-analysis email** — after commitments are extracted, a branded transactional email (Resend, via `src/lib/email.ts`) is sent to meeting participants listing each commitment by owner with a CTA back to `/commitments`. Best-effort — skipped silently if `RESEND_API_KEY` is not configured.
 - **Leadership surface** (`/leadership`) — table of every ingested meeting for the scoped company (title, received date, status, Facilitation chip if the feature is on, View link). Rows show `pending` / `analyzing` / `complete` / `failed` — failed rows surface the error verbatim.
 - **Meeting detail** (`/leadership/meetings/[id]`) — analysis markdown, list of commitments the meeting created, facilitation review (when feature on). PrivacyNote at the top: "Meeting analyses and facilitation reviews are visible to system admins, company admins, and AiMS Guides for this company only. Meeting participants don't see this page."
@@ -212,19 +214,20 @@ Ingest → analyse → extract commitments → optionally review facilitation �
 
 Feature-gated (`meeting_facilitation_review`) opt-in second LLM pass on every ingested meeting. Scores how the meeting was run against the AiMS Weekly Leadership Meeting framework + the 4Ws Solution Framework.
 
-- **Prompt** — versioned on disk (`src/lib/leadership/facilitation/prompt.v1.md`). Includes explicit generative-tone guardrails: lead with what's working, depersonalize gaps, forward-looking recommendations, growth-edges not weaknesses.
-- **Structured output** via Anthropic tool-use — `record_facilitation_review` tool with typed JSON schema, forced via `tool_choice`; normalized against `FacilitationReview` type (`src/lib/leadership/facilitation/types.ts`) before persisting. Uses `ANTHROPIC_FACILITATION_MODEL` (Sonnet 4.6 default).
+- **Prompt** — versioned on disk (current: `src/lib/leadership/facilitation/prompt.v2.md`). Includes explicit generative-tone guardrails: lead with what's working, depersonalize gaps, forward-looking recommendations, growth-edges not weaknesses. v2 adds a fourth dimension (`positive_framing`) plus three moment arrays (`appreciation_moments`, `generative_questions`, `reframes`) so appreciative-inquiry practice is measured, not just rhythm/accountability/alignment. v2 also tightens the scoring contract: `overall` is REQUIRED whenever `insufficient_transcript` is false.
+- **Structured output** via Anthropic tool-use — `record_facilitation_review` tool with typed JSON schema, forced via `tool_choice`; normalized against `FacilitationReview` type (`src/lib/leadership/facilitation/types.ts`) before persisting. Uses `ANTHROPIC_FACILITATION_MODEL` (Sonnet 4.6 default). Normalizer falls back to the mean of scored dimensions when `overall` comes back null and `insufficient_transcript` is false, so a dimension-scored meeting never silently displays as ungraded.
 - **Storage** — JSONB column `meeting_analyses.facilitation_review_json` (migration 0119). Version-tagged so future breaking shape changes can be handled per-row.
 - **Best-effort pipeline hook** — runs after the primary summary + extraction; failures never block the primary write.
 - **UI panel** (`components/leadership/FacilitationReview.tsx`) on the meeting detail page:
   - Overall "Facilitation signal" (0–10) on a warm cobalt→chartreuse scale — never red.
-  - Dimension chips: Agenda sections (X/5), Rhythm, Accountability, Alignment.
+  - Dimension chips: Agenda sections (X/5), Rhythm, Accountability, Alignment. (Positive Framing renders inside the Growth edges grouping when scored.)
   - **What worked** first (green, prominent).
-  - **Growth edges** grouped by dimension (amber, coaching-framed).
+  - **Growth edges** grouped by dimension (amber, coaching-framed) — includes the new *Appreciative practice* column when v2 surfaces one.
   - **What to try next week** — 3–5 forward-looking experiments.
   - **4Ws audit** — filled check for "landed", hollow circle for "worth a beat next time" (never ✗).
   - Handles `insufficient_transcript` gracefully.
-- **List chip** on `/leadership` — compact Facilitation N/10 pill on complete rows, warm-scale coloured.
+- **Re-run affordance** — a *Re-run facilitation review* button appears on the meeting detail page ONLY when the feature is on AND the facilitation didn't land (no review, or review present with `overall == null` AND not flagged insufficient). Once a real score is present, or the transcript was honestly marked insufficient, the button is hidden — a truly-insufficient transcript won't score any better on re-run.
+- **List chip** on `/leadership` — compact Facilitation N/10 pill on complete rows, warm-scale coloured. Distinguishes three states: coloured chip with a number (real score), muted *Insufficient* chip (review ran, transcript wasn't scoreable), nothing rendered (no review yet).
 
 ---
 
@@ -331,6 +334,7 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
 - **Cron jobs (Vercel):**
   - `/api/cron/transcripts` — every 15 min, polls all active Google Drive sources, ingests + analyzes + emails.
   - `/api/cron/performance` — Saturdays 15:00 UTC, opens "Log this week's value" commitments for missed `auto_track` measures.
+  - `/api/cron/scorecard` — Sundays 07:00 UTC, writes one `company_discipline_snapshots` row per (company, discipline) so the AiMS Scorecard sparklines + trajectory arrows have history. Current score is computed live; the snapshot is only for the trend line.
 - **Middleware:** Supabase session refresh + `/admin/companies/[id]` auto-scope (mutates request cookies for the current render + response cookies for future navigations) + root-path routing (unauthenticated → marketing landing, authenticated → dashboard, cross-tenant roles → `/admin/companies`).
 - **Idempotent seeds:** demo companies (e.g., Meridian Construction Group) rebuild in place; safe to rerun.
 - **CI enforcement:** `npm run typecheck` (tsc), `npm run lint` (Next), `npm run test` (Vitest), `npm run check:help` (help doc coverage).
@@ -354,7 +358,7 @@ Things intentionally not built (yet):
 - No SSO (email + password only; no SAML, no Google Workspace SSO).
 - **Classroom v1:** no completion tracking, no curriculum / prerequisite paths, no drag-and-drop reordering.
 - **Coach memory:** not compressed across conversations — capped at last 200 messages per thread.
-- **Meeting re-analyze:** no in-app "re-run this transcript through the current prompt" button; edits to the analyzer prompt only affect future ingests.
+- **Meeting re-analyze:** no in-app "re-run the primary summary + extraction" button; edits to the analyzer prompt only affect future ingests. (Facilitation review is the exception — it has an admin *Re-run facilitation review* button on the meeting detail page for reviews that didn't land, see Section 12.)
 - **Meeting outputs:** no participant attendance tracking, no sentiment analysis, no follow-up scheduling — commitments are the sole structured action output.
 
 ---
