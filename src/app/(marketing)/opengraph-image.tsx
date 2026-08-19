@@ -11,6 +11,19 @@ export const alt =
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+// Footer host is derived from NEXT_PUBLIC_APP_URL so a domain
+// migration is a Vercel env var change, not a code push. Fallback
+// matches the current production domain.
+function siteHost(): string {
+  try {
+    return new URL(
+      process.env.NEXT_PUBLIC_APP_URL ?? "https://aims-hq.com"
+    ).host;
+  } catch {
+    return "aims-hq.com";
+  }
+}
+
 export default function OpenGraphImage() {
   return new ImageResponse(
     (
@@ -89,7 +102,7 @@ export default function OpenGraphImage() {
             opacity: 0.7,
           }}
         >
-          aimshigher.tools
+          {siteHost()}
         </div>
       </div>
     ),

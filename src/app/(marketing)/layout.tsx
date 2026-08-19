@@ -7,18 +7,24 @@ import styles from "./marketing.module.css";
 // fetch here, no NavBand. Middleware handles the "authed users get
 // bounced to /dashboard from /" rule; this layout only sees anons.
 
+// SEO metadata reads the site URL from NEXT_PUBLIC_APP_URL so a
+// domain migration is a Vercel env var change, not a code push.
+// Fallback matches the current production domain — sensible when
+// the env var isn't set (dev, tests, first-boot).
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://aims-hq.com";
+
 export const metadata: Metadata = {
   title: "AiMS Higher™ · The operating system for the AiMS Approach",
   description:
     "Turn your strategic plan into weekly commitments, track whether they actually happen, and coach your leaders along the way.",
   alternates: {
-    canonical: "https://aimshigher.tools",
+    canonical: SITE_URL,
   },
   openGraph: {
     title: "AiMS Higher™ · The operating system for the AiMS Approach",
     description:
       "Turn your strategic plan into weekly commitments, track whether they actually happen, and coach your leaders along the way.",
-    url: "https://aimshigher.tools",
+    url: SITE_URL,
     siteName: "AiMS Higher™",
     type: "website",
   },

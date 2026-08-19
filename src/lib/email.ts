@@ -16,8 +16,11 @@ function client(): Resend | null {
   return cached;
 }
 
+// Sender is the EMAIL_FROM env var; fallback matches the current
+// production domain so dev / test / first-boot has a sensible default.
+// A domain migration is a Vercel env var change, not a code push.
 function from(): string {
-  return process.env.EMAIL_FROM ?? "AiMS <noreply@aimshigher.tools>";
+  return process.env.EMAIL_FROM ?? "AiMS <noreply@aims-hq.com>";
 }
 
 export type InviteEmailInput = {
