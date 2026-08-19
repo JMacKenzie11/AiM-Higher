@@ -1,11 +1,17 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import styles from "./boundary.module.css";
 
 // Root error boundary. Rendered whenever any server component or client
 // component throws. Non-blaming copy per Section 3; Try again resets
 // the segment via `reset()` from Next.js.
+//
+// Must call Sentry.captureException so intermittent errors surface —
+// otherwise the boundary catches them silently and the only evidence
+// is the digest on the screen. global-error.tsx already does this for
+// the root-layout crash case; this covers everything below.
 
 export default function GlobalError({
   error,
@@ -15,8 +21,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // ASSUMPTION: server logs will already capture this via Vercel /
-    // stdout; keeping a console line here for local dev visibility.
+    Sentry.captureException(error);
     console.error(error);
   }, [error]);
 
