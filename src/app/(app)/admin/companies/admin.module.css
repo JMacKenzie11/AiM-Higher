@@ -690,6 +690,14 @@
   gap: var(--space-1);
 }
 
+/* Chip buttons inherit button default text-align: center, which shows
+   when the label wraps across lines in a narrow cell. Force left so
+   long company names read predictably. */
+.guideCompanyChips > button {
+  text-align: left;
+  align-self: flex-start;
+}
+
 .guideAssignRow {
   display: flex;
   gap: var(--space-2);

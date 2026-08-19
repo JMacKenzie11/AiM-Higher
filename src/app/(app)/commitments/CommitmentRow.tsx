@@ -66,6 +66,10 @@ export type CommitmentRowProps = {
   canReassign: boolean;
   currentUserId: string;
   isAdmin: boolean;
+  // Only used on Guide HQ, where the caller's commitments span
+  // many companies and each row needs to say which. Left off on
+  // /commitments (single-tenant context) so the row stays lean.
+  companyLabel?: string;
 };
 
 export function CommitmentRow({
@@ -78,6 +82,7 @@ export function CommitmentRow({
   canReassign,
   currentUserId,
   isAdmin,
+  companyLabel,
 }: CommitmentRowProps) {
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState("");
@@ -598,6 +603,14 @@ export function CommitmentRow({
             ) : (
               commitment.description
             )}
+            {companyLabel ? (
+              <span
+                className={styles.fromMeetingChip}
+                title={`Commitment on ${companyLabel}`}
+              >
+                {companyLabel}
+              </span>
+            ) : null}
             {isOngoing ? (
               canResolve ? (
                 <button

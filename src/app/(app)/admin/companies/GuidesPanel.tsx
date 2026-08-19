@@ -80,10 +80,12 @@ export function GuidesPanel({
   guides,
   companies,
   sysadminCandidates,
+  attentionCountByGuideId,
 }: {
   guides: GuideOverviewRow[];
   companies: Pick<Company, "id" | "name">[];
   sysadminCandidates: Pick<Profile, "id" | "full_name">[];
+  attentionCountByGuideId: Record<string, number>;
 }) {
   return (
     <section className={styles.card} aria-labelledby="aims-guides">
@@ -143,7 +145,9 @@ export function GuidesPanel({
                   <td className={`${styles.numCell} aims-tabular`}>
                     {g.assignments.length}
                   </td>
-                  <td className={`${styles.numCell} aims-tabular`}>—</td>
+                  <td className={`${styles.numCell} aims-tabular`}>
+                    {attentionCountByGuideId[g.id] ?? 0}
+                  </td>
                   <td>
                     <GuideCompaniesCell
                       guideId={g.id}
