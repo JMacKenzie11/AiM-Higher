@@ -1,14 +1,21 @@
+"use client";
+
+import { useState } from "react";
 import { CompanyNameLink } from "../admin/companies/CompanyNameLink";
 import type { CompanyRollup } from "@/lib/hq/service";
+import type { SessionBriefRow } from "@/lib/hq/brief";
+import { PrepareBriefPanel } from "./PrepareBriefPanel";
 import styles from "./hq.module.css";
 
 // Compact per-company row: scorecard, FTR, quarter, last met. Click-
 // through scopes into that company via the same server-side flow the
 // /admin/companies list uses (CompanyNameLink).
 //
-// Prepare-for-{company} action lands in Phase 7 alongside the
-// Session Brief panel — kept off the row today so the section stays
-// server-rendered.
+// "Prepare for {company}" opens a dialog that generates a Session
+// Brief on demand. Available on both the guide's own /hq view and the
+// sysadmin oversight view (has no side effects — generating a brief
+// is additive and the brief author is always the caller, not the
+// guide being viewed).
 
 function formatDateShort(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -17,7 +24,18 @@ function formatDateShort(iso: string): string {
   });
 }
 
-export function YourCompaniesSection({ rows }: { rows: CompanyRollup[] }) {
+export function YourCompaniesSection({
+  rows,
+  recentBriefsByCompany,
+}: {
+  rows: CompanyRollup[];
+  // Map of the two most recent briefs per company visible to the
+  // caller. Empty maps are fine — the panel offers to generate the
+  // first one.
+  recentBriefsByCompany: Record<string, SessionBriefRow[]>;
+}) {
+  const [prepareFor, setPrepareFor] = useState<CompanyRollup | null>(null);
+
   return (
     <section className={styles.card} aria-labelledby="hq-companies">
       <h2 id="hq-companies" className={styles.h2}>
@@ -38,6 +56,7 @@ export function YourCompaniesSection({ rows }: { rows: CompanyRollup[] }) {
               <th className={styles.companyNumHead}>Follow-Through</th>
               <th>Open quarter</th>
               <th>Last met</th>
+              <th aria-label="Session brief" />
             </tr>
           </thead>
           <tbody>
@@ -58,11 +77,30 @@ export function YourCompaniesSection({ rows }: { rows: CompanyRollup[] }) {
                 </td>
                 <td>{row.openQuarterLabel ?? "—"}</td>
                 <td>{row.lastMet ? formatDateShort(row.lastMet) : "—"}</td>
+                <td className={styles.actionsCell}>
+                  <button
+                    type="button"
+                    className={styles.actionButton}
+                    onClick={() => setPrepareFor(row)}
+                    title={`Prepare for ${row.name}`}
+                  >
+                    Prepare for {row.name}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
+
+      {prepareFor ? (
+        <PrepareBriefPanel
+          companyId={prepareFor.id}
+          companyName={prepareFor.name}
+          initialBriefs={recentBriefsByCompany[prepareFor.id] ?? []}
+          onClose={() => setPrepareFor(null)}
+        />
+      ) : null}
     </section>
   );
 }

@@ -326,3 +326,152 @@
   font: var(--text-body-sm);
   color: var(--text-muted);
 }
+
+/* ---- Session Brief dialog ---------------------------------- */
+.briefBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-6);
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.briefDialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+  padding: var(--space-6);
+  max-width: 760px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.briefHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.briefEyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.briefTitle {
+  margin: 0;
+  font: var(--text-h2);
+  color: var(--text-heading);
+}
+
+.briefClose {
+  height: 32px;
+  width: 32px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.briefClose:hover {
+  color: var(--text-heading);
+  background: var(--aims-navy-tint);
+}
+
+.briefActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.briefPrimary {
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.briefPrimary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.briefError {
+  color: var(--aims-danger);
+  font: var(--text-body-sm);
+}
+
+.briefEmpty {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+.briefList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.briefItem {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.briefItemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.briefItemWhen {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.briefCopy {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.briefCopy:hover {
+  background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
+}
+
+.briefBody {
+  color: var(--text-body);
+  font: var(--text-body);
+}

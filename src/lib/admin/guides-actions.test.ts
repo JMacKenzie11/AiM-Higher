@@ -324,7 +324,7 @@ describe("assignGuideAction", () => {
     primeHappyPath();
   });
 
-  it("rejects a target profile that isn't an aims_guide", async () => {
+  it("rejects a target profile that isn't a guide-eligible role", async () => {
     mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
       data: { id: "u_1", role: "team_member" },
       error: null,
@@ -335,7 +335,7 @@ describe("assignGuideAction", () => {
 
     expect(res).toEqual({
       ok: false,
-      message: "That user isn't an AiMS Guide.",
+      message: "That user isn't an AiMS Guide or system admin.",
     });
     expect(mocks.assignmentsUpsert).not.toHaveBeenCalled();
   });
@@ -386,6 +386,132 @@ describe("unassignGuideAction", () => {
 
     expect(res).toEqual({ ok: true });
     expect(mocks.assignmentsDeleteEqEq).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ==============================================================
+// unassignGuideAction — sysadmin exemption
+// ==============================================================
+describe("unassignGuideAction (sysadmin caseload marker)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  it("skips the last-company invariant for a system_admin", async () => {
+    // Sysadmin's cross-tenant access is role-based, not assignment-
+    // based. Removing their last assignment is a caseload cleanup,
+    // not an access change — so it must succeed even at count 1.
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "root", role: "system_admin", status: "active" },
+      error: null,
+    });
+    mocks.assignmentsCountEq.mockResolvedValueOnce({ count: 1 });
+    const { unassignGuideAction } = await import("./guides-actions");
+
+    const res = await unassignGuideAction("root", "co_1");
+
+    expect(res).toEqual({ ok: true });
+    expect(mocks.assignmentsDeleteEqEq).toHaveBeenCalledTimes(1);
+  });
+
+  it("still refuses last unassign for aims_guide (regression)", async () => {
+    // Regression coverage for the aims_guide case: the existing
+    // invariant must not have been softened by the sysadmin
+    // exemption. Zero-assignment aims_guides would have no access
+    // to anything at all.
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "g_1", role: "aims_guide", status: "active" },
+      error: null,
+    });
+    mocks.assignmentsCountEq.mockResolvedValueOnce({ count: 1 });
+    const { unassignGuideAction } = await import("./guides-actions");
+
+    const res = await unassignGuideAction("g_1", "co_1");
+
+    expect(res.ok).toBe(false);
+    expect(mocks.assignmentsDeleteEqEq).not.toHaveBeenCalled();
+  });
+});
+
+// ==============================================================
+// assignGuideAction — role acceptance
+// ==============================================================
+describe("assignGuideAction (role acceptance)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  it("accepts a system_admin profile", async () => {
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "root", role: "system_admin" },
+      error: null,
+    });
+    const { assignGuideAction } = await import("./guides-actions");
+
+    const res = await assignGuideAction("root", "co_1");
+
+    expect(res).toEqual({ ok: true });
+    expect(mocks.assignmentsUpsert).toHaveBeenCalledWith(
+      { guide_id: "root", company_id: "co_1" },
+      { onConflict: "guide_id,company_id" }
+    );
+  });
+
+  it("rejects a company_admin profile", async () => {
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "ca_1", role: "company_admin" },
+      error: null,
+    });
+    const { assignGuideAction } = await import("./guides-actions");
+
+    const res = await assignGuideAction("ca_1", "co_1");
+
+    expect(res.ok).toBe(false);
+    expect(mocks.assignmentsUpsert).not.toHaveBeenCalled();
+  });
+});
+
+// ==============================================================
+// assignExistingAsGuideAction — bulk sysadmin caseload seed
+// ==============================================================
+describe("assignExistingAsGuideAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  it("upserts one row per selected company for a sysadmin", async () => {
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "root", role: "system_admin" },
+      error: null,
+    });
+    const { assignExistingAsGuideAction } = await import("./guides-actions");
+
+    const fd = formDataFrom({
+      guide_id: "root",
+      company_id: ["co_1", "co_2", "co_3"],
+    });
+    const res = await assignExistingAsGuideAction(fd);
+
+    expect(res.ok).toBe(true);
+    expect(mocks.assignmentsUpsert).toHaveBeenCalledWith(
+      [
+        { guide_id: "root", company_id: "co_1" },
+        { guide_id: "root", company_id: "co_2" },
+        { guide_id: "root", company_id: "co_3" },
+      ],
+      { onConflict: "guide_id,company_id" }
+    );
+  });
+
+  it("requires at least one company", async () => {
+    const { assignExistingAsGuideAction } = await import("./guides-actions");
+    const fd = formDataFrom({ guide_id: "root" });
+    const res = await assignExistingAsGuideAction(fd);
+    expect(res.ok).toBe(false);
+    expect(mocks.assignmentsUpsert).not.toHaveBeenCalled();
   });
 });
 

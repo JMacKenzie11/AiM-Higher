@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
 import { todayInTimezone } from "@/lib/dates";
 import { computeAttentionForCompanies } from "@/lib/hq/attention";
+import { loadRecentBriefs, type SessionBriefRow } from "@/lib/hq/brief";
 import {
   loadCaseload,
   loadCompanyRollups,
@@ -31,14 +32,20 @@ export default async function GuideHqPage() {
   // a guide who's between assignments may still own commitments in
   // companies where they used to coach, and their sysadmin overseer
   // may have assigned them commitments across their own board.
-  const [myCommitments, attention, rollups, activity] = await Promise.all([
-    loadMyCommitments(profileId),
-    zeroCaseload
-      ? Promise.resolve([])
-      : computeAttentionForCompanies(companyIds),
-    zeroCaseload ? Promise.resolve([]) : loadCompanyRollups(companyIds),
-    zeroCaseload ? Promise.resolve([]) : loadRecentActivity(companyIds),
-  ]);
+  const [myCommitments, attention, rollups, activity, briefsByCompany] =
+    await Promise.all([
+      loadMyCommitments(profileId),
+      zeroCaseload
+        ? Promise.resolve([])
+        : computeAttentionForCompanies(companyIds),
+      zeroCaseload ? Promise.resolve([]) : loadCompanyRollups(companyIds),
+      zeroCaseload ? Promise.resolve([]) : loadRecentActivity(companyIds),
+      zeroCaseload
+        ? Promise.resolve({} as Record<string, SessionBriefRow[]>)
+        : Promise.all(
+            companyIds.map(async (cid) => [cid, await loadRecentBriefs(cid)] as const)
+          ).then((entries) => Object.fromEntries(entries)),
+    ]);
 
   const isAdmin =
     session.profile.role === "system_admin" ||
@@ -96,7 +103,10 @@ export default async function GuideHqPage() {
         {!zeroCaseload ? (
           <>
             <NeedsAttentionSection rows={attention} />
-            <YourCompaniesSection rows={rollups} />
+            <YourCompaniesSection
+              rows={rollups}
+              recentBriefsByCompany={briefsByCompany}
+            />
             <RecentActivitySection items={activity} />
           </>
         ) : null}
