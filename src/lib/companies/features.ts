@@ -35,7 +35,7 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "automated_commitment_tracking",
     label: "Automated Commitment Tracking",
-    hint: "Auto-create commitments from meeting transcripts. Off = the analyzer still runs; commitments are added manually.",
+    hint: "Auto-create commitments from meeting transcripts.",
     defaultOnCreate: true,
   },
   {
@@ -46,7 +46,7 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "role_descriptions",
     label: "Role Descriptions",
-    hint: "Interview-driven role documents per Function — outcomes, measures, decision rights, and competencies.",
+    hint: "Interview-driven role documents per Function.",
   },
 ];
 

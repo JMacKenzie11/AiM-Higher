@@ -20,24 +20,10 @@ No separate "open the company" step is needed.
   card. Displayed in the settings hero and stored on the company
   row for reference and future analytics. Optional.
 - **Toggle features** — the Features card enables or disables the
-  modules: *Execution Platform* (commitments, success measures,
-  coaching dashboard), *Strengths* (assessments, results,
-  strengths-aware coaching), *Success Tracking* (requires targets
-  on every success measure and turns on the weekly nudge +
-  generative dashboard cards), *Meeting Facilitation Review*
-  (adds a coaching-tone review of how each meeting was run,
-  visible on the meeting detail page and as a signal chip on the
-  Leadership list), *Automated Commitment Tracking* (when on,
-  commitments extracted from meeting transcripts are auto-created
-  on the Commitments page; off = the analyzer still runs but the
-  team authors commitments manually), *Classroom* (adds a shared
-  training library of lessons, videos, and downloadable resources
-  authored by AiMS; Aimee can also recommend a training in
-  conversation), and *Role Descriptions* (adds Decision Rights +
-  Competency Indicators sections and a per-section *Suggest…*
-  helper on every function page, plus the assembled Role
-  Description document at `/chart/function/[id]/role-description`
-  with publish + version history + .docx export). Turning a
+  modules: *Execution Platform*, *Strengths*, *Success Tracking*,
+  *Meeting Facilitation Review*, *Automated Commitment Tracking*,
+  *Classroom*, and *Role Descriptions*. Each toggle carries a
+  one-line hint describing what turning it on unlocks. Turning a
   module off hides it in nav; existing data is preserved.
 - **Connect Google Drive** — click *Connect Google account*. Each
   company has its own OAuth, so folders can live under different
