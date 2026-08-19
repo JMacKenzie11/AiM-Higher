@@ -121,21 +121,12 @@ export function SourceRowActions({
           Pause
         </button>
       )}
-      <button
-        type="button"
-        className={styles.ghostButton}
-        onClick={() => {
-          setPreview(null);
-          startTransition(async () => {
-            const r = await previewDriveListingAction(sourceId);
-            setPreview(r);
-          });
-        }}
-        disabled={pending}
-        title="Show what the connected Drive account can see in this folder — no MIME filter, no cursor filter"
-      >
-        Preview listing
-      </button>
+      {/* Preview listing button intentionally hidden — the debug
+          server action (previewDriveListingAction) and provider
+          helper (debugListFolder) are kept so a future admin surface
+          can re-enable it without rebuilding the plumbing. To bring
+          it back, uncomment the button + preview panel below and
+          remove this note. */}
       <button
         type="button"
         className={styles.dangerButton}
