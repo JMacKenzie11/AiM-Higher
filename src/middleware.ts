@@ -44,25 +44,14 @@ export async function middleware(request: NextRequest) {
   const targetScope = match ? match[1] : null;
   const currentScope = request.cookies.get(SCOPE_COOKIE_NAME)?.value ?? null;
   const shouldSetScope = targetScope !== null && targetScope !== currentScope;
-
-  // /hq is the "home base" surface — always unscoped. Clearing the
-  // scope cookie here (mutating request cookies so the current render
-  // sees the clean state, and response cookies so it sticks) keeps
-  // the sidebar honest: no company-scoped nav items like Dashboard
-  // or Chart while the user is at their home base. Clicking a
-  // company from Your Companies re-scopes via the auto-scope branch
-  // above.
-  //
-  // Server components can't mutate cookies from within their render
-  // — this is the only correct place to do it.
-  const onHqSurface = request.nextUrl.pathname.startsWith("/hq");
-  const shouldClearScope = onHqSurface && currentScope !== null;
+  // NOTE: /hq deliberately does NOT clear the scope cookie. Preserving
+  // it lets Dashboard/Chart/Plan (hidden from the sidebar while on /hq,
+  // see Sidebar) still navigate back to the last-scoped company when
+  // reached directly. Sidebar.tsx hides company-scoped items based on
+  // pathname; the cookie stays put.
 
   if (shouldSetScope && targetScope) {
     request.cookies.set(SCOPE_COOKIE_NAME, targetScope);
-  }
-  if (shouldClearScope) {
-    request.cookies.delete(SCOPE_COOKIE_NAME);
   }
 
   const path = request.nextUrl.pathname;
@@ -100,16 +89,6 @@ export async function middleware(request: NextRequest) {
       httpOnly: true,
       sameSite: "lax",
       maxAge: SCOPE_COOKIE_MAX_AGE,
-    });
-  }
-  if (shouldClearScope) {
-    response.cookies.set({
-      name: SCOPE_COOKIE_NAME,
-      value: "",
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 0,
     });
   }
 

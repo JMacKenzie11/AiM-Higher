@@ -349,6 +349,12 @@ export function Sidebar({
     pathname === "/admin" ||
     pathname === "/admin/companies" ||
     pathname === "/admin/companies/";
+  // While the caller is at Guide HQ, hide company-scoped nav items
+  // (Dashboard, Chart, Plan, …) even if a scope cookie is set. The
+  // cookie stays put so clicking Dashboard from anywhere else still
+  // returns to the last-scoped company; /hq itself just doesn't show
+  // those links because HQ is the unscoped home base.
+  const onHqSurface = pathname === "/hq" || pathname.startsWith("/hq/");
 
   const guideHqItems = GUIDE_HQ_ITEMS.filter((item) =>
     item.kind === "link" ? linkVisible(item) : true
@@ -367,11 +373,13 @@ export function Sidebar({
       ? COMPANY_ADMIN_BOTTOM_ITEMS
       : [];
   const items: NavItem[] = isSystemAdmin
-    ? showExitScope && !onAdminPicker
+    ? showExitScope && !onAdminPicker && !onHqSurface
       ? [...guideHqItems, ...adminItems, ...subscribedApp, ...bottomAdminItems]
       : [...guideHqItems, ...adminItems, ...bottomAdminItems]
     : userRole === "aims_guide"
-      ? [...guideHqItems, ...subscribedApp, ...bottomAdminItems]
+      ? onHqSurface
+        ? [...guideHqItems, ...bottomAdminItems]
+        : [...guideHqItems, ...subscribedApp, ...bottomAdminItems]
       : [...subscribedApp, ...bottomAdminItems];
 
   return (
