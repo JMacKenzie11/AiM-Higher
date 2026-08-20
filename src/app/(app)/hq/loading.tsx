@@ -12,6 +12,16 @@ import styles from "./hq.module.css";
 export default function Loading() {
   return (
     <div className={styles.stage}>
+      {/* Top-of-page progress line — YouTube/Vercel-style continuous
+          left-to-right sweep. The one strong motion cue that anchors
+          the loading state; every other effect is refinement. */}
+      <div
+        className={styles.progressLine}
+        role="progressbar"
+        aria-label="Loading Guide HQ"
+      >
+        <span className={styles.progressLineFill} aria-hidden="true" />
+      </div>
       <section className={styles.hero} aria-label="Guide HQ header">
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>Loading your caseload…</p>

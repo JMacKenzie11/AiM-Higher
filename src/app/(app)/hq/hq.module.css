@@ -328,11 +328,14 @@
 }
 
 /* ---- Loading skeleton ------------------------------------------
-   Shimmer bars for the /hq loading state. The linear-gradient +
-   background-position animation is the standard cross-browser way
-   to get a light-travels-across-the-bar effect without JS. Respects
-   prefers-reduced-motion so users with vestibular sensitivity get
-   a plain muted block instead. */
+   Motion vocabulary:
+   - A top-of-page progress line sweeps left-to-right continuously.
+     One strong signal, always in view, YouTube/Vercel pattern.
+   - Skeleton bars carry a chartreuse-tinted shimmer — brand's
+     energy color, brighter than the cobalt tint that reads as
+     "content already there, just muted." Chartreuse says "working."
+   - A pulsing chartreuse dot next to each section title.
+   All three respect prefers-reduced-motion (below). */
 
 @keyframes hqShimmer {
   0% {
@@ -354,6 +357,44 @@
   }
 }
 
+@keyframes hqProgressSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+/* Top-of-page progress line. Sits above the hero band. Thin so it
+   doesn't compete visually, but always-in-view so it's the primary
+   "we're working" cue during the 8-10s server render. */
+.progressLine {
+  position: relative;
+  height: 3px;
+  width: 100%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  z-index: 5;
+}
+
+.progressLineFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 25%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--aims-chartreuse, #b5e453) 30%,
+    var(--aims-chartreuse, #b5e453) 70%,
+    transparent 100%
+  );
+  box-shadow: 0 0 12px var(--aims-chartreuse, #b5e453);
+  animation: hqProgressSweep 1.6s ease-in-out infinite;
+}
+
 .skeletonHeading {
   display: flex;
   align-items: center;
@@ -368,10 +409,11 @@
 
 .skeletonDot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--aims-chartreuse, #b5e453);
+  box-shadow: 0 0 8px var(--aims-chartreuse, #b5e453);
   animation: hqDotPulse 1.2s ease-in-out infinite;
 }
 
@@ -389,17 +431,21 @@
 
 .skeletonBar {
   display: block;
-  height: 14px;
+  height: 16px;
   border-radius: var(--radius-sm);
+  /* Chartreuse-tinted highlight instead of cobalt. The stop
+     positions are tighter (25%-45%-65%) so the highlight reads
+     as a distinct sweeping band, not a wash. */
   background: linear-gradient(
     90deg,
     var(--surface-alt, #eef2f7) 0%,
-    var(--aims-cobalt-tint, #d7e3ff) 30%,
-    var(--surface-alt, #eef2f7) 60%,
+    var(--surface-alt, #eef2f7) 25%,
+    var(--aims-chartreuse-tint, #e8f5c8) 45%,
+    var(--surface-alt, #eef2f7) 65%,
     var(--surface-alt, #eef2f7) 100%
   );
   background-size: 200% 100%;
-  animation: hqShimmer 1.8s linear infinite;
+  animation: hqShimmer 1.4s linear infinite;
 }
 
 .skeletonBarWide {
@@ -414,11 +460,18 @@
 
 @media (prefers-reduced-motion: reduce) {
   .skeletonBar,
-  .skeletonDot {
+  .skeletonDot,
+  .progressLineFill {
     animation: none;
   }
   .skeletonBar {
     background: var(--surface-alt, #eef2f7);
+  }
+  .progressLineFill {
+    /* Static bar at ~30% width as the reduced-motion cue. */
+    width: 30%;
+    background: var(--aims-chartreuse, #b5e453);
+    box-shadow: none;
   }
 }
 
