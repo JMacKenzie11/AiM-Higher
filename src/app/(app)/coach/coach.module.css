@@ -311,7 +311,10 @@
 }
 
 .bubbleAssistant p {
-  margin: 0 0 var(--space-3);
+  /* Bumped from space-3 → space-4 so paragraphs read as distinct
+     beats. The coach prompt now instructs the model to break long
+     turns into paragraphs; this ensures those breaks are legible. */
+  margin: 0 0 var(--space-4);
 }
 
 .bubbleAssistant p:last-child {
