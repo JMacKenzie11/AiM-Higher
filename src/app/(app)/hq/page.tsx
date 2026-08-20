@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
 import { todayInTimezone } from "@/lib/dates";
+import { clearScopedCompanyCookie } from "@/lib/admin/scope";
 import { computeAttentionForCompanies } from "@/lib/hq/attention";
 import {
   loadRecentBriefsForCompanies,
@@ -26,6 +27,13 @@ import styles from "./hq.module.css";
 export default async function GuideHqPage() {
   const session = await requireRole(["aims_guide", "system_admin"]);
   const profileId = session.profile.id;
+
+  // Guide HQ is the "home base" surface — always unscoped. Clearing
+  // the cookie on entry keeps the sidebar honest (no company-scoped
+  // nav items like Dashboard / Chart while the user is at home).
+  // Clicking a company from the Your Companies section re-scopes
+  // explicitly via the /admin/companies/[id] middleware auto-scope.
+  await clearScopedCompanyCookie();
 
   const caseload = await loadCaseload(profileId);
   const companyIds = caseload.map((c) => c.id);
