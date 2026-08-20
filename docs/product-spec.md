@@ -14,11 +14,12 @@
 
 - **Tenant** = Company. Everything below is company-scoped via RLS.
 - **Roles:**
-  - `system_admin` — vendor staff, cross-tenant scope; only role that can author Classroom content.
+  - `system_admin` — vendor staff, cross-tenant scope; only role that can author Classroom content. May *also* hold `guide_assignments` rows as a caseload marker (see Guide HQ); those rows never grant new access (sysadmin scope is already unrestricted) and unassigning never reduces access.
   - `company_admin` — owner/leaders, full write on their company.
-  - `aims_guide` — external AiMS coach assigned to one or more companies; admin-like within assigned companies, no cross-tenant privileges beyond assignments.
+  - `aims_guide` — external AiMS coach assigned to one or more companies; admin-like within assigned companies, no cross-tenant privileges beyond assignments. For an aims_guide, a `guide_assignments` row IS their access grant to the company.
   - `team_member` — read + self-write.
-- **Scope-in (system_admin + aims_guide):** clicking a company on `/admin/companies` (or navigating to `/admin/companies/[id]`) auto-scopes them into that company via a signed cookie set by middleware on both the incoming request (so the current render sees it) and the response (so subsequent navigations resolve to the right tenant). The Sidebar renders a persistent "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") context pill under the logo with an *Exit company* affordance in the user menu at the bottom of the rail.
+- **Scope-in (system_admin + aims_guide):** clicking a company on `/admin/companies` (or navigating to `/admin/companies/[id]`) auto-scopes them into that company via a signed cookie set by middleware on both the incoming request (so the current render sees it) and the response (so subsequent navigations resolve to the right tenant). The Sidebar renders a persistent "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") context pill under the logo with an *Exit company* affordance in the user menu at the bottom of the rail. **Guide HQ inverts this:** navigating to `/hq` clears the scope cookie so the sidebar hides company-scoped links (Dashboard, Chart, etc.) — Guide HQ is always the unscoped "home base."
+- **Root URL routing:** middleware sends authenticated `/` to `/hq` for cross-tenant roles (`system_admin` and `aims_guide`), and to `/dashboard` for everyone else. Deliberately ignores the scope cookie so typing the bare domain doesn't strand a sysadmin inside whichever company they last scoped into.
 - **Managers:** `profiles.reports_to` establishes a direct manager, unlocking manager-level affordances (e.g., coach *about* a direct report) without granting admin.
 - **Invitations:** email invite flow with expiry; role assigned at invite time. Admins can pre-stage the roster (create as pending, send invite later).
 
@@ -86,6 +87,7 @@ The heart of the operating rhythm.
 - **Resolution model** — every commitment sits in one of four states: `open`, `kept_on_time`, `kept_late`, `missed`. Kept-late is the same "did the work" signal as kept-on-time but distinct in the UI (green check + clock badge, never X, never danger colour) and NOT counted in the Follow-Through numerator. The prior `in_progress` state was retired in 0139; the prior conflated `kept`/`missed` semantics were split there too.
 - **Columns of note**: owner, description, due_date, week_ending (Friday), optional priority link (strategic vs operational), status, missed_reason (verbatim text, optional now), completed_at, resolved_by_role (`owner` / `admin` / `guide`), resolved_by_profile_id, source_meeting_id (nullable), `is_ongoing` (weekly cycle), `parked_at` (parking lot), `deleted_at` (soft delete).
 - **Week ends Friday** — hardcoded assumption; commitments always belong to a Fri-ending week.
+- **Owner-visibility RLS clause** (migration 0141): a supplementary SELECT policy admits any caller to see rows where `owner_id = auth.uid()`, regardless of company scope. Additive to the existing company / sysadmin / guide policies — lets a guide's own commitments across many tenants surface in one place on `/hq` without special routing. Harmless for team members since their own commitments already live inside their single company.
 - **Follow-Through Rate** = `kept_on_time / (kept_on_time + kept_late + missed)`, computed across any window. Late keeps and misses count in the denominator only — the discipline signal is "on time," not "at all." Title-cased consistently across the app.
 - **Ongoing (weekly) commitments** — `is_ongoing = true` rows always sit at status `open` and always carry a current due date. Each resolution (kept-on-time, kept-late, or missed) writes a row to `commitment_occurrences` for that week and rolls the parent's `due_date` + `week_ending` forward 7 days. One row in `commitments`, many weeks of history. Follow-Through math iterates BOTH tables so per-week resolutions all count individually. *Stop repeating* converts the row to a normal commitment due at its current date.
 - **Parking lot** — rows with `parked_at IS NOT NULL` are excluded from every metric, overdue count, and Needs Attention grouping. Rendered in a muted section at the bottom of `/commitments` with a *Bring back* action that clears `parked_at` and sets a fresh due date. No reason required for park or bring-back.
@@ -286,12 +288,46 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
   - Opening this page auto-scopes the caller into the company (middleware sets the scope cookie on the request + response so the top nav flips immediately AND subsequent clicks resolve to the correct company).
 - **Meeting transcripts admin** (`/admin/transcripts`) — unrouted queue for the scoped company, with detail at `/admin/transcripts/meetings/[id]` for routing a single meeting to a specific tenant.
 - **Classroom authoring** (`/admin/classroom`, sysadmin only) — see Section 15.
-- **AiMS Guides admin** — system admins can add / assign / unassign guides. Guides have admin-like scope inside their assigned companies only.
+- **AiMS Guides admin** (Guides panel on `/admin/companies`) — system admins can invite `aims_guide` profiles, assign them to companies, unassign, and delete. The panel also lists `system_admin` profiles that hold at least one guide assignment, badged "System admin," so an internal admin carrying a caseload appears alongside external guides. A separate "Give a system admin a coaching caseload" mini-form assigns an existing sysadmin to one or more companies in bulk (no invite fired — they already have an account). Row-level *View Guide HQ* action opens the sysadmin oversight surface for that guide. **Unassign semantics differ by role:** removing the last assignment from an aims_guide is refused (invariant: no zero-assignment guide); the same operation on a sysadmin is allowed (their cross-tenant access is role-based, not assignment-based). See Section 17 for the Guide HQ surface these assignments feed.
 - **Dashboard AI briefs** — cached per company with prompt-hash invalidation; `AiBrief` React component types out the reveal on first view of a fresh brief, then renders instantly on revisits (localStorage-tracked, respects `prefers-reduced-motion`).
 
 ---
 
-## 17. Cross-cutting UX System
+## 17. Guide HQ
+
+The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the caller's own `guide_assignments` rows regardless of role — a sysadmin with three assignments sees exactly those three, not every company on the platform. Zero assignments hits a distinct empty state, not a fallback to global scope (deliberate — protects the "I coach a specific caseload" mental model).
+
+- **Route**: `/hq` (server component, `requireRole(['aims_guide','system_admin'])`). Middleware clears the scope cookie on entry so the sidebar renders unscoped — no Dashboard / Chart / Plan links while at home base. Cookie mutation is done in middleware because Next.js forbids it from a server-component render.
+- **Data loaders** (`src/lib/hq/service.ts`):
+  - `loadCaseload(profileId)` — the caller's assigned companies.
+  - `loadMyCommitments(profileId)` — every commitment the caller owns, across every tenant. Backed by the owner-visibility RLS clause added in migration 0141.
+  - `loadCompanyRollups(companyIds)` — per-company snapshot (scorecard overall, 30-day Follow-Through Rate, open quarter label, most-recent completed meeting date).
+  - `loadRecentActivity(companyIds)` — 5-6 item merged feed of meeting analyses, facilitation reviews, and quarter open/close events across the caseload.
+- **Sections**, top-to-bottom on the page:
+  - **My commitments** — reuses the `/commitments` `CommitmentRow` client component exactly (same resolve / reschedule / park mechanics, same undo chip). A `companyLabel` prop threads the company name through as a row chip so the caller can tell which tenant a row belongs to. Priority linking and reassign are disabled here (both would need per-company rosters and priorities the surface doesn't fetch).
+  - **Needs your attention** — the attention queue for the caller's assigned companies. See below.
+  - **Your companies** — compact per-company rollup rows. Click the name to scope in (via `CompanyNameLink` → `/admin/companies/[id]` middleware auto-scope). Each row carries a *Prepare for {company}* button that opens the Session Brief panel.
+  - **Recent activity** — thin unfiltered, unpaginated feed capped at 6 items.
+- **Attention queue** (`src/lib/hq/attention.ts`): computes per-company triggers from live reads. Every trigger carries the numbers the reason line will render — the UI never re-derives them. Five triggers:
+  1. **Scorecard dropped** — current live overall < most recent snapshot's overall.
+  2. **Follow-Through Rate low** — 30-day FTR below the `FTR_THRESHOLD` constant (default 60%).
+  3. **Follow-Through Rate declining** — 30-day FTR trending down vs the prior 30-day window (fires only when the absolute FTR is still above the low-threshold).
+  4. **Facilitation review low or insufficient** — latest completed meeting's `facilitation_review_json` has `overall < FACILITATION_LOW_THRESHOLD` (default 5) OR `insufficient_transcript = true`.
+  5. **Priority overdue** — one or more priorities in the open quarter more than `PRIORITY_OVERDUE_DAYS` (default 14) past due.
+  6. **Unrouted transcript** — one or more unrouted meetings whose filename matches this company's `transcript_aliases`.
+  Weighted severity: scorecard drop (4), FTR low + facilitation low (3), FTR declining + facilitation insufficient + priorities (2), unrouted (1). Rows ranked by severity descending, alphabetical tiebreak.
+- **Session Brief** (`src/lib/hq/brief.ts` + `src/lib/hq/brief-actions.ts`): on-demand, one-Anthropic-call brief a guide reads right before a coaching session. Not scheduled — fires only when the guide clicks *Prepare for {company}*.
+  - **Context assembly**: latest meeting analysis + facilitation growth edges + commitments made in or since that meeting + scorecard delta vs prior snapshot + attention triggers for the company.
+  - **Prompt** (inline in `brief.ts`): produces four short Markdown H3 sections — *What happened last time* · *What's still open* · *Growth edges worth raising* · *Suggested opening question*. Warm, generative, forward-leaning voice.
+  - **Storage**: `session_briefs` (migration 0141) — append-only per generation; regenerating creates a new row so the guide has a history of what they told themselves before past sessions.
+  - **Panel** (`PrepareBriefPanel.tsx`, client): opens as a modal from the *Prepare for* button; shows the two most recent briefs with Copy buttons + a *Generate a new brief* action. Errors from the Anthropic call return `{ok: false, message}` and show an inline retry — the page never fails on a brief error.
+  - **RLS**: `SELECT` allowed for sysadmin (any brief) OR generated_by = self AND caller holds a guide assignment for the company. `INSERT` requires the caller to be inserting a row they authored; sysadmins may insert against any company, guides against their assigned companies.
+- **Sysadmin oversight view** (`/admin/guides/[guideId]/hq`, sysadmin only): renders the target guide's HQ in read-only mode. Same four sections keyed on `guideId`; `MyCommitmentsSection` receives `readOnly=true` which sets `canResolve/canLink/canReassign` all false on every row. Navigational affordances (click a company, open a meeting) stay live. Persistent banner names whose board is on screen. Session Brief remains available (no side effects; the brief author is the viewing sysadmin, not the guide).
+- **Perf shape**: `loadCompanyScorecard` is wrapped in React `cache()` so within a single page render, attention + rollups share one fetch per company (was two). `loadRecentBriefsForCompanies` batches every caseload company into one query (was N). A shimmer skeleton (`src/app/(app)/hq/loading.tsx`) renders instantly on navigation so the page shell appears before the server data lands.
+
+---
+
+## 18. Cross-cutting UX System
 
 - **Left Sidebar** (`components/sidebar/Sidebar.tsx`) — fixed rail at 260px expanded, 68px collapsed (icons-only). Collapse state persists in an HTTP-only cookie (`nav-collapsed`) read server-side by the app layout so first paint matches the user's preference (no post-hydration jump). Nav items grouped as flat section headers (Disciplines, Resources, Strengths) rather than dropdowns — one click to any surface. Inline SVG icons per item; hover slides a chartreuse left-accent bar in with a subtle white-tint bg + icon color shift on a single 200ms `--ease-out` curve. Active item keeps the accent bar and a slightly stronger bg. Context pill under the logo reads "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") when a cross-tenant role is scoped in. Footer holds the notification bell (opens upward via `placement="up"` on `NotificationBell` so the tray doesn't fall off the bottom of the screen) and the user pill (opens a popover upward with Profile / Exit company / Sign out). Below 768px the rail slides off-canvas and a hamburger in a slim top strip opens it as a drawer with a backdrop scrim. `NavBand.tsx` is retained in-tree for revert parity but no longer rendered; the notification tray's placement variant lives with the bell for reuse.
 - **ConfirmDialog** (`components/ui/ConfirmDialog.tsx`) — branded replacement for native `window.confirm()`. Auto-focuses Cancel so a stray Enter can't fire destruction; Escape cancels; overlay click cancels; danger vs primary tone. Used everywhere destructive actions land — no `confirm()` or `alert()` remains in user-visible code paths.
@@ -304,7 +340,7 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
 
 ---
 
-## 18. Non-Functional Characteristics
+## 19. Non-Functional Characteristics
 
 - **Auth:** Supabase Auth (email + password). Flows:
   - Sign-in at `/sign-in`.
@@ -313,7 +349,7 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
   - Email invitation acceptance at `/accept-invite` (role assigned at invite time; user sets password on first login).
 - **Isolation:** every table has RLS enabled + `force row level security`; company-scoped policies check both role and company match. Cross-tenant reads flow through `auth_profile()` and `company_has_feature()` helper functions.
 - **Timezone:** per-company (`companies.timezone`). Week-ending Friday is computed in the company's local time. AI cron jobs run on a UTC schedule but resolve week boundaries per tenant.
-- **AI providers:** Anthropic Claude across the app. **Nine distinct AI callers, three model tiers:**
+- **AI providers:** Anthropic Claude across the app. **Ten distinct AI callers, three model tiers:**
   - **Sonnet 4.6** (`ANTHROPIC_SUMMARY_MODEL`, `ANTHROPIC_COACH_MODEL`, `ANTHROPIC_FACILITATION_MODEL` — all default to Sonnet 4.6):
     1. Meeting analyzer (summary markdown)
     2. Meeting commitment extractor (JSON, roster-validated)
@@ -321,10 +357,11 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
     4. Coach chat (streaming, tool-use, cached)
     5. Ask Aimee (same as coach, general mode)
     6. Dashboard "Week in review" brief (cached per prompt-hash)
+    7. Session Brief (Guide HQ *Prepare for {company}* action; one-shot, best-effort with inline retry on error)
   - **Haiku 4.5** (`ANTHROPIC_CLARITY_MODEL`, default Haiku 4.5) — lightweight quality-check passes:
-    7. Commitment clarity scoring (on every save)
-    8. Success measure target validation (advisory)
-    9. Metric-draft critique panel (Metric / Target / Fit dimensions)
+    8. Commitment clarity scoring (on every save)
+    9. Success measure target validation (advisory)
+    10. Metric-draft critique panel (Metric / Target / Fit dimensions)
   - Each caller instantiates its own `Anthropic` client with `ANTHROPIC_API_KEY`. Model IDs are env-var overridable.
 - **Streaming:** SSE for coach chat + weekly brief. Tool-use loop on coach (max 4 iterations per turn).
 - **Prompt caching:** coach chat is the only caller using `cache_control: { type: "ephemeral" }` in v1.
@@ -335,14 +372,15 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
   - `/api/cron/transcripts` — every 15 min, polls all active Google Drive sources, ingests + analyzes + emails.
   - `/api/cron/performance` — Saturdays 15:00 UTC, opens "Log this week's value" commitments for missed `auto_track` measures.
   - `/api/cron/scorecard` — Sundays 07:00 UTC, writes one `company_discipline_snapshots` row per (company, discipline) so the AiMS Scorecard sparklines + trajectory arrows have history. Current score is computed live; the snapshot is only for the trend line.
-- **Middleware:** Supabase session refresh + `/admin/companies/[id]` auto-scope (mutates request cookies for the current render + response cookies for future navigations) + root-path routing (unauthenticated → marketing landing, authenticated → dashboard, cross-tenant roles → `/admin/companies`).
+- **Middleware:** four concerns per request — Supabase session refresh; `/admin/companies/[id]` auto-scope (mutates request + response cookies); `/hq` scope-clear (mirrors the auto-scope in reverse, since Guide HQ is always unscoped and server components can't mutate cookies from render); and root-path routing (unauthenticated → marketing landing; authenticated cross-tenant roles → `/hq`; authenticated everyone else → `/dashboard`). `updateSession` returns the profile role alongside auth/pending state so root-path routing can differentiate roles without a second DB round-trip.
+- **Observability:** Sentry (`sentry.server.config.ts`, `sentry.edge.config.ts`, `sentry.client.config.ts`) with a JWT-scrubbing `beforeSend` so Supabase session tokens never leave the process. Both `src/app/error.tsx` (below-root error boundary) and `src/app/global-error.tsx` (root-layout crash boundary) call `Sentry.captureException(error)` inside a `useEffect` — without this, boundary-caught errors are silent in Sentry even though the user sees the digest on-screen.
 - **Idempotent seeds:** demo companies (e.g., Meridian Construction Group) rebuild in place; safe to rerun.
 - **CI enforcement:** `npm run typecheck` (tsc), `npm run lint` (Next), `npm run test` (Vitest), `npm run check:help` (help doc coverage).
 - **Design system:** custom CSS modules; brand palette (navy/cobalt/gradient primary); consistent card + button vocab; tabular numerics for metrics; `aims-rule` accent bars under key headings.
 
 ---
 
-## 19. Explicit Non-Goals / Gaps
+## 20. Explicit Non-Goals / Gaps
 
 Things intentionally not built (yet):
 
@@ -363,7 +401,7 @@ Things intentionally not built (yet):
 
 ---
 
-## 20. Competitor Scoring Rubric
+## 21. Competitor Scoring Rubric
 
 When evaluating a competitor, score them on:
 

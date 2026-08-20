@@ -39,7 +39,17 @@ exactly those three, not every company on the platform.
   Every row states the specific signal so you know what to open
   the conversation with.
 - **Jump into a company** — click its name in Your companies (or
-  in a Needs your attention row) to scope into it.
+  in a Needs your attention row) to scope into it. From that
+  point the sidebar flips to show that company&rsquo;s Dashboard,
+  Chart, Plan, and so on. Come back to Guide HQ (or hit Exit in
+  the user menu) to drop back to your caseload view.
+- **Prepare for a session** — click *Prepare for {company}* on
+  any row in Your companies. Generates a one-page brief drawn
+  from the last meeting, the growth edges from its review, the
+  commitments made in or since that meeting, the scorecard delta,
+  and everything currently on the attention queue. Every
+  generation is kept as history so you can compare prep week
+  over week; Copy pushes the brief to your clipboard.
 
 ## Heads-up
 
@@ -53,3 +63,7 @@ exactly those three, not every company on the platform.
 - **Priority linking and reassign are disabled** on My
   commitments. Those need per-company context that lives on the
   Commitments page itself.
+- **Guide HQ is unscoped by design.** Landing here clears any
+  company scope you were in, so the sidebar hides company-only
+  links (Dashboard, Chart, Plan) while you&rsquo;re at your home
+  base. Click a company to re-scope in.
