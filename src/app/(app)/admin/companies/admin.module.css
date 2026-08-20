@@ -687,14 +687,24 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-1);
+  /* Chip buttons often wrap to 2-3 lines (long company names in a
+     narrow column). space-1 (4px) made them run into each other
+     visually — "Group ×" of one chip appeared to sit next to the
+     first line of the next. space-3 gives real breathing room. */
+  gap: var(--space-3);
 }
 
 /* Chip buttons inherit button default text-align: center, which shows
    when the label wraps across lines in a narrow cell. Force left so
-   long company names read predictably. */
+   long company names read predictably. Also tighten the line-height
+   inside the wrapped label so multi-line chips read as one visual
+   unit rather than stacked lines. */
 .guideCompanyChips > button {
   text-align: left;
+  line-height: 1.25;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  height: auto;
   align-self: flex-start;
 }
 
