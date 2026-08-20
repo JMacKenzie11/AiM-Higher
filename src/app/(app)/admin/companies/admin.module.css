@@ -838,3 +838,22 @@
   font: var(--text-caption);
   color: var(--text-muted);
 }
+
+/* The × on each company chip. white-space: nowrap plus the nbsp
+   the button renders means the "×" always sits with the last word
+   of the name — never orphaned on its own line when the name
+   wraps. Slightly bolder + muted-turned-current on hover so it
+   reads as an intentional dismiss control, not a stray glyph. */
+.chipClose {
+  display: inline-block;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding-left: 2px;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.guideCompanyChips > button:hover .chipClose,
+.guideCompanyChips > button:focus-visible .chipClose {
+  color: var(--primary);
+}

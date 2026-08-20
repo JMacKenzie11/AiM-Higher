@@ -43,7 +43,11 @@ export function GuideCompaniesCell({
                 setPendingUnassign({ id: a.company_id, name: a.company_name })
               }
             >
-              {a.company_name} ×
+              {a.company_name}
+              {"\u00a0"}
+              <span className={styles.chipClose} aria-hidden="true">
+                ×
+              </span>
             </button>
           ))}
         </div>
