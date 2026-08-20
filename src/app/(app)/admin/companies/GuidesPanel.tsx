@@ -146,7 +146,7 @@ export function GuidesPanel({
                     {g.assignments.length}
                   </td>
                   <td className={`${styles.numCell} aims-tabular`}>
-                    {attentionCountByGuideId[g.id] ?? 0}
+                    {attentionCountByGuideId[g.id] ?? "—"}
                   </td>
                   <td>
                     <GuideCompaniesCell

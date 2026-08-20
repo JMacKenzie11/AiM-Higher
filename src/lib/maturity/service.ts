@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { computeCompanyScorecard, overallFrom } from "./compute";
 import {
@@ -19,10 +20,16 @@ import type {
 // every page load. If that ever becomes a bottleneck we can memoize
 // via a "current" cache row, but v1 keeps it live so "meeting cadence
 // dropped off yesterday" shows up today, not next Sunday.
+//
+// Wrapped in React `cache()` so that within a single request, multiple
+// callers asking for the same company scorecard share one fetch. On
+// /hq the attention module and the rollups module both need it per
+// company; without this wrapper each company's scorecard would be
+// computed twice per page load.
 
 const TRAJECTORY_WINDOW_DAYS = 90;
 
-export async function loadCompanyScorecard(
+export const loadCompanyScorecard = cache(async function loadCompanyScorecard(
   companyId: string
 ): Promise<CompanyScorecard> {
   // Compute live via the server client — reads only, RLS is scoped
@@ -94,7 +101,7 @@ export async function loadCompanyScorecard(
     timeseries,
     overallTimeseries,
   };
-}
+});
 
 // Trajectory arrow helper. Compares the CURRENT live score for a
 // discipline to the score recorded on the oldest snapshot within

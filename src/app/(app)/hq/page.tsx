@@ -2,7 +2,10 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
 import { todayInTimezone } from "@/lib/dates";
 import { computeAttentionForCompanies } from "@/lib/hq/attention";
-import { loadRecentBriefs, type SessionBriefRow } from "@/lib/hq/brief";
+import {
+  loadRecentBriefsForCompanies,
+  type SessionBriefRow,
+} from "@/lib/hq/brief";
 import {
   loadCaseload,
   loadCompanyRollups,
@@ -32,7 +35,7 @@ export default async function GuideHqPage() {
   // a guide who's between assignments may still own commitments in
   // companies where they used to coach, and their sysadmin overseer
   // may have assigned them commitments across their own board.
-  const [myCommitments, attention, rollups, activity, briefsByCompany] =
+  const [myCommitments, attention, rollups, activity, briefsMap] =
     await Promise.all([
       loadMyCommitments(profileId),
       zeroCaseload
@@ -41,11 +44,13 @@ export default async function GuideHqPage() {
       zeroCaseload ? Promise.resolve([]) : loadCompanyRollups(companyIds),
       zeroCaseload ? Promise.resolve([]) : loadRecentActivity(companyIds),
       zeroCaseload
-        ? Promise.resolve({} as Record<string, SessionBriefRow[]>)
-        : Promise.all(
-            companyIds.map(async (cid) => [cid, await loadRecentBriefs(cid)] as const)
-          ).then((entries) => Object.fromEntries(entries)),
+        ? Promise.resolve(new Map<string, SessionBriefRow[]>())
+        : loadRecentBriefsForCompanies(companyIds),
     ]);
+  // Client-component prop needs to be a serializable object, not a Map.
+  const briefsByCompany: Record<string, SessionBriefRow[]> = Object.fromEntries(
+    briefsMap
+  );
 
   const isAdmin =
     session.profile.role === "system_admin" ||

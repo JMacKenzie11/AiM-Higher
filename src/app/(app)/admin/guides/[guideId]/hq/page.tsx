@@ -4,7 +4,10 @@ import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { todayInTimezone } from "@/lib/dates";
 import { computeAttentionForCompanies } from "@/lib/hq/attention";
-import { loadRecentBriefs, type SessionBriefRow } from "@/lib/hq/brief";
+import {
+  loadRecentBriefsForCompanies,
+  type SessionBriefRow,
+} from "@/lib/hq/brief";
 import {
   loadCaseload,
   loadCompanyRollups,
@@ -48,7 +51,7 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
   const companyIds = caseload.map((c) => c.id);
   const zeroCaseload = caseload.length === 0;
 
-  const [myCommitments, attention, rollups, activity, briefsByCompany] =
+  const [myCommitments, attention, rollups, activity, briefsMap] =
     await Promise.all([
       loadMyCommitments(guideId),
       zeroCaseload
@@ -57,11 +60,12 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
       zeroCaseload ? Promise.resolve([]) : loadCompanyRollups(companyIds),
       zeroCaseload ? Promise.resolve([]) : loadRecentActivity(companyIds),
       zeroCaseload
-        ? Promise.resolve({} as Record<string, SessionBriefRow[]>)
-        : Promise.all(
-            companyIds.map(async (cid) => [cid, await loadRecentBriefs(cid)] as const)
-          ).then((entries) => Object.fromEntries(entries)),
+        ? Promise.resolve(new Map<string, SessionBriefRow[]>())
+        : loadRecentBriefsForCompanies(companyIds),
     ]);
+  const briefsByCompany: Record<string, SessionBriefRow[]> = Object.fromEntries(
+    briefsMap
+  );
 
   const todayIso = todayInTimezone("UTC").iso;
 

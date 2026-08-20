@@ -6,7 +6,6 @@ import {
   getGuidesOverview,
   getSysadminsForCaseloadPicker,
 } from "@/lib/admin/guides-service";
-import { computeAttentionForCompanies } from "@/lib/hq/attention";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import type { Meeting } from "@/lib/types";
@@ -185,22 +184,12 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
             guides={guides}
             companies={companies.map((c) => ({ id: c.id, name: c.name }))}
             sysadminCandidates={sysadminCandidates}
-            attentionCountByGuideId={await (async () => {
-              const unique = Array.from(
-                new Set(
-                  guides.flatMap((g) => g.assignments.map((a) => a.company_id))
-                )
-              );
-              const attention = await computeAttentionForCompanies(unique);
-              const inQueue = new Set(attention.map((a) => a.companyId));
-              const map: Record<string, number> = {};
-              for (const g of guides) {
-                map[g.id] = g.assignments.filter((a) =>
-                  inQueue.has(a.company_id)
-                ).length;
-              }
-              return map;
-            })()}
+            // Attention count intentionally NOT computed here — it was
+            // one live scorecard compute per company per page load,
+            // which balloons quickly as caseloads grow. The value is
+            // still visible on each guide's /hq surface where it
+            // actually matters; the panel column is a nice-to-have.
+            attentionCountByGuideId={{}}
           />
         ) : null}
 

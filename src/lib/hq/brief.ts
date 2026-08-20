@@ -300,3 +300,30 @@ export async function loadRecentBriefs(
     .limit(limit);
   return (data ?? []) as SessionBriefRow[];
 }
+
+// Batch variant for the /hq page — one round-trip fetches recent
+// briefs for every caseload company at once, then partitions in
+// memory. Returns a map keyed by company_id, newest-first, capped at
+// `limit` per company. Prior implementation called loadRecentBriefs
+// N times in parallel — harmless for small caseloads but N round
+// trips still cost a fixed per-request latency floor.
+export async function loadRecentBriefsForCompanies(
+  companyIds: string[],
+  limit = 2
+): Promise<Map<string, SessionBriefRow[]>> {
+  const out = new Map<string, SessionBriefRow[]>();
+  if (companyIds.length === 0) return out;
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("session_briefs")
+    .select("*")
+    .in("company_id", companyIds)
+    .order("company_id", { ascending: true })
+    .order("created_at", { ascending: false });
+  for (const row of (data ?? []) as SessionBriefRow[]) {
+    const list = out.get(row.company_id) ?? [];
+    if (list.length < limit) list.push(row);
+    out.set(row.company_id, list);
+  }
+  return out;
+}
