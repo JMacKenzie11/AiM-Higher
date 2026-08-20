@@ -51,7 +51,7 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const needsPendingCheck = !pendingAllowsPath(path);
-  const { response, isAuthenticated, isPending } = await updateSession(
+  const { response, isAuthenticated, isPending, role } = await updateSession(
     request,
     { checkPending: needsPendingCheck }
   );
@@ -64,12 +64,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/accept-invite", request.url));
   }
 
-  // Authenticated visitors don't see the marketing page. /dashboard is
-  // the universal landing surface for authed roles; it internally
-  // redirects to /admin/companies when the caller has no effective
-  // company (unscoped sysadmin, guide with multiple assignments).
+  // Authenticated visitors don't see the marketing page. Cross-tenant
+  // roles (system_admin, aims_guide) land on /hq — their home base
+  // across every assigned company. Everyone else lands on /dashboard
+  // which resolves to their own tenant. Root-URL routing deliberately
+  // ignores the scope cookie so typing aims-hq.com/ doesn't strand a
+  // sysadmin inside whichever company they last scoped into.
   if (request.nextUrl.pathname === "/" && isAuthenticated) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const home =
+      role === "system_admin" || role === "aims_guide" ? "/hq" : "/dashboard";
+    return NextResponse.redirect(new URL(home, request.url));
   }
 
   if (shouldSetScope && targetScope) {

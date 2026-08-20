@@ -20,6 +20,11 @@ export async function updateSession(
   response: NextResponse;
   isAuthenticated: boolean;
   isPending: boolean;
+  // Role is populated only when the profile query runs (i.e. when
+  // opts.checkPending is true — same query, one more column). Callers
+  // that route based on role should ensure checkPending is true for
+  // that path.
+  role: string | null;
 }> {
   let response = NextResponse.next({ request });
 
@@ -53,14 +58,16 @@ export async function updateSession(
   // current path is one where pending users are allowed (avoids
   // a per-request profiles read on /accept-invite itself).
   let isPending = false;
+  let role: string | null = null;
   if (isAuthenticated && opts.checkPending) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("status")
+      .select("status, role")
       .eq("id", data.user!.id)
-      .maybeSingle<{ status: string }>();
+      .maybeSingle<{ status: string; role: string }>();
     isPending = profile?.status === "pending";
+    role = profile?.role ?? null;
   }
 
-  return { response, isAuthenticated, isPending };
+  return { response, isAuthenticated, isPending, role };
 }
