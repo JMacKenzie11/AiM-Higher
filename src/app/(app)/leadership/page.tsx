@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/current-user";
+import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationListChip } from "@/components/leadership/FacilitationReview";
@@ -16,18 +17,17 @@ import styles from "../admin/companies/admin.module.css";
 // Every ingested meeting shows up here for the current scoped
 // company: title, date, analysis status, and (when complete) a
 // link into the full AI analysis + commitments the meeting spawned.
-// Gated to system_admin / aims_guide / company_admin at the route
-// level; RLS mirrors the check on the meetings + meeting_analyses
-// tables.
+// Open to every same-company member; RLS on meetings +
+// meeting_analyses admits authenticated users whose profile.company_id
+// matches. Facilitation reviews and raw transcript_text remain
+// admin-only via app-level gating (this file selects only metadata
+// columns; the facilitation chip is admin-gated below).
 
 export default async function LeadershipPage() {
-  const session = await requireRole([
-    "system_admin",
-    "company_admin",
-    "aims_guide",
-  ]);
+  const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
+  const isAdmin = isAdminForCompany(session.profile, companyId);
 
   const supabase = await createSupabaseServerClient();
   const { data: rows } = await supabase
@@ -39,12 +39,16 @@ export default async function LeadershipPage() {
   const meetings = (rows ?? []) as Meeting[];
 
   // Facilitation column is only fetched (and only rendered) when the
-  // feature is on. One extra query for the complete-status meetings —
-  // pending/failed rows can't have a review yet.
-  const facilitationOn = await companyHasFeature(
+  // feature is on AND the caller can manage this company. Grades the
+  // meeting leader on things like discussion balance — sharing that
+  // with the person being graded is the wrong default. One extra
+  // query for the complete-status meetings — pending/failed rows
+  // can't have a review yet.
+  const facilitationFeatureOn = await companyHasFeature(
     companyId,
     "meeting_facilitation_review"
   );
+  const facilitationOn = facilitationFeatureOn && isAdmin;
   const reviewByMeetingId = new Map<string, FacilitationReview>();
   if (facilitationOn) {
     const completeIds = meetings
@@ -74,10 +78,9 @@ export default async function LeadershipPage() {
     >
       <div style={{ display: "flex" }}>
         <PrivacyNote tone="managerial">
-          Meeting transcripts, analyses, and facilitation reviews on this
-          page are visible to system admins, company admins, and AiMS
-          Guides for this company only. Meeting participants don&rsquo;t
-          see this list.
+          Meeting summaries here are visible to everyone at this company.
+          Facilitation reviews and raw transcripts stay admin-only —
+          those don&rsquo;t appear on this page for non-admins.
         </PrivacyNote>
       </div>
 

@@ -101,7 +101,6 @@ const APP_ITEMS: readonly NavItem[] = [
         label: "Meetings",
         href: "/leadership",
         icon: "meeting",
-        roles: ADMIN_ROLES,
       },
     ],
   },

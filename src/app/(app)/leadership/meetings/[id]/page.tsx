@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { requireRole } from "@/lib/auth/current-user";
+import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationReview } from "@/components/leadership/FacilitationReview";
@@ -14,30 +15,38 @@ import type { Meeting, MeetingAnalysis, Profile } from "@/lib/types";
 import styles from "../../../admin/companies/admin.module.css";
 
 // Full meeting analysis + commitments the meeting spawned. Reached
-// from /leadership. Gated to system_admin / company_admin / aims_guide
-// via the requireRole at the top; isAdminForCompany then confirms
-// the caller can act on this specific company (RLS on meetings +
-// meeting_analyses mirrors the check).
+// from /leadership. Open to every same-company member; RLS on
+// meetings + meeting_analyses admits authenticated users whose
+// profile.company_id matches. Facilitation review + rerun button
+// stay admin-gated in the render below (grades the meeting leader —
+// wrong default to share with the person being graded).
 
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function MeetingAnalysisPage({ params }: PageProps) {
-  const session = await requireRole([
-    "system_admin",
-    "company_admin",
-    "aims_guide",
-  ]);
+  const session = await requireProfile();
   const { id } = await params;
 
   const supabase = await createSupabaseServerClient();
   const { data: meeting } = await supabase
     .from("meetings")
-    .select("*")
+    .select("id, company_id, meeting_title, file_name, status, error, created_at")
     .eq("id", id)
-    .maybeSingle<Meeting>();
+    .maybeSingle<Pick<Meeting, "id" | "company_id" | "meeting_title" | "file_name" | "status" | "error" | "created_at">>();
   if (!meeting) notFound();
 
-  if (!meeting.company_id || !isAdminForCompany(session.profile, meeting.company_id)) {
+  // Unrouted meetings (no company yet) have no leadership home —
+  // they're only reachable from the sysadmin routing surface.
+  if (!meeting.company_id) redirect("/leadership");
+  const isAdmin = isAdminForCompany(session.profile, meeting.company_id);
+  // Same-company gate: a team_member in company A can't read
+  // meetings routed to company B. RLS also enforces this; the
+  // check below just avoids rendering a broken page if the row
+  // somehow slipped through. Admins for the company (sysadmin,
+  // company_admin scoped in, assigned guide) are covered by
+  // isAdminForCompany semantics.
+  const callerCompanyId = await getEffectiveCompanyId(session);
+  if (!isAdmin && callerCompanyId !== meeting.company_id) {
     redirect("/leadership");
   }
 
@@ -53,13 +62,17 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       .eq("source_meeting_id", id),
   ]);
 
-  // Facilitation review only surfaces when the feature is on AND
-  // the analysis row actually carries a review (older rows, or rows
-  // analyzed while the flag was off, stay null and render nothing).
-  const facilitationOn = await companyHasFeature(
+  // Facilitation review only surfaces when the feature is on, the
+  // caller can manage this company, AND the analysis row actually
+  // carries a review (older rows, or rows analyzed while the flag
+  // was off, stay null and render nothing). Non-admins never see
+  // the review — it grades the meeting leader, and that's not the
+  // right shared artefact for participants.
+  const facilitationFeatureOn = await companyHasFeature(
     meeting.company_id,
     "meeting_facilitation_review"
   );
+  const facilitationOn = facilitationFeatureOn && isAdmin;
   const facilitationReview =
     facilitationOn && analysis?.facilitation_review_json
       ? (analysis.facilitation_review_json as FacilitationReviewData)
@@ -110,11 +123,11 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       <div className={styles.content}>
         <div style={{ display: "flex" }}>
           <PrivacyNote tone="managerial">
-            This meeting analysis and any facilitation review are visible to
-            system admins, company admins, and AiMS Guides for this company
-            only. Meeting participants don&rsquo;t see this page. Commitments
-            extracted from the meeting appear in each owner&rsquo;s Commitments
-            list and scorecard — same visibility as any other commitment.
+            This meeting analysis is visible to everyone at this company.
+            Facilitation reviews and raw transcripts stay admin-only.
+            Commitments extracted from the meeting appear in each owner&rsquo;s
+            Commitments list and scorecard — same visibility as any other
+            commitment.
           </PrivacyNote>
         </div>
 
