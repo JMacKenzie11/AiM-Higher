@@ -1400,12 +1400,18 @@ a.fromMeetingChip:hover {
 /* ---- Mobile ---- */
 @media (max-width: 768px) {
   .row {
-    grid-template-columns: 40px 40px 40px minmax(0, 1fr) auto;
+    /* Status was previously in its own right-side column, which
+       stole ~100px on narrow phones and crushed description into a
+       ~70px stripe. Move it below description like owner/priority/
+       due so description gets the full remaining width after the
+       three left-side circles. */
+    grid-template-columns: 40px 40px 40px minmax(0, 1fr);
     grid-template-areas:
-      "circle delete clarity description status"
-      ".      .      .       owner       owner"
-      ".      .      .       priority    priority"
-      ".      .      .       due         due";
+      "circle delete clarity description"
+      ".      .      .       status"
+      ".      .      .       owner"
+      ".      .      .       priority"
+      ".      .      .       due";
     row-gap: var(--space-1);
     column-gap: var(--space-3);
   }
@@ -1458,7 +1464,7 @@ a.fromMeetingChip:hover {
   .row > :nth-child(8) {
     grid-area: status;
     align-self: start;
-    justify-self: end;
+    justify-self: start;
   }
 
   .addForm {
