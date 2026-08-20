@@ -32,24 +32,37 @@ export function GuideCompaniesCell({
         </span>
       ) : (
         <div className={styles.guideCompanyChips}>
-          {assignments.map((a) => (
-            <button
-              key={a.company_id}
-              type="button"
-              className={styles.ghostButton}
-              disabled={pending}
-              title={`Unassign from ${a.company_name}`}
-              onClick={() =>
-                setPendingUnassign({ id: a.company_id, name: a.company_name })
-              }
-            >
-              {a.company_name}
-              {"\u00a0"}
-              <span className={styles.chipClose} aria-hidden="true">
-                ×
-              </span>
-            </button>
-          ))}
+          {assignments.map((a) => {
+            // Split the trailing word off so we can glue it to the ×
+            // in a single white-space: nowrap unit. Without this the
+            // × drops onto its own line for multi-word names like
+            // "Centre North Physiotherapy Clinic" and reads as a
+            // stray glyph.
+            const words = a.company_name.split(" ");
+            const lastWord = words[words.length - 1] ?? "";
+            const leading = words.length > 1 ? words.slice(0, -1).join(" ") + " " : "";
+            return (
+              <button
+                key={a.company_id}
+                type="button"
+                className={styles.ghostButton}
+                disabled={pending}
+                title={`Unassign from ${a.company_name}`}
+                onClick={() =>
+                  setPendingUnassign({ id: a.company_id, name: a.company_name })
+                }
+              >
+                {leading}
+                <span className={styles.chipTail}>
+                  {lastWord}
+                  {"\u00a0"}
+                  <span className={styles.chipClose} aria-hidden="true">
+                    ×
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 

@@ -839,21 +839,25 @@
   color: var(--text-muted);
 }
 
-/* The × on each company chip. white-space: nowrap plus the nbsp
-   the button renders means the "×" always sits with the last word
-   of the name — never orphaned on its own line when the name
-   wraps. Slightly bolder + muted-turned-current on hover so it
-   reads as an intentional dismiss control, not a stray glyph. */
-.chipClose {
-  display: inline-block;
+/* Last-word + × glued into one wrap unit. When the button width
+   forces the name to wrap, the last word carries the × onto the
+   next line rather than orphaning the × on a line by itself. */
+.chipTail {
   white-space: nowrap;
-  font-weight: 600;
-  color: var(--text-muted);
+}
+
+/* The × on each company chip. Inline (not inline-block) so it
+   participates in text-wrapping alongside its adjacent word.
+   Slightly bolder + primary-tinted on hover so it reads as an
+   intentional dismiss control. */
+.chipClose {
+  font-weight: 700;
+  color: var(--text);
   padding-left: 2px;
   transition: color var(--duration-fast) var(--ease-out);
 }
 
 .guideCompanyChips > button:hover .chipClose,
 .guideCompanyChips > button:focus-visible .chipClose {
-  color: var(--primary);
+  color: var(--aims-danger);
 }
