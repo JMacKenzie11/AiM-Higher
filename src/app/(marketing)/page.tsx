@@ -9,11 +9,11 @@ import { CoachExchangeMock } from "./mocks/CoachExchangeMock";
 import { CascadeMock } from "./mocks/CascadeMock";
 import styles from "./marketing.module.css";
 
-// Public landing page — sold to owner-led companies. The coach
+// Public landing page. Sold to owner-led companies; the coach
 // audience lives on /coaches. Rendered statically; middleware
 // bounces authenticated visitors to /dashboard so this page only
-// serves anons. No client JS on this file. See marketing.module.css
-// for every visual — no hardcoded hex, all tokens.
+// serves anons. See marketing.module.css for every visual: no
+// hardcoded hex, all tokens.
 
 export default function LandingPage() {
   return (
