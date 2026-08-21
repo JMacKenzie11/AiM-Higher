@@ -29,9 +29,8 @@ export default function LandingPage() {
             </h1>
             <span className={styles.heroRule} aria-hidden="true" />
             <p className={styles.heroSubhead}>
-              A team that executes without you in every room — with a
-              management system that doesn&rsquo;t leave when the
-              consultant does.
+              A team that executes without you in every room. A management
+              system that doesn&rsquo;t leave when the consultant does.
             </p>
             <p className={styles.heroSupport}>
               AiMS HQ&trade; turns your strategic plan into weekly
@@ -67,7 +66,7 @@ export default function LandingPage() {
             You&rsquo;ve done the planning. You&rsquo;ve hired good people.
             And you&rsquo;re still in every follow-up, every decision, every
             reason the week actually happens. That&rsquo;s not a leadership
-            problem. It&rsquo;s a system problem — and most management
+            problem. It&rsquo;s a system problem. And most management
             systems were built for episodes, not for the days in between.
             Quarterly sessions. Weekly meetings. A binder. A facilitator.
             They live when someone drives them and fade when that person
@@ -164,7 +163,7 @@ export default function LandingPage() {
             None of these hold it together. Every consultant goes home.
             Every AI subscription is one person&rsquo;s edge, not your
             company&rsquo;s system. AiMS HQ&trade; is the management
-            system that doesn&rsquo;t leave — one always-on operating
+            system that doesn&rsquo;t leave. One always-on operating
             rhythm that replaces the pile for a fraction of what the
             fragments cost. Pricing is part of the first conversation.
           </p>
@@ -192,7 +191,7 @@ export default function LandingPage() {
                 what do we already know that will work? He stopped solving
                 alone and asked the room. The knowledge was already in the
                 organization. It needed a system that could reach it. That
-                became the AiMS Approach — appreciative inquiry as the
+                became the AiMS Approach. Appreciative inquiry as the
                 discipline, so every rhythm starts from what&rsquo;s already
                 working, not from what&rsquo;s broken. $100M in new
                 business, five warehouses eliminated, targets hit months
