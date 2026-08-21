@@ -1223,9 +1223,12 @@ a.fromMeetingChip:hover {
 }
 
 /* Add-row variant for priority-detail pages: no priority picker,
-   so the grid drops the 180px column that held it. */
+   so the grid drops the 180px column that held it. Five columns
+   for five visible controls (description, owner, date, ongoing,
+   submit) so the Add button sits inline instead of orphaning
+   onto a full-width second row. */
 .addFormNoPriority {
-  grid-template-columns: 1fr 180px 140px auto;
+  grid-template-columns: 1fr 180px 140px auto auto;
 }
 
 .addField {
