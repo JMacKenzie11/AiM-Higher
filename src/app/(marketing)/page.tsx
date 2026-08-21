@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Faq } from "./Faq";
+import { RevealOnScroll } from "./RevealOnScroll";
 import { demoUrl } from "./demo-url";
 import { HeroDashboardMock } from "./mocks/HeroDashboardMock";
 import { CommitmentsListMock } from "./mocks/CommitmentsListMock";
@@ -202,7 +203,7 @@ export default function LandingPage() {
               <p className={styles.statBandLabel}>
                 RESULTS FROM AiMS ENGAGEMENTS
               </p>
-              <div className={styles.statTileGrid}>
+              <RevealOnScroll className={styles.statTileGrid}>
                 <div className={styles.statTile}>
                   <span className={styles.statTileValue}>
                     $3M &rarr; $12M
@@ -229,7 +230,7 @@ export default function LandingPage() {
                     Of the year-one growth target, secured in year one
                   </span>
                 </div>
-              </div>
+              </RevealOnScroll>
             </aside>
           </div>
         </div>

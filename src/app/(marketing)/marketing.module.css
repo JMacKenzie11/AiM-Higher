@@ -1560,10 +1560,22 @@
 .originStory p {
   margin: 0;
   color: var(--text);
-  font: var(--text-body);
-  font-size: 17px;
-  line-height: 1.7;
-  max-width: 62ch;
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.6;
+  letter-spacing: -0.005em;
+  text-wrap: pretty;
+}
+
+/* Lede paragraph. Larger, heavier, in the heading colour so the
+   story has a visual entry point instead of reading as a wall of
+   uniform body copy. */
+.originStory p:first-of-type {
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--text-heading);
+  letter-spacing: -0.01em;
 }
 
 .statBand {
@@ -1597,6 +1609,47 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: opacity 600ms var(--ease-out),
+    transform 600ms var(--ease-out);
+}
+
+/* Reveal-on-scroll states, driven by the parent's data-reveal
+   attribute (set by RevealOnScroll.tsx). Server-rendered HTML has
+   no attribute → tiles stay at their natural visible state
+   (JS-off fallback). After hydration the wrapper flips to
+   "pending" (tiles hidden), then to "in" on intersection (tiles
+   reveal with a light stagger). Fires once. */
+[data-reveal="pending"] .statTile {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+[data-reveal="in"] .statTile {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+[data-reveal="in"] .statTile:nth-child(1) {
+  transition-delay: 0ms;
+}
+[data-reveal="in"] .statTile:nth-child(2) {
+  transition-delay: 90ms;
+}
+[data-reveal="in"] .statTile:nth-child(3) {
+  transition-delay: 180ms;
+}
+[data-reveal="in"] .statTile:nth-child(4) {
+  transition-delay: 270ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statTile {
+    transition: none;
+  }
+  [data-reveal="pending"] .statTile {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Rotate the top-stripe colour through the brand palette so the
