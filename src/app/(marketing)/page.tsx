@@ -25,9 +25,14 @@ export default function LandingPage() {
               FOR OWNER-LED COMPANIES, $2M TO $50M
             </p>
             <h1 className={styles.heroHeadline}>
-              A team that executes without you in every room.
+              Stop being the bottleneck. Start being the CEO.
             </h1>
             <span className={styles.heroRule} aria-hidden="true" />
+            <p className={styles.heroSubhead}>
+              A team that executes without you in every room — with a
+              management system that doesn&rsquo;t leave when the
+              consultant does.
+            </p>
             <p className={styles.heroSupport}>
               AiMS HQ&trade; turns your strategic plan into weekly
               commitments, tracks whether they actually happen, and puts an
@@ -37,7 +42,7 @@ export default function LandingPage() {
             </p>
             <div className={styles.heroCtas}>
               <a href={demoUrl()} className={styles.primaryCta}>
-                Book a demo
+                See a live week
               </a>
               <Link href="/sign-in" className={styles.heroSignIn}>
                 Sign in
@@ -55,16 +60,18 @@ export default function LandingPage() {
       <section className={styles.problem}>
         <div className={styles.sectionInner}>
           <h2 className={styles.problemHeadline}>
-            Most plans don&rsquo;t fail. They fade.
+            You&rsquo;re still the answer to every question.
           </h2>
           <span className={styles.problemRule} aria-hidden="true" />
           <p className={styles.problemIntro}>
-            Most management systems were built for episodes. Quarterly
-            sessions, weekly meetings, a binder, a facilitator. They come to
-            life when someone drives them and fade when that person steps
-            back. But your business makes decisions every day, in the
-            moments between the scheduled conversations. Consultants visit.
-            This stays.
+            You&rsquo;ve done the planning. You&rsquo;ve hired good people.
+            And you&rsquo;re still in every follow-up, every decision, every
+            reason the week actually happens. That&rsquo;s not a leadership
+            problem. It&rsquo;s a system problem — and most management
+            systems were built for episodes, not for the days in between.
+            Quarterly sessions. Weekly meetings. A binder. A facilitator.
+            They live when someone drives them and fade when that person
+            steps back. Consultants visit. This stays.
           </p>
           <div className={styles.problemGrid}>
             <div className={styles.problemCard}>
@@ -103,9 +110,8 @@ export default function LandingPage() {
               </h3>
               <p className={styles.problemCardBody}>
                 When the facilitator, the implementer, or the founder steps
-                back, the structure goes with them. Everything routes back to
-                you, and you become the answer to every question the system
-                was supposed to hold.
+                back, the structure goes with them. And you&rsquo;re back to
+                holding the whole thing in your own head.
               </p>
             </div>
           </div>
@@ -126,12 +132,12 @@ export default function LandingPage() {
           <div className={styles.investmentGrid}>
             <div className={styles.investmentCard}>
               <h3 className={styles.investmentCardTitle}>
-                AI subscriptions and tools, $12K to $60K a year
+                Personal copilot subscriptions, $12K to $60K a year
               </h3>
               <p className={styles.investmentCardBody}>
-                Individual productivity goes up. Insights live in personal
-                chat threads. The organization stays exactly as dependent on
-                you as before.
+                Individual productivity goes up. Insights live in one
+                person&rsquo;s chat threads. The organization stays exactly
+                as dependent on you as before.
               </p>
             </div>
             <div className={styles.investmentCard}>
@@ -155,8 +161,11 @@ export default function LandingPage() {
             </div>
           </div>
           <p className={styles.investmentClose}>
-            None of these hold it together. AiMS HQ&trade; replaces the
-            pile with one always-on system, for a fraction of what the
+            None of these hold it together. Every consultant goes home.
+            Every copilot is one person&rsquo;s edge, not your
+            company&rsquo;s system. AiMS HQ&trade; is the management
+            system that doesn&rsquo;t leave — one always-on operating
+            rhythm that replaces the pile for a fraction of what the
             fragments cost. Pricing is part of the first conversation.
           </p>
         </div>
@@ -183,9 +192,11 @@ export default function LandingPage() {
                 what do we already know that will work? He stopped solving
                 alone and asked the room. The knowledge was already in the
                 organization. It needed a system that could reach it. That
-                became the AiMS Approach: $100M in new business, five
-                warehouses eliminated, targets hit months early. AiMS
-                Higher&trade; is that system, built into software.
+                became the AiMS Approach — appreciative inquiry as the
+                discipline, so every rhythm starts from what&rsquo;s already
+                working, not from what&rsquo;s broken. $100M in new
+                business, five warehouses eliminated, targets hit months
+                early. AiMS HQ&trade; is that system, built into software.
               </p>
             </div>
             <aside className={styles.statBand}>
@@ -444,16 +455,19 @@ export default function LandingPage() {
       {/* --- Closing CTA --- */}
       <section className={styles.closingCta}>
         <div className={styles.closingCtaInner}>
+          <p className={styles.closingCtaEyebrow}>
+            Simplified leadership. Amplified results.
+          </p>
           <h2 className={styles.closingCtaHeadline}>
             See it on your own numbers.
           </h2>
           <p className={styles.closingCtaBody}>
-            A demo takes thirty minutes and we run it on scenarios from your
-            world, not ours.
+            Thirty minutes, run on scenarios from your world, not ours.
+            You&rsquo;ll leave knowing whether it fits.
           </p>
           <div>
             <a href={demoUrl()} className={styles.primaryCta}>
-              Book a demo
+              See a live week
             </a>
           </div>
         </div>

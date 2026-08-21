@@ -1640,6 +1640,19 @@
   gap: var(--space-3);
 }
 
+/* Small brand tagline that sits above the closing headline —
+   uses the accent colour so it reads as the memorable takeaway,
+   not a fifth subheading. */
+.closingCtaEyebrow {
+  margin: 0;
+  color: var(--accent);
+  font: var(--text-subhead);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 13px;
+}
+
 .closingCtaHeadline {
   margin: 0;
   font-family: var(--font-sans);

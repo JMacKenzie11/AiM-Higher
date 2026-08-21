@@ -70,7 +70,7 @@ export default function OpenGraphImage() {
               maxWidth: 900,
             }}
           >
-            Leadership Simplified. Results Amplified.
+            Simplified leadership. Amplified results.
           </div>
           <div
             style={{
