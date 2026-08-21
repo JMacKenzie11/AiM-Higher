@@ -7,14 +7,14 @@ export function MarketingFooter() {
       <div className={styles.footerInner}>
         <div className={styles.footerBrand}>
           <Image
-            src="/brand/aimshigher-logo-white.svg"
-            alt="AiMS Higher"
-            width={620}
-            height={142}
+            src="/brand/aims-hq-logo-white.png"
+            alt="AiMS HQ"
+            width={1860}
+            height={426}
             className={styles.footerLogo}
           />
           <p className={styles.footerTagline}>
-            AiMS Higher&trade; is built by the AiMS Institute.
+            AiMS HQ&trade; is built by the AiMS Institute.
           </p>
         </div>
       </div>

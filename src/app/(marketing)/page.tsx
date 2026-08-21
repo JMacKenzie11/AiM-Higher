@@ -29,7 +29,7 @@ export default function LandingPage() {
             </h1>
             <span className={styles.heroRule} aria-hidden="true" />
             <p className={styles.heroSupport}>
-              AiMS Higher&trade; turns your strategic plan into weekly
+              AiMS HQ&trade; turns your strategic plan into weekly
               commitments, tracks whether they actually happen, and puts an
               always-available coach into every leader&rsquo;s rhythm. The
               capacity is already inside your team. This is the system that
@@ -155,7 +155,7 @@ export default function LandingPage() {
             </div>
           </div>
           <p className={styles.investmentClose}>
-            None of these hold it together. AiMS Higher&trade; replaces the
+            None of these hold it together. AiMS HQ&trade; replaces the
             pile with one always-on system, for a fraction of what the
             fragments cost. Pricing is part of the first conversation.
           </p>
@@ -380,7 +380,7 @@ export default function LandingPage() {
                 question: "Is this EOS software?",
                 answer: (
                   <p>
-                    No. AiMS Higher&trade; runs the AiMS Approach, an
+                    No. AiMS HQ&trade; runs the AiMS Approach, an
                     always-on operating system built around appreciative
                     inquiry, weekly follow-through, and embedded coaching.
                     If you have run EOS or Scaling Up, the concepts will

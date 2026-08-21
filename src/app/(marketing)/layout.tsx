@@ -14,18 +14,18 @@ import styles from "./marketing.module.css";
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://aims-hq.com";
 
 export const metadata: Metadata = {
-  title: "AiMS Higher™ · The operating system for the AiMS Approach",
+  title: "AiMS HQ™ · The operating system for the AiMS Approach",
   description:
     "Turn your strategic plan into weekly commitments, track whether they actually happen, and coach your leaders along the way.",
   alternates: {
     canonical: SITE_URL,
   },
   openGraph: {
-    title: "AiMS Higher™ · The operating system for the AiMS Approach",
+    title: "AiMS HQ™ · The operating system for the AiMS Approach",
     description:
       "Turn your strategic plan into weekly commitments, track whether they actually happen, and coach your leaders along the way.",
     url: SITE_URL,
-    siteName: "AiMS Higher™",
+    siteName: "AiMS HQ™",
     type: "website",
   },
 };

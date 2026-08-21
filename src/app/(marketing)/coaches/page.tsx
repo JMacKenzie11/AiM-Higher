@@ -10,9 +10,9 @@ import styles from "../marketing.module.css";
 
 export const metadata: Metadata = {
   title:
-    "AiMS Higher™ for coaches · Run your whole practice from one system",
+    "AiMS HQ™ for coaches · Run your whole practice from one system",
   description:
-    "AiMS Higher™ was built inside a working coaching practice. Every client's plan, rhythm, and follow-through in one place, with an always-available coach carrying the methodology between your sessions.",
+    "AiMS HQ™ was built inside a working coaching practice. Every client's plan, rhythm, and follow-through in one place, with an always-available coach carrying the methodology between your sessions.",
 };
 
 export default function CoachesPage() {
@@ -28,7 +28,7 @@ export default function CoachesPage() {
             </h1>
             <span className={styles.heroRule} aria-hidden="true" />
             <p className={styles.heroSupport}>
-              AiMS Higher&trade; was built inside a working coaching practice
+              AiMS HQ&trade; was built inside a working coaching practice
               to run real client engagements. The rhythm you use with your
               own clients is the rhythm we ship.
             </p>
@@ -127,7 +127,7 @@ export default function CoachesPage() {
               <span className={styles.howStepNumber}>1</span>
               <h3 className={styles.howCardTitle}>Talk with us</h3>
               <p className={styles.howCardBody}>
-                A conversation about your practice and how AiMS Higher fits
+                A conversation about your practice and how AiMS HQ fits
                 the way you already work with clients.
               </p>
             </li>

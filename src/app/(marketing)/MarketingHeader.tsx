@@ -30,12 +30,12 @@ export function MarketingHeader() {
   return (
     <header className={styles.header}>
       <div className={styles.headerInner}>
-        <Link href="/" className={styles.headerLogoLink} aria-label="AiMS Higher home">
+        <Link href="/" className={styles.headerLogoLink} aria-label="AiMS HQ home">
           <Image
-            src="/brand/aimshigher-logo-color.svg"
-            alt="AiMS Higher"
-            width={620}
-            height={142}
+            src="/brand/aims-hq-logo-white.png"
+            alt="AiMS HQ"
+            width={1860}
+            height={426}
             className={styles.headerLogo}
             priority
           />
