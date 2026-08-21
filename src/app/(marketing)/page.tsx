@@ -132,12 +132,12 @@ export default function LandingPage() {
           <div className={styles.investmentGrid}>
             <div className={styles.investmentCard}>
               <h3 className={styles.investmentCardTitle}>
-                Personal copilot subscriptions, $12K to $60K a year
+                AI subscriptions and tools, $12K to $60K a year
               </h3>
               <p className={styles.investmentCardBody}>
-                Individual productivity goes up. Insights live in one
-                person&rsquo;s chat threads. The organization stays exactly
-                as dependent on you as before.
+                Individual productivity goes up. Insights live in personal
+                chat threads. The organization stays exactly as dependent on
+                you as before.
               </p>
             </div>
             <div className={styles.investmentCard}>
@@ -162,7 +162,7 @@ export default function LandingPage() {
           </div>
           <p className={styles.investmentClose}>
             None of these hold it together. Every consultant goes home.
-            Every copilot is one person&rsquo;s edge, not your
+            Every AI subscription is one person&rsquo;s edge, not your
             company&rsquo;s system. AiMS HQ&trade; is the management
             system that doesn&rsquo;t leave — one always-on operating
             rhythm that replaces the pile for a fraction of what the
