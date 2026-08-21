@@ -34,8 +34,8 @@ export function MarketingHeader() {
           <Image
             src="/brand/aims-hq-logo-white.png"
             alt="AiMS HQ"
-            width={1860}
-            height={426}
+            width={166}
+            height={38}
             className={styles.headerLogo}
             priority
           />

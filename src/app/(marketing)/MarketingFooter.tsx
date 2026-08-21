@@ -9,8 +9,8 @@ export function MarketingFooter() {
           <Image
             src="/brand/aims-hq-logo-white.png"
             alt="AiMS HQ"
-            width={1860}
-            height={426}
+            width={140}
+            height={32}
             className={styles.footerLogo}
           />
           <p className={styles.footerTagline}>

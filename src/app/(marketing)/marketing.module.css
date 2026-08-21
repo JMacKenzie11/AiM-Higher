@@ -41,6 +41,7 @@
 .headerLogo {
   height: 38px;
   width: auto;
+  aspect-ratio: 1860 / 426;
   display: block;
 }
 
@@ -1700,6 +1701,7 @@
 .footerLogo {
   height: 32px;
   width: auto;
+  aspect-ratio: 1860 / 426;
   display: block;
 }
 
