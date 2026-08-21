@@ -42,7 +42,7 @@ export default function LandingPage() {
             </p>
             <div className={styles.heroCtas}>
               <a href={demoUrl()} className={styles.primaryCta}>
-                See a live week
+                Book a demo
               </a>
               <Link href="/sign-in" className={styles.heroSignIn}>
                 Sign in
@@ -459,7 +459,7 @@ export default function LandingPage() {
             Simplified leadership. Amplified results.
           </p>
           <h2 className={styles.closingCtaHeadline}>
-            See it on your own numbers.
+            See how it fits your business.
           </h2>
           <p className={styles.closingCtaBody}>
             Thirty minutes, run on scenarios from your world, not ours.
@@ -467,7 +467,7 @@ export default function LandingPage() {
           </p>
           <div>
             <a href={demoUrl()} className={styles.primaryCta}>
-              See a live week
+              Book a demo
             </a>
           </div>
         </div>
