@@ -238,16 +238,6 @@
   color: var(--text-muted);
 }
 
-/* ---- Roster header (title + view tabs) ---- */
-.rosterHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-3);
-}
-
 .viewTabs {
   display: inline-flex;
   gap: var(--space-1);

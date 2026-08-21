@@ -105,7 +105,7 @@ const APP_ITEMS: readonly NavItem[] = [
     feature: "execution",
     items: [
       { kind: "link", label: "One-Page Plan", href: "/foundation" },
-      { kind: "link", label: "People", href: "/people" },
+      { kind: "link", label: "Team", href: "/people" },
       { kind: "link", label: "Chart", href: "/chart" },
       // Success Measures sits directly under Chart so the metric
       // definition (on the chart) and the weekly logging surface

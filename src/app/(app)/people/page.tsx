@@ -100,10 +100,10 @@ export default async function PeoplePage() {
 
   return (
     <div className={styles.stage}>
-      <section className={styles.hero} aria-label="People summary">
+      <section className={styles.hero} aria-label="Team summary">
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>Roster</p>
-          <h1 className={styles.h1}>People</h1>
+          <h1 className={styles.h1}>Team</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
             Everyone on the team, with how their week is going.
@@ -112,12 +112,7 @@ export default async function PeoplePage() {
       </section>
 
       <div className={styles.content}>
-        <section className={styles.card} aria-labelledby="roster">
-          <div className={styles.rosterHeader}>
-            <h2 id="roster" className={styles.h2}>
-              Team
-            </h2>
-          </div>
+        <section className={styles.card} aria-label="Roster">
           {people.length === 0 ? (
             <p className={styles.emptyLine}>
               No one on the roster yet.{" "}
