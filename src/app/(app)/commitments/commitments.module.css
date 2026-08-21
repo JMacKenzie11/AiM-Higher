@@ -294,6 +294,16 @@
   opacity: 0.6;
 }
 
+/* Priority-detail variant: same row, minus the priority column.
+   The row still renders 8 children so nth-child grid-area mapping
+   in mobile stays intact — child 6 is a placeholder we hide. */
+.rowNoPriority {
+  grid-template-columns: 40px 28px 28px 1fr 180px 110px 90px;
+}
+.rowNoPriority > :nth-child(6) {
+  display: none;
+}
+
 .rowDescription {
   font: var(--text-body);
   color: var(--text);
@@ -1212,6 +1222,12 @@ a.fromMeetingChip:hover {
   align-items: center;
 }
 
+/* Add-row variant for priority-detail pages: no priority picker,
+   so the grid drops the 180px column that held it. */
+.addFormNoPriority {
+  grid-template-columns: 1fr 180px 140px auto;
+}
+
 .addField {
   padding: var(--space-2) var(--space-3);
   background: var(--surface);
@@ -1469,5 +1485,15 @@ a.fromMeetingChip:hover {
 
   .addForm {
     grid-template-columns: 1fr;
+  }
+
+  /* Priority-detail row on mobile: drop the empty priority area so
+     it doesn't leave a blank line under owner. */
+  .rowNoPriority {
+    grid-template-areas:
+      "circle delete clarity description"
+      ".      .      .       status"
+      ".      .      .       owner"
+      ".      .      .       due";
   }
 }

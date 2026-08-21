@@ -23,6 +23,10 @@ export type InlineAddRowProps = {
   isAdmin: boolean;
   quarterCoversThisWeek: boolean;
   noQuarterMessage: string;
+  // On a priority detail page the priority is implicit — pass the
+  // id here to pin it and hide the picker. Reset keeps the pinned
+  // id after save so the row stays scoped to this priority.
+  fixedPriorityId?: string | null;
 };
 
 export function InlineAddRow({
@@ -33,8 +37,10 @@ export function InlineAddRow({
   isAdmin,
   quarterCoversThisWeek,
   noQuarterMessage,
+  fixedPriorityId,
 }: InlineAddRowProps) {
-  const [priorityId, setPriorityId] = useState<string | null>(null);
+  const pinnedPriority = fixedPriorityId ?? null;
+  const [priorityId, setPriorityId] = useState<string | null>(pinnedPriority);
   const [ownerId, setOwnerId] = useState<string>(currentUserId);
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState(thisFriday);
@@ -51,7 +57,7 @@ export function InlineAddRow({
 
   function resetToBlank() {
     setDescription("");
-    setPriorityId(null);
+    setPriorityId(pinnedPriority);
     setDueDate(thisFriday);
     setOwnerId(currentUserId);
     setIsOngoing(false);
@@ -78,9 +84,12 @@ export function InlineAddRow({
     );
   }
 
+  const formClasses = [styles.addForm];
+  if (pinnedPriority) formClasses.push(styles.addFormNoPriority);
+
   return (
     <div className={`${styles.inlineAddRow} ${styles.inlineAddRowDraft}`}>
-      <form action={formAction} className={styles.addForm}>
+      <form action={formAction} className={formClasses.join(" ")}>
         <input type="hidden" name="week_ending" value={thisFriday} />
         <input type="hidden" name="priority_id" value={priorityId ?? ""} />
         <input type="hidden" name="owner_id" value={ownerId} />
@@ -112,12 +121,14 @@ export function InlineAddRow({
           aria-label="New commitment"
         />
 
-        <PriorityPicker
-          priorityOptions={priorityOptions}
-          currentPriorityId={priorityId}
-          onSelect={setPriorityId}
-          disabled={pending}
-        />
+        {pinnedPriority ? null : (
+          <PriorityPicker
+            priorityOptions={priorityOptions}
+            currentPriorityId={priorityId}
+            onSelect={setPriorityId}
+            disabled={pending}
+          />
+        )}
 
         {isAdmin ? (
           <select

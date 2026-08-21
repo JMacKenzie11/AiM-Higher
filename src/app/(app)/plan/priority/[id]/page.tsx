@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { canWriteOwnedRow, isAdminForCompany } from "@/lib/auth/permissions";
 import { getPriorityDetail } from "@/lib/plan/service";
 import {
-  getCommitmentHistoryForPriority,
+  getPriorityCommitmentPanelData,
   type WeekGroup,
 } from "@/lib/commitments/service";
-import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
+import { CommitmentRow } from "@/app/(app)/commitments/CommitmentRow";
+import { InlineAddRow } from "@/app/(app)/commitments/InlineAddRow";
+import commitmentStyles from "@/app/(app)/commitments/commitments.module.css";
 import { PriorityHeroPanel } from "./PriorityHeroPanel";
 import styles from "../../plan-detail.module.css";
 
@@ -18,13 +21,20 @@ export default async function PriorityDetailPage({ params }: PageProps) {
   const detail = await getPriorityDetail(id);
   if (!detail) notFound();
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  const isAdmin = isAdminForCompany(
+    session.profile,
+    detail.priority.company_id
+  );
   const isOwner = detail.priority.owner_id === session.profile.id;
   const owner = detail.people.find((p) => p.id === detail.priority.owner_id) ?? null;
 
-  const history = await getCommitmentHistoryForPriority(detail.priority.id);
+  const panel = await getPriorityCommitmentPanelData(detail.priority.id, isAdmin);
+  if (!panel) notFound();
+
+  const rosterMinimal = panel.roster.map((p) => ({
+    id: p.id,
+    full_name: p.full_name,
+  }));
 
   return (
     <>
@@ -44,30 +54,53 @@ export default async function PriorityDetailPage({ params }: PageProps) {
 
       <section className={styles.card} aria-labelledby="history">
         <h2 id="history" className={styles.h2}>
-          Commitment history
+          Commitments
         </h2>
-        {history.length === 0 ? (
+
+        <InlineAddRow
+          thisFriday={panel.thisFriday}
+          priorityOptions={[]}
+          roster={rosterMinimal}
+          currentUserId={session.profile.id}
+          isAdmin={isAdmin}
+          quarterCoversThisWeek={panel.quarterCoversThisWeek}
+          noQuarterMessage={panel.noQuarterMessage}
+          fixedPriorityId={detail.priority.id}
+        />
+
+        {panel.history.length === 0 ? (
           <p className={styles.emptyLine}>
-            No commitments logged against this priority yet. Add them from
-            the Commitments page.
+            No commitments logged against this priority yet.
           </p>
         ) : (
           <>
-            {/* Sort is ascending (earliest week at the top), so the
-                first 4 visible groups are the START of the priority.
-                Later weeks collapse behind a summary so long-running
-                priorities don't produce a wall of text. */}
-            {history.slice(0, 4).map((group) => (
-              <HistoryWeek key={group.weekEnding} group={group} />
+            {panel.history.slice(0, 4).map((group) => (
+              <HistoryWeek
+                key={group.weekEnding}
+                group={group}
+                roster={rosterMinimal}
+                todayIso={panel.todayIso}
+                currentUserId={session.profile.id}
+                isAdmin={isAdmin}
+                sessionProfile={session.profile}
+              />
             ))}
-            {history.length > 4 ? (
+            {panel.history.length > 4 ? (
               <details className={styles.olderDetails}>
                 <summary className={styles.olderSummary}>
-                  Show {history.length - 4} later{" "}
-                  {history.length - 4 === 1 ? "week" : "weeks"}
+                  Show {panel.history.length - 4} older{" "}
+                  {panel.history.length - 4 === 1 ? "week" : "weeks"}
                 </summary>
-                {history.slice(4).map((group) => (
-                  <HistoryWeek key={group.weekEnding} group={group} />
+                {panel.history.slice(4).map((group) => (
+                  <HistoryWeek
+                    key={group.weekEnding}
+                    group={group}
+                    roster={rosterMinimal}
+                    todayIso={panel.todayIso}
+                    currentUserId={session.profile.id}
+                    isAdmin={isAdmin}
+                    sessionProfile={session.profile}
+                  />
                 ))}
               </details>
             ) : null}
@@ -78,39 +111,41 @@ export default async function PriorityDetailPage({ params }: PageProps) {
   );
 }
 
-function HistoryWeek({ group }: { group: WeekGroup }) {
+function HistoryWeek({
+  group,
+  roster,
+  todayIso,
+  currentUserId,
+  isAdmin,
+  sessionProfile,
+}: {
+  group: WeekGroup;
+  roster: Array<{ id: string; full_name: string }>;
+  todayIso: string;
+  currentUserId: string;
+  isAdmin: boolean;
+  sessionProfile: Parameters<typeof canWriteOwnedRow>[0];
+}) {
   return (
     <div>
       <div className={styles.weekGroup}>Week ending {group.weekEnding}</div>
-      <table className={styles.historyTable}>
-        <thead>
-          <tr>
-            <th>Owner</th>
-            <th>Description</th>
-            <th>Due</th>
-            <th>Resolution</th>
-          </tr>
-        </thead>
-        <tbody>
-          {group.commitments.map((commitment) => (
-            <tr key={commitment.id}>
-              <td>{commitment.owner?.full_name ?? "—"}</td>
-              <td>
-                {commitment.description}
-                {commitment.missed_reason ? (
-                  <p className={styles.reasonNote}>
-                    Reason: {commitment.missed_reason}
-                  </p>
-                ) : null}
-              </td>
-              <td className={styles.dueCell}>{commitment.due_date}</td>
-              <td>
-                <CommitmentResolutionChip commitment={commitment} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <ul className={commitmentStyles.rowList}>
+        {group.commitments.map((commitment) => (
+          <CommitmentRow
+            key={commitment.id}
+            commitment={commitment}
+            priorityOptions={[]}
+            roster={roster}
+            todayIso={todayIso}
+            canResolve={canWriteOwnedRow(sessionProfile, commitment)}
+            canLink={false}
+            canReassign={canWriteOwnedRow(sessionProfile, commitment)}
+            currentUserId={currentUserId}
+            isAdmin={isAdmin}
+            hidePriority
+          />
+        ))}
+      </ul>
     </div>
   );
 }

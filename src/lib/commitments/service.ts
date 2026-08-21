@@ -34,63 +34,129 @@ export type CommitmentWithMeta = Commitment & {
 
 export type WeekGroup = {
   weekEnding: string;
-  commitments: CommitmentWithOwner[];
+  commitments: CommitmentWithMeta[];
 };
 
 // --------------------------------------------------------------
-// Priority detail page — full commitment history grouped by week.
+// Priority detail page — commitment history + everything the inline
+// management panel needs (roster, dates, quarter gate) so a single
+// server call replaces what would otherwise be three round trips.
 // --------------------------------------------------------------
 
-export async function getCommitmentHistoryForPriority(
-  priorityId: string
-): Promise<WeekGroup[]> {
+export type PriorityCommitmentPanelData = {
+  history: WeekGroup[];
+  todayIso: string;
+  thisFriday: string;
+  quarterCoversThisWeek: boolean;
+  noQuarterMessage: string;
+  roster: Array<Pick<Profile, "id" | "full_name" | "position">>;
+};
+
+export async function getPriorityCommitmentPanelData(
+  priorityId: string,
+  viewerIsAdmin: boolean
+): Promise<PriorityCommitmentPanelData | null> {
   const supabase = await createSupabaseServerClient();
 
-  // Ascending by week_ending → earliest week at the TOP of the page.
-  // Within a week, ascending due_date so rows read left-to-right in
-  // chronological order (a commitment due Monday sits above one due
-  // Friday within the same week bucket). Filter out soft-deleted and
-  // parked rows — priority history reflects the actual work stream,
-  // not stashed intentions.
+  const { data: priority } = await supabase
+    .from("priorities")
+    .select("id, title, company_id")
+    .eq("id", priorityId)
+    .maybeSingle<Pick<Priority, "id" | "title" | "company_id">>();
+  if (!priority) return null;
+
+  const companyId = priority.company_id;
+  const priorityMeta: Pick<Priority, "id" | "title"> = {
+    id: priority.id,
+    title: priority.title,
+  };
+
+  const { data: company } = await supabase
+    .from("companies")
+    .select("timezone")
+    .eq("id", companyId)
+    .maybeSingle<{ timezone: string }>();
+  const timezone = company?.timezone ?? "America/Anchorage";
+  const { iso: todayIso } = todayInTimezone(timezone);
+  const thisFri = thisFriday(timezone);
+
+  const openQuarter = await getCurrentQuarter(companyId);
+  const quarterCoversThisWeek = Boolean(
+    openQuarter &&
+      openQuarter.start_date <= thisFri &&
+      openQuarter.end_date >= thisFri
+  );
+  const noQuarterMessage = viewerIsAdmin
+    ? "No quarter is open for this week — open one to start adding commitments."
+    : "No quarter is open for this week. Ask your company admin to open one.";
+
+  // Roster mirrors /commitments: active company members + system
+  // admins appended so a coach can be selected as owner too.
+  const [rosterRes, coachesRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, position")
+      .eq("company_id", companyId)
+      .neq("status", "inactive")
+      .order("full_name"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, position")
+      .eq("role", "system_admin")
+      .neq("status", "inactive")
+      .order("full_name"),
+  ]);
+  const companyMembers = (rosterRes.data ?? []) as Array<
+    Pick<Profile, "id" | "full_name" | "position">
+  >;
+  const coaches = (
+    (coachesRes.data ?? []) as Array<Pick<Profile, "id" | "full_name" | "position">>
+  ).filter((c) => !companyMembers.some((m) => m.id === c.id));
+  const roster: Array<Pick<Profile, "id" | "full_name" | "position">> = [
+    ...companyMembers,
+    ...coaches,
+  ];
+  const rosterById = new Map(roster.map((p) => [p.id, p]));
+
+  // Descending week_ending puts the current week (where the add row
+  // lives and where day-to-day management happens) at the top.
+  // Within a week, ascending due_date so Monday reads above Friday.
+  // Parked + soft-deleted rows stay out — priority history should
+  // reflect the live work stream.
   const { data: commitments } = await supabase
     .from("commitments")
     .select("*")
     .eq("priority_id", priorityId)
     .is("deleted_at", null)
     .is("parked_at", null)
-    .order("week_ending", { ascending: true })
+    .order("week_ending", { ascending: false })
     .order("due_date", { ascending: true });
 
   const rows = (commitments ?? []) as Commitment[];
-  if (rows.length === 0) return [];
 
-  const ownerIds = Array.from(
-    new Set(rows.map((row) => row.owner_id).filter((id): id is string => !!id))
-  );
-  const { data: owners } = ownerIds.length
-    ? await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", ownerIds)
-    : { data: [] };
-  const ownerById = new Map(
-    (owners ?? []).map((owner) => [owner.id, owner as Pick<Profile, "id" | "full_name">])
-  );
-
-  const grouped = new Map<string, CommitmentWithOwner[]>();
+  const grouped = new Map<string, CommitmentWithMeta[]>();
   for (const row of rows) {
-    const enriched: CommitmentWithOwner = {
+    const enriched: CommitmentWithMeta = {
       ...row,
-      owner: row.owner_id ? (ownerById.get(row.owner_id) ?? null) : null,
+      owner: row.owner_id ? rosterById.get(row.owner_id) ?? null : null,
+      priority: priorityMeta,
     };
     if (!grouped.has(row.week_ending)) grouped.set(row.week_ending, []);
     grouped.get(row.week_ending)!.push(enriched);
   }
 
-  return Array.from(grouped.entries()).map(([weekEnding, commitments]) => ({
-    weekEnding,
-    commitments,
-  }));
+  const history: WeekGroup[] = Array.from(grouped.entries()).map(
+    ([weekEnding, commitments]) => ({ weekEnding, commitments })
+  );
+
+  return {
+    history,
+    todayIso,
+    thisFriday: thisFri,
+    quarterCoversThisWeek,
+    noQuarterMessage,
+    roster,
+  };
 }
 
 // --------------------------------------------------------------

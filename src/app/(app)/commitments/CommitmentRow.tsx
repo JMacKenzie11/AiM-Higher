@@ -70,6 +70,11 @@ export type CommitmentRowProps = {
   // many companies and each row needs to say which. Left off on
   // /commitments (single-tenant context) so the row stays lean.
   companyLabel?: string;
+  // Priority detail pages hide the priority cell — every row is
+  // already known to belong to the current priority, so the column
+  // is pure noise. A hidden placeholder still renders so the
+  // nth-child grid area mapping (used on mobile) stays intact.
+  hidePriority?: boolean;
 };
 
 export function CommitmentRow({
@@ -83,6 +88,7 @@ export function CommitmentRow({
   currentUserId,
   isAdmin,
   companyLabel,
+  hidePriority,
 }: CommitmentRowProps) {
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState("");
@@ -380,16 +386,12 @@ export function CommitmentRow({
 
   const isActive = isOpen;
 
+  const rowClasses = [styles.row];
+  if (isParked || !isActive) rowClasses.push(styles.rowResolved);
+  if (hidePriority) rowClasses.push(styles.rowNoPriority);
+
   return (
-    <li
-      className={
-        isParked
-          ? `${styles.row} ${styles.rowResolved}`
-          : isActive
-            ? styles.row
-            : `${styles.row} ${styles.rowResolved}`
-      }
-    >
+    <li className={rowClasses.join(" ")}>
       <button
         type="button"
         className={buildCircleClass(
@@ -725,13 +727,17 @@ export function CommitmentRow({
         />
       ) : null}
 
-      <PriorityCell
-        commitment={commitment}
-        priorityOptions={priorityOptions}
-        canLink={canLink}
-        onSelect={linkTo}
-        disabled={pending}
-      />
+      {hidePriority ? (
+        <span aria-hidden />
+      ) : (
+        <PriorityCell
+          commitment={commitment}
+          priorityOptions={priorityOptions}
+          canLink={canLink}
+          onSelect={linkTo}
+          disabled={pending}
+        />
+      )}
 
       {(() => {
         const dueAssigned = commitment.clarity_timeline === false;
