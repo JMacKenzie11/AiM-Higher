@@ -1666,8 +1666,13 @@
   color: var(--aims-cobalt);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(28px, 3vw, 36px);
+  /* Sized so the widest value ("$3M → $12M") fits on a single
+     line at the narrowest desktop tile width. white-space: nowrap
+     guarantees every tile reads on one line for consistency
+     across the grid. */
+  font-size: clamp(22px, 2.5vw, 30px);
   line-height: 1;
+  white-space: nowrap;
 }
 
 .statTileCaption {
