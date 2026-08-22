@@ -118,18 +118,16 @@ export async function getPriorityCommitmentPanelData(
   ];
   const rosterById = new Map(roster.map((p) => [p.id, p]));
 
-  // Descending week_ending puts the current week (where the add row
-  // lives and where day-to-day management happens) at the top.
-  // Within a week, ascending due_date so Monday reads above Friday.
-  // Parked + soft-deleted rows stay out — priority history should
-  // reflect the live work stream.
+  // Ascending by week_ending and due_date so the history reads as
+  // a timeline: earliest week at the top, earliest due date first
+  // within each week. Parked + soft-deleted rows stay out.
   const { data: commitments } = await supabase
     .from("commitments")
     .select("*")
     .eq("priority_id", priorityId)
     .is("deleted_at", null)
     .is("parked_at", null)
-    .order("week_ending", { ascending: false })
+    .order("week_ending", { ascending: true })
     .order("due_date", { ascending: true });
 
   const rows = (commitments ?? []) as Commitment[];

@@ -73,38 +73,17 @@ export default async function PriorityDetailPage({ params }: PageProps) {
             No commitments logged against this priority yet.
           </p>
         ) : (
-          <>
-            {panel.history.slice(0, 4).map((group) => (
-              <HistoryWeek
-                key={group.weekEnding}
-                group={group}
-                roster={rosterMinimal}
-                todayIso={panel.todayIso}
-                currentUserId={session.profile.id}
-                isAdmin={isAdmin}
-                sessionProfile={session.profile}
-              />
-            ))}
-            {panel.history.length > 4 ? (
-              <details className={styles.olderDetails}>
-                <summary className={styles.olderSummary}>
-                  Show {panel.history.length - 4} older{" "}
-                  {panel.history.length - 4 === 1 ? "week" : "weeks"}
-                </summary>
-                {panel.history.slice(4).map((group) => (
-                  <HistoryWeek
-                    key={group.weekEnding}
-                    group={group}
-                    roster={rosterMinimal}
-                    todayIso={panel.todayIso}
-                    currentUserId={session.profile.id}
-                    isAdmin={isAdmin}
-                    sessionProfile={session.profile}
-                  />
-                ))}
-              </details>
-            ) : null}
-          </>
+          panel.history.map((group) => (
+            <HistoryWeek
+              key={group.weekEnding}
+              group={group}
+              roster={rosterMinimal}
+              todayIso={panel.todayIso}
+              currentUserId={session.profile.id}
+              isAdmin={isAdmin}
+              sessionProfile={session.profile}
+            />
+          ))
         )}
       </section>
     </>
