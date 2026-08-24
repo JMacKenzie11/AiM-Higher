@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth/current-user";
 import {
@@ -8,6 +9,7 @@ import {
   transcriptSourcesAllowed,
 } from "@/lib/auth/permissions";
 import type { SessionProfileLike } from "@/lib/auth/permissions";
+import { track } from "@/lib/analytics/track";
 import { ingestSource, processPendingMeetings } from "./ingest";
 import { getProvider } from "./provider";
 import { parseGoogleFolderId } from "./providers/google-drive";
@@ -163,6 +165,14 @@ export async function connectGoogleFolderAction(
   }
 
   revalidatePath("/admin/companies", "layout");
+  after(() =>
+    track(
+      g.profileId,
+      "meeting_source.connected",
+      { provider: "google_drive", scope },
+      { company: companyId }
+    )
+  );
   return { ok: true, item: data };
 }
 

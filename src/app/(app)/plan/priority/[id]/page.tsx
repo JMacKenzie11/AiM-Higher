@@ -9,6 +9,7 @@ import {
 import { CommitmentRow } from "@/app/(app)/commitments/CommitmentRow";
 import { InlineAddRow } from "@/app/(app)/commitments/InlineAddRow";
 import commitmentStyles from "@/app/(app)/commitments/commitments.module.css";
+import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import { PriorityHeroPanel } from "./PriorityHeroPanel";
 import styles from "../../plan-detail.module.css";
 
@@ -38,6 +39,10 @@ export default async function PriorityDetailPage({ params }: PageProps) {
 
   return (
     <>
+      <TrackOnMount
+        event="priority.opened"
+        properties={{ priority_id: detail.priority.id }}
+      />
       <PriorityHeroPanel
         priority={detail.priority}
         people={detail.people}

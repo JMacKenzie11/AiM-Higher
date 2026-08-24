@@ -18,6 +18,7 @@ import { VisionForm } from "./VisionForm";
 import { AddSnippetForm } from "./MarketingForms";
 import { SectionEditToggle } from "./SectionEditToggle";
 import { CardAccent } from "@/components/ui/CardAccent";
+import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import type { StrategicFocusArea } from "@/lib/types";
 import styles from "./foundation.module.css";
 
@@ -63,6 +64,7 @@ export default async function OnePagePlanPage() {
 
   return (
     <div className={styles.stage}>
+      <TrackOnMount event="plan.viewed" />
       <section className={styles.hero} aria-label="One-Page Plan summary">
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>Plan</p>

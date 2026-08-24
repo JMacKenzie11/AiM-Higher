@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getScopedCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
+import { track } from "@/lib/analytics/track";
 import type { Profile } from "@/lib/types";
 import type { CoachingConversation, CoachingContextKind } from "./service";
 import { cleanGeneratedTitle } from "./title";
@@ -95,6 +97,14 @@ export async function createConversationAction(
   }
 
   revalidatePath(`/coach/${subject.id}`);
+  after(() =>
+    track(
+      session.profile.id,
+      "coach.thread_opened",
+      { mode: "about", context_kind: contextKind },
+      { company: subject.company_id! }
+    )
+  );
   return { ok: true, item: data };
 }
 
@@ -143,6 +153,14 @@ export async function createGeneralConversationAction(): Promise<
   }
 
   revalidatePath("/ask-aimee");
+  after(() =>
+    track(
+      session.profile.id,
+      "coach.thread_opened",
+      { mode: "general", context_kind: "execution" },
+      { company: companyId }
+    )
+  );
   return { ok: true, item: data };
 }
 

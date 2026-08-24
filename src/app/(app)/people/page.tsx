@@ -6,6 +6,7 @@ import { getPeopleRoster } from "@/lib/people/service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { InviteForm } from "../admin/companies/[id]/InviteForm";
 import { RowActionsMenu } from "./RowActionsMenu";
+import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import type { Profile } from "@/lib/types";
 import styles from "./people.module.css";
 import adminStyles from "../admin/companies/admin.module.css";
@@ -100,6 +101,7 @@ export default async function PeoplePage() {
 
   return (
     <div className={styles.stage}>
+      <TrackOnMount event="people.opened" />
       <section className={styles.hero} aria-label="Team summary">
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>Roster</p>

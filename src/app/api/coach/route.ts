@@ -1,6 +1,6 @@
 import "server-only";
 
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
@@ -11,6 +11,7 @@ import { buildCoachTools } from "@/lib/coach/tools";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { track } from "@/lib/analytics/track";
 import { findPractice, loadPracticePrompt } from "@/lib/practices/registry";
 import type {
   CoachingConversation,
@@ -133,6 +134,23 @@ export async function POST(req: NextRequest): Promise<Response> {
     }
     userRow = inserted;
   }
+
+  // Fire coach.message_sent as soon as the user's message is
+  // persisted. This is the honest "user sent something" moment;
+  // the streaming assistant response is a separate concern.
+  after(() =>
+    track(
+      session.profile.id,
+      "coach.message_sent",
+      {
+        mode: convo.mode,
+        context_kind: convo.context_kind,
+        retry: isRetry,
+        message_length: userMessage.length,
+      },
+      { company: convo.company_id }
+    )
+  );
 
   // Load the turn-by-turn history so the model sees the same thread
   // the UI shows. Only role + content leave the DB — id, created_by,

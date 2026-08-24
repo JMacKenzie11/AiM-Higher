@@ -39,6 +39,7 @@
     "mammoth": "^1.12.0",
     "next": "15.5.20",
     "posthog-js": "^1.418.12",
+    "posthog-node": "^5.51.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-markdown": "^10.1.0",
