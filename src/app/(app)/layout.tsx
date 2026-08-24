@@ -6,6 +6,10 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { getHeaderNotifications } from "@/lib/notifications/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  PostHogProvider,
+  type PostHogUser,
+} from "@/lib/analytics/PostHogProvider";
 import type { Company } from "@/lib/types";
 import type { ModuleFeature } from "@/lib/subscriptions/service";
 import styles from "./layout.module.css";
@@ -38,6 +42,11 @@ export default async function AppLayout({
   // Timezone of the effective company — needed by notifications to
   // compute today / this-Friday in the right zone.
   let companyTimezone: string | null = null;
+  // Raw company name for the analytics identify call. Cross-company
+  // roles get the scoped company's name; regular users get their own
+  // company's name. Kept separate from contextLabel because the
+  // latter is display-formatted ("System admin · Acme Co").
+  let analyticsCompanyName: string | null = null;
 
   if (isCrossCompanyRole) {
     scopedCompanyId = await getEffectiveCompanyId(session);
@@ -49,6 +58,7 @@ export default async function AppLayout({
         .eq("id", scopedCompanyId)
         .maybeSingle<Pick<Company, "name" | "timezone">>();
       scopedCompanyName = company?.name;
+      analyticsCompanyName = company?.name ?? null;
       companyTimezone = company?.timezone ?? null;
       contextLabel = scopedCompanyName
         ? `${roleLabel} · ${scopedCompanyName}`
@@ -64,6 +74,7 @@ export default async function AppLayout({
       .eq("id", session.profile.company_id)
       .maybeSingle<Pick<Company, "name" | "timezone">>();
     if (company?.name) contextLabel = company.name;
+    analyticsCompanyName = company?.name ?? null;
     companyTimezone = company?.timezone ?? null;
   }
 
@@ -128,26 +139,37 @@ export default async function AppLayout({
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const analyticsUser: PostHogUser = {
+    id: session.profile.id,
+    email: session.email ?? null,
+    full_name: session.profile.full_name,
+    role: session.profile.role,
+    company_id: effectiveCompanyId,
+    company_name: analyticsCompanyName,
+  };
+
   return (
-    <div
-      className={styles.frame}
-      data-nav-collapsed={initialCollapsed ? "true" : undefined}
-    >
-      <Sidebar
-        userName={session.profile.full_name}
-        userRole={session.profile.role}
-        isSystemAdmin={isCrossCompanyRole}
-        contextLabel={contextLabel}
-        showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}
-        scopedCompanyName={scopedCompanyName}
-        features={features}
-        hasChartMeasures={hasChartMeasures}
-        notifications={notifications}
-        initialCollapsed={initialCollapsed}
-        initialCollapsedGroups={initialCollapsedGroups}
-      />
-      <div className={styles.main}>{children}</div>
-      <HelpWidget />
-    </div>
+    <PostHogProvider user={analyticsUser}>
+      <div
+        className={styles.frame}
+        data-nav-collapsed={initialCollapsed ? "true" : undefined}
+      >
+        <Sidebar
+          userName={session.profile.full_name}
+          userRole={session.profile.role}
+          isSystemAdmin={isCrossCompanyRole}
+          contextLabel={contextLabel}
+          showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}
+          scopedCompanyName={scopedCompanyName}
+          features={features}
+          hasChartMeasures={hasChartMeasures}
+          notifications={notifications}
+          initialCollapsed={initialCollapsed}
+          initialCollapsedGroups={initialCollapsedGroups}
+        />
+        <div className={styles.main}>{children}</div>
+        <HelpWidget />
+      </div>
+    </PostHogProvider>
   );
 }
