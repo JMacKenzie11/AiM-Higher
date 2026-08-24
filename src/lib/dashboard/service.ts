@@ -364,13 +364,17 @@ async function loadRecentSuccesses(
 ): Promise<RecentSuccess[]> {
   if (!openQuarter) return [];
 
+  // Status values in the current schema are kept_on_time and
+  // kept_late (migration 0139) — the old "kept" bucket doesn't
+  // exist any more, so filtering .eq("status","kept") silently
+  // returned zero rows for every company.
   const { data: rows } = await supabase
     .from("commitments")
     .select(
       "id, description, week_ending, owner_id, priority_id, completed_at"
     )
     .eq("company_id", companyId)
-    .eq("status", "kept")
+    .in("status", ["kept_on_time", "kept_late"])
     .gte("week_ending", openQuarter.start_date)
     .lte("week_ending", openQuarter.end_date)
     .order("completed_at", { ascending: false, nullsFirst: false })
@@ -390,7 +394,17 @@ async function loadRecentSuccesses(
   >;
   if (commitments.length === 0) return [];
 
-  const ownerIds = Array.from(new Set(commitments.map((c) => c.owner_id)));
+  // Unassigned commitments have owner_id = null; strip them before
+  // building the .in() so PostgREST doesn't get "id IN (NULL)" in
+  // the query (which returns zero rows and would drop everyone
+  // else's names from the lookup).
+  const ownerIds = Array.from(
+    new Set(
+      commitments
+        .map((c) => c.owner_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
   const priorityIds = Array.from(
     new Set(
       commitments
@@ -400,7 +414,9 @@ async function loadRecentSuccesses(
   );
 
   const [{ data: ownerRows }, { data: priorityRows }] = await Promise.all([
-    supabase.from("profiles").select("id, full_name").in("id", ownerIds),
+    ownerIds.length > 0
+      ? supabase.from("profiles").select("id, full_name").in("id", ownerIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; full_name: string }> }),
     priorityIds.length > 0
       ? supabase.from("priorities").select("id, title").in("id", priorityIds)
       : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
