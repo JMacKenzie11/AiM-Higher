@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { APP_URL } from "@/lib/supabase/env";
 import { requireRole } from "@/lib/auth/current-user";
 import { sendInviteEmail } from "@/lib/email";
+import { track } from "@/lib/analytics/track";
 import type { Profile } from "@/lib/types";
 
 // Roster actions — replaces the old invitations flow.
@@ -100,7 +102,7 @@ export async function createUserAction(
   // vanished on 2026-08-06.
   let warning: string | undefined;
   if (sendInviteNow) {
-    const dispatch = await dispatchInvite(userId, email);
+    const dispatch = await dispatchInvite(userId, email, session.profile.id);
     if (!dispatch.ok) {
       warning = `User added, but the invite email didn't send: ${dispatch.message}`;
     }
@@ -323,7 +325,7 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
     return { ok: false, message: "Couldn't find that user's email." };
   }
 
-  const result = await dispatchInvite(profileId, userRow.user.email);
+  const result = await dispatchInvite(profileId, userRow.user.email, session.profile.id);
   if (!result.ok) return result;
 
   if (profile.company_id) revalidatePath(`/admin/companies/${profile.company_id}`);
@@ -434,7 +436,11 @@ export async function getInviteLinkAction(
 // Straight to generateLink({ magiclink }) + our own Resend send:
 // one Supabase call instead of two, no error-code guessing, every
 // send shows up in the Resend dashboard.
-export async function dispatchInvite(profileId: string, email: string): Promise<UserActionResult> {
+export async function dispatchInvite(
+  profileId: string,
+  email: string,
+  senderProfileId?: string
+): Promise<UserActionResult> {
   const admin = createSupabaseAdminClient();
   // Ask Supabase to generate a magic-link OTP for this user. We
   // deliberately don't use the returned action_link (which routes
@@ -516,6 +522,13 @@ export async function dispatchInvite(profileId: string, email: string): Promise<
   }
 
   await markInvited(admin, profileId);
+  if (senderProfileId) {
+    after(() =>
+      track(senderProfileId, "invite.sent", {
+        invitee_profile_id: profileId,
+      })
+    );
+  }
   return { ok: true, profileId };
 }
 

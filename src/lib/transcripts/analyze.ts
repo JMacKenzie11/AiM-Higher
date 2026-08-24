@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { fridayOf, todayInTimezone } from "@/lib/dates";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { track } from "@/lib/analytics/track";
 import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyze";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type {
@@ -195,6 +196,19 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
         meeting_title: meetingRow.meeting_title ?? deriveTitle(meetingRow.file_name),
       })
       .eq("id", meetingId);
+
+    // Cron-driven event; no request context, so await inline rather
+    // than using next/server after(). The extra ~200ms is fine here.
+    await track(
+      "system:transcript-cron",
+      "meeting.analyzed",
+      {
+        commitments_extracted: validated.length,
+        commitments_created: created,
+        auto_track: autoTrackOn,
+      },
+      { company: meetingRow.company_id }
+    );
 
     return {
       analysisMarkdown,

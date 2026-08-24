@@ -813,6 +813,25 @@ export async function linkPriorityAction(
 
   revalidateCommitmentSurfaces(previousPriorityId);
   revalidateCommitmentSurfaces(priorityId);
+  // Only fire when the link actually changed (Link + Unlink + Move).
+  // Skips no-op saves from the picker.
+  if (previousPriorityId !== priorityId) {
+    after(() =>
+      track(
+        session.profile.id,
+        "commitment.linked_to_priority",
+        {
+          action:
+            priorityId === null
+              ? "unlinked"
+              : previousPriorityId === null
+                ? "linked"
+                : "moved",
+        },
+        { company: commitment.company_id }
+      )
+    );
+  }
   return { ok: true, commitment: data };
 }
 

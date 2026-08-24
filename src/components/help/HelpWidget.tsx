@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { trackClient } from "@/lib/analytics/track-client";
 import styles from "./HelpWidget.module.css";
 
 // Floating help button, fixed to the bottom-right of every
@@ -121,7 +122,13 @@ export function HelpWidget() {
       <button
         type="button"
         className={styles.trigger}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => {
+          setOpen((prev) => {
+            const next = !prev;
+            if (next) trackClient("help.opened", { pathname });
+            return next;
+          });
+        }}
         aria-label={open ? "Close help" : "Open help"}
         aria-expanded={open}
       >

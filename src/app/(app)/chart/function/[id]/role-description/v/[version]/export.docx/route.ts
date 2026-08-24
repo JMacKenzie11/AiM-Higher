@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getChartFunctionDetail } from "@/lib/chart/service";
@@ -8,6 +8,7 @@ import { computeReadiness } from "@/lib/role-descriptions/readiness";
 import { mergeRoleDescription } from "@/lib/role-descriptions/generate";
 import { getPublishedVersion } from "@/lib/role-descriptions/versions";
 import { buildRoleDescriptionDocx } from "@/lib/role-descriptions/docx";
+import { track } from "@/lib/analytics/track";
 
 // GET /chart/function/[id]/role-description/v/[version]/export.docx
 //
@@ -81,6 +82,19 @@ export async function GET(
   });
 
   const filename = `Role Description - ${sanitizeFilename(detail.fn.title)} - v${snap.versionNumber}.docx`;
+
+  after(() =>
+    track(
+      session.profile.id,
+      "export.docx.generated",
+      {
+        kind: "role_description",
+        version: "published",
+        version_number: snap.versionNumber,
+      },
+      { company: detail.fn.company_id }
+    )
+  );
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
