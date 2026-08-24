@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 import { requireProfile } from "@/lib/auth/current-user";
-import { track } from "@/lib/analytics/track";
+import { trackAfter } from "@/lib/analytics/track";
 import {
   canWriteOwnedRow,
   isAdminForCompany,
@@ -201,18 +200,16 @@ export async function createCommitmentAction(
   }
 
   revalidateCommitmentSurfaces(priorityId);
-  after(() =>
-    track(
-      session.profile.id,
-      "commitment.created",
-      {
-        has_priority: Boolean(finalRow.priority_id),
-        is_ongoing: finalRow.is_ongoing,
-        for_self: finalRow.owner_id === session.profile.id,
-      },
-      { company: finalRow.company_id }
-    )
-  );
+  trackAfter(
+    session.profile.id,
+    "commitment.created",
+    {
+      has_priority: Boolean(finalRow.priority_id),
+      is_ongoing: finalRow.is_ongoing,
+      for_self: finalRow.owner_id === session.profile.id,
+    },
+    { company: finalRow.company_id }
+    );
   return { ok: true, commitment: finalRow };
 }
 
@@ -289,19 +286,17 @@ export async function markKeptAction(
     });
     if (!rolled.ok) return rolled;
     revalidateCommitmentSurfaces(commitment.priority_id);
-    after(() =>
-      track(
-        session.profile.id,
-        "commitment.marked_kept",
-        {
-          was_late: newStatus === "kept_late",
-          resolver_role: role,
-          had_reason: Boolean(trimmedReason),
-          is_ongoing: true,
-        },
-        { company: commitment.company_id }
-      )
-    );
+    trackAfter(
+      session.profile.id,
+      "commitment.marked_kept",
+      {
+        was_late: newStatus === "kept_late",
+        resolver_role: role,
+        had_reason: Boolean(trimmedReason),
+        is_ongoing: true,
+      },
+      { company: commitment.company_id }
+      );
     return { ok: true, commitment: rolled.commitment };
   }
 
@@ -323,19 +318,17 @@ export async function markKeptAction(
   }
 
   revalidateCommitmentSurfaces(commitment.priority_id);
-  after(() =>
-    track(
-      session.profile.id,
-      "commitment.marked_kept",
-      {
-        was_late: newStatus === "kept_late",
-        resolver_role: role,
-        had_reason: Boolean(trimmedReason),
-        is_ongoing: false,
-      },
-      { company: commitment.company_id }
-    )
-  );
+  trackAfter(
+    session.profile.id,
+    "commitment.marked_kept",
+    {
+      was_late: newStatus === "kept_late",
+      resolver_role: role,
+      had_reason: Boolean(trimmedReason),
+      is_ongoing: false,
+    },
+    { company: commitment.company_id }
+    );
   return { ok: true, commitment: data };
 }
 
@@ -430,18 +423,16 @@ export async function markMissedAction(
     });
     if (!rolled.ok) return rolled;
     revalidateCommitmentSurfaces(commitment.priority_id);
-    after(() =>
-      track(
-        session.profile.id,
-        "commitment.marked_missed",
-        {
-          resolver_role: role,
-          had_reason: Boolean(trimmedReason),
-          is_ongoing: true,
-        },
-        { company: commitment.company_id }
-      )
-    );
+    trackAfter(
+      session.profile.id,
+      "commitment.marked_missed",
+      {
+        resolver_role: role,
+        had_reason: Boolean(trimmedReason),
+        is_ongoing: true,
+      },
+      { company: commitment.company_id }
+      );
     return { ok: true, commitment: rolled.commitment };
   }
 
@@ -460,18 +451,16 @@ export async function markMissedAction(
   if (error || !data) return { ok: false, message: "Couldn't close that." };
 
   revalidateCommitmentSurfaces(commitment.priority_id);
-  after(() =>
-    track(
-      session.profile.id,
-      "commitment.marked_missed",
-      {
-        resolver_role: role,
-        had_reason: Boolean(trimmedReason),
-        is_ongoing: false,
-      },
-      { company: commitment.company_id }
-    )
-  );
+  trackAfter(
+    session.profile.id,
+    "commitment.marked_missed",
+    {
+      resolver_role: role,
+      had_reason: Boolean(trimmedReason),
+      is_ongoing: false,
+    },
+    { company: commitment.company_id }
+    );
   return { ok: true, commitment: data };
 }
 
@@ -576,18 +565,16 @@ export async function rescheduleCommitmentAction(
     (Date.parse(trimmedDate) - Date.parse(commitment.due_date)) /
       (24 * 60 * 60 * 1000)
   );
-  after(() =>
-    track(
-      session.profile.id,
-      "commitment.rescheduled",
-      {
-        days_moved: daysMoved,
-        resolver_role: role,
-        had_reason: Boolean(trimmedReason),
-      },
-      { company: commitment.company_id }
-    )
-  );
+  trackAfter(
+    session.profile.id,
+    "commitment.rescheduled",
+    {
+      days_moved: daysMoved,
+      resolver_role: role,
+      had_reason: Boolean(trimmedReason),
+    },
+    { company: commitment.company_id }
+    );
   return { ok: true, commitment: data };
 }
 
@@ -816,21 +803,19 @@ export async function linkPriorityAction(
   // Only fire when the link actually changed (Link + Unlink + Move).
   // Skips no-op saves from the picker.
   if (previousPriorityId !== priorityId) {
-    after(() =>
-      track(
-        session.profile.id,
-        "commitment.linked_to_priority",
-        {
-          action:
-            priorityId === null
-              ? "unlinked"
-              : previousPriorityId === null
-                ? "linked"
-                : "moved",
-        },
-        { company: commitment.company_id }
-      )
-    );
+    trackAfter(
+      session.profile.id,
+      "commitment.linked_to_priority",
+      {
+        action:
+          priorityId === null
+            ? "unlinked"
+            : previousPriorityId === null
+              ? "linked"
+              : "moved",
+      },
+      { company: commitment.company_id }
+      );
   }
   return { ok: true, commitment: data };
 }

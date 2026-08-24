@@ -1,13 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { APP_URL } from "@/lib/supabase/env";
 import { requireRole } from "@/lib/auth/current-user";
 import { sendInviteEmail } from "@/lib/email";
-import { track } from "@/lib/analytics/track";
+import { trackAfter } from "@/lib/analytics/track";
 import type { Profile } from "@/lib/types";
 
 // Roster actions — replaces the old invitations flow.
@@ -523,11 +522,9 @@ export async function dispatchInvite(
 
   await markInvited(admin, profileId);
   if (senderProfileId) {
-    after(() =>
-      track(senderProfileId, "invite.sent", {
-        invitee_profile_id: profileId,
-      })
-    );
+    trackAfter(senderProfileId, "invite.sent", {
+      invitee_profile_id: profileId,
+    });
   }
   return { ok: true, profileId };
 }

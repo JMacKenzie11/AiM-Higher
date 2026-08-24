@@ -2,14 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { APP_URL } from "@/lib/supabase/env";
 import { clearScopedCompanyCookie } from "@/lib/admin/scope";
 import { sendResetEmail } from "@/lib/email";
-import { track } from "@/lib/analytics/track";
+import { trackAfter } from "@/lib/analytics/track";
 import type { Profile } from "@/lib/types";
 
 // Server actions for auth flows. Every UI form here has a matching
@@ -51,11 +50,9 @@ export async function signInAction(
   // (they never had a scope cookie to begin with).
   await clearScopedCompanyCookie();
 
-  const userId = data.user?.id;
+  const userId = data?.user?.id;
   if (userId) {
-    after(() =>
-      track(userId, "user.signed_in", { method: "password" })
-    );
+    trackAfter(userId, "user.signed_in", { method: "password" });
   }
 
   revalidatePath("/", "layout");
@@ -237,7 +234,7 @@ export async function completeAcceptInviteAction(
 
   revalidatePath("/", "layout");
   const acceptedUserId = otpData.session.user.id;
-  after(() => track(acceptedUserId, "invite.accepted", {}));
+  trackAfter(acceptedUserId, "invite.accepted", {});
   return { ok: true };
 }
 

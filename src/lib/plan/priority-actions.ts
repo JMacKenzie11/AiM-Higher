@@ -1,11 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { track } from "@/lib/analytics/track";
+import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
 import type { CascadeStatus, Priority } from "@/lib/types";
 import { parseStatus, type PlanResult } from "./_shared";
@@ -133,14 +132,12 @@ export async function updatePriorityStatusAction(
   revalidatePath("/plan");
   revalidatePath(`/plan/priority/${priorityId}`);
   if (existing.status !== status) {
-    after(() =>
-      track(
-        session.profile.id,
-        "priority.status_changed",
-        { from: existing.status, to: status },
-        { company: existing.company_id }
-      )
-    );
+    trackAfter(
+      session.profile.id,
+      "priority.status_changed",
+      { from: existing.status, to: status },
+      { company: existing.company_id }
+      );
   }
   return { ok: true, item: data };
 }

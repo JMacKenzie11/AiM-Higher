@@ -1,5 +1,6 @@
 import "server-only";
 
+import { after } from "next/server";
 import { PostHog } from "posthog-node";
 
 // Server-side product analytics. Called from server actions after a
@@ -42,5 +43,23 @@ export async function track(
     await posthog.shutdown();
   } catch {
     // fire-and-forget — analytics never breaks user actions
+  }
+}
+
+// Same as track() but scheduled via next/server's after() so the
+// flush happens after the response is sent to the user. Falls back
+// to a floating promise when called outside a request scope (e.g.
+// vitest unit tests) so tests don't fail with "after was called
+// outside a request scope".
+export function trackAfter(
+  distinctId: string,
+  event: string,
+  properties: Record<string, unknown> = {},
+  groups: Groups = {}
+): void {
+  try {
+    after(() => track(distinctId, event, properties, groups));
+  } catch {
+    void track(distinctId, event, properties, groups);
   }
 }

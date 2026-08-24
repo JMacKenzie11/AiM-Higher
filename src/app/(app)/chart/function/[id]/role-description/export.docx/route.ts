@@ -1,4 +1,4 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getChartFunctionDetail } from "@/lib/chart/service";
@@ -15,7 +15,7 @@ import {
   mergeRoleDescription,
 } from "@/lib/role-descriptions/generate";
 import { buildRoleDescriptionDocx } from "@/lib/role-descriptions/docx";
-import { track } from "@/lib/analytics/track";
+import { trackAfter } from "@/lib/analytics/track";
 
 // GET /chart/function/[id]/role-description/export.docx
 //
@@ -97,14 +97,12 @@ export async function GET(
 
   const filename = `Role Description - ${sanitizeFilename(detail.fn.title)}.docx`;
 
-  after(() =>
-    track(
-      session.profile.id,
-      "export.docx.generated",
-      { kind: "role_description", version: "current" },
-      { company: detail.fn.company_id }
-    )
-  );
+  trackAfter(
+    session.profile.id,
+    "export.docx.generated",
+    { kind: "role_description", version: "current" },
+    { company: detail.fn.company_id }
+    );
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
