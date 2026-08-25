@@ -46,7 +46,7 @@ As an admin or guide, you can also:
 
 **Do Priorities carry forward when a quarter closes?** Yes — the
 priority record persists with owner and title intact. Follow the
-Plan page's cascade if you want to keep it, or archive it if
+Goals & Priorities page's cascade if you want to keep it, or archive it if
 it's done.
 
 **Do resolved commitments keep their historical link when I

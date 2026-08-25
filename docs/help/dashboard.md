@@ -44,7 +44,7 @@ As an admin or guide, you can also:
    when there are unfilled measures and Success Tracking is on).
 2. Enter values inline and click Save. The row disappears once
    filled.
-3. The full batch-entry view lives at **Disciplines ▾ → Success
+3. The full batch-entry view lives at **Workspace → Success
    Measures**.
 
 ## How to interpret the hero stats

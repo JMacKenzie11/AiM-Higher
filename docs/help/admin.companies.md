@@ -14,8 +14,9 @@ redirected straight to their own company's settings page.
 ## What you can do here
 
 - **Open a company** — click its name in the list. Every module
-  (Dashboard, Plan, Chart, etc.) then reads that company's data.
-  Use *Exit* in the user menu to drop back out.
+  (Week in Review, Goals & Priorities, Functional Org Chart, etc.)
+  then reads that company's data. Use *Exit* in the user menu to
+  drop back out.
 - **Open a company's settings** — the per-row *Settings* link
   goes to `/admin/companies/[id]` for that company.
 

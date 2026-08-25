@@ -43,14 +43,14 @@ As an admin or guide, you can also:
 ## How to keep Focus Areas up to date
 
 Strategic Focus Areas render here as a **read-only preview**. The
-write side lives on the Plan page — click through to
+write side lives on the Goals & Priorities page — click through to
 `/plan` to add, edit, or archive Focus Areas and they'll show back
 up here.
 
 ## Common questions
 
 **Why can't I edit Focus Areas on this page?** They're managed on
-the Plan page so the cascade (Focus Areas → Annual Goals →
+the Goals & Priorities page so the cascade (Focus Areas → Annual Goals →
 Priorities) stays in one place. The preview here is intentional.
 
 **How careful should I be with these edits?** Foundation content is

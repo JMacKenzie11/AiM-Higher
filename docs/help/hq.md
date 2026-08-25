@@ -44,9 +44,9 @@ exactly those three, not every company on the platform.
 
 Click the company name in *Your companies* or in a *Needs your
 attention* row. From that point the sidebar flips to that
-company's Dashboard, Chart, Plan, and so on. Come back to Guide
-HQ (or hit *Exit* in the user menu) to drop back to your caseload
-view.
+company's Week in Review, Functional Org Chart, Goals & Priorities,
+and so on. Come back to Guide HQ (or hit *Exit* in the user menu)
+to drop back to your caseload view.
 
 ## Common questions
 
