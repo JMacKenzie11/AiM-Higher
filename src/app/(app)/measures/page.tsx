@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getMeasuresOwnedBy } from "@/lib/measures/service";
@@ -26,9 +27,12 @@ export default async function MeasuresPage() {
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // isAdminForCompany admits system_admin, company_admin (matching
+  // this company), and aims_guide (assigned to this company). The
+  // measures actions already admit guides — this brings the "see
+  // every metric in the company" branch in line with the actions
+  // and the memory rule.
+  const isAdmin = isAdminForCompany(session.profile, companyId);
 
   const supabase = await createSupabaseServerClient();
   const { data: company } = await supabase

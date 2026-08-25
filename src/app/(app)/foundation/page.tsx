@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getFoundation } from "@/lib/foundation/service";
@@ -54,9 +55,11 @@ export default async function OnePagePlanPage() {
   ]);
 
   const companyName = companyRow?.name ?? "this company";
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // isAdminForCompany admits system_admin, company_admin (matching
+  // this company), and aims_guide (assigned to this company).
+  // Foundation server actions already admit guides — this brings
+  // the UI in line with the actions and the memory rule.
+  const isAdmin = isAdminForCompany(session.profile, companyId);
   const f = data.foundation;
   const sfas = (sfaRows ?? []) as Array<
     Pick<StrategicFocusArea, "id" | "title" | "description">

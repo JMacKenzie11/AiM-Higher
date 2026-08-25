@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   calendarQuarterOf,
@@ -24,9 +25,13 @@ export default async function QuartersPage() {
   }
 
   const [quarters] = await Promise.all([getQuartersForCompany(companyId)]);
-  const canWrite =
-    session.profile.role === "company_admin" ||
-    session.profile.role === "system_admin";
+  // isAdminForCompany admits system_admin, company_admin (matching
+  // this company), and aims_guide (assigned to this company). The
+  // action layer (openQuarter/closeQuarter/reopenQuarter) already
+  // admits guides — this brings the UI in line with the actions and
+  // the memory rule (aims_guide = company_admin on assigned
+  // companies).
+  const canWrite = isAdminForCompany(session.profile, companyId);
 
   // Prefill "Open next quarter" from the calendar.
   const latest = quarters[0];
