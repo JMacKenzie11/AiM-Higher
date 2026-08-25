@@ -68,7 +68,7 @@ const ADMIN_ROLES: readonly NavRole[] = [
 const APP_ITEMS: readonly NavItem[] = [
   {
     kind: "link",
-    label: "Dashboard",
+    label: "Week in Review",
     href: "/dashboard",
     icon: "dashboard",
     feature: "execution",
@@ -87,7 +87,7 @@ const APP_ITEMS: readonly NavItem[] = [
     items: [
       { kind: "link", label: "One-Page Plan", href: "/foundation", icon: "doc" },
       { kind: "link", label: "Team", href: "/people", icon: "people" },
-      { kind: "link", label: "Chart", href: "/chart", icon: "chart" },
+      { kind: "link", label: "Functional Org Chart", href: "/chart", icon: "chart" },
       {
         kind: "link",
         label: "Success Measures",
@@ -95,11 +95,11 @@ const APP_ITEMS: readonly NavItem[] = [
         icon: "measure",
         feature: "performance_tracking",
       },
-      { kind: "link", label: "Plan", href: "/plan", icon: "calendar" },
-      { kind: "link", label: "Commitments", href: "/commitments", icon: "check" },
+      { kind: "link", label: "Goals & Priorities", href: "/plan", icon: "calendar" },
+      { kind: "link", label: "Functional Commitments", href: "/commitments", icon: "check" },
       {
         kind: "link",
-        label: "Meetings",
+        label: "Meeting Summaries",
         href: "/leadership",
         icon: "meeting",
       },

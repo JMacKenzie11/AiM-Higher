@@ -94,7 +94,7 @@ const APP_ITEMS: readonly NavItem[] = [
   // user opens first when they land in the app. Companies still sits
   // ahead of it for sysadmins because their day starts by picking a
   // company to operate on — that ordering is composed further down.
-  { kind: "link", label: "Dashboard", href: "/dashboard", feature: "execution" },
+  { kind: "link", label: "Week in Review", href: "/dashboard", feature: "execution" },
   // AiMS Scorecard — bird's-eye view of how the disciplines are
   // landing. Sits next to Dashboard because it's the other daily
   // "how are we doing" entry point; everyone in the company can
@@ -107,7 +107,7 @@ const APP_ITEMS: readonly NavItem[] = [
     items: [
       { kind: "link", label: "One-Page Plan", href: "/foundation" },
       { kind: "link", label: "Team", href: "/people" },
-      { kind: "link", label: "Chart", href: "/chart" },
+      { kind: "link", label: "Functional Org Chart", href: "/chart" },
       // Success Measures sits directly under Chart so the metric
       // definition (on the chart) and the weekly logging surface
       // read as adjacent. Entitlement-gated at the item level:
@@ -120,12 +120,12 @@ const APP_ITEMS: readonly NavItem[] = [
         href: "/measures",
         feature: "performance_tracking",
       },
-      { kind: "link", label: "Plan", href: "/plan" },
-      { kind: "link", label: "Commitments", href: "/commitments" },
+      { kind: "link", label: "Goals & Priorities", href: "/plan" },
+      { kind: "link", label: "Functional Commitments", href: "/commitments" },
       // Meetings (route stays /leadership) hosts meeting-transcript
       // analyses; only admins / coaches see it. Team members get the
       // resulting commitments and email, not the full write-up.
-      { kind: "link", label: "Meetings", href: "/leadership", roles: ADMIN_ROLES },
+      { kind: "link", label: "Meeting Summaries", href: "/leadership", roles: ADMIN_ROLES },
     ],
   },
   // Resources — personal-use surfaces (Ask Aimee, Classroom). Group
