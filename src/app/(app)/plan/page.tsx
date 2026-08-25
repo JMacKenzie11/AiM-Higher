@@ -67,7 +67,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
   return (
     <PageShell
       eyebrow="Company"
-      title="Strategic Plan"
+      title="Goals & Priorities"
       subtitle="The cascade for your company, one quarter at a time."
     >
       {/* Toolbar is always visible. SFAs and annual goals aren't

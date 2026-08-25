@@ -90,21 +90,18 @@ const ADMIN_ROLES: readonly NavRole[] = [
 ];
 
 const APP_ITEMS: readonly NavItem[] = [
-  // Dashboard leads: it's the daily entry point, and the surface a
-  // user opens first when they land in the app. Companies still sits
-  // ahead of it for sysadmins because their day starts by picking a
-  // company to operate on — that ordering is composed further down.
-  { kind: "link", label: "Week in Review", href: "/dashboard", feature: "execution" },
-  // AiMS Scorecard — bird's-eye view of how the disciplines are
-  // landing. Sits next to Dashboard because it's the other daily
-  // "how are we doing" entry point; everyone in the company can
-  // see it (transparency by design).
-  { kind: "link", label: "AiMS Scorecard", href: "/scorecard", feature: "execution" },
+  // Workspace holds the company-scoped surfaces the team uses
+  // day-to-day. AiMS Implementation Status leads because it's the
+  // "how are we doing" glance; the rest cover the disciplines.
+  // Week in Review moved out of this list — for guides/sysadmins it
+  // lives inside the Guide HQ group below; for regular users it's
+  // prepended as a top-level entry at composition time.
   {
     kind: "group",
-    label: "Disciplines",
+    label: "Workspace",
     feature: "execution",
     items: [
+      { kind: "link", label: "AiMS Implementation Status", href: "/scorecard" },
       { kind: "link", label: "One-Page Plan", href: "/foundation" },
       { kind: "link", label: "Team", href: "/people" },
       { kind: "link", label: "Functional Org Chart", href: "/chart" },
@@ -122,9 +119,8 @@ const APP_ITEMS: readonly NavItem[] = [
       },
       { kind: "link", label: "Goals & Priorities", href: "/plan" },
       { kind: "link", label: "Functional Commitments", href: "/commitments" },
-      // Meetings (route stays /leadership) hosts meeting-transcript
-      // analyses; only admins / coaches see it. Team members get the
-      // resulting commitments and email, not the full write-up.
+      // Meeting Summaries (route stays /leadership) hosts
+      // meeting-transcript analyses; only admins / coaches see it.
       { kind: "link", label: "Meeting Summaries", href: "/leadership", roles: ADMIN_ROLES },
     ],
   },
@@ -181,9 +177,32 @@ const APP_ITEMS: readonly NavItem[] = [
 // design is being rethought. When restored it belongs immediately
 // after Commitments with feature: "execution".
 
-const SYSTEM_ADMIN_ITEMS: readonly NavItem[] = [
-  { kind: "link", label: "Companies", href: "/admin/companies", feature: null },
+// Guide HQ group for aims_guide + system_admin: their home base
+// (Overview → /hq), the fleet list (Companies), and the
+// currently-scoped company's dashboard (Week in Review). Grouping
+// keeps the guide's daily rhythm visually together at the top.
+const GUIDE_HQ_ITEMS: readonly NavItem[] = [
+  {
+    kind: "group",
+    label: "Guide HQ",
+    feature: null,
+    items: [
+      { kind: "link", label: "Overview", href: "/hq", roles: ["system_admin", "aims_guide"] },
+      { kind: "link", label: "Companies", href: "/admin/companies", roles: ["system_admin", "aims_guide"] },
+      { kind: "link", label: "Week in Review", href: "/dashboard", roles: ["system_admin", "aims_guide"] },
+    ],
+  },
 ];
+
+// Top-level Week in Review for non-guide company users
+// (company_admin, team_member). Prepended at composition time so
+// their daily entry point stays a single click.
+const WEEK_IN_REVIEW_TOP_LEVEL: NavItem = {
+  kind: "link",
+  label: "Week in Review",
+  href: "/dashboard",
+  feature: "execution",
+};
 
 export type NavBandProps = {
   userName: string;
@@ -299,17 +318,25 @@ export function NavBand({
     !onAdminPicker &&
     !onPersonalSurface;
 
-  // Filter SYSTEM_ADMIN_ITEMS through linkVisible so per-item `roles`
-  // gates (e.g. Classroom = system_admin only) apply even though
-  // guides share this nav slot with sysadmins.
-  const adminItems = SYSTEM_ADMIN_ITEMS.filter((item) =>
-    item.kind === "link" ? linkVisible(item) : true
-  );
+  // Filter the Guide HQ group's children by per-item role. The
+  // `isSystemAdmin` prop actually means "cross-company role"
+  // (system_admin OR aims_guide) — same set that sees the Guide
+  // HQ group.
+  const guideHqItems = GUIDE_HQ_ITEMS.flatMap<NavItem>((item) => {
+    if (item.kind === "link") return linkVisible(item) ? [item] : [];
+    const filteredChildren = item.items.filter(linkVisible);
+    if (filteredChildren.length === 0) return [];
+    return [{ ...item, items: filteredChildren }];
+  });
+  // Non-guide/sysadmin users don't get Guide HQ; prepend Week in
+  // Review as a top-level entry so their daily click stays short.
+  const regularUserTop: readonly NavItem[] =
+    !isSystemAdmin ? [WEEK_IN_REVIEW_TOP_LEVEL] : [];
   const items: NavItem[] = isSystemAdmin
     ? showExitScope && !onAdminPicker
-      ? [...adminItems, ...subscribedApp]
-      : [...adminItems]
-    : subscribedApp;
+      ? [...guideHqItems, ...subscribedApp]
+      : [...guideHqItems]
+    : [...regularUserTop, ...subscribedApp];
 
   return (
     <>

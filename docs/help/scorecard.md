@@ -1,8 +1,8 @@
 ---
-title: AiMS Scorecard
+title: AiMS Implementation Status
 ---
 
-# AiMS Scorecard
+# AiMS Implementation Status
 
 A live read on how consistently the AiMS disciplines are being
 practiced across the company. Everyone in the company sees the same

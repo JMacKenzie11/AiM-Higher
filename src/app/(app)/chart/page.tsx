@@ -42,7 +42,7 @@ export default async function ChartPage() {
   return (
     <PageShell
       eyebrow="Company"
-      title="Chart"
+      title="Functional Org Chart"
       subtitle={
         <>
           The functions that run the business. Each box shows who&rsquo;s in

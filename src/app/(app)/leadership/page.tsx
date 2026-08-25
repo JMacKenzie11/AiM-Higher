@@ -73,7 +73,7 @@ export default async function LeadershipPage() {
   return (
     <PageShell
       eyebrow="Company"
-      title="Meetings"
+      title="Meeting Summaries"
       subtitle="Every meeting transcript this company has run through the analyzer, most recent first. Click a complete analysis to see the full write-up and the commitments it created."
     >
       <div style={{ display: "flex" }}>

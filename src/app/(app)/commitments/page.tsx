@@ -52,7 +52,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
   return (
     <PageShell
       eyebrow="Company"
-      title="Commitments"
+      title="Functional Commitments"
       subtitle="Every agreement, in one place."
     >
       <div className={styles.statBar}>

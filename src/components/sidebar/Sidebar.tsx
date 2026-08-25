@@ -63,28 +63,22 @@ const ADMIN_ROLES: readonly NavRole[] = [
   "aims_guide",
 ];
 
-// Same items as NavBand — groups flatten to section headers in the
-// rail rather than dropdown panels. Order preserved.
+// Company-scoped items. Week in Review lives INSIDE the Guide HQ
+// group for guides/sysadmins (see GUIDE_HQ_ITEMS below); for regular
+// company users it's prepended at composition time so their daily
+// entry point stays a single top-level click.
 const APP_ITEMS: readonly NavItem[] = [
   {
-    kind: "link",
-    label: "Week in Review",
-    href: "/dashboard",
-    icon: "dashboard",
-    feature: "execution",
-  },
-  {
-    kind: "link",
-    label: "AiMS Scorecard",
-    href: "/scorecard",
-    icon: "gauge",
-    feature: "execution",
-  },
-  {
     kind: "group",
-    label: "Disciplines",
+    label: "Workspace",
     feature: "execution",
     items: [
+      {
+        kind: "link",
+        label: "AiMS Implementation Status",
+        href: "/scorecard",
+        icon: "gauge",
+      },
       { kind: "link", label: "One-Page Plan", href: "/foundation", icon: "doc" },
       { kind: "link", label: "Team", href: "/people", icon: "people" },
       { kind: "link", label: "Functional Org Chart", href: "/chart", icon: "chart" },
@@ -152,29 +146,53 @@ const APP_ITEMS: readonly NavItem[] = [
 ];
 
 // Cross-tenant top items shown for aims_guide + system_admin. Guide
-// HQ is the guide's home base — commitments, attention queue, caseload,
-// recent activity across every assigned company. Sits ABOVE Companies
-// so a guide's first click is the coaching view, not the fleet list.
+// HQ is the guide's home base; Companies is the fleet list; Week in
+// Review is the currently-scoped company's dashboard. Grouping the
+// three under a single "Guide HQ" section header keeps the guide's
+// daily rhythm — pick a company, glance at the week, dig into the
+// caseload — visually together at the top of the rail.
 const GUIDE_HQ_ITEMS: readonly NavItem[] = [
   {
-    kind: "link",
+    kind: "group",
     label: "Guide HQ",
-    href: "/hq",
-    icon: "dashboard",
     feature: null,
-    roles: ["system_admin", "aims_guide"],
+    items: [
+      {
+        kind: "link",
+        label: "Overview",
+        href: "/hq",
+        icon: "dashboard",
+        roles: ["system_admin", "aims_guide"],
+      },
+      {
+        kind: "link",
+        label: "Companies",
+        href: "/admin/companies",
+        icon: "building",
+        roles: ["system_admin", "aims_guide"],
+      },
+      {
+        kind: "link",
+        label: "Week in Review",
+        href: "/dashboard",
+        icon: "dashboard",
+        roles: ["system_admin", "aims_guide"],
+      },
+    ],
   },
 ];
 
-const SYSTEM_ADMIN_ITEMS: readonly NavItem[] = [
-  {
-    kind: "link",
-    label: "Companies",
-    href: "/admin/companies",
-    icon: "building",
-    feature: null,
-  },
-];
+// Top-level Week in Review link for non-guide company users
+// (company_admin, team_member). Prepended at composition time so
+// their daily entry point stays a single click rather than being
+// buried inside Workspace.
+const WEEK_IN_REVIEW_TOP_LEVEL: NavItem = {
+  kind: "link",
+  label: "Week in Review",
+  href: "/dashboard",
+  icon: "dashboard",
+  feature: "execution",
+};
 
 // Rendered at the very bottom of the nav for system admins only,
 // regardless of which company they are currently scoped into.
@@ -356,31 +374,40 @@ export function Sidebar({
   // those links because HQ is the unscoped home base.
   const onHqSurface = pathname === "/hq" || pathname.startsWith("/hq/");
 
-  const guideHqItems = GUIDE_HQ_ITEMS.filter((item) =>
-    item.kind === "link" ? linkVisible(item) : true
-  );
-  const adminItems = SYSTEM_ADMIN_ITEMS.filter((item) =>
-    item.kind === "link" ? linkVisible(item) : true
-  );
+  // GUIDE_HQ_ITEMS is now a group containing Overview + Companies +
+  // Week in Review, so filter its children (not itself) by role.
+  const guideHqItems = GUIDE_HQ_ITEMS.flatMap<NavItem>((item) => {
+    if (item.kind === "link") return linkVisible(item) ? [item] : [];
+    const filteredChildren = item.items.filter(linkVisible);
+    if (filteredChildren.length === 0) return [];
+    return [{ ...item, items: filteredChildren }];
+  });
   // Bottom-band group is admin-role specific:
   //  - system_admin → "System admin" (Platform dashboard)
   //  - company_admin → "Admin" (Company settings)
   // aims_guides don't get a bottom band; their per-company settings
-  // are reached from /admin/companies (list) → click a company.
+  // are reached from the Guide HQ → Companies list → click a company.
   const bottomAdminItems: readonly NavItem[] = isSystemAdmin
     ? SYSTEM_ADMIN_BOTTOM_ITEMS
     : userRole === "company_admin"
       ? COMPANY_ADMIN_BOTTOM_ITEMS
       : [];
+  // Non-guide/sysadmin users don't get the Guide HQ group, so their
+  // Week in Review link is prepended as a top-level entry above
+  // Workspace to keep the daily click short.
+  const regularUserTop: readonly NavItem[] =
+    userRole === "company_admin" || userRole === "team_member"
+      ? [WEEK_IN_REVIEW_TOP_LEVEL]
+      : [];
   const items: NavItem[] = isSystemAdmin
     ? showExitScope && !onAdminPicker && !onHqSurface
-      ? [...guideHqItems, ...adminItems, ...subscribedApp, ...bottomAdminItems]
-      : [...guideHqItems, ...adminItems, ...bottomAdminItems]
+      ? [...guideHqItems, ...subscribedApp, ...bottomAdminItems]
+      : [...guideHqItems, ...bottomAdminItems]
     : userRole === "aims_guide"
       ? onHqSurface
         ? [...guideHqItems, ...bottomAdminItems]
         : [...guideHqItems, ...subscribedApp, ...bottomAdminItems]
-      : [...subscribedApp, ...bottomAdminItems];
+      : [...regularUserTop, ...subscribedApp, ...bottomAdminItems];
 
   return (
     <>
