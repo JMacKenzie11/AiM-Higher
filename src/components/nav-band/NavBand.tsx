@@ -91,7 +91,7 @@ const ADMIN_ROLES: readonly NavRole[] = [
 
 const APP_ITEMS: readonly NavItem[] = [
   // Workspace holds the company-scoped surfaces the team uses
-  // day-to-day. AiMS Implementation Status leads because it's the
+  // day-to-day. AiMS Implementation leads because it's the
   // "how are we doing" glance; the rest cover the disciplines.
   // Week in Review moved out of this list — for guides/sysadmins it
   // lives inside the Guide HQ group below; for regular users it's
@@ -101,7 +101,7 @@ const APP_ITEMS: readonly NavItem[] = [
     label: "Workspace",
     feature: "execution",
     items: [
-      { kind: "link", label: "AiMS Implementation Status", href: "/scorecard" },
+      { kind: "link", label: "AiMS Implementation", href: "/scorecard" },
       { kind: "link", label: "One-Page Plan", href: "/foundation" },
       { kind: "link", label: "Team", href: "/people" },
       { kind: "link", label: "Functional Org Chart", href: "/chart" },

@@ -1,8 +1,8 @@
 ---
-title: AiMS Implementation Status
+title: AiMS Implementation
 ---
 
-# AiMS Implementation Status
+# AiMS Implementation
 
 A live read on how consistently the AiMS disciplines are being
 practiced across the company. Everyone in the company sees the same

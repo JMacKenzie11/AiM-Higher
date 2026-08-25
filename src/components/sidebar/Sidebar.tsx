@@ -75,7 +75,7 @@ const APP_ITEMS: readonly NavItem[] = [
     items: [
       {
         kind: "link",
-        label: "AiMS Implementation Status",
+        label: "AiMS Implementation",
         href: "/scorecard",
         icon: "gauge",
       },

@@ -50,7 +50,7 @@ export default async function ScorecardPage() {
       <section className={styles.hero} aria-label="Scorecard summary">
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>Workspace</p>
-          <h1 className={styles.h1}>AiMS Implementation Status</h1>
+          <h1 className={styles.h1}>AiMS Implementation</h1>
           <p className={styles.subtitle}>
             An overview of how consistently the AiMS disciplines are being
             practiced across {companyName}.
