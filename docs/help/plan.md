@@ -1,8 +1,8 @@
 ---
-title: Plan
+title: Goals & Priorities
 ---
 
-# Plan
+# Goals & Priorities
 
 The quarter's cascade: Strategic Focus Areas at the top, Annual
 Goals under them, and 90-Day Priorities under those. Each priority

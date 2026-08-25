@@ -1,8 +1,8 @@
 ---
-title: Commitments
+title: Functional Commitments
 ---
 
-# Commitments
+# Functional Commitments
 
 Every commitment your team has made, one week at a time. Rows are
 *owned*, *dated*, and in one of four states: **open**, **kept on

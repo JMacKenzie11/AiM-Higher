@@ -1,8 +1,8 @@
 ---
-title: Meetings
+title: Meeting Summaries
 ---
 
-# Meetings
+# Meeting Summaries
 
 Every meeting transcript this company has run through the analyzer,
 most recent first. Click a complete row to open the full analysis

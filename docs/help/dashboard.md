@@ -1,8 +1,8 @@
 ---
-title: Your dashboard
+title: Week in Review
 ---
 
-# Your dashboard
+# Week in Review
 
 Your daily read on the company: Follow-Through Rate this quarter
 in the hero band, four secondary stats (Strategic Progress, On

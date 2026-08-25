@@ -1,8 +1,8 @@
 ---
-title: Accountability chart
+title: Functional Org Chart
 ---
 
-# Accountability chart
+# Functional Org Chart
 
 The org, in one view: who owns what. Every function has a leader,
 responsibilities they're on the hook for, success measures for
