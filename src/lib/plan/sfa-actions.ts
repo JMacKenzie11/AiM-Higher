@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
 import type { CascadeStatus, StrategicFocusArea } from "@/lib/types";
 import { parseStatus, type PlanResult } from "./_shared";
@@ -50,6 +51,12 @@ export async function createSfaAction(
   }
 
   revalidatePath("/plan");
+  trackAfter(
+    session.profile.id,
+    "strategic_focus_area_created",
+    { has_sponsor: Boolean(data.sponsor_id), initial_status: data.status },
+    { company: data.company_id }
+  );
   return { ok: true, item: data };
 }
 

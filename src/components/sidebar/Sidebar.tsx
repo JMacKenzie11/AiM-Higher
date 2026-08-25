@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import posthog from "posthog-js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { signOutAction } from "@/lib/auth/actions";
 import { exitCompanyScopeAction } from "@/lib/admin/scope-actions";
@@ -658,7 +659,10 @@ function SidebarUserMenu({
               </button>
             </form>
           ) : null}
-          <form action={signOutAction}>
+          <form
+            action={signOutAction}
+            onSubmit={() => posthog.reset()}
+          >
             <button
               type="submit"
               className={styles.userMenuItem}

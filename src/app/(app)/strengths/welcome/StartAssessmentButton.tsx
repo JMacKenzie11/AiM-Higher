@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { trackClient } from "@/lib/analytics/track-client";
 import styles from "../strengths.module.css";
 
 export default function StartAssessmentButton({
@@ -39,6 +40,10 @@ export default function StartAssessmentButton({
       setError("Couldn't start — try refreshing.");
       return;
     }
+    trackClient("strengths_assessment_started", {
+      is_system_admin: isSystemAdmin,
+      has_company: Boolean(companyId),
+    });
     router.push("/strengths/assessment");
   }
 

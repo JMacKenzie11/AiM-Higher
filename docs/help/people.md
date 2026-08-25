@@ -1,47 +1,78 @@
 ---
-title: People
+title: Team
 ---
 
-# People
+# Team
 
-Everyone on the company roster lives here — name, position, role
-(team member, company admin, or system admin), and their status.
-Clicking a name opens that person's scorecard.
+Everyone on the company roster — name, position, role, and status.
+Click a name to open that person's scorecard (their commitments,
+Follow-Through Rate, and 12-week trend).
 
-## Common things people do here
+## What you can do here
 
-- **Add a person** (admins only) — fill in name, email, position
-  and role, then decide whether to send the invite email now or
-  keep them in *pending* status to pre-stage the roster.
-- **Open a person's scorecard** — click the name. The page opens
-  with two reference cards at the top — *Details* (name, email,
-  position, role, reports-to) and *Strengths* (strengths +
-  superpowers) — followed by the scorecard, open commitments, and
-  history. Admins see the top two cards as editable forms with a
-  Save button; everyone else sees the same information read-only.
-  The scorecard shows Kept / Missed counts + Follow-Through Rate
-  this quarter + a 12-week trend chart. The word *Missed* is what
-  the app calls a commitment resolved after its due date (used to
-  say "Closed" but that read as "finished").
-- **Deactivate someone** — the row action toggles them to
-  *inactive* and stops sign-in without deleting history. Confirms
-  first via a branded dialog so a stray click can't lock someone
-  out.
-- **Delete a user** (admins only) — the *Delete* action removes
-  the sign-in and the profile. It can't be undone. Their
-  commitments stay on file as Unassigned; weekly numbers they
-  logged and any team they were on keep their history; their
+::: role team_member
+As a team member, you can:
+
+- **See the full roster** (read-only) — name, position, role,
+  status.
+- **Open a teammate's scorecard** by clicking their name — you'll
+  see their commitments and Follow-Through Rate this quarter.
+- **See your own scorecard** with the *Details* and *Strengths*
+  cards in read-only form.
+:::
+
+::: role company_admin,aims_guide,system_admin
+As an admin or guide, you can also:
+
+- **Add a person** — name, email, position, role. Choose to send
+  the invite email now or keep them *pending* to pre-stage the
+  roster.
+- **Edit anyone's Details and Strengths** — the top-of-page cards
+  become editable with a Save button.
+- **Coach a direct report or anyone in your company** — from the
+  quick-view drawer or the scorecard page.
+- **Deactivate** — stops sign-in without deleting history.
+- **Delete** — removes sign-in + profile permanently. See below.
+:::
+
+## How to add a person
+
+::: role company_admin,aims_guide,system_admin
+1. Fill in name, email, position, and role in the *Add a person*
+   form.
+2. Decide: **Send invite now** (they get an email with a sign-in
+   link) or **leave pending** (you can send later, or delegate
+   the action to another admin).
+3. Save. The person shows up in the roster immediately.
+:::
+
+## How to deactivate vs delete
+
+::: role company_admin,aims_guide,system_admin
+- **Deactivate** — the row action toggles them to *inactive* and
+  stops sign-in. Confirms first via a dialog. History is preserved.
+  Use this by default.
+- **Delete** — removes both sign-in and profile. Can't be undone.
+  Their commitments stay on file as Unassigned; weekly numbers
+  they logged and any team they were on keep their history; their
   private coaching notes and strengths assessment are removed
-  with them. Deactivating is safer if you just want to stop
-  someone from signing in.
+  with them.
 
-## Heads-up
+Rule of thumb: deactivate unless you specifically need the user
+gone from the record. Deactivate is reversible; delete is not.
+:::
 
-- **Who sees your scorecard** — a note at the top of your own
-  scorecard tells you. Your numbers are visible to system admins,
-  your company admins, and your direct manager. Admins and your
-  direct manager can each keep private coaching notes about your
-  development; every note is visible only to whoever wrote it,
-  never to you.
-- Team members see the roster read-only. The *Add a person* form
-  and row-action column only render for admins.
+## Common questions
+
+**Who sees my scorecard?** Your numbers are visible to system
+admins, your company admins, and your direct manager. A note at
+the top of your own scorecard tells you this.
+
+**Who sees the coaching notes about me?** Whoever wrote the
+note — and only them. Notes are private per author; never visible
+to you.
+
+**Why does *Missed* mean "past its due date"?** That's what the
+app calls a commitment resolved after its due date. Used to read
+"Closed" but that came across as "finished" — the current word is
+more honest.

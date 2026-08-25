@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
 import type { AnnualGoal, CascadeStatus } from "@/lib/types";
 import { parseStatus, type PlanResult } from "./_shared";
@@ -47,6 +48,17 @@ export async function createGoalAction(
 
   revalidatePath("/plan");
   if (sfaId) revalidatePath(`/plan/sfa/${sfaId}`);
+  trackAfter(
+    session.profile.id,
+    "annual_goal_created",
+    {
+      has_strategic_focus_area: Boolean(data.sfa_id),
+      has_owner: Boolean(data.owner_id),
+      has_target_date: Boolean(data.target_date),
+      initial_status: data.status,
+    },
+    { company: data.company_id }
+  );
   return { ok: true, item: data };
 }
 

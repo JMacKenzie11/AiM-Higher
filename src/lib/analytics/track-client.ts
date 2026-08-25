@@ -2,10 +2,8 @@
 
 import posthog from "posthog-js";
 
-// Client-side product analytics. The PostHogProvider inside the
-// (app) layout initializes the singleton on mount — callers just
-// import this helper and fire. When analytics is disabled (no key)
-// or the singleton hasn't initialized yet, the capture is a no-op.
+// Client-side product analytics. src/instrumentation-client.ts initializes
+// the singleton before the app mounts; callers just import this helper and fire.
 
 export function trackClient(
   event: string,

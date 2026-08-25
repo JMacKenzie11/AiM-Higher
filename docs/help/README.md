@@ -64,6 +64,84 @@ Body is standard Markdown (GFM). Keep it short — this is a help
 snippet, not documentation. Two or three paragraphs plus a short
 list of common questions is the right shape.
 
+## Role-scoped sections
+
+The whole doc can be gated to specific roles via the `roles`
+frontmatter. Sections **inside** a doc can be gated too, using
+`::: role` fences:
+
+```md
+Shared intro that everyone sees.
+
+::: role team_member
+Content only team members see.
+:::
+
+::: role company_admin,aims_guide,system_admin
+Admin- and guide-only content.
+:::
+
+Shared footer that everyone sees.
+```
+
+Rules:
+
+- Opening fence: `::: role <comma-separated roles>` on its own line.
+- Closing fence: `:::` on its own line.
+- Non-matching sections are stripped **server-side** — other
+  roles' content is never in the HTTP response.
+- Anything outside a fence is visible to everyone. Default to
+  outside-the-fence unless the section is clearly role-specific.
+- Don't nest fences (parser doesn't support it).
+- Every fence must close before EOF — an unclosed fence logs a
+  warning and renders the whole doc unfiltered (fail-open).
+
+## Standard template
+
+Every help doc should follow this shape. It answers the two
+questions every user has: *what can I do on this page* and *how
+do I do the common things*.
+
+```md
+---
+title: <Page name>
+---
+
+# <Page name>
+
+<One sentence: what this page is for.>
+
+## What you can do here
+
+::: role team_member
+As a team member, you can:
+
+- <action>
+- <action>
+:::
+
+::: role company_admin,aims_guide,system_admin
+As an admin or guide, you can also:
+
+- <action>
+- <action>
+:::
+
+## How to <most common thing>
+
+<Step-by-step, short. Use active voice.>
+
+## How to <second most common thing>
+
+<Step-by-step.>
+
+## Common questions
+
+**<Question 1>?** <Answer.>
+
+**<Question 2>?** <Answer.>
+```
+
 ## What to include
 
 - What this page is *for* (one sentence).

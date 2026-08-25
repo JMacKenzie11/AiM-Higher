@@ -116,8 +116,79 @@ async function readDoc(slug: string): Promise<HelpDoc | null> {
   return { slug, title, roles, markdown: body.trim() };
 }
 
+// ---- Role-scoped section filter --------------------------------
+//
+// Help docs can gate parts of the same file to specific roles:
+//
+//   ::: role team_member
+//   Content only team members see.
+//   :::
+//
+//   ::: role company_admin,aims_guide,system_admin
+//   Content only admins and guides see.
+//   :::
+//
+// Anything outside a `::: role` block is shared with every role.
+// Filtering happens server-side before the markdown ships to the
+// widget — other roles' content is never in the response body.
+//
+// Fail-open on malformed blocks (an unclosed opener leaves its
+// content intact and logs a warning) — a broken doc still shows
+// something useful instead of blanking out mid-page.
+
+const ROLE_BLOCK_OPEN = /^:::\s+role\s+(.+?)\s*$/;
+const ROLE_BLOCK_CLOSE = /^:::\s*$/;
+
+export function filterRoleSections(markdown: string, role: Role): string {
+  const lines = markdown.split("\n");
+  const out: string[] = [];
+  let inBlock = false;
+  let blockKeeps = false;
+  let blockOpener = "";
+
+  for (const line of lines) {
+    if (!inBlock) {
+      const match = line.match(ROLE_BLOCK_OPEN);
+      if (match) {
+        const allowed = match[1]
+          .split(",")
+          .map((r) => r.trim())
+          .filter(Boolean);
+        blockKeeps = allowed.includes(role);
+        inBlock = true;
+        blockOpener = line;
+        continue;
+      }
+      out.push(line);
+      continue;
+    }
+    if (ROLE_BLOCK_CLOSE.test(line)) {
+      inBlock = false;
+      blockKeeps = false;
+      blockOpener = "";
+      continue;
+    }
+    if (blockKeeps) out.push(line);
+  }
+
+  if (inBlock) {
+    // Unclosed opener — put the opener line back and let the rest
+    // of the doc render as-is. Better than dropping content silently.
+    console.warn(
+      `Help doc has unclosed ::: role block: "${blockOpener}". Rendering full content.`
+    );
+    return markdown;
+  }
+
+  // Collapse runs of 3+ blank lines that stripped blocks leave
+  // behind, so the rendered output doesn't have gaping holes.
+  return out.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
 // Resolve the most specific help doc that (a) exists and (b) is
-// visible to the caller's role. Returns null if nothing matches.
+// visible to the caller's role. Applies section-level role filters
+// before returning so the response contains only what this role
+// should see.
 export async function loadHelpForRoute(
   pathname: string,
   role: Role
@@ -126,7 +197,7 @@ export async function loadHelpForRoute(
     const doc = await readDoc(slug);
     if (!doc) continue;
     if (doc.roles && !doc.roles.includes(role)) continue;
-    return doc;
+    return { ...doc, markdown: filterRoleSections(doc.markdown, role) };
   }
   return null;
 }

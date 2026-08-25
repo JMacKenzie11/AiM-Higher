@@ -4,15 +4,8 @@ import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useEffect } from "react";
 
-// Product-analytics provider. Only mounted inside the authenticated
-// app shell (src/app/(app)/layout.tsx) — the public marketing site
-// is intentionally not tracked. `identified_only` means PostHog only
-// creates person profiles for known users (no anonymous quota burn).
-//
-// Init runs once per browser tab (module-level `ready` flag). The
-// identify effect refires whenever the user's identity or company
-// context changes, so a scoped guide switching companies re-groups
-// their events under the right company.
+// Initialization runs once in src/instrumentation-client.ts. This component
+// keeps authenticated user and company context synchronized with that client.
 
 export type PostHogUser = {
   id: string;
@@ -23,8 +16,6 @@ export type PostHogUser = {
   company_name: string | null;
 };
 
-let ready = false;
-
 export function PostHogProvider({
   user,
   children,
@@ -33,24 +24,7 @@ export function PostHogProvider({
   children: React.ReactNode;
 }) {
   useEffect(() => {
-    if (ready) return;
-    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    if (!key) return;
-    posthog.init(key, {
-      api_host:
-        process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
-      capture_pageview: "history_change",
-      capture_pageleave: true,
-      person_profiles: "identified_only",
-    });
-    // Environment tag so dev/preview traffic can be filtered out of
-    // production feature-usage reports.
-    posthog.register({ env: process.env.NODE_ENV });
-    ready = true;
-  }, []);
-
-  useEffect(() => {
-    if (!ready || !user) return;
+    if (!posthog.__loaded || !user) return;
     posthog.identify(user.id, {
       email: user.email,
       name: user.full_name,

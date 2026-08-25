@@ -23,11 +23,11 @@ export async function track(
   groups: Groups = {}
 ): Promise<void> {
   const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-  if (!key) return;
+  const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+  if (!key || !host) return;
   try {
     const posthog = new PostHog(key, {
-      host:
-        process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
+      host,
       flushAt: 1,
       flushInterval: 0,
     });

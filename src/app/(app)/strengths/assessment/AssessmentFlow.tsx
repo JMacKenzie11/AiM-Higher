@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { trackClient } from "@/lib/analytics/track-client";
 import ProgressBar from "@/components/strengths/ProgressBar";
 import { LIKERT_LABELS, type Item } from "@/lib/strengths/types";
 import styles from "./assessment.module.css";
@@ -193,10 +194,16 @@ export default function AssessmentFlow({
         content: "[skipped]",
       });
     }
-    await supabase
+    const { error: completionError } = await supabase
       .from("strengths_assessments")
       .update({ status: "completed", completed_at: new Date().toISOString() })
       .eq("id", assessmentId);
+    if (!completionError) {
+      trackClient("strengths_assessment_completed", {
+        narrative_skipped: skipped,
+        responses_completed: Object.keys(responses).length,
+      });
+    }
 
     try {
       await fetch("/api/strengths/generate-results", {

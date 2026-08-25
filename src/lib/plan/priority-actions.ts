@@ -52,6 +52,17 @@ export async function createPriorityAction(
 
   revalidatePath("/plan");
   if (goalId) revalidatePath(`/plan/goal/${goalId}`);
+  trackAfter(
+    session.profile.id,
+    "priority_created",
+    {
+      has_annual_goal: Boolean(data.annual_goal_id),
+      has_owner: Boolean(data.owner_id),
+      has_due_date: Boolean(data.due_date),
+      initial_status: data.status,
+    },
+    { company: data.company_id }
+  );
   return { ok: true, item: data };
 }
 
