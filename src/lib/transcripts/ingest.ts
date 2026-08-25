@@ -162,8 +162,61 @@ export async function ingestSource(
 // when at least one commitment was created.
 export async function processPendingMeetings(
   scope: { companyId?: string; meetingId?: string } = {}
-): Promise<{ processed: number }> {
+): Promise<{ processed: number; recovered: number }> {
   const admin = createSupabaseAdminClient();
+
+  // Self-heal: rescue meetings stuck in "analyzing" longer than a
+  // full function-timeout window. Vercel kills serverless at 60s
+  // (Hobby) / 300s (Pro); a 10-minute stale window is a comfortable
+  // margin. A stuck row means the function was killed mid-analysis
+  // BEFORE the try/catch in analyzeMeeting could flip status to
+  // "failed" — with no reset, the row is invisible to this loop's
+  // pending query and stays "analyzing" forever. Flipping back to
+  // pending is safe because analyzeMeeting is idempotent-on-entry
+  // (rejects any status != pending) and rewrites the analysis output.
+  //
+  // Not adding an attempt counter here: with the `error` field
+  // nulled on every analyze start (see analyze.ts line 66), a
+  // string-based counter can't survive across retries. If a
+  // specific meeting starts cycling stuck → reset → stuck → reset,
+  // the cron logs surface that clearly and we'll add a proper
+  // attempts column then.
+  const staleThresholdIso = new Date(
+    Date.now() - 10 * 60 * 1000
+  ).toISOString();
+  let recovered = 0;
+  {
+    let stuckQuery = admin
+      .from("meetings")
+      .select("id, company_id")
+      .eq("status", "analyzing")
+      .lt("updated_at", staleThresholdIso);
+    if (scope.meetingId) {
+      stuckQuery = stuckQuery.eq("id", scope.meetingId);
+    } else if (scope.companyId) {
+      stuckQuery = stuckQuery.eq("company_id", scope.companyId);
+    }
+    const { data: stuck } = await stuckQuery;
+    const stuckRows = (stuck ?? []) as Array<
+      Pick<Meeting, "id" | "company_id">
+    >;
+    if (stuckRows.length > 0) {
+      const ids = stuckRows.map((r) => r.id);
+      console.warn(
+        `Recovering ${ids.length} stuck-analyzing meeting(s) → pending:`,
+        ids
+      );
+      await admin
+        .from("meetings")
+        .update({
+          status: "pending",
+          error:
+            "Recovered from stuck analyzing — previous run likely exceeded the function timeout.",
+        })
+        .in("id", ids);
+      recovered = ids.length;
+    }
+  }
 
   // Project only what this loop needs — analyzeMeeting reloads the
   // full row internally. Pulling transcript_text here (via select("*"))
@@ -212,7 +265,7 @@ export async function processPendingMeetings(
       }
     }
   }
-  return { processed };
+  return { processed, recovered };
 }
 
 async function loadAllAliases(
@@ -240,7 +293,10 @@ async function loadCompanyAliases(
 // that's now pending.
 export async function runSourceCycle(
   sourceId: string
-): Promise<{ ingest: IngestSourceResult; analysis: { processed: number } }> {
+): Promise<{
+  ingest: IngestSourceResult;
+  analysis: { processed: number; recovered: number };
+}> {
   const admin = createSupabaseAdminClient();
   const { data: source } = await admin
     .from("transcript_sources")
