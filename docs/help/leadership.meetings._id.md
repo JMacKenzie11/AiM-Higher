@@ -1,33 +1,55 @@
 ---
 title: Meeting analysis
-roles: [system_admin, company_admin, aims_guide]
 ---
 
 # Meeting analysis
 
-The AI's full write-up of the meeting, plus the commitments it
-extracted. Commitments are already live on /commitments — this
-page is the source-of-truth for *where they came from*.
+The full write-up of a single meeting, plus the commitments it
+created. Commitments are already live on `/commitments` — this
+page is where you see *what they came from*.
 
-## Common things people do here
+## What you can do here
 
-- **Skim the analysis** — the markdown is the model's structured
-  read: themes, decisions, risks.
-- **Check the derived commitments** — the list up top links each
-  one back to /commitments where you can resolve or reassign.
+::: role team_member
+As a team member, you can:
+
+- **Read the analysis** — the model's structured read: themes,
+  decisions, risks.
+- **See the commitments the meeting created** — the list up top
+  links each one back to `/commitments` where owners resolve or
+  reschedule.
+:::
+
+::: role company_admin,aims_guide,system_admin
+As an admin or guide, you can also:
+
 - **Read the facilitation review** *(when Meeting Facilitation
   Review is on)* — the "How the meeting was run" panel is a
   coaching-tone read against the AiMS Weekly Leadership Meeting
-  framework. Strengths come first, growth edges are framed as
-  opportunities, and the "what to try next week" section is the
-  point. The overall number is a signal, not a grade — the shape
-  over several meetings matters more than any single week.
+  framework. Strengths first, growth edges framed as
+  opportunities, and a *what to try next week* section. The
+  overall number is a signal, not a grade — shape over several
+  meetings matters more than any single week.
+- **Re-run the facilitation review** — when the feature is on
+  and the review either didn't land or came back inconclusive
+  (and the transcript wasn't flagged insufficient), a *Rerun*
+  button appears. Once a real score is present, the button hides
+  itself.
+:::
 
-## Heads-up
+## Common questions
 
-- **Who sees this page** — a privacy note at the top spells it out:
-  the analysis and facilitation review are visible to system
-  admins, company admins, and AiMS Guides for this company only.
-  Meeting participants don't see this page. Commitments the meeting
-  spawned *do* show up on each owner's Commitments list and
-  scorecard — same visibility as any other commitment.
+**Who sees this page?** The meeting summary and the commitments
+list are visible to everyone at this company. Facilitation
+reviews and raw transcripts stay admin-only. Commitments
+extracted from the meeting show up on each owner's Commitments
+list and scorecard — same visibility as any other commitment.
+
+**A commitment on the list looks wrong.** The commitment lives
+on `/commitments` — click through and edit it there (reassign,
+reschedule, or fix the description).
+
+**Why is there no facilitation review?** Either Meeting
+Facilitation Review is off for the company, the transcript was
+flagged insufficient (too short or too fragmented), or the
+review pipeline hasn't run against this meeting yet.

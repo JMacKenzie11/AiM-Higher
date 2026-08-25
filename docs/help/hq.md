@@ -10,60 +10,58 @@ coaching caseload). Everything on this page is scoped to your own
 guide assignments — a system admin with three assignments sees
 exactly those three, not every company on the platform.
 
-## What's on the page
+## What you can do here
 
-- **My commitments** — every commitment you own, across every
-  company you carry work in. Same resolve, reschedule, and park
-  mechanics as the Commitments page. A small chip on each row
-  shows which company the commitment belongs to.
-- **Needs your attention** — assigned companies that hit at least
-  one signal this week: Scorecard overall dropped since the prior
-  snapshot, Follow-Through Rate under 60% or trending down,
-  latest facilitation review below 5/10 or insufficient, any
-  priority in the open quarter more than 14 days past due, or an
-  unrouted transcript matching this company&rsquo;s alias. Reasons
-  are named in plain language. Ranked by severity.
-- **Your companies** — one compact row per assigned company:
+- **Resolve your own commitments** — *My commitments* lists every
+  commitment you own across every company; a company chip on each
+  row tells you which tenant it belongs to. Same resolve,
+  reschedule, and park mechanics as `/commitments`.
+- **Scan Needs your attention** — the row-by-row call list for
+  the week. Each row names the specific signal (Scorecard drop,
+  low Follow-Through Rate, weak facilitation review, priority
+  more than 14 days past due, unrouted transcript matching this
+  company's alias). Ranked by severity.
+- **Read Your companies** — one compact row per assigned company:
   Scorecard, Follow-Through Rate, open quarter, last completed
-  meeting date. Click the name to scope into that company.
-- **Recent activity** — a short feed of the last few notable
-  events: a meeting finished analyzing, a facilitation review
-  landed, a quarter opened or closed.
+  meeting date. Click the name to scope into the company.
+- **Skim Recent activity** — the last few notable events across
+  the caseload (analysis finished, review landed, quarter opened
+  or closed).
+- **Generate a Session Brief** — click *Prepare for {company}*
+  on any row in Your companies. Pulls the last meeting, its
+  growth edges, commitments since, scorecard delta, and the
+  attention queue into a one-page brief. Every generation is
+  kept as history; *Copy* pushes it to your clipboard.
 
-## Common things people do here
+## How to prepare for a coaching session
 
-- **Resolve commitments** — same mechanics as the Commitments
-  page; the row&rsquo;s company chip tells you which tenant it
-  belongs to.
-- **Scan Needs your attention** for the call list this week.
-  Every row states the specific signal so you know what to open
-  the conversation with.
-- **Jump into a company** — click its name in Your companies (or
-  in a Needs your attention row) to scope into it. From that
-  point the sidebar flips to show that company&rsquo;s Dashboard,
-  Chart, Plan, and so on. Come back to Guide HQ (or hit Exit in
-  the user menu) to drop back to your caseload view.
-- **Prepare for a session** — click *Prepare for {company}* on
-  any row in Your companies. Generates a one-page brief drawn
-  from the last meeting, the growth edges from its review, the
-  commitments made in or since that meeting, the scorecard delta,
-  and everything currently on the attention queue. Every
-  generation is kept as history so you can compare prep week
-  over week; Copy pushes the brief to your clipboard.
+1. Find the company in *Your companies*.
+2. Click *Prepare for {company}*.
+3. Read the brief. Copy it to your clipboard, or scroll to prior
+   briefs on the same panel to compare week over week.
 
-## Heads-up
+## How to scope into a company
 
-- **Zero assignments = a real empty state.** If you have no guide
-  assignments yet, Guide HQ shows a distinct notice rather than
-  defaulting to every company on the platform. Your own
-  commitments still surface.
-- **System admins carry access no matter what.** For a system
-  admin, an assignment is a caseload marker, not an access grant
-  — removing an assignment never reduces access to that company.
-- **Priority linking and reassign are disabled** on My
-  commitments. Those need per-company context that lives on the
-  Commitments page itself.
-- **Guide HQ is unscoped by design.** Landing here clears any
-  company scope you were in, so the sidebar hides company-only
-  links (Dashboard, Chart, Plan) while you&rsquo;re at your home
-  base. Click a company to re-scope in.
+Click the company name in *Your companies* or in a *Needs your
+attention* row. From that point the sidebar flips to that
+company's Dashboard, Chart, Plan, and so on. Come back to Guide
+HQ (or hit *Exit* in the user menu) to drop back to your caseload
+view.
+
+## Common questions
+
+**Why does Guide HQ hide the company sidebar links?** Guide HQ
+is unscoped by design — landing here clears any company scope
+you were in so the sidebar hides company-only links. Click a
+company to re-scope in.
+
+**Why can't I reassign a commitment from My commitments?**
+Priority linking and reassign are disabled here because they need
+per-company context. Use the company's own Commitments page.
+
+**I'm a system admin with no assignments — why am I seeing a
+notice?** Guide HQ scopes to your own guide assignments, even for
+sysadmins. Zero assignments = a distinct empty state rather than
+"every company." Your own commitments still show up so you can
+act on them. A system admin's access to a company never changes
+based on whether they're assigned as a guide.

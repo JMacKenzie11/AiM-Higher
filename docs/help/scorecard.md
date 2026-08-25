@@ -4,122 +4,89 @@ title: AiMS Scorecard
 
 # AiMS Scorecard
 
-The AiMS Scorecard is the company's read on how consistently the
-disciplines are being practiced. It sits next to the Dashboard in the
-nav because it answers a different question: not "what happened this
-week?" but "how are we doing overall?".
+A live read on how consistently the AiMS disciplines are being
+practiced across the company. Everyone in the company sees the same
+view — the Scorecard is transparent by design. Numbers are computed
+on every page load; the sparklines behind them come from the weekly
+Sunday snapshot.
 
-Every signed-in member of the company sees the same view. Scores are
-computed **live** on every page load, so a change in behavior — a
-missed weekly meeting, a run of kept commitments, opening a new
-quarter — shows up immediately. The historical trend lines behind
-the scores come from weekly snapshots the platform writes every
-Sunday.
+## What you can do here
+
+- **Read the overall score** and the 26-week arc under the hero.
+- **Read each discipline's card** — score, trend arrow vs. 90 days
+  ago, sparkline, and the evidence lines the score was built from.
+- **See what to fix** — the Accountability Chart card lists the
+  specific functions missing a Lead, an outcome, or a measure.
+- **Hover the `?` on any card** for the exact scoring rubric.
+- **Click through** from any card to the page that improves the
+  score (Foundation, Chart, Plan, Commitments, Measures, Meetings).
 
 ## What's scored
 
-Six disciplines, each rated 0–10:
+Eight disciplines, each 0–10:
 
-- **Foundation** — purpose statement, vision, and at least three
-  core values / differentiators / key success metrics on the One-Page
-  Plan. State-based: either the surfaces are filled in or they
-  aren't, so no trend line is shown.
-- **Accountability chart** — every function has a Lead assigned, at
-  least one outcome, and something being measured. Also state-based.
-  The card lists which specific functions are incomplete so you can
-  go fix the ones dragging the score. (LTD's Track and Decide
-  responsibilities always sit with the Lead — there's no UI to
-  assign them separately — so the scorer doesn't check them.)
-- **Strategic plan** — an open quarter with the cascade (focus areas
-  → annual goals → priorities) actually populated, plus how well
-  those annual goals and quarterly priorities are being **closed by
-  their due dates**. Populated cascade is a 2-point baseline; goal
-  closure and priority closure each contribute up to 4 points.
-  When no goals or priorities have passed their date yet, we award
-  full credit for that half — a fresh plan shouldn't drag the score.
-- **Execution** — weekly commitments landing on time (follow-through
-  rate over the last 30 days) without piling up more than 14 days
-  past due. Priority linkage is deliberately **not** scored: some
-  commitments are operational floaters by design, so the linked ÷
-  total ratio isn't a discipline signal.
-- **Success tracking** — every measure has a target set, has been
+- **Foundation** — purpose, vision, at least three core values /
+  differentiators / key success metrics on the One-Page Plan.
+  State-based (no trend line).
+- **Accountability chart** — every function has a Lead assigned,
+  at least one outcome, and at least one measure. State-based. LTD
+  Track/Decide always sit with the Lead, so they're not scored.
+- **Strategic plan** — an open quarter with a populated cascade
+  (2-point baseline), plus how well annual goals and quarterly
+  priorities close on their due dates (4 points each). Fresh plans
+  with nothing past-date get full credit for the closure halves.
+- **Execution** — 30-day follow-through rate on commitments, minus
+  aging (open more than 14 days past due). Priority linkage is
+  deliberately not scored.
+- **Success tracking** — every measure has a target, has been
   logged in the last 7 days, and auto-track measures aren't sitting
-  empty. Only scored when Success Tracking is enabled for the
-  company; otherwise the tile shows "Not enabled".
-- **Weekly leadership meeting** — a meeting is happening most weeks
-  (rolling 8 weeks) and the AI facilitation reviews are landing
-  well. Only scored when Meeting Facilitation Review is enabled;
-  otherwise the tile shows "Not enabled".
+  empty. Only scored when the Success Tracking feature is on.
+- **Weekly leadership meeting** — a meeting is happening most
+  weeks (rolling 8) and the facilitation reviews are landing well.
+  Only scored when Meeting Facilitation Review is on.
 - **Solution seeking** — how well the team runs the AiMS 4Ws
-  framework on issues surfaced in leadership meetings. Aggregates
-  every issue's What / Want / Way / Who-by-when checks across the
-  rolling 8-week window; closure rate maps directly to 0–10. When
-  no issues have come up yet, the tile isn't scored (it won't drag
-  the average down). Feature-gated on Meeting Facilitation Review.
-- **Appreciative practice** — the appreciative-inquiry signal from
-  the meeting reviews: whether the team celebrates wins, reframes
-  problems as opportunities, and asks generative questions rather
-  than dwelling on deficits. Rolls up the review's positive-framing
-  dimension across the rolling 8-week window; the card also counts
-  observed appreciation moments, generative questions, and reframes.
-  Feature-gated on Meeting Facilitation Review. Not scored until
-  the v2 review has run at least once (v1 reviews don't carry the
-  dimension).
+  (What / Want / Way / Who-by-when) on surfaced issues over the
+  rolling 8 weeks. Not scored until issues appear.
+- **Appreciative practice** — the positive-framing signal from
+  meeting reviews plus counts of appreciations, generative
+  questions, and reframes. Not scored until at least one v2 review
+  has run.
 
 The **overall score** is a weighted average across the disciplines
-that were actually scored — Planning and Execution weight double
-because they're the two the whole system is oriented around.
+that actually scored — Planning and Execution weight double.
 Disciplines whose feature is off don't drag the average down; their
-weight is redistributed across the ones that did score.
-
-Every card has a small `?` info icon next to its title — hover to
-see the exact scoring rubric for that tile without leaving the page.
+weight is redistributed.
 
 ## Rolling and trajectory
 
-Every metric is rolling by construction. If your meeting cadence
-drops off for a month, the Meetings score falls because the rolling
-8-week window naturally reflects that. If follow-through improves
-across the last 30 days, Execution climbs.
-
-Each score also shows an **arrow vs 90 days ago**, comparing today's
-live number against the oldest snapshot inside the trajectory
-window. An improving company sees ↑ arrows; a company slipping sees
-↓; both live alongside the absolute number so you can distinguish
+Every metric is rolling by construction — drop off for a month and
+the score reflects it; improve across 30 days and it climbs. Each
+card also carries an arrow vs. 90 days ago so you can distinguish
 "low but climbing" from "high but sliding."
-
-The sparkline under each score shows the last 26 weeks so you can
-see the arc, not just the two endpoints.
 
 ## What isn't scored (and why)
 
-- **Meeting attendance.** Transcripts don't reliably match speaker
-  names to profile records — a "Great point, John" from a client
-  meeting shouldn't be attributed to your John. Rather than score
-  something inconsistently, we leave attendance out. Weekly meeting
-  quality still shows up through the AI facilitation review.
-- **Text quality of Foundation entries.** The score asks whether
+- **Meeting attendance.** Transcripts don't reliably map speaker
+  names to profiles, so we leave attendance out rather than score
+  it inconsistently.
+- **Text quality of Foundation entries.** The score checks that
   the surfaces are filled in, not whether the purpose statement is
-  well written. That judgment belongs in a conversation with a coach.
-- **Meaningfulness of individual measures.** We check that targets
-  exist and get logged; a coach on the measure critique flow
-  reviews whether the measure fits the outcome.
+  well written — that's a coaching conversation.
+- **Meaningfulness of individual measures.** We check targets
+  exist and get logged; a coach reviews whether a measure fits
+  the outcome.
 
 ## Common questions
 
-**Why is my score different today than yesterday?**
-Because it's computed live, not from the cron snapshot. If a team
-member closed out ten commitments this morning, Execution moves this
-afternoon. The weekly snapshot is only used for the historical
-trend line, not the current score.
+**Why is my score different today than yesterday?** It's computed
+live. If ten commitments closed this morning, Execution moves this
+afternoon. The Sunday snapshot only backs the sparkline.
 
-**Why is a discipline sitting at "Not enabled"?**
-The company's feature flag for that discipline is off. Turn on
-Success Tracking or Meeting Facilitation Review from the company
-settings page (system-admin) and the tile activates on the next
-page load.
+**Why is a discipline sitting at "Not enabled"?** The company's
+feature flag for that discipline is off. A system admin can flip
+Success Tracking or Meeting Facilitation Review from company
+settings; the tile activates on the next page load.
 
-**Why don't I see a trend arrow?**
-There isn't a snapshot old enough to compare against yet. The
-Sunday cron will start writing rows this coming Sunday; by week 3
-or 4 there'll be enough history for the arrow to render.
+**Why don't I see a trend arrow?** There isn't a snapshot old
+enough to compare against yet. By week 3 or 4 there'll be enough
+history for the arrow to render.

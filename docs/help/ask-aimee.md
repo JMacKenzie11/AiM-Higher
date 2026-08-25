@@ -4,34 +4,45 @@ title: Ask Aimee
 
 # Ask Aimee
 
-Aimee is your always-on AI companion. Ask her about your work,
-your team, or the AiMS methodology — she has read access to your
-company's plan, chart, commitments, and coaching context (only
-what you personally have permission to see).
+A thinking partner for whatever you're working through: a decision,
+a conversation to prep for, an employee not on the platform, or your
+own leadership. Every conversation is private to you.
 
-## Common things people do here
+## What you can do here
 
-- **Start a new conversation** — type your question and hit send.
-  Aimee streams her response back and remembers the whole thread.
-- **Come back to an old thread** — every conversation is saved
-  under your account and shows in the left rail.
-
+- **Start a Practice** — the cards at the top are structured entry
+  points ("I have a real thing to work through"). Pick one and
+  Aimee follows the script for that practice.
+- **Start a free-form conversation** — the *New conversation*
+  button under Recent conversations. Type your question and send.
+- **Resume a thread** — every conversation stays under your
+  account and shows in the Recent conversations list.
+- **Archive a conversation** — the row-level action tucks a thread
+  out of the way without deleting it.
 - **Get a training recommendation** — when the company has
-  Classroom enabled, Aimee can search the library and suggest a
-  lesson or training that matches what you're wrestling with. Try
-  "what should I watch on facilitating a weekly meeting?"
+  Classroom on, Aimee can search the library and suggest a lesson.
+  Try "what should I watch on facilitating a weekly meeting?".
 
-## Heads-up
+## How to start a conversation
 
-- **Thinking…** — after you hit send, Aimee shows a *Thinking…*
-  indicator with a subtle animated dot while she reads context and
-  reasons about the answer. That's normal — the first token can
-  take a few seconds. Once content starts streaming, the indicator
-  disappears and a cursor tracks the response.
-- **Private to you** — nobody else on the platform (not admins, not
-  managers, not AiMS Guides) can read your Ask Aimee conversations.
-  Same visibility as any other coaching thread you create: only the
-  creator sees it.
-- Aimee's answers are grounded in what she can see. If a piece of
-  data seems missing, check the underlying page — she doesn't
-  invent numbers.
+1. Pick a Practice card if what you're working on matches one, or
+   click *New conversation* for open-ended.
+2. Type your question and send. Aimee shows a *Thinking…*
+   indicator while she reads context; once tokens stream, a cursor
+   tracks the response.
+3. Keep going — the whole thread is one conversation, and Aimee
+   remembers it end-to-end.
+
+## Common questions
+
+**Who can see my Ask Aimee conversations?** Only you. Not admins,
+not your manager, not AiMS Guides. Every conversation is
+creator-private end to end.
+
+**Why is Aimee "Thinking…" for so long?** First token can take a
+few seconds while she reads your company context. Once content
+starts streaming, the indicator disappears.
+
+**Aimee didn't know something obvious about my company.** Her
+answers are grounded in what she can see. If a piece of data seems
+missing, check the underlying page — she doesn't invent numbers.

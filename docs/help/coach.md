@@ -5,32 +5,46 @@ roles: [system_admin, company_admin, aims_guide]
 
 # Coach conversations
 
-Coaching threads about a specific person on the roster. Visibility
-is shown as a note at the top of the thread list so nobody has to
-guess who can read what.
+Private coaching threads about a specific person on the roster. You
+land here from a teammate's scorecard or from the quick-view drawer.
+A privacy note at the top of the list tells you exactly who can
+read what.
 
-## Common things people do here
+## What you can do here
 
-- **Start a thread about someone** — the *About* mode drafts
-  coaching notes on a person you manage, coach, or admin.
-- **Continue an existing thread** — every thread carries its own
+- **Start a thread about someone** — the *New conversation* button
+  drafts coaching notes about the subject. Available to system
+  admins, the subject's company admin, and the subject's direct
+  manager.
+- **Resume an existing thread** — every thread carries its own
   history; open one from the list to keep the conversation going.
+- **Archive a thread** — the row-level action tucks a thread out
+  of the way without deleting it.
 
-## Heads-up
+## How to start a coaching thread
 
-- **Thinking…** — after you send a message, a *Thinking…* indicator
-  with a subtle animated dot appears while the model reads context
-  and reasons. Once tokens start streaming, the indicator
-  disappears and a cursor tracks the response.
-- **Who can see this** — every thread is private to the person who
-  created it. Only you see the threads you write. Another admin or
-  the person's direct manager can create their own separate
-  threads about the same person, but their threads stay private to
-  them and yours stay private to you. The subject cannot see any
-  coaching threads written about them.
-- **Self-coaching lives elsewhere** — use *Ask Aimee* for your own
-  reflection. Anyone who lands on their own coach URL gets
-  redirected there automatically.
-- Threads are permanent by design. Even the subject can't read
-  them — the whole point is a private space for the person doing
-  the coaching.
+1. Open the person's scorecard from `/people` or the roster.
+2. Click *New conversation*.
+3. Type your first note or question. Aimee shows *Thinking…* while
+   she reads context; once tokens stream, a cursor tracks the
+   response.
+
+## Who can see this
+
+Every thread is private to its creator. Another admin or the
+subject's direct manager can create their own separate threads
+about the same person, but those stay private to them. The subject
+never sees any coaching threads written about them.
+
+## Common questions
+
+**Where do I self-coach?** Use *Ask Aimee* — anyone landing on
+their own coach URL gets redirected there automatically.
+
+**Can I share a thread with another admin?** No. Threads are
+per-author by design so the space stays honest. If two coaches
+want a shared record, they need to keep it outside the platform.
+
+**Are threads deletable?** They can be archived but not deleted.
+The subject can't read them either way — the whole point is a
+private space for the person doing the coaching.

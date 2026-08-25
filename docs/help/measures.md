@@ -5,66 +5,70 @@ title: Success Measures
 # Success Measures
 
 The weekly logging surface for every metric an owner has on file.
-Reach it from *Disciplines ▾ → Success Measures* (visible when the
-company has Success Tracking on **or** at least one metric has been
-added on the chart) or from the *This week's numbers* card on the
-dashboard.
+The page has two sections stacked: **Board (read) at the top**, and
+the **batch scoreboard (write) at the bottom**.
 
-The page has two sections stacked: **read at the top, write at the
-bottom**.
+## What you can do here
 
-**Board (top).** A 13-week read of metric performance vs. target
-across every function. Two toggleable views: a *Grid* of function
-cards (each card is a per-metric sparkline with a dashed target
-line, coloured dots at each week, and a bigger "now" marker on the
-current column) and a *Timeline* where each function is a row of
-rolled-up weekly cells so cross-function patterns pop. Visionary
-and Integrator are pinned to the top of the Grid; everything else
-ranks worst-first.
+::: role team_member
+As a team member, you can:
 
-**Scoreboard (bottom).** The batch entry table — every metric the
-caller owns with a coloured input per row, three history pills, and
-a status dot. Best when logging several metrics in one sitting.
-
-Two more places to log a value:
-
-- **/measures/[id] quick-log** — one metric, one big input, phone-
-  friendly. Reach it by clicking a metric name in the scoreboard or
-  from a deep link.
-- **Chart function page** — click the value pill on any metric row
-  on the function's detail page and type a number. Blur or press
-  Enter to save; a green ✓ flashes on success.
-
-All three write to the same row in `success_measure_entries`, upserted
-on `(measure_id, week ending)`, so the last value wins.
-
-## Common things people do here
-
-- **Log the week** — type a value into every row you have data for,
-  leave the rest blank, click *Save week*. A blank row is a skip,
-  not a clear.
-- **See where you stand** — the three chips at the top of the
-  scoreboard count on-target / off / not-yet-logged for the current
-  week. Colours match the row input.
-- **Focus on what's slipping** — toggle *At-risk only* to hide the
+- **Read the Board** — a 13-week read of metric performance vs.
+  target across every function. Toggle *Grid* to see per-metric
+  sparklines on function cards, or *Timeline* for cross-function
+  patterns row-by-row.
+- **Log this week's numbers** — the scoreboard at the bottom
+  shows every metric you own with a coloured input per row. Type
+  a value, click *Save week*.
+- **Focus on what's slipping** — toggle *At-risk only* to hide
   rows that already hit target for the week.
-- **Fix a bad number** — retype the value and save. The row upserts
-  on `(measure_id, week ending)`.
-- **Log from your phone** — open a metric's quick-log page. The
-  input is centred and large enough to punch in without fumbling.
+- **Fix a bad number** — retype and save. The row upserts on
+  `(measure_id, week ending)`, so the last value wins.
+- **Log from your phone** — click a metric name (or open its
+  deep link) for a big, centred single-metric quick-log input.
+:::
 
-## Heads-up
+::: role company_admin,aims_guide,system_admin
+As an admin or guide, you can also:
 
-- **Who sees what** — leaders see metrics on the functions where
-  they're in the seat (Lead or Track). System admins and company
-  admins see every metric in the company so they can cover for a
-  leader who's out or a seat that's vacant. Guides see everything
-  for the companies they're assigned to.
-- **Missed weeks** — if the company has Success Tracking on, missing
-  a week's update triggers an auto-commitment on Saturday reminding
-  the leader to log it. Turn a measure's *auto-track* off if it's
-  context (like headcount) rather than something to hit a target on.
-- **Success Tracking off but metrics defined** — the nav link still
-  shows and the scoreboard still logs values. What stays off until
-  the entitlement flips: target is optional on new metrics, and the
-  Saturday auto-check doesn't fire.
+- **See every metric in the company** in the scoreboard, not
+  just the ones on your seats — useful for covering a leader
+  who's out or a seat that's vacant.
+- **Log a value on anyone's behalf** from the scoreboard or from
+  the metric's quick-log page.
+:::
+
+## How to log the week
+
+1. Type a value into every row you have data for. Leave the rest
+   blank — a blank row is a skip, not a clear.
+2. Click *Save week*. The three chips at the top count
+   on-target / off / not-yet-logged for the current week; colours
+   match the row input.
+
+## Where else to log a value
+
+- **Metric quick-log** (`/measures/[id]`) — one metric, one big
+  input, phone-friendly. Click a metric name in the scoreboard.
+- **Chart function page** — the value pill on any metric row
+  accepts a number inline. Blur or press Enter to save; a green
+  check flashes on success.
+
+All three surfaces write to the same row, upserted on
+`(measure_id, week ending)`.
+
+## Common questions
+
+**Who sees which metrics on the scoreboard?** Leaders see metrics
+on functions where they're in the seat. Admins see every metric
+in the company. Guides see everything for their assigned company.
+
+**What if I miss a week?** With Success Tracking on, missing a
+week's update triggers an auto-commitment on Saturday reminding
+the leader to log it. Turn a measure's *auto-track* off if it's
+context (like headcount) rather than a target to hit.
+
+**Success Tracking is off — why can I still log values?** The
+scoreboard still logs. What stays off until the entitlement
+flips: target is optional on new metrics, and the Saturday
+auto-check doesn't fire.
