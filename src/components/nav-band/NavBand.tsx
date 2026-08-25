@@ -21,7 +21,7 @@ import styles from "./NavBand.module.css";
 // Below 768px, the primary link row collapses into a hamburger toggle
 // that opens a drawer beneath the band (Section 9.9 responsive rules).
 
-// The AiMS Higher wordmark. White variant lives here because the nav
+// The AiMS HQ wordmark. White variant lives here because the nav
 // band sits on the --grad-brand surface.
 // ASSUMPTION: /public/brand mirrors brand/assets/ so Next.js' static-PNG
 // blur pipeline (which requires sharp) isn't invoked at build time.
@@ -316,10 +316,10 @@ export function NavBand({
       <div ref={sentinelRef} className={styles.stickySentinel} aria-hidden="true" />
       <header className={styles.band} data-scrolled={scrolled ? "true" : undefined}>
       <div className={styles.inner}>
-        <Link href="/" className={styles.logoLink} aria-label="AiMSHigher home">
+        <Link href="/" className={styles.logoLink} aria-label="AiMS HQ home">
           <Image
             src={LOGO_WHITE_SRC}
-            alt="AiMSHigher"
+            alt="AiMS HQ"
             priority
             width={LOGO_INTRINSIC_WIDTH}
             height={LOGO_INTRINSIC_HEIGHT}

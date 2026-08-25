@@ -4,8 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "AiMSHigher",
-    template: "%s · AiMSHigher",
+    default: "AiMS HQ",
+    template: "%s · AiMS HQ",
   },
   description: "Leadership simplified. Results amplified.",
   // Favicon + apple touch icon are auto-detected from src/app/icon.svg

@@ -87,7 +87,7 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
             {isSystemAdmin
-              ? "Every company on the AiMSHigher Platform. Click a name to jump into its dashboard."
+              ? "Every company on the AiMS HQ Platform. Click a name to jump into its dashboard."
               : "The companies you coach. Click a name to jump into its dashboard."}
           </p>
         </div>

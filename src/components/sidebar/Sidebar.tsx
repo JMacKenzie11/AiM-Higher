@@ -397,10 +397,10 @@ export function Sidebar({
         >
           <span aria-hidden="true">{mobileOpen ? "×" : "☰"}</span>
         </button>
-        <Link href="/" className={styles.mobileLogoLink} aria-label="AiMSHigher home">
+        <Link href="/" className={styles.mobileLogoLink} aria-label="AiMS HQ home">
           <Image
             src={LOGO_WHITE_SRC}
-            alt="AiMSHigher"
+            alt="AiMS HQ"
             priority
             width={LOGO_INTRINSIC_WIDTH}
             height={LOGO_INTRINSIC_HEIGHT}
@@ -417,10 +417,10 @@ export function Sidebar({
         aria-label="Primary"
       >
         <div className={styles.header}>
-          <Link href="/" className={styles.logoLink} aria-label="AiMSHigher home">
+          <Link href="/" className={styles.logoLink} aria-label="AiMS HQ home">
             <Image
               src={collapsed ? LOGO_MARK_SRC : LOGO_WHITE_SRC}
-              alt="AiMSHigher"
+              alt="AiMS HQ"
               priority
               width={LOGO_INTRINSIC_WIDTH}
               height={LOGO_INTRINSIC_HEIGHT}

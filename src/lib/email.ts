@@ -46,7 +46,7 @@ export async function sendInviteEmail(
 
   try {
     const html = renderInviteHtml(input);
-    const subject = "You're invited to AiMSHigher";
+    const subject = "You're invited to AiMS HQ";
     const result = await c.emails.send({
       from: from(),
       to: [input.to],
@@ -88,7 +88,7 @@ export async function sendResetEmail(
 
   try {
     const html = renderResetHtml(input);
-    const subject = "Reset your AiMSHigher password";
+    const subject = "Reset your AiMS HQ password";
     const result = await c.emails.send({
       from: from(),
       to: [input.to],
@@ -126,7 +126,7 @@ function renderInviteHtml(input: InviteEmailInput): string {
             </tr>
             <tr>
               <td style="padding: 8px 32px 4px;">
-                <h1 style="margin: 0; font-size: 22px; line-height: 1.25; color: #142647;">You&rsquo;re invited to AiMSHigher</h1>
+                <h1 style="margin: 0; font-size: 22px; line-height: 1.25; color: #142647;">You&rsquo;re invited to AiMS HQ</h1>
               </td>
             </tr>
             <tr>
@@ -146,7 +146,7 @@ function renderInviteHtml(input: InviteEmailInput): string {
               </td>
             </tr>
           </table>
-          <div style="color:#8892a6; font-size: 12px; margin-top: 16px;">You&rsquo;re receiving this because someone added you to a company on AiMSHigher.</div>
+          <div style="color:#8892a6; font-size: 12px; margin-top: 16px;">You&rsquo;re receiving this because someone added you to a company on AiMS HQ.</div>
         </td>
       </tr>
     </table>
@@ -193,7 +193,7 @@ function renderResetHtml(input: ResetEmailInput): string {
               </td>
             </tr>
           </table>
-          <div style="color:#8892a6; font-size: 12px; margin-top: 16px;">You&rsquo;re receiving this because a password reset was requested for your AiMSHigher account.</div>
+          <div style="color:#8892a6; font-size: 12px; margin-top: 16px;">You&rsquo;re receiving this because a password reset was requested for your AiMS HQ account.</div>
         </td>
       </tr>
     </table>
