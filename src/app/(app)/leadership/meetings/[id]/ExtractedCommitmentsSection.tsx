@@ -25,7 +25,10 @@ import styles from "./extracted.module.css";
 export type ExtractedCommitmentRow = {
   commitment: ExtractedCommitment;
   ownerName: string | null;
-  alreadyAdded: boolean;
+  // "commitment" — a commitments row exists tying this extraction
+  // to this meeting; "issue" — Convert-to-issue was clicked and
+  // an issue row exists; null — neither yet, show the pickers.
+  addedAs: "commitment" | "issue" | null;
   similar: SimilarMatch | null;
 };
 
@@ -82,7 +85,9 @@ function ExtractedCommitmentRowItem({
   functionalAreaOptions: Array<{ id: string; title: string }>;
   canAdd: boolean;
 }) {
-  const [added, setAdded] = useState(row.alreadyAdded);
+  const [addedAs, setAddedAs] = useState<"commitment" | "issue" | null>(
+    row.addedAs
+  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -102,7 +107,7 @@ function ExtractedCommitmentRowItem({
         target,
       });
       if (!result.ok) setError(result.message);
-      else setAdded(true);
+      else setAddedAs("commitment");
     });
   }
 
@@ -114,7 +119,7 @@ function ExtractedCommitmentRowItem({
         row.commitment.description
       );
       if (!result.ok) setError(result.message);
-      else setAdded(true);
+      else setAddedAs("issue");
     });
   }
 
@@ -141,9 +146,13 @@ function ExtractedCommitmentRowItem({
         ) : null}
       </div>
       <div className={styles.rowActions}>
-        {added ? (
+        {addedAs === "commitment" ? (
           <span className={styles.done} aria-live="polite">
-            Added
+            Captured as commitment
+          </span>
+        ) : addedAs === "issue" ? (
+          <span className={styles.done} aria-live="polite">
+            Added as issue
           </span>
         ) : canAdd ? (
           <>

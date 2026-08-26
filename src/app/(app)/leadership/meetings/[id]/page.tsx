@@ -19,7 +19,10 @@ import type {
   Priority,
   Profile,
 } from "@/lib/types";
-import { findSimilarOpenItem } from "@/lib/transcripts/similarity";
+import {
+  findSimilarOpenItem,
+  type SimilarMatch,
+} from "@/lib/transcripts/similarity";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import {
   ExtractedIssuesSection,
@@ -146,32 +149,49 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
 
   // Precompute the "already added" state for extracted items so
   // the client rows render with the correct done-state on first
-  // paint (no client fetch, no flicker).
+  // paint (no client fetch, no flicker). Also grab the ids of the
+  // rows that already came from this meeting — the similarity
+  // check would otherwise flag each just-added commitment/issue as
+  // "possibly already captured" (self-match).
   const [alreadyAddedIssues, alreadyAddedCommitments] = await Promise.all([
-    extractedIssues.length > 0
-      ? supabase
-          .from("issues")
-          .select("title")
-          .eq("source_meeting_id", meeting.id)
-      : Promise.resolve({ data: [] as Array<{ title: string }> }),
-    extractedCommitments.length > 0
-      ? supabase
-          .from("commitments")
-          .select("description")
-          .eq("source_meeting_id", meeting.id)
-          .is("deleted_at", null)
-      : Promise.resolve({ data: [] as Array<{ description: string }> }),
+    supabase
+      .from("issues")
+      .select("id, title")
+      .eq("source_meeting_id", meeting.id),
+    supabase
+      .from("commitments")
+      .select("id, description")
+      .eq("source_meeting_id", meeting.id)
+      .is("deleted_at", null),
   ]);
-  const addedIssueTitles = new Set(
-    ((alreadyAddedIssues.data ?? []) as Array<{ title: string }>).map(
-      (r) => r.title
-    )
-  );
+  const addedIssueRows = (alreadyAddedIssues.data ?? []) as Array<{
+    id: string;
+    title: string;
+  }>;
+  const addedCommitmentRows = (alreadyAddedCommitments.data ?? []) as Array<{
+    id: string;
+    description: string;
+  }>;
+  const addedIssueTitles = new Set(addedIssueRows.map((r) => r.title));
   const addedCommitmentDescriptions = new Set(
-    (
-      (alreadyAddedCommitments.data ?? []) as Array<{ description: string }>
-    ).map((r) => r.description)
+    addedCommitmentRows.map((r) => r.description)
   );
+  const addedIssueIds = new Set(addedIssueRows.map((r) => r.id));
+  const addedCommitmentIds = new Set(addedCommitmentRows.map((r) => r.id));
+
+  // Drop a similarity hit when it points at something this meeting
+  // itself produced — that's a definite duplicate, not a "possibly
+  // already captured" hint. The done-state pill covers that case.
+  function stripSelfMatch(match: SimilarMatch | null): SimilarMatch | null {
+    if (!match) return null;
+    if (match.kind === "commitment" && addedCommitmentIds.has(match.id)) {
+      return null;
+    }
+    if (match.kind === "issue" && addedIssueIds.has(match.id)) {
+      return null;
+    }
+    return match;
+  }
 
   // Duplicate awareness — for each extracted item, find a similar
   // open commitment / issue created in the last 14 days. Read-only
@@ -181,18 +201,29 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     extractedIssues.map(async (issue) => ({
       issue,
       alreadyAdded: addedIssueTitles.has(issue.title),
-      similar: await findSimilarOpenItem(companyId, issue.title),
+      similar: stripSelfMatch(await findSimilarOpenItem(companyId, issue.title)),
     }))
   );
   const commitmentExtractionRows: ExtractedCommitmentRow[] = await Promise.all(
-    extractedCommitments.map(async (c) => ({
-      commitment: c,
-      ownerName: c.owner_profile_id
-        ? rosterById.get(c.owner_profile_id) ?? null
-        : null,
-      alreadyAdded: addedCommitmentDescriptions.has(c.description),
-      similar: await findSimilarOpenItem(companyId, c.description),
-    }))
+    extractedCommitments.map(async (c) => {
+      const addedAs: "commitment" | "issue" | null = addedCommitmentDescriptions.has(
+        c.description
+      )
+        ? "commitment"
+        : addedIssueTitles.has(c.description)
+          ? "issue"
+          : null;
+      return {
+        commitment: c,
+        ownerName: c.owner_profile_id
+          ? rosterById.get(c.owner_profile_id) ?? null
+          : null,
+        addedAs,
+        similar: stripSelfMatch(
+          await findSimilarOpenItem(companyId, c.description)
+        ),
+      };
+    })
   );
 
   // Priority + functional area options feed the picker on the

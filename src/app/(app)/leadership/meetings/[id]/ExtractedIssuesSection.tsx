@@ -99,7 +99,7 @@ function ExtractedIssueRowItem({
       <div className={styles.rowActions}>
         {added ? (
           <span className={styles.done} aria-live="polite">
-            Added
+            Added as issue
           </span>
         ) : canAdd ? (
           <button
