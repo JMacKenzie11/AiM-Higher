@@ -81,9 +81,21 @@
     minmax(120px, 0.8fr)
     minmax(110px, 0.6fr)
     auto;
-  align-items: center;
+  /* Top-align each cell so a 3-line "what we want" or commitment
+     doesn't push the shorter cells to the middle of the row —
+     reads more like a data table that way. */
+  align-items: start;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-3);
+}
+
+/* Single-line cells still need to sit on the same baseline as the
+   first line of the multi-line cells. A small top pad on the
+   naturally-single-line cells lines them up with body text that
+   sits inside a control (input, select, date). */
+.issueRow > .cellOwner,
+.issueRow > .cellDue {
+  padding-top: 2px;
 }
 
 .issueRow:hover {
@@ -167,17 +179,25 @@
 .cellWant {
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 }
 
+/* Up to three lines of body text visible; longer copy clamps with an
+   ellipsis so the row doesn't grow without bound but nothing gets
+   lost. Click-to-edit swaps in the full-width input which shows all
+   of it. */
 .wantText,
 .wantEditable {
   font: var(--text-body-sm);
   color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
   max-width: 100%;
+  line-height: 1.35;
 }
 
 .wantEditable {
@@ -217,9 +237,22 @@
   min-width: 0;
   font: var(--text-body-sm);
   color: var(--text);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+/* Description sits next to the clarity dot; both live in the same
+   flex row so the dot doesn't push the text onto its own line. */
+.commitmentText {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .cellOwner {

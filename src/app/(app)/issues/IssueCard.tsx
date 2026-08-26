@@ -20,6 +20,11 @@ import {
 import type { IssueWithCommitments } from "@/lib/issues/service";
 import type { Priority, Profile } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  ClarityChip,
+  ClarityEditor,
+  clarityState,
+} from "../commitments/ClarityStrip";
 import styles from "./issues.module.css";
 
 // One issue = one row. Five columns match the /commitments visual
@@ -74,6 +79,15 @@ export function IssueCard({
   const activeOwner = active?.owner_id
     ? roster.find((p) => p.id === active.owner_id)?.full_name ?? "Unknown"
     : null;
+  // Owner (or their admin) can toggle the extractor's clarity
+  // assessment on issue-linked commitments too. Same three-state
+  // dot + inline editor as the /commitments row; the difference is
+  // just that it lives inside the /issues grid.
+  const canEditClarity =
+    active !== null &&
+    (isAdmin || (active.owner_id !== null && active.owner_id === currentUserId));
+  const [showClarity, setShowClarity] = useState(false);
+  const [clarityError, setClarityError] = useState<string | null>(null);
 
   return (
     <article className={styles.issueRow}>
@@ -108,7 +122,17 @@ export function IssueCard({
 
       {active ? (
         <>
-          <div className={styles.cellCommitment}>{active.description}</div>
+          <div className={styles.cellCommitment}>
+            <ClarityChip
+              state={clarityState(active)}
+              onClick={
+                canEditClarity
+                  ? () => setShowClarity((prev) => !prev)
+                  : undefined
+              }
+            />
+            <span className={styles.commitmentText}>{active.description}</span>
+          </div>
           <div className={styles.cellOwner}>{activeOwner ?? "Unassigned"}</div>
           <div className={styles.cellDue}>{active.due_date}</div>
         </>
@@ -135,6 +159,26 @@ export function IssueCard({
       ) : (
         <span aria-hidden className={styles.resolvePlaceholder} />
       )}
+
+      {showClarity && active && canEditClarity ? (
+        <ClarityEditor
+          commitment={active}
+          onCancel={() => {
+            setShowClarity(false);
+            setClarityError(null);
+          }}
+          onSaved={() => {
+            setShowClarity(false);
+            setClarityError(null);
+          }}
+          onError={setClarityError}
+        />
+      ) : null}
+      {clarityError ? (
+        <p role="alert" className={styles.rowError}>
+          {clarityError}
+        </p>
+      ) : null}
     </article>
   );
 }
