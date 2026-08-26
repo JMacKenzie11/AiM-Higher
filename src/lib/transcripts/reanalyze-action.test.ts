@@ -19,7 +19,12 @@ const mocks = vi.hoisted(() => {
   const commitmentsDelete = vi.fn();
   const issuesDelete = vi.fn();
   const analysesDelete = vi.fn();
-  const meetingsUpdate = vi.fn(async () => ({ error: null }));
+  // Typed with a `_patch` arg so the mock signature matches the
+  // adapter below and `.mock.calls[N][0]` is well-typed at the
+  // assertion sites.
+  const meetingsUpdate = vi.fn(async (_patch: unknown) => ({
+    error: null,
+  }));
 
   // Admin from() router mirrors the RLS-scoped one; the admin
   // client is used for the destructive path.
