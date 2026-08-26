@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { reanalyzeMeetingAction } from "@/lib/transcripts/reanalyze-action";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import uiStyles from "@/components/ui/ui.module.css";
 
 // Admin/guide affordance to rerun the analysis pipeline on this
 // meeting. Wipes the current analysis + any auto-created
@@ -59,18 +60,7 @@ export function ReanalyzeMeetingButton({ meetingId }: { meetingId: string }) {
         type="button"
         onClick={() => setConfirming(true)}
         disabled={pending}
-        style={{
-          padding: "var(--space-2) var(--space-4)",
-          background: "transparent",
-          color: "var(--text)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-md, 8px)",
-          fontFamily: "var(--font-body)",
-          fontSize: "14px",
-          fontWeight: 500,
-          cursor: pending ? "wait" : "pointer",
-          opacity: pending ? 0.7 : 1,
-        }}
+        className={uiStyles.btnGhost}
       >
         {pending ? "Resetting…" : "Reanalyze meeting"}
       </button>

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { addExtractedIssueToOpenIssuesAction } from "@/lib/transcripts/routing-actions";
 import type { ExtractedIssue } from "@/lib/types";
 import type { SimilarMatch } from "@/lib/transcripts/similarity";
+import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./extracted.module.css";
 
 // "Issues identified" section on the meeting summary. Every
@@ -103,7 +104,7 @@ function ExtractedIssueRowItem({
         ) : canAdd ? (
           <button
             type="button"
-            className={styles.actionButton}
+            className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
             onClick={add}
             disabled={pending}
           >

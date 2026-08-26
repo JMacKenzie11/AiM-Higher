@@ -7,6 +7,7 @@ import {
 } from "@/lib/transcripts/routing-actions";
 import type { ExtractedCommitment, Priority } from "@/lib/types";
 import type { SimilarMatch } from "@/lib/transcripts/similarity";
+import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./extracted.module.css";
 
 // "Commitments identified" section on the meeting summary when
@@ -192,7 +193,7 @@ function ExtractedCommitmentRowItem({
             </select>
             <button
               type="button"
-              className={styles.actionButton}
+              className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
               onClick={convertToIssue}
               disabled={pending}
               title="Create an issue titled from this description; does not create a commitment"
