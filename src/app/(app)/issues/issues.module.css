@@ -49,9 +49,10 @@
   margin: 0;
 }
 
-/* Row-per-issue list, matching the /commitments visual language:
-   hairline divider between rows, no card chrome, indented sub-rows
-   for the "what we want" line and the linked commitments. */
+/* Row-per-issue list matching /commitments' visual language.
+   Each issue collapses to a single horizontal row (drag, title,
+   preview, count, resolve). Clicking expands the row body in
+   place, revealing the editors + linked commitments. */
 .issueList {
   list-style: none;
   padding: 0;
@@ -66,26 +67,102 @@
   border-bottom: 1px solid var(--border);
 }
 
-.issueCard {
+.issueRow {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-3);
   background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
 }
 
-.issueCard:hover {
+.issueRowHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.issueRowHeader:hover {
   background: var(--aims-navy-tint);
 }
 
-.issueHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.issueRowExpander {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) auto 16px;
+  align-items: baseline;
   gap: var(--space-3);
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  min-width: 0;
+}
+
+.issueRowTitle {
+  font: var(--text-body);
+  font-weight: 700;
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issueRowPreview {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issueRowCount {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.issueRowChevron {
+  color: var(--text-muted);
+  font-size: 0.8em;
+}
+
+.issueBody {
+  padding: var(--space-3) var(--space-3) var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--aims-navy-tint);
+  border-top: 1px dashed var(--border);
+}
+
+.issueSectionInline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.issueBodyText {
+  font: var(--text-body);
+  color: var(--text);
+  margin: 0;
+}
+
+.renameLink {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text-muted);
+  font: var(--text-caption);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.renameLink:hover {
+  color: var(--primary);
 }
 
 .issueHeaderLeft {

@@ -23,11 +23,13 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CommitmentRow } from "../commitments/CommitmentRow";
 import styles from "./issues.module.css";
 
-// One issue card: title (inline rename), "WHAT WE WANT" body
-// (inline editable), the issue's commitments rendered as full
-// CommitmentRow instances (all resolve/reschedule mechanics
-// intact), and an inline add row scoped to this issue.
-// Resolve action lives in the header actions row.
+// One issue = one row. Collapsed by default: drag handle, title,
+// muted preview of "what we want", commitment count, resolve.
+// Clicking the row expands it in place to show the full editor
+// ("WHAT WE WANT" text area) + the linked commitments as
+// CommitmentRow instances + an inline add row scoped to this
+// issue. Drag / resolve stay outside the expand button so a
+// mousedown on either doesn't toggle open.
 
 const CREATE_INITIAL: CommitmentResult = { ok: false, message: "" };
 
@@ -56,98 +58,134 @@ export function IssueCard({
   const openCommitments = issue.commitments.filter(
     (c) => c.status === "open" && !c.deleted_at && !c.parked_at
   );
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <article className={styles.issueCard}>
-      <header className={styles.issueHeader}>
-        <div className={styles.issueHeaderLeft}>
-          {canEdit ? (
-            <button
-              type="button"
-              className={styles.dragHandle}
-              aria-label="Reorder this issue"
-              title="Drag to reorder"
-              {...dragHandleProps}
-            >
-              <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
-                <circle cx="5" cy="4" r="1.2" fill="currentColor" />
-                <circle cx="11" cy="4" r="1.2" fill="currentColor" />
-                <circle cx="5" cy="8" r="1.2" fill="currentColor" />
-                <circle cx="11" cy="8" r="1.2" fill="currentColor" />
-                <circle cx="5" cy="12" r="1.2" fill="currentColor" />
-                <circle cx="11" cy="12" r="1.2" fill="currentColor" />
-              </svg>
-            </button>
-          ) : null}
-          <IssueTitleEditor issue={issue} canEdit={canEdit} />
-        </div>
+    <article className={styles.issueRow}>
+      <header className={styles.issueRowHeader}>
+        {canEdit ? (
+          <button
+            type="button"
+            className={styles.dragHandle}
+            aria-label="Reorder this issue"
+            title="Drag to reorder"
+            {...dragHandleProps}
+          >
+            <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+              <circle cx="5" cy="4" r="1.2" fill="currentColor" />
+              <circle cx="11" cy="4" r="1.2" fill="currentColor" />
+              <circle cx="5" cy="8" r="1.2" fill="currentColor" />
+              <circle cx="11" cy="8" r="1.2" fill="currentColor" />
+              <circle cx="5" cy="12" r="1.2" fill="currentColor" />
+              <circle cx="11" cy="12" r="1.2" fill="currentColor" />
+            </svg>
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={styles.issueRowExpander}
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls={`issue-body-${issue.id}`}
+          title={expanded ? "Collapse" : "Expand"}
+        >
+          <span className={styles.issueRowTitle}>{issue.title}</span>
+          <span className={styles.issueRowPreview}>
+            {issue.desired_outcome
+              ? issue.desired_outcome
+              : "What's the outcome you want here?"}
+          </span>
+          <span className={styles.issueRowCount}>
+            {openCommitments.length}{" "}
+            {openCommitments.length === 1 ? "commitment" : "commitments"}
+          </span>
+          <span aria-hidden className={styles.issueRowChevron}>
+            {expanded ? "▾" : "▸"}
+          </span>
+        </button>
         {canEdit ? <ResolveIssueButton issueId={issue.id} /> : null}
       </header>
 
-      <section className={styles.issueSection} aria-labelledby={`want-${issue.id}`}>
-        <h3 id={`want-${issue.id}`} className={styles.issueSectionLabel}>
-          What we want
-        </h3>
-        <DesiredOutcomeEditor issue={issue} canEdit={canEdit} />
-      </section>
+      {expanded ? (
+        <div id={`issue-body-${issue.id}`} className={styles.issueBody}>
+          <section
+            className={styles.issueSection}
+            aria-labelledby={`want-${issue.id}`}
+          >
+            <h3
+              id={`want-${issue.id}`}
+              className={styles.issueSectionLabel}
+            >
+              What we want
+            </h3>
+            <div className={styles.issueSectionInline}>
+              {canEdit ? (
+                <IssueTitleEditor issue={issue} canEdit={canEdit} />
+              ) : null}
+              <DesiredOutcomeEditor issue={issue} canEdit={canEdit} />
+            </div>
+          </section>
 
-      <section
-        className={styles.issueSection}
-        aria-labelledby={`work-${issue.id}`}
-      >
-        <h3 id={`work-${issue.id}`} className={styles.issueSectionLabel}>
-          This week&rsquo;s commitment
-        </h3>
-        {openCommitments.length === 0 && !canEdit ? (
-          <p className={styles.emptyLine}>No commitment yet.</p>
-        ) : null}
-        {openCommitments.length > 0 ? (
-          <ul className={styles.commitmentList}>
-            {openCommitments.map((c) => (
-              <CommitmentRow
-                key={c.id}
-                commitment={c}
-                priorityOptions={priorityOptions}
-                functionalAreaOptions={functionalAreaOptions}
+          <section
+            className={styles.issueSection}
+            aria-labelledby={`work-${issue.id}`}
+          >
+            <h3
+              id={`work-${issue.id}`}
+              className={styles.issueSectionLabel}
+            >
+              This week&rsquo;s commitment
+            </h3>
+            {openCommitments.length === 0 && !canEdit ? (
+              <p className={styles.emptyLine}>No commitment yet.</p>
+            ) : null}
+            {openCommitments.length > 0 ? (
+              <ul className={styles.commitmentList}>
+                {openCommitments.map((c) => (
+                  <CommitmentRow
+                    key={c.id}
+                    commitment={c}
+                    priorityOptions={priorityOptions}
+                    functionalAreaOptions={functionalAreaOptions}
+                    roster={roster}
+                    todayIso={todayIso}
+                    canResolve={
+                      isAdmin ||
+                      c.owner_id === currentUserId ||
+                      (currentUserCompanyId !== null &&
+                        c.company_id === currentUserCompanyId)
+                    }
+                    canLink={
+                      isAdmin || issue.created_by === currentUserId
+                    }
+                    canReassign={
+                      isAdmin ||
+                      c.owner_id === currentUserId ||
+                      c.owner_id === null
+                    }
+                    currentUserId={currentUserId}
+                    isAdmin={isAdmin}
+                  />
+                ))}
+              </ul>
+            ) : null}
+            {canEdit ? (
+              <IssueCommitmentAddRow
+                issueId={issue.id}
                 roster={roster}
-                todayIso={todayIso}
-                canResolve={
-                  isAdmin ||
-                  c.owner_id === currentUserId ||
-                  (currentUserCompanyId !== null &&
-                    c.company_id === currentUserCompanyId)
-                }
-                // LinkChip menu offers switching AWAY (to a priority,
-                // functional area, or none). Only editors get it —
-                // team members reading someone else's row see a
-                // static chip.
-                canLink={
-                  isAdmin || issue.created_by === currentUserId
-                }
-                canReassign={
-                  isAdmin ||
-                  c.owner_id === currentUserId ||
-                  c.owner_id === null
-                }
                 currentUserId={currentUserId}
                 isAdmin={isAdmin}
+                todayIso={todayIso}
               />
-            ))}
-          </ul>
-        ) : null}
-        {canEdit ? (
-          <IssueCommitmentAddRow
-            issueId={issue.id}
-            roster={roster}
-            currentUserId={currentUserId}
-            isAdmin={isAdmin}
-            todayIso={todayIso}
-          />
-        ) : null}
-      </section>
+            ) : null}
+          </section>
+        </div>
+      ) : null}
     </article>
   );
 }
+
+// ---- Inline editors (only rendered when expanded) --------------
 
 function IssueTitleEditor({
   issue,
@@ -182,9 +220,7 @@ function IssueTitleEditor({
     });
   }
 
-  if (!canEdit) {
-    return <h2 className={styles.issueTitle}>{issue.title}</h2>;
-  }
+  if (!canEdit) return null;
   if (editing) {
     return (
       <>
@@ -219,11 +255,11 @@ function IssueTitleEditor({
   return (
     <button
       type="button"
-      className={styles.issueTitleEditable}
+      className={styles.renameLink}
       onClick={() => setEditing(true)}
-      title="Click to rename"
+      title="Rename this issue"
     >
-      {issue.title}
+      Rename
     </button>
   );
 }
@@ -260,7 +296,7 @@ function DesiredOutcomeEditor({
 
   if (!canEdit) {
     return issue.desired_outcome ? (
-      <p className={styles.issueBody}>{issue.desired_outcome}</p>
+      <p className={styles.issueBodyText}>{issue.desired_outcome}</p>
     ) : (
       <p className={styles.issueBodyMuted}>Not yet defined.</p>
     );
