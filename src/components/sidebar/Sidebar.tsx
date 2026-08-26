@@ -82,13 +82,10 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "One-Page Plan", href: "/foundation", icon: "doc" },
       { kind: "link", label: "Team", href: "/people", icon: "people" },
       { kind: "link", label: "Functional Org Chart", href: "/chart", icon: "chart" },
-      {
-        kind: "link",
-        label: "Key Success Measures",
-        href: "/measures",
-        icon: "measure",
-        feature: "performance_tracking",
-      },
+      // Key Success Measures nav item pulled 2026-08-27 pending a
+      // rethink of the surface. The /measures route + component tree
+      // stay in place (chart function page still summary-links into
+      // it) but it's off the primary rail.
       { kind: "link", label: "Goals & Priorities", href: "/plan", icon: "calendar" },
       { kind: "link", label: "Functional Commitments", href: "/commitments", icon: "check" },
       {

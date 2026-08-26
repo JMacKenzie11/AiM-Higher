@@ -105,18 +105,9 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "One-Page Plan", href: "/foundation" },
       { kind: "link", label: "Team", href: "/people" },
       { kind: "link", label: "Functional Org Chart", href: "/chart" },
-      // Success Measures sits directly under Chart so the metric
-      // definition (on the chart) and the weekly logging surface
-      // read as adjacent. Entitlement-gated at the item level:
-      // hidden for companies without Success Tracking unless there's
-      // already at least one metric on file (the outer layout
-      // toggles hasChartMeasures to admit this link in that case).
-      {
-        kind: "link",
-        label: "Key Success Measures",
-        href: "/measures",
-        feature: "performance_tracking",
-      },
+      // Key Success Measures nav item pulled 2026-08-27 pending a
+      // rethink. Route + page stay live; only the primary rail entry
+      // is hidden. Mirrors the Sidebar decision.
       { kind: "link", label: "Goals & Priorities", href: "/plan" },
       { kind: "link", label: "Functional Commitments", href: "/commitments" },
       // Meeting Summaries (route stays /leadership) hosts
