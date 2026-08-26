@@ -15,7 +15,7 @@ new version.
 - **Read the frozen document** — Position Summary and Why This
   Role Matters are the exact text from when this version was
   published, including any manual overrides live at that time.
-  Chart-driven sections (Success Measures, Key Responsibilities,
+  Chart-driven sections (Outcomes with Key Success Measures, Key Responsibilities,
   Decision Rights, Competency Indicators) also reflect the state
   at publish time. The live chart can change under them without
   affecting this snapshot.

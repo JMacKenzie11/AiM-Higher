@@ -513,6 +513,30 @@
   margin: 0;
 }
 
+/* Read-only summary for the Outcomes section on the function page —
+   the authoring surface itself lives on /measures. */
+.measuresSummary {
+  font: var(--text-body);
+  color: var(--text);
+  margin: 0;
+}
+
+.measuresManageLink {
+  margin: var(--space-2) 0 0;
+  font: var(--text-body-sm);
+}
+
+.measuresManageLink a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.measuresManageLink a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* ---- Inline add forms ---------------------------------------
    Two visual states.
    Closed → a compact "+ Add …" pill that sits inline.

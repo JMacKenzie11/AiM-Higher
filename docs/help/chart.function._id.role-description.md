@@ -5,7 +5,7 @@ title: Role description
 # Role description
 
 The full AiMS role description for this seat — Position Summary,
-Core Success Outcomes, Success Measures, Key Responsibilities,
+Core Success Outcomes, Key Success Measures, Key Responsibilities,
 Decision Rights, Strengths & Expertise, Competency Indicators,
 Qualifications, and Why This Role Matters — assembled from the
 function page plus a generated draft of the connective prose.
@@ -51,7 +51,7 @@ As an admin or guide, you can also:
 ## How the doc is assembled
 
 - **Chart data flows in directly** — Job Title comes from the
-  function name; Success Measures, Key Responsibilities, Decision
+  function name; Outcomes with Key Success Measures, Key Responsibilities, Decision
   Rights, and Competency Indicators come from
   `/chart/function/[id]`. To change any of them, edit at the
   source on the function page.

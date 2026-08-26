@@ -17,7 +17,7 @@ As a team member, you can:
 - **See the company's follow-through** and the operating panels
   (Wins, Streaks, Where a conversation could help) — anyone in
   the company sees these.
-- **Log this week's numbers** on any Success Measure you own —
+- **Log this week's numbers** on any Key Success Measure you own —
   they appear in *This week's numbers* until saved.
 - **Close the loop on your commitments** — the *This week* strip
   links straight into Commitments with the filter pre-applied.

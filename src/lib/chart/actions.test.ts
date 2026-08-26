@@ -162,9 +162,14 @@ vi.mock("@/lib/auth/current-user", () => ({
   requireProfile: mocks.requireProfile,
 }));
 
-vi.mock("@/lib/auth/permissions", () => ({
-  scopedCompanyId: mocks.scopedCompanyId,
-}));
+vi.mock("@/lib/auth/permissions", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/auth/permissions")>();
+  return {
+    ...actual,
+    scopedCompanyId: mocks.scopedCompanyId,
+  };
+});
 
 vi.mock("@/lib/subscriptions/service", () => ({
   companyHasFeature: mocks.companyHasFeature,

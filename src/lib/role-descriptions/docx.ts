@@ -122,9 +122,9 @@ export async function buildRoleDescriptionDocx(input: {
     });
   }
 
-  // 4 · Success Measures (grouped by outcome)
+  // 4 · Outcomes and their Key Success Measures
   if (detail.outcomes.some((o) => o.measures.length > 0)) {
-    paragraphs.push(sectionHeading("Success Measures"));
+    paragraphs.push(sectionHeading("Outcomes"));
     for (const o of detail.outcomes) {
       if (o.measures.length === 0) continue;
       paragraphs.push(

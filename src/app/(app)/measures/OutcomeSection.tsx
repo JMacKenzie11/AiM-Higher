@@ -1,6 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import {
+  useActionState,
+  useEffect,
+  useState,
+  useTransition,
+} from "react";
 import {
   archiveOutcomeAction,
   renameOutcomeAction,
@@ -8,101 +13,154 @@ import {
   type ChartResult,
 } from "@/lib/chart/actions";
 import type {
-  FunctionOutcome,
-  SuccessMeasure,
-  SuccessMeasureEntry,
-} from "@/lib/types";
+  MeasureTreeMeasure,
+  MeasureTreeOutcome,
+} from "@/lib/measures/service";
+import type { FunctionOutcome } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import uiStyles from "@/components/ui/ui.module.css";
-import { AddMetricRow } from "./AddMetricRow";
-import { MetricRow } from "./MetricRow";
-import styles from "../../chart.module.css";
+import { AddMetricRow } from "../chart/function/[id]/AddMetricRow";
+import { ManagedMeasureRow } from "./ManagedMeasureRow";
+import styles from "./measures.module.css";
+import chartStyles from "../chart/chart.module.css";
 
 const INITIAL: ChartResult<FunctionOutcome> = { ok: false, message: "" };
 
-export type SuccessMeasureCardOutcome = FunctionOutcome & {
-  measures: Array<SuccessMeasure & { entries: SuccessMeasureEntry[] }>;
-};
-
-export function SuccessMeasureCard({
+export function OutcomeSection({
   outcome,
   functionId,
-  canEdit,
+  isVisible,
+  values,
+  onValueChange,
+  disabled,
+  isAdmin,
+  trackingEnabled,
   rdEnabled,
+  weekEnding,
 }: {
-  outcome: SuccessMeasureCardOutcome;
+  outcome: MeasureTreeOutcome;
   functionId: string;
-  canEdit: boolean;
+  isVisible: (m: MeasureTreeMeasure) => boolean;
+  values: Record<string, string>;
+  onValueChange: (id: string, v: string) => void;
+  disabled: boolean;
+  isAdmin: boolean;
+  trackingEnabled: boolean;
   rdEnabled: boolean;
+  weekEnding: string;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
+  const visibleMeasures = outcome.measures.filter(isVisible);
 
   return (
-    <article className={styles.detailOutcome}>
-      {editing ? (
-        <EditOutcomeForm outcome={outcome} onDone={() => setEditing(false)} />
+    <div className={styles.outcomeBlock}>
+      {editingDetails ? (
+        <EditOutcomeForm
+          outcome={outcome}
+          onDone={() => setEditingDetails(false)}
+        />
       ) : (
-        <div className={styles.detailOutcomeHeader}>
-          <div>
-            <p className={styles.outcomeLabel}>Success Measure</p>
-            {canEdit ? (
-              <InlineTitleEditor outcome={outcome} />
+        <header className={styles.outcomeHeader}>
+          <div className={styles.outcomeHeaderTitleWrap}>
+            <p className={styles.outcomeLabel}>Outcome</p>
+            {isAdmin ? (
+              <InlineOutcomeTitleEditor outcome={outcome} />
             ) : (
-              <h3 className={styles.detailOutcomeTitle}>{outcome.title}</h3>
+              <h3 className={styles.outcomeTitle}>{outcome.title}</h3>
             )}
             {outcome.description ? (
-              <p className={styles.subtitle}>{outcome.description}</p>
+              <p className={styles.outcomeDescription}>
+                {outcome.description}
+              </p>
             ) : null}
           </div>
-          {canEdit ? (
-            <div className={styles.detailOutcomeActions}>
+          {isAdmin ? (
+            <div className={styles.outcomeHeaderActions}>
               <button
                 type="button"
-                className={styles.roleGhostButton}
-                onClick={() => setEditing(true)}
-                title="Edit description and other details"
+                className={styles.ghostButton}
+                onClick={() => setEditingDetails(true)}
+                title="Edit description"
               >
                 Details
               </button>
               <ArchiveOutcomeButton outcomeId={outcome.id} />
             </div>
           ) : null}
+        </header>
+      )}
+
+      {outcome.measures.length === 0 ? (
+        <p className={styles.outcomeEmpty}>
+          {isAdmin
+            ? "No key success measures yet. Add one below."
+            : "No key success measures yet."}
+        </p>
+      ) : visibleMeasures.length === 0 ? (
+        <p className={styles.outcomeEmpty}>
+          All measures on this outcome are hidden by the current filter.
+        </p>
+      ) : (
+        <div
+          className={
+            trackingEnabled
+              ? styles.measureGrid
+              : `${styles.measureGrid} ${styles.measureGridAuthor}`
+          }
+          role="table"
+        >
+          <div
+            className={styles.measureGridHead}
+            role="row"
+            aria-hidden="true"
+          >
+            <span>Measure</span>
+            <span>Target</span>
+            {trackingEnabled ? (
+              <>
+                <span className={styles.headCellHideMobile}>Recent</span>
+                <span>This week</span>
+                <span className={styles.headCellHideMobile} aria-hidden />
+              </>
+            ) : null}
+            {isAdmin ? <span aria-hidden /> : null}
+          </div>
+          {visibleMeasures.map((m) => (
+            <ManagedMeasureRow
+              key={m.id}
+              measure={m}
+              outcomeTitle={outcome.title}
+              outcomeDescription={outcome.description}
+              value={values[m.id] ?? ""}
+              onValueChange={(v) => onValueChange(m.id, v)}
+              disabled={disabled}
+              isAdmin={isAdmin}
+              trackingEnabled={trackingEnabled}
+              weekEnding={weekEnding}
+            />
+          ))}
         </div>
       )}
 
-      {outcome.measures.length > 0 ? (
-        <ul className={styles.detailMeasureList}>
-          {outcome.measures.map((m) => (
-            <MetricRow
-              key={m.id}
-              measure={m}
-              canEdit={canEdit}
-              outcomeTitle={outcome.title}
-              outcomeDescription={outcome.description}
-            />
-          ))}
-        </ul>
-      ) : (
-        <p className={styles.emptyOutcomeLine}>No metrics yet.</p>
-      )}
-
-      {canEdit ? (
-        <AddMetricRow
-          outcomeId={outcome.id}
-          outcomeTitle={outcome.title}
-          outcomeDescription={outcome.description}
-          functionId={functionId}
-          rdEnabled={rdEnabled}
-        />
+      {isAdmin ? (
+        <div className={styles.outcomeAdd}>
+          <AddMetricRow
+            outcomeId={outcome.id}
+            outcomeTitle={outcome.title}
+            outcomeDescription={outcome.description}
+            functionId={functionId}
+            rdEnabled={rdEnabled}
+          />
+        </div>
       ) : null}
-    </article>
+    </div>
   );
 }
 
-function InlineTitleEditor({
+function InlineOutcomeTitleEditor({
   outcome,
 }: {
-  outcome: SuccessMeasureCardOutcome;
+  outcome: MeasureTreeOutcome;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(outcome.title);
@@ -127,11 +185,8 @@ function InlineTitleEditor({
     setError(null);
     startTransition(async () => {
       const result = await renameOutcomeAction(outcome.id, next);
-      if (!result.ok) {
-        setError(result.message);
-      } else {
-        setEditing(false);
-      }
+      if (!result.ok) setError(result.message);
+      else setEditing(false);
     });
   }
 
@@ -160,10 +215,10 @@ function InlineTitleEditor({
           }}
           autoFocus
           disabled={pending}
-          aria-label="Edit success measure title"
+          aria-label="Edit outcome title"
         />
         {error ? (
-          <p role="alert" className={styles.roleError}>
+          <p role="alert" className={styles.rowError}>
             {error}
           </p>
         ) : null}
@@ -187,7 +242,7 @@ function EditOutcomeForm({
   outcome,
   onDone,
 }: {
-  outcome: FunctionOutcome;
+  outcome: MeasureTreeOutcome;
   onDone: () => void;
 }) {
   const [state, formAction, pending] = useActionState<
@@ -203,13 +258,15 @@ function EditOutcomeForm({
   }, [state]);
 
   return (
-    <form action={formAction} className={styles.addForm}>
+    <form action={formAction} className={chartStyles.addForm}>
       <input type="hidden" name="id" value={outcome.id} />
 
-      <label className={`${styles.formField} ${styles.formFieldFull}`}>
-        <span className={styles.formLabel}>Success measure</span>
+      <label
+        className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
+      >
+        <span className={chartStyles.formLabel}>Outcome</span>
         <input
-          className={styles.formInput}
+          className={chartStyles.formInput}
           type="text"
           name="title"
           defaultValue={outcome.title}
@@ -219,10 +276,14 @@ function EditOutcomeForm({
         />
       </label>
 
-      <label className={`${styles.formField} ${styles.formFieldFull}`}>
-        <span className={styles.formLabel}>Why this matters (optional)</span>
+      <label
+        className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
+      >
+        <span className={chartStyles.formLabel}>
+          Why this matters (optional)
+        </span>
         <textarea
-          className={styles.formTextarea}
+          className={chartStyles.formTextarea}
           name="description"
           defaultValue={outcome.description ?? ""}
           rows={2}
@@ -231,13 +292,17 @@ function EditOutcomeForm({
       </label>
 
       {errorMessage ? (
-        <p role="alert" className={styles.errorMessage}>
+        <p role="alert" className={chartStyles.errorMessage}>
           {errorMessage}
         </p>
       ) : null}
 
-      <div className={styles.formSubmit}>
-        <button type="submit" className={uiStyles.btnPrimary} disabled={pending}>
+      <div className={chartStyles.formSubmit}>
+        <button
+          type="submit"
+          className={uiStyles.btnPrimary}
+          disabled={pending}
+        >
           {pending ? "Saving…" : "Save"}
         </button>
         <button
@@ -270,11 +335,11 @@ function ArchiveOutcomeButton({ outcomeId }: { outcomeId: string }) {
     <>
       <button
         type="button"
-        className={styles.roleDeleteIcon}
+        className={styles.iconDeleteButton}
         onClick={() => setConfirming(true)}
         disabled={pending}
-        aria-label="Archive this success measure"
-        title="Archive this success measure"
+        aria-label="Archive this outcome"
+        title="Archive this outcome"
       >
         <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
           <path
@@ -289,8 +354,8 @@ function ArchiveOutcomeButton({ outcomeId }: { outcomeId: string }) {
       </button>
       <ConfirmDialog
         open={confirming}
-        title="Archive this success measure?"
-        message="Its metrics stay linked to it but disappear from the function. Historical weekly entries are kept."
+        title="Archive this outcome?"
+        message="Its key success measures stay linked to it but disappear from the function. Historical weekly entries are kept."
         confirmLabel="Archive"
         tone="danger"
         onConfirm={run}
@@ -298,7 +363,7 @@ function ArchiveOutcomeButton({ outcomeId }: { outcomeId: string }) {
         pending={pending}
       />
       {message ? (
-        <p role="alert" className={styles.roleError}>
+        <p role="alert" className={styles.rowError}>
           {message}
         </p>
       ) : null}

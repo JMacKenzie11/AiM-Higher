@@ -47,7 +47,7 @@ export default async function ChartPage() {
         <>
           The functions that run the business. Each box shows who&rsquo;s in
           the seat and what they&rsquo;re obsessed with delivering. Click a
-          function to see its success measures.
+          function to see its outcomes.
           {isAdmin ? " Drag a card to reorder siblings." : null}
         </>
       }

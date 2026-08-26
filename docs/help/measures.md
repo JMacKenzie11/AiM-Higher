@@ -1,8 +1,8 @@
 ---
-title: Success Measures
+title: Key Success Measures
 ---
 
-# Success Measures
+# Key Success Measures
 
 The weekly logging surface for every metric an owner has on file.
 The page has two sections stacked: **Board (read) at the top**, and

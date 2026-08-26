@@ -14,7 +14,7 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "execution",
     label: "Execution Platform",
-    hint: "Commitments, success measures, and the coaching dashboard.",
+    hint: "Commitments, key success measures, and the coaching dashboard.",
     defaultOnCreate: true,
   },
   {
@@ -25,7 +25,7 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "performance_tracking",
     label: "Success Tracking",
-    hint: "Requires targets on every success measure and turns on weekly performance nudges.",
+    hint: "Requires targets on every key success measure and turns on weekly performance nudges.",
   },
   {
     value: "meeting_facilitation_review",

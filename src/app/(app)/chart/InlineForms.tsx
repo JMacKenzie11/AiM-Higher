@@ -165,7 +165,7 @@ export function AddOutcomeForm({ functionId }: { functionId: string }) {
       <input type="hidden" name="function_id" value={functionId} />
 
       <label className={`${styles.formField} ${styles.formFieldFull}`}>
-        <span className={styles.formLabel}>Success measure</span>
+        <span className={styles.formLabel}>Outcome</span>
         <input
           className={styles.formInput}
           type="text"
@@ -195,7 +195,7 @@ export function AddOutcomeForm({ functionId }: { functionId: string }) {
 
       <div className={styles.formSubmit}>
         <button type="submit" className={uiStyles.btnPrimary} disabled={pending}>
-          {pending ? "Adding…" : "Add success measure"}
+          {pending ? "Adding…" : "Add outcome"}
         </button>
         <ConfirmationChip visible={confirmationVisible} />
       </div>

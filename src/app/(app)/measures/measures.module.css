@@ -309,3 +309,343 @@
   color: var(--text-heading);
   font-weight: 600;
 }
+
+/* ---- Manager surface (author + track combined) --------------- */
+
+.chipButton {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.05s ease;
+}
+
+.chipButton:hover {
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.chipButtonActive {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.chipButtonActive:hover {
+  box-shadow: 0 0 0 3px var(--primary);
+}
+
+.fnSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-top: 1px solid var(--border);
+  scroll-margin-top: var(--space-5);
+}
+
+.fnSection:first-of-type {
+  border-top: none;
+  padding-top: var(--space-3);
+}
+
+.fnHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.fnTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.fnTitleLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.fnTitleLink:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.fnEmpty {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  margin: 0;
+}
+
+.outcomeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.outcomeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.outcomeHeaderTitleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.outcomeLabel {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+  margin: 0;
+}
+
+.outcomeTitle {
+  font: var(--text-h4);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.outcomeTitleEditable {
+  font: var(--text-h4);
+  color: var(--text-heading);
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: text;
+  border-radius: var(--radius-sm);
+}
+
+.outcomeTitleEditable:hover {
+  background: var(--aims-navy-tint);
+  outline: 2px solid var(--aims-navy-tint);
+}
+
+.outcomeTitleInput {
+  font: var(--text-h4);
+  color: var(--text-heading);
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  width: 100%;
+}
+
+.outcomeTitleInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.outcomeDescription {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  margin: 0;
+}
+
+.outcomeHeaderActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.outcomeEmpty {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  margin: 0;
+  padding-left: var(--space-3);
+}
+
+.outcomeAdd {
+  padding-left: var(--space-3);
+}
+
+/* Measure grid — dense row layout that swaps columns based on
+   whether tracking is on and whether the caller can author. */
+
+.measureGrid {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 3fr)
+    minmax(80px, auto)
+    minmax(120px, auto)
+    minmax(120px, auto)
+    16px
+    auto;
+  row-gap: 0;
+  align-items: center;
+  border-top: 1px solid var(--border);
+}
+
+.measureGridAuthor {
+  grid-template-columns: minmax(0, 3fr) minmax(80px, auto) auto;
+}
+
+.measureGridHead {
+  display: contents;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.measureGridHead > span {
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.measureRow,
+.measureRowEditing {
+  display: contents;
+}
+
+.measureRow > div {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.measureRowEditing > * {
+  grid-column: 1 / -1;
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--aims-navy-tint);
+}
+
+.measureCellTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.measureTitleLink {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+  text-decoration: none;
+}
+
+.measureTitleLink:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.measureTargetHint {
+  font: var(--text-caption);
+  color: var(--aims-warning);
+}
+
+.measureCellTarget {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.measureCellInput {
+  min-width: 120px;
+}
+
+.measureCellDot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.measureCellActions {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.ghostButton {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.ghostButton:hover {
+  background: var(--aims-navy-tint);
+  border-color: var(--border-strong);
+}
+
+.iconDeleteButton {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.iconDeleteButton:hover {
+  color: var(--aims-danger);
+  border-color: color-mix(in srgb, var(--aims-danger) 25%, transparent);
+  background: var(--aims-danger-tint);
+}
+
+.rowError {
+  color: var(--aims-danger);
+  font: var(--text-caption);
+  margin: 0;
+}
+
+.savingHint {
+  color: var(--text-muted);
+  font: var(--text-caption);
+}
+
+.addOutcomeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0 0;
+  border-top: 1px dashed var(--border);
+  margin-top: var(--space-2);
+}
+
+.addOutcomeInput {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  color: var(--text);
+}
+
+.addOutcomeInput:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Narrower screens: collapse the recent + status columns so the
+   input stays reachable. */
+@media (max-width: 720px) {
+  .measureGrid {
+    grid-template-columns:
+      minmax(0, 2fr)
+      minmax(70px, auto)
+      minmax(100px, auto)
+      auto;
+  }
+  .measureCellRecent,
+  .measureCellDot,
+  .headCellHideMobile {
+    display: none;
+  }
+}

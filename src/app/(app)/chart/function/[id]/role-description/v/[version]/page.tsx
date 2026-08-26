@@ -169,7 +169,7 @@ export default async function RoleDescriptionVersionPage({
       ) : null}
 
       {detail.outcomes.some((o) => o.measures.length > 0) ? (
-        <Section id="rd-measures" title="Success Measures">
+        <Section id="rd-measures" title="Outcomes">
           <div className={styles.rdMeasuresBlock}>
             {detail.outcomes.map((o) =>
               o.measures.length > 0 ? (

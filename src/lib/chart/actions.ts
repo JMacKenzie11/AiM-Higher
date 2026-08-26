@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
-import { scopedCompanyId } from "@/lib/auth/permissions";
+import { isAdminForCompany, scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { scoreMeasureTarget } from "@/lib/measures/target-check";
@@ -392,6 +392,7 @@ export async function createOutcomeAction(
 
   revalidatePath("/chart");
   revalidatePath(`/chart/function/${functionId}`);
+  revalidatePath("/measures");
   return { ok: true, item: data };
 }
 
@@ -417,6 +418,7 @@ export async function updateOutcomeAction(
   if (error || !data) return { ok: false, message: "Couldn't save changes." };
 
   revalidatePath("/chart");
+  revalidatePath("/measures");
   return { ok: true, item: data };
 }
 
@@ -445,6 +447,7 @@ export async function renameOutcomeAction(
   if (error || !data) return { ok: false, message: "Couldn't rename." };
 
   revalidatePath("/chart");
+  revalidatePath("/measures");
   return { ok: true, item: data };
 }
 
@@ -462,6 +465,7 @@ export async function archiveOutcomeAction(
     .single<FunctionOutcome>();
   if (error || !data) return { ok: false, message: "Couldn't archive." };
   revalidatePath("/chart");
+  revalidatePath("/measures");
   return { ok: true, item: data };
 }
 
@@ -558,6 +562,7 @@ export async function createMeasureAction(
   }
 
   revalidatePath("/chart");
+  revalidatePath("/measures");
   return { ok: true, item: finalRow };
 }
 
@@ -673,6 +678,7 @@ export async function updateMeasureAction(
   }
 
   revalidatePath("/chart");
+  revalidatePath("/measures");
   return { ok: true, item: finalRow };
 }
 
@@ -690,6 +696,7 @@ export async function archiveMeasureAction(
     .single<SuccessMeasure>();
   if (error || !data) return { ok: false, message: "Couldn't archive." };
   revalidatePath("/chart");
+  revalidatePath("/measures");
   return { ok: true, item: data };
 }
 
@@ -729,10 +736,7 @@ export async function upsertMeasureEntryAction(
   if (!measureRow) return { ok: false, message: "Measure not found." };
 
   const fn = measureRow.outcome.function;
-  const role = session.profile.role;
-  const isAdmin =
-    role === "system_admin" ||
-    (role === "company_admin" && session.profile.company_id === fn.company_id);
+  const isAdmin = isAdminForCompany(session.profile, fn.company_id);
   const isLtd =
     fn.lead_id === session.profile.id || fn.track_id === session.profile.id;
   if (!isAdmin && !isLtd) {
@@ -793,6 +797,7 @@ export async function upsertMeasureEntryAction(
 
   revalidatePath("/chart");
   revalidatePath(`/chart/function/${fn.id}`);
+  revalidatePath("/measures");
   return { ok: true, item: data };
 }
 

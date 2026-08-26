@@ -296,9 +296,9 @@ async function AssembledDocument({
         </Section>
       ) : null}
 
-      {/* 4 · Success Measures — from chart, per outcome */}
+      {/* 4 · Outcomes with their Key Success Measures, from chart */}
       {detail.outcomes.some((o) => o.measures.length > 0) ? (
-        <Section id="rd-measures" title="Success Measures">
+        <Section id="rd-measures" title="Outcomes">
           <div className={styles.rdMeasuresBlock}>
             {detail.outcomes.map((o) =>
               o.measures.length > 0 ? (

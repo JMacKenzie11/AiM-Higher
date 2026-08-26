@@ -113,7 +113,7 @@ const APP_ITEMS: readonly NavItem[] = [
       // toggles hasChartMeasures to admit this link in that case).
       {
         kind: "link",
-        label: "Success Measures",
+        label: "Key Success Measures",
         href: "/measures",
         feature: "performance_tracking",
       },

@@ -133,7 +133,7 @@ export function NotificationBell({
 // tray sees both the situation and where clicking will take them.
 function hintFor(href: string): string {
   if (href.startsWith("/commitments")) return "Go to Commitments";
-  if (href.startsWith("/measures")) return "Go to Success Measures";
+  if (href.startsWith("/measures")) return "Go to Key Success Measures";
   if (href.startsWith("/leadership")) return "Go to Meetings";
   if (href.startsWith("/dashboard")) return "Go to Dashboard";
   return "Open";

@@ -84,7 +84,7 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "Functional Org Chart", href: "/chart", icon: "chart" },
       {
         kind: "link",
-        label: "Success Measures",
+        label: "Key Success Measures",
         href: "/measures",
         icon: "measure",
         feature: "performance_tracking",

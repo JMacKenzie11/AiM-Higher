@@ -166,7 +166,7 @@ export default async function DashboardPage() {
         key: "team",
         label: "Build the team",
         description:
-          "Add your people, build the functional chart, and set success measures. Everything else lands on real names.",
+          "Add your people, build the functional chart, and set outcomes with key success measures. Everything else lands on real names.",
         href: "/people",
         done: hasPeople && hasFunction,
       },

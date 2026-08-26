@@ -153,3 +153,193 @@ export async function getMeasuresOwnedBy(
   });
   return { measures: owned, weekEnding };
 }
+
+// ---- Tree read for the /measures manager -------------------------
+// Nested functions → outcomes → measures shape, with recent entries
+// attached. Powers the combined author + track surface that replaced
+// the chart-side measures section. Admins get every function in the
+// company (including ones with no outcomes yet, so they can author
+// from scratch). Non-admins only get functions they lead.
+
+export type MeasureTreeMeasure = {
+  id: string;
+  description: string;
+  target: string | null;
+  value_type: MetricValueType;
+  target_direction: TargetDirection;
+  auto_track: boolean;
+  target_hint: string | null;
+  currentValue: { number: number | null; text: string | null } | null;
+  recent: Array<{
+    weekEnding: string;
+    number: number | null;
+    text: string | null;
+  }>;
+};
+
+export type MeasureTreeOutcome = {
+  id: string;
+  title: string;
+  description: string | null;
+  measures: MeasureTreeMeasure[];
+};
+
+export type MeasureTreeFunction = {
+  id: string;
+  title: string;
+  outcomes: MeasureTreeOutcome[];
+};
+
+export async function getMeasuresTree(
+  companyId: string,
+  userId: string,
+  timezone: string,
+  includeAll: boolean
+): Promise<{ functions: MeasureTreeFunction[]; weekEnding: string }> {
+  const supabase = await createSupabaseServerClient();
+  const weekEnding = thisFriday(timezone);
+
+  let functionsQuery = supabase
+    .from("functions")
+    .select("id, title, sort_order")
+    .eq("company_id", companyId)
+    .eq("archived", false);
+  if (!includeAll) {
+    functionsQuery = functionsQuery.eq("leader_id", userId);
+  }
+  const { data: functionRows } = await functionsQuery;
+  const functions = (functionRows ?? []) as Array<{
+    id: string;
+    title: string;
+    sort_order: number;
+  }>;
+  if (functions.length === 0) return { functions: [], weekEnding };
+  functions.sort((a, b) => {
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+    return a.title.localeCompare(b.title);
+  });
+  const functionIds = functions.map((f) => f.id);
+
+  const { data: outcomeRows } = await supabase
+    .from("function_outcomes")
+    .select("id, title, description, function_id, sort_order")
+    .in("function_id", functionIds)
+    .eq("archived", false);
+  const outcomes = (outcomeRows ?? []) as Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    function_id: string;
+    sort_order: number;
+  }>;
+  const outcomeIds = outcomes.map((o) => o.id);
+
+  const measureRows =
+    outcomeIds.length === 0
+      ? []
+      : ((
+          await supabase
+            .from("success_measures")
+            .select(
+              "id, description, target, value_type, target_direction, auto_track, target_hint, outcome_id, sort_order"
+            )
+            .in("outcome_id", outcomeIds)
+            .eq("archived", false)
+            .order("sort_order")
+        ).data ?? []) as Array<{
+          id: string;
+          description: string;
+          target: string | null;
+          value_type: MetricValueType;
+          target_direction: TargetDirection;
+          auto_track: boolean;
+          target_hint: string | null;
+          outcome_id: string;
+          sort_order: number;
+        }>;
+
+  const oldest = addDays(weekEnding, -35);
+  const measureIds = measureRows.map((m) => m.id);
+  const entryRows =
+    measureIds.length === 0
+      ? []
+      : ((
+          await supabase
+            .from("success_measure_entries")
+            .select("measure_id, week_ending, value_number, value_text")
+            .in("measure_id", measureIds)
+            .gte("week_ending", oldest)
+            .lte("week_ending", weekEnding)
+            .order("week_ending", { ascending: false })
+        ).data ?? []) as Array<{
+          measure_id: string;
+          week_ending: string;
+          value_number: number | null;
+          value_text: string | null;
+        }>;
+
+  const entriesByMeasure = new Map<
+    string,
+    Array<{
+      weekEnding: string;
+      number: number | null;
+      text: string | null;
+    }>
+  >();
+  for (const row of entryRows) {
+    const list = entriesByMeasure.get(row.measure_id) ?? [];
+    list.push({
+      weekEnding: row.week_ending,
+      number: row.value_number,
+      text: row.value_text,
+    });
+    entriesByMeasure.set(row.measure_id, list);
+  }
+
+  const measuresByOutcome = new Map<string, MeasureTreeMeasure[]>();
+  for (const m of measureRows) {
+    const recent = entriesByMeasure.get(m.id) ?? [];
+    const current = recent.find((r) => r.weekEnding === weekEnding) ?? null;
+    const shaped: MeasureTreeMeasure = {
+      id: m.id,
+      description: m.description,
+      target: m.target,
+      value_type: m.value_type,
+      target_direction: m.target_direction,
+      auto_track: m.auto_track,
+      target_hint: m.target_hint,
+      currentValue: current
+        ? { number: current.number, text: current.text }
+        : null,
+      recent,
+    };
+    const list = measuresByOutcome.get(m.outcome_id) ?? [];
+    list.push(shaped);
+    measuresByOutcome.set(m.outcome_id, list);
+  }
+
+  const outcomesByFunction = new Map<string, MeasureTreeOutcome[]>();
+  outcomes.sort((a, b) => {
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+    return a.title.localeCompare(b.title);
+  });
+  for (const o of outcomes) {
+    const shaped: MeasureTreeOutcome = {
+      id: o.id,
+      title: o.title,
+      description: o.description,
+      measures: measuresByOutcome.get(o.id) ?? [],
+    };
+    const list = outcomesByFunction.get(o.function_id) ?? [];
+    list.push(shaped);
+    outcomesByFunction.set(o.function_id, list);
+  }
+
+  const tree: MeasureTreeFunction[] = functions.map((f) => ({
+    id: f.id,
+    title: f.title,
+    outcomes: outcomesByFunction.get(f.id) ?? [],
+  }));
+
+  return { functions: tree, weekEnding };
+}

@@ -1,37 +1,32 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getMeasuresOwnedBy } from "@/lib/measures/service";
+import { getMeasuresTree } from "@/lib/measures/service";
 import { getBoardData } from "@/lib/measures/board";
+import { companyHasFeature } from "@/lib/subscriptions/service";
 import { formatShortDate } from "@/lib/dates";
-import { MeasuresBatchForm } from "./MeasuresBatchForm";
+import { MeasuresManager } from "./MeasuresManager";
 import { BoardView } from "./board/BoardView";
 import styles from "../admin/companies/admin.module.css";
 
-// Success Measures — read at the top, write at the bottom.
-//   * Board view (top): a 13-week read of metric performance vs.
-//     target across every function. Two toggleable views (Grid +
-//     Timeline) live inside BoardView.
-//   * Batch scoreboard (bottom): the caller's own metrics with
-//     coloured inputs so a leader can log the current week without
-//     leaving the page they came to read.
+// Key Success Measures — one surface for both authoring the outcome
+// / measure tree and logging weekly values. The chart page defers
+// the "what are we measuring" question here so it can stay a chart.
 //
-// Everyone sees the board. What varies is the batch table below —
-// leaders see the metrics they own via seat holding; admins see
-// every metric in the company.
+// Board (top) reads 13 weeks vs. target. Manager (bottom) is the
+// single source for adding outcomes, adding measures under them,
+// editing targets, and logging this week's value. The tracking
+// columns and filter chips disappear when the company doesn't have
+// Success Tracking on — the page becomes a pure authoring surface.
 
 export default async function MeasuresPage() {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
 
-  // isAdminForCompany admits system_admin, company_admin (matching
-  // this company), and aims_guide (assigned to this company). The
-  // measures actions already admit guides — this brings the "see
-  // every metric in the company" branch in line with the actions
-  // and the memory rule.
   const isAdmin = isAdminForCompany(session.profile, companyId);
 
   const supabase = await createSupabaseServerClient();
@@ -42,44 +37,93 @@ export default async function MeasuresPage() {
     .maybeSingle<{ timezone: string }>();
   const timezone = company?.timezone ?? "America/Anchorage";
 
-  const [{ measures, weekEnding }, board] = await Promise.all([
-    getMeasuresOwnedBy(companyId, session.profile.id, timezone, isAdmin),
+  const [tree, board, trackingEnabled, rdEnabled] = await Promise.all([
+    getMeasuresTree(companyId, session.profile.id, timezone, isAdmin),
     getBoardData(companyId, timezone),
+    companyHasFeature(companyId, "performance_tracking"),
+    companyHasFeature(companyId, "role_descriptions"),
   ]);
 
+  const { functions, weekEnding } = tree;
   const boardHasContent =
     board.functions.length > 0 &&
     board.functions.some((f) => f.metrics.length > 0);
+  const hasAnyMeasure = functions.some((f) =>
+    f.outcomes.some((o) => o.measures.length > 0)
+  );
 
   return (
     <div className={styles.stage}>
       <header className={styles.hero}>
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>Company</p>
-          <h1 className={styles.h1}>Success Measures</h1>
+          <h1 className={styles.h1}>Key Success Measures</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            The last 13 weeks vs. target, by function — then log the week
-            ending {formatShortDate(weekEnding)} below.
+            {trackingEnabled ? (
+              <>
+                The last 13 weeks vs. target, by function. Log the week ending{" "}
+                {formatShortDate(weekEnding)} below.
+              </>
+            ) : (
+              <>
+                Every outcome and the key success measure(s) under it, by
+                function. Weekly logging turns on when Success Tracking is
+                enabled for the company.
+              </>
+            )}
           </p>
         </div>
       </header>
 
       <div className={styles.content}>
-        {boardHasContent ? <BoardView data={board} /> : null}
+        {trackingEnabled && boardHasContent ? <BoardView data={board} /> : null}
 
-        {measures.length === 0 ? (
+        {functions.length === 0 ? (
+          <EmptyState isAdmin={isAdmin} />
+        ) : !hasAnyMeasure && !isAdmin ? (
           <section className={styles.card}>
             <p className={styles.emptyLine}>
-              {isAdmin
-                ? "No success measures set up in this company yet. Add them on the Chart under each function's outcomes."
-                : "No success measures assigned to you yet. Measures live under the functions you lead on the Chart — the person in the seat is the one on the hook for the numbers."}
+              No key success measures assigned to you yet. They live under the
+              functions you lead on the Chart, the person in the seat is the
+              one on the hook for the numbers.
             </p>
           </section>
         ) : (
-          <MeasuresBatchForm measures={measures} weekEnding={weekEnding} />
+          <MeasuresManager
+            functions={functions}
+            weekEnding={weekEnding}
+            isAdmin={isAdmin}
+            trackingEnabled={trackingEnabled}
+            rdEnabled={rdEnabled}
+          />
         )}
       </div>
     </div>
+  );
+}
+
+function EmptyState({ isAdmin }: { isAdmin: boolean }) {
+  if (!isAdmin) {
+    return (
+      <section className={styles.card}>
+        <p className={styles.emptyLine}>
+          No functions assigned to you yet. Measures live under the functions
+          you lead on the Chart.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className={styles.card}>
+      <p className={styles.emptyLine}>
+        No functions in this company yet.{" "}
+        <Link href="/chart" className={styles.emptyLink}>
+          Build the Functional Org Chart first
+        </Link>
+        , then come back here to add outcomes and key success measures under
+        each function.
+      </p>
+    </section>
   );
 }

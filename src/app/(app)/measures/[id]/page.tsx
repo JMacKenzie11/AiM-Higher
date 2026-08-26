@@ -97,7 +97,7 @@ export default async function QuickLogPage({ params }: PageProps) {
   return (
     <PageShell
       backHref="/measures"
-      backLabel="Back to Success Measures"
+      backLabel="Back to Key Success Measures"
       eyebrow={`${fn.title} · ${measure.outcome.title}`}
       title={measure.description}
       subtitle={`Log the week ending ${formatShortDate(weekEnding)}.`}

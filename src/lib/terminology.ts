@@ -21,7 +21,8 @@ export type TermKey =
   | "priority"
   | "strategicFocusArea"
   | "clarity"
-  | "successMeasure";
+  | "outcome"
+  | "keySuccessMeasure";
 
 export type Term = {
   label: string;
@@ -64,10 +65,15 @@ export const TERMS: Record<TermKey, Term> = {
     definition:
       "A commitment reads as clear when it has both a real deadline (not a placeholder date) and an agreed definition of what done looks like.",
   },
-  successMeasure: {
-    label: "Success Measure",
+  outcome: {
+    label: "Outcome",
     definition:
-      "A measurable outcome the seat is accountable for delivering. Each Success Measure has one or more metrics with a target and a weekly value.",
+      "A result the seat is accountable for delivering. Each Outcome has one or more Key Success Measures that show whether it's being delivered.",
+  },
+  keySuccessMeasure: {
+    label: "Key Success Measure",
+    definition:
+      "A metric with a target and a weekly value that tells you whether the parent Outcome is being delivered. Sometimes shortened to KSM.",
   },
 };
 

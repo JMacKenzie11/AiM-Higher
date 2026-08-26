@@ -48,9 +48,9 @@ export function computeReadiness(detail: Detail): ReadinessResult {
     },
     {
       key: "outcomes",
-      title: "Success Measures",
+      title: "Outcomes",
       description:
-        "Three measurable outcomes, each with at least one metric.",
+        "Three outcomes, each with at least one key success measure.",
       ready: outcomeCount >= 3 && outcomesAllHaveMetrics,
       href: "#measures",
     },
