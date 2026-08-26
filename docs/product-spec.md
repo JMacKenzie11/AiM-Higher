@@ -220,11 +220,24 @@ authoring surface is always on.
   filter chips, and Save week button all hide; page becomes a pure
   authoring / read-only surface.
 - **Weekly nudge cron** (Vercel cron, `0 15 * * 6` — Saturday
-  15:00 UTC) — for each `auto_track` measure that missed the
-  current week's value, opens a commitment on the leader's board
-  (description: "Log this week's value for '{measure title}'").
+  15:00 UTC, `src/app/api/cron/performance/route.ts`) — two
+  flavours of auto-commitment, both on the function leader, both
+  filtered to `auto_track = true`, both deduped by description +
+  week_ending so re-runs are no-ops.
+  - **Missing value** — for each measure with no entry for the
+    just-closed week: opens *"Log this week's value for '{measure}'"*
+    with `due_date = the just-closed Friday` (the leader can log
+    now and mark kept-late).
+  - **Off target** — for each measure whose entry missed the
+    target: opens *"Off target this week: '{measure}' ({value} vs.
+    target ≥ 95%)"* with `due_date = next Friday`, so the leader
+    has the upcoming week to act on it rather than face a
+    same-day-due commitment.
   Timing is intentionally UTC-fixed so a single cron run covers
-  every tenant regardless of company timezone.
+  every tenant regardless of company timezone. Off-target
+  comparison mirrors the client-side `compareCellToTarget` in
+  `MeasuresManager` (duplicated in the cron so the server path
+  doesn't cross a `"use client"` boundary).
 - **AI target-quality check** — on measure creation, a background
   Anthropic Haiku call (`src/lib/measures/target-check.ts`, model
   `ANTHROPIC_CLARITY_MODEL`) validates that the target is specific

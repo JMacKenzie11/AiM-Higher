@@ -114,9 +114,18 @@ otherwise). With Success Tracking off, target is optional.
 
 **What if I miss a week?** With Success Tracking on, missing a
 week's update on an `auto_track` measure triggers an auto-commitment
-on Saturday reminding the leader to log it. Turn *auto-track* off
-in the measure's Edit form if it's context (like headcount) rather
-than a target to hit.
+on Saturday reminding the leader to log it. Due end of the same
+week so it can be closed as soon as the value's in. Turn *auto-track*
+off in the measure's Edit form if it's context (like headcount)
+rather than a target to hit.
+
+**What if a value is below target?** Same Saturday cron opens a
+second flavour of auto-commitment on the leader: *"Off target
+this week: [measure] (value vs. target)."* Due the following
+Friday, so the leader has the upcoming week to look at what
+happened and act on it. Same `auto_track` filter — context
+measures don't fire. If the value corrects itself before Saturday
+the commitment doesn't get created.
 
 **Why can't I hard-delete an outcome or measure?** Both only
 archive from the UI, so past-quarter weekly entries stay intact.

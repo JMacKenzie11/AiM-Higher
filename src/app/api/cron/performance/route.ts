@@ -2,22 +2,27 @@ import "server-only";
 
 import { NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { fridayOf, thisFriday } from "@/lib/dates";
+import { addDays, fridayOf, thisFriday } from "@/lib/dates";
+import type { MetricValueType, TargetDirection } from "@/lib/types";
 
-// Weekly nudge: for every company that has performance_tracking on,
-// check each active auto_track success measure for a value in the
-// current week. If one is missing, create an open commitment on the
-// function's leader (or unassigned if the seat is empty) so the
-// operator sees "log this" as a task next time they open Commitments.
+// Weekly Saturday cron for companies on `performance_tracking`.
+// Two nudges land on the function leader's Functional Commitments
+// board:
 //
-// Only fires on missed updates — not on off-target values. The
-// "below target" story lives in the dashboard cards, not in a
-// commitment. See docs/help/measures.md for the design rationale.
+//   1. "Log this week's value for X" — the measure has no entry
+//      for the just-closed week. Same-week due date (the leader can
+//      log now and mark kept-late).
+//   2. "Off target this week: X (value vs. target Y)" — the measure
+//      has an entry that missed the target. Due NEXT Friday, so the
+//      leader has the upcoming week to think through and act on it.
 //
-// Dedupe: for each (measure, week) pair, we look for an existing
-// commitment whose description starts with the same "Update … week
-// ending Y-MM-DD" pattern before inserting. Re-running the cron in
-// the same week is a no-op.
+// Both nudges only fire for `auto_track = true` measures. Context
+// measures (headcount, etc.) opt out via auto_track = false.
+//
+// Dedupe: for each (measure, week) pair, both flavours check for
+// an existing commitment whose description matches the pattern
+// before inserting. Re-running the cron in the same week is a
+// no-op.
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -52,12 +57,20 @@ export async function POST(req: NextRequest): Promise<Response> {
   });
 
   let totalCreated = 0;
-  const perCompany: Array<{ companyId: string; created: number }> = [];
+  const perCompany: Array<{
+    companyId: string;
+    createdMissing: number;
+    createdOffTarget: number;
+  }> = [];
 
   for (const company of companies) {
-    const created = await runForCompany(admin, company.id, company.timezone);
-    totalCreated += created;
-    perCompany.push({ companyId: company.id, created });
+    const result = await runForCompany(admin, company.id, company.timezone);
+    totalCreated += result.createdMissing + result.createdOffTarget;
+    perCompany.push({
+      companyId: company.id,
+      createdMissing: result.createdMissing,
+      createdOffTarget: result.createdOffTarget,
+    });
   }
 
   return Response.json({ totalCreated, perCompany });
@@ -69,11 +82,11 @@ async function runForCompany(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   companyId: string,
   timezone: string
-): Promise<number> {
+): Promise<{ createdMissing: number; createdOffTarget: number }> {
   const weekEnding = thisFriday(timezone);
+  const cutoffFriday = fridayOf(weekEnding);
+  const nextFriday = addDays(cutoffFriday, 7);
 
-  // Every auto_track measure in the company, with the parent
-  // function so we know the seat holder.
   const { data: fnRows } = await admin
     .from("functions")
     .select("id, title, leader_id")
@@ -84,7 +97,9 @@ async function runForCompany(
     title: string;
     leader_id: string | null;
   }>;
-  if (functions.length === 0) return 0;
+  if (functions.length === 0) {
+    return { createdMissing: 0, createdOffTarget: 0 };
+  }
   const fnById = new Map(functions.map((f) => [f.id, f]));
 
   const { data: outcomeRows } = await admin
@@ -98,12 +113,16 @@ async function runForCompany(
     id: string;
     function_id: string;
   }>;
-  if (outcomes.length === 0) return 0;
+  if (outcomes.length === 0) {
+    return { createdMissing: 0, createdOffTarget: 0 };
+  }
   const fnIdByOutcome = new Map(outcomes.map((o) => [o.id, o.function_id]));
 
   const { data: measureRows } = await admin
     .from("success_measures")
-    .select("id, description, outcome_id, auto_track, archived")
+    .select(
+      "id, description, outcome_id, target, value_type, target_direction, auto_track, archived"
+    )
     .in(
       "outcome_id",
       outcomes.map((o) => o.id)
@@ -114,37 +133,72 @@ async function runForCompany(
     id: string;
     description: string;
     outcome_id: string;
+    target: string | null;
+    value_type: MetricValueType;
+    target_direction: TargetDirection;
   }>;
-  if (measures.length === 0) return 0;
+  if (measures.length === 0) {
+    return { createdMissing: 0, createdOffTarget: 0 };
+  }
 
-  // Existing entries for the week — one query, then filter.
+  // Entries for the just-closed week (missing + values in one query).
   const { data: entryRows } = await admin
     .from("success_measure_entries")
-    .select("measure_id")
+    .select("measure_id, value_number, value_text")
     .in(
       "measure_id",
       measures.map((m) => m.id)
     )
     .eq("week_ending", weekEnding);
-  const loggedIds = new Set(
-    ((entryRows ?? []) as Array<{ measure_id: string }>).map((e) => e.measure_id)
+  const entryByMeasure = new Map(
+    ((entryRows ?? []) as Array<{
+      measure_id: string;
+      value_number: number | null;
+      value_text: string | null;
+    }>).map((e) => [e.measure_id, e])
   );
 
-  const missing = measures.filter((m) => !loggedIds.has(m.id));
-  if (missing.length === 0) return 0;
+  // Split into two buckets: missing entries vs. off-target entries.
+  // A measure with no target can be missing (log-this fires) but
+  // can't be off-target — so it never enters the off bucket.
+  const missing: typeof measures = [];
+  const offTarget: Array<{
+    measure: (typeof measures)[number];
+    displayValue: string;
+    displayTarget: string;
+  }> = [];
+  for (const m of measures) {
+    const entry = entryByMeasure.get(m.id);
+    if (!entry) {
+      missing.push(m);
+      continue;
+    }
+    if (!m.target) continue;
+    if (isOffTarget(m, entry.value_number, entry.value_text)) {
+      offTarget.push({
+        measure: m,
+        displayValue: formatValue(m.value_type, entry.value_number, entry.value_text),
+        displayTarget: formatTarget(m.target, m.value_type, m.target_direction),
+      });
+    }
+  }
 
-  // Existing commitments for the week that match our pattern —
-  // one query for dedupe.
-  const cutoffFriday = fridayOf(weekEnding);
+  if (missing.length === 0 && offTarget.length === 0) {
+    return { createdMissing: 0, createdOffTarget: 0 };
+  }
+
+  // Dedupe pool covers both weeks the cron writes to — the just-
+  // closed Friday (missing) and next Friday (off-target).
   const { data: existingRows } = await admin
     .from("commitments")
-    .select("description")
+    .select("description, week_ending")
     .eq("company_id", companyId)
-    .eq("week_ending", cutoffFriday);
-  const existingDescriptions = new Set(
-    ((existingRows ?? []) as Array<{ description: string }>).map(
-      (r) => r.description
-    )
+    .in("week_ending", [cutoffFriday, nextFriday]);
+  const existingKeys = new Set(
+    ((existingRows ?? []) as Array<{
+      description: string;
+      week_ending: string;
+    }>).map((r) => `${r.week_ending}::${r.description}`)
   );
 
   const rowsToInsert: Array<{
@@ -157,12 +211,14 @@ async function runForCompany(
     status: "open";
     source_meeting_id: null;
   }> = [];
+  let plannedMissing = 0;
+  let plannedOffTarget = 0;
 
   for (const m of missing) {
     const fnId = fnIdByOutcome.get(m.outcome_id);
     const fn = fnId ? fnById.get(fnId) : null;
     const description = `Log this week's value for "${m.description}"`;
-    if (existingDescriptions.has(description)) continue;
+    if (existingKeys.has(`${cutoffFriday}::${description}`)) continue;
     rowsToInsert.push({
       company_id: companyId,
       priority_id: null,
@@ -173,13 +229,108 @@ async function runForCompany(
       status: "open",
       source_meeting_id: null,
     });
+    plannedMissing += 1;
   }
 
-  if (rowsToInsert.length === 0) return 0;
+  for (const item of offTarget) {
+    const { measure: m, displayValue, displayTarget } = item;
+    const fnId = fnIdByOutcome.get(m.outcome_id);
+    const fn = fnId ? fnById.get(fnId) : null;
+    const description = `Off target this week: "${m.description}" (${displayValue} vs. target ${displayTarget})`;
+    if (existingKeys.has(`${nextFriday}::${description}`)) continue;
+    rowsToInsert.push({
+      company_id: companyId,
+      priority_id: null,
+      owner_id: fn?.leader_id ?? null,
+      description,
+      week_ending: nextFriday,
+      due_date: nextFriday,
+      status: "open",
+      source_meeting_id: null,
+    });
+    plannedOffTarget += 1;
+  }
+
+  if (rowsToInsert.length === 0) {
+    return { createdMissing: 0, createdOffTarget: 0 };
+  }
 
   const { data: inserted } = await admin
     .from("commitments")
     .insert(rowsToInsert)
     .select("id");
-  return (inserted ?? []).length;
+  const totalInserted = (inserted ?? []).length;
+  // If the insert partially failed we can't easily split the count
+  // by bucket, so treat the split as best-effort (matches the pre-
+  // 2026-08 behaviour where the log-this nudge just returned the
+  // insert count).
+  if (totalInserted === plannedMissing + plannedOffTarget) {
+    return {
+      createdMissing: plannedMissing,
+      createdOffTarget: plannedOffTarget,
+    };
+  }
+  return { createdMissing: totalInserted, createdOffTarget: 0 };
+}
+
+// ---- Off-target comparison + display helpers --------------------
+// Mirrors the client-side compareCellToTarget in MeasuresManager so
+// server-side nudges and the manager's status colouring stay in
+// sync. Duplicated deliberately: the client module carries "use
+// client" boundaries the cron shouldn't cross.
+
+function isOffTarget(
+  measure: {
+    value_type: MetricValueType;
+    target: string | null;
+    target_direction: TargetDirection;
+  },
+  n: number | null,
+  t: string | null
+): boolean {
+  if (!measure.target) return false;
+  if (measure.value_type === "text") {
+    const left = (t ?? "").trim().toLowerCase();
+    const right = measure.target.trim().toLowerCase();
+    if (!left) return false; // treated as unlogged, not off
+    return left !== right;
+  }
+  if (n == null || !Number.isFinite(n)) return false;
+  const target = parseTargetNumber(measure.target);
+  if (target == null) return false;
+  const hit =
+    measure.target_direction === "lower_is_better" ? n <= target : n >= target;
+  return !hit;
+}
+
+function parseTargetNumber(target: string | null): number | null {
+  if (!target) return null;
+  const cleaned = target.replace(/[^0-9.\-]/g, "");
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatValue(
+  valueType: MetricValueType,
+  n: number | null,
+  t: string | null
+): string {
+  if (valueType === "text") return (t ?? "").trim();
+  if (n == null || !Number.isFinite(n)) return "";
+  if (valueType === "percent") return `${n}%`;
+  return String(n);
+}
+
+function formatTarget(
+  target: string,
+  valueType: MetricValueType,
+  direction: TargetDirection
+): string {
+  const symbol = direction === "lower_is_better" ? "≤ " : "≥ ";
+  // Percent value_type gets the % suffix if the target text doesn't
+  // already carry one, so "95" reads as "95%" in the description.
+  const withUnit =
+    valueType === "percent" && !target.includes("%") ? `${target}%` : target;
+  return `${symbol}${withUnit}`;
 }
