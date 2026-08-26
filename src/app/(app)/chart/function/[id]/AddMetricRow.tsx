@@ -8,7 +8,11 @@ import {
 import { critiqueMeasureDraftAction } from "@/lib/measures/actions";
 import { ruleBasedCritique } from "@/lib/measures/critique-rules";
 import type { MeasureCritique } from "@/lib/measures/critique-rules";
-import type { MetricValueType, SuccessMeasure } from "@/lib/types";
+import type {
+  MetricValueType,
+  SuccessMeasure,
+  TargetDirection,
+} from "@/lib/types";
 import { SuggestOptionsPopover } from "./SuggestOptionsPopover";
 import styles from "../../chart.module.css";
 
@@ -69,6 +73,8 @@ export function AddMetricRow({
   const [description, setDescription] = useState("");
   const [target, setTarget] = useState("");
   const [valueType, setValueType] = useState<MetricValueType>("number");
+  const [direction, setDirection] =
+    useState<TargetDirection>("higher_is_better");
   const [aiCritique, setAiCritique] = useState<MeasureCritique | null>(null);
   const [critiqueLoading, setCritiqueLoading] = useState(false);
   const lastCritiquedKey = useRef<string | null>(null);
@@ -105,6 +111,7 @@ export function AddMetricRow({
       setDescription("");
       setTarget("");
       setValueType("number");
+      setDirection("higher_is_better");
       setAiCritique(null);
       lastCritiquedKey.current = null;
       if (onAdded) {
@@ -123,7 +130,7 @@ export function AddMetricRow({
     if (!trackingEnabled) return;
     const d = description.trim();
     if (d.length < 4) return; // too short to critique usefully
-    const key = `${valueType}|${d}|${target.trim()}`;
+    const key = `${valueType}|${direction}|${d}|${target.trim()}`;
     if (lastCritiquedKey.current === key) return;
     lastCritiquedKey.current = key;
     setCritiqueLoading(true);
@@ -132,7 +139,7 @@ export function AddMetricRow({
         description: d,
         target: target.trim(),
         valueType,
-        direction: "higher_is_better",
+        direction,
         outcomeTitle,
         outcomeDescription,
       });
@@ -146,11 +153,11 @@ export function AddMetricRow({
   // last critiqued version — otherwise a stale hint sits under a
   // description the user has since fixed.
   useEffect(() => {
-    const key = `${valueType}|${description.trim()}|${target.trim()}`;
+    const key = `${valueType}|${direction}|${description.trim()}|${target.trim()}`;
     if (lastCritiquedKey.current && lastCritiquedKey.current !== key) {
       setAiCritique(null);
     }
-  }, [description, target, valueType]);
+  }, [description, target, valueType, direction]);
 
   const hasAnyHint =
     !!shownHints.descriptionHint ||
@@ -165,7 +172,7 @@ export function AddMetricRow({
       </p>
       <form action={formAction} className={styles.addMetricRow}>
         <input type="hidden" name="outcome_id" value={outcomeId} />
-        <input type="hidden" name="target_direction" value="higher_is_better" />
+        <input type="hidden" name="target_direction" value={direction} />
         <input type="hidden" name="auto_track" value="on" />
 
         <input
@@ -225,6 +232,22 @@ export function AddMetricRow({
             </option>
           ))}
         </select>
+
+        {trackingEnabled ? (
+          <select
+            value={direction}
+            onChange={(e) =>
+              setDirection(e.target.value as TargetDirection)
+            }
+            onBlur={runAiCritique}
+            className={styles.addMetricType}
+            disabled={pending}
+            aria-label="Direction"
+          >
+            <option value="higher_is_better">Higher is better</option>
+            <option value="lower_is_better">Lower is better</option>
+          </select>
+        ) : null}
 
         {/* Enter submits the form from any field — no visible Add
             button, consistent with the other draft rows on this
