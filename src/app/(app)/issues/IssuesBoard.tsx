@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -52,6 +52,21 @@ export function IssuesBoard({
   const [order, setOrder] = useState(issues);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // Resync the local order whenever the server hands us a new
+  // issues array. Without this, useState(issues) only takes the
+  // FIRST prop value; a newly-created issue arrives via
+  // revalidatePath but the board stays showing the stale (empty)
+  // list. Compare by the id sequence so drag-reorders don't trigger
+  // a re-sync mid-drag from an incidental parent re-render.
+  useEffect(() => {
+    const localIds = order.map((i) => i.id).join(",");
+    const serverIds = issues.map((i) => i.id).join(",");
+    if (localIds !== serverIds) {
+      setOrder(issues);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issues]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),

@@ -84,11 +84,17 @@ export default async function IssuesPage() {
       title="Issues/Solutions"
       subtitle="Name it, decide what you want, and commit to the next step."
     >
-      <section className={shellStyles.card}>
+      <section className={shellStyles.card} aria-labelledby="issues-add">
+        <h2 id="issues-add" className={shellStyles.h2}>
+          Add an issue
+        </h2>
         <CreateIssueRow />
       </section>
 
-      <section className={shellStyles.card}>
+      <section className={shellStyles.card} aria-labelledby="issues-open">
+        <h2 id="issues-open" className={shellStyles.h2}>
+          Open issues
+        </h2>
         <IssuesBoard
           issues={data.open}
           roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
@@ -102,7 +108,13 @@ export default async function IssuesPage() {
       </section>
 
       {data.resolved.length > 0 ? (
-        <section className={shellStyles.card}>
+        <section
+          className={shellStyles.card}
+          aria-labelledby="issues-resolved"
+        >
+          <h2 id="issues-resolved" className={shellStyles.h2}>
+            Resolved issues
+          </h2>
           <ResolvedIssuesList items={data.resolved} />
         </section>
       ) : null}
