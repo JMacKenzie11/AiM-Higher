@@ -229,12 +229,16 @@
 
 .wantInput {
   width: 100%;
-  padding: 2px var(--space-2);
+  padding: 4px var(--space-2);
   background: var(--surface);
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
   font: var(--text-body-sm);
+  font-family: inherit;
   color: var(--text);
+  resize: vertical;
+  min-height: 4.5em;
+  line-height: 1.35;
 }
 
 .wantInput:focus {
@@ -297,7 +301,11 @@
   border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
   font: var(--text-body-sm);
+  font-family: inherit;
   color: var(--text);
+  resize: vertical;
+  min-height: 4.5em;
+  line-height: 1.35;
 }
 
 .commitmentAddInput:focus {

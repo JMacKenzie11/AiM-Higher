@@ -308,14 +308,14 @@ function DesiredOutcomeEditor({
   if (editing) {
     return (
       <>
-        <input
-          type="text"
+        <textarea
           className={styles.wantInput}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
+          rows={3}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               commit();
             } else if (e.key === "Escape") {
@@ -429,7 +429,7 @@ function IssueCommitmentAddInline({
   const [description, setDescription] = useState("");
   const [ownerId, setOwnerId] = useState<string>(currentUserId);
   const [dueDate, setDueDate] = useState(todayIso);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
 
@@ -453,12 +453,12 @@ function IssueCommitmentAddInline({
         <input type="hidden" name="issue_id" value={issueId} />
         <input type="hidden" name="owner_id" value={ownerId} />
         <input type="hidden" name="due_date" value={dueDate} />
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
           name="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          rows={3}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.preventDefault();
