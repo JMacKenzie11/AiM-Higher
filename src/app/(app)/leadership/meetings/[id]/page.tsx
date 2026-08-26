@@ -10,6 +10,7 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationReview } from "@/components/leadership/FacilitationReview";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { RerunFacilitationButton } from "./RerunFacilitationButton";
+import { ReanalyzeMeetingButton } from "./ReanalyzeMeetingButton";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
 import type {
   ExtractedCommitment,
@@ -333,6 +334,19 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
             style={{ marginTop: "var(--space-6)" }}
           >
             <RerunFacilitationButton meetingId={id} />
+          </section>
+        ) : null}
+
+        {isAdmin ? (
+          <section
+            aria-label="Meeting analysis actions"
+            style={{
+              marginTop: "var(--space-6)",
+              paddingTop: "var(--space-4)",
+              borderTop: "1px solid var(--border)",
+            }}
+          >
+            <ReanalyzeMeetingButton meetingId={id} />
           </section>
         ) : null}
       </div>
