@@ -3,6 +3,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Skip Next.js's in-build `tsc --noEmit` pass. The typecheck is
+  // already a required gate in .github/workflows/checks.yml
+  // (blocks the PR + push to main), so re-running it inside the
+  // Vercel build only doubles the work — and at current codebase
+  // size the type-check phase was OOM-ing the 8GB build box
+  // (SIGKILL after ~11 min of "Linting and checking validity of
+  // types…"). CI is authoritative for type errors; if it passes,
+  // Vercel should trust it.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // prompts/*.md is read at runtime via fs.readFile in the transcript
   // analyzer. Next.js file tracing can't see that dependency, so on
   // Vercel the file is missing from /var/task and analysis fails with
