@@ -122,7 +122,7 @@ export function IssueCard({
 
       {active ? (
         <>
-          <div className={styles.cellCommitment}>
+          <div className={styles.cellClarity}>
             <ClarityChip
               state={clarityState(active)}
               onClick={
@@ -131,21 +131,25 @@ export function IssueCard({
                   : undefined
               }
             />
-            <span className={styles.commitmentText}>{active.description}</span>
           </div>
+          <div className={styles.cellCommitment}>{active.description}</div>
           <div className={styles.cellOwner}>{activeOwner ?? "Unassigned"}</div>
           <div className={styles.cellDue}>{active.due_date}</div>
         </>
       ) : canEdit ? (
-        <IssueCommitmentAddInline
-          issueId={issue.id}
-          roster={roster}
-          currentUserId={currentUserId}
-          isAdmin={isAdmin}
-          todayIso={todayIso}
-        />
+        <>
+          <span aria-hidden className={styles.cellClarity} />
+          <IssueCommitmentAddInline
+            issueId={issue.id}
+            roster={roster}
+            currentUserId={currentUserId}
+            isAdmin={isAdmin}
+            todayIso={todayIso}
+          />
+        </>
       ) : (
         <>
+          <span aria-hidden className={styles.cellClarity} />
           <div className={`${styles.cellCommitment} ${styles.cellMuted}`}>
             No commitment yet.
           </div>

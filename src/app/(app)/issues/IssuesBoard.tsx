@@ -111,6 +111,7 @@ export function IssuesBoard({
         <span aria-hidden />
         <span>Issue</span>
         <span>What we want</span>
+        <span aria-hidden />
         <span>Commitment</span>
         <span>Assigned to</span>
         <span>Due date</span>

@@ -34,14 +34,19 @@
 /* ---- Column header row --------------------------------------- */
 .columnHeader {
   display: grid;
+  /* drag | issue | what we want | clarity dot | commitment
+     | assigned to | due date | resolve. Clarity gets its own
+     narrow column (mirroring /commitments) so the dot never
+     pushes the commitment text off-axis from the header. */
   grid-template-columns:
     20px
     minmax(0, 1.2fr)
     minmax(0, 1.5fr)
+    20px
     minmax(0, 1.8fr)
     minmax(120px, 0.8fr)
     minmax(110px, 0.6fr)
-    auto;
+    74px;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
@@ -73,14 +78,19 @@
 /* ---- One issue = one row (matches .columnHeader grid) ------- */
 .issueRow {
   display: grid;
+  /* drag | issue | what we want | clarity dot | commitment
+     | assigned to | due date | resolve. Clarity gets its own
+     narrow column (mirroring /commitments) so the dot never
+     pushes the commitment text off-axis from the header. */
   grid-template-columns:
     20px
     minmax(0, 1.2fr)
     minmax(0, 1.5fr)
+    20px
     minmax(0, 1.8fr)
     minmax(120px, 0.8fr)
     minmax(110px, 0.6fr)
-    auto;
+    74px;
   /* Top-align each cell so a 3-line "what we want" or commitment
      doesn't push the shorter cells to the middle of the row —
      reads more like a data table that way. */
@@ -232,20 +242,21 @@
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
+/* Column: Clarity dot (matches /commitments — its own narrow
+   column so the description column stays visually aligned with
+   the COMMITMENT header). */
+.cellClarity {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 2px;
+}
+
 /* Columns: Commitment / Owner / Due */
 .cellCommitment {
   min-width: 0;
   font: var(--text-body-sm);
   color: var(--text);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
-/* Description sits next to the clarity dot; both live in the same
-   flex row so the dot doesn't push the text onto its own line. */
-.commitmentText {
-  min-width: 0;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
