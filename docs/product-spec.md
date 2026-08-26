@@ -32,7 +32,7 @@ Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coac
 | Flag | Turns on |
 | --- | --- |
 | `execution` | Core: commitments, plan cascade, chart, coaching, dashboard |
-| `performance_tracking` (labelled **Success Tracking**) | Requires targets on every key success measure; turns on the tracking columns (recent pills, this-week input, status dot, filter chips) on `/measures`; enables the Board view; enables the Saturday "log this week" nudge cron, the AI target-quality check on measure creation, the AI measure-draft critique panel, and the four generative dashboard insight cards. When off, `/measures` collapses to a pure authoring surface |
+| `performance_tracking` (labelled **Success Tracking**) | Requires targets on every key success measure; turns on the tracking columns (recent pills, this-week input, status dot, filter chips) on `/measures`; enables the Board view; enables the AI target-quality check on measure creation, the AI measure-draft critique panel, and the four generative dashboard insight cards. When off, `/measures` collapses to a pure authoring surface. **Note (2026-08-27):** the Saturday nudge cron is currently disabled at the Vercel level — flag still gates all the surface behaviour above, just doesn't fire the auto-commitment |
 | `meeting_facilitation_review` | Second LLM pass on every ingested meeting scoring how the meeting was run against the AiMS Weekly Leadership Meeting framework; renders as a coaching-tone panel on the meeting detail page + a signal chip on the Leadership list |
 | `automated_commitment_tracking` (default ON at create) | Auto-create commitments extracted from meeting transcripts as rows on `/commitments`. When OFF, the analyzer + facilitation review still run but the team authors commitments manually — extractions surface only in the meeting analysis, not on the Commitments board |
 | `classroom` | Adds the shared training library (top-level nav item, consumer surfaces at `/classroom`) + a `search_classroom` tool for the coach + Ask Aimee |
@@ -182,7 +182,21 @@ The functional org chart at `/chart` (nav label: **Functional Org Chart**). Dist
 
 ## 10. Key Success Measures (`/measures`)
 
-Nav label **Key Success Measures** (under *Workspace*, directly
+> **Status (as of 2026-08-27): paused pending rethink.** The primary-
+> rail nav entry was pulled from Sidebar + NavBand and the
+> `/api/cron/performance` Vercel cron was removed from `vercel.json`,
+> so no more auto-commitments (log-this or off-target) get created
+> for any tenant. The route, `MeasuresManager` component tree,
+> `getMeasuresTree` service, cron route handler, chart function
+> page's summary link, and all authoring server actions remain
+> live — the surface still works if you type `/measures` directly
+> or click the summary link from a function page. To relaunch:
+> add the nav item back to Sidebar + NavBand (label "Key Success
+> Measures", href `/measures`, icon `measure`, feature
+> `performance_tracking`) and restore the vercel cron entry
+> (`{ "path": "/api/cron/performance", "schedule": "0 15 * * 6" }`).
+
+Nav label was **Key Success Measures** (under *Workspace*, directly
 below Functional Org Chart). One surface for both authoring the
 outcome / measure tree and logging weekly values. Whether the
 tracking columns render is gated by `performance_tracking`; the
@@ -219,11 +233,13 @@ authoring surface is always on.
 - **Entitlement-off variant** — tracking columns, Recent pills,
   filter chips, and Save week button all hide; page becomes a pure
   authoring / read-only surface.
-- **Weekly nudge cron** (Vercel cron, `0 15 * * 6` — Saturday
-  15:00 UTC, `src/app/api/cron/performance/route.ts`) — two
-  flavours of auto-commitment, both on the function leader, both
+- **Weekly nudge cron** (paused 2026-08-27 — Vercel cron entry
+  removed from `vercel.json` pending rethink. Handler stays at
+  `src/app/api/cron/performance/route.ts`; restoring the schedule
+  reactivates without code changes). Design when active: two
+  flavours of auto-commitment on the function leader, both
   filtered to `auto_track = true`, both deduped by description +
-  week_ending so re-runs are no-ops.
+  week_ending. Ran on Saturday 15:00 UTC.
   - **Missing value** — for each measure with no entry for the
     just-closed week: opens *"Log this week's value for '{measure}'"*
     with `due_date = the just-closed Friday` (the leader can log
@@ -396,7 +412,7 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
 
 ## 18. Cross-cutting UX System
 
-- **Left Sidebar** (`components/sidebar/Sidebar.tsx`) — fixed rail at 260px expanded, 68px collapsed (icons-only). Collapse state persists in an HTTP-only cookie (`nav-collapsed`) read server-side by the app layout so first paint matches the user's preference (no post-hydration jump). Nav items grouped as flat section headers rather than dropdowns — one click to any surface. Group set is role-dependent: cross-tenant roles (`system_admin`, `aims_guide`) see **Guide HQ** at the top (Overview → `/hq`, Companies → `/admin/companies`, Week in Review → `/dashboard`) followed by **Workspace** (AiMS Implementation, One-Page Plan, Team, Functional Org Chart, Key Success Measures, Goals & Priorities, Functional Commitments, Meeting Summaries), then **Resources**, then **Strengths**. Company users (`company_admin`, `team_member`) get **Week in Review** prepended as a top-level link (their daily entry point stays one click) and skip Guide HQ. Inline SVG icons per item; hover slides a chartreuse left-accent bar in with a subtle white-tint bg + icon color shift on a single 200ms `--ease-out` curve. Active item keeps the accent bar and a slightly stronger bg. Context pill under the logo reads "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") when a cross-tenant role is scoped in. Footer holds the notification bell (opens upward via `placement="up"` on `NotificationBell` so the tray doesn't fall off the bottom of the screen) and the user pill (opens a popover upward with Profile / Exit company / Sign out). Below 768px the rail slides off-canvas and a hamburger in a slim top strip opens it as a drawer with a backdrop scrim. `NavBand.tsx` is retained in-tree for revert parity but no longer rendered; the notification tray's placement variant lives with the bell for reuse.
+- **Left Sidebar** (`components/sidebar/Sidebar.tsx`) — fixed rail at 260px expanded, 68px collapsed (icons-only). Collapse state persists in an HTTP-only cookie (`nav-collapsed`) read server-side by the app layout so first paint matches the user's preference (no post-hydration jump). Nav items grouped as flat section headers rather than dropdowns — one click to any surface. Group set is role-dependent: cross-tenant roles (`system_admin`, `aims_guide`) see **Guide HQ** at the top (Overview → `/hq`, Companies → `/admin/companies`, Week in Review → `/dashboard`) followed by **Workspace** (AiMS Implementation, One-Page Plan, Team, Functional Org Chart, Goals & Priorities, Functional Commitments, Meeting Summaries) — Key Success Measures was pulled from this group on 2026-08-27 pending rethink; see Section 10, then **Resources**, then **Strengths**. Company users (`company_admin`, `team_member`) get **Week in Review** prepended as a top-level link (their daily entry point stays one click) and skip Guide HQ. Inline SVG icons per item; hover slides a chartreuse left-accent bar in with a subtle white-tint bg + icon color shift on a single 200ms `--ease-out` curve. Active item keeps the accent bar and a slightly stronger bg. Context pill under the logo reads "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") when a cross-tenant role is scoped in. Footer holds the notification bell (opens upward via `placement="up"` on `NotificationBell` so the tray doesn't fall off the bottom of the screen) and the user pill (opens a popover upward with Profile / Exit company / Sign out). Below 768px the rail slides off-canvas and a hamburger in a slim top strip opens it as a drawer with a backdrop scrim. `NavBand.tsx` is retained in-tree for revert parity but no longer rendered; the notification tray's placement variant lives with the bell for reuse.
 - **ConfirmDialog** (`components/ui/ConfirmDialog.tsx`) — branded replacement for native `window.confirm()`. Auto-focuses Cancel so a stray Enter can't fire destruction; Escape cancels; overlay click cancels; danger vs primary tone. Used everywhere destructive actions land — no `confirm()` or `alert()` remains in user-visible code paths.
 - **PrivacyNote** (`components/ui/PrivacyNote.tsx`) — small, subtle line telling the user who can see the surrounding content. Three tones (private / managerial / shared). Placed on coaching surfaces, meeting analyses, and the personal scorecard.
 - **Undo affordance on commitment resolves** — 6-second inline chip that reverses the state without needing to hunt for a reopen gesture.
