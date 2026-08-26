@@ -11,7 +11,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { IssuesBoard } from "./IssuesBoard";
 import { CreateIssueRow } from "./CreateIssueRow";
 import { ResolvedIssuesList } from "./ResolvedIssuesList";
-import styles from "./issues.module.css";
+import shellStyles from "../admin/companies/admin.module.css";
 
 // Issues/Solutions — the Solution Seeking discipline. Name the
 // issue, decide what you want, and commit to the next step. Ranks
@@ -84,9 +84,11 @@ export default async function IssuesPage() {
       title="Issues/Solutions"
       subtitle="Name it, decide what you want, and commit to the next step."
     >
-      <div className={styles.stage}>
+      <section className={shellStyles.card}>
         <CreateIssueRow />
+      </section>
 
+      <section className={shellStyles.card}>
         <IssuesBoard
           issues={data.open}
           roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
@@ -97,11 +99,13 @@ export default async function IssuesPage() {
           currentUserCompanyId={session.profile.company_id}
           isAdmin={isAdmin}
         />
+      </section>
 
-        {data.resolved.length > 0 ? (
+      {data.resolved.length > 0 ? (
+        <section className={shellStyles.card}>
           <ResolvedIssuesList items={data.resolved} />
-        ) : null}
-      </div>
+        </section>
+      ) : null}
     </PageShell>
   );
 }
