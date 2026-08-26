@@ -224,15 +224,19 @@ export async function reorderIssuesAction(
     return { ok: false, message: "You can't reorder issues here." };
   }
 
-  // Batch update — one row at a time to keep the API surface
-  // simple. Rank starts at 0 and increments; this rewrites the
-  // whole list so gaps from resolves are collapsed too.
-  for (let i = 0; i < orderedIds.length; i += 1) {
-    const id = orderedIds[i]!;
-    const { error } = await supabase
-      .from("issues")
-      .update({ rank: i })
-      .eq("id", id);
+  // Fire every rank rewrite in parallel — the previous serial
+  // for-loop blocked the drag persist on N round-trips (~50-100ms
+  // each). Rank writes on different rows are independent, so
+  // Promise.all lets the connection pool absorb them concurrently.
+  // Each row still goes through RLS on its own; a batch upsert
+  // would need an RPC to avoid the NOT NULL columns issue and the
+  // parallel path is enough at v1 volumes.
+  const results = await Promise.all(
+    orderedIds.map((id, i) =>
+      supabase.from("issues").update({ rank: i }).eq("id", id)
+    )
+  );
+  for (const { error } of results) {
     if (error) {
       return { ok: false, message: "Couldn't save the new order." };
     }
