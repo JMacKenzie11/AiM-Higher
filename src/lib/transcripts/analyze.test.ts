@@ -225,6 +225,20 @@ describe("parseExtractionJson", () => {
       parseExtractionJson('{"commitments":"not an array","issues":42}')
     ).toEqual({ commitments: [], issues: [] });
   });
+
+  it("accepts a bare commitments array as a fallback shape", () => {
+    // Earlier revisions of the extraction prompt returned a bare
+    // array with no wrapping object. If the model regresses to
+    // that shape, keep the commitments rather than silently
+    // dropping the entire extraction — the "reanalyzed and now
+    // everything is empty" regression added this fallback.
+    const raw =
+      '[{"owner_profile_id":null,"description":"do the thing","due_date":null,"priority_id":null}]';
+    const out = parseExtractionJson(raw);
+    expect(out.commitments).toHaveLength(1);
+    expect(out.commitments[0].description).toBe("do the thing");
+    expect(out.issues).toEqual([]);
+  });
 });
 
 describe("validateIssues", () => {
