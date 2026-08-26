@@ -87,6 +87,7 @@ const APP_ITEMS: readonly NavItem[] = [
       // stay in place (chart function page still summary-links into
       // it) but it's off the primary rail.
       { kind: "link", label: "Goals & Priorities", href: "/plan", icon: "calendar" },
+      { kind: "link", label: "Issues/Solutions", href: "/issues", icon: "sparkle" },
       { kind: "link", label: "Functional Commitments", href: "/commitments", icon: "check" },
       {
         kind: "link",

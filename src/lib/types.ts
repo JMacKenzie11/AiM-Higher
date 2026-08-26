@@ -149,9 +149,22 @@ export type Commitment = {
   id: string;
   company_id: string;
   // null = operational (not tied to a strategic priority). Only strategic
-  // commitments feed priority progress; both flavors count identically
-  // toward keep rate.
+  // commitments feed priority progress; every non-issue flavor counts
+  // identically toward keep rate.
+  //
+  // Link taxonomy (unified per migration 0143). A commitment has AT
+  // MOST ONE of priority_id / issue_id / functional_area_id. Zero =
+  // operational; one = strategic (priority), Solution Seeking
+  // (issue), or functional-area work. The DB check constraint
+  // enforces exclusivity; the app surfaces route based on which
+  // link is set. Issue-linked commitments do NOT appear on the
+  // company-wide /commitments page (they live on Issues/Solutions),
+  // but they remain included in every person-scoped surface
+  // (scorecard, Guide HQ my commitments, coaching context,
+  // follow-through math).
   priority_id: string | null;
+  issue_id: string | null;
+  functional_area_id: string | null;
   // null = unassigned. Extraction from meeting transcripts may create
   // a commitment without a matched roster owner; a company_admin
   // reassigns, or a team member claims it for themselves via the
@@ -188,6 +201,31 @@ export type Commitment = {
   // Populated at resolution time; null for open rows.
   resolved_by_role: CommitmentResolverRole | null;
   resolved_by_profile_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// ---- Issues / Solution Seeking (migration 0143) ----------------
+// A named problem, tension, or unresolved question. Carries a
+// desired_outcome ("what we want") and hosts issue-linked
+// commitments (the "way / who-by-when"). Ranks manually within
+// its company; rank order is shared across users, not per-user.
+// Resolves; never hard-deletes. Historical open commitments stay
+// live when the parent issue resolves.
+export type IssueStatus = "open" | "resolved";
+
+export type Issue = {
+  id: string;
+  company_id: string;
+  title: string;
+  desired_outcome: string | null;
+  status: IssueStatus;
+  rank: number;
+  // Set when the issue was created via the meeting-summary
+  // "Add to open issues" action. Null for hand-entered issues.
+  source_meeting_id: string | null;
+  resolved_at: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 };

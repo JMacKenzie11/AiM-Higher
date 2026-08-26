@@ -334,12 +334,20 @@ export async function getCommitmentsPageData(
   // Filter out soft-deleted and parked rows in every query — they
   // don't belong in any list, count, or metric on this page. Parked
   // rows come back through their own dedicated query below.
+  //
+  // Issue-linked commitments (issue_id set) are EXCLUDED from this
+  // page regardless of owner-filter state. They live on the
+  // Issues/Solutions page and only render there for company-level
+  // views; personal surfaces (Guide HQ my commitments, scorecard,
+  // coaching context, follow-through math) continue to include them
+  // because those loaders don't touch this file.
   const { data: rawRows } = await supabase
     .from("commitments")
     .select("*")
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .is("parked_at", null)
+    .is("issue_id", null)
     .gte("week_ending", windowStart)
     .lte("week_ending", windowEnd)
     .order("due_date", { ascending: true });
@@ -358,6 +366,7 @@ export async function getCommitmentsPageData(
     .eq("status", "open")
     .is("deleted_at", null)
     .is("parked_at", null)
+    .is("issue_id", null)
     .lt("week_ending", windowStart)
     .gte("week_ending", strandedFloor);
 
@@ -368,6 +377,7 @@ export async function getCommitmentsPageData(
     .select("*")
     .eq("company_id", companyId)
     .is("deleted_at", null)
+    .is("issue_id", null)
     .not("parked_at", "is", null)
     .order("parked_at", { ascending: false });
 

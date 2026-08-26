@@ -109,6 +109,7 @@ const APP_ITEMS: readonly NavItem[] = [
       // rethink. Route + page stay live; only the primary rail entry
       // is hidden. Mirrors the Sidebar decision.
       { kind: "link", label: "Goals & Priorities", href: "/plan" },
+      { kind: "link", label: "Issues/Solutions", href: "/issues" },
       { kind: "link", label: "Functional Commitments", href: "/commitments" },
       // Meeting Summaries (route stays /leadership) hosts
       // meeting-transcript analyses; only admins / coaches see it.

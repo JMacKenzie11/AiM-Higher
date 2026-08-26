@@ -121,8 +121,26 @@ export async function createCommitmentAction(
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
 
+  // Link taxonomy (per migration 0143): a commitment may carry AT
+  // MOST ONE of priority_id / issue_id / functional_area_id. The
+  // composer picks one; the DB check constraint is the final gate.
   const priorityIdRaw = String(formData.get("priority_id") ?? "").trim();
   const priorityId = priorityIdRaw === "" ? null : priorityIdRaw;
+  const issueIdRaw = String(formData.get("issue_id") ?? "").trim();
+  const issueId = issueIdRaw === "" ? null : issueIdRaw;
+  const functionalAreaIdRaw = String(
+    formData.get("functional_area_id") ?? ""
+  ).trim();
+  const functionalAreaId =
+    functionalAreaIdRaw === "" ? null : functionalAreaIdRaw;
+  const linkCount =
+    (priorityId ? 1 : 0) + (issueId ? 1 : 0) + (functionalAreaId ? 1 : 0);
+  if (linkCount > 1) {
+    return {
+      ok: false,
+      message: "Pick just one link (priority, issue, or functional area).",
+    };
+  }
   const description = String(formData.get("description") ?? "").trim();
   const weekEndingRaw = String(formData.get("week_ending") ?? "").trim();
   const dueDateRaw = String(formData.get("due_date") ?? "").trim();
@@ -151,6 +169,44 @@ export async function createCommitmentAction(
       return { ok: false, message: "That action isn't accessible." };
     }
     companyId = priority.company_id;
+  } else if (issueId) {
+    // The issue-scoped inline add row on /issues writes here. Derive
+    // company from the issue and check that the caller can edit the
+    // issue itself (creator OR admin OR guide) — the constraint is
+    // that "issue commitments are born in context," so issue edit
+    // rights gate the create.
+    const { data: issue } = await supabase
+      .from("issues")
+      .select("id, company_id, created_by")
+      .eq("id", issueId)
+      .maybeSingle<{
+        id: string;
+        company_id: string;
+        created_by: string | null;
+      }>();
+    if (!issue) {
+      return { ok: false, message: "That issue isn't accessible." };
+    }
+    const canEditIssue =
+      isAdminForCompany(session.profile, issue.company_id) ||
+      issue.created_by === session.profile.id;
+    if (!canEditIssue) {
+      return {
+        ok: false,
+        message: "Only the issue's creator or an admin can add commitments to it.",
+      };
+    }
+    companyId = issue.company_id;
+  } else if (functionalAreaId) {
+    const { data: fn } = await supabase
+      .from("functions")
+      .select("id, company_id")
+      .eq("id", functionalAreaId)
+      .maybeSingle<{ id: string; company_id: string }>();
+    if (!fn) {
+      return { ok: false, message: "That functional area isn't accessible." };
+    }
+    companyId = fn.company_id;
   } else {
     companyId = await getEffectiveCompanyId(session);
     if (!companyId) {
@@ -166,6 +222,8 @@ export async function createCommitmentAction(
     .insert({
       company_id: companyId,
       priority_id: priorityId,
+      issue_id: issueId,
+      functional_area_id: functionalAreaId,
       owner_id: ownerId,
       description,
       week_ending: weekEnding,
@@ -200,11 +258,14 @@ export async function createCommitmentAction(
   }
 
   revalidateCommitmentSurfaces(priorityId);
+  if (issueId) revalidatePath("/issues");
   trackAfter(
     session.profile.id,
     "commitment.created",
     {
       has_priority: Boolean(finalRow.priority_id),
+      has_issue: Boolean(finalRow.issue_id),
+      has_functional_area: Boolean(finalRow.functional_area_id),
       is_ongoing: finalRow.is_ongoing,
       for_self: finalRow.owner_id === session.profile.id,
     },
