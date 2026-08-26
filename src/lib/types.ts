@@ -549,6 +549,15 @@ export type Meeting = {
 
 // Shape of the extraction call's parsed JSON — validated server-side
 // before rows are created.
+// Extracted issue from the transcript. Never auto-created — the
+// meeting summary surfaces each with an "Add to open issues"
+// action that creates an issues row on demand (title only,
+// desired_outcome + commitments left empty for the team to work
+// live). Cap 8 per meeting; titles under 200 characters.
+export type ExtractedIssue = {
+  title: string;
+};
+
 export type ExtractedCommitment = {
   owner_profile_id: string | null;
   description: string;
@@ -582,6 +591,12 @@ export type MeetingAnalysis = {
   meeting_id: string;
   analysis_markdown: string;
   commitments_json: ExtractedCommitment[];
+  // Second array on the extraction pipeline (migration 0144).
+  // Null when the extraction pre-dated the issues rollout OR the
+  // model returned no issues for that meeting. Empty array means
+  // the model ran and emitted zero. Both cases render the same
+  // in the UI (no Issues Identified section).
+  issues_json: ExtractedIssue[] | null;
   // Structured facilitation review (see FacilitationReview in
   // src/lib/leadership/facilitation/types.ts). Null when the
   // meeting_facilitation_review feature is off or the second pass

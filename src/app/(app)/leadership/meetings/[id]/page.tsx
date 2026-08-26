@@ -11,7 +11,24 @@ import { FacilitationReview } from "@/components/leadership/FacilitationReview";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { RerunFacilitationButton } from "./RerunFacilitationButton";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
-import type { Meeting, MeetingAnalysis, Profile } from "@/lib/types";
+import type {
+  ExtractedCommitment,
+  ExtractedIssue,
+  Meeting,
+  MeetingAnalysis,
+  Priority,
+  Profile,
+} from "@/lib/types";
+import { findSimilarOpenItem } from "@/lib/transcripts/similarity";
+import { getCurrentQuarter } from "@/lib/quarters/service";
+import {
+  ExtractedIssuesSection,
+  type ExtractedIssueRow,
+} from "./ExtractedIssuesSection";
+import {
+  ExtractedCommitmentsSection,
+  type ExtractedCommitmentRow,
+} from "./ExtractedCommitmentsSection";
 import styles from "../../../admin/companies/admin.module.css";
 
 // Full meeting analysis + commitments the meeting spawned. Reached
@@ -84,9 +101,28 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     owner_id: string | null;
     due_date: string;
   }>;
+  // Owners referenced by BOTH the created-commitments list and the
+  // extracted-commitments list get fetched in one round-trip.
+  const extractedCommitments =
+    (analysis?.commitments_json ?? []) as ExtractedCommitment[];
+  const extractedIssues = (analysis?.issues_json ?? []) as ExtractedIssue[];
+  // automated_commitment_tracking is an app-level feature flag
+  // (see src/lib/companies/features.ts) not a ModuleFeature, so we
+  // hit company_features directly rather than through
+  // companyHasFeature. Present + true = on.
+  const { data: autoTrackRow } = await supabase
+    .from("company_features")
+    .select("feature")
+    .eq("company_id", meeting.company_id)
+    .eq("feature", "automated_commitment_tracking")
+    .maybeSingle<{ feature: string }>();
+  const autoTrackOn = Boolean(autoTrackRow);
   const ownerIds = Array.from(
     new Set(
-      commitmentRows.map((c) => c.owner_id).filter((x): x is string => Boolean(x))
+      [
+        ...commitmentRows.map((c) => c.owner_id),
+        ...extractedCommitments.map((c) => c.owner_profile_id),
+      ].filter((x): x is string => Boolean(x))
     )
   );
   const rosterById = new Map<string, string>();
@@ -99,6 +135,87 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       rosterById.set(p.id, p.full_name);
     }
   }
+
+  // Precompute the "already added" state for extracted items so
+  // the client rows render with the correct done-state on first
+  // paint (no client fetch, no flicker).
+  const [alreadyAddedIssues, alreadyAddedCommitments] = await Promise.all([
+    extractedIssues.length > 0
+      ? supabase
+          .from("issues")
+          .select("title")
+          .eq("source_meeting_id", meeting.id)
+      : Promise.resolve({ data: [] as Array<{ title: string }> }),
+    extractedCommitments.length > 0
+      ? supabase
+          .from("commitments")
+          .select("description")
+          .eq("source_meeting_id", meeting.id)
+          .is("deleted_at", null)
+      : Promise.resolve({ data: [] as Array<{ description: string }> }),
+  ]);
+  const addedIssueTitles = new Set(
+    ((alreadyAddedIssues.data ?? []) as Array<{ title: string }>).map(
+      (r) => r.title
+    )
+  );
+  const addedCommitmentDescriptions = new Set(
+    (
+      (alreadyAddedCommitments.data ?? []) as Array<{ description: string }>
+    ).map((r) => r.description)
+  );
+
+  // Duplicate awareness — for each extracted item, find a similar
+  // open commitment / issue created in the last 14 days. Read-only
+  // signal; the "Add" action stays available regardless.
+  const companyId = meeting.company_id;
+  const issueRows: ExtractedIssueRow[] = await Promise.all(
+    extractedIssues.map(async (issue) => ({
+      issue,
+      alreadyAdded: addedIssueTitles.has(issue.title),
+      similar: await findSimilarOpenItem(companyId, issue.title),
+    }))
+  );
+  const commitmentExtractionRows: ExtractedCommitmentRow[] = await Promise.all(
+    extractedCommitments.map(async (c) => ({
+      commitment: c,
+      ownerName: c.owner_profile_id
+        ? rosterById.get(c.owner_profile_id) ?? null
+        : null,
+      alreadyAdded: addedCommitmentDescriptions.has(c.description),
+      similar: await findSimilarOpenItem(companyId, c.description),
+    }))
+  );
+
+  // Priority + functional area options feed the picker on the
+  // extracted-commitments section (only rendered when auto-tracking
+  // is off). Fetched here so client component gets them without a
+  // second round-trip.
+  const openQuarter = await getCurrentQuarter(meeting.company_id);
+  const [{ data: priorityRows }, { data: fnRows }] = await Promise.all([
+    openQuarter
+      ? supabase
+          .from("priorities")
+          .select("id, title")
+          .eq("company_id", meeting.company_id)
+          .eq("quarter_id", openQuarter.id)
+          .eq("archived", false)
+          .order("title")
+      : Promise.resolve({ data: [] as Array<Pick<Priority, "id" | "title">> }),
+    supabase
+      .from("functions")
+      .select("id, title")
+      .eq("company_id", meeting.company_id)
+      .eq("archived", false)
+      .order("title"),
+  ]);
+  const priorityOptions = (priorityRows ?? []) as Array<
+    Pick<Priority, "id" | "title">
+  >;
+  const functionalAreaOptions = (fnRows ?? []) as Array<{
+    id: string;
+    title: string;
+  }>;
 
   return (
     <div className={styles.stage}>
@@ -156,6 +273,30 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
               ))}
             </ul>
           </section>
+        ) : null}
+
+        {/* Auto-tracking OFF: the extraction pipeline stored the
+            commitments in analysis.commitments_json but didn't
+            create rows. Render the routing UI so an admin can
+            add each with the intended link. */}
+        {!autoTrackOn && commitmentExtractionRows.length > 0 ? (
+          <ExtractedCommitmentsSection
+            meetingId={meeting.id}
+            rows={commitmentExtractionRows}
+            priorityOptions={priorityOptions}
+            functionalAreaOptions={functionalAreaOptions}
+            canAdd={isAdmin}
+          />
+        ) : null}
+
+        {/* Extracted issues — always surfaced regardless of the
+            auto-tracking flag; issues are NEVER auto-created. */}
+        {issueRows.length > 0 ? (
+          <ExtractedIssuesSection
+            meetingId={meeting.id}
+            rows={issueRows}
+            canAdd={isAdmin}
+          />
         ) : null}
 
         <section className={styles.card} aria-labelledby="analysis">

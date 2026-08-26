@@ -1,0 +1,150 @@
+/* Meeting-summary extracted-items sections (Issues identified,
+   Commitments identified when auto-tracking is off). Row-per-item
+   with an add-action set on the right and a duplicate-awareness
+   badge under the text. */
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.sectionHint {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  margin: 0;
+}
+
+.rowList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rowText {
+  font: var(--text-body);
+  color: var(--text);
+  margin: 0;
+}
+
+.rowMeta {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--aims-warning-tint);
+  color: var(--text-heading);
+  font: var(--text-caption);
+  margin-top: 2px;
+}
+
+.error {
+  color: var(--aims-danger);
+  font: var(--text-caption);
+  margin: 0;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.actionButton {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px var(--space-3);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.actionButton:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.actionButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pickerLabel {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pickerLabelText {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.picker {
+  padding: 4px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-body-sm);
+}
+
+.picker:disabled {
+  opacity: 0.5;
+}
+
+.done {
+  color: var(--aims-success);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.doneMuted {
+  color: var(--text-muted);
+  font: var(--text-caption);
+  font-style: italic;
+}
