@@ -75,9 +75,9 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
       }
     >
         <section className={styles.sectionCard} aria-labelledby="seat">
-          <span className={styles.fnSeatLabel} id="seat">
+          <h2 id="seat" className={styles.sectionTitle}>
             In the seat
-          </span>
+          </h2>
           <SeatEditor
             functionId={detail.fn.id}
             currentSeatHolder={detail.seatHolder}
