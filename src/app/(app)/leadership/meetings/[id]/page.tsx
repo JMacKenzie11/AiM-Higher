@@ -9,7 +9,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationReview } from "@/components/leadership/FacilitationReview";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
-import { RerunFacilitationButton } from "./RerunFacilitationButton";
 import { ReanalyzeMeetingButton } from "./ReanalyzeMeetingButton";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
 import type {
@@ -345,24 +344,6 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
 
         {facilitationReview ? (
           <FacilitationReview review={facilitationReview} />
-        ) : null}
-
-        {/* Show the re-run affordance ONLY when the feature is on and
-            the facilitation didn't land — either the review is absent
-            entirely or it exists with a null overall AND wasn't
-            flagged insufficient (a truly-insufficient transcript
-            won't score any better on re-run; hiding the button avoids
-            futile clicks). Once a real score is present, hide it too. */}
-        {facilitationOn &&
-        (!facilitationReview ||
-          (facilitationReview.overall == null &&
-            !facilitationReview.insufficient_transcript)) ? (
-          <section
-            aria-label="Facilitation review actions"
-            style={{ marginTop: "var(--space-6)" }}
-          >
-            <RerunFacilitationButton meetingId={id} />
-          </section>
         ) : null}
 
         {isAdmin ? (
