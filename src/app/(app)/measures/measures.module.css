@@ -403,8 +403,11 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--aims-navy-tint);
-  border: 1px solid var(--border);
+  /* Sky-tint is the "gentle background" of choice elsewhere in the
+     brand (see --grad-secondary for AI/insight cards). Pale enough
+     that the tint alone reads as a distinct panel without needing
+     a hairline border on top. */
+  background: var(--aims-sky-tint);
   border-radius: var(--radius-md);
 }
 
