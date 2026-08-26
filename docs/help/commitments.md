@@ -103,6 +103,11 @@ stated in the meeting, the extracted commitment defaults to
 **meeting date + 7 days**. Auto-creation depends on the
 *Automated Commitment Tracking* company feature.
 
+**Where are my issue-linked commitments?** Not here — those live
+on `/issues` (Workspace → Issues/Solutions) alongside the issue
+they're moving forward. They still show on personal surfaces
+(your Guide HQ *My commitments*, your scorecard).
+
 **Is a delete recoverable?** Not through the UI. Deletes are soft
 (the row is hidden from every list and metric), but there's no
 end-user recovery flow. Treat as final.
