@@ -35,17 +35,22 @@
   border-top: 1px solid var(--border);
 }
 
+/* Grid instead of flex so the description column always has a
+   real minimum width. Flex was letting the (wide) actions cluster
+   eat the row and squeeze the text into a character-per-line
+   ribbon. Two columns: content grows to fill, actions size to
+   their natural width, cap the actions area so it can't run
+   over half the row. */
 .row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(auto, 520px);
+  align-items: center;
+  gap: var(--space-4);
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border);
 }
 
 .rowMain {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -73,6 +78,7 @@
   color: var(--text-heading);
   font: var(--text-caption);
   margin-top: 2px;
+  white-space: nowrap;
 }
 
 .error {
@@ -85,8 +91,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .actionButton {
@@ -110,19 +116,9 @@
   cursor: default;
 }
 
-.pickerLabel {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.pickerLabelText {
-  font: var(--text-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-
+/* Compact select: no vertical label; the placeholder option
+   carries the intent ("Link to priority…"). Keeps the whole row
+   on one line at typical widths. */
 .picker {
   padding: 4px var(--space-2);
   border: 1px solid var(--border);
@@ -130,6 +126,7 @@
   background: var(--surface);
   color: var(--text);
   font: var(--text-body-sm);
+  max-width: 180px;
 }
 
 .picker:disabled {

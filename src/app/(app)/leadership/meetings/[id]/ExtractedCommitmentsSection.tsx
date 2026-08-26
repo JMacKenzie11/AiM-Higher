@@ -146,54 +146,50 @@ function ExtractedCommitmentRowItem({
           </span>
         ) : canAdd ? (
           <>
-            <label className={styles.pickerLabel}>
-              <span className={styles.pickerLabelText}>Add to priority</span>
-              <select
-                className={styles.picker}
-                defaultValue=""
-                disabled={pending || priorityOptions.length === 0}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  if (id) addWith({ type: "priority", id });
-                  e.currentTarget.value = "";
-                }}
-              >
-                <option value="">
-                  {priorityOptions.length === 0 ? "No open priorities" : "…pick"}
+            <select
+              className={styles.picker}
+              defaultValue=""
+              disabled={pending || priorityOptions.length === 0}
+              aria-label="Link to a priority"
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id) addWith({ type: "priority", id });
+                e.currentTarget.value = "";
+              }}
+            >
+              <option value="">
+                {priorityOptions.length === 0
+                  ? "No open priorities"
+                  : "Link to priority…"}
+              </option>
+              {priorityOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
                 </option>
-                {priorityOptions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.pickerLabel}>
-              <span className={styles.pickerLabelText}>
-                Add to functional area
-              </span>
-              <select
-                className={styles.picker}
-                defaultValue=""
-                disabled={pending || functionalAreaOptions.length === 0}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  if (id) addWith({ type: "functional_area", id });
-                  e.currentTarget.value = "";
-                }}
-              >
-                <option value="">
-                  {functionalAreaOptions.length === 0
-                    ? "No functional areas"
-                    : "…pick"}
+              ))}
+            </select>
+            <select
+              className={styles.picker}
+              defaultValue=""
+              disabled={pending || functionalAreaOptions.length === 0}
+              aria-label="Link to a functional area"
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id) addWith({ type: "functional_area", id });
+                e.currentTarget.value = "";
+              }}
+            >
+              <option value="">
+                {functionalAreaOptions.length === 0
+                  ? "No functional areas"
+                  : "Link to functional area…"}
+              </option>
+              {functionalAreaOptions.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.title}
                 </option>
-                {functionalAreaOptions.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.title}
-                  </option>
-                ))}
-              </select>
-            </label>
+              ))}
+            </select>
             <button
               type="button"
               className={styles.actionButton}
