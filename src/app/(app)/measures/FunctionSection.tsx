@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type {
   MeasureTreeFunction,
   MeasureTreeMeasure,
@@ -30,6 +31,7 @@ export function FunctionSection({
   rdEnabled: boolean;
   weekEnding: string;
 }) {
+  const [addOutcomeOpen, setAddOutcomeOpen] = useState(false);
   const outcomesWithVisibleRows = fn.outcomes.filter((o) =>
     // If admin can author, show the outcome even when no measures pass
     // the current filter — otherwise the "add measure" affordance
@@ -82,7 +84,31 @@ export function FunctionSection({
         ))
       )}
 
-      {isAdmin ? <AddOutcomeInline functionId={fn.id} /> : null}
+      {isAdmin ? (
+        addOutcomeOpen ? (
+          <div className={styles.addPanel}>
+            <AddOutcomeInline
+              functionId={fn.id}
+              onAdded={() => setAddOutcomeOpen(false)}
+            />
+            <button
+              type="button"
+              className={styles.addPanelClose}
+              onClick={() => setAddOutcomeOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={styles.addToggleButton}
+            onClick={() => setAddOutcomeOpen(true)}
+          >
+            + Add an outcome
+          </button>
+        )
+      ) : null}
     </section>
   );
 }

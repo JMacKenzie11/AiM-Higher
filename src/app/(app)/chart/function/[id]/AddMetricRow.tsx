@@ -42,12 +42,18 @@ export function AddMetricRow({
   outcomeDescription,
   functionId,
   rdEnabled,
+  onAdded,
 }: {
   outcomeId: string;
   outcomeTitle: string;
   outcomeDescription: string | null;
   functionId: string;
   rdEnabled: boolean;
+  // Called after a successful save. Parents that want a "click to
+  // open, close after add" pattern pass this to collapse the form;
+  // when omitted the row keeps its rapid-fire behaviour (reset
+  // fields, refocus the description input).
+  onAdded?: () => void;
 }) {
   const [state, formAction, pending] = useActionState<
     ChartResult<SuccessMeasure>,
@@ -94,8 +100,13 @@ export function AddMetricRow({
       setValueType("number");
       setAiCritique(null);
       lastCritiquedKey.current = null;
-      descriptionRef.current?.focus();
+      if (onAdded) {
+        onAdded();
+      } else {
+        descriptionRef.current?.focus();
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   async function runAiCritique() {

@@ -10,10 +10,19 @@ import styles from "./measures.module.css";
 
 const INITIAL: ChartResult<FunctionOutcome> = { ok: false, message: "" };
 
-// Per-function "add an outcome" row. Same rhythm as the chart page
-// version: type a title, Enter to save, focus returns for the next.
+// Per-function "add an outcome" row. Type a title, Enter to save.
 // Description gets filled in via the Details drawer after creation.
-export function AddOutcomeInline({ functionId }: { functionId: string }) {
+// When the parent passes onAdded, the form calls it after a
+// successful save so the parent can collapse the row back to its
+// "+ Add" button. Without onAdded the input refocuses for rapid
+// entry (chart-page-era behaviour).
+export function AddOutcomeInline({
+  functionId,
+  onAdded,
+}: {
+  functionId: string;
+  onAdded?: () => void;
+}) {
   const [state, formAction, pending] = useActionState<
     ChartResult<FunctionOutcome>,
     FormData
@@ -26,8 +35,13 @@ export function AddOutcomeInline({ functionId }: { functionId: string }) {
   useEffect(() => {
     if (state && "ok" in state && state.ok) {
       setTitle("");
-      inputRef.current?.focus();
+      if (onAdded) {
+        onAdded();
+      } else {
+        inputRef.current?.focus();
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   return (

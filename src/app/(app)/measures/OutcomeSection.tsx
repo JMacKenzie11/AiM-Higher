@@ -50,6 +50,7 @@ export function OutcomeSection({
   weekEnding: string;
 }) {
   const [editingDetails, setEditingDetails] = useState(false);
+  const [addMeasureOpen, setAddMeasureOpen] = useState(false);
   const visibleMeasures = outcome.measures.filter(isVisible);
 
   return (
@@ -144,13 +145,33 @@ export function OutcomeSection({
 
       {isAdmin ? (
         <div className={styles.outcomeAdd}>
-          <AddMetricRow
-            outcomeId={outcome.id}
-            outcomeTitle={outcome.title}
-            outcomeDescription={outcome.description}
-            functionId={functionId}
-            rdEnabled={rdEnabled}
-          />
+          {addMeasureOpen ? (
+            <div className={styles.addPanel}>
+              <AddMetricRow
+                outcomeId={outcome.id}
+                outcomeTitle={outcome.title}
+                outcomeDescription={outcome.description}
+                functionId={functionId}
+                rdEnabled={rdEnabled}
+                onAdded={() => setAddMeasureOpen(false)}
+              />
+              <button
+                type="button"
+                className={styles.addPanelClose}
+                onClick={() => setAddMeasureOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={styles.addToggleButton}
+              onClick={() => setAddMeasureOpen(true)}
+            >
+              + Add a key success measure
+            </button>
+          )}
         </div>
       ) : null}
     </div>
