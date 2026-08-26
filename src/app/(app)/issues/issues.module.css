@@ -379,33 +379,43 @@
   color: var(--text);
 }
 
-.resolvedList {
-  list-style: none;
-  padding: var(--space-3) 0 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+/* ---- Resolved table (read-only mirror of Open) ---------------
+   Same 5 content columns as Open (Issue / What we want /
+   Commitment / Assigned to / Due date) with no drag, no clarity,
+   no resolve — read-only history. Dimmed slightly so the eye
+   doesn't confuse it with the active list. */
+.resolvedTable {
+  margin-top: var(--space-3);
+  opacity: 0.85;
+}
+
+.resolvedColumnHeader {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.2fr)
+    minmax(0, 1.5fr)
+    minmax(0, 1.8fr)
+    minmax(120px, 0.8fr)
+    minmax(110px, 0.6fr);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .resolvedRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.2fr)
+    minmax(0, 1.5fr)
+    minmax(0, 1.8fr)
+    minmax(120px, 0.8fr)
+    minmax(110px, 0.6fr);
+  align-items: start;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.resolvedTitle {
-  font: var(--text-body);
-  color: var(--text);
-}
-
-.resolvedMeta {
-  font: var(--text-caption);
-  color: var(--text-muted);
-  white-space: nowrap;
+  padding: var(--space-3) var(--space-3);
 }

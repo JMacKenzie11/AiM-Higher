@@ -19,21 +19,13 @@ export type IssueWithCommitments = Issue & {
   commitments: CommitmentWithMeta[];
 };
 
-export type ResolvedIssueSummary = {
-  id: string;
-  title: string;
-  resolved_at: string | null;
-  source_meeting_id: string | null;
-  commitment_count: number;
-  // Distinct owner ids across every non-deleted commitment ever
-  // linked to this issue (any status). Powers the /issues page's
-  // Assigned-to filter when the user picks Status=Resolved or All.
-  owner_ids: string[];
-};
-
 export type IssuesPageData = {
   open: IssueWithCommitments[];
-  resolved: ResolvedIssueSummary[];
+  // Resolved issues carry the same enriched shape as open so the
+  // read-only Resolved section can render the same 5-column row
+  // treatment (Issue / What we want / Commitment / Assigned to /
+  // Due date) instead of a bare title-plus-meta line.
+  resolved: IssueWithCommitments[];
 };
 
 export async function getIssuesPageData(
@@ -119,25 +111,14 @@ export async function getIssuesPageData(
     commitments: commitmentsByIssue.get(i.id) ?? [],
   }));
 
-  const resolvedSummaries: ResolvedIssueSummary[] = resolvedIssues.map((i) => {
-    const linked = commitmentsByIssue.get(i.id) ?? [];
-    return {
-      id: i.id,
-      title: i.title,
-      resolved_at: i.resolved_at,
-      source_meeting_id: i.source_meeting_id,
-      commitment_count: linked.length,
-      owner_ids: Array.from(
-        new Set(
-          linked
-            .map((c) => c.owner_id)
-            .filter((id): id is string => Boolean(id))
-        )
-      ),
-    };
-  });
+  const resolvedWithCommitments: IssueWithCommitments[] = resolvedIssues.map(
+    (i) => ({
+      ...i,
+      commitments: commitmentsByIssue.get(i.id) ?? [],
+    })
+  );
 
-  return { open: openWithCommitments, resolved: resolvedSummaries };
+  return { open: openWithCommitments, resolved: resolvedWithCommitments };
 }
 
 export async function getIssueById(id: string): Promise<Issue | null> {

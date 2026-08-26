@@ -127,7 +127,7 @@ export default async function IssuesPage({ searchParams }: PageProps) {
     if (filters.assignedTo === "all") return true;
     const targetId =
       filters.assignedTo === "me" ? session.profile.id : filters.assignedTo;
-    return issue.owner_ids.includes(targetId);
+    return issue.commitments.some((c) => c.owner_id === targetId);
   });
 
   const showOpenSection = filters.status !== "resolved";
@@ -206,7 +206,10 @@ export default async function IssuesPage({ searchParams }: PageProps) {
           <h2 id="issues-resolved" className={shellStyles.h2}>
             Resolved issues
           </h2>
-          <ResolvedIssuesList items={filteredResolved} />
+          <ResolvedIssuesList
+            items={filteredResolved}
+            roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
+          />
         </section>
       ) : null}
     </PageShell>
