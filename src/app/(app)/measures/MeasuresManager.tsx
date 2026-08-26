@@ -114,9 +114,9 @@ export function MeasuresManager({
   }
 
   return (
-    <section className={styles.card}>
+    <div className={localStyles.managerStack}>
       {trackingEnabled && anyTargets ? (
-        <header className={localStyles.scoreboardHeader}>
+        <div className={localStyles.chipsBand}>
           <div className={localStyles.scoreboardStats}>
             {FILTER_CHIPS.map((chip) => {
               if (chip.status === "off" || chip.status === "good") {
@@ -142,7 +142,7 @@ export function MeasuresManager({
               );
             })}
           </div>
-        </header>
+        </div>
       ) : null}
 
       {functions.map((fn) => (
@@ -168,17 +168,13 @@ export function MeasuresManager({
           className={
             message.ok ? styles.successMessage : styles.errorMessage
           }
-          style={{ marginTop: "var(--space-4)" }}
         >
           {message.text}
         </p>
       ) : null}
 
       {trackingEnabled ? (
-        <div
-          className={styles.submitRow}
-          style={{ marginTop: "var(--space-4)" }}
-        >
+        <div className={localStyles.saveRow}>
           <button
             type="button"
             className={styles.primaryButton}
@@ -189,7 +185,7 @@ export function MeasuresManager({
           </button>
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }
 

@@ -189,9 +189,13 @@ tracking columns render is gated by `performance_tracking`; the
 authoring surface is always on.
 
 - **Manager view** (`/measures`) — grouped by function → outcome →
-  measure. Function anchors are `#fn-<id>` so the chart page can
-  deep-link. Renders in `MeasuresManager` (client), fed by
-  `getMeasuresTree` (server, `src/lib/measures/service.ts`).
+  measure, each function rendered as its own card. Function order
+  is depth-first pre-order over the parent tree with Visionary
+  pinned first and Integrator second at the root level (leaders
+  see only their own seats, fall back to alphabetical). Function
+  anchors are `#fn-<id>` so the chart page can deep-link. Renders
+  in `MeasuresManager` (client), fed by `getMeasuresTree` (server,
+  `src/lib/measures/service.ts`).
   - **Admin surface** (system_admin, company_admin for the scoped
     company, aims_guide assigned to it) — sees every function in
     the company plus authoring affordances: `AddOutcomeInline` per

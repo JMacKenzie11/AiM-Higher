@@ -201,7 +201,7 @@ export async function getMeasuresTree(
 
   let functionsQuery = supabase
     .from("functions")
-    .select("id, title, sort_order")
+    .select("id, title, sort_order, parent_function_id")
     .eq("company_id", companyId)
     .eq("archived", false);
   if (!includeAll) {
@@ -212,13 +212,18 @@ export async function getMeasuresTree(
     id: string;
     title: string;
     sort_order: number;
+    parent_function_id: string | null;
   }>;
   if (functions.length === 0) return { functions: [], weekEnding };
-  functions.sort((a, b) => {
-    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-    return a.title.localeCompare(b.title);
-  });
-  const functionIds = functions.map((f) => f.id);
+  // Admins / guides see the whole company — order by hierarchy so
+  // Visionary sits at the top, Integrator second, and every other
+  // function follows its parent (depth-first pre-order). Leaders
+  // see only their own seats, so the tree can't be reconstructed
+  // meaningfully; fall back to alphabetical.
+  const orderedFunctions = includeAll
+    ? orderFunctionsByHierarchy(functions)
+    : [...functions].sort((a, b) => a.title.localeCompare(b.title));
+  const functionIds = orderedFunctions.map((f) => f.id);
 
   const { data: outcomeRows } = await supabase
     .from("function_outcomes")
@@ -335,11 +340,79 @@ export async function getMeasuresTree(
     outcomesByFunction.set(o.function_id, list);
   }
 
-  const tree: MeasureTreeFunction[] = functions.map((f) => ({
+  const tree: MeasureTreeFunction[] = orderedFunctions.map((f) => ({
     id: f.id,
     title: f.title,
     outcomes: outcomesByFunction.get(f.id) ?? [],
   }));
 
   return { functions: tree, weekEnding };
+}
+
+// Depth-first pre-order over the function tree, with Visionary
+// pinned first and Integrator second at the top level. Anything at
+// the same level that isn't Visionary or Integrator falls through
+// to the standard sort_order / title ordering.
+function orderFunctionsByHierarchy<
+  T extends {
+    id: string;
+    title: string;
+    sort_order: number;
+    parent_function_id: string | null;
+  },
+>(fns: T[]): T[] {
+  const childrenByParent = new Map<string | null, T[]>();
+  for (const fn of fns) {
+    const key = fn.parent_function_id;
+    const list = childrenByParent.get(key) ?? [];
+    list.push(fn);
+    childrenByParent.set(key, list);
+  }
+
+  function priorityAtTop(title: string): number {
+    const t = title.trim().toLowerCase();
+    if (t === "visionary") return 0;
+    if (t === "integrator") return 1;
+    return 2;
+  }
+
+  function sortSiblings(list: T[], atTop: boolean): T[] {
+    return [...list].sort((a, b) => {
+      if (atTop) {
+        const pa = priorityAtTop(a.title);
+        const pb = priorityAtTop(b.title);
+        if (pa !== pb) return pa - pb;
+      }
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return a.title.localeCompare(b.title);
+    });
+  }
+
+  const result: T[] = [];
+  const seen = new Set<string>();
+  function walk(parentId: string | null, atTop: boolean) {
+    const siblings = sortSiblings(
+      childrenByParent.get(parentId) ?? [],
+      atTop
+    );
+    for (const sib of siblings) {
+      if (seen.has(sib.id)) continue;
+      result.push(sib);
+      seen.add(sib.id);
+      walk(sib.id, false);
+    }
+  }
+  walk(null, true);
+
+  // Include orphans whose parent isn't in the working set (shouldn't
+  // happen in practice, but keep the surface honest so a broken
+  // parent pointer never silently drops a function).
+  for (const fn of fns) {
+    if (!seen.has(fn.id)) {
+      result.push(fn);
+      seen.add(fn.id);
+    }
+  }
+
+  return result;
 }
