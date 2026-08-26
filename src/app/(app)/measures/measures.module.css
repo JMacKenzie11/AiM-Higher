@@ -429,12 +429,14 @@
 
 .outcomeTitle {
   font: var(--text-h4);
+  font-weight: 700;
   color: var(--text-heading);
   margin: 0;
 }
 
 .outcomeTitleEditable {
   font: var(--text-h4);
+  font-weight: 700;
   color: var(--text-heading);
   background: transparent;
   border: none;
