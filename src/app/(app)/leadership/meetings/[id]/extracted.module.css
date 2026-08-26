@@ -145,3 +145,38 @@
   font: var(--text-caption);
   font-style: italic;
 }
+
+/* Processing banner — shown on the meeting summary while a
+   (re)analysis is in flight, so the empty state doesn't read as
+   "the extraction returned nothing" when it's actually still
+   running. Pulsing dot signals "work in progress" without
+   claiming a spinner-grade progress read. */
+.processingBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-navy-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font: var(--text-body-sm);
+}
+
+.processingDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: aimsProcessingPulse 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.processingHint {
+  color: var(--text-muted);
+}
+
+@keyframes aimsProcessingPulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}

@@ -31,6 +31,7 @@ import {
   type ExtractedCommitmentRow,
 } from "./ExtractedCommitmentsSection";
 import styles from "../../../admin/companies/admin.module.css";
+import processingStyles from "./extracted.module.css";
 
 // Full meeting analysis + commitments the meeting spawned. Reached
 // from /leadership. Open to every same-company member; RLS on
@@ -102,6 +103,13 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     owner_id: string | null;
     due_date: string;
   }>;
+  // Reanalyze (and first-run) leave meeting.status in "pending" or
+  // "analyzing" until the LLM call returns. The summary body renders
+  // empty during that window — surface a processing banner so the
+  // reader doesn't read the empty state as "extraction returned
+  // nothing".
+  const isProcessing =
+    meeting.status === "pending" || meeting.status === "analyzing";
   // Owners referenced by BOTH the created-commitments list and the
   // extracted-commitments list get fetched in one round-trip.
   const extractedCommitments =
@@ -248,6 +256,26 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
             commitment.
           </PrivacyNote>
         </div>
+
+        {isProcessing ? (
+          <div
+            className={processingStyles.processingBanner}
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className={processingStyles.processingDot}
+              aria-hidden="true"
+            />
+            <span>
+              Analyzing this meeting.{" "}
+              <span className={processingStyles.processingHint}>
+                Refresh in 30-90 seconds to see the summary, commitments, and
+                issues.
+              </span>
+            </span>
+          </div>
+        ) : null}
 
         {commitmentRows.length > 0 ? (
           <section className={styles.card} aria-labelledby="cmt">
