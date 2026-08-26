@@ -63,10 +63,9 @@ const ADMIN_ROLES: readonly NavRole[] = [
   "aims_guide",
 ];
 
-// Company-scoped items. Week in Review lives INSIDE the Guide HQ
-// group for guides/sysadmins (see GUIDE_HQ_ITEMS below); for regular
-// company users it's prepended at composition time so their daily
-// entry point stays a single top-level click.
+// Company-scoped items. Week in Review sits second in Workspace
+// so every role has the same daily entry point — a single click
+// under AiMS Implementation, no split rendering by role.
 const APP_ITEMS: readonly NavItem[] = [
   {
     kind: "group",
@@ -78,6 +77,12 @@ const APP_ITEMS: readonly NavItem[] = [
         label: "AiMS Implementation",
         href: "/scorecard",
         icon: "gauge",
+      },
+      {
+        kind: "link",
+        label: "Week in Review",
+        href: "/dashboard",
+        icon: "dashboard",
       },
       { kind: "link", label: "One-Page Plan", href: "/foundation", icon: "doc" },
       { kind: "link", label: "Team", href: "/people", icon: "people" },
@@ -144,11 +149,9 @@ const APP_ITEMS: readonly NavItem[] = [
 ];
 
 // Cross-tenant top items shown for aims_guide + system_admin. Guide
-// HQ is the guide's home base; Companies is the fleet list; Week in
-// Review is the currently-scoped company's dashboard. Grouping the
-// three under a single "Guide HQ" section header keeps the guide's
-// daily rhythm — pick a company, glance at the week, dig into the
-// caseload — visually together at the top of the rail.
+// HQ is the guide's home base; Companies is the fleet list. Week in
+// Review used to live here too but now sits inside Workspace along
+// with everything else the currently-scoped company sees.
 const GUIDE_HQ_ITEMS: readonly NavItem[] = [
   {
     kind: "group",
@@ -169,28 +172,9 @@ const GUIDE_HQ_ITEMS: readonly NavItem[] = [
         icon: "building",
         roles: ["system_admin", "aims_guide"],
       },
-      {
-        kind: "link",
-        label: "Week in Review",
-        href: "/dashboard",
-        icon: "dashboard",
-        roles: ["system_admin", "aims_guide"],
-      },
     ],
   },
 ];
-
-// Top-level Week in Review link for non-guide company users
-// (company_admin, team_member). Prepended at composition time so
-// their daily entry point stays a single click rather than being
-// buried inside Workspace.
-const WEEK_IN_REVIEW_TOP_LEVEL: NavItem = {
-  kind: "link",
-  label: "Week in Review",
-  href: "/dashboard",
-  icon: "dashboard",
-  feature: "execution",
-};
 
 // Rendered at the very bottom of the nav for system admins only,
 // regardless of which company they are currently scoped into.
@@ -372,19 +356,12 @@ export function Sidebar({
   // those links because HQ is the unscoped home base.
   const onHqSurface = pathname === "/hq" || pathname.startsWith("/hq/");
 
-  // GUIDE_HQ_ITEMS is now a group containing Overview + Companies +
-  // Week in Review, so filter its children (not itself) by role.
-  // Week in Review needs a scoped company — without one, /dashboard
-  // resolves to whichever tenant the fallback picks, which reads to
-  // the user as "took me to a random company." Hide it until the
-  // guide/sysadmin has picked a company from the fleet list.
+  // GUIDE_HQ_ITEMS is Overview + Companies for guides/sysadmins.
+  // Filter its children by role in case a guide-role assumption
+  // changes; the group itself is admin/guide-only by construction.
   const guideHqItems = GUIDE_HQ_ITEMS.flatMap<NavItem>((item) => {
     if (item.kind === "link") return linkVisible(item) ? [item] : [];
-    const filteredChildren = item.items.filter((link) => {
-      if (!linkVisible(link)) return false;
-      if (link.href === "/dashboard" && !showExitScope) return false;
-      return true;
-    });
+    const filteredChildren = item.items.filter(linkVisible);
     if (filteredChildren.length === 0) return [];
     return [{ ...item, items: filteredChildren }];
   });
@@ -398,13 +375,6 @@ export function Sidebar({
     : userRole === "company_admin"
       ? COMPANY_ADMIN_BOTTOM_ITEMS
       : [];
-  // Non-guide/sysadmin users don't get the Guide HQ group, so their
-  // Week in Review link is prepended as a top-level entry above
-  // Workspace to keep the daily click short.
-  const regularUserTop: readonly NavItem[] =
-    userRole === "company_admin" || userRole === "team_member"
-      ? [WEEK_IN_REVIEW_TOP_LEVEL]
-      : [];
   const items: NavItem[] = isSystemAdmin
     ? showExitScope && !onAdminPicker && !onHqSurface
       ? [...guideHqItems, ...subscribedApp, ...bottomAdminItems]
@@ -413,7 +383,7 @@ export function Sidebar({
       ? onHqSurface
         ? [...guideHqItems, ...bottomAdminItems]
         : [...guideHqItems, ...subscribedApp, ...bottomAdminItems]
-      : [...regularUserTop, ...subscribedApp, ...bottomAdminItems];
+      : [...subscribedApp, ...bottomAdminItems];
 
   return (
     <>
