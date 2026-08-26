@@ -23,7 +23,12 @@ export type ResolvedIssueSummary = {
   id: string;
   title: string;
   resolved_at: string | null;
+  source_meeting_id: string | null;
   commitment_count: number;
+  // Distinct owner ids across every non-deleted commitment ever
+  // linked to this issue (any status). Powers the /issues page's
+  // Assigned-to filter when the user picks Status=Resolved or All.
+  owner_ids: string[];
 };
 
 export type IssuesPageData = {
@@ -114,14 +119,23 @@ export async function getIssuesPageData(
     commitments: commitmentsByIssue.get(i.id) ?? [],
   }));
 
-  const resolvedSummaries: ResolvedIssueSummary[] = resolvedIssues.map((i) => ({
-    id: i.id,
-    title: i.title,
-    resolved_at: i.resolved_at,
-    commitment_count: openIds.includes(i.id)
-      ? 0
-      : (commitmentsByIssue.get(i.id) ?? []).length,
-  }));
+  const resolvedSummaries: ResolvedIssueSummary[] = resolvedIssues.map((i) => {
+    const linked = commitmentsByIssue.get(i.id) ?? [];
+    return {
+      id: i.id,
+      title: i.title,
+      resolved_at: i.resolved_at,
+      source_meeting_id: i.source_meeting_id,
+      commitment_count: linked.length,
+      owner_ids: Array.from(
+        new Set(
+          linked
+            .map((c) => c.owner_id)
+            .filter((id): id is string => Boolean(id))
+        )
+      ),
+    };
+  });
 
   return { open: openWithCommitments, resolved: resolvedSummaries };
 }
