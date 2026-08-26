@@ -321,10 +321,16 @@ export function NavBand({
   // Filter the Guide HQ group's children by per-item role. The
   // `isSystemAdmin` prop actually means "cross-company role"
   // (system_admin OR aims_guide) — same set that sees the Guide
-  // HQ group.
+  // HQ group. Week in Review needs a scoped company; without one
+  // /dashboard falls back to a random tenant, so we hide it until
+  // the user picks a company from the fleet list.
   const guideHqItems = GUIDE_HQ_ITEMS.flatMap<NavItem>((item) => {
     if (item.kind === "link") return linkVisible(item) ? [item] : [];
-    const filteredChildren = item.items.filter(linkVisible);
+    const filteredChildren = item.items.filter((link) => {
+      if (!linkVisible(link)) return false;
+      if (link.href === "/dashboard" && !showExitScope) return false;
+      return true;
+    });
     if (filteredChildren.length === 0) return [];
     return [{ ...item, items: filteredChildren }];
   });

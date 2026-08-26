@@ -376,9 +376,17 @@ export function Sidebar({
 
   // GUIDE_HQ_ITEMS is now a group containing Overview + Companies +
   // Week in Review, so filter its children (not itself) by role.
+  // Week in Review needs a scoped company — without one, /dashboard
+  // resolves to whichever tenant the fallback picks, which reads to
+  // the user as "took me to a random company." Hide it until the
+  // guide/sysadmin has picked a company from the fleet list.
   const guideHqItems = GUIDE_HQ_ITEMS.flatMap<NavItem>((item) => {
     if (item.kind === "link") return linkVisible(item) ? [item] : [];
-    const filteredChildren = item.items.filter(linkVisible);
+    const filteredChildren = item.items.filter((link) => {
+      if (!linkVisible(link)) return false;
+      if (link.href === "/dashboard" && !showExitScope) return false;
+      return true;
+    });
     if (filteredChildren.length === 0) return [];
     return [{ ...item, items: filteredChildren }];
   });
