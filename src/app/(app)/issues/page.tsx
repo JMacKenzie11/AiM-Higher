@@ -84,13 +84,6 @@ export default async function IssuesPage() {
       title="Issues/Solutions"
       subtitle="Name it, decide what you want, and commit to the next step."
     >
-      <section className={shellStyles.card} aria-labelledby="issues-add">
-        <h2 id="issues-add" className={shellStyles.h2}>
-          Add an issue
-        </h2>
-        <CreateIssueRow />
-      </section>
-
       <section className={shellStyles.card} aria-labelledby="issues-open">
         <h2 id="issues-open" className={shellStyles.h2}>
           Open issues
@@ -105,6 +98,7 @@ export default async function IssuesPage() {
           currentUserCompanyId={session.profile.company_id}
           isAdmin={isAdmin}
         />
+        <CreateIssueRow />
       </section>
 
       {data.resolved.length > 0 ? (

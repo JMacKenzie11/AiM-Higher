@@ -5,7 +5,16 @@ import {
   createIssueAction,
   type IssueResult,
 } from "@/lib/issues/actions";
+import commitmentStyles from "../commitments/commitments.module.css";
 import styles from "./issues.module.css";
+
+// Bottom-of-list "add an issue" row. Composes the same
+// .inlineAddRow + .addForm treatment as the /commitments
+// InlineAddRow so the two surfaces read as siblings — dashed top
+// border, subtle navy tint fill, bordered text field, primary
+// pill "Add" button on the right. Issues only have a title at
+// creation; desired_outcome and commitments get filled in via
+// the row's inline editors after save.
 
 const INITIAL: IssueResult = { ok: false, message: "" };
 
@@ -27,33 +36,41 @@ export function CreateIssueRow() {
   }, [state]);
 
   return (
-    <form action={formAction} className={styles.createRow}>
-      <input
-        ref={inputRef}
-        type="text"
-        name="title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            e.preventDefault();
-            setTitle("");
-          }
-        }}
-        className={styles.createInput}
-        placeholder="Name a new issue, press Enter to add it to the list."
-        required
-        disabled={pending}
-        aria-label="New issue"
-      />
-      {pending ? (
-        <span className={styles.savingHint}>Saving…</span>
-      ) : null}
+    <div
+      className={`${commitmentStyles.inlineAddRow} ${commitmentStyles.inlineAddRowDraft}`}
+    >
+      <form action={formAction} className={styles.addForm}>
+        <input
+          ref={inputRef}
+          type="text"
+          name="title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setTitle("");
+            }
+          }}
+          className={commitmentStyles.addField}
+          placeholder="Add an issue — a problem, tension, or unresolved question."
+          required
+          disabled={pending}
+          aria-label="New issue"
+        />
+        <button
+          type="submit"
+          className={commitmentStyles.addSubmit}
+          disabled={pending || !title.trim()}
+        >
+          {pending ? "Adding…" : "Add"}
+        </button>
+      </form>
       {errorMessage ? (
         <p role="alert" className={styles.rowError}>
           {errorMessage}
         </p>
       ) : null}
-    </form>
+    </div>
   );
 }
