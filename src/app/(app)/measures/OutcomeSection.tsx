@@ -116,9 +116,9 @@ export function OutcomeSection({
             aria-hidden="true"
           >
             <span>Measure</span>
-            <span>Target</span>
             {trackingEnabled ? (
               <>
+                <span>Target</span>
                 <span className={styles.headCellHideMobile}>Recent</span>
                 <span>This week</span>
                 <span className={styles.headCellHideMobile} aria-hidden />
@@ -153,6 +153,7 @@ export function OutcomeSection({
                 outcomeDescription={outcome.description}
                 functionId={functionId}
                 rdEnabled={rdEnabled}
+                trackingEnabled={trackingEnabled}
                 onAdded={() => setAddMeasureOpen(false)}
               />
               <button

@@ -552,7 +552,9 @@
 }
 
 .measureGridAuthor {
-  grid-template-columns: minmax(0, 3fr) minmax(80px, auto) auto;
+  /* Author-only mode (tracking off): just Measure + Actions —
+     no target / recent / this-week / status dot columns. */
+  grid-template-columns: minmax(0, 3fr) auto;
 }
 
 .measureGridHead {

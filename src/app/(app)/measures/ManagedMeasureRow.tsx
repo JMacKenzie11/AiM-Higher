@@ -68,6 +68,7 @@ export function ManagedMeasureRow({
           measure={measure}
           outcomeTitle={outcomeTitle}
           outcomeDescription={outcomeDescription}
+          trackingEnabled={trackingEnabled}
           onDone={() => setEditing(false)}
         />
       </div>
@@ -95,7 +96,10 @@ export function ManagedMeasureRow({
         >
           {measure.description}
         </Link>
-        {measure.target_hint ? (
+        {/* Only surface the coaching flag when the target is
+            actually being tracked — otherwise it's a stale nag from
+            a prior tracking-on period. */}
+        {trackingEnabled && measure.target_hint ? (
           <span
             className={styles.measureTargetHint}
             title="Coaching hint — refine to clear it."
@@ -104,20 +108,20 @@ export function ManagedMeasureRow({
           </span>
         ) : null}
       </div>
-      <div className={styles.measureCellTarget} role="cell">
-        {measure.target ? (
-          <>
-            <span className={styles.targetValue}>{measure.target}</span>
-            <span className={styles.targetDirection}>
-              {measure.target_direction === "higher_is_better" ? "≥" : "≤"}
-            </span>
-          </>
-        ) : (
-          <span className={styles.targetMuted}>—</span>
-        )}
-      </div>
       {trackingEnabled ? (
         <>
+          <div className={styles.measureCellTarget} role="cell">
+            {measure.target ? (
+              <>
+                <span className={styles.targetValue}>{measure.target}</span>
+                <span className={styles.targetDirection}>
+                  {measure.target_direction === "higher_is_better" ? "≥" : "≤"}
+                </span>
+              </>
+            ) : (
+              <span className={styles.targetMuted}>—</span>
+            )}
+          </div>
           <div className={styles.measureCellRecent} role="cell">
             <TrendPills measure={measure} weekEnding={weekEnding} />
           </div>
@@ -208,11 +212,13 @@ function EditMeasureForm({
   measure,
   outcomeTitle,
   outcomeDescription,
+  trackingEnabled,
   onDone,
 }: {
   measure: MeasureTreeMeasure;
   outcomeTitle: string;
   outcomeDescription: string | null;
+  trackingEnabled: boolean;
   onDone: () => void;
 }) {
   const [state, formAction, pending] = useActionState<
@@ -259,6 +265,10 @@ function EditMeasureForm({
   }, [description, target, valueType, direction]);
 
   async function runAiCritique() {
+    // Target critique is meaningless without tracking on — skip the
+    // AI call entirely so we don't burn tokens or write a stale
+    // target_hint that would linger past a tracking flip.
+    if (!trackingEnabled) return;
     const d = description.trim();
     if (d.length < 4) return;
     const key = `${valueType}|${direction}|${d}|${target.trim()}`;
@@ -315,19 +325,26 @@ function EditMeasureForm({
         />
       </label>
 
-      <label className={chartStyles.formField}>
-        <span className={chartStyles.formLabel}>Target</span>
-        <input
-          className={chartStyles.formInput}
-          type="text"
-          name="target"
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          onBlur={runAiCritique}
-          placeholder="e.g. 0.95, 90%, Yes"
-          disabled={pending}
-        />
-      </label>
+      {trackingEnabled ? (
+        <label className={chartStyles.formField}>
+          <span className={chartStyles.formLabel}>Target</span>
+          <input
+            className={chartStyles.formInput}
+            type="text"
+            name="target"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            onBlur={runAiCritique}
+            placeholder="e.g. 0.95, 90%, Yes"
+            disabled={pending}
+          />
+        </label>
+      ) : (
+        // Tracking off — target isn't visible/editable, but preserve
+        // whatever's already stored so a later tracking flip doesn't
+        // wipe it. Same story for direction + auto_track below.
+        <input type="hidden" name="target" value={target} />
+      )}
 
       <label className={chartStyles.formField}>
         <span className={chartStyles.formLabel}>Value type</span>
@@ -346,36 +363,55 @@ function EditMeasureForm({
         </select>
       </label>
 
-      <label className={chartStyles.formField}>
-        <span className={chartStyles.formLabel}>Direction</span>
-        <select
-          className={chartStyles.formSelect}
-          name="target_direction"
-          value={direction}
-          onChange={(e) => setDirection(e.target.value as TargetDirection)}
-          disabled={pending}
-        >
-          <option value="higher_is_better">Higher is better</option>
-          <option value="lower_is_better">Lower is better</option>
-        </select>
-      </label>
+      {trackingEnabled ? (
+        <>
+          <label className={chartStyles.formField}>
+            <span className={chartStyles.formLabel}>Direction</span>
+            <select
+              className={chartStyles.formSelect}
+              name="target_direction"
+              value={direction}
+              onChange={(e) =>
+                setDirection(e.target.value as TargetDirection)
+              }
+              disabled={pending}
+            >
+              <option value="higher_is_better">Higher is better</option>
+              <option value="lower_is_better">Lower is better</option>
+            </select>
+          </label>
 
-      <label
-        className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
-      >
-        <span className={chartStyles.formLabel}>
+          <label
+            className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
+          >
+            <span className={chartStyles.formLabel}>
+              <input
+                type="checkbox"
+                name="auto_track"
+                defaultChecked={measure.auto_track}
+                disabled={pending}
+                style={{ marginRight: "8px" }}
+              />
+              Auto-track weekly updates
+            </span>
+          </label>
+        </>
+      ) : (
+        <>
           <input
-            type="checkbox"
-            name="auto_track"
-            defaultChecked={measure.auto_track}
-            disabled={pending}
-            style={{ marginRight: "8px" }}
+            type="hidden"
+            name="target_direction"
+            value={direction}
           />
-          Auto-track weekly updates
-        </span>
-      </label>
+          {measure.auto_track ? (
+            <input type="hidden" name="auto_track" value="on" />
+          ) : null}
+        </>
+      )}
 
-      {(hasAnyHint || critiqueLoading) && description.trim().length > 0 ? (
+      {trackingEnabled &&
+      (hasAnyHint || critiqueLoading) &&
+      description.trim().length > 0 ? (
         <div
           className={`${chartStyles.critiquePanel} ${chartStyles.formFieldFull}`}
         >
