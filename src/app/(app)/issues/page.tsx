@@ -4,8 +4,9 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getIssuesPageData } from "@/lib/issues/service";
+import { getCurrentQuarter } from "@/lib/quarters/service";
 import { todayInTimezone } from "@/lib/dates";
-import type { Profile } from "@/lib/types";
+import type { Priority, Profile } from "@/lib/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { IssuesBoard } from "./IssuesBoard";
 import { CreateIssueRow } from "./CreateIssueRow";
@@ -31,18 +32,49 @@ export default async function IssuesPage() {
   const timezone = company?.timezone ?? "America/Anchorage";
   const { iso: todayIso } = todayInTimezone(timezone);
 
-  const data = await getIssuesPageData(companyId);
+  const [data, openQuarter] = await Promise.all([
+    getIssuesPageData(companyId),
+    getCurrentQuarter(companyId),
+  ]);
 
   // Roster feeds the owner picker on the inline commitment add row.
-  const { data: rosterRows } = await supabase
-    .from("profiles")
-    .select("id, full_name, position")
-    .eq("company_id", companyId)
-    .neq("status", "inactive")
-    .order("full_name");
+  // Priority + functional area options feed the LinkChip menu on
+  // each issue-linked commitment so a user can re-target the link
+  // (switch off the issue to a priority or functional area).
+  const [{ data: rosterRows }, { data: priorityRows }, { data: fnRows }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name, position")
+        .eq("company_id", companyId)
+        .neq("status", "inactive")
+        .order("full_name"),
+      openQuarter
+        ? supabase
+            .from("priorities")
+            .select("id, title")
+            .eq("company_id", companyId)
+            .eq("quarter_id", openQuarter.id)
+            .eq("archived", false)
+            .order("title")
+        : Promise.resolve({ data: [] as Array<Pick<Priority, "id" | "title">> }),
+      supabase
+        .from("functions")
+        .select("id, title")
+        .eq("company_id", companyId)
+        .eq("archived", false)
+        .order("title"),
+    ]);
   const roster = (rosterRows ?? []) as Array<
     Pick<Profile, "id" | "full_name" | "position">
   >;
+  const priorityOptions = (priorityRows ?? []) as Array<
+    Pick<Priority, "id" | "title">
+  >;
+  const functionalAreaOptions = (fnRows ?? []) as Array<{
+    id: string;
+    title: string;
+  }>;
 
   const isAdmin = isAdminForCompany(session.profile, companyId);
 
@@ -58,6 +90,8 @@ export default async function IssuesPage() {
         <IssuesBoard
           issues={data.open}
           roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
+          priorityOptions={priorityOptions}
+          functionalAreaOptions={functionalAreaOptions}
           todayIso={todayIso}
           currentUserId={session.profile.id}
           currentUserCompanyId={session.profile.company_id}

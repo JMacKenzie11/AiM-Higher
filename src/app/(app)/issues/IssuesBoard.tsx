@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { reorderIssuesAction } from "@/lib/issues/actions";
 import type { IssueWithCommitments } from "@/lib/issues/service";
-import type { Profile } from "@/lib/types";
+import type { Priority, Profile } from "@/lib/types";
 import { IssueCard } from "./IssueCard";
 import styles from "./issues.module.css";
 
@@ -33,6 +33,8 @@ import styles from "./issues.module.css";
 export function IssuesBoard({
   issues,
   roster,
+  priorityOptions,
+  functionalAreaOptions,
   todayIso,
   currentUserId,
   currentUserCompanyId,
@@ -40,6 +42,8 @@ export function IssuesBoard({
 }: {
   issues: IssueWithCommitments[];
   roster: Array<Pick<Profile, "id" | "full_name">>;
+  priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  functionalAreaOptions: Array<{ id: string; title: string }>;
   todayIso: string;
   currentUserId: string;
   currentUserCompanyId: string | null;
@@ -103,6 +107,8 @@ export function IssuesBoard({
                 key={issue.id}
                 issue={issue}
                 roster={roster}
+                priorityOptions={priorityOptions}
+                functionalAreaOptions={functionalAreaOptions}
                 todayIso={todayIso}
                 currentUserId={currentUserId}
                 currentUserCompanyId={currentUserCompanyId}
@@ -120,6 +126,8 @@ export function IssuesBoard({
 function SortableIssue({
   issue,
   roster,
+  priorityOptions,
+  functionalAreaOptions,
   todayIso,
   currentUserId,
   currentUserCompanyId,
@@ -128,6 +136,8 @@ function SortableIssue({
 }: {
   issue: IssueWithCommitments;
   roster: Array<Pick<Profile, "id" | "full_name">>;
+  priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  functionalAreaOptions: Array<{ id: string; title: string }>;
   todayIso: string;
   currentUserId: string;
   currentUserCompanyId: string | null;
@@ -147,6 +157,8 @@ function SortableIssue({
       <IssueCard
         issue={issue}
         roster={roster}
+        priorityOptions={priorityOptions}
+        functionalAreaOptions={functionalAreaOptions}
         todayIso={todayIso}
         currentUserId={currentUserId}
         currentUserCompanyId={currentUserCompanyId}

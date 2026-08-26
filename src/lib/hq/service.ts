@@ -72,26 +72,54 @@ export async function loadMyCommitments(
   const priorityIds = Array.from(
     new Set(commitments.map((c) => c.priority_id).filter(Boolean) as string[])
   );
+  const issueIds = Array.from(
+    new Set(commitments.map((c) => c.issue_id).filter(Boolean) as string[])
+  );
+  const functionalAreaIds = Array.from(
+    new Set(
+      commitments.map((c) => c.functional_area_id).filter(Boolean) as string[]
+    )
+  );
   const companyIds = Array.from(new Set(commitments.map((c) => c.company_id)));
 
-  const [{ data: profile }, { data: priorityRows }, { data: companyRows }] =
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, full_name, position")
-        .eq("id", ownerId)
-        .maybeSingle(),
-      priorityIds.length > 0
-        ? supabase
-            .from("priorities")
-            .select("id, title")
-            .in("id", priorityIds)
-        : Promise.resolve({ data: [] as Pick<Priority, "id" | "title">[] }),
-      supabase
-        .from("companies")
-        .select("id, name")
-        .in("id", companyIds),
-    ]);
+  const [
+    { data: profile },
+    { data: priorityRows },
+    { data: issueRows },
+    { data: functionRows },
+    { data: companyRows },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, position")
+      .eq("id", ownerId)
+      .maybeSingle(),
+    priorityIds.length > 0
+      ? supabase
+          .from("priorities")
+          .select("id, title")
+          .in("id", priorityIds)
+      : Promise.resolve({ data: [] as Pick<Priority, "id" | "title">[] }),
+    issueIds.length > 0
+      ? supabase
+          .from("issues")
+          .select("id, title, status")
+          .in("id", issueIds)
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            title: string;
+            status: "open" | "resolved";
+          }>,
+        }),
+    functionalAreaIds.length > 0
+      ? supabase
+          .from("functions")
+          .select("id, title")
+          .in("id", functionalAreaIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+    supabase.from("companies").select("id, name").in("id", companyIds),
+  ]);
 
   const owner = (profile ?? null) as Pick<
     Profile,
@@ -100,6 +128,24 @@ export async function loadMyCommitments(
   const priorityById = new Map<string, Pick<Priority, "id" | "title">>();
   for (const p of (priorityRows ?? []) as Pick<Priority, "id" | "title">[]) {
     priorityById.set(p.id, p);
+  }
+  const issueById = new Map<
+    string,
+    { id: string; title: string; status: "open" | "resolved" }
+  >();
+  for (const i of (issueRows ?? []) as Array<{
+    id: string;
+    title: string;
+    status: "open" | "resolved";
+  }>) {
+    issueById.set(i.id, i);
+  }
+  const functionalAreaById = new Map<string, { id: string; title: string }>();
+  for (const f of (functionRows ?? []) as Array<{
+    id: string;
+    title: string;
+  }>) {
+    functionalAreaById.set(f.id, f);
   }
   const companyNameById = new Map<string, string>();
   for (const c of (companyRows ?? []) as Array<{ id: string; name: string }>) {
@@ -110,6 +156,10 @@ export async function loadMyCommitments(
     ...c,
     owner,
     priority: c.priority_id ? priorityById.get(c.priority_id) ?? null : null,
+    issue: c.issue_id ? issueById.get(c.issue_id) ?? null : null,
+    functionalArea: c.functional_area_id
+      ? functionalAreaById.get(c.functional_area_id) ?? null
+      : null,
     companyName: companyNameById.get(c.company_id) ?? "(unknown company)",
   }));
 }

@@ -204,6 +204,7 @@ async function runForCompany(
   const rowsToInsert: Array<{
     company_id: string;
     priority_id: null;
+    functional_area_id: string | null;
     owner_id: string | null;
     description: string;
     week_ending: string;
@@ -222,6 +223,11 @@ async function runForCompany(
     rowsToInsert.push({
       company_id: companyId,
       priority_id: null,
+      // Auto-created nudge commitments carry the function that owns
+      // the measure as their functional area link, so they show up
+      // on the company /commitments page under the correct lane and
+      // roll up to the right seat in weekly-review views.
+      functional_area_id: fnId ?? null,
       owner_id: fn?.leader_id ?? null,
       description,
       week_ending: cutoffFriday,
@@ -241,6 +247,7 @@ async function runForCompany(
     rowsToInsert.push({
       company_id: companyId,
       priority_id: null,
+      functional_area_id: fnId ?? null,
       owner_id: fn?.leader_id ?? null,
       description,
       week_ending: nextFriday,

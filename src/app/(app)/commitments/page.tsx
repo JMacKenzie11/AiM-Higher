@@ -123,6 +123,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
             key={c.id}
             commitment={c}
             priorityOptions={data.priorityOptions}
+            functionalAreaOptions={data.functionalAreaOptions}
             roster={rosterMinimal}
             todayIso={data.todayIso}
             canResolve={canWriteOwnedRow(session.profile, c)}
@@ -232,6 +233,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
               <InlineAddRow
                 thisFriday={data.thisFriday}
                 priorityOptions={data.priorityOptions}
+                functionalAreaOptions={data.functionalAreaOptions}
                 roster={data.roster.map((p) => ({
                   id: p.id,
                   full_name: p.full_name,
@@ -269,6 +271,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                 key={c.id}
                 commitment={c}
                 priorityOptions={data.priorityOptions}
+                functionalAreaOptions={data.functionalAreaOptions}
                 roster={data.roster.map((p) => ({
                   id: p.id,
                   full_name: p.full_name,
@@ -334,6 +337,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                 key={c.id}
                 commitment={c}
                 priorityOptions={data.priorityOptions}
+                functionalAreaOptions={data.functionalAreaOptions}
                 roster={data.roster.map((p) => ({
                   id: p.id,
                   full_name: p.full_name,

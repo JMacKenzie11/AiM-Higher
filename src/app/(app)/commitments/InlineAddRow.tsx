@@ -6,7 +6,7 @@ import {
   type CommitmentResult,
 } from "@/lib/commitments/actions";
 import type { Priority, Profile } from "@/lib/types";
-import { PriorityPicker } from "./PriorityPicker";
+import { LinkPicker } from "./LinkPicker";
 import styles from "./commitments.module.css";
 
 // Always-live entry row. Sits at the bottom of "This week"; the row
@@ -18,6 +18,11 @@ const INITIAL: CommitmentResult = { ok: false, message: "" };
 export type InlineAddRowProps = {
   thisFriday: string;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  // Functional area options fill the second half of the composer's
+  // link picker. Optional — legacy callers that haven't wired the
+  // chart's functions in yet get a priority-only picker (no
+  // functional area group renders).
+  functionalAreaOptions?: Array<{ id: string; title: string }>;
   roster: Array<Pick<Profile, "id" | "full_name">>;
   currentUserId: string;
   isAdmin: boolean;
@@ -32,6 +37,7 @@ export type InlineAddRowProps = {
 export function InlineAddRow({
   thisFriday,
   priorityOptions,
+  functionalAreaOptions = [],
   roster,
   currentUserId,
   isAdmin,
@@ -41,6 +47,7 @@ export function InlineAddRow({
 }: InlineAddRowProps) {
   const pinnedPriority = fixedPriorityId ?? null;
   const [priorityId, setPriorityId] = useState<string | null>(pinnedPriority);
+  const [functionalAreaId, setFunctionalAreaId] = useState<string | null>(null);
   const [ownerId, setOwnerId] = useState<string>(currentUserId);
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState(thisFriday);
@@ -58,6 +65,7 @@ export function InlineAddRow({
   function resetToBlank() {
     setDescription("");
     setPriorityId(pinnedPriority);
+    setFunctionalAreaId(null);
     setDueDate(thisFriday);
     setOwnerId(currentUserId);
     setIsOngoing(false);
@@ -92,6 +100,11 @@ export function InlineAddRow({
       <form action={formAction} className={formClasses.join(" ")}>
         <input type="hidden" name="week_ending" value={thisFriday} />
         <input type="hidden" name="priority_id" value={priorityId ?? ""} />
+        <input
+          type="hidden"
+          name="functional_area_id"
+          value={functionalAreaId ?? ""}
+        />
         <input type="hidden" name="owner_id" value={ownerId} />
         <input
           type="hidden"
@@ -122,10 +135,14 @@ export function InlineAddRow({
         />
 
         {pinnedPriority ? null : (
-          <PriorityPicker
+          <LinkPicker
             priorityOptions={priorityOptions}
-            currentPriorityId={priorityId}
-            onSelect={setPriorityId}
+            functionalAreaOptions={functionalAreaOptions}
+            value={{ priorityId, functionalAreaId }}
+            onSelect={(v) => {
+              setPriorityId(v.priorityId);
+              setFunctionalAreaId(v.functionalAreaId);
+            }}
             disabled={pending}
           />
         )}

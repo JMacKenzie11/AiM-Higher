@@ -85,10 +85,20 @@ export async function getIssuesPageData(
       Pick<Profile, "id" | "full_name" | "position">
     >).map((o) => [o.id, o])
   );
+  // Attach the parent issue as the link meta so LinkChip has
+  // something to show on the /issues page (redundant on that
+  // page, useful when the same row surfaces in Guide HQ / coach
+  // context). Priority + functional_area are always null on
+  // issue-linked commitments by DB constraint.
+  const issueMetaById = new Map(
+    issues.map((i) => [i.id, { id: i.id, title: i.title, status: i.status }])
+  );
   const enriched: CommitmentWithMeta[] = commitments.map((c) => ({
     ...c,
     owner: c.owner_id ? (ownerById.get(c.owner_id) ?? null) : null,
     priority: null,
+    issue: c.issue_id ? (issueMetaById.get(c.issue_id) ?? null) : null,
+    functionalArea: null,
   }));
 
   const commitmentsByIssue = new Map<string, CommitmentWithMeta[]>();

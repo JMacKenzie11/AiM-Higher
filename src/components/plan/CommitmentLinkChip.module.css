@@ -1,0 +1,167 @@
+/* Unified link chip for commitments — priority / issue / functional
+   area / operational. Read-only variant renders as a coloured
+   pill-link; editable variant renders as a button that opens a
+   keyboard-operable menu below. */
+
+.wrap {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font: var(--text-body-sm);
+  color: var(--text);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chipButton {
+  cursor: pointer;
+}
+
+.chipButton:hover,
+.chipButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.chipCaret {
+  font-size: 0.7em;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+/* Tone variants — each link type gets a distinct fill so a scanner
+   can see at a glance which lane the commitment lives in. */
+.chip_priority {
+  background: var(--aims-cobalt-tint);
+  border-color: color-mix(in srgb, var(--aims-cobalt) 30%, transparent);
+  color: var(--aims-navy);
+}
+
+.chip_issue {
+  background: var(--aims-warning-tint);
+  border-color: color-mix(in srgb, var(--aims-warning) 30%, transparent);
+  color: var(--text-heading);
+}
+
+.chip_functional {
+  background: var(--aims-sky-tint);
+  border-color: color-mix(in srgb, var(--aims-sky) 30%, transparent);
+  color: var(--aims-navy);
+}
+
+.chip_operational {
+  background: var(--surface);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.chipError {
+  color: var(--aims-danger);
+  font: var(--text-caption);
+  margin: 0;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+/* ---- Menu ---------------------------------------------------- */
+.menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 260px;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+  z-index: 40;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.menuSearch {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.menuSearch:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.menuList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.menuGroupLabel {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-2) 2px;
+  pointer-events: none;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-2);
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font: var(--text-body-sm);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.menuItem:hover,
+.menuItem:focus-visible,
+.menuItemActive {
+  background: var(--aims-navy-tint);
+  outline: none;
+}
+
+.menuItemMuted {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.menuCheck {
+  color: var(--aims-success);
+  font-weight: 700;
+}

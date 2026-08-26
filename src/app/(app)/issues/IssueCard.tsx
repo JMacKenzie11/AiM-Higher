@@ -18,7 +18,7 @@ import {
   updateIssueDesiredOutcomeAction,
 } from "@/lib/issues/actions";
 import type { IssueWithCommitments } from "@/lib/issues/service";
-import type { Profile } from "@/lib/types";
+import type { Priority, Profile } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CommitmentRow } from "../commitments/CommitmentRow";
 import styles from "./issues.module.css";
@@ -34,6 +34,8 @@ const CREATE_INITIAL: CommitmentResult = { ok: false, message: "" };
 export function IssueCard({
   issue,
   roster,
+  priorityOptions,
+  functionalAreaOptions,
   todayIso,
   currentUserId,
   currentUserCompanyId,
@@ -42,6 +44,8 @@ export function IssueCard({
 }: {
   issue: IssueWithCommitments;
   roster: Array<Pick<Profile, "id" | "full_name">>;
+  priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  functionalAreaOptions: Array<{ id: string; title: string }>;
   todayIso: string;
   currentUserId: string;
   currentUserCompanyId: string | null;
@@ -103,11 +107,8 @@ export function IssueCard({
               <CommitmentRow
                 key={c.id}
                 commitment={c}
-                // Issue-linked commitments don't take a priority.
-                // Empty options + canLink=false hides the picker;
-                // the Phase 2 chip-plus-menu will replace the picker
-                // with a chip that can re-target the link.
-                priorityOptions={[]}
+                priorityOptions={priorityOptions}
+                functionalAreaOptions={functionalAreaOptions}
                 roster={roster}
                 todayIso={todayIso}
                 canResolve={
@@ -116,7 +117,13 @@ export function IssueCard({
                   (currentUserCompanyId !== null &&
                     c.company_id === currentUserCompanyId)
                 }
-                canLink={false}
+                // LinkChip menu offers switching AWAY (to a priority,
+                // functional area, or none). Only editors get it —
+                // team members reading someone else's row see a
+                // static chip.
+                canLink={
+                  isAdmin || issue.created_by === currentUserId
+                }
                 canReassign={
                   isAdmin ||
                   c.owner_id === currentUserId ||

@@ -27,9 +27,16 @@ export type CommitmentWithOwner = Commitment & {
   owner: Pick<Profile, "id" | "full_name"> | null;
 };
 
+// Enriched commitment with the joined link + owner metadata that
+// UI surfaces need to render without extra roundtrips. All three
+// link meta fields are nullable; the DB constraint guarantees at
+// most one of them is populated per row. LinkChip inspects all
+// three and displays the first non-null.
 export type CommitmentWithMeta = Commitment & {
   owner: Pick<Profile, "id" | "full_name" | "position"> | null;
   priority: Pick<Priority, "id" | "title"> | null;
+  issue: { id: string; title: string; status: "open" | "resolved" } | null;
+  functionalArea: { id: string; title: string } | null;
 };
 
 export type WeekGroup = {
@@ -138,6 +145,10 @@ export async function getPriorityCommitmentPanelData(
       ...row,
       owner: row.owner_id ? rosterById.get(row.owner_id) ?? null : null,
       priority: priorityMeta,
+      // Priority-detail-page reads by priority_id, so issue +
+      // functional_area are always null here by construction.
+      issue: null,
+      functionalArea: null,
     };
     if (!grouped.has(row.week_ending)) grouped.set(row.week_ending, []);
     grouped.get(row.week_ending)!.push(enriched);
@@ -207,6 +218,7 @@ export type CommitmentsPageData = {
   openQuarter: Quarter | null;
   quarterCoversThisWeek: boolean;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  functionalAreaOptions: Array<{ id: string; title: string }>;
   roster: Array<Pick<Profile, "id" | "full_name" | "position">>;
   // Single flat list: past-week still-open + this-week rows (open and
   // resolved), sorted overdue-open → upcoming-open → resolved. Weekly
@@ -318,10 +330,23 @@ export async function getCommitmentsPageData(
   ];
   const rosterById = new Map(roster.map((p) => [p.id, p]));
 
-  // Open-quarter priorities feed the priority picker.
+  // Open-quarter priorities feed the link picker's Priorities group.
   const priorityOptions: Array<Pick<Priority, "id" | "title">> = openQuarter
     ? await loadOpenPriorityOptions(supabase, companyId, openQuarter.id)
     : [];
+
+  // Non-archived functions from the chart feed the link picker's
+  // Functional Areas group.
+  const { data: fnRows } = await supabase
+    .from("functions")
+    .select("id, title")
+    .eq("company_id", companyId)
+    .eq("archived", false)
+    .order("title");
+  const functionalAreaOptions = (fnRows ?? []) as Array<{
+    id: string;
+    title: string;
+  }>;
 
   // Fetch commitments in a wide window: from the start of the open
   // quarter (or 12 weeks back if no open quarter) through 26 weeks
@@ -386,11 +411,21 @@ export async function getCommitmentsPageData(
     ...((strandedRows ?? []) as Commitment[]),
   ];
 
-  // Enrich once; filter downstream.
+  // Enrich once; filter downstream. Include parked rows in the
+  // meta lookups so the parking-lot section can render its own
+  // chips without a second pass.
+  const enrichSource = [...allRows, ...((parkedRows ?? []) as Commitment[])];
   const priorityIds = Array.from(
     new Set(
-      allRows
+      enrichSource
         .map((r) => r.priority_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  const functionalAreaIds = Array.from(
+    new Set(
+      enrichSource
+        .map((r) => r.functional_area_id)
         .filter((id): id is string => Boolean(id))
     )
   );
@@ -404,11 +439,28 @@ export async function getCommitmentsPageData(
       priorityMap.set(row.id, { id: row.id, title: row.title });
     }
   }
+  const functionalAreaMap = new Map<string, { id: string; title: string }>();
+  if (functionalAreaIds.length > 0) {
+    const { data: frows } = await supabase
+      .from("functions")
+      .select("id, title")
+      .in("id", functionalAreaIds);
+    for (const row of (frows ?? []) as Array<{ id: string; title: string }>) {
+      functionalAreaMap.set(row.id, row);
+    }
+  }
 
   const enrich = (c: Commitment): CommitmentWithMeta => ({
     ...c,
     owner: c.owner_id ? rosterById.get(c.owner_id) ?? null : null,
     priority: c.priority_id ? priorityMap.get(c.priority_id) ?? null : null,
+    // Issue is always null on this loader (the company page filters
+    // .is('issue_id', null)) — kept in the type so /issues + hq
+    // consumers of CommitmentWithMeta can share the LinkChip.
+    issue: null,
+    functionalArea: c.functional_area_id
+      ? functionalAreaMap.get(c.functional_area_id) ?? null
+      : null,
   });
 
   // ---- Header stats (filter-independent so the shape of "what's open"
@@ -497,6 +549,7 @@ export async function getCommitmentsPageData(
     openQuarter,
     quarterCoversThisWeek,
     priorityOptions,
+    functionalAreaOptions,
     roster,
     mainList,
     futureList,

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState, useTransition, useMemo, useEffect, useRef } from "react";
 import {
   deleteCommitmentAction,
-  linkPriorityAction,
   markKeptAction,
   markMissedAction,
   parkCommitmentAction,
@@ -22,7 +21,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatShortDate } from "@/lib/dates";
 import type { Priority, Profile } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
-import { PriorityPicker } from "./PriorityPicker";
+import { CommitmentLinkChip } from "@/components/plan/CommitmentLinkChip";
 import { OwnerPicker } from "./OwnerPicker";
 import { PersonQuickViewDrawer } from "./PersonQuickViewDrawer";
 import { ClarityChip, ClarityEditor, clarityState } from "./ClarityStrip";
@@ -59,6 +58,11 @@ import styles from "./commitments.module.css";
 export type CommitmentRowProps = {
   commitment: CommitmentWithMeta;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  // Functional area options for LinkChip's menu. Defaults to empty
+  // when the caller doesn't have them handy (e.g. legacy sites that
+  // don't yet pass this — they'll only see priority + none in the
+  // menu until wired up).
+  functionalAreaOptions?: Array<{ id: string; title: string }>;
   roster: Array<Pick<Profile, "id" | "full_name">>;
   todayIso: string;
   canResolve: boolean;
@@ -80,6 +84,7 @@ export type CommitmentRowProps = {
 export function CommitmentRow({
   commitment,
   priorityOptions,
+  functionalAreaOptions = [],
   roster,
   todayIso,
   canResolve,
@@ -259,14 +264,6 @@ export function CommitmentRow({
     setError(null);
     startTransition(async () => {
       const result = await stopRepeatingAction(commitment.id);
-      if (!result.ok) setError(result.message);
-    });
-  }
-
-  function linkTo(next: string | null) {
-    setError(null);
-    startTransition(async () => {
-      const result = await linkPriorityAction(commitment.id, next);
       if (!result.ok) setError(result.message);
     });
   }
@@ -730,12 +727,11 @@ export function CommitmentRow({
       {hidePriority ? (
         <span aria-hidden />
       ) : (
-        <PriorityCell
+        <CommitmentLinkChip
           commitment={commitment}
           priorityOptions={priorityOptions}
-          canLink={canLink}
-          onSelect={linkTo}
-          disabled={pending}
+          functionalAreaOptions={functionalAreaOptions}
+          canEdit={canLink}
         />
       )}
 
@@ -1024,83 +1020,6 @@ function buildCircleClass(
   if (isMissed) parts.push(styles.resolveCircleClosed);
   if (isOverdue) parts.push(styles.resolveCircleOverdue);
   return parts.join(" ");
-}
-
-function PriorityCell({
-  commitment,
-  priorityOptions,
-  canLink,
-  onSelect,
-  disabled,
-}: {
-  commitment: CommitmentWithMeta;
-  priorityOptions: Array<Pick<Priority, "id" | "title">>;
-  canLink: boolean;
-  onSelect: (next: string | null) => void;
-  disabled: boolean;
-}) {
-  const [picking, setPicking] = useState(false);
-
-  if (commitment.status !== "open") {
-    return commitment.priority ? (
-      <Link
-        href={`/plan/priority/${commitment.priority.id}`}
-        className={styles.rowPriorityLink}
-      >
-        {commitment.priority.title}
-      </Link>
-    ) : (
-      <span className={styles.rowPriorityMuted}>Operational</span>
-    );
-  }
-
-  if (picking && canLink) {
-    return (
-      <PriorityPicker
-        priorityOptions={priorityOptions}
-        currentPriorityId={commitment.priority_id}
-        onSelect={(next) => {
-          setPicking(false);
-          onSelect(next);
-        }}
-        disabled={disabled}
-      />
-    );
-  }
-
-  if (commitment.priority) {
-    return canLink ? (
-      <button
-        type="button"
-        className={styles.rowPriorityGhost}
-        onClick={() => setPicking(true)}
-        disabled={disabled}
-        aria-label="Change action link"
-      >
-        {commitment.priority.title}
-      </button>
-    ) : (
-      <Link
-        href={`/plan/priority/${commitment.priority.id}`}
-        className={styles.rowPriorityLink}
-      >
-        {commitment.priority.title}
-      </Link>
-    );
-  }
-
-  return canLink ? (
-    <button
-      type="button"
-      className={styles.rowPriorityGhost}
-      onClick={() => setPicking(true)}
-      disabled={disabled}
-    >
-      Link
-    </button>
-  ) : (
-    <span className={styles.rowPriorityMuted}>Operational</span>
-  );
 }
 
 function OwnerCell({

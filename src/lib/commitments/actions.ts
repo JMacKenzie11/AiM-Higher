@@ -881,6 +881,119 @@ export async function linkPriorityAction(
   return { ok: true, commitment: data };
 }
 
+// ---- Link switcher (LinkChip's write path) ------------------
+// One action for all three link changes (priority / functional
+// area / none). Enforces the same rules as linkPriorityAction —
+// open-only, owner-or-admin — plus:
+//   * Mutual exclusion: sets exactly the chosen link column,
+//     clears the other two.
+//   * Priority target: validates the priority belongs to the
+//     commitment's company and sits in the open quarter (matches
+//     the existing linkPriorityAction rule).
+//   * Functional area target: validates the function belongs to
+//     the commitment's company.
+//   * "issue" is NOT a valid target — issue commitments are
+//     created from /issues in context and can't be switched INTO
+//     via the chip menu. An existing issue-linked commitment CAN
+//     be switched away (to priority, functional area, or none).
+
+export type LinkTarget =
+  | { type: "priority"; id: string }
+  | { type: "functional_area"; id: string }
+  | { type: "none" };
+
+export async function changeCommitmentLinkAction(
+  commitmentId: string,
+  target: LinkTarget
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to change." };
+  }
+  if (commitment.status !== "open") {
+    return {
+      ok: false,
+      message:
+        "Resolved commitments have already fed action progress — their link is frozen.",
+    };
+  }
+
+  let priorityId: string | null = null;
+  let functionalAreaId: string | null = null;
+  if (target.type === "priority") {
+    const { data: priority } = await supabase
+      .from("priorities")
+      .select("id, company_id, quarter_id")
+      .eq("id", target.id)
+      .maybeSingle<Pick<Priority, "id" | "company_id" | "quarter_id">>();
+    if (!priority || priority.company_id !== commitment.company_id) {
+      return { ok: false, message: "That action isn't accessible." };
+    }
+    const { data: quarter } = await supabase
+      .from("quarters")
+      .select("status")
+      .eq("id", priority.quarter_id)
+      .maybeSingle<{ status: string }>();
+    if (quarter?.status !== "open") {
+      return {
+        ok: false,
+        message: "Only actions in the open quarter can be linked.",
+      };
+    }
+    priorityId = target.id;
+  } else if (target.type === "functional_area") {
+    const { data: fn } = await supabase
+      .from("functions")
+      .select("id, company_id, archived")
+      .eq("id", target.id)
+      .maybeSingle<{ id: string; company_id: string; archived: boolean }>();
+    if (
+      !fn ||
+      fn.company_id !== commitment.company_id ||
+      fn.archived
+    ) {
+      return { ok: false, message: "That functional area isn't accessible." };
+    }
+    functionalAreaId = target.id;
+  }
+
+  const previousPriorityId = commitment.priority_id;
+  const previousIssueId = commitment.issue_id;
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({
+      priority_id: priorityId,
+      issue_id: null,
+      functional_area_id: functionalAreaId,
+    })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't update the link." };
+  }
+
+  revalidateCommitmentSurfaces(previousPriorityId);
+  revalidateCommitmentSurfaces(priorityId);
+  if (previousIssueId) revalidatePath("/issues");
+  trackAfter(
+    session.profile.id,
+    "commitment.link_changed",
+    {
+      to: target.type,
+      from_priority: Boolean(previousPriorityId),
+      from_issue: Boolean(previousIssueId),
+      from_functional_area: Boolean(commitment.functional_area_id),
+    },
+    { company: commitment.company_id }
+  );
+  return { ok: true, commitment: data };
+}
+
 // ---- Clarity assessment -------------------------------------
 export type ClarityInput = {
   timeline: boolean | null;
