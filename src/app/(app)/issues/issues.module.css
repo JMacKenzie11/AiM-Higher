@@ -1,12 +1,8 @@
-/* Issues/Solutions page styles. Card-per-issue, drag-to-reorder,
-   inline title + desired_outcome edits. Reuses commitment row
-   styling via imports; only the outer scaffolding lives here. */
-
-.stage {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
+/* Issues/Solutions row layout — one issue per row, five content
+   columns (Issue, What we want, Commitment, Assigned To, Due
+   Date) plus a drag handle at the far left and a Resolve button
+   at the far right. Column shape matches the vocabulary of
+   /commitments so the two pages read as siblings. */
 
 .createRow {
   display: flex;
@@ -49,10 +45,28 @@
   margin: 0;
 }
 
-/* Row-per-issue list matching /commitments' visual language.
-   Each issue collapses to a single horizontal row (drag, title,
-   preview, count, resolve). Clicking expands the row body in
-   place, revealing the editors + linked commitments. */
+/* ---- Column header row --------------------------------------- */
+.columnHeader {
+  display: grid;
+  grid-template-columns:
+    20px
+    minmax(0, 1.2fr)
+    minmax(0, 1.5fr)
+    minmax(0, 1.8fr)
+    minmax(120px, 0.8fr)
+    minmax(110px, 0.6fr)
+    auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+/* ---- Sortable list of issues -------------------------------- */
 .issueList {
   list-style: none;
   padding: 0;
@@ -60,117 +74,34 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  border-top: 1px solid var(--border);
 }
 
 .issueListItem {
   border-bottom: 1px solid var(--border);
 }
 
-.issueRow {
-  display: flex;
-  flex-direction: column;
-  background: transparent;
+.issueListItem:last-child {
+  border-bottom: none;
 }
 
-.issueRowHeader {
-  display: flex;
+/* ---- One issue = one row (matches .columnHeader grid) ------- */
+.issueRow {
+  display: grid;
+  grid-template-columns:
+    20px
+    minmax(0, 1.2fr)
+    minmax(0, 1.5fr)
+    minmax(0, 1.8fr)
+    minmax(120px, 0.8fr)
+    minmax(110px, 0.6fr)
+    auto;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
 }
 
-.issueRowHeader:hover {
+.issueRow:hover {
   background: var(--aims-navy-tint);
-}
-
-.issueRowExpander {
-  flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) auto 16px;
-  align-items: baseline;
-  gap: var(--space-3);
-  background: transparent;
-  border: none;
-  padding: 4px 0;
-  text-align: left;
-  cursor: pointer;
-  color: inherit;
-  min-width: 0;
-}
-
-.issueRowTitle {
-  font: var(--text-body);
-  font-weight: 700;
-  color: var(--text-heading);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.issueRowPreview {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.issueRowCount {
-  font: var(--text-caption);
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.issueRowChevron {
-  color: var(--text-muted);
-  font-size: 0.8em;
-}
-
-.issueBody {
-  padding: var(--space-3) var(--space-3) var(--space-4) var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  background: var(--aims-navy-tint);
-  border-top: 1px dashed var(--border);
-}
-
-.issueSectionInline {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-
-.issueBodyText {
-  font: var(--text-body);
-  color: var(--text);
-  margin: 0;
-}
-
-.renameLink {
-  background: transparent;
-  border: none;
-  padding: 0;
-  color: var(--text-muted);
-  font: var(--text-caption);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.renameLink:hover {
-  color: var(--primary);
-}
-
-.issueHeaderLeft {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  flex: 1;
 }
 
 .dragHandle {
@@ -194,29 +125,40 @@
   cursor: grabbing;
 }
 
-.issueTitle {
-  font: var(--text-body);
-  font-weight: 700;
-  color: var(--text-heading);
-  margin: 0;
+.dragHandlePlaceholder {
+  display: inline-block;
+  width: 20px;
+  height: 1px;
 }
 
+/* Column: Issue title */
+.cellIssue {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.issueTitle,
 .issueTitleEditable {
   font: var(--text-body);
   font-weight: 700;
   color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.issueTitleEditable {
   background: transparent;
   border: none;
   padding: 0;
   text-align: left;
   cursor: text;
-  border-radius: var(--radius-sm);
-  min-width: 0;
 }
 
 .issueTitleEditable:hover {
-  background: var(--aims-navy-tint);
-  outline: 2px solid var(--aims-navy-tint);
+  color: var(--primary);
 }
 
 .issueTitleInput {
@@ -227,8 +169,7 @@
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
   padding: 2px var(--space-2);
-  min-width: 240px;
-  flex: 1;
+  width: 100%;
 }
 
 .issueTitleInput:focus {
@@ -236,106 +177,96 @@
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.resolveButton {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 4px var(--space-3);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.resolveButton:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.issueSection {
+/* Column: What we want */
+.cellWant {
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-left: var(--space-4);
+  align-items: center;
 }
 
-.issueSectionLabel {
-  font: var(--text-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.issueBody {
-  font: var(--text-body);
+.wantText,
+.wantEditable {
+  font: var(--text-body-sm);
   color: var(--text);
-  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
-.issueBodyMuted {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.issueBodyEditable {
-  font: var(--text-body);
-  color: var(--text);
+.wantEditable {
   background: transparent;
   border: none;
   padding: 0;
   text-align: left;
   cursor: text;
-  border-radius: var(--radius-sm);
 }
 
-.issueBodyEditable:hover {
-  background: var(--aims-navy-tint);
-  outline: 2px solid var(--aims-navy-tint);
+.wantEditable:hover {
+  color: var(--primary);
 }
 
-.issueBodyInput {
+.wantMuted {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.wantInput {
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: 2px var(--space-2);
   background: var(--surface);
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
-  font: var(--text-body);
+  font: var(--text-body-sm);
   color: var(--text);
-  resize: vertical;
-  min-height: 3em;
 }
 
-.issueBodyInput:focus {
+.wantInput:focus {
   outline: none;
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.commitmentList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.commitmentAddRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: 1px dashed var(--border);
-}
-
-.commitmentAddInput {
-  flex: 1;
+/* Columns: Commitment / Owner / Due */
+.cellCommitment {
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  font: var(--text-body-sm);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellOwner {
+  min-width: 0;
+  font: var(--text-body-sm);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellDue {
+  min-width: 0;
+  font: var(--text-body-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.cellMuted {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Inline commitment-add — fills the commitment/owner/due cells
+   in place when the issue has no open commitment. */
+.commitmentAddInput {
+  width: 100%;
+  padding: 4px var(--space-2);
   background: var(--surface);
   border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
-  font: var(--text-body);
+  font: var(--text-body-sm);
   color: var(--text);
 }
 
@@ -343,12 +274,13 @@
   outline: none;
   border-style: solid;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .commitmentAddSelect,
 .commitmentAddDate {
-  padding: var(--space-2) var(--space-3);
+  width: 100%;
+  padding: 4px var(--space-2);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -360,9 +292,33 @@
 .commitmentAddDate:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
+/* Column: Resolve action */
+.resolveButton {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px var(--space-3);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.resolveButton:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.resolvePlaceholder {
+  display: inline-block;
+  width: 74px;
+  height: 1px;
+}
+
+/* ---- Resolved section (unchanged from previous cut) --------- */
 .resolvedSection {
   margin-top: var(--space-4);
 }

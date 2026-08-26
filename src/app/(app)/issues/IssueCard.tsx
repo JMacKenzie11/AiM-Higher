@@ -20,27 +20,36 @@ import {
 import type { IssueWithCommitments } from "@/lib/issues/service";
 import type { Priority, Profile } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { CommitmentRow } from "../commitments/CommitmentRow";
 import styles from "./issues.module.css";
 
-// One issue = one row. Collapsed by default: drag handle, title,
-// muted preview of "what we want", commitment count, resolve.
-// Clicking the row expands it in place to show the full editor
-// ("WHAT WE WANT" text area) + the linked commitments as
-// CommitmentRow instances + an inline add row scoped to this
-// issue. Drag / resolve stay outside the expand button so a
-// mousedown on either doesn't toggle open.
+// One issue = one row. Five columns match the /commitments visual
+// vocabulary: Issue | What we want | Commitment | Assigned To |
+// Due Date. Drag handle on the far left, Resolve on the far right.
+//
+// The commitment column shows the newest open issue-linked
+// commitment (there's typically one at a time for a Solution
+// Seeking flow). If there's none, the last three columns collapse
+// into a compact inline "add commitment" form so the meeting
+// leader can capture what will move the issue forward this week
+// without leaving the row.
+//
+// Owner-facing commitment mechanics (mark kept / reschedule /
+// reassign) live on Guide HQ "My commitments" per the presentation
+// rule — issue-linked commitments stay off the company /commitments
+// page but are always present on personal surfaces where the owner
+// interacts with them.
+
+// _priority + _fnArea props are unused for now; kept in the signature
+// so future work (chip-in-place, click-to-edit link) doesn't have to
+// re-thread them from the page loader.
 
 const CREATE_INITIAL: CommitmentResult = { ok: false, message: "" };
 
 export function IssueCard({
   issue,
   roster,
-  priorityOptions,
-  functionalAreaOptions,
   todayIso,
   currentUserId,
-  currentUserCompanyId,
   isAdmin,
   dragHandleProps,
 }: {
@@ -55,137 +64,82 @@ export function IssueCard({
   dragHandleProps?: HTMLAttributes<HTMLButtonElement>;
 }) {
   const canEdit = isAdmin || issue.created_by === currentUserId;
-  const openCommitments = issue.commitments.filter(
-    (c) => c.status === "open" && !c.deleted_at && !c.parked_at
-  );
-  const [expanded, setExpanded] = useState(false);
+  // Take the newest open commitment as "this week's". If more than
+  // one exists, older ones stay linked in the DB but don't render
+  // here — the row's premise is a single current commitment.
+  const openCommitments = issue.commitments
+    .filter((c) => c.status === "open" && !c.deleted_at && !c.parked_at)
+    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+  const active = openCommitments[0] ?? null;
+  const activeOwner = active?.owner_id
+    ? roster.find((p) => p.id === active.owner_id)?.full_name ?? "Unknown"
+    : null;
 
   return (
     <article className={styles.issueRow}>
-      <header className={styles.issueRowHeader}>
-        {canEdit ? (
-          <button
-            type="button"
-            className={styles.dragHandle}
-            aria-label="Reorder this issue"
-            title="Drag to reorder"
-            {...dragHandleProps}
-          >
-            <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
-              <circle cx="5" cy="4" r="1.2" fill="currentColor" />
-              <circle cx="11" cy="4" r="1.2" fill="currentColor" />
-              <circle cx="5" cy="8" r="1.2" fill="currentColor" />
-              <circle cx="11" cy="8" r="1.2" fill="currentColor" />
-              <circle cx="5" cy="12" r="1.2" fill="currentColor" />
-              <circle cx="11" cy="12" r="1.2" fill="currentColor" />
-            </svg>
-          </button>
-        ) : null}
+      {canEdit ? (
         <button
           type="button"
-          className={styles.issueRowExpander}
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          aria-controls={`issue-body-${issue.id}`}
-          title={expanded ? "Collapse" : "Expand"}
+          className={styles.dragHandle}
+          aria-label="Reorder this issue"
+          title="Drag to reorder"
+          {...dragHandleProps}
         >
-          <span className={styles.issueRowTitle}>{issue.title}</span>
-          <span className={styles.issueRowPreview}>
-            {issue.desired_outcome
-              ? issue.desired_outcome
-              : "What's the outcome you want here?"}
-          </span>
-          <span className={styles.issueRowCount}>
-            {openCommitments.length}{" "}
-            {openCommitments.length === 1 ? "commitment" : "commitments"}
-          </span>
-          <span aria-hidden className={styles.issueRowChevron}>
-            {expanded ? "▾" : "▸"}
-          </span>
+          <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+            <circle cx="5" cy="4" r="1.2" fill="currentColor" />
+            <circle cx="11" cy="4" r="1.2" fill="currentColor" />
+            <circle cx="5" cy="8" r="1.2" fill="currentColor" />
+            <circle cx="11" cy="8" r="1.2" fill="currentColor" />
+            <circle cx="5" cy="12" r="1.2" fill="currentColor" />
+            <circle cx="11" cy="12" r="1.2" fill="currentColor" />
+          </svg>
         </button>
-        {canEdit ? <ResolveIssueButton issueId={issue.id} /> : null}
-      </header>
+      ) : (
+        <span aria-hidden className={styles.dragHandlePlaceholder} />
+      )}
 
-      {expanded ? (
-        <div id={`issue-body-${issue.id}`} className={styles.issueBody}>
-          <section
-            className={styles.issueSection}
-            aria-labelledby={`want-${issue.id}`}
-          >
-            <h3
-              id={`want-${issue.id}`}
-              className={styles.issueSectionLabel}
-            >
-              What we want
-            </h3>
-            <div className={styles.issueSectionInline}>
-              {canEdit ? (
-                <IssueTitleEditor issue={issue} canEdit={canEdit} />
-              ) : null}
-              <DesiredOutcomeEditor issue={issue} canEdit={canEdit} />
-            </div>
-          </section>
+      <div className={styles.cellIssue}>
+        <IssueTitleEditor issue={issue} canEdit={canEdit} />
+      </div>
 
-          <section
-            className={styles.issueSection}
-            aria-labelledby={`work-${issue.id}`}
-          >
-            <h3
-              id={`work-${issue.id}`}
-              className={styles.issueSectionLabel}
-            >
-              This week&rsquo;s commitment
-            </h3>
-            {openCommitments.length === 0 && !canEdit ? (
-              <p className={styles.emptyLine}>No commitment yet.</p>
-            ) : null}
-            {openCommitments.length > 0 ? (
-              <ul className={styles.commitmentList}>
-                {openCommitments.map((c) => (
-                  <CommitmentRow
-                    key={c.id}
-                    commitment={c}
-                    priorityOptions={priorityOptions}
-                    functionalAreaOptions={functionalAreaOptions}
-                    roster={roster}
-                    todayIso={todayIso}
-                    canResolve={
-                      isAdmin ||
-                      c.owner_id === currentUserId ||
-                      (currentUserCompanyId !== null &&
-                        c.company_id === currentUserCompanyId)
-                    }
-                    canLink={
-                      isAdmin || issue.created_by === currentUserId
-                    }
-                    canReassign={
-                      isAdmin ||
-                      c.owner_id === currentUserId ||
-                      c.owner_id === null
-                    }
-                    currentUserId={currentUserId}
-                    isAdmin={isAdmin}
-                  />
-                ))}
-              </ul>
-            ) : null}
-            {canEdit ? (
-              <IssueCommitmentAddRow
-                issueId={issue.id}
-                roster={roster}
-                currentUserId={currentUserId}
-                isAdmin={isAdmin}
-                todayIso={todayIso}
-              />
-            ) : null}
-          </section>
-        </div>
-      ) : null}
+      <div className={styles.cellWant}>
+        <DesiredOutcomeEditor issue={issue} canEdit={canEdit} />
+      </div>
+
+      {active ? (
+        <>
+          <div className={styles.cellCommitment}>{active.description}</div>
+          <div className={styles.cellOwner}>{activeOwner ?? "Unassigned"}</div>
+          <div className={styles.cellDue}>{active.due_date}</div>
+        </>
+      ) : canEdit ? (
+        <IssueCommitmentAddInline
+          issueId={issue.id}
+          roster={roster}
+          currentUserId={currentUserId}
+          isAdmin={isAdmin}
+          todayIso={todayIso}
+        />
+      ) : (
+        <>
+          <div className={`${styles.cellCommitment} ${styles.cellMuted}`}>
+            No commitment yet.
+          </div>
+          <div className={styles.cellOwner}>—</div>
+          <div className={styles.cellDue}>—</div>
+        </>
+      )}
+
+      {canEdit ? (
+        <ResolveIssueButton issueId={issue.id} />
+      ) : (
+        <span aria-hidden className={styles.resolvePlaceholder} />
+      )}
     </article>
   );
 }
 
-// ---- Inline editors (only rendered when expanded) --------------
+// ---- Inline editors -------------------------------------------
 
 function IssueTitleEditor({
   issue,
@@ -220,7 +174,9 @@ function IssueTitleEditor({
     });
   }
 
-  if (!canEdit) return null;
+  if (!canEdit) {
+    return <span className={styles.issueTitle}>{issue.title}</span>;
+  }
   if (editing) {
     return (
       <>
@@ -255,11 +211,11 @@ function IssueTitleEditor({
   return (
     <button
       type="button"
-      className={styles.renameLink}
+      className={styles.issueTitleEditable}
       onClick={() => setEditing(true)}
-      title="Rename this issue"
+      title="Click to rename"
     >
-      Rename
+      {issue.title}
     </button>
   );
 }
@@ -296,28 +252,31 @@ function DesiredOutcomeEditor({
 
   if (!canEdit) {
     return issue.desired_outcome ? (
-      <p className={styles.issueBodyText}>{issue.desired_outcome}</p>
+      <span className={styles.wantText}>{issue.desired_outcome}</span>
     ) : (
-      <p className={styles.issueBodyMuted}>Not yet defined.</p>
+      <span className={styles.wantMuted}>Not yet defined.</span>
     );
   }
   if (editing) {
     return (
       <>
-        <textarea
-          className={styles.issueBodyInput}
+        <input
+          type="text"
+          className={styles.wantInput}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
-            if (e.key === "Escape") {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
               e.preventDefault();
               setDraft(issue.desired_outcome ?? "");
               setEditing(false);
               setError(null);
             }
           }}
-          rows={2}
           autoFocus
           disabled={pending}
           aria-label="What we want"
@@ -334,7 +293,7 @@ function DesiredOutcomeEditor({
     return (
       <button
         type="button"
-        className={styles.issueBodyEditable}
+        className={styles.wantEditable}
         onClick={() => setEditing(true)}
         title="Click to edit"
       >
@@ -345,7 +304,7 @@ function DesiredOutcomeEditor({
   return (
     <button
       type="button"
-      className={`${styles.issueBodyEditable} ${styles.issueBodyMuted}`}
+      className={`${styles.wantEditable} ${styles.wantMuted}`}
       onClick={() => setEditing(true)}
       title="Click to add"
     >
@@ -398,7 +357,11 @@ function ResolveIssueButton({ issueId }: { issueId: string }) {
   );
 }
 
-function IssueCommitmentAddRow({
+// Inline commitment-add: fills the three commitment/owner/due
+// cells in place when the issue has no open commitment. Submitting
+// creates an issue-linked commitment; the row rerenders in the
+// "show active" branch on next revalidate.
+function IssueCommitmentAddInline({
   issueId,
   roster,
   currentUserId,
@@ -433,59 +396,70 @@ function IssueCommitmentAddRow({
   }, [state]);
 
   return (
-    <form action={formAction} className={styles.commitmentAddRow}>
-      <input type="hidden" name="issue_id" value={issueId} />
-      <input
-        ref={inputRef}
-        type="text"
-        name="description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            e.preventDefault();
-            setDescription("");
-          }
-        }}
-        className={styles.commitmentAddInput}
-        placeholder="What will move this forward this week?"
-        required
-        disabled={pending}
-        aria-label="New commitment"
-      />
-      {isAdmin ? (
-        <select
-          name="owner_id"
-          value={ownerId}
-          onChange={(e) => setOwnerId(e.target.value)}
-          className={styles.commitmentAddSelect}
+    <>
+      <form
+        id={`add-cmt-${issueId}`}
+        action={formAction}
+        className={styles.cellCommitment}
+      >
+        <input type="hidden" name="issue_id" value={issueId} />
+        <input type="hidden" name="owner_id" value={ownerId} />
+        <input type="hidden" name="due_date" value={dueDate} />
+        <input
+          ref={inputRef}
+          type="text"
+          name="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setDescription("");
+            }
+          }}
+          className={styles.commitmentAddInput}
+          placeholder="What will move this forward this week?"
+          required
           disabled={pending}
-          aria-label="Owner"
-        >
-          {roster.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.full_name}
-            </option>
-          ))}
-        </select>
-      ) : null}
-      <input
-        type="date"
-        name="due_date"
-        value={dueDate}
-        onChange={(e) => setDueDate(e.target.value)}
-        className={styles.commitmentAddDate}
-        disabled={pending}
-        aria-label="Due date"
-      />
-      {pending ? (
-        <span className={styles.savingHint}>Saving…</span>
-      ) : null}
-      {errorMessage ? (
-        <p role="alert" className={styles.rowError}>
-          {errorMessage}
-        </p>
-      ) : null}
-    </form>
+          aria-label="New commitment"
+        />
+        {errorMessage ? (
+          <p role="alert" className={styles.rowError}>
+            {errorMessage}
+          </p>
+        ) : null}
+      </form>
+      <div className={styles.cellOwner}>
+        {isAdmin ? (
+          <select
+            form={`add-cmt-${issueId}`}
+            value={ownerId}
+            onChange={(e) => setOwnerId(e.target.value)}
+            className={styles.commitmentAddSelect}
+            disabled={pending}
+            aria-label="Owner"
+          >
+            {roster.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.full_name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          roster.find((p) => p.id === currentUserId)?.full_name ?? "You"
+        )}
+      </div>
+      <div className={styles.cellDue}>
+        <input
+          form={`add-cmt-${issueId}`}
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className={styles.commitmentAddDate}
+          disabled={pending}
+          aria-label="Due date"
+        />
+      </div>
+    </>
   );
 }

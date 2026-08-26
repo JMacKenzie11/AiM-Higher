@@ -92,6 +92,15 @@ export function IssuesBoard({
           {error}
         </p>
       ) : null}
+      <div className={styles.columnHeader} role="row" aria-hidden="true">
+        <span aria-hidden />
+        <span>Issue</span>
+        <span>What we want</span>
+        <span>Commitment</span>
+        <span>Assigned to</span>
+        <span>Due date</span>
+        <span aria-hidden />
+      </div>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
