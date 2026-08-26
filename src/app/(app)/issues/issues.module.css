@@ -34,15 +34,15 @@
 /* ---- Column header row --------------------------------------- */
 .columnHeader {
   display: grid;
-  /* drag | issue | what we want | clarity dot | commitment
-     | assigned to | due date | resolve. Clarity gets its own
-     narrow column (mirroring /commitments) so the dot never
-     pushes the commitment text off-axis from the header. */
+  /* clarity | drag | issue | what we want | commitment
+     | assigned to | due date | resolve. Clarity sits leftmost so
+     the pill is the first thing a reader sees per row; when the
+     issue has no commitment yet the clarity cell renders empty. */
   grid-template-columns:
+    20px
     20px
     minmax(0, 1.2fr)
     minmax(0, 1.5fr)
-    20px
     minmax(0, 1.8fr)
     minmax(120px, 0.8fr)
     minmax(110px, 0.6fr)
@@ -78,15 +78,15 @@
 /* ---- One issue = one row (matches .columnHeader grid) ------- */
 .issueRow {
   display: grid;
-  /* drag | issue | what we want | clarity dot | commitment
-     | assigned to | due date | resolve. Clarity gets its own
-     narrow column (mirroring /commitments) so the dot never
-     pushes the commitment text off-axis from the header. */
+  /* clarity | drag | issue | what we want | commitment
+     | assigned to | due date | resolve. Clarity sits leftmost so
+     the pill is the first thing a reader sees per row; when the
+     issue has no commitment yet the clarity cell renders empty. */
   grid-template-columns:
+    20px
     20px
     minmax(0, 1.2fr)
     minmax(0, 1.5fr)
-    20px
     minmax(0, 1.8fr)
     minmax(120px, 0.8fr)
     minmax(110px, 0.6fr)

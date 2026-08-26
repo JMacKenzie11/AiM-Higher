@@ -109,9 +109,9 @@ export function IssuesBoard({
       ) : null}
       <div className={styles.columnHeader} role="row" aria-hidden="true">
         <span aria-hidden />
+        <span aria-hidden />
         <span>Issue</span>
         <span>What we want</span>
-        <span aria-hidden />
         <span>Commitment</span>
         <span>Assigned to</span>
         <span>Due date</span>

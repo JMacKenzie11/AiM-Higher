@@ -10,8 +10,12 @@ import {
 } from "react";
 import {
   createCommitmentAction,
+  reassignCommitmentAction,
+  rescheduleCommitmentAction,
+  updateCommitmentDescriptionAction,
   type CommitmentResult,
 } from "@/lib/commitments/actions";
+import type { Commitment } from "@/lib/types";
 import {
   renameIssueAction,
   resolveIssueAction,
@@ -89,8 +93,29 @@ export function IssueCard({
   const [showClarity, setShowClarity] = useState(false);
   const [clarityError, setClarityError] = useState<string | null>(null);
 
+  const canEditActive = active !== null && canEditClarity;
+
   return (
     <article className={styles.issueRow}>
+      {/* Col 1: clarity dot (leftmost) — only when a commitment
+          exists. No commitment = empty column, keeping the grid
+          shape stable across rows. */}
+      {active ? (
+        <div className={styles.cellClarity}>
+          <ClarityChip
+            state={clarityState(active)}
+            onClick={
+              canEditClarity
+                ? () => setShowClarity((prev) => !prev)
+                : undefined
+            }
+          />
+        </div>
+      ) : (
+        <span aria-hidden className={styles.cellClarity} />
+      )}
+
+      {/* Col 2: drag handle */}
       {canEdit ? (
         <button
           type="button"
@@ -122,34 +147,38 @@ export function IssueCard({
 
       {active ? (
         <>
-          <div className={styles.cellClarity}>
-            <ClarityChip
-              state={clarityState(active)}
-              onClick={
-                canEditClarity
-                  ? () => setShowClarity((prev) => !prev)
-                  : undefined
-              }
+          <div className={styles.cellCommitment}>
+            <CommitmentDescriptionEditor
+              commitment={active}
+              canEdit={canEditActive}
             />
           </div>
-          <div className={styles.cellCommitment}>{active.description}</div>
-          <div className={styles.cellOwner}>{activeOwner ?? "Unassigned"}</div>
-          <div className={styles.cellDue}>{active.due_date}</div>
+          <div className={styles.cellOwner}>
+            <OwnerAssignmentEditor
+              commitment={active}
+              roster={roster}
+              canEdit={canEditActive}
+              currentOwnerName={activeOwner}
+            />
+          </div>
+          <div className={styles.cellDue}>
+            <DueDateEditor
+              commitment={active}
+              canEdit={canEditActive}
+              isAdmin={isAdmin}
+            />
+          </div>
         </>
       ) : canEdit ? (
-        <>
-          <span aria-hidden className={styles.cellClarity} />
-          <IssueCommitmentAddInline
-            issueId={issue.id}
-            roster={roster}
-            currentUserId={currentUserId}
-            isAdmin={isAdmin}
-            todayIso={todayIso}
-          />
-        </>
+        <IssueCommitmentAddInline
+          issueId={issue.id}
+          roster={roster}
+          currentUserId={currentUserId}
+          isAdmin={isAdmin}
+          todayIso={todayIso}
+        />
       ) : (
         <>
-          <span aria-hidden className={styles.cellClarity} />
           <div className={`${styles.cellCommitment} ${styles.cellMuted}`}>
             No commitment yet.
           </div>
@@ -509,5 +538,279 @@ function IssueCommitmentAddInline({
         />
       </div>
     </>
+  );
+}
+
+// ---- Inline editors for the active commitment ------------------
+// Click-to-edit description / owner / due date so an issue-linked
+// commitment can be tuned without leaving the /issues row. These
+// three fields stay editable for as long as the issue is on the
+// open list; Resolve moves the issue off this page and the row
+// stops rendering entirely.
+
+function CommitmentDescriptionEditor({
+  commitment,
+  canEdit,
+}: {
+  commitment: Commitment;
+  canEdit: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(commitment.description);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(commitment.description);
+  }, [commitment.description]);
+
+  function commit() {
+    if (pending) return;
+    const next = draft.trim();
+    if (!next || next === commitment.description) {
+      setDraft(commitment.description);
+      setEditing(false);
+      setError(null);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await updateCommitmentDescriptionAction(
+        commitment.id,
+        next
+      );
+      if (!result.ok) setError(result.message);
+      else setEditing(false);
+    });
+  }
+
+  if (!canEdit) {
+    return <span>{commitment.description}</span>;
+  }
+  if (editing) {
+    return (
+      <>
+        <textarea
+          className={styles.wantInput}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          rows={3}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setDraft(commitment.description);
+              setEditing(false);
+              setError(null);
+            }
+          }}
+          autoFocus
+          disabled={pending}
+          aria-label="Edit commitment"
+        />
+        {error ? (
+          <p role="alert" className={styles.rowError}>
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={styles.wantEditable}
+      onClick={() => setEditing(true)}
+      title="Click to edit — Cmd/Ctrl+Enter saves, Esc cancels"
+    >
+      {commitment.description}
+    </button>
+  );
+}
+
+function OwnerAssignmentEditor({
+  commitment,
+  roster,
+  canEdit,
+  currentOwnerName,
+}: {
+  commitment: Commitment;
+  roster: Array<Pick<Profile, "id" | "full_name">>;
+  canEdit: boolean;
+  currentOwnerName: string | null;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function change(newOwnerId: string) {
+    if (pending || newOwnerId === commitment.owner_id) {
+      setEditing(false);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await reassignCommitmentAction(commitment.id, newOwnerId);
+      if (!result.ok) setError(result.message);
+      setEditing(false);
+    });
+  }
+
+  if (!canEdit) {
+    return <span>{currentOwnerName ?? "Unassigned"}</span>;
+  }
+  if (editing) {
+    return (
+      <>
+        <select
+          className={styles.commitmentAddSelect}
+          defaultValue={commitment.owner_id ?? ""}
+          onChange={(e) => change(e.target.value)}
+          onBlur={() => setEditing(false)}
+          autoFocus
+          disabled={pending}
+          aria-label="Reassign owner"
+        >
+          {roster.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.full_name}
+            </option>
+          ))}
+        </select>
+        {error ? (
+          <p role="alert" className={styles.rowError}>
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={styles.wantEditable}
+      onClick={() => setEditing(true)}
+      title="Click to reassign"
+    >
+      {currentOwnerName ?? "Unassigned"}
+    </button>
+  );
+}
+
+function DueDateEditor({
+  commitment,
+  canEdit,
+  isAdmin,
+}: {
+  commitment: Commitment;
+  canEdit: boolean;
+  isAdmin: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draftDate, setDraftDate] = useState(commitment.due_date);
+  const [reason, setReason] = useState("");
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraftDate(commitment.due_date);
+  }, [commitment.due_date]);
+
+  function save() {
+    if (pending) return;
+    if (draftDate === commitment.due_date && !reason.trim()) {
+      setEditing(false);
+      setError(null);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await rescheduleCommitmentAction(
+        commitment.id,
+        draftDate,
+        reason.trim() || null
+      );
+      if (!result.ok) setError(result.message);
+      else {
+        setReason("");
+        setEditing(false);
+      }
+    });
+  }
+
+  if (!canEdit) {
+    return <span>{commitment.due_date}</span>;
+  }
+  if (editing) {
+    return (
+      <>
+        <input
+          type="date"
+          value={draftDate}
+          onChange={(e) => setDraftDate(e.target.value)}
+          className={styles.commitmentAddDate}
+          autoFocus
+          disabled={pending}
+          aria-label="Reschedule due date"
+        />
+        {/* Reason is required for team members per the reschedule
+            server action; admins/guides are exempt. Show the field
+            always for non-admins so the save doesn't ping-pong
+            through a server error. */}
+        {!isAdmin ? (
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why the change?"
+            className={styles.commitmentAddInput}
+            disabled={pending}
+            aria-label="Reason for reschedule"
+            style={{ marginTop: 4 }}
+          />
+        ) : null}
+        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+          <button
+            type="button"
+            onClick={save}
+            disabled={pending}
+            className={styles.resolveButton}
+          >
+            {pending ? "Saving…" : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDraftDate(commitment.due_date);
+              setReason("");
+              setEditing(false);
+              setError(null);
+            }}
+            disabled={pending}
+            className={styles.resolveButton}
+          >
+            Cancel
+          </button>
+        </div>
+        {error ? (
+          <p role="alert" className={styles.rowError}>
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={styles.wantEditable}
+      onClick={() => setEditing(true)}
+      title="Click to reschedule"
+    >
+      {commitment.due_date}
+    </button>
   );
 }
