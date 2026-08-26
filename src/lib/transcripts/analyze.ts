@@ -30,7 +30,13 @@ import type {
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS_ANALYSIS = 5000;
-const MAX_TOKENS_EXTRACTION = 2000;
+// Bumped from 2000 → 4000 after seeing empty extractions on
+// meetings that generated both commitments AND issues. The dual-
+// array output plus clarity_note strings on every commitment can
+// crowd the ceiling; a truncated JSON body fails JSON.parse and
+// the pipeline silently swallowed the loss (commitments + issues
+// both landed empty even though the summary was fine).
+const MAX_TOKENS_EXTRACTION = 4000;
 const MAX_COMMITMENTS = 20;
 const DESCRIPTION_MAX = 300;
 const DUE_DATE_HORIZON_DAYS = 30;
@@ -129,6 +135,25 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
       .join("");
     const { commitments: rawCommitments, issues: rawIssues } =
       parseExtractionJson(rawText);
+    // Verbose logging when the extraction lands empty. The pipeline
+    // silently accepts an empty result today (LLM stochasticity is a
+    // legit outcome), so without this trail an empty landing was
+    // indistinguishable from "response truncated at max_tokens" or
+    // "model returned the wrong shape". Log everything needed to
+    // diagnose from Vercel logs alone: stop_reason, character count,
+    // and the first + last chunks of the raw output.
+    if (rawCommitments.length === 0 && rawIssues.length === 0) {
+      const stopReason = rawExtraction.stop_reason ?? "unknown";
+      const preview = rawText.slice(0, 400);
+      const tail = rawText.length > 800 ? rawText.slice(-400) : "";
+      console.warn(
+        `[analyze] Empty extraction for meeting ${meetingId} — ` +
+          `stop_reason=${stopReason}, chars=${rawText.length}. ` +
+          `Head: ${JSON.stringify(preview)}${
+            tail ? ` … Tail: ${JSON.stringify(tail)}` : ""
+          }`
+      );
+    }
 
     // Server-side validation. Any row that fails ownership or content
     // checks is dropped; date violations are ADJUSTED (not dropped) to
@@ -485,6 +510,14 @@ export function parseExtractionJson(raw: string): {
     parsed = JSON.parse(cleaned);
   } catch {
     return { commitments: [], issues: [] };
+  }
+  // Backward-compat: earlier revisions of the extraction prompt
+  // returned a bare array of commitments (no wrapping object). If
+  // the model regresses to that shape, still honor the commitments
+  // — dropping them silently is what caused the "reanalyzed and now
+  // everything is empty" report.
+  if (Array.isArray(parsed)) {
+    return { commitments: parsed as ExtractedCommitment[], issues: [] };
   }
   if (!parsed || typeof parsed !== "object") {
     return { commitments: [], issues: [] };
