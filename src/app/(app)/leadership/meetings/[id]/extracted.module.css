@@ -14,7 +14,7 @@
 }
 
 .sectionTitle {
-  font: var(--text-h3);
+  font: var(--text-h2);
   color: var(--text-heading);
   margin: 0;
 }
