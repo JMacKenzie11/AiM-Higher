@@ -32,7 +32,7 @@ Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coac
 | Flag | Turns on |
 | --- | --- |
 | `execution` | Core: commitments, plan cascade, chart, coaching, dashboard |
-| `performance_tracking` (labelled **Success Tracking**) | Requires targets on every success measure; enables the weekly measure log page, the Saturday "log this week" nudge cron, the AI target-quality check on measure creation, the AI metric-draft critique panel, and the four generative dashboard insight cards |
+| `performance_tracking` (labelled **Success Tracking**) | Requires targets on every key success measure; turns on the tracking columns (recent pills, this-week input, status dot, filter chips) on `/measures`; enables the Board view; enables the Saturday "log this week" nudge cron, the AI target-quality check on measure creation, the AI measure-draft critique panel, and the four generative dashboard insight cards. When off, `/measures` collapses to a pure authoring surface |
 | `meeting_facilitation_review` | Second LLM pass on every ingested meeting scoring how the meeting was run against the AiMS Weekly Leadership Meeting framework; renders as a coaching-tone panel on the meeting detail page + a signal chip on the Leadership list |
 | `automated_commitment_tracking` (default ON at create) | Auto-create commitments extracted from meeting transcripts as rows on `/commitments`. When OFF, the analyzer + facilitation review still run but the team authors commitments manually — extractions surface only in the meeting analysis, not on the Commitments board |
 | `classroom` | Adds the shared training library (top-level nav item, consumer surfaces at `/classroom`) + a `search_classroom` tool for the coach + Ask Aimee |
@@ -168,9 +168,10 @@ The functional org chart at `/chart` (nav label: **Functional Org Chart**). Dist
 - **Function nodes** — hierarchical (parent → child), each with title, description, and one seat holder (`leader_id`). Rendered on a pan-and-zoom canvas (react-zoom-pan-pinch): auto-fits the full tree to the viewport on load and on container resize, scroll-wheel or ±/fit-to-view buttons to zoom, drag on empty canvas to pan. Cards keep a fixed 220px minimum width so the tree stays legible at every zoom level.
 - **LTD model** — Lead / Track / Decide are three responsibilities of the *one* seat holder, not three assignees (distinguishing simplification vs traditional EOS-style Accountability Chart).
 - **Function roles** — beyond LTD, function nodes carry named leadership archetypes (Visionary, Integrator, etc.) via `function_roles` for the strategic top of the chart.
-- **Function Outcomes** — the 2–4 short outcomes each function is "obsessed with delivering."
-- **Success Measures** — per outcome. Each carries: description, target (optional if Success Tracking off; required if on), `value_type` (`number` / `percent` / `text`), `target_direction` (`higher_is_better` / `lower_is_better`), and `auto_track` (opt out of the weekly nudge for context measures like headcount).
-- **AI metric-draft critique** (Success Tracking on) — when a leader adds or edits a metric on a function, a background Anthropic Haiku call (`src/lib/measures/critique.ts`, model `ANTHROPIC_CLARITY_MODEL`) scores three dimensions (description clarity, target quality, fit to the parent Success Measure) and renders as an amber coaching panel next to the form. Best-effort — the metric saves whether the critique lands or not. Users see labelled Metric / Target / Fit rows so they know which field to sharpen.
+- **Outcomes** — the 2–4 short outcomes each function is "obsessed with delivering." Level 1 of the measures tree. DB table `function_outcomes`, TypeScript type `FunctionOutcome`.
+- **Key Success Measures** — per outcome. Level 2. Each carries: description, target (optional if Success Tracking off; required if on), `value_type` (`number` / `percent` / `text`), `target_direction` (`higher_is_better` / `lower_is_better`), and `auto_track` (opt out of the weekly nudge for context measures like headcount). DB table `success_measures`, TypeScript type `SuccessMeasure`.
+- **Authoring lives on `/measures`, not on the function page.** The function page shows a read-only summary (N outcomes, M key success measures) and a link to `/measures#fn-<id>`. The chart stays a chart; every add/rename/archive of an outcome or measure happens on the /measures manager. Server actions revalidate both routes.
+- **AI measure-draft critique** (Success Tracking on) — when a leader adds or edits a key success measure, a background Anthropic Haiku call (`src/lib/measures/critique.ts`, model `ANTHROPIC_CLARITY_MODEL`) scores three dimensions (description clarity, target quality, fit to the parent Outcome) and renders as an amber coaching panel next to the form. Best-effort — the measure saves whether the critique lands or not. Users see labelled Measure / Target / Fit rows so they know which field to sharpen.
 - **Weekly value entries** — `success_measure_entries` keyed on measure + week_ending Friday.
 - Drag-to-reorder functions within a parent (admin-only) via `@dnd-kit/sortable`; drag handle on hover, opts out of pan via a `chart-no-pan` class so dnd-kit gets clean pointer events.
 - **Delete function** — hard delete with a branded confirmation that spells out the cascade (sub-functions, outcomes, measures, and recorded values go with it).
@@ -179,18 +180,67 @@ The functional org chart at `/chart` (nav label: **Functional Org Chart**). Dist
 
 ---
 
-## 10. Success Measures / Success Tracking
+## 10. Key Success Measures (`/measures`)
 
-Feature-gated (`performance_tracking`). When on:
+Nav label **Key Success Measures** (under *Workspace*, directly
+below Functional Org Chart). One surface for both authoring the
+outcome / measure tree and logging weekly values. Whether the
+tracking columns render is gated by `performance_tracking`; the
+authoring surface is always on.
 
-- **Batch entry page** (`/measures`, top-level nav "Success Measures") — one row per measure the caller owns: description, target, this-week input, mini trend of the last few weeks. Save-all in a single upsert. Blank rows are skipped (partial saves are fine).
-- **Individual measure detail** (`/measures/[id]`) — full weekly history + edit surface for one measure.
-- **Who sees what:** leaders see measures on functions they lead; system_admin + company_admin see every measure in the company (so they can cover for a leader who's out).
-- **Weekly nudge cron** (Vercel cron, `0 15 * * 6` — Saturday 15:00 UTC) — for each `auto_track` measure that missed the current week's value, opens a commitment on the leader's board (description: "Log this week's value for '{measure title}'"). Timing is intentionally UTC-fixed so a single cron run covers every tenant regardless of company timezone.
-- **AI target-quality check** — on measure creation, a background Anthropic Haiku call (`src/lib/measures/target-check.ts`, model `ANTHROPIC_CLARITY_MODEL`) validates that the target is specific and consistent with `value_type` + `target_direction`; if not, surfaces a coaching hint. Advisory — never blocks the save.
-- **Dashboard pending card** — inline entry for measures that don't yet have a value for the current week.
-- **Dashboard generative cards** — four coaching-tone insight cards (see Section 6).
-- **Nothing is deleted or overwritten** — measures marked archived stay in history.
+- **Manager view** (`/measures`) — grouped by function → outcome →
+  measure. Function anchors are `#fn-<id>` so the chart page can
+  deep-link. Renders in `MeasuresManager` (client), fed by
+  `getMeasuresTree` (server, `src/lib/measures/service.ts`).
+  - **Admin surface** (system_admin, company_admin for the scoped
+    company, aims_guide assigned to it) — sees every function in
+    the company plus authoring affordances: `AddOutcomeInline` per
+    function; inline title rename + Details drawer + archive per
+    outcome; `AddMetricRow` per outcome; per-measure Edit
+    (expand-to-form) + Archive.
+    Filtered functions with zero outcomes still render so admins
+    can seed the first outcome.
+  - **Leader surface** (team_member with `functions.leader_id =
+    user.id`) — sees only their own functions, read-only for
+    authoring, writable for weekly values.
+- **Board view** (top of the same page, `BoardView` component) —
+  13-week grid + timeline read across every function. Hidden when
+  Success Tracking is off.
+- **Filter chips** — *On target / Off / Not yet logged*, multi-
+  select, only rendered when Success Tracking is on AND at least
+  one measure has a target. Replace the pre-2026-08 at-risk-only
+  toggle.
+- **Individual measure quick-log** (`/measures/[id]`) — one
+  measure, one big input, phone-friendly. Weekly history table.
+- **Entitlement-off variant** — tracking columns, Recent pills,
+  filter chips, and Save week button all hide; page becomes a pure
+  authoring / read-only surface.
+- **Weekly nudge cron** (Vercel cron, `0 15 * * 6` — Saturday
+  15:00 UTC) — for each `auto_track` measure that missed the
+  current week's value, opens a commitment on the leader's board
+  (description: "Log this week's value for '{measure title}'").
+  Timing is intentionally UTC-fixed so a single cron run covers
+  every tenant regardless of company timezone.
+- **AI target-quality check** — on measure creation, a background
+  Anthropic Haiku call (`src/lib/measures/target-check.ts`, model
+  `ANTHROPIC_CLARITY_MODEL`) validates that the target is specific
+  and consistent with `value_type` + `target_direction`; if not,
+  surfaces a coaching hint. Advisory — never blocks the save.
+- **Dashboard pending card** — inline entry for measures that
+  don't yet have a value for the current week.
+- **Dashboard generative cards** — four coaching-tone insight
+  cards (see Section 6).
+- **Nothing is deleted or overwritten** — outcomes and measures
+  marked archived stay in history; weekly entries are kept.
+
+**Permissions.** All authoring actions in `src/lib/chart/actions.ts`
+(create/update/rename/archive of outcomes and measures) admit
+`system_admin`, `company_admin`, and `aims_guide`. Weekly value
+writes (`upsertMeasureEntryAction`, `logMeasureEntriesAction`) admit
+the same three roles OR the function's Lead / Track holder. Every
+app-layer check goes through `isAdminForCompany` so the guide role
+never regresses. RLS on `success_measure_entries` mirrors this with
+a `_write_guide` policy.
 
 ---
 
@@ -329,7 +379,7 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
 
 ## 18. Cross-cutting UX System
 
-- **Left Sidebar** (`components/sidebar/Sidebar.tsx`) — fixed rail at 260px expanded, 68px collapsed (icons-only). Collapse state persists in an HTTP-only cookie (`nav-collapsed`) read server-side by the app layout so first paint matches the user's preference (no post-hydration jump). Nav items grouped as flat section headers rather than dropdowns — one click to any surface. Group set is role-dependent: cross-tenant roles (`system_admin`, `aims_guide`) see **Guide HQ** at the top (Overview → `/hq`, Companies → `/admin/companies`, Week in Review → `/dashboard`) followed by **Workspace** (AiMS Implementation, One-Page Plan, Team, Functional Org Chart, Success Measures, Goals & Priorities, Functional Commitments, Meeting Summaries), then **Resources**, then **Strengths**. Company users (`company_admin`, `team_member`) get **Week in Review** prepended as a top-level link (their daily entry point stays one click) and skip Guide HQ. Inline SVG icons per item; hover slides a chartreuse left-accent bar in with a subtle white-tint bg + icon color shift on a single 200ms `--ease-out` curve. Active item keeps the accent bar and a slightly stronger bg. Context pill under the logo reads "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") when a cross-tenant role is scoped in. Footer holds the notification bell (opens upward via `placement="up"` on `NotificationBell` so the tray doesn't fall off the bottom of the screen) and the user pill (opens a popover upward with Profile / Exit company / Sign out). Below 768px the rail slides off-canvas and a hamburger in a slim top strip opens it as a drawer with a backdrop scrim. `NavBand.tsx` is retained in-tree for revert parity but no longer rendered; the notification tray's placement variant lives with the bell for reuse.
+- **Left Sidebar** (`components/sidebar/Sidebar.tsx`) — fixed rail at 260px expanded, 68px collapsed (icons-only). Collapse state persists in an HTTP-only cookie (`nav-collapsed`) read server-side by the app layout so first paint matches the user's preference (no post-hydration jump). Nav items grouped as flat section headers rather than dropdowns — one click to any surface. Group set is role-dependent: cross-tenant roles (`system_admin`, `aims_guide`) see **Guide HQ** at the top (Overview → `/hq`, Companies → `/admin/companies`, Week in Review → `/dashboard`) followed by **Workspace** (AiMS Implementation, One-Page Plan, Team, Functional Org Chart, Key Success Measures, Goals & Priorities, Functional Commitments, Meeting Summaries), then **Resources**, then **Strengths**. Company users (`company_admin`, `team_member`) get **Week in Review** prepended as a top-level link (their daily entry point stays one click) and skip Guide HQ. Inline SVG icons per item; hover slides a chartreuse left-accent bar in with a subtle white-tint bg + icon color shift on a single 200ms `--ease-out` curve. Active item keeps the accent bar and a slightly stronger bg. Context pill under the logo reads "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") when a cross-tenant role is scoped in. Footer holds the notification bell (opens upward via `placement="up"` on `NotificationBell` so the tray doesn't fall off the bottom of the screen) and the user pill (opens a popover upward with Profile / Exit company / Sign out). Below 768px the rail slides off-canvas and a hamburger in a slim top strip opens it as a drawer with a backdrop scrim. `NavBand.tsx` is retained in-tree for revert parity but no longer rendered; the notification tray's placement variant lives with the bell for reuse.
 - **ConfirmDialog** (`components/ui/ConfirmDialog.tsx`) — branded replacement for native `window.confirm()`. Auto-focuses Cancel so a stray Enter can't fire destruction; Escape cancels; overlay click cancels; danger vs primary tone. Used everywhere destructive actions land — no `confirm()` or `alert()` remains in user-visible code paths.
 - **PrivacyNote** (`components/ui/PrivacyNote.tsx`) — small, subtle line telling the user who can see the surrounding content. Three tones (private / managerial / shared). Placed on coaching surfaces, meeting analyses, and the personal scorecard.
 - **Undo affordance on commitment resolves** — 6-second inline chip that reverses the state without needing to hunt for a reopen gesture.
@@ -360,8 +410,8 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
     7. Session Brief (Guide HQ *Prepare for {company}* action; one-shot, best-effort with inline retry on error)
   - **Haiku 4.5** (`ANTHROPIC_CLARITY_MODEL`, default Haiku 4.5) — lightweight quality-check passes:
     8. Commitment clarity scoring (on every save)
-    9. Success measure target validation (advisory)
-    10. Metric-draft critique panel (Metric / Target / Fit dimensions)
+    9. Key success measure target validation (advisory)
+    10. Measure-draft critique panel (Measure / Target / Fit dimensions)
   - Each caller instantiates its own `Anthropic` client with `ANTHROPIC_API_KEY`. Model IDs are env-var overridable.
 - **Streaming:** SSE for coach chat + weekly brief. Tool-use loop on coach (max 4 iterations per turn).
 - **Prompt caching:** coach chat is the only caller using `cache_control: { type: "ephemeral" }` in v1.
@@ -409,9 +459,9 @@ When evaluating a competitor, score them on:
 2. **Weekly commitment tracking with a real Follow-Through Rate metric.**
 3. **Commitment clarity scoring** — do they enforce timeline + observable outcome per commitment, and *AI-score* it automatically?
 4. **Person-level follow-through history** with verbatim missed reasons.
-5. **Functional org chart** with outcomes and success measures.
-6. **Weekly success-measure tracking** with generative "gaining ground / wins / worth a conversation" insight cards.
-7. **AI target & metric-quality coaching** — do they validate that a leader-authored target is specific and observable, and coach on the draft?
+5. **Functional org chart** with outcomes and key success measures.
+6. **Weekly key-success-measure tracking** with generative "gaining ground / wins / worth a conversation" insight cards.
+7. **AI target & measure-quality coaching** — do they validate that a leader-authored target is specific and observable, and coach on the draft?
 8. **Meeting transcript ingest** with automatic commitment extraction into the plan cascade.
 9. **AI facilitation review** grounded in a specific meeting-facilitation framework (not generic sentiment).
 10. **AI coach grounded in real execution data**, with tool use — not generic chat.
