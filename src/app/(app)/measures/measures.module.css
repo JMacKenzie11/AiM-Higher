@@ -520,6 +520,8 @@
 }
 
 .measureGridHead > span {
+  display: block;
+  align-self: stretch;
   padding: var(--space-2) var(--space-2);
   border-bottom: 1px solid var(--border-strong);
 }
