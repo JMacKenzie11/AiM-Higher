@@ -402,7 +402,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-navy-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .outcomeHeader {
@@ -483,11 +486,11 @@
   color: var(--text-muted);
   font: var(--text-body-sm);
   margin: 0;
-  padding-left: var(--space-3);
 }
 
 .outcomeAdd {
-  padding-left: var(--space-3);
+  /* Add-measure affordance sits at the bottom of the tinted outcome
+     panel; horizontal padding comes from the panel itself. */
 }
 
 .addToggleButton {
