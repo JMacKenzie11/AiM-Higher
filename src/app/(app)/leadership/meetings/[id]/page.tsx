@@ -346,7 +346,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           <FacilitationReview review={facilitationReview} />
         ) : null}
 
-        {isAdmin ? (
+        {isAdmin && !isProcessing ? (
           <section
             aria-label="Meeting analysis actions"
             style={{
