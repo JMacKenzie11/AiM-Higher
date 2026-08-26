@@ -543,7 +543,11 @@
     16px
     auto;
   row-gap: 0;
-  align-items: center;
+  /* Every cell fills the row height so per-cell border-bottoms sit
+     at the same y even when one cell (e.g. a title with a wrapping
+     target-hint) makes the row tall. Content is then re-centred
+     inside each cell via flex align-items: center below. */
+  align-items: stretch;
   border-top: 1px solid var(--border);
 }
 
@@ -586,6 +590,7 @@
 .measureCellTitle {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
   min-width: 0;
 }
@@ -609,11 +614,20 @@
 }
 
 .measureCellTarget {
+  display: flex;
+  align-items: center;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
+.measureCellRecent {
+  display: flex;
+  align-items: center;
+}
+
 .measureCellInput {
+  display: flex;
+  align-items: center;
   min-width: 120px;
 }
 
@@ -624,7 +638,7 @@
 }
 
 .measureCellActions {
-  display: inline-flex;
+  display: flex;
   gap: var(--space-2);
   align-items: center;
   justify-content: flex-end;
