@@ -8,6 +8,7 @@ import {
   createLessonAction,
   deleteLessonAction,
   moveLessonAction,
+  renameCategoryAction,
 } from "@/lib/classroom/actions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { CategoryWithLessons } from "@/lib/classroom/service";
@@ -140,9 +141,12 @@ export function AdminClassroomActions({
               flexWrap: "wrap",
             }}
           >
-            <h2 id={`cat-${g.id}`} className={styles.h2}>
-              {g.name}
-            </h2>
+            <CategoryTitle
+              id={g.id}
+              name={g.name}
+              pending={pending}
+              onError={(text) => setMessage({ ok: false, text })}
+            />
             <button
               type="button"
               className={styles.ghostButton}
@@ -220,6 +224,97 @@ export function AdminClassroomActions({
         pending={pending}
       />
     </>
+  );
+}
+
+// Click-to-edit category name. Renders the h2 as a button until
+// clicked; swaps to an input on click; Enter or blur saves; Escape
+// discards. Deliberately no separate "Rename" affordance — the
+// title-as-button hint is enough for an admin surface.
+function CategoryTitle({
+  id,
+  name,
+  pending,
+  onError,
+}: {
+  id: string;
+  name: string;
+  pending: boolean;
+  onError: (text: string) => void;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [savePending, startSaveTransition] = useTransition();
+
+  function commit() {
+    if (savePending) return;
+    const next = draft.trim();
+    if (!next || next === name) {
+      setDraft(name);
+      setEditing(false);
+      return;
+    }
+    startSaveTransition(async () => {
+      const result = await renameCategoryAction(id, next);
+      if (result.ok) {
+        setEditing(false);
+        router.refresh();
+      } else {
+        onError(result.message);
+        setDraft(name);
+        setEditing(false);
+      }
+    });
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        id={`cat-${id}`}
+        className={styles.h2}
+        style={{
+          background: "transparent",
+          border: "none",
+          padding: 0,
+          textAlign: "left",
+          cursor: pending ? "wait" : "text",
+        }}
+        onClick={() => {
+          if (pending) return;
+          setDraft(name);
+          setEditing(true);
+        }}
+        title="Click to rename"
+      >
+        {name}
+      </button>
+    );
+  }
+  return (
+    <input
+      id={`cat-${id}`}
+      type="text"
+      className={styles.input}
+      style={{ maxWidth: 360 }}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          setDraft(name);
+          setEditing(false);
+        }
+      }}
+      autoFocus
+      disabled={savePending}
+      aria-label="Category name"
+    />
   );
 }
 

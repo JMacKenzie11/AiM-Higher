@@ -12,6 +12,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   const categoriesInsert = vi.fn();
   const categoriesInsertSingle = vi.fn();
+  const categoriesUpdatePatch = vi.fn();
+  const categoriesUpdateResult = vi.fn(async () => ({ error: null }));
 
   const lessonsInsertPatch = vi.fn();
   const lessonsInsertSingle = vi.fn();
@@ -36,6 +38,10 @@ const mocks = vi.hoisted(() => {
         insert: (patch: unknown) => {
           categoriesInsert(patch);
           return { select: () => ({ single: categoriesInsertSingle }) };
+        },
+        update: (patch: unknown) => {
+          categoriesUpdatePatch(patch);
+          return { eq: () => categoriesUpdateResult() };
         },
       };
     }
@@ -97,6 +103,8 @@ const mocks = vi.hoisted(() => {
   return {
     categoriesInsert,
     categoriesInsertSingle,
+    categoriesUpdatePatch,
+    categoriesUpdateResult,
     lessonsInsertPatch,
     lessonsInsertSingle,
     lessonsTailSort,
@@ -225,6 +233,58 @@ describe("createCategoryAction + createLessonAction", () => {
       sort_order: number;
     };
     expect(patch.sort_order).toBe(0);
+  });
+});
+
+// ==============================================================
+// renameCategoryAction
+// ==============================================================
+describe("renameCategoryAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  it("updates the name but never touches the slug", async () => {
+    // Slug stability is the load-bearing part of the contract:
+    // Ask-Aimee suggestions + shared links to /classroom/... use
+    // the slug indirectly (via category → lesson), and slug rewrites
+    // would silently 404 those. Rename must be name-only.
+    const { renameCategoryAction } = await import("./actions");
+    const res = await renameCategoryAction("cat_1", "Facilitation");
+    expect(res.ok).toBe(true);
+    const patch = mocks.categoriesUpdatePatch.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(patch.name).toBe("Facilitation");
+    expect(patch).not.toHaveProperty("slug");
+  });
+
+  it("trims whitespace on the new name", async () => {
+    const { renameCategoryAction } = await import("./actions");
+    await renameCategoryAction("cat_1", "  Growth  ");
+    const patch = mocks.categoriesUpdatePatch.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(patch.name).toBe("Growth");
+  });
+
+  it("rejects an empty name before touching the DB", async () => {
+    const { renameCategoryAction } = await import("./actions");
+    const res = await renameCategoryAction("cat_1", "   ");
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/empty/i);
+    expect(mocks.categoriesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a name over 80 characters", async () => {
+    const { renameCategoryAction } = await import("./actions");
+    const res = await renameCategoryAction("cat_1", "A".repeat(81));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/80/);
+    expect(mocks.categoriesUpdatePatch).not.toHaveBeenCalled();
   });
 });
 

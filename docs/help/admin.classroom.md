@@ -14,6 +14,10 @@ appears in every company that has the Classroom feature turned on
 - **Add a category** — the top card. Categories are the primary
   grouping on the learner landing page; pick short, evergreen
   names.
+- **Rename a category** — click its title on the classroom admin
+  page, edit, and press Enter (Escape cancels). Only the display
+  name changes; the slug stays put so any Ask-Aimee reference or
+  shared link keeps working.
 - **Add a lesson** — *+ New lesson* inside a category drops in a
   draft you land on immediately to edit. Set the title,
   description, and flip *Published* on when ready.

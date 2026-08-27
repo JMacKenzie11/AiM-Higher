@@ -39,6 +39,34 @@ export async function createCategoryAction(
   return { ok: true, id: data.id };
 }
 
+// Rename a category. Only the display name changes — the slug
+// stays the same so any Ask-Aimee reference or shared link that
+// already points at /classroom/... survives the rename. If a
+// caller ever needs to change the slug too, add a separate action
+// that spells out the invalidation cost.
+export async function renameCategoryAction(
+  id: string,
+  name: string
+): Promise<ActionResult> {
+  await requireRole(["system_admin"]);
+  const trimmed = name.trim();
+  if (!trimmed) return { ok: false, message: "Category name can't be empty." };
+  if (trimmed.length > 80) {
+    return { ok: false, message: "Keep the category name under 80 characters." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("classroom_categories")
+    .update({ name: trimmed, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, message: "Couldn't rename that category." };
+
+  revalidatePath("/admin/classroom");
+  revalidatePath("/classroom");
+  return { ok: true };
+}
+
 // ---- Lessons ----
 
 export type LessonInput = {
