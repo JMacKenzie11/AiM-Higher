@@ -35,9 +35,11 @@
 .columnHeader {
   display: grid;
   /* clarity | drag | issue | what we want | commitment
-     | assigned to | due date | resolve. Clarity sits leftmost so
-     the pill is the first thing a reader sees per row; when the
-     issue has no commitment yet the clarity cell renders empty. */
+     | assigned to | due date | delete | resolve. Clarity sits
+     leftmost so the pill is the first thing a reader sees per
+     row; when the issue has no commitment yet the clarity cell
+     renders empty. Delete (trash icon) is admin/guide-only and
+     lives left of Resolve so the two admin affordances cluster. */
   grid-template-columns:
     20px
     20px
@@ -46,6 +48,7 @@
     minmax(0, 1.8fr)
     minmax(120px, 0.8fr)
     minmax(110px, 0.6fr)
+    28px
     74px;
   align-items: center;
   gap: var(--space-3);
@@ -79,9 +82,11 @@
 .issueRow {
   display: grid;
   /* clarity | drag | issue | what we want | commitment
-     | assigned to | due date | resolve. Clarity sits leftmost so
-     the pill is the first thing a reader sees per row; when the
-     issue has no commitment yet the clarity cell renders empty. */
+     | assigned to | due date | delete | resolve. Clarity sits
+     leftmost so the pill is the first thing a reader sees per
+     row; when the issue has no commitment yet the clarity cell
+     renders empty. Delete (trash icon) is admin/guide-only and
+     lives left of Resolve so the two admin affordances cluster. */
   grid-template-columns:
     20px
     20px
@@ -90,6 +95,7 @@
     minmax(0, 1.8fr)
     minmax(120px, 0.8fr)
     minmax(110px, 0.6fr)
+    28px
     74px;
   /* Top-align each cell so a 3-line "what we want" or commitment
      doesn't push the shorter cells to the middle of the row —
@@ -331,6 +337,37 @@
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+/* Column: Delete (trash icon) — admin/guide-only, sits left of
+   Resolve. Icon-only, ghost styling; hard-deletes the issue with
+   a confirm dialog (see IssueCard). */
+.deleteButton {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleteButton:hover:not(:disabled) {
+  color: var(--aims-danger);
+  background: var(--aims-navy-tint);
+}
+
+.deleteButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.deletePlaceholder {
+  display: inline-block;
+  width: 28px;
+  height: 1px;
 }
 
 /* Column: Resolve action */

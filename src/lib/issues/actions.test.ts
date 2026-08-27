@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => {
   const issuesUpdatePatch = vi.fn();
   const issuesUpdateSingle = vi.fn();
   const issuesUpdateNoSelect = vi.fn(async () => ({ error: null }));
+  const issuesDelete = vi.fn(async () => ({ error: null }));
 
   // Two shapes of select on the issues table:
   //   1. select("*").eq("id", x).maybeSingle()          — loadIssue
@@ -66,6 +67,9 @@ const mocks = vi.hoisted(() => {
             }),
           };
         },
+        delete: () => ({
+          eq: () => issuesDelete(),
+        }),
       };
     }
     throw new Error(`Unexpected table in test: ${table}`);
@@ -86,6 +90,7 @@ const mocks = vi.hoisted(() => {
     issuesUpdatePatch,
     issuesUpdateSingle,
     issuesUpdateNoSelect,
+    issuesDelete,
     serverClient,
     requireProfile,
     isAdminForCompany,
@@ -125,6 +130,7 @@ import {
   updateIssueDesiredOutcomeAction,
   resolveIssueAction,
   reorderIssuesAction,
+  deleteIssueAction,
 } from "./actions";
 
 const CREATOR = {
@@ -167,6 +173,7 @@ beforeEach(() => {
   );
   mocks.getEffectiveCompanyId.mockResolvedValue("co_acme");
   mocks.issuesUpdateNoSelect.mockResolvedValue({ error: null });
+  mocks.issuesDelete.mockResolvedValue({ error: null });
 });
 
 // ---- createIssueAction ---------------------------------------
@@ -427,5 +434,34 @@ describe("reorderIssuesAction", () => {
     const result = await reorderIssuesAction(["i_missing"]);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toMatch(/not found/i);
+  });
+});
+
+// ---- deleteIssueAction ---------------------------------------
+describe("deleteIssueAction", () => {
+  it("hard-deletes the row for an admin", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.issuesSelectMaybeSingle.mockResolvedValue({ data: baseIssue() });
+    const result = await deleteIssueAction("i_1");
+    expect(result.ok).toBe(true);
+    expect(mocks.issuesDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a non-admin (creators can't delete their own issue)", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: CREATOR });
+    mocks.issuesSelectMaybeSingle.mockResolvedValue({ data: baseIssue() });
+    const result = await deleteIssueAction("i_1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/admins and guides/i);
+    expect(mocks.issuesDelete).not.toHaveBeenCalled();
+  });
+
+  it("returns not-found for a missing issue without firing DELETE", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.issuesSelectMaybeSingle.mockResolvedValue({ data: null });
+    const result = await deleteIssueAction("i_missing");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/not found/i);
+    expect(mocks.issuesDelete).not.toHaveBeenCalled();
   });
 });

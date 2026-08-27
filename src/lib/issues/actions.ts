@@ -204,6 +204,41 @@ export async function resolveIssueAction(id: string): Promise<IssueResult> {
   return { ok: true, issue: data };
 }
 
+// ---- Delete ---------------------------------------------------
+// Admin/guide-only hard delete. Issues don't carry a deleted_at
+// column (see migration 0143 — the design was intentional; a
+// mis-named issue should disappear cleanly rather than linger as
+// tombstone data), so this is a real DELETE. Any linked
+// commitments' issue_id is set null automatically via the FK
+// (`on delete set null` in migration 0143), so the commitments
+// stay live and just lose the issue linkage.
+export async function deleteIssueAction(
+  id: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+  const issue = await loadIssue(supabase, id);
+  if (!issue) return { ok: false, message: "Issue not found." };
+  if (!isAdminForCompany(session.profile, issue.company_id)) {
+    return {
+      ok: false,
+      message: "Only admins and guides can delete issues.",
+    };
+  }
+
+  const { error } = await supabase.from("issues").delete().eq("id", id);
+  if (error) return { ok: false, message: "Couldn't delete that issue." };
+
+  revalidatePath("/issues");
+  trackAfter(
+    session.profile.id,
+    "issue.deleted",
+    {},
+    { company: issue.company_id }
+  );
+  return { ok: true };
+}
+
 // ---- Reorder --------------------------------------------------
 // Reorder the entire open list. Takes the full ordered id array
 // after a drag; server rewrites rank on all open issues so the

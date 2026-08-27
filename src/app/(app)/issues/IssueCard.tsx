@@ -17,6 +17,7 @@ import {
 } from "@/lib/commitments/actions";
 import type { Commitment } from "@/lib/types";
 import {
+  deleteIssueAction,
   renameIssueAction,
   resolveIssueAction,
   updateIssueDesiredOutcomeAction,
@@ -185,6 +186,12 @@ export function IssueCard({
           <div className={styles.cellOwner}>—</div>
           <div className={styles.cellDue}>—</div>
         </>
+      )}
+
+      {isAdmin ? (
+        <DeleteIssueButton issueId={issue.id} issueTitle={issue.title} />
+      ) : (
+        <span aria-hidden className={styles.deletePlaceholder} />
       )}
 
       {canEdit ? (
@@ -421,6 +428,71 @@ function ResolveIssueButton({ issueId }: { issueId: string }) {
         message="It moves off the open list. Any open commitments on it stay live and remain yours to resolve as normal."
         confirmLabel="Resolve"
         tone="primary"
+        onConfirm={run}
+        onCancel={() => setConfirming(false)}
+        pending={pending}
+      />
+      {error ? (
+        <p role="alert" className={styles.rowError}>
+          {error}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/// Admin/guide-only hard delete. Uses the same trash-icon +
+// confirm-dialog pattern as the /commitments row so the two
+// surfaces read as siblings. Delete cascades issue_id → null on
+// any linked commitments (FK behavior from migration 0143), so
+// the commitments stay live and just lose their link.
+function DeleteIssueButton({
+  issueId,
+  issueTitle,
+}: {
+  issueId: string;
+  issueTitle: string;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function run() {
+    setConfirming(false);
+    setError(null);
+    startTransition(async () => {
+      const result = await deleteIssueAction(issueId);
+      if (!result.ok) setError(result.message);
+    });
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className={styles.deleteButton}
+        onClick={() => setConfirming(true)}
+        disabled={pending}
+        aria-label="Delete this issue"
+        title="Delete this issue"
+      >
+        <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+          <path
+            d="M4 5 h8 v8 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 z M6.5 5 V3.5 a1 1 0 0 1 1 -1 h1 a1 1 0 0 1 1 1 V5 M3 5 h10"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      <ConfirmDialog
+        open={confirming}
+        title="Delete this issue?"
+        message={`This can't be undone. "${issueTitle}" will be removed from the list. Any linked commitments stay live but lose their issue linkage.`}
+        confirmLabel="Delete"
+        tone="danger"
         onConfirm={run}
         onCancel={() => setConfirming(false)}
         pending={pending}

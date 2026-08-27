@@ -116,6 +116,7 @@ export function IssuesBoard({
         <span>Assigned to</span>
         <span>Due date</span>
         <span aria-hidden />
+        <span aria-hidden />
       </div>
       <DndContext
         sensors={sensors}
