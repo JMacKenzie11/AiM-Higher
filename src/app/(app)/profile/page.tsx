@@ -2,6 +2,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getUserStrengths } from "@/lib/strengths/user-strengths";
 import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
 import { PageShell } from "@/components/ui/PageShell";
+import { AvatarUpload } from "./AvatarUpload";
 import { ProfileDetailsForm } from "./ProfileDetailsForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import styles from "./profile.module.css";
@@ -20,6 +21,20 @@ export default async function ProfilePage() {
       title="My profile"
       subtitle="Keep your name, position, and password up to date. Only you can edit this page."
     >
+      <section className={styles.card} aria-labelledby="photo">
+        <h2 id="photo" className={styles.h2}>
+          Photo
+        </h2>
+        <p className={styles.subtitleInline}>
+          Shown next to your name in the sidebar and on your profile.
+          Drag and zoom to position; the visible circle is what saves.
+        </p>
+        <AvatarUpload
+          currentUrl={session.profile.avatar_url}
+          fullName={session.profile.full_name}
+        />
+      </section>
+
       <section className={styles.card} aria-labelledby="details">
         <h2 id="details" className={styles.h2}>
           Details

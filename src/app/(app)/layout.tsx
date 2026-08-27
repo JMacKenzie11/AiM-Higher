@@ -156,6 +156,7 @@ export default async function AppLayout({
       >
         <Sidebar
           userName={session.profile.full_name}
+          userAvatarUrl={session.profile.avatar_url}
           userRole={session.profile.role}
           isSystemAdmin={isCrossCompanyRole}
           contextLabel={contextLabel}

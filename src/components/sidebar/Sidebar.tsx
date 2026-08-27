@@ -220,6 +220,7 @@ const COMPANY_ADMIN_BOTTOM_ITEMS: readonly NavItem[] = [
 
 export type SidebarProps = {
   userName: string;
+  userAvatarUrl?: string | null;
   userRole: NavRole;
   isSystemAdmin: boolean;
   contextLabel?: string;
@@ -240,6 +241,7 @@ export type SidebarProps = {
 
 export function Sidebar({
   userName,
+  userAvatarUrl = null,
   userRole,
   isSystemAdmin,
   contextLabel,
@@ -545,6 +547,7 @@ export function Sidebar({
           </div>
           <SidebarUserMenu
             userName={userName}
+            userAvatarUrl={userAvatarUrl}
             showExitScope={isSystemAdmin && showExitScope}
             scopedCompanyName={scopedCompanyName}
             collapsed={collapsed}
@@ -599,11 +602,13 @@ function isLinkActive(pathname: string, href: string): boolean {
 
 function SidebarUserMenu({
   userName,
+  userAvatarUrl,
   showExitScope,
   scopedCompanyName,
   collapsed,
 }: {
   userName: string;
+  userAvatarUrl: string | null;
   showExitScope: boolean;
   scopedCompanyName?: string;
   collapsed: boolean;
@@ -641,7 +646,16 @@ function SidebarUserMenu({
         title={collapsed ? userName : undefined}
       >
         <span className={styles.userAvatar} aria-hidden="true">
-          {initials}
+          {userAvatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={userAvatarUrl}
+              alt=""
+              className={styles.userAvatarImg}
+            />
+          ) : (
+            initials
+          )}
         </span>
         <span className={styles.userName}>{userName}</span>
       </button>

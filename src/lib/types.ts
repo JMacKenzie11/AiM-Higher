@@ -34,6 +34,7 @@ export type Profile = {
   position_start_date: string | null;
   reports_to: string | null; // profile FK, lays groundwork for org chart
   position: string | null;
+  avatar_url: string | null;
   role: Role;
   status: ProfileStatus;
   invited_at: string | null;

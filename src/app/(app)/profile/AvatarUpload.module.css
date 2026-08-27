@@ -1,0 +1,184 @@
+/* Avatar upload block — the circular preview + action buttons plus
+   the modal used to pan/zoom the source image. */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.previewRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.avatarCircle {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--aims-navy-tint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatarInitials {
+  color: var(--text-heading);
+  font-family: var(--font-sans);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.primaryButton {
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ghostButton {
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ghostButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.successMessage {
+  color: var(--success);
+  font: var(--text-body-sm);
+  margin: 0;
+}
+
+.errorMessage {
+  color: var(--danger);
+  font: var(--text-body-sm);
+  margin: 0;
+}
+
+/* ---- Modal ---------------------------------------------------- */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: var(--space-3);
+}
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  max-width: 360px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.modalTitle {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.modalHint {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.cropStage {
+  position: relative;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #000;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.cropStage:active {
+  cursor: grabbing;
+}
+
+.cropImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  pointer-events: none;
+}
+
+.circleMask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.35);
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.8);
+}
+
+.zoomRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.zoomLabel {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 44px;
+}
+
+.zoomSlider {
+  flex: 1 1 auto;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

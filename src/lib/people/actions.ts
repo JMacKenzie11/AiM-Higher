@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
 
 // People-management actions used by /people (Section 8.6) and /profile.
@@ -72,6 +73,114 @@ export async function updateProfileAction(
   revalidatePath("/profile");
   revalidatePath("/", "layout"); // NavBand shows user name
   return { ok: true, profile: data };
+}
+
+// ---- Avatar upload ----
+//
+// Any signed-in user can update their OWN avatar. The crop UI hands us
+// a cropped square image blob (typically PNG, ~256..512px). We upload
+// to the public profile-avatars bucket under <user_id>/<uuid>.png and
+// set avatar_url on the profile row. Storage RLS gates by folder =
+// caller UID as defence-in-depth over the app-layer check here.
+
+const AVATAR_MIME_ALLOWLIST = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+
+export async function uploadAvatarAction(
+  formData: FormData
+): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+  const session = await requireProfile();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "Pick a photo first." };
+  }
+  if (!AVATAR_MIME_ALLOWLIST.has(file.type)) {
+    return { ok: false, message: "Photo must be PNG, JPG, or WebP." };
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    return { ok: false, message: "Photo must be under 2 MB after cropping." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/webp" ? "webp" : "png";
+  const path = `${session.profile.id}/${crypto.randomUUID()}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const { error: uploadErr } = await admin.storage
+    .from("profile-avatars")
+    .upload(path, buffer, {
+      contentType: file.type,
+      upsert: false,
+      cacheControl: "3600",
+    });
+  if (uploadErr) {
+    return { ok: false, message: "Upload failed — try again." };
+  }
+  const { data: pub } = admin.storage.from("profile-avatars").getPublicUrl(path);
+  if (!pub?.publicUrl) {
+    await admin.storage.from("profile-avatars").remove([path]);
+    return { ok: false, message: "Couldn't resolve the photo URL." };
+  }
+
+  // Best-effort cleanup of the previous avatar object. If the update
+  // fails we don't want to leave the old file behind, but a leaked
+  // orphan is not fatal — a cron sweep could clean up later.
+  const priorUrl = session.profile.avatar_url;
+  const { error } = await admin
+    .from("profiles")
+    .update({ avatar_url: pub.publicUrl })
+    .eq("id", session.profile.id);
+  if (error) {
+    await admin.storage.from("profile-avatars").remove([path]);
+    return { ok: false, message: "Couldn't save the photo." };
+  }
+  if (priorUrl) {
+    const priorPath = extractAvatarPath(priorUrl);
+    if (priorPath) {
+      await admin.storage.from("profile-avatars").remove([priorPath]);
+    }
+  }
+
+  revalidatePath("/profile");
+  revalidatePath(`/people/${session.profile.id}`);
+  revalidatePath("/", "layout"); // sidebar re-renders with new URL
+  return { ok: true, url: pub.publicUrl };
+}
+
+export async function removeAvatarAction(): Promise<
+  { ok: true } | { ok: false; message: string }
+> {
+  const session = await requireProfile();
+  const priorUrl = session.profile.avatar_url;
+  if (!priorUrl) return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({ avatar_url: null })
+    .eq("id", session.profile.id);
+  if (error) return { ok: false, message: "Couldn't remove that photo." };
+
+  const priorPath = extractAvatarPath(priorUrl);
+  if (priorPath) {
+    await admin.storage.from("profile-avatars").remove([priorPath]);
+  }
+  revalidatePath("/profile");
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+// Recover the storage path (relative to the bucket) from a public URL.
+// Public URLs look like https://<proj>.supabase.co/storage/v1/object/
+// public/profile-avatars/<user_id>/<uuid>.png. We slice off up to and
+// including the bucket segment.
+function extractAvatarPath(publicUrl: string): string | null {
+  const marker = "/profile-avatars/";
+  const idx = publicUrl.indexOf(marker);
+  if (idx === -1) return null;
+  return publicUrl.slice(idx + marker.length);
 }
 
 export async function setProfileStatusAction(
