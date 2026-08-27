@@ -158,6 +158,7 @@ Scoring code lives in `src/lib/maturity/` (config in `disciplines.ts`, one file 
 - **Privacy note on the scorecard** — self view: "Your numbers are visible to system admins, your company admins, and your direct manager. Admins and your direct manager can each keep private coaching notes about your development; every note is visible only to whoever wrote it, never to you." Other view: "This scorecard is visible to system admins, company admins, and their direct manager. They can see their own scorecard too."
 - **Manager access:** direct manager (`profiles.reports_to`) can view and coach about their reports without being an admin.
 - **People status toggle** (admin) — active/inactive; branded confirmation.
+- **Profile avatar** (`/profile`) — self-serve photo upload with a Facebook-style pan+zoom crop modal (circular mask over the source image, drag to reposition, wheel/slider to zoom). Client-side canvas renders the visible circle to a 512×512 PNG blob before upload so the original photo never leaves the browser. Storage: public `profile-avatars` bucket, layout `profile-avatars/<user_id>/<uuid>.<ext>`; write RLS gates the folder prefix to `auth.uid()` (sysadmin bypass for cleanup). The URL is persisted on `profiles.avatar_url` and rendered wherever the user's name appears — the sidebar user badge falls back to initials if no photo is set.
 
 ---
 
@@ -353,13 +354,16 @@ Top-level nav item, always visible to any active member.
 
 Feature-gated (`classroom`). Content is authored centrally by system admins and shared across every enabled company — one library, many audiences.
 
-- **Consumer surface** — `/classroom` landing (categories on top, lesson grid per category), `/classroom/lessons/[slug]` (lesson detail with ordered training list), `/classroom/trainings/[slug]` (video embed + rich text body + downloadable attachments). Slugs are stable — coaching references and shared links survive lesson re-orgs.
-- **Video providers** — YouTube or Vimeo. Paste any share URL; the ID is parsed and the thumbnail cached at save time (YouTube via `img.youtube.com`, Vimeo via one oEmbed call).
-- **Rich text body** — TipTap editor (StarterKit only). Editor runs client-side only on admin pages; consumer pages render server-side via `@tiptap/html`'s `generateHTML` so the editor bundle never ships to learners.
+- **Consumer surface** — `/classroom` landing (categories on top, lesson cards per category with a cobalt accent stripe + hover chevron), `/classroom/lessons/[slug]` (lesson detail, lands on the first section), `/classroom/lessons/[slug]/[sectionSlug]` (deep-linkable per-section URL). Slugs are stable — coaching references and shared links survive lesson re-orgs. The old `/classroom/trainings/[slug]` route remains as a permanent redirect to the new lesson/section scheme.
+- **Section rail** — every lesson page renders a sticky left rail listing all sibling sections; clicking a rail item updates the URL and swaps the section body without a full navigation. Same shape appears on the admin edit surface so a sysadmin can walk between sibling sections while authoring.
+- **Rich text body** — TipTap v3 editor (StarterKit + custom nodes). Editor runs client-side only on admin pages; consumer pages render server-side via an **in-repo JSON walker** (`src/components/tiptap/Renderer.tsx`) so the editor bundle never ships to learners and custom nodes render as real React components without a hydration hop.
+- **Inline video embeds** — custom `videoEmbed` Tiptap node stores `{ provider, videoId, caption }` in the body JSON. YouTube and Vimeo. Two authoring entry points: toolbar ▶ button (prompts for a share URL) or paste-a-URL-on-a-blank-line auto-detect. Editor never loads the player — thumbnail-only, so a section with 10 videos stays cheap. Reader path renders a `VideoEmbedPlayer` (thumbnail with click-to-play iframe overlay). No dedicated video field on the section row; migration 0145 dropped the legacy `video_provider` / `video_id` / `video_url` / `thumbnail_url` columns from `classroom_trainings`.
+- **Inline images** — custom `image` Tiptap node with attrs `{ src, alt, width, align }`. Toolbar 🖼 button opens a file picker; clipboard-paste of an image and drag-and-drop onto the editor also work. Images upload to the public `classroom-images` bucket via `uploadClassroomImageAction`; the returned public URL is written into the node so the reader's `<img src="...">` is durable (signed URLs would expire mid-session). In-editor NodeView renders the actual image + a bottom-right resize handle (drag preserves aspect ratio) plus S/M/L presets (33 / 66 / 100 % of container). Width persists as a percentage attr; reader matches by emitting inline `width: X%; height: auto;`.
+- **Text and image alignment** — in-repo `TextAlign` extension adds a `textAlign` attribute to paragraph and heading nodes; the `image` node has a parallel `align` attr. Toolbar `⇤ ⇔ ⇥` buttons route based on selection (text caret → text-align; image selected → image align). Kept as an in-repo extension rather than pulling `@tiptap/extension-text-align` to keep the Vercel build memory-tight.
 - **Attachments** — Supabase Storage private bucket `classroom-attachments`, 25 MB per file cap. Downloads via server-generated signed URLs (1-hour TTL) so the same publication + feature-flag gate applies.
-- **Admin surface** — `/admin/classroom` (categories + lessons list, drag-free up/down move), `/admin/classroom/lessons/[id]/edit` (metadata + ordered trainings), `/admin/classroom/trainings/[id]/edit` (video URL, TipTap body, publish, attachments).
-- **Draft / Published** — every lesson and training carries a `published` flag. Drafts are sysadmin-only; publishing pushes it live to every flag-enabled company.
-- **Data model** — `classroom_categories`, `classroom_tags` (many-to-many on lessons), `classroom_lessons`, `classroom_trainings`, `classroom_attachments`. RLS: sysadmin full write; every other authenticated user gets read on `published = true` rows only if their company has the flag.
+- **Admin surface** — `/admin/classroom` (categories + lessons list, drag-free up/down move; click-to-edit category name preserving slug stability), `/admin/classroom/lessons/[id]/edit` (metadata + ordered sections), `/admin/classroom/trainings/[id]/edit` (title, publish flag, TipTap body with inline media + alignment, attachments, sibling-section rail).
+- **Draft / Published** — every lesson and section carries a `published` flag. Drafts are sysadmin-only; publishing pushes it live to every flag-enabled company.
+- **Data model** — `classroom_categories`, `classroom_tags` (many-to-many on lessons), `classroom_lessons`, `classroom_trainings` (UI vocabulary: "Sections"; DB table name preserved for URL/data stability), `classroom_attachments`. RLS: sysadmin full write; every other authenticated user gets read on `published = true` rows only if their company has the flag.
 - **v1 gaps** — no completion tracking, no curriculum paths, no drag-and-drop reorder (up/down buttons only).
 
 ---
@@ -448,7 +452,10 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
   - Each caller instantiates its own `Anthropic` client with `ANTHROPIC_API_KEY`. Model IDs are env-var overridable.
 - **Streaming:** SSE for coach chat + weekly brief. Tool-use loop on coach (max 4 iterations per turn).
 - **Prompt caching:** coach chat is the only caller using `cache_control: { type: "ephemeral" }` in v1.
-- **Storage:** Supabase Storage — private `classroom-attachments` bucket with server-signed URLs.
+- **Storage:** Supabase Storage — three buckets:
+  - `classroom-attachments` (private, server-signed URLs, 1-hour TTL) for lesson-section PDFs / decks / worksheets.
+  - `classroom-images` (public) for inline images embedded in section bodies. Public because `<img src="...">` URLs live in body JSON and must not expire mid-session; writes are still sysadmin-only via storage RLS + server-action role check.
+  - `profile-avatars` (public) for user profile photos. Write RLS gates the folder prefix to the caller's `auth.uid()` so users can only touch their own avatar; sysadmin bypasses for cleanup.
 - **Email:** Resend (transactional) for meeting-analysis commitment digests to participants, and for auth invitations / password reset emails via Supabase.
 - **External integrations:** Google Drive (OAuth per company, `0110_oauth_per_company`) for transcript ingest. No other external integrations.
 - **Cron jobs (Vercel):**
