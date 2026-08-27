@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef, useState } from "react";
 import { VideoEmbed } from "./nodes/VideoEmbed";
 import { ImageEmbed } from "./nodes/ImageEmbed";
+import { TextAlign } from "./extensions/TextAlign";
 import { parseVideoUrl } from "@/lib/classroom/video-url";
 import { uploadClassroomImageAction } from "@/lib/classroom/actions";
 import styles from "./Editor.module.css";
@@ -34,7 +35,7 @@ export function TipTapEditor({
 }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const editor = useEditor({
-    extensions: [StarterKit, VideoEmbed, ImageEmbed],
+    extensions: [StarterKit, VideoEmbed, ImageEmbed, TextAlign],
     content: initial ?? emptyDoc(),
     onUpdate: ({ editor }) => {
       onChange(editor.getJSON());
@@ -226,6 +227,10 @@ function Toolbar({
         ❝
       </ToolbarButton>
       <ToolbarSeparator />
+      <AlignButton editor={editor} value="left" label="Align left" glyph="⇤" />
+      <AlignButton editor={editor} value="center" label="Align center" glyph="⇔" />
+      <AlignButton editor={editor} value="right" label="Align right" glyph="⇥" />
+      <ToolbarSeparator />
       <ToolbarButton
         label="Insert YouTube or Vimeo video"
         onClick={() => insertVideoPrompt(editor)}
@@ -328,4 +333,42 @@ function ToolbarButton({
 
 function ToolbarSeparator() {
   return <span className={styles.toolbarSep} aria-hidden="true" />;
+}
+
+// Single alignment button that dispatches to whichever node the
+// selection is on. For text (paragraph/heading) it uses the
+// TextAlign extension's setTextAlign; when an image is selected
+// it targets the image node's align attr instead. That way the
+// buttons "just work" whether the caret is in text or on an
+// image without a separate image-alignment control.
+function AlignButton({
+  editor,
+  value,
+  label,
+  glyph,
+}: {
+  editor: Editor;
+  value: "left" | "center" | "right";
+  label: string;
+  glyph: string;
+}) {
+  const imageSelected = editor.isActive("image");
+  const active = imageSelected
+    ? editor.isActive("image", { align: value })
+    : editor.isActive({ textAlign: value });
+  return (
+    <ToolbarButton
+      label={label}
+      active={active}
+      onClick={() => {
+        if (imageSelected) {
+          editor.chain().focus().setImageAlign(value).run();
+        } else {
+          editor.chain().focus().setTextAlign(value).run();
+        }
+      }}
+    >
+      {glyph}
+    </ToolbarButton>
+  );
 }

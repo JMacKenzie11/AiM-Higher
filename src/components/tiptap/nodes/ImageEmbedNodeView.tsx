@@ -25,6 +25,13 @@ export function ImageEmbedNodeView({
   const src = (node.attrs.src as string) ?? "";
   const alt = (node.attrs.alt as string | null) ?? "";
   const width = (node.attrs.width as number | null) ?? 100;
+  const align = (node.attrs.align as "left" | "center" | "right" | null) ?? "left";
+  const alignMargin =
+    align === "center"
+      ? "0 auto"
+      : align === "right"
+        ? "0 0 0 auto"
+        : "0 auto 0 0";
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -76,7 +83,7 @@ export function ImageEmbedNodeView({
       className={`${styles.wrap} ${selected ? styles.wrapSelected : ""} ${
         dragging ? styles.wrapDragging : ""
       }`}
-      style={{ width: `${width}%` }}
+      style={{ width: `${width}%`, margin: alignMargin }}
       data-drag-handle
     >
       <div className={styles.imageBox} ref={wrapperRef}>

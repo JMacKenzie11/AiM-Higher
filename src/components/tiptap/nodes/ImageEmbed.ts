@@ -12,6 +12,8 @@ import { ImageEmbedNodeView } from "./ImageEmbedNodeView";
 // reader path uses the JSON walker in Renderer.tsx which emits a
 // plain <img> with an inline width style. No hydration needed.
 
+type ImageAlign = "left" | "center" | "right";
+
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     image: {
@@ -19,7 +21,9 @@ declare module "@tiptap/core" {
         src: string;
         alt?: string | null;
         width?: number | null;
+        align?: ImageAlign | null;
       }) => ReturnType;
+      setImageAlign: (align: ImageAlign) => ReturnType;
     };
   }
 }
@@ -59,6 +63,17 @@ export const ImageEmbed = Node.create({
               }
             : {},
       },
+      align: {
+        default: null as ImageAlign | null,
+        parseHTML: (el) => {
+          const raw = el.getAttribute("data-align");
+          return raw === "left" || raw === "center" || raw === "right"
+            ? (raw as ImageAlign)
+            : null;
+        },
+        renderHTML: (attrs) =>
+          attrs.align ? { "data-align": attrs.align } : {},
+      },
     };
   },
 
@@ -82,9 +97,14 @@ export const ImageEmbed = Node.create({
                 src: attrs.src,
                 alt: attrs.alt ?? null,
                 width: attrs.width ?? null,
+                align: attrs.align ?? null,
               },
             })
             .run(),
+      setImageAlign:
+        (align) =>
+        ({ commands }) =>
+          commands.updateAttributes(this.name, { align }),
     };
   },
 

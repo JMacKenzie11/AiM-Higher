@@ -40,6 +40,10 @@ appears in every company that has the Classroom feature turned on
   Click the image to select it, then drag the bottom-right
   handle to resize (aspect ratio is preserved) or use the S/M/L
   buttons for 33% / 66% / 100% container width.
+- **Align text and images** — the ⇤ ⇔ ⇥ toolbar buttons set
+  left / center / right alignment. With the caret in a paragraph
+  or heading they align the text; with an image selected they
+  align the image within the section.
 - **Walk between sections while editing** — the left rail shows
   the same tab list your readers will see, so click any sibling
   section to jump to its editor.

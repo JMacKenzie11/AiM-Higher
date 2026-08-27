@@ -29,12 +29,20 @@ function renderNode(node: JSONContent, key: string): React.ReactNode {
       return <>{children}</>;
 
     case "paragraph":
-      return <p key={key}>{children}</p>;
+      return (
+        <p key={key} style={alignStyle(node)}>
+          {children}
+        </p>
+      );
 
     case "heading": {
       const level = clampHeadingLevel(node.attrs?.level as number | undefined);
       const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-      return <Tag key={key}>{children}</Tag>;
+      return (
+        <Tag key={key} style={alignStyle(node)}>
+          {children}
+        </Tag>
+      );
     }
 
     case "bulletList":
@@ -90,11 +98,17 @@ function renderNode(node: JSONContent, key: string): React.ReactNode {
       const src = node.attrs?.src as string | undefined;
       const alt = (node.attrs?.alt as string | null | undefined) ?? "";
       const width = node.attrs?.width as number | null | undefined;
+      const align = node.attrs?.align as "left" | "center" | "right" | null | undefined;
       if (!src) return null;
-      const style =
-        typeof width === "number"
-          ? { width: `${width}%`, height: "auto" as const }
-          : undefined;
+      const style: React.CSSProperties = {};
+      if (typeof width === "number") {
+        style.width = `${width}%`;
+        style.height = "auto";
+      }
+      // Images are block by default (see Renderer.module.css); use
+      // margin to shift the block within the container.
+      if (align === "center") style.margin = "var(--space-4) auto";
+      else if (align === "right") style.margin = "var(--space-4) 0 var(--space-4) auto";
       // eslint-disable-next-line @next/next/no-img-element
       return <img key={key} src={src} alt={alt} style={style} />;
     }
@@ -133,6 +147,11 @@ function renderText(node: JSONContent, key: string): React.ReactNode {
     }
   }
   return <span key={key}>{element}</span>;
+}
+
+function alignStyle(node: JSONContent): React.CSSProperties | undefined {
+  const align = node.attrs?.textAlign as "left" | "center" | "right" | undefined;
+  return align ? { textAlign: align } : undefined;
 }
 
 function clampHeadingLevel(input: number | undefined): 1 | 2 | 3 | 4 | 5 | 6 {
