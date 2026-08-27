@@ -27,7 +27,6 @@ export function TrainingEditForm({
     lesson_id: training.lesson_id,
     title: training.title,
     slug: training.slug,
-    video_url: training.video_url,
     body_json: training.body_json,
     published: training.published,
   });
@@ -85,36 +84,6 @@ export function TrainingEditForm({
             </option>
           ))}
         </select>
-      </div>
-
-      <div className={`${styles.field} ${styles.formFull}`}>
-        <label htmlFor="training-video" className={styles.label}>
-          Video URL (YouTube or Vimeo)
-        </label>
-        <input
-          id="training-video"
-          type="url"
-          className={styles.input}
-          value={form.video_url}
-          onChange={(e) =>
-            setForm((p) => ({ ...p, video_url: e.target.value }))
-          }
-          disabled={pending}
-        />
-        {training.thumbnail_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={training.thumbnail_url}
-            alt=""
-            width={200}
-            height={112}
-            style={{
-              marginTop: "var(--space-2)",
-              borderRadius: "var(--radius-sm)",
-              objectFit: "cover",
-            }}
-          />
-        ) : null}
       </div>
 
       <div className={`${styles.field} ${styles.formFull}`}>

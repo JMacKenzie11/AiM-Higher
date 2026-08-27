@@ -5,7 +5,6 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { getTrainingBySlug } from "@/lib/classroom/service";
 import { signAttachmentUrls } from "@/lib/classroom/attachments";
-import { embedUrl } from "@/lib/classroom/video";
 import { TipTapRenderer } from "@/components/tiptap/Renderer";
 import styles from "../../classroom.module.css";
 
@@ -24,10 +23,6 @@ export default async function TrainingPage({ params }: PageProps) {
   if (!training) notFound();
 
   const attachments = await signAttachmentUrls(training.attachments);
-  const embed = embedUrl({
-    provider: training.video_provider,
-    id: training.video_id,
-  });
 
   return (
     <div className={styles.stage}>
@@ -48,17 +43,6 @@ export default async function TrainingPage({ params }: PageProps) {
       </section>
 
       <div className={styles.content}>
-        <section className={styles.card}>
-          <div className={styles.videoFrame}>
-            <iframe
-              src={embed}
-              title={training.title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        </section>
-
         {training.body_json ? (
           <section className={styles.card} aria-labelledby="training-body">
             <h2 id="training-body" className={styles.categoryName}>

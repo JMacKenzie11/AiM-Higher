@@ -32,17 +32,21 @@ export type ClassroomLesson = {
   updated_at: string;
 };
 
+// Kept as a shared union — the Tiptap videoEmbed node uses the
+// same values on its `provider` attr, so the URL parser + embed
+// helpers share one type.
 export type ClassroomVideoProvider = "youtube" | "vimeo";
 
+// A "Section" of a Lesson in the UI (URL, labels). The DB table
+// stays classroom_trainings so downstream (attachments FK, action
+// paths, tests) doesn't churn. Migration 0145 dropped
+// video_provider / video_id / video_url / thumbnail_url — videos
+// now live inline in body_json as a custom Tiptap node.
 export type ClassroomTraining = {
   id: string;
   lesson_id: string;
   title: string;
   slug: string;
-  video_provider: ClassroomVideoProvider;
-  video_id: string;
-  video_url: string;
-  thumbnail_url: string | null;
   body_json: JSONContent | null;
   sort_order: number;
   published: boolean;

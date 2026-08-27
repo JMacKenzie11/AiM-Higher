@@ -93,7 +93,6 @@ const mocks = vi.hoisted(() => {
 
   const requireRole = vi.fn();
   const revalidatePath = vi.fn();
-  const parseAndResolve = vi.fn();
 
   return {
     categoriesInsert,
@@ -115,7 +114,6 @@ const mocks = vi.hoisted(() => {
     admin,
     requireRole,
     revalidatePath,
-    parseAndResolve,
   };
 });
 
@@ -129,10 +127,6 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 vi.mock("@/lib/auth/current-user", () => ({
   requireRole: mocks.requireRole,
-}));
-
-vi.mock("./video", () => ({
-  parseAndResolve: mocks.parseAndResolve,
 }));
 
 vi.mock("next/cache", () => ({
@@ -170,13 +164,6 @@ function primeHappyPath() {
   mocks.attachmentsDeleteEq.mockResolvedValue({ error: null });
   mocks.storageUpload.mockResolvedValue({ error: null });
   mocks.storageRemove.mockResolvedValue({ error: null });
-  mocks.parseAndResolve.mockResolvedValue({
-    ok: true,
-    provider: "youtube",
-    id: "abc123",
-    url: "https://youtube.com/watch?v=abc123",
-    thumbnail: "https://img.youtube.com/vi/abc123/0.jpg",
-  });
 }
 
 // ==============================================================
@@ -250,50 +237,44 @@ describe("createTrainingAction", () => {
     primeHappyPath();
   });
 
-  it("rejects an unparseable video URL before touching the DB", async () => {
-    // parseAndResolve is the URL-shape gate. Landing a training row
-    // with a bad video URL would render as a broken embed on the
-    // training page forever until an admin edits it.
-    mocks.parseAndResolve.mockResolvedValueOnce({
-      ok: false,
-      message: "unrecognized URL",
-    });
-    const { createTrainingAction } = await import("./actions");
-
-    const res = await createTrainingAction({
-      lesson_id: "lesson_1",
-      title: "Bad video",
-      video_url: "not a youtube link",
-      body_json: null,
-      published: false,
-    });
-
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/YouTube or Vimeo/);
-    expect(mocks.trainingsInsertPatch).not.toHaveBeenCalled();
-  });
-
-  it("stores the resolved provider/id/url/thumbnail from parseAndResolve, not the raw input", async () => {
-    // Contract: the parser normalizes shortlinks and strips query
-    // params. Storing the raw URL would break embeds for youtu.be,
-    // Vimeo private links, etc.
+  it("tail-appends sort_order (last=0 → new=1) and stamps the body_json shape as-is", async () => {
+    // Contract for the reshaped createTrainingAction: no video-URL
+    // parsing anymore — the payload passes through to the row with
+    // whatever body_json the caller provided. sort_order is derived
+    // from max(sort_order) within the lesson.
     const { createTrainingAction } = await import("./actions");
 
     await createTrainingAction({
       lesson_id: "lesson_1",
       title: "Weekly kickoff",
-      video_url: "https://youtu.be/abc123?feature=share",
-      body_json: null,
+      body_json: { type: "doc", content: [] },
       published: false,
     });
 
     expect(mocks.trainingsInsertPatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        video_provider: "youtube",
-        video_id: "abc123",
-        video_url: "https://youtube.com/watch?v=abc123",
+        lesson_id: "lesson_1",
+        title: "Weekly kickoff",
+        sort_order: 1,
+        body_json: { type: "doc", content: [] },
+        published: false,
       })
     );
+  });
+
+  it("rejects an empty title before touching the DB", async () => {
+    const { createTrainingAction } = await import("./actions");
+
+    const res = await createTrainingAction({
+      lesson_id: "lesson_1",
+      title: "   ",
+      body_json: null,
+      published: false,
+    });
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/title/i);
+    expect(mocks.trainingsInsertPatch).not.toHaveBeenCalled();
   });
 });
 

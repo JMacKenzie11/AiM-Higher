@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { parseAndResolve } from "./video";
 import type { JSONContent } from "@tiptap/react";
 
 // Sysadmin-only writes for classroom content. RLS enforces the role
@@ -171,13 +170,16 @@ export async function moveLessonAction(
   return { ok: true };
 }
 
-// ---- Trainings ----
+// ---- Sections (data table stays classroom_trainings) ----
+// UI vocabulary switched from "Training" to "Section" per the
+// 0145 reshape. Videos now live inline in body_json as a custom
+// Tiptap videoEmbed node, so the input shape is title + slug +
+// body + published — no video_url, no thumbnail resolve.
 
 export type TrainingInput = {
   lesson_id: string;
   title: string;
   slug?: string;
-  video_url: string;
   body_json: JSONContent | null;
   published: boolean;
 };
@@ -187,14 +189,7 @@ export async function createTrainingAction(
 ): Promise<ActionResult<{ id: string }>> {
   await requireRole(["system_admin"]);
   const title = input.title.trim();
-  if (!title) return { ok: false, message: "Give the training a title." };
-  const parsed = await parseAndResolve(input.video_url);
-  if (!parsed.ok) {
-    return {
-      ok: false,
-      message: "That doesn't look like a YouTube or Vimeo URL I can parse.",
-    };
-  }
+  if (!title) return { ok: false, message: "Give the section a title." };
   const slug = input.slug?.trim() || slugify(title);
 
   const supabase = await createSupabaseServerClient();
@@ -213,10 +208,6 @@ export async function createTrainingAction(
       lesson_id: input.lesson_id,
       title,
       slug,
-      video_provider: parsed.provider,
-      video_id: parsed.id,
-      video_url: parsed.url,
-      thumbnail_url: parsed.thumbnail,
       body_json: input.body_json,
       published: input.published,
       sort_order,
@@ -224,7 +215,7 @@ export async function createTrainingAction(
     .select("id")
     .single<{ id: string }>();
   if (error || !data) {
-    return { ok: false, message: "Couldn't create that training — slug may already exist." };
+    return { ok: false, message: "Couldn't create that section — slug may already exist." };
   }
   revalidatePath("/admin/classroom");
   revalidatePath(`/admin/classroom/lessons/${input.lesson_id}/edit`);
@@ -238,14 +229,7 @@ export async function updateTrainingAction(
 ): Promise<ActionResult> {
   await requireRole(["system_admin"]);
   const title = input.title.trim();
-  if (!title) return { ok: false, message: "Give the training a title." };
-  const parsed = await parseAndResolve(input.video_url);
-  if (!parsed.ok) {
-    return {
-      ok: false,
-      message: "That doesn't look like a YouTube or Vimeo URL I can parse.",
-    };
-  }
+  if (!title) return { ok: false, message: "Give the section a title." };
   const slug = input.slug?.trim() || slugify(title);
 
   const supabase = await createSupabaseServerClient();
@@ -255,16 +239,12 @@ export async function updateTrainingAction(
       title,
       slug,
       lesson_id: input.lesson_id,
-      video_provider: parsed.provider,
-      video_id: parsed.id,
-      video_url: parsed.url,
-      thumbnail_url: parsed.thumbnail,
       body_json: input.body_json,
       published: input.published,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
-  if (error) return { ok: false, message: "Couldn't save the training." };
+  if (error) return { ok: false, message: "Couldn't save the section." };
 
   revalidatePath("/admin/classroom");
   revalidatePath(`/admin/classroom/lessons/${input.lesson_id}/edit`);
@@ -282,7 +262,7 @@ export async function deleteTrainingAction(id: string): Promise<ActionResult> {
     .eq("id", id)
     .maybeSingle<{ lesson_id: string }>();
   const { error } = await supabase.from("classroom_trainings").delete().eq("id", id);
-  if (error) return { ok: false, message: "Couldn't delete that training." };
+  if (error) return { ok: false, message: "Couldn't delete that section." };
   revalidatePath("/admin/classroom");
   if (existing?.lesson_id) {
     revalidatePath(`/admin/classroom/lessons/${existing.lesson_id}/edit`);
@@ -302,7 +282,7 @@ export async function moveTrainingAction(
     .select("id, sort_order, lesson_id")
     .eq("id", id)
     .maybeSingle<{ id: string; sort_order: number; lesson_id: string }>();
-  if (!current) return { ok: false, message: "Training not found." };
+  if (!current) return { ok: false, message: "Section not found." };
 
   const query = supabase
     .from("classroom_trainings")

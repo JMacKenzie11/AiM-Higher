@@ -31,19 +31,17 @@ export function TrainingsInLesson({
   );
   const [showAdd, setShowAdd] = useState(trainings.length === 0);
   const [title, setTitle] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
   const [pendingDelete, setPendingDelete] = useState<ClassroomTraining | null>(
     null
   );
 
   function add() {
-    if (!title.trim() || !videoUrl.trim()) return;
+    if (!title.trim()) return;
     setMessage(null);
     startTransition(async () => {
       const result = await createTrainingAction({
         lesson_id: lessonId,
         title,
-        video_url: videoUrl,
         body_json: null,
         published: false,
       });
@@ -103,26 +101,12 @@ export function TrainingsInLesson({
               placeholder="e.g., Running a 4Ws session"
             />
           </div>
-          <div className={styles.field}>
-            <label htmlFor="new-training-url" className={styles.label}>
-              Video URL (YouTube or Vimeo)
-            </label>
-            <input
-              id="new-training-url"
-              type="url"
-              className={styles.input}
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              disabled={pending}
-              placeholder="https://youtu.be/... or https://vimeo.com/..."
-            />
-          </div>
           <div className={styles.submitRow}>
             <button
               type="button"
               className={styles.primaryButton}
               onClick={add}
-              disabled={pending || !title.trim() || !videoUrl.trim()}
+              disabled={pending || !title.trim()}
             >
               Create + edit
             </button>
@@ -150,29 +134,6 @@ export function TrainingsInLesson({
                   flexWrap: "wrap",
                 }}
               >
-                {t.thumbnail_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={t.thumbnail_url}
-                    alt=""
-                    width={96}
-                    height={54}
-                    style={{
-                      borderRadius: "var(--radius-sm)",
-                      objectFit: "cover",
-                      background: "var(--aims-navy-tint)",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 96,
-                      height: 54,
-                      borderRadius: "var(--radius-sm)",
-                      background: "var(--aims-navy-tint)",
-                    }}
-                  />
-                )}
                 <div style={{ minWidth: 0, flex: "1 1 220px" }}>
                   <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
                     <Link
@@ -184,9 +145,6 @@ export function TrainingsInLesson({
                     {!t.published ? (
                       <span className={styles.chipPending}>draft</span>
                     ) : null}
-                  </div>
-                  <div className={styles.companyMeta}>
-                    {t.video_provider === "youtube" ? "YouTube" : "Vimeo"} · {t.video_id}
                   </div>
                 </div>
                 <div className={styles.rowActions}>

@@ -52,24 +52,8 @@ export default async function LessonPage({ params }: PageProps) {
                     href={`/classroom/trainings/${t.slug}`}
                     className={styles.trainingRow}
                   >
-                    {t.thumbnail_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={t.thumbnail_url}
-                        alt=""
-                        className={styles.trainingThumb}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className={styles.trainingThumbPlaceholder}>
-                        {t.video_provider}
-                      </div>
-                    )}
                     <div className={styles.trainingTextBlock}>
                       <h3 className={styles.trainingTitle}>{t.title}</h3>
-                      <span className={styles.trainingProvider}>
-                        {t.video_provider === "youtube" ? "YouTube" : "Vimeo"}
-                      </span>
                     </div>
                   </Link>
                 </li>
