@@ -48,6 +48,17 @@ export default function GlobalError({
           >
             Try again
           </button>
+          {/* Hard reload — needed when the crash was a stale server-
+              action id (post-deploy tab). reset() alone reruns the
+              same segment with the same cached IDs; a full reload
+              grabs the fresh JS + IDs so the retry actually works. */}
+          <button
+            type="button"
+            className={styles.ghostLink}
+            onClick={() => window.location.reload()}
+          >
+            Reload page
+          </button>
           <a href="/" className={styles.ghostLink}>
             Back to home
           </a>
