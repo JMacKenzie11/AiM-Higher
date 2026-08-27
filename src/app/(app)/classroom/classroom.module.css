@@ -311,3 +311,97 @@
     width: 100%;
   }
 }
+
+/* ---- Lesson viewer with left-rail Sections tabs -------------- */
+
+.lessonLayout {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.sectionRail {
+  position: sticky;
+  top: var(--space-4);
+  align-self: flex-start;
+}
+
+.sectionNav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+}
+
+.sectionTab {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+  font: var(--text-body-sm);
+  line-height: 1.35;
+  border: 1px solid transparent;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.sectionTab:hover {
+  background: var(--aims-navy-tint);
+}
+
+.sectionTabActive {
+  background: var(--aims-navy-tint);
+  border-color: var(--primary);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.sectionTabIndex {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
+  font: var(--text-caption);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.sectionTabActive .sectionTabIndex {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.sectionTabTitle {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.sectionPane {
+  min-width: 0;
+}
+
+.sectionHeading {
+  margin: 0 0 var(--space-4);
+  font: var(--text-h2);
+  color: var(--text-heading);
+}
+
+@media (max-width: 800px) {
+  .lessonLayout {
+    grid-template-columns: 1fr;
+  }
+  .sectionRail {
+    position: static;
+  }
+}
