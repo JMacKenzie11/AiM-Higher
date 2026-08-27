@@ -193,61 +193,77 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     return match;
   }
 
-  // Duplicate awareness — for each extracted item, find a similar
-  // open commitment / issue created in the last 14 days. Read-only
-  // signal; the "Add" action stays available regardless.
+  // Fire the similarity loops (duplicate awareness for each
+  // extracted item, 14-day window) alongside the picker-option
+  // fetches. The two are independent: similarity feeds the badge
+  // on each extraction row, options feed the Link-to-priority /
+  // Link-to-functional-area selects. Before this the picker
+  // fetches waited on the similarity loop's Promise.all to
+  // resolve — 1 extra sequential round-trip on page load for a
+  // shape they don't share. Priorities still depend on the open
+  // quarter, so that chain stays inside its own async block.
   const companyId = meeting.company_id;
-  const issueRows: ExtractedIssueRow[] = await Promise.all(
-    extractedIssues.map(async (issue) => ({
-      issue,
-      alreadyAdded: addedIssueTitles.has(issue.title),
-      similar: stripSelfMatch(await findSimilarOpenItem(companyId, issue.title)),
-    }))
-  );
-  const commitmentExtractionRows: ExtractedCommitmentRow[] = await Promise.all(
-    extractedCommitments.map(async (c) => {
-      const addedAs: "commitment" | "issue" | null = addedCommitmentDescriptions.has(
-        c.description
-      )
-        ? "commitment"
-        : addedIssueTitles.has(c.description)
-          ? "issue"
-          : null;
-      return {
-        commitment: c,
-        ownerName: c.owner_profile_id
-          ? rosterById.get(c.owner_profile_id) ?? null
-          : null,
-        addedAs,
-        similar: stripSelfMatch(
-          await findSimilarOpenItem(companyId, c.description)
-        ),
-      };
-    })
-  );
 
-  // Priority + functional area options feed the picker on the
-  // extracted-commitments section (only rendered when auto-tracking
-  // is off). Fetched here so client component gets them without a
-  // second round-trip.
-  const openQuarter = await getCurrentQuarter(meeting.company_id);
-  const [{ data: priorityRows }, { data: fnRows }] = await Promise.all([
-    openQuarter
-      ? supabase
-          .from("priorities")
-          .select("id, title")
-          .eq("company_id", meeting.company_id)
-          .eq("quarter_id", openQuarter.id)
-          .eq("archived", false)
-          .order("title")
-      : Promise.resolve({ data: [] as Array<Pick<Priority, "id" | "title">> }),
+  const [
+    issueRows,
+    commitmentExtractionRows,
+    priorityResult,
+    functionsResult,
+  ] = await Promise.all([
+    Promise.all<ExtractedIssueRow>(
+      extractedIssues.map(async (issue) => ({
+        issue,
+        alreadyAdded: addedIssueTitles.has(issue.title),
+        similar: stripSelfMatch(
+          await findSimilarOpenItem(companyId, issue.title)
+        ),
+      }))
+    ),
+    Promise.all<ExtractedCommitmentRow>(
+      extractedCommitments.map(async (c) => {
+        const addedAs: "commitment" | "issue" | null =
+          addedCommitmentDescriptions.has(c.description)
+            ? "commitment"
+            : addedIssueTitles.has(c.description)
+              ? "issue"
+              : null;
+        return {
+          commitment: c,
+          ownerName: c.owner_profile_id
+            ? rosterById.get(c.owner_profile_id) ?? null
+            : null,
+          addedAs,
+          similar: stripSelfMatch(
+            await findSimilarOpenItem(companyId, c.description)
+          ),
+        };
+      })
+    ),
+    // Priorities gate on the open quarter, so keep the chain
+    // inside its own async — but the whole chain still runs
+    // concurrently with the similarity loops above.
+    (async () => {
+      const openQuarter = await getCurrentQuarter(companyId);
+      if (!openQuarter) {
+        return { data: [] as Array<Pick<Priority, "id" | "title">> };
+      }
+      return supabase
+        .from("priorities")
+        .select("id, title")
+        .eq("company_id", companyId)
+        .eq("quarter_id", openQuarter.id)
+        .eq("archived", false)
+        .order("title");
+    })(),
     supabase
       .from("functions")
       .select("id, title")
-      .eq("company_id", meeting.company_id)
+      .eq("company_id", companyId)
       .eq("archived", false)
       .order("title"),
   ]);
+  const { data: priorityRows } = priorityResult;
+  const { data: fnRows } = functionsResult;
   const priorityOptions = (priorityRows ?? []) as Array<
     Pick<Priority, "id" | "title">
   >;
