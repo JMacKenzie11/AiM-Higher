@@ -5,6 +5,7 @@ import {
   createIssueAction,
   type IssueResult,
 } from "@/lib/issues/actions";
+import uiStyles from "@/components/ui/ui.module.css";
 import commitmentStyles from "../commitments/commitments.module.css";
 import styles from "./issues.module.css";
 
@@ -60,7 +61,7 @@ export function CreateIssueRow() {
         />
         <button
           type="submit"
-          className={commitmentStyles.addSubmit}
+          className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
           disabled={pending || !title.trim()}
         >
           {pending ? "Adding…" : "Add"}

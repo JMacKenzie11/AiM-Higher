@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { trackAfter } from "@/lib/analytics/track";
 import type { Issue } from "@/lib/types";
 
@@ -212,6 +213,15 @@ export async function resolveIssueAction(id: string): Promise<IssueResult> {
 // commitments' issue_id is set null automatically via the FK
 // (`on delete set null` in migration 0143), so the commitments
 // stay live and just lose the issue linkage.
+//
+// Uses the admin client for the actual DELETE. Migration 0143
+// explicitly ships no DELETE RLS policy on issues (comment: "No
+// delete policy — issues archive by transitioning to
+// status='resolved'"). Now that admins can delete, RLS would
+// silently reject with 0 rows affected and no error, and the
+// action would return ok:true while nothing changed. Admin
+// client bypasses RLS; the isAdminForCompany check above is the
+// enforcement point.
 export async function deleteIssueAction(
   id: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -226,8 +236,19 @@ export async function deleteIssueAction(
     };
   }
 
-  const { error } = await supabase.from("issues").delete().eq("id", id);
+  const admin = createSupabaseAdminClient();
+  const { error, count } = await admin
+    .from("issues")
+    .delete({ count: "exact" })
+    .eq("id", id);
   if (error) return { ok: false, message: "Couldn't delete that issue." };
+  // Defensive: even the admin client can return 0 rows if the id
+  // vanished between the load above and this delete (a race with
+  // another admin, or a cascade elsewhere). Surface that instead
+  // of pretending it succeeded.
+  if (count === 0) {
+    return { ok: false, message: "That issue is already gone." };
+  }
 
   revalidatePath("/issues");
   trackAfter(

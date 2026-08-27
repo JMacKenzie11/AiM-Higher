@@ -20,7 +20,16 @@ const mocks = vi.hoisted(() => {
   const issuesUpdatePatch = vi.fn();
   const issuesUpdateSingle = vi.fn();
   const issuesUpdateNoSelect = vi.fn(async () => ({ error: null }));
-  const issuesDelete = vi.fn(async () => ({ error: null }));
+  // Typed with the delete-options arg and count on the return so
+  // `.mock.calls` and `.mockResolvedValue({error, count})` both
+  // stay well-typed. Delete now goes through the admin client and
+  // reads `count: "exact"` to guard against silent RLS 0-row hits.
+  const issuesDelete = vi.fn(
+    async (_opts?: { count?: string }): Promise<{
+      error: unknown;
+      count: number | null;
+    }> => ({ error: null, count: 1 })
+  );
 
   // Two shapes of select on the issues table:
   //   1. select("*").eq("id", x).maybeSingle()          — loadIssue
@@ -67,15 +76,26 @@ const mocks = vi.hoisted(() => {
             }),
           };
         },
-        delete: () => ({
-          eq: () => issuesDelete(),
-        }),
       };
     }
     throw new Error(`Unexpected table in test: ${table}`);
   };
 
+  // Admin client is used for DELETE only (bypasses the missing
+  // DELETE RLS policy on issues — see the action's comment).
+  const adminFrom = (table: string) => {
+    if (table === "issues") {
+      return {
+        delete: (opts?: { count?: string }) => ({
+          eq: () => issuesDelete(opts),
+        }),
+      };
+    }
+    throw new Error(`Unexpected admin table in test: ${table}`);
+  };
+
   const serverClient = { from: fromBuilder };
+  const adminClient = { from: adminFrom };
   const requireProfile = vi.fn();
   const isAdminForCompany = vi.fn();
   const getEffectiveCompanyId = vi.fn();
@@ -92,6 +112,7 @@ const mocks = vi.hoisted(() => {
     issuesUpdateNoSelect,
     issuesDelete,
     serverClient,
+    adminClient,
     requireProfile,
     isAdminForCompany,
     getEffectiveCompanyId,
@@ -102,6 +123,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => mocks.serverClient,
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createSupabaseAdminClient: () => mocks.adminClient,
 }));
 
 vi.mock("@/lib/auth/current-user", () => ({
@@ -173,7 +198,7 @@ beforeEach(() => {
   );
   mocks.getEffectiveCompanyId.mockResolvedValue("co_acme");
   mocks.issuesUpdateNoSelect.mockResolvedValue({ error: null });
-  mocks.issuesDelete.mockResolvedValue({ error: null });
+  mocks.issuesDelete.mockResolvedValue({ error: null, count: 1 });
 });
 
 // ---- createIssueAction ---------------------------------------
@@ -463,5 +488,19 @@ describe("deleteIssueAction", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toMatch(/not found/i);
     expect(mocks.issuesDelete).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a 0-rows-affected delete instead of pretending success", async () => {
+    // Regression pin: DELETE via the RLS-scoped client used to
+    // silently return { error: null, count: null } for admins
+    // because migration 0143 ships no delete policy on issues.
+    // The action now uses the admin client AND checks count so a
+    // no-op delete never returns ok:true.
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.issuesSelectMaybeSingle.mockResolvedValue({ data: baseIssue() });
+    mocks.issuesDelete.mockResolvedValue({ error: null, count: 0 });
+    const result = await deleteIssueAction("i_1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/already gone/i);
   });
 });
