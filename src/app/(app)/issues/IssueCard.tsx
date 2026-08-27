@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   useActionState,
   useEffect,
@@ -341,6 +342,41 @@ function DesiredOutcomeEditor({
       <span className={styles.wantMuted}>Not yet defined.</span>
     );
   }
+  // Empty state renders the same dashed-textarea shape as the
+  // Commitment add cell, so the two "please fill me in" surfaces
+  // look identical instead of one being a muted italic prompt.
+  // Focus is left to the user; onBlur saves what they typed.
+  if (!issue.desired_outcome && !editing) {
+    return (
+      <>
+        <textarea
+          className={styles.commitmentAddInput}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          rows={3}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setDraft("");
+              setError(null);
+            }
+          }}
+          placeholder="What's the outcome you want here?"
+          disabled={pending}
+          aria-label="What we want"
+        />
+        {error ? (
+          <p role="alert" className={styles.rowError}>
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
   if (editing) {
     return (
       <>
@@ -373,26 +409,14 @@ function DesiredOutcomeEditor({
       </>
     );
   }
-  if (issue.desired_outcome) {
-    return (
-      <button
-        type="button"
-        className={styles.wantEditable}
-        onClick={() => setEditing(true)}
-        title="Click to edit"
-      >
-        {issue.desired_outcome}
-      </button>
-    );
-  }
   return (
     <button
       type="button"
-      className={`${styles.wantEditable} ${styles.wantMuted}`}
+      className={styles.wantEditable}
       onClick={() => setEditing(true)}
-      title="Click to add"
+      title="Click to edit"
     >
-      What&rsquo;s the outcome you want here?
+      {issue.desired_outcome}
     </button>
   );
 }
@@ -453,6 +477,7 @@ function DeleteIssueButton({
   issueId: string;
   issueTitle: string;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -462,7 +487,16 @@ function DeleteIssueButton({
     setError(null);
     startTransition(async () => {
       const result = await deleteIssueAction(issueId);
-      if (!result.ok) setError(result.message);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      // revalidatePath() marks /issues stale server-side, but the
+      // client route cache still shows the deleted row until the
+      // router picks up the new tree. router.refresh() forces the
+      // re-render immediately so the row disappears without a
+      // page reload.
+      router.refresh();
     });
   }
 
