@@ -1,25 +1,130 @@
-import { generateHTML } from "@tiptap/html";
-import StarterKit from "@tiptap/starter-kit";
 import type { JSONContent } from "@tiptap/react";
+import type { ClassroomVideoProvider } from "@/lib/classroom/types";
+import { VideoEmbedPlayer } from "./VideoEmbedPlayer";
 import styles from "./Renderer.module.css";
 
-// Server-side renderer for TipTap JSON. Uses @tiptap/html's
-// generateHTML so consumer pages never load the editor bundle.
+// Server component that renders a Tiptap JSON body as React. Walks
+// the tree ourselves rather than using @tiptap/html's generateHTML
+// + dangerouslySetInnerHTML — the walker lets us render our
+// videoEmbed node as a real React component (VideoEmbedPlayer)
+// instead of a placeholder div that would need client-side
+// hydration. StarterKit nodes still render as plain semantic tags.
 //
-// StarterKit is the source of truth for what elements the editor
-// produces — keep this list in lockstep with Editor.tsx or content
-// authored with a richer set will lose formatting on render.
+// Keep the switch in lockstep with the editor's extensions. If a
+// new StarterKit-derived node is enabled (e.g. Link, Highlight),
+// add a case here or its content will silently vanish.
 
 export function TipTapRenderer({ json }: { json: JSONContent | null }) {
   if (!json) return null;
-  const html = generateHTML(json, [StarterKit]);
-  return (
-    <div
-      className={styles.prose}
-      // Safe because the input is TipTap's schema-constrained JSON;
-      // there's no path for user-provided <script> or raw HTML to
-      // reach here.
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+  return <div className={styles.prose}>{renderNode(json, "root")}</div>;
+}
+
+function renderNode(node: JSONContent, key: string): React.ReactNode {
+  const children = (node.content ?? []).map((child, i) =>
+    renderNode(child, `${key}.${i}`)
   );
+
+  switch (node.type) {
+    case "doc":
+      return <>{children}</>;
+
+    case "paragraph":
+      return <p key={key}>{children}</p>;
+
+    case "heading": {
+      const level = clampHeadingLevel(node.attrs?.level as number | undefined);
+      const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+      return <Tag key={key}>{children}</Tag>;
+    }
+
+    case "bulletList":
+      return <ul key={key}>{children}</ul>;
+
+    case "orderedList":
+      return (
+        <ol key={key} start={(node.attrs?.start as number | undefined) ?? 1}>
+          {children}
+        </ol>
+      );
+
+    case "listItem":
+      return <li key={key}>{children}</li>;
+
+    case "blockquote":
+      return <blockquote key={key}>{children}</blockquote>;
+
+    case "codeBlock":
+      return (
+        <pre key={key}>
+          <code>{children}</code>
+        </pre>
+      );
+
+    case "horizontalRule":
+      return <hr key={key} />;
+
+    case "hardBreak":
+      return <br key={key} />;
+
+    case "text":
+      return renderText(node, key);
+
+    case "videoEmbed": {
+      const provider = node.attrs?.provider as ClassroomVideoProvider | undefined;
+      const videoId = node.attrs?.videoId as string | undefined;
+      const caption = (node.attrs?.caption as string | null | undefined) ?? null;
+      if (!videoId || (provider !== "youtube" && provider !== "vimeo")) {
+        return null;
+      }
+      return (
+        <VideoEmbedPlayer
+          key={key}
+          provider={provider}
+          videoId={videoId}
+          caption={caption}
+        />
+      );
+    }
+
+    default:
+      // Unknown node — skip its wrapper but render children so a
+      // future extension that we haven't taught the renderer about
+      // still surfaces its text content instead of vanishing.
+      return <>{children}</>;
+  }
+}
+
+// Text nodes carry an optional marks[] array that Tiptap uses for
+// inline formatting. Wrap the text with the corresponding tags
+// from innermost to outermost.
+function renderText(node: JSONContent, key: string): React.ReactNode {
+  const text = node.text ?? "";
+  const marks = (node.marks ?? []) as Array<{ type: string }>;
+  let element: React.ReactNode = text;
+  for (const mark of marks) {
+    switch (mark.type) {
+      case "bold":
+        element = <strong>{element}</strong>;
+        break;
+      case "italic":
+        element = <em>{element}</em>;
+        break;
+      case "strike":
+        element = <s>{element}</s>;
+        break;
+      case "code":
+        element = <code>{element}</code>;
+        break;
+      // Unknown marks are ignored so unknown-mark text still
+      // renders as plain text rather than blanking out.
+    }
+  }
+  return <span key={key}>{element}</span>;
+}
+
+function clampHeadingLevel(input: number | undefined): 1 | 2 | 3 | 4 | 5 | 6 {
+  if (typeof input !== "number") return 2;
+  if (input < 1) return 1;
+  if (input > 6) return 6;
+  return input as 1 | 2 | 3 | 4 | 5 | 6;
 }

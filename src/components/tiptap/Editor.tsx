@@ -3,16 +3,18 @@
 import { useEditor, EditorContent, type Editor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect } from "react";
+import { VideoEmbed } from "./nodes/VideoEmbed";
+import { parseVideoUrl } from "@/lib/classroom/video-url";
 import styles from "./Editor.module.css";
 
 // TipTap-based rich text editor. Client-side only — the editor bundle
-// never ships to consumer pages, which render via the Renderer below
-// using @tiptap/html's server-side generateHTML.
+// never ships to consumer pages, which render via the Renderer using
+// a JSON walker.
 //
 // Body is stored as TipTap JSON in classroom_trainings.body_json.
 // StarterKit gives headings, bold/italic/strike/code, bullet + ordered
-// lists, blockquote, hr, hard break — enough for training write-ups
-// without a link extension (add later if authors ask).
+// lists, blockquote, hr, hard break. VideoEmbed is a custom node for
+// inline YouTube / Vimeo videos (see nodes/VideoEmbed.ts).
 //
 // immediatelyRender:false is required under Next.js SSR to avoid a
 // hydration mismatch — TipTap v3 documents this explicitly.
@@ -29,7 +31,7 @@ export function TipTapEditor({
   placeholder?: string;
 }) {
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [StarterKit, VideoEmbed],
     content: initial ?? emptyDoc(),
     onUpdate: ({ editor }) => {
       onChange(editor.getJSON());
@@ -38,13 +40,41 @@ export function TipTapEditor({
     editorProps: {
       attributes: {
         class: styles.editorSurface,
-        "aria-label": placeholder ?? "Training body",
+        "aria-label": placeholder ?? "Section body",
+      },
+      // Auto-detect YouTube / Vimeo URLs pasted on a blank line and
+      // convert them to a videoEmbed node. Users can still opt into
+      // the raw-URL behavior by pasting mid-sentence (parse doesn't
+      // fire on selection-non-empty).
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData("text/plain");
+        if (!text) return false;
+        const parsed = parseVideoUrl(text);
+        if (!parsed) return false;
+        // If we don't own the selection start, let the default
+        // handler put the text where the user is typing.
+        const { $from } = view.state.selection;
+        if (!$from.parent.isTextblock || $from.parent.textContent.length > 0) {
+          return false;
+        }
+        event.preventDefault();
+        // insertVideoEmbed lives on our custom node's commands
+        (editor as Editor | null)
+          ?.chain()
+          .focus()
+          .insertVideoEmbed({
+            provider: parsed.provider,
+            videoId: parsed.id,
+            caption: null,
+          })
+          .run();
+        return true;
       },
     },
   });
 
   // Reset the editor when the initial content changes from outside
-  // (e.g., navigating between trainings without a full remount).
+  // (e.g., navigating between sections without a full remount).
   useEffect(() => {
     if (!editor) return;
     if (initial && editor.isEmpty) {
@@ -133,6 +163,13 @@ function Toolbar({ editor }: { editor: Editor }) {
       </ToolbarButton>
       <ToolbarSeparator />
       <ToolbarButton
+        label="Insert YouTube or Vimeo video"
+        onClick={() => insertVideoPrompt(editor)}
+      >
+        ▶
+      </ToolbarButton>
+      <ToolbarSeparator />
+      <ToolbarButton
         label="Undo"
         onClick={() => editor.chain().focus().undo().run()}
         disabled={!editor.can().undo()}
@@ -148,6 +185,34 @@ function Toolbar({ editor }: { editor: Editor }) {
       </ToolbarButton>
     </div>
   );
+}
+
+// Explicit "Insert video" toolbar action. Prompts for the URL,
+// parses it, and inserts a videoEmbed node. window.prompt is a
+// spare UI on purpose — we can promote it to a proper dialog if
+// authors ask for a caption field up-front.
+function insertVideoPrompt(editor: Editor): void {
+  const input = window.prompt(
+    "Paste a YouTube or Vimeo video URL:",
+    ""
+  );
+  if (!input) return;
+  const parsed = parseVideoUrl(input);
+  if (!parsed) {
+    window.alert(
+      "That URL doesn't look like a YouTube or Vimeo link. Try a share URL instead."
+    );
+    return;
+  }
+  editor
+    .chain()
+    .focus()
+    .insertVideoEmbed({
+      provider: parsed.provider,
+      videoId: parsed.id,
+      caption: null,
+    })
+    .run();
 }
 
 function ToolbarButton({
