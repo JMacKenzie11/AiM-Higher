@@ -39,7 +39,9 @@ As an admin or guide, you can also:
   Any commitments linked to the issue stay live and just lose the
   linkage, so no owner loses their next-step work.
 - **Reorder issues by rank** — drag the handle in column two.
-  Rank persists across everyone's view.
+  Rank is company-wide and shared: everyone in the company sees
+  the same order, and the new position sticks across sessions.
+  Team members see the drag handle only on issues they created.
 - **Edit any issue's desired outcome** by clicking the *What we
   want* cell.
 - **Reassign or reschedule any linked commitment** — same inline
@@ -87,8 +89,11 @@ purpose: issues named too eagerly clutter the list.
 
 If the extraction flagged something similar to an issue you
 already added recently, you'll see a small *Possibly already
-captured* badge on the meeting summary row. It's a hint, not a
-block — you can still add it.
+captured* badge on the meeting summary row. Click it — a callout
+opens with the matched text quoted and a link to the surface
+(/issues or /commitments) where the near-duplicate lives, so you
+can check before adding a second one. It's a hint, not a block —
+add it anyway if the resemblance is coincidental.
 
 ## Common questions
 

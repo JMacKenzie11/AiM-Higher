@@ -29,12 +29,16 @@ As an admin or guide, you can also:
   Tracking is off)* — each extracted commitment shows in the
   *Commitments identified* card with three actions: link to a
   Priority, link to a Functional Area, or *Convert to issue*.
-  Once you act, the row flips to *Captured as commitment* or
-  *Added as issue* so a re-scan of the meeting reads clearly.
+  Once you act, the pickers disappear and a green checkmark
+  chip takes their place spelling out what happened — *Added to
+  &lt;Priority name&gt;*, *Added to &lt;Function name&gt;*,
+  *Captured as commitment* (no link), or *Issue created*. Same
+  read on a hard refresh, so you can walk away and come back.
 - **Add extracted issues to the open list** — *Issues identified*
   lists each unresolved question the team raised. Click *Add to
-  open issues* on the ones worth working on. Idempotent by
-  title + meeting, so a double-click doesn't create twins.
+  open issues* on the ones worth working on; the row flips to
+  a green *Added as issue* chip. Idempotent by title + meeting,
+  so a double-click doesn't create twins.
 - **Read the facilitation review** *(when Meeting Facilitation
   Review is on)* — the "How the meeting was run" panel is a
   coaching-tone read against the AiMS Weekly Leadership Meeting
@@ -55,8 +59,13 @@ As an admin or guide, you can also:
 For each extracted commitment or issue, the pipeline runs a
 trigram similarity check against every open commitment or issue
 from the last 14 days. A close match surfaces a small *Possibly
-already captured* badge next to the extracted row. It's a hint,
-not a block — you can still add the row.
+already captured* badge next to the extracted row.
+
+Click the badge — a callout opens with the matched text quoted
+and a link to the surface (/commitments or /issues) where the
+near-duplicate lives, so you can eyeball it before deciding. It's
+a hint, not a block: add the row anyway if the resemblance is
+coincidental.
 
 Items that this meeting itself already produced don't count as
 duplicates (self-match filter), so a re-scan of the same meeting
