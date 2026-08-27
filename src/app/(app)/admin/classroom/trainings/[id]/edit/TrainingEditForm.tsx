@@ -36,7 +36,7 @@ export function TrainingEditForm({
     startTransition(async () => {
       const result = await updateTrainingAction(training.id, form);
       if (result.ok) {
-        setMessage({ ok: true, text: "Training saved." });
+        setMessage({ ok: true, text: "Section saved." });
         router.refresh();
       } else {
         setMessage({ ok: false, text: result.message });
@@ -149,7 +149,7 @@ export function TrainingEditForm({
           onClick={save}
           disabled={pending}
         >
-          {pending ? "Saving…" : "Save training"}
+          {pending ? "Saving…" : "Save section"}
         </button>
       </div>
     </div>

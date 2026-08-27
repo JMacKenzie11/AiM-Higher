@@ -12,10 +12,10 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { ClassroomTraining } from "@/lib/classroom/types";
 import styles from "../../../../companies/admin.module.css";
 
-// Sub-panel on the lesson edit page — the ordered list of trainings
-// with quick-add and inline row actions. New training creation is a
-// two-field flow (title + URL) and lands the sysadmin on the training
-// edit page for the body + attachments work.
+// Sub-panel on the lesson edit page — the ordered list of Sections
+// (the DB table stays classroom_trainings; UI vocabulary is
+// "Section"). Quick-add is title-only; the sysadmin lands on the
+// section edit page for the body + video + attachments work.
 
 export function TrainingsInLesson({
   lessonId,
@@ -81,7 +81,7 @@ export function TrainingsInLesson({
           onClick={() => setShowAdd((v) => !v)}
           disabled={pending}
         >
-          {showAdd ? "Cancel" : "+ New training"}
+          {showAdd ? "Cancel" : "+ New section"}
         </button>
       </div>
 
@@ -89,7 +89,7 @@ export function TrainingsInLesson({
         <div className={styles.form} style={{ marginBottom: "var(--space-4)" }}>
           <div className={styles.field}>
             <label htmlFor="new-training-title" className={styles.label}>
-              Training title
+              Section title
             </label>
             <input
               id="new-training-title"
@@ -121,7 +121,7 @@ export function TrainingsInLesson({
       ) : null}
 
       {trainings.length === 0 ? (
-        <p className={styles.emptyLine}>No trainings yet — add the first one above.</p>
+        <p className={styles.emptyLine}>No sections yet — add the first one above.</p>
       ) : (
         <ul className={styles.list}>
           {trainings.map((t, i) => (
@@ -187,10 +187,10 @@ export function TrainingsInLesson({
         title={
           pendingDelete
             ? `Delete "${pendingDelete.title}"?`
-            : "Delete training?"
+            : "Delete section?"
         }
-        message="The video reference, notes, and any attachments are deleted with it. This can't be undone."
-        confirmLabel="Delete training"
+        message="The section body, embedded videos, and any attachments are deleted with it. This can't be undone."
+        confirmLabel="Delete section"
         tone="danger"
         onConfirm={runRemove}
         onCancel={() => setPendingDelete(null)}

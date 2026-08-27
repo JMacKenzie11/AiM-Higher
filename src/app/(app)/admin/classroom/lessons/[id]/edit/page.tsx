@@ -49,7 +49,7 @@ export default async function LessonEditPage({ params }: PageProps) {
 
         <section className={styles.card} aria-labelledby="trainings">
           <h2 id="trainings" className={styles.h2}>
-            Trainings in this lesson
+            Sections in this lesson
           </h2>
           <TrainingsInLesson
             lessonId={lesson.id}
