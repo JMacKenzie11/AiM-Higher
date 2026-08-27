@@ -74,3 +74,11 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+.prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: var(--space-4) 0;
+  border-radius: var(--radius-sm);
+}

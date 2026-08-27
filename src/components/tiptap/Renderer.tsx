@@ -86,6 +86,19 @@ function renderNode(node: JSONContent, key: string): React.ReactNode {
       );
     }
 
+    case "image": {
+      const src = node.attrs?.src as string | undefined;
+      const alt = (node.attrs?.alt as string | null | undefined) ?? "";
+      const width = node.attrs?.width as number | null | undefined;
+      if (!src) return null;
+      const style =
+        typeof width === "number"
+          ? { width: `${width}%`, height: "auto" as const }
+          : undefined;
+      // eslint-disable-next-line @next/next/no-img-element
+      return <img key={key} src={src} alt={alt} style={style} />;
+    }
+
     default:
       // Unknown node — skip its wrapper but render children so a
       // future extension that we haven't taught the renderer about

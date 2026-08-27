@@ -425,6 +425,58 @@ export async function deleteAttachmentAction(
   return { ok: true };
 }
 
+// ---- Inline images (in section body_json) ----
+
+// Uploads land under classroom-images/<uuid>-<name> in a public bucket.
+// Inline images live in body_json as <img src="..."> nodes; signed URLs
+// would expire mid-session and break the render, so the bucket is
+// public. Writes are still sysadmin-only (role check + storage RLS).
+const IMAGE_MIME_ALLOWLIST = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+]);
+
+export async function uploadClassroomImageAction(
+  formData: FormData
+): Promise<ActionResult<{ url: string }>> {
+  await requireRole(["system_admin"]);
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "Pick an image first." };
+  }
+  if (!IMAGE_MIME_ALLOWLIST.has(file.type)) {
+    return {
+      ok: false,
+      message: "Images must be PNG, JPG, GIF, or WebP.",
+    };
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    return { ok: false, message: "Images cap at 8 MB." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const safeName = sanitizeFilename(file.name);
+  const path = `${crypto.randomUUID()}-${safeName}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const { error: uploadErr } = await admin.storage
+    .from("classroom-images")
+    .upload(path, buffer, {
+      contentType: file.type,
+      upsert: false,
+    });
+  if (uploadErr) {
+    return { ok: false, message: "Upload failed — try again." };
+  }
+  const { data } = admin.storage.from("classroom-images").getPublicUrl(path);
+  if (!data?.publicUrl) {
+    await admin.storage.from("classroom-images").remove([path]);
+    return { ok: false, message: "Couldn't resolve the image URL." };
+  }
+  return { ok: true, url: data.publicUrl };
+}
+
 // ---- Utilities ----
 
 function slugify(input: string): string {

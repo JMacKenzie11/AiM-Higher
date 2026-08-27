@@ -2,9 +2,11 @@
 
 import { useEditor, EditorContent, type Editor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { VideoEmbed } from "./nodes/VideoEmbed";
+import { ImageEmbed } from "./nodes/ImageEmbed";
 import { parseVideoUrl } from "@/lib/classroom/video-url";
+import { uploadClassroomImageAction } from "@/lib/classroom/actions";
 import styles from "./Editor.module.css";
 
 // TipTap-based rich text editor. Client-side only — the editor bundle
@@ -30,8 +32,9 @@ export function TipTapEditor({
   onChange: (json: EditorJSON) => void;
   placeholder?: string;
 }) {
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const editor = useEditor({
-    extensions: [StarterKit, VideoEmbed],
+    extensions: [StarterKit, VideoEmbed, ImageEmbed],
     content: initial ?? emptyDoc(),
     onUpdate: ({ editor }) => {
       onChange(editor.getJSON());
@@ -42,11 +45,17 @@ export function TipTapEditor({
         class: styles.editorSurface,
         "aria-label": placeholder ?? "Section body",
       },
-      // Auto-detect YouTube / Vimeo URLs pasted on a blank line and
-      // convert them to a videoEmbed node. Users can still opt into
-      // the raw-URL behavior by pasting mid-sentence (parse doesn't
-      // fire on selection-non-empty).
+      // Two paste shapes we handle:
+      //   1. Clipboard contains an image file — upload and insert.
+      //   2. Clipboard contains a YouTube/Vimeo URL on a blank line —
+      //      swap for a videoEmbed node.
       handlePaste: (view, event) => {
+        const imageFile = pickImageFromClipboard(event.clipboardData);
+        if (imageFile) {
+          event.preventDefault();
+          void uploadAndInsertImage(imageFile, editor as Editor | null, setUploadError);
+          return true;
+        }
         const text = event.clipboardData?.getData("text/plain");
         if (!text) return false;
         const parsed = parseVideoUrl(text);
@@ -70,6 +79,14 @@ export function TipTapEditor({
           .run();
         return true;
       },
+      // Also intercept drops of image files from the OS finder.
+      handleDrop: (_view, event) => {
+        const file = event.dataTransfer?.files?.[0];
+        if (!file || !file.type.startsWith("image/")) return false;
+        event.preventDefault();
+        void uploadAndInsertImage(file, editor as Editor | null, setUploadError);
+        return true;
+      },
     },
   });
 
@@ -88,10 +105,50 @@ export function TipTapEditor({
 
   return (
     <div className={styles.wrap}>
-      <Toolbar editor={editor} />
+      <Toolbar editor={editor} onUploadError={setUploadError} />
+      {uploadError ? (
+        <p role="alert" className={styles.uploadError}>
+          {uploadError}
+        </p>
+      ) : null}
       <EditorContent editor={editor} />
     </div>
   );
+}
+
+function pickImageFromClipboard(
+  data: DataTransfer | null
+): File | null {
+  if (!data) return null;
+  for (let i = 0; i < data.items.length; i++) {
+    const item = data.items[i]!;
+    if (item.kind === "file" && item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (file) return file;
+    }
+  }
+  return null;
+}
+
+async function uploadAndInsertImage(
+  file: File,
+  editor: Editor | null,
+  onError: (msg: string | null) => void
+): Promise<void> {
+  if (!editor) return;
+  onError(null);
+  const fd = new FormData();
+  fd.append("file", file);
+  const result = await uploadClassroomImageAction(fd);
+  if (!result.ok) {
+    onError(result.message);
+    return;
+  }
+  editor
+    .chain()
+    .focus()
+    .insertImageEmbed({ src: result.url, alt: null, width: null })
+    .run();
 }
 
 function emptyDoc(): EditorJSON {
@@ -100,7 +157,14 @@ function emptyDoc(): EditorJSON {
 
 // ------- Toolbar -------
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({
+  editor,
+  onUploadError,
+}: {
+  editor: Editor;
+  onUploadError: (msg: string | null) => void;
+}) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Formatting">
       <ToolbarButton
@@ -168,6 +232,25 @@ function Toolbar({ editor }: { editor: Editor }) {
       >
         ▶
       </ToolbarButton>
+      <ToolbarButton
+        label="Insert image"
+        onClick={() => imageInputRef.current?.click()}
+      >
+        🖼
+      </ToolbarButton>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            void uploadAndInsertImage(file, editor, onUploadError);
+          }
+          if (imageInputRef.current) imageInputRef.current.value = "";
+        }}
+      />
       <ToolbarSeparator />
       <ToolbarButton
         label="Undo"

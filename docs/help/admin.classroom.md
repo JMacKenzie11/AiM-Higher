@@ -34,6 +34,12 @@ appears in every company that has the Classroom feature turned on
       preview. Add a caption in the field beneath the thumbnail.
   The player never loads while editing; you see a static
   thumbnail so a section with 10 videos stays responsive.
+- **Insert images** — click the 🖼 button in the toolbar to pick
+  a file, paste a screenshot from your clipboard, or drag an
+  image onto the editor. PNG, JPG, GIF, and WebP up to 8 MB.
+  Click the image to select it, then drag the bottom-right
+  handle to resize (aspect ratio is preserved) or use the S/M/L
+  buttons for 33% / 66% / 100% container width.
 - **Walk between sections while editing** — the left rail shows
   the same tab list your readers will see, so click any sibling
   section to jump to its editor.
