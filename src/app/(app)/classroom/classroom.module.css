@@ -117,24 +117,72 @@
 }
 
 .lessonCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4);
+  padding-left: calc(var(--space-4) + 6px);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
   text-decoration: none;
+  overflow: hidden;
   transition: transform var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+/* Cobalt accent stripe down the left edge. Widens on hover so
+   the card feels "primed" — not just a static bar. */
+.lessonCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--aims-cobalt);
+  transition: width var(--duration-fast) var(--ease-out);
+}
+
+/* Small chevron in the top-right; slides in on hover to signal
+   "clickable / go here". Hidden by default so idle cards stay
+   quiet. */
+.lessonCard::after {
+  content: "→";
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  color: var(--aims-cobalt);
+  font-weight: 700;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
 .lessonCard:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  border-color: var(--aims-cobalt-tint);
+  border-color: var(--aims-cobalt);
+  background: color-mix(in srgb, var(--aims-cobalt) 3%, var(--surface));
+}
+
+.lessonCard:hover::before {
+  width: 6px;
+}
+
+.lessonCard:hover::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.lessonCard:focus-visible {
+  outline: 2px solid var(--aims-cobalt);
+  outline-offset: 2px;
 }
 
 .lessonTitle {
@@ -143,6 +191,12 @@
   font-size: 17px;
   color: var(--text-heading);
   margin: 0;
+  padding-right: var(--space-4);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.lessonCard:hover .lessonTitle {
+  color: var(--aims-cobalt);
 }
 
 .lessonDescription {
