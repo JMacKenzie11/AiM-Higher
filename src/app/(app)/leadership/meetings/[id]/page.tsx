@@ -160,7 +160,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       .eq("source_meeting_id", meeting.id),
     supabase
       .from("commitments")
-      .select("id, description")
+      .select("id, description, priority_id, functional_area_id")
       .eq("source_meeting_id", meeting.id)
       .is("deleted_at", null),
   ]);
@@ -171,6 +171,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   const addedCommitmentRows = (alreadyAddedCommitments.data ?? []) as Array<{
     id: string;
     description: string;
+    priority_id: string | null;
+    functional_area_id: string | null;
   }>;
   const addedIssueTitles = new Set(addedIssueRows.map((r) => r.title));
   const addedCommitmentDescriptions = new Set(
@@ -178,6 +180,76 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   );
   const addedIssueIds = new Set(addedIssueRows.map((r) => r.id));
   const addedCommitmentIds = new Set(addedCommitmentRows.map((r) => r.id));
+
+  // Fetch the priority + functional-area titles for every already-
+  // added commitment in one round-trip each. Feeds the richer
+  // done-state label ("Added to [Priority name]" / "Added to
+  // [Function name]") so the reader can see WHERE the commitment
+  // landed without navigating away.
+  const priorityIdsForLink = Array.from(
+    new Set(
+      addedCommitmentRows
+        .map((c) => c.priority_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  const functionalAreaIdsForLink = Array.from(
+    new Set(
+      addedCommitmentRows
+        .map((c) => c.functional_area_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  const [priorityTitleRes, functionTitleRes] = await Promise.all([
+    priorityIdsForLink.length > 0
+      ? supabase
+          .from("priorities")
+          .select("id, title")
+          .in("id", priorityIdsForLink)
+      : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+    functionalAreaIdsForLink.length > 0
+      ? supabase
+          .from("functions")
+          .select("id, title")
+          .in("id", functionalAreaIdsForLink)
+      : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+  ]);
+  const priorityTitleById = new Map(
+    ((priorityTitleRes.data ?? []) as Array<{ id: string; title: string }>).map(
+      (r) => [r.id, r.title]
+    )
+  );
+  const functionTitleById = new Map(
+    ((functionTitleRes.data ?? []) as Array<{ id: string; title: string }>).map(
+      (r) => [r.id, r.title]
+    )
+  );
+
+  // Description → link details lookup for the done-state label.
+  // Idempotency in the routing action matches by exact description,
+  // so we key here by exact description too.
+  type CommitmentLinkInfo =
+    | { kind: "priority"; title: string }
+    | { kind: "functional_area"; title: string }
+    | { kind: "none" };
+  const commitmentLinkByDescription = new Map<string, CommitmentLinkInfo>();
+  for (const c of addedCommitmentRows) {
+    let info: CommitmentLinkInfo;
+    if (c.priority_id) {
+      info = {
+        kind: "priority",
+        title: priorityTitleById.get(c.priority_id) ?? "priority",
+      };
+    } else if (c.functional_area_id) {
+      info = {
+        kind: "functional_area",
+        title: functionTitleById.get(c.functional_area_id) ?? "functional area",
+      };
+    } else {
+      info = { kind: "none" };
+    }
+    commitmentLinkByDescription.set(c.description, info);
+  }
 
   // Drop a similarity hit when it points at something this meeting
   // itself produced — that's a definite duplicate, not a "possibly
@@ -221,12 +293,16 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     ),
     Promise.all<ExtractedCommitmentRow>(
       extractedCommitments.map(async (c) => {
-        const addedAs: "commitment" | "issue" | null =
-          addedCommitmentDescriptions.has(c.description)
-            ? "commitment"
-            : addedIssueTitles.has(c.description)
-              ? "issue"
-              : null;
+        // Priority order: a commitment lookup wins, THEN an issue
+        // lookup — the same extraction can't have both, but the
+        // idempotency contract keys on description, so a rare
+        // collision resolves in favor of the commitment shape.
+        const link = commitmentLinkByDescription.get(c.description);
+        const addedAs: ExtractedCommitmentRow["addedAs"] = link
+          ? { kind: "commitment", link }
+          : addedIssueTitles.has(c.description)
+            ? { kind: "issue" }
+            : null;
         return {
           commitment: c,
           ownerName: c.owner_profile_id

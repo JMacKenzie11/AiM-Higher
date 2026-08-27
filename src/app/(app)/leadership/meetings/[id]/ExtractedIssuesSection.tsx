@@ -6,6 +6,8 @@ import type { ExtractedIssue } from "@/lib/types";
 import type { SimilarMatch } from "@/lib/transcripts/similarity";
 import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./extracted.module.css";
+import { SimilarMatchBadge } from "./SimilarMatchBadge";
+import { DoneChip } from "./DoneChip";
 
 // "Issues identified" section on the meeting summary. Every
 // extracted issue renders as a row with an Add-to-open-issues
@@ -82,14 +84,7 @@ function ExtractedIssueRowItem({
     <li className={styles.row}>
       <div className={styles.rowMain}>
         <p className={styles.rowText}>{row.issue.title}</p>
-        {row.similar ? (
-          <span
-            className={styles.badge}
-            title={`Similar to: “${row.similar.text}”`}
-          >
-            Possibly already captured
-          </span>
-        ) : null}
+        {row.similar ? <SimilarMatchBadge match={row.similar} /> : null}
         {error ? (
           <p role="alert" className={styles.error}>
             {error}
@@ -98,9 +93,7 @@ function ExtractedIssueRowItem({
       </div>
       <div className={styles.rowActions}>
         {added ? (
-          <span className={styles.done} aria-live="polite">
-            Added as issue
-          </span>
+          <DoneChip label="Added as issue" />
         ) : canAdd ? (
           <button
             type="button"

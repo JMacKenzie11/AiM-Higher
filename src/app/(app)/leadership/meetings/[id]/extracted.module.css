@@ -140,6 +140,96 @@
   white-space: nowrap;
 }
 
+/* Done chip — check icon + label. Replaces the pickers + button
+   once the extracted item has been acted on. Same green tone as
+   .done but with the check icon leading. */
+.doneChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--aims-success);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.doneChip svg {
+  flex-shrink: 0;
+}
+
+/* Similarity badge → click-to-open callout. Anchor keeps
+   position:relative so the popover absolute-positions beneath
+   the badge, moving with the row on scroll. */
+.badgeAnchor {
+  position: relative;
+  display: inline-block;
+}
+
+.badgeButton {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--aims-warning-tint);
+  color: var(--text-heading);
+  font: var(--text-caption);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.badgeButton:hover {
+  border-color: var(--aims-warning);
+}
+
+.badgeButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.badgePopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 240px;
+  max-width: 360px;
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.badgePopoverLabel {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.badgePopoverText {
+  font: var(--text-body-sm);
+  color: var(--text);
+  margin: 0;
+  font-style: italic;
+}
+
+.badgePopoverLink {
+  font: var(--text-body-sm);
+  color: var(--primary);
+  text-decoration: none;
+  margin-top: 4px;
+}
+
+.badgePopoverLink:hover {
+  text-decoration: underline;
+}
+
 .doneMuted {
   color: var(--text-muted);
   font: var(--text-caption);
