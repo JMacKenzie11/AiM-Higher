@@ -34,6 +34,10 @@ As an admin or guide, you can also:
 
 - **Add, rename, and resolve any issue.** Click the title to
   rename; use *Resolve* on the right to close the loop.
+- **Delete an issue** — trash icon left of *Resolve*. Hard
+  delete; the confirm dialog spells out that it can't be undone.
+  Any commitments linked to the issue stay live and just lose the
+  linkage, so no owner loses their next-step work.
 - **Reorder issues by rank** — drag the handle in column two.
   Rank persists across everyone's view.
 - **Edit any issue's desired outcome** by clicking the *What we
@@ -108,3 +112,8 @@ only closes the issue, not the work.
 
 **Can I un-resolve an issue?** Not from the UI. If it was closed
 in error, add a new issue capturing what's still unresolved.
+
+**What happens to commitments when an admin deletes an issue?**
+The commitments stay alive on the owner's list; only the link
+back to the (now-gone) issue is cleared. Delete removes the
+issue row itself, not the work anyone committed to.
