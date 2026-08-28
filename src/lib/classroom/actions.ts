@@ -260,6 +260,20 @@ export async function updateTrainingAction(
   if (!title) return { ok: false, message: "Give the section a title." };
   const slug = input.slug?.trim() || slugify(title);
 
+  // Diagnostic — shows what body_json actually arrives from the
+  // wire. If the link mark loses its attrs.href in transit, this
+  // log will show the mark shape BEFORE sanitize runs so we can
+  // tell the difference between "client didn't send href" and
+  // "sanitize stripped it". Delete once the link flow is stable.
+  try {
+    console.log(
+      "[updateTraining] incoming body_json:\n" +
+        JSON.stringify(input.body_json, null, 2)
+    );
+  } catch (e) {
+    console.log("[updateTraining] body_json JSON.stringify threw", e);
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("classroom_trainings")
