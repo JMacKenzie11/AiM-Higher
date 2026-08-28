@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getScopedCompanyId } from "@/lib/admin/scope";
 import {
   parseChartProposal,
   type ChartProposal,
@@ -64,7 +63,8 @@ type ExistingRole = {
 };
 
 export async function applyChartProposalAction(
-  proposalJson: string
+  proposalJson: string,
+  conversationId: string
 ): Promise<ApplyResult> {
   // Re-validate on the server. Client already parsed; we trust
   // nothing that came off the wire.
@@ -75,24 +75,34 @@ export async function applyChartProposalAction(
       message: "That proposal isn't in the right shape.",
     };
   }
+  if (!conversationId) {
+    return { ok: false, message: "Missing conversation reference." };
+  }
 
   const session = await requireProfile();
-  let companyId: string | null = session.profile.company_id;
-  if (
-    !companyId &&
-    (session.profile.role === "system_admin" ||
-      session.profile.role === "aims_guide")
-  ) {
-    companyId = await getScopedCompanyId();
+  const admin = createSupabaseAdminClient();
+
+  // The chart target is the company the CONVERSATION belongs to,
+  // not the caller's current scope cookie. A sysadmin can scope
+  // between companies while the practice conversation stays put;
+  // applying to the current scope silently lands the coached
+  // chart on the wrong tenant (the exact bug the leader saw:
+  // proposal applied to "a completely separate company").
+  const { data: convo } = await admin
+    .from("coaching_conversations")
+    .select("id, company_id, created_by")
+    .eq("id", conversationId)
+    .maybeSingle<{ id: string; company_id: string; created_by: string }>();
+  if (!convo) {
+    return { ok: false, message: "Couldn't find that conversation." };
   }
-  if (!companyId) {
-    return { ok: false, message: "Scope into a company first." };
+  if (convo.created_by !== session.profile.id) {
+    return { ok: false, message: "Not yours to apply." };
   }
+  const companyId = convo.company_id;
   if (!isAdminForCompany(session.profile, companyId)) {
     return { ok: false, message: "You can't edit this company's chart." };
   }
-
-  const admin = createSupabaseAdminClient();
 
   // Load the current top-level functions + all their roles so we
   // can name-check without a round-trip per proposal item.

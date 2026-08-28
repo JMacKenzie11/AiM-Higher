@@ -402,6 +402,7 @@ export function ChatView({
               message={m}
               onRetry={m.error ? retry : undefined}
               practice={practice}
+              conversationId={conversation.id}
               onFixProposal={() =>
                 void sendMessage(
                   "Please re-emit the chart_proposal fenced block using the exact schema — top_seats and functions with responsibilities (LMA first), sub_functions only if we split anything."
@@ -450,11 +451,13 @@ function MessageBubble({
   message,
   onRetry,
   practice,
+  conversationId,
   onFixProposal,
 }: {
   message: UiMessage;
   onRetry?: () => void;
   practice?: Practice | null;
+  conversationId: string;
   onFixProposal?: () => void;
 }) {
   if (message.role === "user") {
@@ -491,7 +494,13 @@ function MessageBubble({
         const tag = langMatch?.[1];
         if (tag && outputCard && outputCard[tag]) {
           const raw = extractCodeText(props.children);
-          return renderCard(outputCard[tag], raw, isStreaming, onFixProposal);
+          return renderCard(
+            outputCard[tag],
+            raw,
+            isStreaming,
+            conversationId,
+            onFixProposal
+          );
         }
       }
       return <pre>{children}</pre>;
@@ -550,6 +559,7 @@ function renderCard(
   name: OutputCardName,
   raw: string,
   streaming: boolean,
+  conversationId: string,
   onFixProposal?: () => void
 ): ReactNode {
   switch (name) {
@@ -560,6 +570,7 @@ function renderCard(
         <ChartProposalCard
           raw={raw}
           streaming={streaming}
+          conversationId={conversationId}
           onFixRequest={onFixProposal}
         />
       );

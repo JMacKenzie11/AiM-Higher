@@ -32,10 +32,18 @@ import styles from "./ChartProposalCard.module.css";
 export function ChartProposalCard({
   raw,
   streaming,
+  conversationId,
   onFixRequest,
 }: {
   raw: string;
   streaming: boolean;
+  // The conversation this card belongs to. Passed to the Apply
+  // server action so it can resolve the target company from the
+  // conversation itself, not the caller's current scope cookie —
+  // a sysadmin scoping between companies otherwise had chart
+  // proposals land on whichever tenant they were currently viewing,
+  // not the one the practice was actually about.
+  conversationId: string;
   // Called when the leader clicks 'Fix the proposal' — parent
   // composes a canned nudge message and sends it as if the user
   // typed it. Optional so the card can render standalone in tests.
@@ -77,7 +85,7 @@ export function ChartProposalCard({
     if (pending || applyResult) return;
     setError(null);
     startTransition(async () => {
-      const result = await applyChartProposalAction(raw);
+      const result = await applyChartProposalAction(raw, conversationId);
       if (result.ok) {
         setApplyResult(result.summary);
       } else {

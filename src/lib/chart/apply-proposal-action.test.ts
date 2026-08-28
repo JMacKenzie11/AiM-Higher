@@ -17,7 +17,6 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // ---- Shared spies ---------------------------------------------
 const mocks = vi.hoisted(() => {
   const requireProfile = vi.fn();
-  const getScopedCompanyId = vi.fn();
   const revalidatePath = vi.fn();
 
   // Table-scoped stubs so a test can prime the .select() return
@@ -28,8 +27,16 @@ const mocks = vi.hoisted(() => {
   const rolesSelect = vi.fn(); // returns { data }
   const rolesInsert = vi.fn(); // returns { error, count }
   const rolesInsertPatch = vi.fn(); // captures the rows
+  const conversationMaybeSingle = vi.fn(); // returns { data }
 
   const fromBuilder = (table: string) => {
+    if (table === "coaching_conversations") {
+      return {
+        select: () => ({
+          eq: () => ({ maybeSingle: conversationMaybeSingle }),
+        }),
+      };
+    }
     if (table === "functions") {
       return {
         select: () => ({
@@ -61,7 +68,6 @@ const mocks = vi.hoisted(() => {
 
   return {
     requireProfile,
-    getScopedCompanyId,
     revalidatePath,
     functionsSelect,
     functionsInsert,
@@ -69,16 +75,13 @@ const mocks = vi.hoisted(() => {
     rolesSelect,
     rolesInsert,
     rolesInsertPatch,
+    conversationMaybeSingle,
     adminClient,
   };
 });
 
 vi.mock("@/lib/auth/current-user", () => ({
   requireProfile: mocks.requireProfile,
-}));
-
-vi.mock("@/lib/admin/scope", () => ({
-  getScopedCompanyId: mocks.getScopedCompanyId,
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -146,11 +149,19 @@ const VALID_PROPOSAL = JSON.stringify({
   ],
 });
 
+const CONV_ID = "conv_1";
+
 describe("applyChartProposalAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     primeEmptyChart();
-    mocks.getScopedCompanyId.mockResolvedValue("co_acme");
+    // Every apply now resolves the target company from the
+    // conversation row instead of the caller's scope cookie.
+    // Default: the conversation belongs to co_acme, created by the
+    // same user we mock in each test (u1 unless overridden).
+    mocks.conversationMaybeSingle.mockResolvedValue({
+      data: { id: CONV_ID, company_id: "co_acme", created_by: "u1" },
+    });
   });
 
   it("rejects malformed proposal JSON with no writes", async () => {
@@ -159,7 +170,7 @@ describe("applyChartProposalAction", () => {
     );
     const { applyChartProposalAction } = await import("./apply-proposal-action");
 
-    const res = await applyChartProposalAction("not json at all");
+    const res = await applyChartProposalAction("not json at all", CONV_ID);
 
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.message).toMatch(/right shape/i);
@@ -173,7 +184,7 @@ describe("applyChartProposalAction", () => {
     );
     const { applyChartProposalAction } = await import("./apply-proposal-action");
 
-    const res = await applyChartProposalAction(VALID_PROPOSAL);
+    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
 
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.message).toMatch(/can't edit/i);
@@ -190,7 +201,7 @@ describe("applyChartProposalAction", () => {
     );
     const { applyChartProposalAction } = await import("./apply-proposal-action");
 
-    const res = await applyChartProposalAction(VALID_PROPOSAL);
+    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
 
     expect(res.ok).toBe(false);
     expect(mocks.functionsInsert).not.toHaveBeenCalled();
@@ -211,7 +222,7 @@ describe("applyChartProposalAction", () => {
     );
     const { applyChartProposalAction } = await import("./apply-proposal-action");
 
-    const res = await applyChartProposalAction(VALID_PROPOSAL);
+    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
 
     expect(res.ok).toBe(true);
     if (res.ok) {
@@ -266,7 +277,7 @@ describe("applyChartProposalAction", () => {
     });
     const { applyChartProposalAction } = await import("./apply-proposal-action");
 
-    const res = await applyChartProposalAction(proposal);
+    const res = await applyChartProposalAction(proposal, CONV_ID);
 
     expect(res.ok).toBe(true);
     // Sales was not re-inserted (skipped by name).
@@ -288,6 +299,51 @@ describe("applyChartProposalAction", () => {
       expect.arrayContaining(["LMA", "Forecasting", "Enablement"])
     );
     expect(addedTitles).not.toContain("Pipeline"); // exact match on existing
+  });
+
+  it("targets the conversation's company, not the caller's current scope cookie", async () => {
+    // Regression: sysadmin scoped into co_meridian at Apply time, but
+    // the practice conversation was created against co_acme. The chart
+    // must land on co_acme (the conversation's company), never on the
+    // caller's current scope.
+    mocks.conversationMaybeSingle.mockResolvedValueOnce({
+      data: { id: CONV_ID, company_id: "co_acme", created_by: "u1" },
+    });
+    mocks.requireProfile.mockResolvedValue(
+      // Sysadmin — passes isAdminForCompany for any company_id.
+      sessionFor({ role: "system_admin", company_id: null })
+    );
+    const { applyChartProposalAction } = await import(
+      "./apply-proposal-action"
+    );
+
+    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
+
+    expect(res.ok).toBe(true);
+    // Confirm every function insert carries the conversation's
+    // company_id, not any other value.
+    for (const call of mocks.functionsInsert.mock.calls) {
+      const patch = call[0] as { company_id: string };
+      expect(patch.company_id).toBe("co_acme");
+    }
+  });
+
+  it("rejects an apply against a conversation the caller doesn't own", async () => {
+    mocks.conversationMaybeSingle.mockResolvedValueOnce({
+      data: { id: CONV_ID, company_id: "co_acme", created_by: "someone_else" },
+    });
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({ id: "u1", role: "system_admin" })
+    );
+    const { applyChartProposalAction } = await import(
+      "./apply-proposal-action"
+    );
+
+    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/not yours/i);
+    expect(mocks.functionsInsert).not.toHaveBeenCalled();
   });
 
   it("is idempotent: applying the same proposal twice creates nothing the second time", async () => {
@@ -318,7 +374,7 @@ describe("applyChartProposalAction", () => {
     );
     const { applyChartProposalAction } = await import("./apply-proposal-action");
 
-    const res = await applyChartProposalAction(VALID_PROPOSAL);
+    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
 
     expect(res.ok).toBe(true);
     if (res.ok) {
