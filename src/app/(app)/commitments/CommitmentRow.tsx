@@ -577,7 +577,7 @@ export function CommitmentRow({
             className={styles.descriptionInput}
             value={descriptionDraft}
             onChange={(e) => setDescriptionDraft(e.target.value)}
-            rows={2}
+            rows={3}
             autoFocus
             disabled={pending}
             onBlur={commitDescription}

@@ -197,12 +197,15 @@
 
 .issueTitleInput {
   font: var(--text-body);
+  font-family: inherit;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
   width: 100%;
+  line-height: 1.35;
+  resize: none;
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 

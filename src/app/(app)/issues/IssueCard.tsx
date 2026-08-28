@@ -265,13 +265,17 @@ function IssueTitleEditor({
   if (editing) {
     return (
       <>
-        <input
+        <textarea
           className={styles.issueTitleInput}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
+          rows={3}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            // Enter commits (titles are single-thought lines, not
+            // paragraphs) — matches the click-and-type UX of the
+            // original single-line input. Escape reverts.
+            if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               commit();
             } else if (e.key === "Escape") {
