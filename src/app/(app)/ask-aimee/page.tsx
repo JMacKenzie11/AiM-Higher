@@ -7,6 +7,7 @@ import { PracticeCards } from "@/components/practices/PracticeCards";
 import { PRACTICES, findPractice } from "@/lib/practices/registry";
 import { practiceRoleGate } from "@/lib/practices/gate";
 import { AskAimeeNewButton } from "./AskAimeeNewButton";
+import { AskAimeeTabs, type AskAimeeTab } from "./AskAimeeTabs";
 import { ArchiveConversationButton } from "../coach/[profileId]/ArchiveConversationButton";
 import styles from "../coach/coach.module.css";
 
@@ -16,15 +17,18 @@ import styles from "../coach/coach.module.css";
 // created_by = auth.uid()); no one else, admins included, can see
 // them.
 //
-// Practices sit at the top of the page as the deliberate entry
-// points ("I have a real thing to work through"); the free-form
-// conversation list ("resume something I started") lives underneath.
-// As the conversation history grows, practices stay in a fixed
-// place at the top instead of getting buried at the bottom.
+// Two tabs: Practices (default) as the deliberate entry points, and
+// Practice coaches for the recent-conversations list. Tab state lives
+// in ?tab= so both tabs are shareable and no client state is needed.
 
-export default async function AskAimeePage() {
+type PageProps = {
+  searchParams: Promise<{ tab?: string }>;
+};
+
+export default async function AskAimeePage({ searchParams }: PageProps) {
   const session = await requireProfile();
-  const conversations = await listGeneralConversationsForUser(session.profile.id);
+  const { tab } = await searchParams;
+  const activeTab: AskAimeeTab = tab === "coaches" ? "coaches" : "practices";
 
   // Role-gated practices are hidden from ineligible callers so the
   // landing list doesn't show cards the launcher would reject. The
@@ -44,81 +48,77 @@ export default async function AskAimeePage() {
     return practiceRoleGate(p, session.profile, companyId).ok;
   });
 
+  const conversations =
+    activeTab === "coaches"
+      ? await listGeneralConversationsForUser(session.profile.id)
+      : [];
+
   return (
     <PageShell
       eyebrow="Coaching"
       title="Ask Aimee"
       subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Your Ask Aimee conversations are visible only to you."
     >
-      <PracticeCards practices={visiblePractices} />
-
-      <div className={styles.card} style={{ marginTop: "var(--space-6)" }}>
-        {/* Reuse .listActions so the top strip carries the same
-            padding + divider as every conversation row below — the
-            heading and the button land on the same left/right
-            gutters as the rows. marginRight:auto pushes the heading
-            to the left while the button stays anchored right. */}
-        <div className={styles.listActions}>
-          <h2
-            style={{
-              margin: 0,
-              marginRight: "auto",
-              font: "var(--text-subhead)",
-              textTransform: "uppercase",
-              letterSpacing: "0.15em",
-              color: "var(--text-muted)",
-            }}
-          >
-            Recent conversations
-          </h2>
-          <AskAimeeNewButton />
-        </div>
-        {conversations.length === 0 ? (
-          <p className={styles.emptyLine}>
-            No conversations yet. Start one to talk something through.
-          </p>
-        ) : (
-          conversations.map((c) => {
-            const practice = findPractice(c.practice_id);
-            return (
-              <div key={c.id} className={styles.conversationRow}>
-                <Link
-                  href={`/ask-aimee/${c.id}`}
-                  className={styles.conversationLink}
-                >
-                  <span className={styles.conversationTitle}>
-                    {practice ? (
-                      <span
-                        style={{
-                          color: "var(--text-muted)",
-                          fontWeight: 500,
-                          marginRight: 6,
-                        }}
-                      >
-                        {practice.title} ·
+      <AskAimeeTabs active={activeTab} />
+      {activeTab === "practices" ? (
+        <PracticeCards practices={visiblePractices} />
+      ) : (
+        <div className={styles.card}>
+          <div className={styles.listActions}>
+            <h2
+              style={{
+                margin: 0,
+                marginRight: "auto",
+                font: "var(--text-subhead)",
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+                color: "var(--text-muted)",
+              }}
+            >
+              Recent conversations
+            </h2>
+            <AskAimeeNewButton />
+          </div>
+          {conversations.length === 0 ? (
+            <p className={styles.emptyLine}>
+              No conversations yet. Start one to talk something through.
+            </p>
+          ) : (
+            conversations.map((c) => {
+              const practice = findPractice(c.practice_id);
+              // For practice conversations, the practice title is the
+              // real "what is this?" — the c.title is a date stamp
+              // (defaultDateLabel) that duplicates the Updated line
+              // below. Show the practice title as the heading and
+              // drop c.title in that case.
+              const heading = practice ? practice.title : c.title;
+              return (
+                <div key={c.id} className={styles.conversationRow}>
+                  <Link
+                    href={`/ask-aimee/${c.id}`}
+                    className={styles.conversationLink}
+                  >
+                    <span className={styles.conversationTitle}>{heading}</span>
+                    {c.lastMessageSnippet ? (
+                      <span className={styles.conversationSnippet}>
+                        {c.lastMessageSnippet}
                       </span>
-                    ) : null}
-                    {c.title}
-                  </span>
-                  {c.lastMessageSnippet ? (
-                    <span className={styles.conversationSnippet}>
-                      {c.lastMessageSnippet}
+                    ) : (
+                      <span className={styles.conversationSnippet}>
+                        (no messages yet)
+                      </span>
+                    )}
+                    <span className={styles.conversationMeta}>
+                      Updated {formatShortDate(c.updated_at)}
                     </span>
-                  ) : (
-                    <span className={styles.conversationSnippet}>
-                      (no messages yet)
-                    </span>
-                  )}
-                  <span className={styles.conversationMeta}>
-                    Updated {formatShortDate(c.updated_at)}
-                  </span>
-                </Link>
-                <ArchiveConversationButton conversationId={c.id} />
-              </div>
-            );
-          })
-        )}
-      </div>
+                  </Link>
+                  <ArchiveConversationButton conversationId={c.id} />
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </PageShell>
   );
 }
