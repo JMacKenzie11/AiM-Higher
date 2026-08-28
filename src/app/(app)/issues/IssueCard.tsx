@@ -12,6 +12,7 @@ import {
 } from "react";
 import {
   createCommitmentAction,
+  deleteCommitmentAction,
   reassignCommitmentAction,
   rescheduleCommitmentAction,
   updateCommitmentDescriptionAction,
@@ -747,7 +748,24 @@ function CommitmentDescriptionEditor({
   function commit() {
     if (pending) return;
     const next = draft.trim();
-    if (!next || next === commitment.description) {
+    // Empty text = delete the whole commitment. The row falls back
+    // to the "add commitment" state and the clarity chip disappears
+    // (no commitment to score). Matches the blur-to-save rhythm of
+    // every other field on the row.
+    if (!next) {
+      setError(null);
+      startTransition(async () => {
+        const result = await deleteCommitmentAction(commitment.id);
+        if (!result.ok) {
+          setError(result.message);
+          setDraft(commitment.description);
+        } else {
+          setEditing(false);
+        }
+      });
+      return;
+    }
+    if (next === commitment.description) {
       setDraft(commitment.description);
       setEditing(false);
       setError(null);

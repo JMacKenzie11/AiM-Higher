@@ -1126,6 +1126,10 @@ export async function deleteCommitmentAction(
   if (error) return { ok: false, message: "Couldn't delete that commitment." };
 
   revalidateCommitmentSurfaces(commitment.priority_id);
+  // Issue-linked commitments also live on the /issues row — revalidate
+  // so the delete drops the row back to the "add commitment" state
+  // (and the clarity chip disappears with it).
+  if (commitment.issue_id) revalidatePath("/issues");
   return { ok: true };
 }
 
