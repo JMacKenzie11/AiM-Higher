@@ -324,6 +324,12 @@ function IssueTitleEditor({
       className={styles.issueTitleEditable}
       onClick={() => setEditing(true)}
       title="Click to rename"
+      // Safari skips <button> from the default tab order (only inputs/
+      // textareas are included unless the user turned on Full Keyboard
+      // Access system-wide). tabIndex={0} forces Safari to tab into
+      // this button so the click-to-edit row is keyboard-navigable
+      // across every browser.
+      tabIndex={0}
     >
       {issue.title}
     </button>
@@ -446,6 +452,7 @@ function DesiredOutcomeEditor({
       className={styles.wantEditable}
       onClick={() => setEditing(true)}
       title="Click to edit"
+      tabIndex={0}
     >
       {issue.desired_outcome}
     </button>
@@ -799,6 +806,7 @@ function CommitmentDescriptionEditor({
       className={styles.wantEditable}
       onClick={() => setEditing(true)}
       title="Click to edit — Cmd/Ctrl+Enter saves, Esc cancels"
+      tabIndex={0}
     >
       {commitment.description}
     </button>
@@ -868,6 +876,7 @@ function OwnerAssignmentEditor({
       className={styles.wantEditable}
       onClick={() => setEditing(true)}
       title="Click to reassign"
+      tabIndex={0}
     >
       {currentOwnerName ?? "Unassigned"}
     </button>
@@ -983,6 +992,7 @@ function DueDateEditor({
       className={styles.wantEditable}
       onClick={() => setEditing(true)}
       title="Click to reschedule"
+      tabIndex={0}
     >
       {commitment.due_date}
     </button>
