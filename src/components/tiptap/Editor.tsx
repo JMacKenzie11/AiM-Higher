@@ -217,27 +217,35 @@ function Toolbar({
       return;
     }
     const trimmed = linkValue.trim();
+
+    // TWO CHAINS: the extension's setLink internally starts its
+    // own chain().setMark().run() which double-dispatches when
+    // nested inside our outer chain — the setTextSelection queued
+    // by the outer chain hasn't landed by the time the inner
+    // setMark runs, so the mark applies to the pre-select caret
+    // (empty range) and stores as { type: "link" } with no attrs.
+    // Splitting the ops into two dispatches means the selection is
+    // committed before setLink runs.
+    editor.chain().focus().setTextSelection(range).run();
+
+    let ok = true;
     if (!trimmed) {
-      // Empty input = remove the link if one is present.
-      editor
-        .chain()
-        .focus()
-        .setTextSelection(range)
-        .unsetLink()
-        .run();
+      editor.chain().unsetLink().run();
     } else {
-      const ok = editor
-        .chain()
-        .focus()
-        .setTextSelection(range)
-        .setLink({ href: trimmed })
-        .run();
-      if (!ok) {
-        onUploadError(
-          "That URL doesn't look right. Use https://, http://, or a mailto: address."
-        );
-        return;
-      }
+      ok = editor.chain().setLink({ href: trimmed }).run();
+    }
+    // eslint-disable-next-line no-console
+    console.log("[link] applyLink", {
+      range,
+      href: trimmed,
+      ok,
+      resultJson: editor.getJSON(),
+    });
+    if (!ok) {
+      onUploadError(
+        "That URL doesn't look right. Use https://, http://, or a mailto: address."
+      );
+      return;
     }
     savedRange.current = null;
     setLinkOpen(false);
