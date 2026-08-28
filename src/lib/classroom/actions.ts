@@ -35,7 +35,7 @@ export async function createCategoryAction(
     return { ok: false, message: "Couldn't create that category — slug may already exist." };
   }
   revalidatePath("/admin/classroom");
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true, id: data.id };
 }
 
@@ -63,7 +63,7 @@ export async function renameCategoryAction(
   if (error) return { ok: false, message: "Couldn't rename that category." };
 
   revalidatePath("/admin/classroom");
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true };
 }
 
@@ -113,7 +113,7 @@ export async function createLessonAction(
     return { ok: false, message: "Couldn't create that lesson — slug may already exist." };
   }
   revalidatePath("/admin/classroom");
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true, id: data.id };
 }
 
@@ -141,7 +141,7 @@ export async function updateLessonAction(
   if (error) return { ok: false, message: "Couldn't save the lesson." };
   revalidatePath("/admin/classroom");
   revalidatePath(`/admin/classroom/lessons/${id}/edit`);
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true };
 }
 
@@ -151,7 +151,7 @@ export async function deleteLessonAction(id: string): Promise<ActionResult> {
   const { error } = await supabase.from("classroom_lessons").delete().eq("id", id);
   if (error) return { ok: false, message: "Couldn't delete that lesson." };
   revalidatePath("/admin/classroom");
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true };
 }
 
@@ -194,7 +194,7 @@ export async function moveLessonAction(
     .eq("id", neighbor.id);
 
   revalidatePath("/admin/classroom");
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true };
 }
 
@@ -247,7 +247,7 @@ export async function createTrainingAction(
   }
   revalidatePath("/admin/classroom");
   revalidatePath(`/admin/classroom/lessons/${input.lesson_id}/edit`);
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true, id: data.id };
 }
 
@@ -277,7 +277,15 @@ export async function updateTrainingAction(
   revalidatePath("/admin/classroom");
   revalidatePath(`/admin/classroom/lessons/${input.lesson_id}/edit`);
   revalidatePath(`/admin/classroom/trainings/${id}/edit`);
-  revalidatePath("/classroom");
+  // Layout-wide revalidation so every nested consumer route
+  // (/classroom/lessons/[slug], /classroom/lessons/[slug]/[sectionSlug])
+  // rebuilds its cached HTML with the current Renderer output.
+  // A plain revalidatePath("/classroom") only invalidates the
+  // landing page — the lesson/section pages kept serving cached
+  // HTML from earlier deploys, which is why a fresh Renderer case
+  // (e.g. the new link mark → <a>) didn't appear on the reader
+  // side until the next full deploy of that route.
+  revalidatePath("/classroom", "layout");
   return { ok: true };
 }
 
@@ -295,7 +303,7 @@ export async function deleteTrainingAction(id: string): Promise<ActionResult> {
   if (existing?.lesson_id) {
     revalidatePath(`/admin/classroom/lessons/${existing.lesson_id}/edit`);
   }
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true };
 }
 
@@ -336,7 +344,7 @@ export async function moveTrainingAction(
 
   revalidatePath("/admin/classroom");
   revalidatePath(`/admin/classroom/lessons/${current.lesson_id}/edit`);
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true };
 }
 
@@ -421,7 +429,7 @@ export async function deleteAttachmentAction(
   if (error) return { ok: false, message: "Couldn't remove that attachment." };
 
   revalidatePath(`/admin/classroom/trainings/${att.training_id}/edit`);
-  revalidatePath("/classroom");
+  revalidatePath("/classroom", "layout");
   return { ok: true };
 }
 
