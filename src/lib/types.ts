@@ -50,6 +50,12 @@ export type Company = {
   status: CompanyStatus;
   created_at: string;
   updated_at: string;
+  // Soft-delete timestamp (migration 0148). Non-null rows are
+  // hidden from every SELECT via the companies_hide_deleted RLS
+  // policy, so app-facing queries will never see them — the column
+  // is here for typing completeness when we do explicitly load
+  // rows via the service role (e.g. backups).
+  deleted_at: string | null;
 };
 
 export type UserStrength = {

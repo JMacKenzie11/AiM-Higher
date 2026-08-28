@@ -1,13 +1,21 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { setCompanyStatusAction } from "@/lib/companies/actions";
+import {
+  deleteCompanyAction,
+  setCompanyStatusAction,
+} from "@/lib/companies/actions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import styles from "./admin.module.css";
 
-// Archive / Reactivate for a company row. The "open this company" flow
-// moved onto the company name itself (see CompanyNameLink), so this
-// component is now archive-only.
+// Archive / Reactivate for a company row, plus a Delete affordance
+// that only shows once a company is archived (two-step safety so
+// active tenants can't be soft-deleted by accident).
+//
+// Delete is a soft delete — the row stays in the DB with a
+// deleted_at timestamp, hidden from every UI via the
+// companies_hide_deleted RLS policy (migration 0148). Recoverable
+// from SQL only; no user-facing restore.
 
 export function CompanyRowActions({
   companyId,
@@ -19,6 +27,7 @@ export function CompanyRowActions({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const nextStatus = status === "active" ? "archived" : "active";
 
   function run() {
@@ -26,6 +35,15 @@ export function CompanyRowActions({
     setError(null);
     startTransition(async () => {
       const result = await setCompanyStatusAction(companyId, nextStatus);
+      if (!result.ok) setError(result.message);
+    });
+  }
+
+  function runDelete() {
+    setConfirmingDelete(false);
+    setError(null);
+    startTransition(async () => {
+      const result = await deleteCompanyAction(companyId);
       if (!result.ok) setError(result.message);
     });
   }
@@ -51,6 +69,17 @@ export function CompanyRowActions({
             ? "Archive"
             : "Reactivate"}
       </button>
+      {status === "archived" ? (
+        <button
+          type="button"
+          className={styles.dangerGhost}
+          onClick={() => setConfirmingDelete(true)}
+          disabled={pending}
+          style={{ minWidth: 88, textAlign: "center" }}
+        >
+          Delete
+        </button>
+      ) : null}
       {error ? (
         <span role="alert" className={styles.inlineError}>
           {error}
@@ -72,6 +101,16 @@ export function CompanyRowActions({
         tone={nextStatus === "archived" ? "danger" : "primary"}
         onConfirm={run}
         onCancel={() => setConfirming(false)}
+        pending={pending}
+      />
+      <ConfirmDialog
+        open={confirmingDelete}
+        title="Delete this company?"
+        message="The company disappears from every list — admin, guide HQ, company picker. All underlying data (people, functions, commitments, meetings, transcripts) stays in the database and is recoverable from SQL, but there's no in-app restore."
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={runDelete}
+        onCancel={() => setConfirmingDelete(false)}
         pending={pending}
       />
     </>

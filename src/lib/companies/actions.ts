@@ -243,3 +243,46 @@ export async function setCompanyStatusAction(
   revalidatePath(`/admin/companies/${companyId}`);
   return { ok: true, company: data };
 }
+
+// Soft-delete a company. Two-step: caller must have already
+// archived it (setCompanyStatusAction) — the archive step is the
+// safety on "delete an active tenant by accident." Sets deleted_at
+// on the row; the companies_hide_deleted restrictive RLS policy
+// (migration 0148) hides it from every SELECT across the app
+// without any query-site changes. All child data (profiles,
+// functions, commitments, meetings, transcripts, coaching
+// conversations, snapshots) stays intact — the row is recoverable
+// by clearing deleted_at in SQL if we ever need to.
+export async function deleteCompanyAction(
+  companyId: string
+): Promise<CompanyResult> {
+  await requireRole(["system_admin"]);
+
+  const supabase = await createSupabaseServerClient();
+  const { data: current } = await supabase
+    .from("companies")
+    .select("id, status")
+    .eq("id", companyId)
+    .maybeSingle<Pick<Company, "id" | "status">>();
+  if (!current) return { ok: false, message: "Company not found." };
+  if (current.status !== "archived") {
+    return {
+      ok: false,
+      message: "Archive the company first, then delete it.",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("companies")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", companyId)
+    .select("*")
+    .single<Company>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't delete that company." };
+  }
+
+  revalidatePath("/admin/companies");
+  revalidatePath(`/admin/companies/${companyId}`);
+  return { ok: true, company: data };
+}
