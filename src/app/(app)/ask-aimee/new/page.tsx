@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getScopedCompanyId } from "@/lib/admin/scope";
 import { findPractice } from "@/lib/practices/registry";
@@ -26,8 +27,6 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
   const practiceId = params.practice;
 
   if (!practiceId) {
-    // No practice specified — the free-form new-conversation button
-    // lives on /ask-aimee itself; send them there.
     redirect("/ask-aimee");
   }
 
@@ -52,10 +51,26 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
   const gate = practiceRoleGate(practice, session.profile, companyId);
   if (!gate.ok) return notAvailable(gate.message);
 
-  const result = await createPracticeConversationAction(practice.id);
-  if (!result.ok) return notAvailable(result.message);
+  // Wrap the conversation-create in try/catch and surface the
+  // error message instead of throwing through to the error
+  // boundary. Any uncaught error here would show the leader a
+  // generic "That page didn't load" — worse than a specific
+  // message. redirect() throws NEXT_REDIRECT which the catch
+  // needs to re-throw so the framework can handle it.
+  let conversationId: string;
+  try {
+    const result = await createPracticeConversationAction(practice.id);
+    if (!result.ok) return notAvailable(result.message);
+    conversationId = result.item.id;
+  } catch (err) {
+    if (isRedirectError(err)) throw err;
+    const message =
+      err instanceof Error ? err.message : "Unknown error";
+    console.error("[ask-aimee/new] launch failed", err);
+    return notAvailable(`Couldn't start that practice: ${message}`);
+  }
 
-  redirect(`/ask-aimee/${result.item.id}`);
+  redirect(`/ask-aimee/${conversationId}`);
 }
 
 function notAvailable(message: string) {

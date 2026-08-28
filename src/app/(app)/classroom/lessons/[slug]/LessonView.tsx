@@ -17,13 +17,9 @@ import styles from "../../classroom.module.css";
 export function LessonView({
   lesson,
   activeSection,
-  debug = false,
 }: {
   lesson: LessonWithTrainings;
   activeSection: LessonWithTrainings["trainings"][number] | null;
-  // When true, dumps the section's raw body_json in a <pre> under
-  // the rendered content. Threaded from the page via ?debug=json.
-  debug?: boolean;
 }) {
   return (
     <div className={styles.stage}>
@@ -88,27 +84,6 @@ export function LessonView({
                     {activeSection.title}
                   </h2>
                   <TipTapRenderer json={activeSection.body_json} />
-                  {/* Diagnostic dump. Reachable by appending
-                      ?debug=json to the URL; hidden by default so
-                      normal readers never see it. Delete once the
-                      link-mark ↔ reader-render pipeline is confirmed
-                      end-to-end. */}
-                  {debug ? (
-                    <pre
-                      style={{
-                        marginTop: "var(--space-4)",
-                        padding: "var(--space-3)",
-                        background: "var(--aims-navy-tint)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                        fontSize: 12,
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {JSON.stringify(activeSection.body_json, null, 2)}
-                    </pre>
-                  ) : null}
                 </>
               ) : (
                 <p className={styles.emptyLine}>Section not found.</p>

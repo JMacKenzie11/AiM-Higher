@@ -12,13 +12,9 @@ import { LessonView } from "../LessonView";
 
 type PageProps = {
   params: Promise<{ slug: string; sectionSlug: string }>;
-  searchParams: Promise<{ debug?: string }>;
 };
 
-export default async function LessonSectionPage({
-  params,
-  searchParams,
-}: PageProps) {
+export default async function LessonSectionPage({ params }: PageProps) {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
@@ -27,18 +23,11 @@ export default async function LessonSectionPage({
   }
 
   const { slug, sectionSlug } = await params;
-  const search = await searchParams;
   const lesson = await getLessonBySlug(slug);
   if (!lesson) notFound();
 
   const active = lesson.trainings.find((t) => t.slug === sectionSlug) ?? null;
   if (!active) notFound();
 
-  return (
-    <LessonView
-      lesson={lesson}
-      activeSection={active}
-      debug={search.debug === "json"}
-    />
-  );
+  return <LessonView lesson={lesson} activeSection={active} />;
 }

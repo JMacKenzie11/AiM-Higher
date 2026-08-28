@@ -261,12 +261,10 @@ export async function updateTrainingAction(
   const slug = input.slug?.trim() || slugify(title);
 
   // Prefer body_json_string (a plain JSON string of the doc) over
-  // body_json (a structured object) — Next.js 15's server-action
-  // serialization was silently dropping the link mark's attrs.href
-  // during wire transfer for the object form. A string round-trips
-  // byte-for-byte and my server-side JSON.parse restores the full
-  // shape. Falls back to body_json when a caller hasn't been
-  // updated to send the string variant.
+  // body_json (a structured object) — the client now sends both
+  // and the string variant survives Next.js server-action wire
+  // transfer byte-for-byte. Falls back to body_json when a caller
+  // hasn't been updated to send the string variant.
   let bodyJson = input.body_json;
   if (typeof input.body_json_string === "string") {
     try {
@@ -275,10 +273,6 @@ export async function updateTrainingAction(
       console.error("[updateTraining] body_json_string parse failed", e);
     }
   }
-  console.log(
-    "[updateTraining] final body_json (after string parse):\n" +
-      JSON.stringify(bodyJson, null, 2)
-  );
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase

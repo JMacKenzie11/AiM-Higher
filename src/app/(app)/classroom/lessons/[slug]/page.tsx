@@ -9,12 +9,9 @@ import { LessonView } from "./LessonView";
 // permalink lives at /classroom/lessons/[slug]/[sectionSlug] and
 // reuses LessonView with a different active tab.
 
-type PageProps = {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<{ debug?: string }>;
-};
+type PageProps = { params: Promise<{ slug: string }> };
 
-export default async function LessonPage({ params, searchParams }: PageProps) {
+export default async function LessonPage({ params }: PageProps) {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
@@ -23,16 +20,9 @@ export default async function LessonPage({ params, searchParams }: PageProps) {
   }
 
   const { slug } = await params;
-  const search = await searchParams;
   const lesson = await getLessonBySlug(slug);
   if (!lesson) notFound();
 
   const first = lesson.trainings[0] ?? null;
-  return (
-    <LessonView
-      lesson={lesson}
-      activeSection={first}
-      debug={search.debug === "json"}
-    />
-  );
+  return <LessonView lesson={lesson} activeSection={first} />;
 }
