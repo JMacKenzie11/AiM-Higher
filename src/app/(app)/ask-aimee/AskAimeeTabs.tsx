@@ -6,7 +6,7 @@ import styles from "./ask-aimee-tabs.module.css";
 // pill is a plain Link, so no client state is needed. Kept local to
 // /ask-aimee because it doesn't need to be generic yet.
 
-export type AskAimeeTab = "practices" | "coaches";
+export type AskAimeeTab = "ask" | "coaches";
 
 export function AskAimeeTabs({ active }: { active: AskAimeeTab }) {
   return (
@@ -14,10 +14,10 @@ export function AskAimeeTabs({ active }: { active: AskAimeeTab }) {
       <Link
         href="/ask-aimee"
         role="tab"
-        aria-selected={active === "practices"}
-        className={active === "practices" ? styles.pillActive : styles.pill}
+        aria-selected={active === "ask"}
+        className={active === "ask" ? styles.pillActive : styles.pill}
       >
-        Practices
+        Ask Aimee
       </Link>
       <Link
         href="/ask-aimee?tab=coaches"
@@ -25,7 +25,7 @@ export function AskAimeeTabs({ active }: { active: AskAimeeTab }) {
         aria-selected={active === "coaches"}
         className={active === "coaches" ? styles.pillActive : styles.pill}
       >
-        Practice coaches
+        Practice Coaches
       </Link>
     </div>
   );

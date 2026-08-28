@@ -17,9 +17,10 @@ import styles from "../coach/coach.module.css";
 // created_by = auth.uid()); no one else, admins included, can see
 // them.
 //
-// Two tabs: Practices (default) as the deliberate entry points, and
-// Practice coaches for the recent-conversations list. Tab state lives
-// in ?tab= so both tabs are shareable and no client state is needed.
+// Two tabs: Ask Aimee (default) holds the recent-conversations list
+// and the New conversation button. Practice Coaches holds the entry
+// cards for each guided practice. Tab state lives in ?tab= so both
+// tabs are shareable and no client state is needed.
 
 type PageProps = {
   searchParams: Promise<{ tab?: string }>;
@@ -28,7 +29,7 @@ type PageProps = {
 export default async function AskAimeePage({ searchParams }: PageProps) {
   const session = await requireProfile();
   const { tab } = await searchParams;
-  const activeTab: AskAimeeTab = tab === "coaches" ? "coaches" : "practices";
+  const activeTab: AskAimeeTab = tab === "coaches" ? "coaches" : "ask";
 
   // Role-gated practices are hidden from ineligible callers so the
   // landing list doesn't show cards the launcher would reject. The
@@ -49,7 +50,7 @@ export default async function AskAimeePage({ searchParams }: PageProps) {
   });
 
   const conversations =
-    activeTab === "coaches"
+    activeTab === "ask"
       ? await listGeneralConversationsForUser(session.profile.id)
       : [];
 
@@ -60,7 +61,7 @@ export default async function AskAimeePage({ searchParams }: PageProps) {
       subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Your Ask Aimee conversations are visible only to you."
     >
       <AskAimeeTabs active={activeTab} />
-      {activeTab === "practices" ? (
+      {activeTab === "coaches" ? (
         <PracticeCards practices={visiblePractices} />
       ) : (
         <div className={styles.card}>

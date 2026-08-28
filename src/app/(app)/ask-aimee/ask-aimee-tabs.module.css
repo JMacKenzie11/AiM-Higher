@@ -27,8 +27,8 @@
 }
 
 .pill:hover {
-  background: var(--aims-navy-tint);
-  color: var(--text);
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
 }
 
 .pillActive {
