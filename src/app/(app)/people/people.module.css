@@ -476,39 +476,6 @@
 }
 
 /* ---- Buttons ---- */
-.ghostButton {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  background: transparent;
-  color: var(--primary);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.ghostButton:hover:not(:disabled) {
-  color: var(--primary-hover);
-  background: var(--aims-cobalt-tint);
-}
-
-.ghostButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.dangerGhostButton {
-  composes: ghostButton;
-  color: var(--aims-danger);
-}
-
-.dangerGhostButton:hover:not(:disabled) {
-  color: var(--aims-danger);
-  background: var(--aims-danger-tint);
-}
-
 /* ---- History groups on person scorecard ---- */
 .historyGroup {
   display: flex;
@@ -563,3 +530,12 @@
     -webkit-overflow-scrolling: touch;
   }
 }
+
+.ghostButton {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+}
+
+.dangerGhostButton {
+  composes: btnDanger from "../../../components/ui/ui.module.css";
+}
+

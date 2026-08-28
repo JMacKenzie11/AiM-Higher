@@ -133,31 +133,6 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
-.primaryButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
 .submitRow {
   grid-column: 1 / -1;
   display: flex;
@@ -184,29 +159,6 @@
   border-radius: var(--radius-sm);
   font: var(--text-body-sm);
   color: var(--text);
-}
-
-.ghostButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-4);
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.ghostButton:hover:not(:disabled) {
-  background: var(--aims-navy-tint);
-}
-
-.ghostButton:disabled {
-  opacity: 0.6;
-  cursor: progress;
 }
 
 .editTrigger {
@@ -450,3 +402,12 @@ details[open] > .editSummary::after {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+.primaryButton {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+}
+
+.ghostButton {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+}
+

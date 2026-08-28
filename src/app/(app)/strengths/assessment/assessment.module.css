@@ -238,55 +238,6 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
-.primaryButton {
-  padding: 0 var(--space-4);
-  height: var(--control-h-md);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  line-height: 1;
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.ghostButton {
-  padding: 0 var(--space-3);
-  height: var(--control-h-sm);
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.ghostButton:hover:not(:disabled) {
-  background: var(--aims-navy-tint);
-}
-
-.ghostButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .emptyState {
   padding: var(--space-6);
   text-align: center;
@@ -304,3 +255,12 @@
     max-width: 92%;
   }
 }
+
+.primaryButton {
+  composes: btnPrimary from "../../../../components/ui/ui.module.css";
+}
+
+.ghostButton {
+  composes: btnGhost from "../../../../components/ui/ui.module.css";
+}
+

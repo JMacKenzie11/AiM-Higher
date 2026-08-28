@@ -54,43 +54,6 @@
   flex-shrink: 0;
 }
 
-.primaryButton {
-  padding: 8px 16px;
-  background: var(--primary);
-  color: white;
-  border: none;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.primaryButtonDone {
-  padding: 8px 16px;
-  background: color-mix(in srgb, var(--success) 20%, transparent);
-  color: var(--success);
-  border: 1px solid color-mix(in srgb, var(--success) 40%, transparent);
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: not-allowed;
-}
-
-.ghostButton {
-  padding: 8px 16px;
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  font-family: inherit;
-}
-
 .topStack {
   display: flex;
   flex-direction: column;
@@ -264,3 +227,12 @@
   color: var(--danger);
   font: var(--text-body-sm);
 }
+
+.primaryButton {
+  composes: btnPrimary from "../ui/ui.module.css";
+}
+
+.ghostButton {
+  composes: btnGhost from "../ui/ui.module.css";
+}
+

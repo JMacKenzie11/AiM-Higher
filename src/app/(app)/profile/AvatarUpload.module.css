@@ -48,37 +48,6 @@
   gap: var(--space-2);
 }
 
-.primaryButton {
-  padding: 8px 16px;
-  background: var(--primary);
-  color: white;
-  border: none;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.ghostButton {
-  padding: 8px 16px;
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.ghostButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .successMessage {
   color: var(--success);
   font: var(--text-body-sm);
@@ -182,3 +151,12 @@
   justify-content: flex-end;
   gap: var(--space-2);
 }
+
+.primaryButton {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+}
+
+.ghostButton {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+}
+

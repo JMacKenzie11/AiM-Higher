@@ -1167,45 +1167,6 @@ a.fromMeetingChip:hover {
   border-color: var(--border);
 }
 
-.primaryButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-4);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.ghostButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-4);
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.ghostButton:hover:not(:disabled) {
-  background: var(--aims-navy-tint);
-}
-
 /* ---- Inline add row ---- */
 .inlineAddRow {
   padding: var(--space-3) var(--space-4);
@@ -1532,3 +1493,12 @@ a.fromMeetingChip:hover {
       ".      .      .       due";
   }
 }
+
+.primaryButton {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+}
+
+.ghostButton {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+}
+

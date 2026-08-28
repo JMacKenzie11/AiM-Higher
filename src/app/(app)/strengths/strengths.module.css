@@ -107,61 +107,6 @@
   max-width: 68ch;
 }
 
-.primaryButton {
-  align-self: flex-start;
-  padding: 0 var(--space-5);
-  height: var(--control-h-lg, 44px);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out);
-  /* Flex centering so text lands mid-pill regardless of whether the
-     element is a <button> or an <a> — anchors don't share the button
-     default line-alignment. */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  line-height: 1;
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.ghostButton {
-  padding: 0 var(--space-3);
-  height: var(--control-h-md);
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.ghostButton:hover:not(:disabled) {
-  background: var(--aims-navy-tint);
-}
-
 /* ---- Back link (Strengths sub-pages) ---- */
 .backLink {
   display: inline-flex;
@@ -464,3 +409,12 @@ textarea.input {
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-sm);
 }
+
+.primaryButton {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+}
+
+.ghostButton {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+}
+

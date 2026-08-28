@@ -96,66 +96,6 @@
   grid-column: 1 / -1;
 }
 
-.primaryButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.ghostButton {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  background: transparent;
-  color: var(--primary);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.ghostButton:hover {
-  color: var(--primary-hover);
-  background: var(--aims-cobalt-tint);
-}
-
-.dangerButton {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  background: transparent;
-  color: var(--aims-danger);
-  border: 1px solid var(--aims-danger);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.dangerButton:hover {
-  background: var(--aims-danger-tint);
-}
-
 .errorMessage {
   grid-column: 1 / -1;
   margin: 0;
@@ -287,3 +227,16 @@
     -webkit-overflow-scrolling: touch;
   }
 }
+
+.primaryButton {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+}
+
+.ghostButton {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+}
+
+.dangerButton {
+  composes: btnDanger from "../../../components/ui/ui.module.css";
+}
+

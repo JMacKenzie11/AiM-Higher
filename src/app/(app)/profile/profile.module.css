@@ -141,31 +141,6 @@
   gap: var(--space-3);
 }
 
-.primaryButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
 .errorMessage {
   grid-column: 1 / -1;
   margin: 0;
@@ -187,3 +162,8 @@
   font: var(--text-body-sm);
   color: var(--text);
 }
+
+.primaryButton {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+}
+

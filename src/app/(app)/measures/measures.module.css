@@ -653,21 +653,6 @@
   white-space: nowrap;
 }
 
-.ghostButton {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-  cursor: pointer;
-}
-
-.ghostButton:hover {
-  background: var(--aims-navy-tint);
-  border-color: var(--border-strong);
-}
-
 .iconDeleteButton {
   background: transparent;
   border: 1px solid transparent;
@@ -739,3 +724,8 @@
     display: none;
   }
 }
+
+.ghostButton {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+}
+

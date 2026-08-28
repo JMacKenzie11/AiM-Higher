@@ -527,64 +527,6 @@
   gap: var(--space-3);
 }
 
-.primaryButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.ghostButton {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  background: transparent;
-  color: var(--primary);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.ghostButton:hover:not(:disabled) {
-  background: var(--aims-cobalt-tint);
-  color: var(--primary-hover);
-}
-
-.ghostButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.dangerGhostButton {
-  composes: ghostButton;
-  color: var(--aims-danger);
-}
-
-.dangerGhostButton:hover:not(:disabled) {
-  color: var(--aims-danger);
-  background: var(--aims-danger-tint);
-}
-
 .deleteError {
   margin-left: var(--space-2);
   font: var(--text-caption);
@@ -628,3 +570,16 @@
     padding-right: var(--space-4);
   }
 }
+
+.primaryButton {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+}
+
+.ghostButton {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+}
+
+.dangerGhostButton {
+  composes: btnDanger from "../../../components/ui/ui.module.css";
+}
+
