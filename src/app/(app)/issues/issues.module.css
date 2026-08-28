@@ -52,12 +52,18 @@
     74px;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  padding: var(--space-2) var(--space-4);
   font: var(--text-caption);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-strong);
+}
+
+@media (max-width: 768px) {
+  .columnHeader {
+    display: none;
+  }
 }
 
 /* ---- Sortable list of issues -------------------------------- */
@@ -102,10 +108,9 @@
      reads more like a data table that way. */
   align-items: start;
   gap: var(--space-3);
-  /* Trim left padding so the drag handle sits close to the card
-     edge; the Issue column reclaims that space so long titles
-     have room to wrap without a cliff at the left. */
-  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-2);
+  /* Same left/right padding as /commitments .row so the two lists
+     line up when a user flips between the two pages. */
+  padding: var(--space-3) var(--space-4);
 }
 
 /* Single-line cells still need to sit on the same baseline as the
@@ -117,9 +122,9 @@
   padding-top: 2px;
 }
 
-.issueRow:hover {
-  background: var(--aims-navy-tint);
-}
+/* No row-level hover tint — matches /commitments where the row
+   stays quiet at rest and each editable cell carries its own
+   dashed-border-at-rest affordance. */
 
 .dragHandle {
   background: transparent;
@@ -148,18 +153,20 @@
   height: 1px;
 }
 
-/* Column: Issue title */
+/* Column: Issue title. Matches /commitments row description
+   styling — body font, regular weight, text color (not
+   text-heading). Editable button carries the dashed-border-at-rest
+   affordance so the click target reads without a hover. */
 .cellIssue {
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .issueTitle,
 .issueTitleEditable {
   font: var(--text-body);
-  font-weight: 700;
-  color: var(--text-heading);
+  color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -169,34 +176,44 @@
   line-height: 1.35;
   max-width: 100%;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .issueTitleEditable {
   background: transparent;
-  border: none;
-  padding: 0;
-  text-align: left;
+  border: 1px dashed var(--border-strong);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
   cursor: text;
+  width: 100%;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .issueTitleEditable:hover {
-  color: var(--primary);
+  background: var(--aims-navy-tint);
+  border-color: var(--primary);
+}
+
+.issueTitleEditable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .issueTitleInput {
   font: var(--text-body);
-  font-weight: 700;
-  color: var(--text-heading);
+  color: var(--text);
   background: var(--surface);
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
-  padding: 2px var(--space-2);
+  padding: var(--space-1) var(--space-2);
   width: 100%;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .issueTitleInput:focus {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* Column: What we want */
@@ -209,10 +226,11 @@
 /* Up to three lines of body text visible; longer copy clamps with an
    ellipsis so the row doesn't grow without bound but nothing gets
    lost. Click-to-edit swaps in the full-width input which shows all
-   of it. */
+   of it. Font + editable affordance mirror /commitments' row so the
+   two pages read as siblings. */
 .wantText,
 .wantEditable {
-  font: var(--text-body-sm);
+  font: var(--text-body);
   color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -222,18 +240,30 @@
   word-break: break-word;
   max-width: 100%;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .wantEditable {
   background: transparent;
-  border: none;
-  padding: 0;
-  text-align: left;
+  border: 1px dashed var(--border-strong);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
   cursor: text;
+  width: 100%;
+  text-align: left;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .wantEditable:hover {
-  color: var(--primary);
+  background: var(--aims-navy-tint);
+  border-color: var(--primary);
+}
+
+.wantEditable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .wantMuted {
@@ -243,21 +273,21 @@
 
 .wantInput {
   width: 100%;
-  padding: 4px var(--space-2);
+  padding: var(--space-2) var(--space-3);
   background: var(--surface);
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
+  font: var(--text-body);
   font-family: inherit;
   color: var(--text);
   resize: vertical;
-  min-height: 4.5em;
-  line-height: 1.35;
+  min-height: calc(var(--control-h-md) * 1.5);
+  line-height: 1.4;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .wantInput:focus {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* Column: Clarity dot (matches /commitments — its own narrow
@@ -270,10 +300,12 @@
   padding-top: 2px;
 }
 
-/* Columns: Commitment / Owner / Due */
+/* Columns: Commitment / Owner / Due. Font + weight aligned with
+   /commitments' row so the two pages read as siblings — body font,
+   text color, tabular-nums on the date cell. */
 .cellCommitment {
   min-width: 0;
-  font: var(--text-body-sm);
+  font: var(--text-body);
   color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -281,12 +313,13 @@
   overflow: hidden;
   white-space: normal;
   word-break: break-word;
-  line-height: 1.35;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .cellOwner {
   min-width: 0;
-  font: var(--text-body-sm);
+  font: var(--text-body);
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -295,7 +328,7 @@
 
 .cellDue {
   min-width: 0;
-  font: var(--text-body-sm);
+  font: var(--text-body);
   font-variant-numeric: tabular-nums;
   color: var(--text);
   white-space: nowrap;
@@ -307,69 +340,86 @@
 }
 
 /* Inline commitment-add — fills the commitment/owner/due cells
-   in place when the issue has no open commitment. */
+   in place when the issue has no open commitment. Uses the same
+   dashed-at-rest → solid-on-focus pattern as /commitments so the
+   two entry surfaces feel identical. */
 .commitmentAddInput {
   width: 100%;
-  padding: 4px var(--space-2);
+  padding: var(--space-2) var(--space-3);
   background: var(--surface);
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
+  font: var(--text-body);
   font-family: inherit;
   color: var(--text);
   resize: vertical;
-  min-height: 4.5em;
-  line-height: 1.35;
+  min-height: calc(var(--control-h-md) * 1.5);
+  line-height: 1.4;
 }
 
 .commitmentAddInput:focus {
   outline: none;
   border-style: solid;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--focus-ring);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .commitmentAddSelect,
 .commitmentAddDate {
   width: 100%;
-  padding: 4px var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  height: var(--control-h-md);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
+  font: var(--text-body);
   color: var(--text);
 }
 
 .commitmentAddSelect:focus,
 .commitmentAddDate:focus {
   outline: none;
+  border-style: solid;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--focus-ring);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* Column: Delete (trash icon) — admin/guide-only, sits left of
-   Resolve. Icon-only, ghost styling; hard-deletes the issue with
-   a confirm dialog (see IssueCard). */
+   Resolve. Matches /commitments' .deleteRowButton (26×26 target,
+   faint at rest, danger-tint on hover with a matching border
+   promotion) so the two lists behave identically when you scan
+   for the trash affordance. */
 .deleteButton {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  padding: 4px;
+  width: 26px;
+  height: 26px;
   border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-faint);
+  padding: 0;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .deleteButton:hover:not(:disabled) {
   color: var(--aims-danger);
-  background: var(--aims-navy-tint);
+  background: var(--aims-danger-tint);
+  border-color: color-mix(in srgb, var(--aims-danger) 30%, transparent);
+}
+
+.deleteButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .deleteButton:disabled {
-  opacity: 0.5;
-  cursor: default;
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .deletePlaceholder {
@@ -378,21 +428,37 @@
   height: 1px;
 }
 
-/* Column: Resolve action */
+/* Column: Resolve action. Ghost pill matching /commitments'
+   button vocabulary — transparent bg, hairline border, pill
+   radius, sans-serif weight 600 — so buttons across the app
+   share one shape. Compact height keeps it inside the narrow
+   right-most column. */
 .resolveButton {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 4px var(--space-3);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
+  padding: 0 var(--space-3);
+  height: var(--control-h-sm, 32px);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-.resolveButton:hover {
+.resolveButton:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
   border-color: var(--primary);
   color: var(--primary);
+}
+
+.resolveButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .resolvePlaceholder {
