@@ -91,10 +91,27 @@
   font-family: inherit;
 }
 
-.topRow {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3);
+.topStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.topSeatWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.topSeatConnector {
+  display: block;
+  width: 2px;
+  height: 20px;
+  background: var(--border);
 }
 
 .topSeat {
@@ -102,6 +119,13 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--aims-navy-tint);
+  width: 100%;
+  text-align: center;
+}
+
+.topSeatChild {
+  width: 85%;
+  background: var(--surface);
 }
 
 .topSeatName {

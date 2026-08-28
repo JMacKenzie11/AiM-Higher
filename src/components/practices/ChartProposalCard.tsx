@@ -159,11 +159,30 @@ function ChartPreview({ proposal }: { proposal: ChartProposal }) {
   return (
     <>
       {proposal.top_seats.length > 0 ? (
-        <div className={styles.topRow}>
-          {proposal.top_seats.map((seat) => (
-            <div key={seat.name} className={styles.topSeat}>
-              <p className={styles.topSeatName}>{seat.name}</p>
-              <p className={styles.topSeatNote}>{seat.note}</p>
+        // Render the two seats hierarchically — the first (Visionary
+        // / CEO) sits on top, the second (Integrator / COO) below and
+        // connected with a vertical line. Mirrors the actual chart
+        // layout where the second seat is a child of the first, not
+        // a sibling.
+        <div className={styles.topStack}>
+          {proposal.top_seats.map((seat, i) => (
+            <div key={seat.name} className={styles.topSeatWrap}>
+              {i > 0 ? (
+                <span
+                  className={styles.topSeatConnector}
+                  aria-hidden="true"
+                />
+              ) : null}
+              <div
+                className={
+                  i === 0
+                    ? styles.topSeat
+                    : `${styles.topSeat} ${styles.topSeatChild}`
+                }
+              >
+                <p className={styles.topSeatName}>{seat.name}</p>
+                <p className={styles.topSeatNote}>{seat.note}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -243,7 +262,12 @@ function ApplySummaryLine({ summary }: { summary: ApplySummary }) {
       );
     }
   }
-  if (summary.keptTopSeats.length > 0) {
+  if (summary.renamedTopSeats.length > 0) {
+    const renames = summary.renamedTopSeats
+      .map((r) => `${r.from} → ${r.to}`)
+      .join(", ");
+    parts.push(`Renamed your top seats: ${renames}.`);
+  } else if (summary.keptTopSeats.length > 0) {
     const kept = summary.keptTopSeats.join(", ");
     const proposed = summary.proposedTopSeats.join(", ");
     parts.push(

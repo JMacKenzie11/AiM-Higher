@@ -43,7 +43,8 @@ export type ApplySummary = {
   createdFunctions: string[]; // titles
   addedResponsibilitiesByFunction: Array<{ function: string; count: number }>;
   createdSubFunctions: string[]; // titles
-  keptTopSeats: string[]; // titles the leader already had at the top
+  keptTopSeats: string[]; // titles the leader already had at the top (kept as-is)
+  renamedTopSeats: Array<{ from: string; to: string }>; // Visionary/Integrator → chosen names
   proposedTopSeats: string[]; // titles the proposal called them
   totalCreatedFunctions: number;
   totalAddedResponsibilities: number;
@@ -139,25 +140,75 @@ export async function applyChartProposalAction(
     addedResponsibilitiesByFunction: [],
     createdSubFunctions: [],
     keptTopSeats: [],
+    renamedTopSeats: [],
     proposedTopSeats: [],
     totalCreatedFunctions: 0,
     totalAddedResponsibilities: 0,
   };
 
-  // ---- Top seats: skip entirely if the chart already has ANY
-  // ---- existing top-level function. The seeded shape from
-  // ---- migration 0112 is Visionary (top-level) + Integrator
-  // ---- nested UNDER Visionary (migration 0113), so a fresh
-  // ---- seeded company has just 1 top-level function, not 2.
-  // ---- The previous >= 2 threshold missed that and duplicated
-  // ---- CEO/COO alongside the Visionary seed.
-  if (proposal.top_seats.length > 0) {
+  // ---- Top seats. Three cases:
+  //
+  //   (a) Chart has the seeded Visionary + Integrator-under-Visionary
+  //       shape → RENAME them to the leader's chosen names from
+  //       Step 4 of the practice. The whole point of Step 4 is that
+  //       the leader names the two seeded seats; skipping the proposal
+  //       drops that choice on the floor. Only renames when the
+  //       current title matches "Visionary" / "Integrator" (case-
+  //       insensitive) so a leader who's already customized the
+  //       seats keeps their customization.
+  //
+  //   (b) Chart has some other top structure (leader-customized,
+  //       missing the seed, etc.) → skip proposal.top_seats and
+  //       report kept titles. Never create duplicates alongside.
+  //
+  //   (c) Chart is empty at the top → create the proposal's top
+  //       seats as top-level functions.
+  if (proposal.top_seats.length >= 1) {
     summary.proposedTopSeats = proposal.top_seats.map((s) => s.name);
-    if (topLevelFns.length >= 1) {
-      // Report both top-level AND their immediate children as
-      // "kept" so the leader sees the whole top structure named,
-      // not just Visionary. (Integrator lives under Visionary
-      // per 0113 so it wouldn't otherwise surface here.)
+
+    const seededVisionary = topLevelFns.find(
+      (f) => f.title.trim().toLowerCase() === "visionary"
+    );
+    const seededIntegrator = seededVisionary
+      ? allFns.find(
+          (f) =>
+            f.parent_function_id === seededVisionary.id &&
+            f.title.trim().toLowerCase() === "integrator"
+        )
+      : undefined;
+
+    if (
+      seededVisionary &&
+      seededIntegrator &&
+      proposal.top_seats.length >= 2
+    ) {
+      // Case (a) — rename the seeded seats.
+      const [ceoName, cooName] = [
+        proposal.top_seats[0]!.name,
+        proposal.top_seats[1]!.name,
+      ];
+      if (ceoName.toLowerCase() !== "visionary") {
+        await renameFunction(admin, seededVisionary.id, ceoName);
+        summary.renamedTopSeats.push({
+          from: seededVisionary.title,
+          to: ceoName,
+        });
+        seededVisionary.title = ceoName;
+        byLowerName.delete("visionary");
+        byLowerName.set(ceoName.trim().toLowerCase(), seededVisionary);
+      }
+      if (cooName.toLowerCase() !== "integrator") {
+        await renameFunction(admin, seededIntegrator.id, cooName);
+        summary.renamedTopSeats.push({
+          from: seededIntegrator.title,
+          to: cooName,
+        });
+        seededIntegrator.title = cooName;
+        byLowerName.delete("integrator");
+        byLowerName.set(cooName.trim().toLowerCase(), seededIntegrator);
+      }
+    } else if (topLevelFns.length >= 1) {
+      // Case (b) — customized top structure. Respect and report.
       const topAndImmediateChildren = new Set<string>();
       for (const fn of topLevelFns) topAndImmediateChildren.add(fn.title);
       for (const fn of allFns) {
@@ -170,8 +221,7 @@ export async function applyChartProposalAction(
       }
       summary.keptTopSeats = Array.from(topAndImmediateChildren);
     } else {
-      // Chart is genuinely empty at the top — create the proposal
-      // seats as top-level functions with the note as description.
+      // Case (c) — empty chart. Create the proposal's seats.
       for (const seat of proposal.top_seats) {
         const collision = byLowerName.get(seat.name.trim().toLowerCase());
         if (collision) continue;
@@ -287,6 +337,20 @@ export async function applyChartProposalAction(
 
   revalidatePath("/chart");
   return { ok: true, summary };
+}
+
+async function renameFunction(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  id: string,
+  title: string
+): Promise<void> {
+  const { error } = await admin
+    .from("functions")
+    .update({ title })
+    .eq("id", id);
+  if (error) {
+    console.error("apply-chart renameFunction failed", error);
+  }
 }
 
 async function insertFunction(
