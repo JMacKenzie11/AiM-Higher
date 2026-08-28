@@ -428,8 +428,7 @@ async function loadSystemPrompt(
   mode: "about" | "general",
   practiceId: string | null
 ): Promise<string> {
-  const filePath = path.join(process.cwd(), "prompts", "leadership-coach.md");
-  const base = await fs.readFile(filePath, "utf8");
+  const base = await loadCoachBase();
 
   // Practice sessions layer the registered practice's prompt AFTER
   // the base coach prompt. The base establishes the coaching stance;
@@ -447,6 +446,26 @@ async function loadSystemPrompt(
   // coach surface (about, general, practice) — the point is a single
   // consistent voice across the whole coaching product.
   return `${composed}\n\n${VOICE_RULES_COACH}`;
+}
+
+// Load the base coach prompt by splicing prompts/aims-voice.md (the
+// voice + language section) into prompts/leadership-coach.md at the
+// {{AIMS_VOICE}} sentinel. The split is byte-preserving: recomposing
+// the two files with this splice returns the original leadership-
+// coach.md content unchanged. Regression is guarded by the SHA
+// snapshot test in leadership-coach.compose.test.ts.
+async function loadCoachBase(): Promise<string> {
+  const remainderPath = path.join(
+    process.cwd(),
+    "prompts",
+    "leadership-coach.md"
+  );
+  const voicePath = path.join(process.cwd(), "prompts", "aims-voice.md");
+  const [remainder, voice] = await Promise.all([
+    fs.readFile(remainderPath, "utf8"),
+    fs.readFile(voicePath, "utf8"),
+  ]);
+  return remainder.replace("{{AIMS_VOICE}}", voice);
 }
 
 // Injected ahead of leadership-coach.md in general (Ask Aimee) mode.
