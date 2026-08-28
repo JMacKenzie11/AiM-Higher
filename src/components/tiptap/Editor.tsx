@@ -241,13 +241,22 @@ function Toolbar({
     editor.view.dispatch(tr);
     editor.view.focus();
 
-    // Now the selection is committed; run setLink against it via
-    // editor.commands (single-command form, no chain nesting).
+    // Now the selection is committed; apply the link mark via
+    // setMark directly. Bypassing the extension's setLink command
+    // is deliberate — that command does chain().setMark(...).run()
+    // inside its handler, and the nested chain composes badly with
+    // our own dispatch: setMark ends up storing the mark with its
+    // default attrs (href = null), which Tiptap then omits from
+    // the JSON output entirely. Vercel logs confirmed the payload
+    // arrived at the server as { "type": "link" } with no attrs.
     let ok = true;
     if (!trimmed) {
-      ok = editor.commands.unsetLink();
+      ok = editor.commands.unsetMark("link");
     } else {
-      ok = editor.commands.setLink({ href: trimmed });
+      // Cast around Tiptap's overload — setMark expects (name,
+      // attrs) or the extension-specific type. Passing raw
+      // { href } is the right shape for the link mark.
+      ok = editor.commands.setMark("link", { href: trimmed });
     }
     if (!ok) {
       onUploadError(
