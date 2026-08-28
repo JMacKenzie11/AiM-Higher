@@ -23,7 +23,6 @@ import type { Priority, Profile } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import { CommitmentLinkChip } from "@/components/plan/CommitmentLinkChip";
 import { OwnerPicker } from "./OwnerPicker";
-import { PersonQuickViewDrawer } from "./PersonQuickViewDrawer";
 import { ClarityChip, ClarityEditor, clarityState } from "./ClarityStrip";
 import styles from "./commitments.module.css";
 
@@ -109,7 +108,6 @@ export function CommitmentRow({
   const [unparkDate, setUnparkDate] = useState(todayIso);
   const [pickingOwner, setPickingOwner] = useState(false);
   const [showClarity, setShowClarity] = useState(false);
-  const [showQuickView, setShowQuickView] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -706,23 +704,9 @@ export function CommitmentRow({
         isAdmin={isAdmin}
         pickingOwner={pickingOwner}
         setPickingOwner={setPickingOwner}
-        onOpenQuickView={() => setShowQuickView(true)}
         reassignTo={reassignTo}
         pending={pending}
       />
-
-      {commitment.owner_id ? (
-        <PersonQuickViewDrawer
-          open={showQuickView}
-          ownerId={commitment.owner_id}
-          ownerName={commitment.owner?.full_name ?? "This person"}
-          roster={roster}
-          canReassign={canReassign}
-          canCoach={isAdmin}
-          onReassign={reassignTo}
-          onClose={() => setShowQuickView(false)}
-        />
-      ) : null}
 
       {hidePriority ? (
         <span aria-hidden />
@@ -1022,6 +1006,12 @@ function buildCircleClass(
   return parts.join(" ");
 }
 
+// Owner cell — plain reassign picker only. Clicking an owner name
+// used to open a right-side PersonQuickViewDrawer with stats +
+// Coach jump + reassign UI, but that's more ceremony than the
+// gesture warrants (and drift from /issues, which just opens a
+// dropdown). Match /issues: click name → dropdown → pick →
+// reassignCommitmentAction fires and the row rerenders.
 function OwnerCell({
   commitment,
   roster,
@@ -1030,7 +1020,6 @@ function OwnerCell({
   isAdmin,
   pickingOwner,
   setPickingOwner,
-  onOpenQuickView,
   reassignTo,
   pending,
 }: {
@@ -1041,7 +1030,6 @@ function OwnerCell({
   isAdmin: boolean;
   pickingOwner: boolean;
   setPickingOwner: (b: boolean) => void;
-  onOpenQuickView: () => void;
   reassignTo: (id: string) => void;
   pending: boolean;
 }) {
@@ -1090,9 +1078,9 @@ function OwnerCell({
       <button
         type="button"
         className={styles.rowOwnerButton}
-        onClick={onOpenQuickView}
+        onClick={() => setPickingOwner(true)}
         disabled={pending}
-        aria-label={`Open quick view for ${commitment.owner?.full_name ?? "owner"}`}
+        aria-label={`Reassign owner from ${commitment.owner?.full_name ?? "owner"}`}
       >
         {commitment.owner?.full_name ?? "—"}
       </button>
@@ -1100,14 +1088,8 @@ function OwnerCell({
   }
 
   return (
-    <button
-      type="button"
-      className={styles.rowOwnerButton}
-      onClick={onOpenQuickView}
-      disabled={pending}
-      aria-label={`Open quick view for ${commitment.owner?.full_name ?? "owner"}`}
-    >
+    <span className={styles.rowOwner}>
       {commitment.owner?.full_name ?? "—"}
-    </button>
+    </span>
   );
 }
