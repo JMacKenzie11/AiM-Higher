@@ -75,6 +75,20 @@
   text-underline-offset: 3px;
 }
 
+/* Explicit class applied to every rendered link so styling doesn't
+   depend on ancestor-selector wins over globals.css's reset. */
+.link {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.link:hover {
+  color: var(--primary-hover);
+  text-decoration-thickness: 2px;
+}
+
 .prose img {
   display: block;
   max-width: 100%;

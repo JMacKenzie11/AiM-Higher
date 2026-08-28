@@ -152,3 +152,66 @@
   color: var(--danger);
   font: var(--text-body-sm);
 }
+
+.linkPopover {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-left: 4px;
+}
+
+.linkInput {
+  height: 26px;
+  min-width: 200px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.linkInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.linkApply {
+  height: 26px;
+  padding: 0 10px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font: var(--text-button-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.linkApply:hover {
+  background: var(--primary-hover);
+}
+
+.linkCancel {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.linkCancel:hover {
+  color: var(--text);
+  border-color: var(--border);
+}

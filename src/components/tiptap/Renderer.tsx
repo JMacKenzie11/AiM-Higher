@@ -146,8 +146,19 @@ function renderText(node: JSONContent, key: string): React.ReactNode {
         const attrs = (mark as { attrs?: { href?: string } }).attrs;
         const href = attrs?.href;
         if (href) {
+          // Explicit class so the anchor picks up its own style
+          // in the CSS module — the ancestor selector .prose a was
+          // still being clobbered by the global `a { text-decoration:
+          // none }` in globals.css despite higher specificity (some
+          // combination of CSS module load order and browser
+          // resolution). A dedicated class is deterministic.
           element = (
-            <a href={href} target="_blank" rel="noopener noreferrer">
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.link}
+            >
               {element}
             </a>
           );

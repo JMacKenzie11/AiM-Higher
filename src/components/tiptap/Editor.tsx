@@ -167,6 +167,79 @@ function Toolbar({
   onUploadError: (msg: string | null) => void;
 }) {
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // Inline link editor state. Opening the input captures the current
+  // ProseMirror selection so we can restore it on Apply — the input
+  // element steals focus (moves ProseMirror's selection off the
+  // text), so without an explicit restore setMark would apply to
+  // zero characters. See earlier bug where window.prompt did the
+  // same thing.
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkValue, setLinkValue] = useState("");
+  const savedRange = useRef<{ from: number; to: number } | null>(null);
+
+  function openLinkEditor() {
+    const { from, to } = editor.state.selection;
+    const isActive = editor.isActive("link");
+    if (!isActive && from === to) {
+      onUploadError(
+        "Select the text you want to link first."
+      );
+      return;
+    }
+    onUploadError(null);
+    savedRange.current = { from, to };
+    setLinkValue(
+      isActive
+        ? ((editor.getAttributes("link").href as string | undefined) ?? "")
+        : ""
+    );
+    setLinkOpen(true);
+  }
+
+  function applyLink() {
+    const range = savedRange.current;
+    if (!range) {
+      setLinkOpen(false);
+      return;
+    }
+    const trimmed = linkValue.trim();
+    if (!trimmed) {
+      // Empty input = remove the link if one is present.
+      editor
+        .chain()
+        .focus()
+        .setTextSelection(range)
+        .unsetLink()
+        .run();
+    } else {
+      const ok = editor
+        .chain()
+        .focus()
+        .setTextSelection(range)
+        .setLink({ href: trimmed })
+        .run();
+      if (!ok) {
+        onUploadError(
+          "That URL doesn't look right. Use https://, http://, or a mailto: address."
+        );
+        return;
+      }
+    }
+    savedRange.current = null;
+    setLinkOpen(false);
+    setLinkValue("");
+  }
+
+  function cancelLink() {
+    // Restore the selection so the user can retry easily.
+    if (savedRange.current) {
+      editor.chain().focus().setTextSelection(savedRange.current).run();
+    }
+    savedRange.current = null;
+    setLinkOpen(false);
+    setLinkValue("");
+  }
+
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Formatting">
       <ToolbarButton
@@ -229,11 +302,48 @@ function Toolbar({
       </ToolbarButton>
       <ToolbarButton
         label={editor.isActive("link") ? "Edit or remove link" : "Insert link"}
-        active={editor.isActive("link")}
-        onClick={() => promptForLink(editor)}
+        active={editor.isActive("link") || linkOpen}
+        onClick={() => (linkOpen ? cancelLink() : openLinkEditor())}
       >
         🔗
       </ToolbarButton>
+      {linkOpen ? (
+        <span className={styles.linkPopover} role="group" aria-label="Link URL">
+          <input
+            type="url"
+            autoFocus
+            value={linkValue}
+            onChange={(e) => setLinkValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyLink();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancelLink();
+              }
+            }}
+            placeholder="https:// or mailto:"
+            className={styles.linkInput}
+            aria-label="URL"
+          />
+          <button
+            type="button"
+            className={styles.linkApply}
+            onClick={applyLink}
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            className={styles.linkCancel}
+            onClick={cancelLink}
+            aria-label="Cancel"
+          >
+            ×
+          </button>
+        </span>
+      ) : null}
       <ToolbarSeparator />
       <AlignButton editor={editor} value="left" label="Align left" glyph="⇤" />
       <AlignButton editor={editor} value="center" label="Align center" glyph="⇔" />
@@ -281,59 +391,6 @@ function Toolbar({
       </ToolbarButton>
     </div>
   );
-}
-
-// Link insertion / editing. On a caret with no selection, requires
-// text to be selected first (a link mark can't attach to nothing).
-// When the selection already carries a link, prefill the prompt with
-// the current href; blank input removes the link.
-//
-// Selection preservation: opening window.prompt() steals focus from
-// the editor. On some browsers this collapses the ProseMirror
-// selection to a caret, which would make setMark apply to zero text
-// (silent no-op). We capture from/to BEFORE the prompt and restore
-// the range explicitly before running setLink so the mark actually
-// lands on the intended text.
-function promptForLink(editor: Editor): void {
-  const isActive = editor.isActive("link");
-  const currentHref = isActive
-    ? (editor.getAttributes("link").href as string | undefined) ?? ""
-    : "";
-  const { from, to } = editor.state.selection;
-  if (!isActive && from === to) {
-    window.alert("Select the text you want to link first.");
-    return;
-  }
-  const input = window.prompt(
-    isActive
-      ? "Edit the link URL (leave empty to remove):"
-      : "Paste the URL to link to:",
-    currentHref
-  );
-  if (input === null) return; // cancelled
-  const trimmed = input.trim();
-  if (!trimmed) {
-    if (isActive) {
-      editor
-        .chain()
-        .focus()
-        .setTextSelection({ from, to })
-        .unsetLink()
-        .run();
-    }
-    return;
-  }
-  const applied = editor
-    .chain()
-    .focus()
-    .setTextSelection({ from, to })
-    .setLink({ href: trimmed })
-    .run();
-  if (!applied) {
-    window.alert(
-      "That URL doesn't look right. Use https://, http://, or a mailto: address."
-    );
-  }
 }
 
 // Explicit "Insert video" toolbar action. Prompts for the URL,
