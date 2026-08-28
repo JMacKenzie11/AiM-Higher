@@ -167,6 +167,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                     {needsAttention.length} overdue
                   </span>
                 </div>
+                <CommitmentColumnHeader />
                 <ul className={styles.rowList}>
                   {needsAttention.map(renderRow)}
                 </ul>
@@ -187,6 +188,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                     {yoursThisWeek.length === 1 ? "commitment" : "commitments"}
                   </span>
                 </div>
+                <CommitmentColumnHeader />
                 <ul className={styles.rowList}>
                   {yoursThisWeek.map(renderRow)}
                 </ul>
@@ -209,6 +211,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                   {restThisWeek.length === 1 ? "commitment" : "commitments"}
                 </span>
               </div>
+              <CommitmentColumnHeader />
               <ul className={styles.rowList}>
                 {(() => {
                   const assigned = restThisWeek.filter(
@@ -265,6 +268,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
               {data.futureList.length === 1 ? "commitment" : "commitments"}
             </span>
           </div>
+          <CommitmentColumnHeader />
           <ul className={styles.rowList}>
             {data.futureList.map((c) => (
               <CommitmentRow
@@ -331,6 +335,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
               {" — excluded from all counts"}
             </span>
           </div>
+          <CommitmentColumnHeader />
           <ul className={styles.rowList}>
             {data.parkedList.map((c) => (
               <CommitmentRow
@@ -363,5 +368,25 @@ function pickString(
 ): string {
   if (Array.isArray(value)) return value[0] ?? fallback;
   return value ?? fallback;
+}
+
+// Column header row shared across every group on this page. Kept
+// in one place so if the row grid template ever changes, the header
+// tracks it. Empty spans in the first three cells reserve room for
+// the resolve circle / delete button / clarity dot so the labelled
+// columns line up under the header text.
+function CommitmentColumnHeader() {
+  return (
+    <div className={styles.columnHeader} role="row" aria-hidden="true">
+      <span aria-hidden />
+      <span aria-hidden />
+      <span aria-hidden />
+      <span>Commitment</span>
+      <span>Assigned to</span>
+      <span>Priority</span>
+      <span>Due date</span>
+      <span>Status</span>
+    </div>
+  );
 }
 

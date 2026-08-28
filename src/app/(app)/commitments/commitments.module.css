@@ -203,6 +203,32 @@
   flex-direction: column;
 }
 
+/* Column-header row shown above each rowList so a scanner sees which
+   column is which without inferring from the first data row. Matches
+   the .row grid template exactly so header labels align with the
+   cells beneath. Mirrors the equivalent .columnHeader on /issues so
+   the two pages read as siblings. Hidden on mobile because the row
+   grid remaps to a stacked layout down there — the labels would
+   float above the wrong cells. */
+.columnHeader {
+  display: grid;
+  grid-template-columns: 40px 28px 28px 1fr 180px 180px 110px 90px;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+@media (max-width: 768px) {
+  .columnHeader {
+    display: none;
+  }
+}
+
 .row {
   position: relative; /* anchors the resolveMenu popover */
   display: grid;

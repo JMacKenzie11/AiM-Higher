@@ -12,7 +12,6 @@ import { IssuesBoard } from "./IssuesBoard";
 import { CreateIssueRow } from "./CreateIssueRow";
 import { FilterPills } from "./FilterPills";
 import { ResolvedIssuesList } from "./ResolvedIssuesList";
-import shellStyles from "../admin/companies/admin.module.css";
 import commitmentStyles from "../commitments/commitments.module.css";
 
 // Issues/Solutions — the Solution Seeking discipline. Name the
@@ -180,10 +179,19 @@ export default async function IssuesPage({ searchParams }: PageProps) {
       />
 
       {showOpenSection ? (
-        <section className={shellStyles.card} aria-labelledby="issues-open">
-          <h2 id="issues-open" className={shellStyles.h2}>
-            Open issues
-          </h2>
+        <section
+          className={commitmentStyles.group}
+          aria-labelledby="issues-open"
+        >
+          <div className={commitmentStyles.groupHeader}>
+            <h2 id="issues-open" className={commitmentStyles.groupTitle}>
+              Open issues
+            </h2>
+            <span className={commitmentStyles.groupMeta}>
+              {filteredOpen.length}{" "}
+              {filteredOpen.length === 1 ? "issue" : "issues"}
+            </span>
+          </div>
           <IssuesBoard
             issues={filteredOpen}
             roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
@@ -200,12 +208,18 @@ export default async function IssuesPage({ searchParams }: PageProps) {
 
       {showResolvedSection ? (
         <section
-          className={shellStyles.card}
+          className={commitmentStyles.group}
           aria-labelledby="issues-resolved"
         >
-          <h2 id="issues-resolved" className={shellStyles.h2}>
-            Resolved issues
-          </h2>
+          <div className={commitmentStyles.groupHeader}>
+            <h2 id="issues-resolved" className={commitmentStyles.groupTitle}>
+              Resolved issues
+            </h2>
+            <span className={commitmentStyles.groupMeta}>
+              {filteredResolved.length}{" "}
+              {filteredResolved.length === 1 ? "issue" : "issues"}
+            </span>
+          </div>
           <ResolvedIssuesList
             items={filteredResolved}
             roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
