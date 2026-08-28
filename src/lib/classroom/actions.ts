@@ -236,7 +236,7 @@ export async function createTrainingAction(
       lesson_id: input.lesson_id,
       title,
       slug,
-      body_json: input.body_json,
+      body_json: sanitizeBodyJson(input.body_json),
       published: input.published,
       sort_order,
     })
@@ -267,7 +267,7 @@ export async function updateTrainingAction(
       title,
       slug,
       lesson_id: input.lesson_id,
-      body_json: input.body_json,
+      body_json: sanitizeBodyJson(input.body_json),
       published: input.published,
       updated_at: new Date().toISOString(),
     })
@@ -486,6 +486,38 @@ export async function uploadClassroomImageAction(
 }
 
 // ---- Utilities ----
+
+// Strip link marks that have no href before persisting to the DB.
+// An earlier iteration of the classroom editor saved link marks
+// with empty attrs (setLink applied but href wasn't stored),
+// which rendered as plain text on the reader side because the
+// JSON walker requires an href to emit <a>. Cleaning here means
+// no future save can leave the same trap for a reader.
+//
+// Recursive walk — link marks can live on any text run at any
+// depth in the doc tree. Nodes with content get walked; text
+// runs get their marks filtered.
+function sanitizeBodyJson(
+  json: JSONContent | null | undefined
+): JSONContent | null {
+  if (!json) return null;
+  return walkNode(json);
+}
+
+function walkNode(node: JSONContent): JSONContent {
+  const next: JSONContent = { ...node };
+  if (Array.isArray(node.marks)) {
+    next.marks = node.marks.filter((mark) => {
+      if (mark.type !== "link") return true;
+      const href = (mark.attrs as { href?: unknown } | undefined)?.href;
+      return typeof href === "string" && href.trim().length > 0;
+    });
+  }
+  if (Array.isArray(node.content)) {
+    next.content = node.content.map(walkNode);
+  }
+  return next;
+}
 
 function slugify(input: string): string {
   return input
