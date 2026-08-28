@@ -53,20 +53,18 @@ export function IssuesBoard({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Resync the local order whenever the server hands us a new
-  // issues array. Without this, useState(issues) only takes the
-  // FIRST prop value; a newly-created issue arrives via
-  // revalidatePath but the board stays showing the stale (empty)
-  // list. Compare by the id sequence so drag-reorders don't trigger
-  // a re-sync mid-drag from an incidental parent re-render.
+  // Resync local order from server whenever a new issues array
+  // arrives — but not mid-drag. `pending` here is IssuesBoard's own
+  // reorder transition; if it's true, a drag is in flight and we
+  // must preserve the optimistic local order until the server call
+  // returns. If it's false, always take the server props verbatim
+  // so field edits (title, desired outcome, commitment description)
+  // propagate through — the earlier "compare id sequence" gate
+  // missed those because IDs don't change on a field edit.
   useEffect(() => {
-    const localIds = order.map((i) => i.id).join(",");
-    const serverIds = issues.map((i) => i.id).join(",");
-    if (localIds !== serverIds) {
-      setOrder(issues);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [issues]);
+    if (pending) return;
+    setOrder(issues);
+  }, [issues, pending]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
