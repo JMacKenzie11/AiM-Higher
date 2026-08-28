@@ -500,7 +500,8 @@
   opacity: 0.85;
 }
 
-.resolvedColumnHeader {
+.resolvedColumnHeader,
+.resolvedColumnHeaderWithDelete {
   display: grid;
   grid-template-columns:
     minmax(0, 1.2fr)
@@ -518,6 +519,18 @@
   border-bottom: 1px solid var(--border-strong);
 }
 
+/* Admin variant: same 5 header cells + a trailing 28px slot so the
+   header aligns with the trash-icon column on the rows below. */
+.resolvedColumnHeaderWithDelete {
+  grid-template-columns:
+    minmax(0, 1.2fr)
+    minmax(0, 1.5fr)
+    minmax(0, 1.8fr)
+    minmax(120px, 0.8fr)
+    minmax(110px, 0.6fr)
+    28px;
+}
+
 .resolvedRow {
   display: grid;
   grid-template-columns:
@@ -526,6 +539,24 @@
     minmax(0, 1.8fr)
     minmax(120px, 0.8fr)
     minmax(110px, 0.6fr);
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3);
+}
+
+/* Admin variant: same 5 content columns, plus a 28px trailing cell
+   for the trash icon. ResolvedIssuesList swaps to this class (and
+   to .resolvedColumnHeaderWithDelete on the header) when isAdmin
+   is true so the delete affordance lines up under the header slot. */
+.resolvedRowWithDelete {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.2fr)
+    minmax(0, 1.5fr)
+    minmax(0, 1.8fr)
+    minmax(120px, 0.8fr)
+    minmax(110px, 0.6fr)
+    28px;
   align-items: start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-3);
