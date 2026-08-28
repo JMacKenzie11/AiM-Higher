@@ -234,13 +234,6 @@ function Toolbar({
     } else {
       ok = editor.chain().setLink({ href: trimmed }).run();
     }
-    // eslint-disable-next-line no-console
-    console.log("[link] applyLink", {
-      range,
-      href: trimmed,
-      ok,
-      resultJson: editor.getJSON(),
-    });
     if (!ok) {
       onUploadError(
         "That URL doesn't look right. Use https://, http://, or a mailto: address."

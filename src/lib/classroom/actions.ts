@@ -501,7 +501,23 @@ function sanitizeBodyJson(
   json: JSONContent | null | undefined
 ): JSONContent | null {
   if (!json) return null;
-  return walkNode(json);
+  // Force plain-object deserialization first. Next.js 15 + React 19
+  // proxies server-action arguments as "temporary client references"
+  // for lazily-passed shapes; dot-accessing nested properties like
+  // mark.attrs.href on those proxies throws the "Cannot access href
+  // on the server" runtime error. A JSON round-trip flattens the
+  // input to real POJOs so our walker only touches plain values.
+  let plain: JSONContent;
+  try {
+    plain = JSON.parse(JSON.stringify(json)) as JSONContent;
+  } catch {
+    // If the input can't be JSON-stringified at all, something
+    // upstream is broken and there's nothing safe to sanitize;
+    // return null so the caller writes a null body rather than a
+    // corrupt one.
+    return null;
+  }
+  return walkNode(plain);
 }
 
 function walkNode(node: JSONContent): JSONContent {
