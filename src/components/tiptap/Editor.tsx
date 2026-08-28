@@ -241,19 +241,30 @@ function Toolbar({
     editor.view.dispatch(tr);
     editor.view.focus();
 
+    // Raw ProseMirror mark op — skip Tiptap's setMark/unsetMark
+    // command abstractions entirely. The link mark type comes from
+    // the schema; we .create() an instance with our attrs and
+    // addMark/removeMark it on the range. This is what setMark
+    // eventually calls under the hood, but by doing it ourselves
+    // we know exactly what's on the mark.
+    const markType = editor.schema.marks.link;
     let ok = true;
-    if (!trimmed) {
-      ok = editor.commands.unsetMark("link");
+    if (!markType) {
+      ok = false;
     } else {
-      ok = editor.commands.setMark("link", { href: trimmed });
+      const tr2 = editor.state.tr;
+      if (!trimmed) {
+        tr2.removeMark(from, to, markType);
+      } else {
+        const mark = markType.create({ href: trimmed });
+        tr2.removeMark(from, to, markType); // clear any existing first
+        tr2.addMark(from, to, mark);
+      }
+      editor.view.dispatch(tr2);
     }
-    // Diagnostic: what does the editor's JSON look like RIGHT
-    // NOW, immediately after setMark? Compare against the Vercel
-    // server log to see whether the wire drops attrs between
-    // here and updateTrainingAction.
     // eslint-disable-next-line no-console
     console.log(
-      "[link] post-setMark client JSON\n" +
+      "[link] post-addMark client JSON\n" +
         JSON.stringify(editor.getJSON(), null, 2)
     );
     if (!ok) {
