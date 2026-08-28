@@ -4,7 +4,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getScopedCompanyId } from "@/lib/admin/scope";
 import { findPractice } from "@/lib/practices/registry";
 import { practiceRoleGate } from "@/lib/practices/gate";
-import { createPracticeConversationAction } from "@/lib/practices/actions";
+import { createPracticeConversation } from "@/lib/practices/create";
 import { PageShell } from "@/components/ui/PageShell";
 
 // Direct-launch route for guided practices. A stable URL any
@@ -59,7 +59,7 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
   // needs to re-throw so the framework can handle it.
   let conversationId: string;
   try {
-    const result = await createPracticeConversationAction(practice.id);
+    const result = await createPracticeConversation(practice.id);
     if (!result.ok) return notAvailable(result.message);
     conversationId = result.item.id;
   } catch (err) {

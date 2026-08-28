@@ -2,12 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
-import { getScopedCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CoachingConversation } from "@/lib/coach/service";
 import type { Profile } from "@/lib/types";
-import { findPractice } from "./registry";
-import { practiceRoleGate } from "./gate";
+import { createPracticeConversation } from "./create";
 
 // Server actions for guided practices. Practices are a subtype of
 // general (Ask Aimee) conversations: mode stays 'general' and
@@ -22,115 +20,21 @@ export type PracticeActionResult<T> =
 
 export type SimpleResult = { ok: true } | { ok: false; message: string };
 
-// Create a new practice conversation for the given practice id.
-//
-// Legacy setup-flow practices (skipSetup=false, no scriptedOpener)
-// leave partner_profile_id=null and land the user on the empty-chat
-// setup step, where a follow-up action attaches the partner.
-//
-// Skip-setup practices (skipSetup=true) bypass the picker entirely;
-// if a scriptedOpener is present, it's persisted as the first
-// assistant message here — with NO API call — so the user lands in
-// a live-looking chat and the model sees the opener in history from
-// turn two onward.
-//
-// Role-gated practices (allowedRoles present) reject callers outside
-// the list at this action layer; for aims_guide the caller must also
-// be assigned to the scoped company (isAdminForCompany check).
+// Thin server-action wrapper around createPracticeConversation. Adds
+// revalidatePath so a click from the PracticeCards on /ask-aimee
+// refreshes the recent-conversations list. The launch page at
+// /ask-aimee/new calls createPracticeConversation directly — Next.js
+// 15 forbids revalidatePath during a render pass, so the launch
+// path skips it (redirect to the new conversation makes it moot).
 export async function createPracticeConversationAction(
   practiceId: string
 ): Promise<PracticeActionResult<CoachingConversation>> {
-  const practice = findPractice(practiceId);
-  if (!practice) {
-    return { ok: false, message: "That practice isn't available." };
+  const result = await createPracticeConversation(practiceId);
+  if (result.ok) {
+    revalidatePath("/ask-aimee");
+    return { ok: true, item: result.item };
   }
-
-  const session = await requireProfile();
-
-  let companyId: string | null = session.profile.company_id;
-  if (
-    !companyId &&
-    (session.profile.role === "system_admin" ||
-      session.profile.role === "aims_guide")
-  ) {
-    // Cross-tenant roles carry no profile.company_id; the scope
-    // cookie is the source of truth for "which tenant are you in
-    // right now?" Guides also need this fallback so a role-gated
-    // practice launched while scoped into an assigned company
-    // resolves the tenant correctly (and denials for off-caseload
-    // guides fire at the gate, not the scope check).
-    companyId = await getScopedCompanyId();
-  }
-  if (!companyId) {
-    return {
-      ok: false,
-      message:
-        "Scope into a company first — practices run against a company's context.",
-    };
-  }
-
-  const gate = practiceRoleGate(practice, session.profile, companyId);
-  if (!gate.ok) return gate;
-
-  const supabase = await createSupabaseServerClient();
-  // The stored title is just the date. The Ask Aimee list renderer
-  // prepends the practice title as a muted prefix, so a stored
-  // "Prepare a hard conversation · Aug 10" would double up ("Prepare
-  // a hard conversation · Prepare a hard conversation · Aug 10").
-  // Bare "Aug 10" reads as the muted prefix + date in the list, and
-  // matches the auto-title default pattern so it gets replaced with
-  // a real summary once the conversation has a few exchanges.
-  const title = defaultDateLabel();
-  const { data, error } = await supabase
-    .from("coaching_conversations")
-    .insert({
-      company_id: companyId,
-      subject_profile_id: null,
-      created_by: session.profile.id,
-      title,
-      context_kind: "execution",
-      mode: "general",
-      practice_id: practice.id,
-    })
-    .select("*")
-    .single<CoachingConversation>();
-  if (error || !data) {
-    console.error("createPracticeConversationAction insert failed", error);
-    return { ok: false, message: "Couldn't start that practice." };
-  }
-
-  if (practice.scriptedOpener) {
-    // Wrap in try/catch defensively — a rejected promise from the
-    // storage layer (network blip, RLS surprise) would otherwise
-    // bubble up to the launch page and hit the error boundary. The
-    // conversation is already committed, so the worst case is a
-    // launch with no opener bubble; the user can start typing and
-    // the practice still runs.
-    try {
-      const { error: openerErr } = await supabase
-        .from("coaching_messages")
-        .insert({
-          conversation_id: data.id,
-          created_by: session.profile.id,
-          role: "assistant",
-          content: practice.scriptedOpener,
-        });
-      if (openerErr) {
-        console.error(
-          "createPracticeConversationAction opener insert failed",
-          openerErr
-        );
-      }
-    } catch (err) {
-      console.error(
-        "createPracticeConversationAction opener insert threw",
-        err
-      );
-    }
-  }
-
-  revalidatePath("/ask-aimee");
-  return { ok: true, item: data };
+  return result;
 }
 
 
