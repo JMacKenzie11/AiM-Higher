@@ -2,6 +2,7 @@
 
 import { useEditor, EditorContent, type Editor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { TextSelection } from "@tiptap/pm/state";
 import { useEffect, useRef, useState } from "react";
 import LinkExtension from "@tiptap/extension-link";
 import { VideoEmbed } from "./nodes/VideoEmbed";
@@ -218,22 +219,40 @@ function Toolbar({
     }
     const trimmed = linkValue.trim();
 
-    // TWO CHAINS: the extension's setLink internally starts its
-    // own chain().setMark().run() which double-dispatches when
-    // nested inside our outer chain — the setTextSelection queued
-    // by the outer chain hasn't landed by the time the inner
-    // setMark runs, so the mark applies to the pre-select caret
-    // (empty range) and stores as { type: "link" } with no attrs.
-    // Splitting the ops into two dispatches means the selection is
-    // committed before setLink runs.
-    editor.chain().focus().setTextSelection(range).run();
+    // Directly dispatch a ProseMirror TextSelection so the state
+    // is unambiguously set to the captured range before setLink
+    // runs. Every chain-based approach so far has left the mark
+    // applied to an empty caret (mark stored with no href attr,
+    // then stripped by sanitize on save).
+    const doc = editor.state.doc;
+    const from = Math.max(0, Math.min(range.from, doc.content.size));
+    const to = Math.max(from, Math.min(range.to, doc.content.size));
+    const tr = editor.state.tr.setSelection(
+      TextSelection.create(doc, from, to)
+    );
+    editor.view.dispatch(tr);
+    editor.view.focus();
 
+    // Now the selection is committed; run setLink against it via
+    // editor.commands (single-command form, no chain nesting).
     let ok = true;
     if (!trimmed) {
-      editor.chain().unsetLink().run();
+      ok = editor.commands.unsetLink();
     } else {
-      ok = editor.chain().setLink({ href: trimmed }).run();
+      ok = editor.commands.setLink({ href: trimmed });
     }
+    // eslint-disable-next-line no-console
+    console.log("[link] applyLink", {
+      capturedRange: range,
+      normalizedRange: { from, to },
+      selectionAfterDispatch: {
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      },
+      href: trimmed,
+      ok,
+      resultJson: editor.getJSON(),
+    });
     if (!ok) {
       onUploadError(
         "That URL doesn't look right. Use https://, http://, or a mailto: address."
