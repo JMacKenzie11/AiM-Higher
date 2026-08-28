@@ -212,6 +212,15 @@ function Toolbar({
 
   function applyLink() {
     const range = savedRange.current;
+    // Diagnostics — visible in browser DevTools console. Left in
+    // deliberately while we're stabilizing the link flow; if you
+    // read this after that's confirmed working, delete these logs.
+    // eslint-disable-next-line no-console
+    console.log("[link] applyLink called", {
+      range,
+      linkValue,
+      hasLinkMark: editor.isActive("link"),
+    });
     if (!range) {
       setLinkOpen(false);
       return;
@@ -219,12 +228,14 @@ function Toolbar({
     const trimmed = linkValue.trim();
     if (!trimmed) {
       // Empty input = remove the link if one is present.
-      editor
+      const unset = editor
         .chain()
         .focus()
         .setTextSelection(range)
         .unsetLink()
         .run();
+      // eslint-disable-next-line no-console
+      console.log("[link] unsetLink returned", unset);
     } else {
       const ok = editor
         .chain()
@@ -232,6 +243,8 @@ function Toolbar({
         .setTextSelection(range)
         .setLink({ href: trimmed })
         .run();
+      // eslint-disable-next-line no-console
+      console.log("[link] setLink returned", ok, "json now:", editor.getJSON());
       if (!ok) {
         onUploadError(
           "That URL doesn't look right. Use https://, http://, or a mailto: address."
