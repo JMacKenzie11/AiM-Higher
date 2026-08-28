@@ -135,6 +135,19 @@
   padding: 0;
 }
 
+/* Force link styling inside the editor — !important beats
+   globals.css's `a { text-decoration: none }` reset regardless
+   of module load order. The author needs immediate visual
+   confirmation that setLink applied to their selection; without
+   it every 'is my link stuck?' bug looks the same. */
+.editorSurface a {
+  color: var(--primary) !important;
+  text-decoration: underline !important;
+  text-decoration-thickness: 1.5px !important;
+  text-underline-offset: 3px !important;
+  cursor: text;
+}
+
 .loading {
   padding: var(--space-4);
   color: var(--text-muted);

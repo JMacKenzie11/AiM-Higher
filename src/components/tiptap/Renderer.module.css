@@ -75,18 +75,21 @@
   text-underline-offset: 3px;
 }
 
-/* Explicit class applied to every rendered link so styling doesn't
-   depend on ancestor-selector wins over globals.css's reset. */
-.link {
-  color: var(--primary);
-  text-decoration: underline;
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 3px;
+/* Explicit class applied to every rendered link, PLUS !important
+   to defeat globals.css's `a { text-decoration: none }` reset
+   regardless of module load order. */
+.link,
+.prose a {
+  color: var(--primary) !important;
+  text-decoration: underline !important;
+  text-decoration-thickness: 1.5px !important;
+  text-underline-offset: 3px !important;
 }
 
-.link:hover {
-  color: var(--primary-hover);
-  text-decoration-thickness: 2px;
+.link:hover,
+.prose a:hover {
+  color: var(--primary-hover) !important;
+  text-decoration-thickness: 2px !important;
 }
 
 .prose img {
