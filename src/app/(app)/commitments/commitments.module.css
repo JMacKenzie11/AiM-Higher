@@ -223,7 +223,7 @@
   border-bottom: 1px solid var(--border-strong);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .columnHeader {
     display: none;
   }
@@ -1409,8 +1409,15 @@ a.fromMeetingChip:hover {
   pointer-events: none;
 }
 
-/* ---- Mobile ---- */
-@media (max-width: 768px) {
+/* ---- Narrow-viewport stack ----
+   Bumped from 768px to 1024px because the 8-column desktop grid
+   (three circles + description + owner + priority + due + status)
+   consumes ~740px of fixed width plus gaps, so at anything under
+   ~1100px the description column crushes down to a few characters
+   wide (each letter on its own line). The stacked layout below
+   works just as well at 900px as it does at 500px, and legibility
+   trumps table density on medium screens. */
+@media (max-width: 1024px) {
   .row {
     /* Status was previously in its own right-side column, which
        stole ~100px on narrow phones and crushed description into a

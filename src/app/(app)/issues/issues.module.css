@@ -58,7 +58,7 @@
   border-bottom: 1px solid var(--border-strong);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .columnHeader {
     display: none;
   }
@@ -165,10 +165,6 @@
 .issueTitleEditable {
   font: var(--text-body);
   color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   white-space: normal;
   word-break: break-word;
   line-height: 1.35;
@@ -230,10 +226,6 @@
 .wantEditable {
   font: var(--text-body);
   color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   white-space: normal;
   word-break: break-word;
   max-width: 100%;
@@ -338,21 +330,22 @@
 }
 
 /* Inline commitment-add — fills the commitment/owner/due cells
-   in place when the issue has no open commitment. Uses the same
-   dashed-at-rest → solid-on-focus pattern as /commitments so the
-   two entry surfaces feel identical. */
+   in place when the issue has no open commitment. Matches the
+   .wantEditable / populated cell shape exactly (padding, border,
+   background, no resize handle, no min-height overshoot) so an
+   empty "please fill me in" cell and a populated cell read as the
+   same control at rest. Focus promotes to solid primary border. */
 .commitmentAddInput {
   width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface);
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
   font: var(--text-body);
   font-family: inherit;
   color: var(--text);
-  resize: vertical;
-  min-height: calc(var(--control-h-md) * 1.5);
-  line-height: 1.4;
+  resize: none;
+  line-height: 1.35;
 }
 
 .commitmentAddInput:focus {
@@ -365,9 +358,8 @@
 .commitmentAddSelect,
 .commitmentAddDate {
   width: 100%;
-  padding: var(--space-2) var(--space-3);
-  height: var(--control-h-md);
-  background: var(--surface);
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
   font: var(--text-body);
