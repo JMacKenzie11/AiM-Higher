@@ -77,7 +77,16 @@ export function ChatView({
       ? "What's on your mind?"
       : `What's on your mind about ${firstName ?? "them"}?`;
   const composerPlaceholder = isPractice
-    ? "Describe the situation…"
+    ? // skipSetup practices open with a scripted opener that asks a
+      // direct question ("Ready to get started?"). A "Describe the
+      // situation" placeholder reads as a mismatch there — the
+      // leader isn't describing a situation, they're answering. An
+      // empty placeholder gives the composer no instructional load
+      // and lets the opener stand as the only cue. Legacy practices
+      // (skipSetup=false) still use the situation-describe copy.
+      practice.skipSetup
+      ? ""
+      : "Describe the situation…"
     : isGeneral
       ? "Ask Aimee…"
       : "Message coach…";
