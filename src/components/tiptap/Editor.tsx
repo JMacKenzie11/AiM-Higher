@@ -3,10 +3,24 @@
 import { useEditor, EditorContent, type Editor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef, useState } from "react";
+import LinkExtension from "@tiptap/extension-link";
 import { VideoEmbed } from "./nodes/VideoEmbed";
 import { ImageEmbed } from "./nodes/ImageEmbed";
-import { Link } from "./marks/Link";
 import { TextAlign } from "./extensions/TextAlign";
+
+// Configure the official Link mark: open in a new tab, keep on
+// paste, allow http/https/mailto only. Custom scheme validation
+// stays defensive against javascript: URLs.
+const Link = LinkExtension.configure({
+  openOnClick: false,
+  autolink: true,
+  linkOnPaste: true,
+  HTMLAttributes: {
+    target: "_blank",
+    rel: "noopener noreferrer",
+  },
+  protocols: ["http", "https", "mailto"],
+});
 import { parseVideoUrl } from "@/lib/classroom/video-url";
 import { uploadClassroomImageAction } from "@/lib/classroom/actions";
 import styles from "./Editor.module.css";
