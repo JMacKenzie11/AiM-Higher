@@ -48,19 +48,18 @@ export default async function ScorecardPage() {
     .maybeSingle<{ name: string }>();
   const companyName = companyRow?.name ?? "your company";
 
-  // First-run setup checklist. Rendered as the top card whenever
-  // the caller can manage this company (sysadmin, company admin
-  // scoped here, or assigned guide) AND at least one setup step is
-  // still incomplete. Nothing about completion is persisted —
-  // steps derive per render, and the whole card disappears once
-  // every step ticks off.
+  // First-run setup checklist. Rendered as the top card for any
+  // caller who can manage this company (sysadmin, company admin
+  // scoped here, or assigned guide). The card stays visible even
+  // after every step ticks off so admins have a permanent "here's
+  // the map" reference on the implementation surface. Nothing about
+  // completion is persisted — steps derive per render.
   const canManageCompany = isAdminForCompany(session.profile, companyId);
   const setup = await loadCompanySetupIfAdmin(
     companyId,
     session,
     canManageCompany
   );
-  const showSetup = Boolean(setup?.anyIncomplete);
 
   return (
     <div className={styles.stage}>
@@ -100,7 +99,7 @@ export default async function ScorecardPage() {
       </section>
 
       <div className={styles.content}>
-        {showSetup && setup ? (
+        {setup ? (
           <SetupChecklist
             steps={setup.steps}
             companyName={setup.companyName}
