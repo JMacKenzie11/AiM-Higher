@@ -15,6 +15,15 @@ const mocks = vi.hoisted(() => {
   const companiesInsertSingle = vi.fn();
   const companiesUpdatePatch = vi.fn();
   const companiesUpdateSingle = vi.fn();
+  const companiesSelectMaybeSingle = vi.fn(); // .select("id, status").eq().maybeSingle()
+
+  // deleteCompanyAction uses the admin client for the UPDATE so the
+  // restrictive companies_hide_deleted RLS policy doesn't block the
+  // implicit RETURNING check. Track admin-client update calls
+  // separately so a test can assert the write went via admin (not
+  // the authenticated server client).
+  const companiesAdminUpdatePatch = vi.fn();
+  const companiesAdminUpdateResult = vi.fn();
 
   const featuresSelectEq = vi.fn(); // .select("feature").eq("company_id", id) — thenable
   const featuresInsert = vi.fn();
@@ -41,6 +50,9 @@ const mocks = vi.hoisted(() => {
             }),
           };
         },
+        select: () => ({
+          eq: () => ({ maybeSingle: companiesSelectMaybeSingle }),
+        }),
       };
     }
     if (table === "company_features") {
@@ -79,6 +91,24 @@ const mocks = vi.hoisted(() => {
   };
 
   const serverClient = { from: fromBuilder };
+
+  // Admin client: separate fake. deleteCompanyAction uses this to
+  // bypass RLS for the soft-delete UPDATE. Only companies.update is
+  // exercised — no need to model the other tables here.
+  const adminClient = {
+    from: (table: string) => {
+      if (table !== "companies") {
+        throw new Error(`admin client only expected companies, got ${table}`);
+      }
+      return {
+        update: (patch: unknown) => {
+          companiesAdminUpdatePatch(patch);
+          return { eq: () => companiesAdminUpdateResult() };
+        },
+      };
+    },
+  };
+
   const requireRole = vi.fn();
   const redirect = vi.fn((url: string) => {
     throw { [REDIRECT_SIGNAL]: true, url };
@@ -90,6 +120,9 @@ const mocks = vi.hoisted(() => {
     companiesInsertSingle,
     companiesUpdatePatch,
     companiesUpdateSingle,
+    companiesSelectMaybeSingle,
+    companiesAdminUpdatePatch,
+    companiesAdminUpdateResult,
     featuresSelectEq,
     featuresInsert,
     featuresDeleteIn,
@@ -98,6 +131,7 @@ const mocks = vi.hoisted(() => {
     functionsInsertPatches,
     quartersInsertPlain,
     serverClient,
+    adminClient,
     requireRole,
     redirect,
     revalidatePath,
@@ -107,6 +141,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => mocks.serverClient,
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createSupabaseAdminClient: () => mocks.adminClient,
 }));
 
 vi.mock("@/lib/auth/current-user", () => ({
@@ -438,5 +476,100 @@ describe("setCompanyStatusAction", () => {
     expect(mocks.companiesUpdatePatch).toHaveBeenCalledWith({
       status: "archived",
     });
+  });
+});
+
+// ==============================================================
+// deleteCompanyAction
+// ==============================================================
+// Soft-deletes an archived company by stamping deleted_at on the row.
+// The two-step (archive first, then delete) is the safety on
+// accidental active-tenant destruction, and the write must go via
+// the admin client so the restrictive companies_hide_deleted RLS
+// policy doesn't reject the update's implicit RETURNING check.
+describe("deleteCompanyAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+    // Default: company exists and is currently archived.
+    mocks.companiesSelectMaybeSingle.mockResolvedValue({
+      data: { id: "co_archived", status: "archived" },
+    });
+    mocks.companiesAdminUpdateResult.mockResolvedValue({ error: null });
+  });
+
+  it("returns not-found when the company row doesn't exist", async () => {
+    mocks.companiesSelectMaybeSingle.mockResolvedValueOnce({ data: null });
+    const { deleteCompanyAction } = await import("./actions");
+
+    const res = await deleteCompanyAction("co_missing");
+
+    expect(res).toEqual({ ok: false, message: "Company not found." });
+    expect(mocks.companiesAdminUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("refuses to delete an active company (two-step archive-first safety)", async () => {
+    // Prevents an admin from wiping an active tenant with a single
+    // click. They must archive it first — the archive step is the
+    // pause point where "are you sure?" happens.
+    mocks.companiesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "co_live", status: "active" },
+    });
+    const { deleteCompanyAction } = await import("./actions");
+
+    const res = await deleteCompanyAction("co_live");
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/archive the company first/i);
+    expect(mocks.companiesAdminUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("stamps deleted_at via the admin client (not the authenticated client)", async () => {
+    // Load-bearing: the write MUST go through the admin client. The
+    // restrictive companies_hide_deleted RLS policy is FOR SELECT, but
+    // Postgres applies SELECT policies to the new row on UPDATE via
+    // the implicit RETURNING check; setting deleted_at IS NOT NULL
+    // trips that check with the authenticated client. Admin bypasses
+    // RLS, so this test regressess if someone reverts to the server
+    // client.
+    const { deleteCompanyAction } = await import("./actions");
+
+    const res = await deleteCompanyAction("co_archived");
+
+    expect(res).toEqual({ ok: true });
+    expect(mocks.companiesAdminUpdatePatch).toHaveBeenCalledTimes(1);
+    const patch = mocks.companiesAdminUpdatePatch.mock.calls[0][0] as {
+      deleted_at: string;
+    };
+    expect(patch.deleted_at).toEqual(expect.any(String));
+    // Sanity: a valid ISO 8601 timestamp.
+    expect(Number.isNaN(Date.parse(patch.deleted_at))).toBe(false);
+    // Also confirm the (still-mocked) authenticated update WASN'T
+    // touched — a regression here would mean silent RLS failures for
+    // real callers.
+    expect(mocks.companiesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the Supabase error when the admin update fails", async () => {
+    mocks.companiesAdminUpdateResult.mockResolvedValueOnce({
+      error: { message: "unexpected", code: "42P01" },
+    });
+    const { deleteCompanyAction } = await import("./actions");
+
+    const res = await deleteCompanyAction("co_archived");
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/couldn't delete/i);
+  });
+
+  it("revalidates the admin list + detail page on success", async () => {
+    const { deleteCompanyAction } = await import("./actions");
+
+    await deleteCompanyAction("co_archived");
+
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/companies");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      "/admin/companies/co_archived"
+    );
   });
 });

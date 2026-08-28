@@ -566,4 +566,47 @@ describe("deleteCommitmentAction (soft)", () => {
     expect(result.ok).toBe(false);
     expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
   });
+
+  it("revalidates /issues when the deleted commitment was issue-linked", async () => {
+    // The /issues row is where issue-linked commitments live — the
+    // click-to-clear-description flow calls deleteCommitmentAction
+    // and expects the row to fall back to the "add commitment"
+    // state on the next paint. Without this revalidate the clarity
+    // chip and the deleted description would linger until a full
+    // page refresh.
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ issue_id: "issue_abc" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({
+        issue_id: "issue_abc",
+        deleted_at: "2026-08-17T10:00:00Z",
+      }),
+      error: null,
+    });
+
+    const result = await deleteCommitmentAction("c_1");
+
+    expect(result).toEqual({ ok: true });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/issues");
+  });
+
+  it("does NOT revalidate /issues when the commitment has no issue_id", async () => {
+    // Companion to the test above: a priority-linked or unlinked
+    // commitment shouldn't stomp the /issues route cache.
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ issue_id: null }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ deleted_at: "2026-08-17T10:00:00Z" }),
+      error: null,
+    });
+
+    await deleteCommitmentAction("c_1");
+
+    const revalidatedPaths = mocks.revalidatePath.mock.calls.map(
+      (c) => c[0] as string
+    );
+    expect(revalidatedPaths).not.toContain("/issues");
+  });
 });
