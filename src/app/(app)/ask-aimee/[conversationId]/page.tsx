@@ -7,11 +7,41 @@ import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 
 type PageProps = {
   params: Promise<{ conversationId: string }>;
+  searchParams: Promise<{ from?: string }>;
 };
 
-export default async function AskAimeeChatPage({ params }: PageProps) {
+const SAFE_FROM_PREFIXES = ["/classroom", "/chart", "/dashboard"];
+
+function backLinkForFrom(from: string | undefined): {
+  href: string;
+  label: string;
+} {
+  const trimmed = from?.trim();
+  if (
+    trimmed &&
+    trimmed.startsWith("/") &&
+    SAFE_FROM_PREFIXES.some((prefix) => trimmed.startsWith(prefix))
+  ) {
+    if (trimmed.startsWith("/classroom")) {
+      return { href: trimmed, label: "Back to Classroom" };
+    }
+    if (trimmed.startsWith("/chart")) {
+      return { href: trimmed, label: "Back to Functional Chart" };
+    }
+    if (trimmed.startsWith("/dashboard")) {
+      return { href: trimmed, label: "Back to Dashboard" };
+    }
+  }
+  return { href: "/ask-aimee", label: "All conversations" };
+}
+
+export default async function AskAimeeChatPage({
+  params,
+  searchParams,
+}: PageProps) {
   const session = await requireProfile();
   const { conversationId } = await params;
+  const { from } = await searchParams;
 
   const conversation = await getConversation(conversationId);
   if (!conversation) notFound();
@@ -34,10 +64,11 @@ export default async function AskAimeeChatPage({ params }: PageProps) {
   // context builder) but no longer surfaced in the UI.
   const practice = findPractice(conversation.practice_id);
 
+  const back = backLinkForFrom(from);
   return (
     <PageShell
-      backHref="/ask-aimee"
-      backLabel="All conversations"
+      backHref={back.href}
+      backLabel={back.label}
       eyebrow="Coaching"
       title={practice ? practice.title : "Ask Aimee"}
     >

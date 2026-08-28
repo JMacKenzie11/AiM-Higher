@@ -146,18 +146,20 @@ function renderText(node: JSONContent, key: string): React.ReactNode {
         const attrs = (mark as { attrs?: { href?: string } }).attrs;
         const href = attrs?.href;
         if (href) {
-          // Explicit class so the anchor picks up its own style
-          // in the CSS module — the ancestor selector .prose a was
-          // still being clobbered by the global `a { text-decoration:
-          // none }` in globals.css despite higher specificity (some
-          // combination of CSS module load order and browser
-          // resolution). A dedicated class is deterministic.
+          // Internal links stay in the same tab so the app doesn't
+          // splinter into browser tabs on every classroom reference.
+          // External links (a partner doc, a spec on another site)
+          // still open in a new tab because losing the reader's
+          // place in the section for an external hop is worse than
+          // an extra tab.
+          const isInternal = isInternalHref(href);
           element = (
             <a
               href={href}
-              target="_blank"
-              rel="noopener noreferrer"
               className={styles.link}
+              {...(isInternal
+                ? {}
+                : { target: "_blank", rel: "noopener noreferrer" })}
             >
               {element}
             </a>
@@ -171,6 +173,31 @@ function renderText(node: JSONContent, key: string): React.ReactNode {
   }
   return <span key={key}>{element}</span>;
 }
+
+// Classify a link href as internal (this app) or external (elsewhere).
+// Relative URLs and links that name the app's own hostname are
+// internal — everything else is external. The bare "aims-hq.com" +
+// "www.aims-hq.com" pair is hardcoded because the reader render runs
+// server-side and doesn't have window.location; if the app ever moves
+// hosts, add the new hostname here.
+function isInternalHref(href: string): boolean {
+  const trimmed = href.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return true;
+  if (trimmed.startsWith("#") || trimmed.startsWith("?")) return true;
+  try {
+    const url = new URL(trimmed);
+    return INTERNAL_HOSTS.has(url.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+const INTERNAL_HOSTS = new Set([
+  "aims-hq.com",
+  "www.aims-hq.com",
+  "localhost",
+]);
 
 function alignStyle(node: JSONContent): React.CSSProperties | undefined {
   const align = node.attrs?.textAlign as "left" | "center" | "right" | undefined;

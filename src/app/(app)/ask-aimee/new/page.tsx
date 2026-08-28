@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getScopedCompanyId } from "@/lib/admin/scope";
@@ -19,12 +20,47 @@ import { PageShell } from "@/components/ui/PageShell";
 // without an assignment to the scoped company also land here.
 
 type PageProps = {
-  searchParams: Promise<{ practice?: string }>;
+  searchParams: Promise<{ practice?: string; from?: string }>;
 };
+
+// Allowlist of URL prefixes we're willing to preserve as a "from"
+// context. Prevents an open redirect via a hostile ?from=<external>
+// value; only in-app paths can propagate as the back destination.
+const SAFE_FROM_PREFIXES = ["/classroom", "/chart", "/dashboard"];
+
+function normalizeFrom(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  return SAFE_FROM_PREFIXES.some((prefix) => raw.startsWith(prefix))
+    ? raw
+    : null;
+}
+
+// Extract a safe in-app path from the Referer header. Only lets the
+// referer through when it points at one of our own SAFE_FROM_PREFIXES
+// paths — anything cross-origin or off-list is dropped so a stray
+// external referer can't ride the back-link contract.
+async function fromFromReferer(): Promise<string | null> {
+  const h = await headers();
+  const referer = h.get("referer");
+  if (!referer) return null;
+  try {
+    const url = new URL(referer);
+    return normalizeFrom(url.pathname + url.search + url.hash);
+  } catch {
+    return null;
+  }
+}
 
 export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const practiceId = params.practice;
+  // Prefer an explicit ?from= param when present, fall back to
+  // the Referer header for the common case where a classroom
+  // section links straight at /ask-aimee/new?practice=X without
+  // knowing what the current URL was.
+  const from =
+    normalizeFrom(params.from) ?? (await fromFromReferer());
 
   if (!practiceId) {
     redirect("/ask-aimee");
@@ -70,7 +106,13 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
     return notAvailable(`Couldn't start that practice: ${message}`);
   }
 
-  redirect(`/ask-aimee/${conversationId}`);
+  // Carry the sanitized `from` through to the chat so the back
+  // link points back to where the leader came from (usually a
+  // classroom section that hosted the practice link).
+  const target = from
+    ? `/ask-aimee/${conversationId}?from=${encodeURIComponent(from)}`
+    : `/ask-aimee/${conversationId}`;
+  redirect(target);
 }
 
 function notAvailable(message: string) {
