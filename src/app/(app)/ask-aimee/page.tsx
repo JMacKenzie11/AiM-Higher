@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth/current-user";
+import { getScopedCompanyId } from "@/lib/admin/scope";
 import { listGeneralConversationsForUser } from "@/lib/coach/service";
 import { PageShell } from "@/components/ui/PageShell";
 import { PracticeCards } from "@/components/practices/PracticeCards";
 import { PRACTICES, findPractice } from "@/lib/practices/registry";
+import { practiceRoleGate } from "@/lib/practices/gate";
 import { AskAimeeNewButton } from "./AskAimeeNewButton";
 import { ArchiveConversationButton } from "../coach/[profileId]/ArchiveConversationButton";
 import styles from "../coach/coach.module.css";
@@ -24,13 +26,27 @@ export default async function AskAimeePage() {
   const session = await requireProfile();
   const conversations = await listGeneralConversationsForUser(session.profile.id);
 
+  // Role-gated practices are hidden from ineligible callers so the
+  // landing list doesn't show cards the launcher would reject. The
+  // launcher still enforces the gate — this is UX polish, not the
+  // security boundary.
+  let companyId: string | null = session.profile.company_id;
+  if (!companyId && session.profile.role === "system_admin") {
+    companyId = await getScopedCompanyId();
+  }
+  const visiblePractices = PRACTICES.filter((p) => {
+    if (!p.allowedRoles) return true;
+    if (!companyId) return false;
+    return practiceRoleGate(p, session.profile, companyId).ok;
+  });
+
   return (
     <PageShell
       eyebrow="Coaching"
       title="Ask Aimee"
       subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Your Ask Aimee conversations are visible only to you."
     >
-      <PracticeCards practices={PRACTICES} />
+      <PracticeCards practices={visiblePractices} />
 
       <div className={styles.card} style={{ marginTop: "var(--space-6)" }}>
         {/* Reuse .listActions so the top strip carries the same
