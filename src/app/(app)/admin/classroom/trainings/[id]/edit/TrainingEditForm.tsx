@@ -34,7 +34,14 @@ export function TrainingEditForm({
   function save() {
     setMessage(null);
     startTransition(async () => {
-      const result = await updateTrainingAction(training.id, form);
+      // Also send body_json as a JSON string. Next.js 15 server-
+      // action structured-clone serialization was dropping link
+      // mark attrs during wire transfer for objects; strings
+      // survive intact and the server JSON.parses them back.
+      const result = await updateTrainingAction(training.id, {
+        ...form,
+        body_json_string: JSON.stringify(form.body_json),
+      });
       if (result.ok) {
         setMessage({ ok: true, text: "Section saved." });
         router.refresh();

@@ -253,26 +253,32 @@ export async function createTrainingAction(
 
 export async function updateTrainingAction(
   id: string,
-  input: TrainingInput
+  input: TrainingInput & { body_json_string?: string }
 ): Promise<ActionResult> {
   await requireRole(["system_admin"]);
   const title = input.title.trim();
   if (!title) return { ok: false, message: "Give the section a title." };
   const slug = input.slug?.trim() || slugify(title);
 
-  // Diagnostic — shows what body_json actually arrives from the
-  // wire. If the link mark loses its attrs.href in transit, this
-  // log will show the mark shape BEFORE sanitize runs so we can
-  // tell the difference between "client didn't send href" and
-  // "sanitize stripped it". Delete once the link flow is stable.
-  try {
-    console.log(
-      "[updateTraining] incoming body_json:\n" +
-        JSON.stringify(input.body_json, null, 2)
-    );
-  } catch (e) {
-    console.log("[updateTraining] body_json JSON.stringify threw", e);
+  // Prefer body_json_string (a plain JSON string of the doc) over
+  // body_json (a structured object) — Next.js 15's server-action
+  // serialization was silently dropping the link mark's attrs.href
+  // during wire transfer for the object form. A string round-trips
+  // byte-for-byte and my server-side JSON.parse restores the full
+  // shape. Falls back to body_json when a caller hasn't been
+  // updated to send the string variant.
+  let bodyJson = input.body_json;
+  if (typeof input.body_json_string === "string") {
+    try {
+      bodyJson = JSON.parse(input.body_json_string);
+    } catch (e) {
+      console.error("[updateTraining] body_json_string parse failed", e);
+    }
   }
+  console.log(
+    "[updateTraining] final body_json (after string parse):\n" +
+      JSON.stringify(bodyJson, null, 2)
+  );
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
@@ -281,7 +287,7 @@ export async function updateTrainingAction(
       title,
       slug,
       lesson_id: input.lesson_id,
-      body_json: sanitizeBodyJson(input.body_json),
+      body_json: sanitizeBodyJson(bodyJson),
       published: input.published,
       updated_at: new Date().toISOString(),
     })
