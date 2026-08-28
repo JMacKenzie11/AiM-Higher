@@ -291,7 +291,14 @@ export async function deleteCompanyAction(
       companyId,
       supabaseError: error,
     });
-    return { ok: false, message: "Couldn't delete that company." };
+    // Temporary: surface the raw Postgres error so we can see WHAT is
+    // failing (missing column, RLS block, trigger failure, etc.).
+    // Swap back to a generic "Couldn't delete that company." once the
+    // root cause is fixed.
+    return {
+      ok: false,
+      message: `Delete failed: ${error.message ?? "unknown error"} (code ${error.code ?? "?"})`,
+    };
   }
 
   revalidatePath("/admin/companies");
