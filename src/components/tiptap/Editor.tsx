@@ -4,24 +4,16 @@ import { useEditor, EditorContent, type Editor, type JSONContent } from "@tiptap
 import StarterKit from "@tiptap/starter-kit";
 import { TextSelection } from "@tiptap/pm/state";
 import { useEffect, useRef, useState } from "react";
-import LinkExtension from "@tiptap/extension-link";
 import { VideoEmbed } from "./nodes/VideoEmbed";
 import { ImageEmbed } from "./nodes/ImageEmbed";
 import { TextAlign } from "./extensions/TextAlign";
 
-// Configure the official Link mark: open in a new tab, keep on
-// paste, allow http/https/mailto only. Custom scheme validation
-// stays defensive against javascript: URLs.
-const Link = LinkExtension.configure({
-  openOnClick: false,
-  autolink: true,
-  linkOnPaste: true,
-  HTMLAttributes: {
-    target: "_blank",
-    rel: "noopener noreferrer",
-  },
-  protocols: ["http", "https", "mailto"],
-});
+// Link is included by StarterKit v3 — we configure it via the
+// starter kit's `link` option below rather than importing
+// @tiptap/extension-link separately. Registering both creates a
+// duplicate-name conflict ("[tiptap warn] Duplicate extension
+// names found: ['link']") which quietly broke setLink so the
+// mark landed with no href attribute.
 import { parseVideoUrl } from "@/lib/classroom/video-url";
 import { uploadClassroomImageAction } from "@/lib/classroom/actions";
 import styles from "./Editor.module.css";
@@ -51,7 +43,23 @@ export function TipTapEditor({
 }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const editor = useEditor({
-    extensions: [StarterKit, VideoEmbed, ImageEmbed, Link, TextAlign],
+    extensions: [
+      StarterKit.configure({
+        link: {
+          openOnClick: false,
+          autolink: true,
+          linkOnPaste: true,
+          HTMLAttributes: {
+            target: "_blank",
+            rel: "noopener noreferrer",
+          },
+          protocols: ["http", "https", "mailto"],
+        },
+      }),
+      VideoEmbed,
+      ImageEmbed,
+      TextAlign,
+    ],
     content: initial ?? emptyDoc(),
     onUpdate: ({ editor }) => {
       onChange(editor.getJSON());
@@ -241,23 +249,6 @@ function Toolbar({
     } else {
       ok = editor.commands.setLink({ href: trimmed });
     }
-    // eslint-disable-next-line no-console
-    console.log("[link] applyLink", {
-      capturedRange: range,
-      normalizedRange: { from, to },
-      selectionAfterDispatch: {
-        from: editor.state.selection.from,
-        to: editor.state.selection.to,
-      },
-      href: trimmed,
-      ok,
-    });
-    // Separately, stringified so it copy-pastes as plain text
-    // instead of collapsing to Object in Safari's console.
-    // eslint-disable-next-line no-console
-    console.log(
-      "[link] applyLink resultJson\n" + JSON.stringify(editor.getJSON(), null, 2)
-    );
     if (!ok) {
       onUploadError(
         "That URL doesn't look right. Use https://, http://, or a mailto: address."
