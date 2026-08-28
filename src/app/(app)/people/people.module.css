@@ -144,13 +144,7 @@
 }
 
 .emptyLine {
-  margin: 0;
-  padding: var(--space-4);
-  background: var(--aims-navy-tint);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font: var(--text-body);
-  font-style: italic;
+  composes: emptyLine from "../../../components/ui/ui.module.css";
 }
 
 /* ---- Person scorecard stats ---- */
@@ -457,7 +451,7 @@
   margin: var(--space-2) 0 0 auto;
   padding: var(--space-1) var(--space-2);
   font: var(--text-caption);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);

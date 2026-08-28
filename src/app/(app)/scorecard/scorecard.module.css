@@ -150,10 +150,10 @@
 
 .card {
   background: var(--aims-white);
-  border: 1px solid var(--aims-line-muted, #e4e4e7);
-  border-radius: var(--radius-lg, 16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
-  box-shadow: var(--shadow-card, 0 2px 12px rgba(15, 23, 42, 0.05));
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -176,7 +176,7 @@
 .cardTitle {
   margin: 0;
   font: var(--text-h3);
-  color: var(--aims-ink);
+  color: var(--text-heading);
 }
 
 /* Info affordance next to the card title. Muted circle-with-i icon
@@ -192,7 +192,7 @@
   background: transparent;
   border: none;
   border-radius: 50%;
-  color: var(--aims-ink-muted, #71717a);
+  color: var(--text-muted);
   cursor: help;
   transition: color var(--duration-fast) var(--ease-out),
     background var(--duration-fast) var(--ease-out);
@@ -200,14 +200,14 @@
 
 .infoTip:hover,
 .infoTip:focus-visible {
-  color: var(--primary, #3551A4);
-  background: var(--aims-cobalt-tint, #EBEFF9);
+  color: var(--primary);
+  background: var(--aims-cobalt-tint);
   outline: none;
 }
 
 .cardBlurb {
   margin: 0;
-  color: var(--aims-ink-muted, #52525b);
+  color: var(--text-muted);
   font: var(--text-body);
 }
 
@@ -230,18 +230,18 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  border-top: 1px dashed var(--aims-line-muted, #e4e4e7);
+  border-top: 1px dashed var(--border);
   padding-top: var(--space-2);
 }
 
 .breakdown li {
-  color: var(--aims-ink-muted, #52525b);
+  color: var(--text-muted);
   font: var(--text-body);
 }
 
 .breakdownMuted {
   margin: var(--space-2) 0 0;
-  color: var(--aims-ink-muted, #71717a);
+  color: var(--text-muted);
   font: var(--text-body);
   font-style: italic;
 }
@@ -264,25 +264,25 @@
 }
 
 .pillMuted {
-  background: var(--aims-line-muted, #e4e4e7);
-  color: var(--aims-ink-muted, #71717a);
+  background: var(--border);
+  color: var(--text-muted);
   font-weight: 500;
   font-size: 0.8rem;
 }
 
 .pillGood {
-  background: var(--aims-good-bg, #dcfce7);
-  color: var(--aims-good-fg, #166534);
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
 }
 
 .pillMid {
-  background: var(--aims-warn-bg, #fef3c7);
-  color: var(--aims-warn-fg, #854d0e);
+  background: var(--aims-warning-tint);
+  color: var(--aims-warning);
 }
 
 .pillLow {
-  background: var(--aims-bad-bg, #fee2e2);
-  color: var(--aims-bad-fg, #991b1b);
+  background: var(--aims-danger-tint);
+  color: var(--aims-danger);
 }
 
 /* Trend chip — arrow + delta vs prior. Colour follows direction. */
@@ -300,29 +300,29 @@
 
 /* Inside the light cards, override to a subtle grey chip. */
 .card .trendChip {
-  background: var(--aims-line-muted, #f4f4f5);
-  color: var(--aims-ink-muted, #52525b);
+  background: var(--border);
+  color: var(--text-muted);
 }
 
 .trendUp {
-  background: var(--aims-good-bg, #dcfce7) !important;
-  color: var(--aims-good-fg, #166534) !important;
+  background: var(--aims-success-tint) !important;
+  color: var(--aims-success) !important;
 }
 
 .trendDown {
-  background: var(--aims-bad-bg, #fee2e2) !important;
-  color: var(--aims-bad-fg, #991b1b) !important;
+  background: var(--aims-danger-tint) !important;
+  color: var(--aims-danger) !important;
 }
 
 .trendFlat {
-  background: var(--aims-line-muted, #f4f4f5) !important;
-  color: var(--aims-ink-muted, #52525b) !important;
+  background: var(--border) !important;
+  color: var(--text-muted) !important;
 }
 
 .cardCta {
   margin-top: auto;
   padding-top: var(--space-2);
-  color: var(--primary, #3551A4);
+  color: var(--primary);
   font: var(--text-body);
   font-weight: 600;
   text-decoration: none;
@@ -338,13 +338,13 @@
    section is the "who specifically" drill for people who want it. */
 .issues {
   margin-top: var(--space-2);
-  border-top: 1px dashed var(--aims-line-muted, #e4e4e7);
+  border-top: 1px dashed var(--border);
   padding-top: var(--space-2);
 }
 
 .issuesSummary {
   cursor: pointer;
-  color: var(--aims-ink, #18181b);
+  color: var(--text);
   font: var(--text-body);
   font-weight: 600;
   padding: 0;
@@ -352,7 +352,7 @@
 }
 
 .issuesSummary:hover {
-  color: var(--primary, #3551A4);
+  color: var(--primary);
 }
 
 .issuesList {
@@ -369,30 +369,30 @@
   align-items: baseline;
   gap: 0.5rem;
   flex-wrap: wrap;
-  color: var(--aims-ink-muted, #52525b);
+  color: var(--text-muted);
   font: var(--text-body);
 }
 
 .issuesName {
   font-weight: 600;
-  color: var(--aims-ink, #18181b);
+  color: var(--text);
 }
 
 .issuesMissing {
-  color: var(--aims-ink-muted, #71717a);
+  color: var(--text-muted);
   font-size: 0.9em;
 }
 
 .issuesMore {
   margin: var(--space-2) 0 0;
-  color: var(--aims-ink-muted, #71717a);
+  color: var(--text-muted);
   font: var(--text-body);
   font-style: italic;
 }
 
 .footer {
   margin: var(--space-6) 0 0;
-  color: var(--aims-ink-muted, #71717a);
+  color: var(--text-muted);
   font-size: 0.8rem;
   text-align: center;
 }

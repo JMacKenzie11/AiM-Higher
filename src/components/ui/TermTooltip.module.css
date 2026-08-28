@@ -7,7 +7,7 @@
 
 .wrap:focus-visible {
   border-radius: 3px;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .term {

@@ -280,14 +280,14 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  background: var(--aims-chartreuse, #d5e04a);
-  color: var(--aims-navy, #142647);
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
   border-radius: 999px;
   font-size: 10px;
   font-weight: 700;
   line-height: 16px;
   text-align: center;
-  box-shadow: 0 0 0 2px var(--aims-navy, #142647);
+  box-shadow: 0 0 0 2px var(--aims-navy);
 }
 
 .bellMenu {

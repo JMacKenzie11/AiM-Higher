@@ -387,11 +387,11 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--aims-chartreuse, #b5e453) 30%,
-    var(--aims-chartreuse, #b5e453) 70%,
+    var(--aims-chartreuse) 30%,
+    var(--aims-chartreuse) 70%,
     transparent 100%
   );
-  box-shadow: 0 0 12px var(--aims-chartreuse, #b5e453);
+  box-shadow: 0 0 12px var(--aims-chartreuse);
   animation: hqProgressSweep 1.6s ease-in-out infinite;
 }
 
@@ -412,8 +412,8 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--aims-chartreuse, #b5e453);
-  box-shadow: 0 0 8px var(--aims-chartreuse, #b5e453);
+  background: var(--aims-chartreuse);
+  box-shadow: 0 0 8px var(--aims-chartreuse);
   animation: hqDotPulse 1.2s ease-in-out infinite;
 }
 
@@ -438,11 +438,11 @@
      as a distinct sweeping band, not a wash. */
   background: linear-gradient(
     90deg,
-    var(--surface-alt, #eef2f7) 0%,
-    var(--surface-alt, #eef2f7) 25%,
-    var(--aims-chartreuse-tint, #e8f5c8) 45%,
-    var(--surface-alt, #eef2f7) 65%,
-    var(--surface-alt, #eef2f7) 100%
+    var(--aims-navy-tint) 0%,
+    var(--aims-navy-tint) 25%,
+    var(--aims-chartreuse-tint) 45%,
+    var(--aims-navy-tint) 65%,
+    var(--aims-navy-tint) 100%
   );
   background-size: 200% 100%;
   animation: hqShimmer 1.4s linear infinite;
@@ -465,12 +465,12 @@
     animation: none;
   }
   .skeletonBar {
-    background: var(--surface-alt, #eef2f7);
+    background: var(--aims-navy-tint);
   }
   .progressLineFill {
     /* Static bar at ~30% width as the reduced-motion cue. */
     width: 30%;
-    background: var(--aims-chartreuse, #b5e453);
+    background: var(--aims-chartreuse);
     box-shadow: none;
   }
 }

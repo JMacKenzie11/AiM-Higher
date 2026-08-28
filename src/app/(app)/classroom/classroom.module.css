@@ -214,13 +214,7 @@
 }
 
 .emptyLine {
-  margin: 0;
-  padding: var(--space-4);
-  background: var(--aims-navy-tint);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font: var(--text-body);
-  font-style: italic;
+  composes: emptyLine from "../../../components/ui/ui.module.css";
 }
 
 /* ---- Lesson detail — list of trainings with thumbnails ---- */

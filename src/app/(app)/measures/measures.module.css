@@ -194,7 +194,7 @@
 .scoreboardInput:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .scoreboardInput_good {
@@ -318,7 +318,7 @@
 }
 
 .chipButton:hover {
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .chipButtonActive {
@@ -469,7 +469,7 @@
 
 .outcomeTitleInput:focus {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .outcomeDescription {
@@ -720,7 +720,7 @@
   outline: none;
   border-style: solid;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 /* Narrower screens: collapse the recent + status columns so the

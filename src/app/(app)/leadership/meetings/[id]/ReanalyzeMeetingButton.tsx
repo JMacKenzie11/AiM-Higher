@@ -71,8 +71,8 @@ export function ReanalyzeMeetingButton({ meetingId }: { meetingId: string }) {
             fontSize: "13px",
             color:
               status === "ok"
-                ? "var(--aims-success, #166534)"
-                : "var(--aims-danger, #991b1b)",
+                ? "var(--aims-success)"
+                : "var(--aims-danger)",
           }}
         >
           {message}

@@ -24,8 +24,8 @@
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: var(--primary, #0057ff);
-  color: var(--aims-white, #ffffff);
+  background: var(--primary);
+  color: var(--aims-white);
   font-size: 22px;
   font-weight: 700;
   line-height: 1;
@@ -49,7 +49,7 @@
 .panel {
   width: min(380px, calc(100vw - 40px));
   max-height: min(560px, calc(100vh - 120px));
-  background: var(--surface, #ffffff);
+  background: var(--surface);
   border: 1px solid var(--border, rgba(20, 38, 71, 0.12));
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(20, 38, 71, 0.15);
@@ -64,19 +64,19 @@
   justify-content: space-between;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border, rgba(20, 38, 71, 0.08));
-  background: var(--surface-muted, rgba(20, 38, 71, 0.03));
+  background: var(--aims-navy-tint));
 }
 
 .panelTitle {
   font-weight: 700;
   font-size: 15px;
-  color: var(--fg, #142647);
+  color: var(--text-heading);
 }
 
 .closeButton {
   background: transparent;
   border: none;
-  color: var(--muted, #647388);
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 20px;
   line-height: 1;
@@ -85,7 +85,7 @@
 }
 
 .closeButton:hover {
-  color: var(--fg, #142647);
+  color: var(--text-heading);
   background: rgba(20, 38, 71, 0.05);
 }
 
@@ -93,16 +93,16 @@
   padding: 16px;
   overflow-y: auto;
   font-size: 14px;
-  color: var(--fg, #142647);
+  color: var(--text-heading);
 }
 
 .muted {
-  color: var(--muted, #647388);
+  color: var(--text-muted);
   margin: 0;
 }
 
 .error {
-  color: var(--aims-danger, #c0392b);
+  color: var(--aims-danger);
   margin: 0;
 }
 
@@ -113,7 +113,7 @@
 .prose h1,
 .prose h2,
 .prose h3 {
-  color: var(--fg, #142647);
+  color: var(--text-heading);
   font-weight: 700;
   line-height: 1.25;
   margin-top: 14px;
@@ -147,5 +147,5 @@
 }
 
 .prose a {
-  color: var(--primary, #0057ff);
+  color: var(--primary);
 }

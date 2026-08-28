@@ -166,8 +166,8 @@
 }
 
 .chip-primary { background: var(--aims-cobalt-tint); color: var(--primary); }
-.chip-sky { background: color-mix(in srgb, var(--aims-sky, #7dc3f0) 25%, transparent); color: var(--text); }
-.chip-warning { background: color-mix(in srgb, var(--aims-warning, #f0b442) 25%, transparent); color: var(--text); }
+.chip-sky { background: color-mix(in srgb, var(--aims-sky) 25%, transparent); color: var(--text); }
+.chip-warning { background: color-mix(in srgb, var(--aims-warning) 25%, transparent); color: var(--text); }
 .chip-muted { background: var(--aims-navy-tint); color: var(--text-muted); }
 
 /* ---- Buttons ---- */
@@ -222,7 +222,7 @@ textarea.input {
 .input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 /* ---- Form grid ---- */
@@ -288,7 +288,7 @@ textarea.input {
 }
 
 .bar-competence { background: var(--aims-cobalt, var(--primary)); }
-.bar-energy { background: var(--aims-sky, #7dc3f0); }
+.bar-energy { background: var(--aims-sky); }
 
 .progress {
   height: 6px;

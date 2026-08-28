@@ -33,7 +33,7 @@
 
 .btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .btnPrimary {
@@ -141,3 +141,60 @@
 .coachButton {
   composes: btn btnPrimary btnSm;
 }
+
+/* ---- Empty state --------------------------------------------------
+   Canonical "no rows yet" line. Every page used to hand-roll this
+   with its own padding / font / margin drift; forcing convergence
+   here means an empty state on /commitments reads exactly like one
+   on /plan or /people. Callers that need a variant should override
+   locally with intent (e.g. `.emptyLineCompact` in that module). */
+
+.emptyLine {
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  text-align: center;
+  margin: 0;
+}
+
+/* ---- Hover vocabulary (documentation) ----------------------------
+   Reference rules for hover states across the app. Not enforced by
+   the compiler — they're conventions to check new work against so
+   the palette stays consistent instead of drifting to whatever tint
+   the author reached for first.
+
+   ROW hover (list rows that have their own editable cells inside):
+     no row-level tint. The row stays quiet at rest so the cell-level
+     dashed borders can carry the affordance. See /commitments .row
+     and /issues .issueRow for the canonical shape.
+
+   BUTTON hover:
+     primary → background: var(--primary-hover)
+     ghost   → background: var(--aims-navy-tint); border promotes to
+               var(--border-strong)
+     danger  → background: var(--aims-danger-tint); border promotes to
+               var(--aims-danger)
+
+   EDITABLE-CELL hover (dashed-border-strong at rest → active on hover):
+     background: var(--aims-navy-tint)
+     border-color: var(--primary)
+     Applied to .descriptionEditable, .rowOwnerButton, .rowDueButton
+     on /commitments and their /issues siblings.
+
+   ICON-ONLY DELETE hover:
+     color: var(--aims-danger)
+     background: var(--aims-danger-tint)
+     border-color: color-mix(in srgb, var(--aims-danger) 30%, transparent)
+
+   NAV-STYLE PILL hover (secondary tabs, filter pills):
+     background: var(--aims-cobalt-tint); color: var(--primary)
+     See /plan .quarterPill and /ask-aimee tabs for examples.
+
+   NAVY-TINT vs COBALT-TINT — quick rule:
+     navy-tint (grey-blue neutral) → hover state that says "I'm
+       clickable but nothing special"; used for row hovers, ghost
+       buttons, editable cells.
+     cobalt-tint (cool blue) → hover state that says "this is a
+       navigation / selection affordance"; used for nav pills, tabs,
+       info chips, calls to action that aren't the primary button.
+*/

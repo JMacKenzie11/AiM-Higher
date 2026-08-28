@@ -26,9 +26,7 @@
 }
 
 .emptyLine {
-  color: var(--text-muted);
-  font: var(--text-body);
-  margin: 0;
+  composes: emptyLine from "../../../components/ui/ui.module.css";
 }
 
 /* ---- Column header row --------------------------------------- */
@@ -198,7 +196,7 @@
 
 .issueTitleEditable:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .issueTitleInput {
@@ -209,7 +207,7 @@
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
   width: 100%;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .issueTitleInput:focus {
@@ -263,7 +261,7 @@
 
 .wantEditable:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .wantMuted {
@@ -283,7 +281,7 @@
   resize: vertical;
   min-height: calc(var(--control-h-md) * 1.5);
   line-height: 1.4;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .wantInput:focus {
@@ -361,7 +359,7 @@
   outline: none;
   border-style: solid;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .commitmentAddSelect,
@@ -381,7 +379,7 @@
   outline: none;
   border-style: solid;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 /* Column: Delete (trash icon) — admin/guide-only, sits left of
@@ -414,7 +412,7 @@
 
 .deleteButton:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .deleteButton:disabled {
@@ -458,7 +456,7 @@
 
 .resolveButton:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .resolvePlaceholder {

@@ -372,7 +372,7 @@ function MeasureCard({
                 fontSize: "13px",
                 color:
                   tone === "amber"
-                    ? "var(--aims-warning, #b78103)"
+                    ? "var(--aims-warning)"
                     : "var(--text-muted)",
               }}
             >

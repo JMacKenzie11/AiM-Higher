@@ -449,7 +449,7 @@ export function CommitmentRow({
               right: -2,
               fontSize: 10,
               lineHeight: 1,
-              background: "var(--aims-white, #fff)",
+              background: "var(--aims-white)",
               borderRadius: "50%",
               padding: "1px 2px",
             }}

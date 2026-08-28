@@ -277,7 +277,7 @@
 .select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .submitRow {
@@ -402,21 +402,15 @@
   grid-column: 1 / -1;
   margin: 0;
   padding: var(--space-3);
-  background: color-mix(in srgb, var(--aims-warning, #f0b442) 18%, transparent);
-  border-left: 3px solid var(--aims-warning, #f0b442);
+  background: color-mix(in srgb, var(--aims-warning) 18%, transparent);
+  border-left: 3px solid var(--aims-warning);
   border-radius: var(--radius-sm);
   font: var(--text-body-sm);
   color: var(--text);
 }
 
 .emptyLine {
-  margin: 0;
-  padding: var(--space-4);
-  background: var(--aims-navy-tint);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font: var(--text-body);
-  font-style: italic;
+  composes: emptyLine from "../../../../components/ui/ui.module.css";
 }
 
 /* ---- Table ---- */
@@ -620,7 +614,7 @@
   margin: var(--space-2) 0 0 auto;
   padding: var(--space-1) var(--space-2);
   font: var(--text-caption);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -767,7 +761,7 @@
   margin-left: var(--space-2);
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
-  background: var(--surface-alt, #eef2ff);
+  background: var(--aims-navy-tint);
   color: var(--text-muted);
   font: var(--text-caption);
   font-weight: 600;

@@ -119,7 +119,7 @@
 
 .heroStat:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 /* Rendered via React portal to document.body so it escapes every
@@ -621,13 +621,7 @@
 }
 
 .emptyLine {
-  margin: 0;
-  padding: var(--space-4);
-  background: var(--aims-navy-tint);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font: var(--text-body);
-  font-style: italic;
+  composes: emptyLine from "../../../components/ui/ui.module.css";
 }
 
 .inlineLink {

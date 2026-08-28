@@ -95,11 +95,7 @@
 }
 
 .emptyLine {
-  padding: var(--space-6);
-  text-align: center;
-  color: var(--text-muted);
-  font: var(--text-body);
-  margin: 0;
+  composes: emptyLine from "../../../components/ui/ui.module.css";
 }
 
 /* Each conversation is its own card. Hover lifts it slightly and
@@ -258,7 +254,7 @@
 .chatHeaderTitleInput:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .thread {
@@ -335,7 +331,7 @@
   background: var(--aims-navy-tint);
   padding: 0 4px;
   border-radius: 3px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-family: var(--font-mono);
   font-size: 0.9em;
 }
 
@@ -460,7 +456,7 @@
 .composerInput:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .sendButton {

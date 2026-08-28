@@ -33,7 +33,7 @@ export function Sparkline({
           y1={height / 2}
           x2={width}
           y2={height / 2}
-          stroke="var(--aims-line-muted, #d4d4d8)"
+          stroke="var(--border)"
           strokeDasharray="2 3"
         />
       </svg>
@@ -88,7 +88,7 @@ export function Sparkline({
         y1={yFor(5)}
         x2={width}
         y2={yFor(5)}
-        stroke="var(--aims-line-muted, #e4e4e7)"
+        stroke="var(--border)"
         strokeDasharray="1 3"
         strokeWidth={1}
       />
@@ -97,7 +97,7 @@ export function Sparkline({
           key={i}
           d={d}
           fill="none"
-          stroke="var(--primary, #3551A4)"
+          stroke="var(--primary)"
           strokeWidth={1.75}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -108,7 +108,7 @@ export function Sparkline({
           cx={lastX}
           cy={lastY}
           r={2.5}
-          fill="var(--primary, #3551A4)"
+          fill="var(--primary)"
         />
       ) : null}
     </svg>

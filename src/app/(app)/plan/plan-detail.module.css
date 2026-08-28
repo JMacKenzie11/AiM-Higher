@@ -71,11 +71,7 @@
 }
 
 .emptyLine {
-  margin: 0;
-  padding: var(--space-3) 0;
-  color: var(--text-muted);
-  font: var(--text-body-sm);
-  font-style: italic;
+  composes: emptyLine from "../../../components/ui/ui.module.css";
 }
 
 /* ---- Forms ---- */
@@ -134,7 +130,7 @@
 .textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .primaryButton {
@@ -239,7 +235,7 @@
 
 .editLink:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .editLink:disabled {
@@ -268,7 +264,7 @@
 
 .archiveLink:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .archiveLink:disabled {
@@ -291,7 +287,7 @@
 .inlineTitleInput:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 /* ---- Status picker (owner-only path) ---- */

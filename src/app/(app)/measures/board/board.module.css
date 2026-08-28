@@ -127,9 +127,7 @@
 }
 
 .emptyLine {
-  font: var(--text-body);
-  color: var(--text-muted);
-  margin: 0;
+  composes: emptyLine from "../../../../components/ui/ui.module.css";
 }
 
 /* ---- Cockpit grid (view A) ----------------------------------- */

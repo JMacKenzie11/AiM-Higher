@@ -120,7 +120,7 @@
 
 .resetButton:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .resetButton:disabled {
@@ -451,11 +451,7 @@
 }
 
 .emptyLine {
-  margin: 0;
-  padding: var(--space-3);
-  color: var(--text-muted);
-  font: var(--text-body-sm);
-  font-style: italic;
+  composes: emptyLine from "../../../components/ui/ui.module.css";
 }
 
 /* ---- Orphan sections ---- */
@@ -597,7 +593,7 @@
 .textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .submitRow {

@@ -45,6 +45,7 @@
   --on-primary: var(--aims-white);
   --accent: var(--aims-chartreuse);
   --focus-ring: rgba(53, 81, 164, 0.5); /* opaque enough to survive dark input borders + 200% zoom */
+  --focus-ring-width: 3px; /* width of the box-shadow ring; centralized so a single tweak re-rings the whole app */
 
   /* ---- Surfaces & depth (1c "Bold Expressive" direction) ---- */
   --grad-brand: linear-gradient(135deg, #1F3352 0%, #2A4478 55%, #3551A4 100%); /* heroes, nav bands, report covers */
@@ -63,6 +64,7 @@
   /* ---- Typography ---- */
   --font-sans: "Inter", -apple-system, "Segoe UI", sans-serif;      /* headings, labels, buttons, numbers */
   --font-body: "Figtree", "Inter", -apple-system, sans-serif;       /* body & reading text */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; /* code snippets, tabular ids, secrets */
   /* Display: Extra Bold (800), tight tracking — hero statements on gradient bands */
   --text-display: 800 34px/1.15 var(--font-sans); /* + letter-spacing: -0.02em; white on gradient */
   --text-stat: 800 40px/1.1 var(--font-sans);     /* big stat numbers; + letter-spacing: -0.03em; tabular-nums */

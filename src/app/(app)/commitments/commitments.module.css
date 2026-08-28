@@ -123,7 +123,7 @@
 
 .filterPill:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .filterPillActive {
@@ -148,7 +148,7 @@
 
 .filterSelect:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 /* ---- Week groups ---- */
@@ -365,7 +365,7 @@
 
 .descriptionEditable:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .descriptionInput {
@@ -378,7 +378,7 @@
   border-radius: var(--radius-sm);
   font: var(--text-body);
   resize: vertical;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .descriptionInput:focus {
@@ -702,7 +702,7 @@
 
 .rowOwnerButton:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .rowOwnerButton:disabled {
@@ -804,7 +804,7 @@ a.fromMeetingChip:hover {
 
 .rowPriorityGhost:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .rowPriorityMuted {
@@ -850,7 +850,7 @@ a.fromMeetingChip:hover {
 
 .rowDueButton:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .rowDueButton:disabled {
@@ -917,7 +917,7 @@ a.fromMeetingChip:hover {
 
 .resolveCircle:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .resolveCircle:disabled {
@@ -993,7 +993,7 @@ a.fromMeetingChip:hover {
 
 .deleteRowButton:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .deleteRowButton:disabled {
@@ -1049,7 +1049,7 @@ a.fromMeetingChip:hover {
 
 .stripButton:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .stripButtonActive {
@@ -1080,7 +1080,7 @@ a.fromMeetingChip:hover {
 .stripTextarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .stripSubmitRow {
@@ -1118,7 +1118,7 @@ a.fromMeetingChip:hover {
 }
 .clarityDotButton:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 .clarityDotClear {
   color: var(--aims-success);
@@ -1152,14 +1152,14 @@ a.fromMeetingChip:hover {
   cursor: not-allowed;
 }
 .clarityBtnYes {
-  background: var(--aims-success, #2f9e44);
-  color: var(--aims-white, #ffffff);
-  border-color: var(--aims-success, #2f9e44);
+  background: var(--aims-success);
+  color: var(--aims-white);
+  border-color: var(--aims-success);
 }
 .clarityBtnNo {
-  background: var(--aims-warning, #e0a72c);
-  color: var(--aims-white, #ffffff);
-  border-color: var(--aims-warning, #e0a72c);
+  background: var(--aims-warning);
+  color: var(--aims-white);
+  border-color: var(--aims-warning);
 }
 .clarityBtnUnset {
   background: transparent;
@@ -1237,7 +1237,7 @@ a.fromMeetingChip:hover {
 
 .inlinePlaceholder:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
   border-radius: var(--radius-sm);
 }
 
@@ -1270,7 +1270,7 @@ a.fromMeetingChip:hover {
 .addField:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .addSubmit {
@@ -1332,7 +1332,7 @@ a.fromMeetingChip:hover {
 
 .summaryRow:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .summaryLabel {
@@ -1365,10 +1365,7 @@ a.fromMeetingChip:hover {
 }
 
 .emptyLine {
-  padding: var(--space-4);
-  color: var(--text-muted);
-  font: var(--text-body-sm);
-  text-align: center;
+  composes: emptyLine from "../../../components/ui/ui.module.css";
 }
 
 /* ---- Priority picker (searchable) ---- */
@@ -1404,7 +1401,7 @@ a.fromMeetingChip:hover {
 .pickerInput:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
 .pickerList {
