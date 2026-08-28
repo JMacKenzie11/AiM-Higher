@@ -617,13 +617,32 @@ function IssueCommitmentAddInline({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
+  // Blur-save: only submit when focus leaves the form entirely
+  // (not when the user tabs between description → owner → date).
+  // setTimeout defers the check by a tick so document.activeElement
+  // has settled on the NEW focus target — if it's still inside this
+  // form, we're just tabbing between fields and shouldn't submit.
+  const formId = `add-cmt-${issueId}`;
+  function maybeAutoSubmit() {
+    setTimeout(() => {
+      const active = document.activeElement;
+      const stillInForm =
+        active instanceof HTMLElement &&
+        (active.getAttribute("form") === formId ||
+          active.closest(`form[id="${formId}"]`) !== null);
+      if (stillInForm) return;
+      if (!description.trim() || pending) return;
+      formRef.current?.requestSubmit();
+    }, 0);
+  }
+
   return (
     <>
       <form
-        id={`add-cmt-${issueId}`}
+        id={formId}
         ref={formRef}
         action={formAction}
-        className={styles.commitmentAddForm}
+        className={styles.cellCommitment}
       >
         <input type="hidden" name="issue_id" value={issueId} />
         <input type="hidden" name="owner_id" value={ownerId} />
@@ -633,6 +652,7 @@ function IssueCommitmentAddInline({
           name="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          onBlur={maybeAutoSubmit}
           rows={1}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
@@ -649,13 +669,6 @@ function IssueCommitmentAddInline({
           disabled={pending}
           aria-label="New commitment"
         />
-        <button
-          type="submit"
-          className={styles.commitmentAddSubmit}
-          disabled={pending || !description.trim()}
-        >
-          {pending ? "Adding…" : "Add"}
-        </button>
         {errorMessage ? (
           <p role="alert" className={styles.rowError}>
             {errorMessage}
@@ -665,9 +678,10 @@ function IssueCommitmentAddInline({
       <div className={styles.cellOwner}>
         {isAdmin ? (
           <select
-            form={`add-cmt-${issueId}`}
+            form={formId}
             value={ownerId}
             onChange={(e) => setOwnerId(e.target.value)}
+            onBlur={maybeAutoSubmit}
             className={styles.commitmentAddSelect}
             disabled={pending}
             aria-label="Owner"
@@ -684,10 +698,11 @@ function IssueCommitmentAddInline({
       </div>
       <div className={styles.cellDue}>
         <input
-          form={`add-cmt-${issueId}`}
+          form={formId}
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
+          onBlur={maybeAutoSubmit}
           className={styles.commitmentAddDate}
           disabled={pending}
           aria-label="Due date"
