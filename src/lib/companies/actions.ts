@@ -287,6 +287,10 @@ export async function deleteCompanyAction(
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", companyId);
   if (error) {
+    console.error("deleteCompanyAction: update failed", {
+      companyId,
+      supabaseError: error,
+    });
     return { ok: false, message: "Couldn't delete that company." };
   }
 
