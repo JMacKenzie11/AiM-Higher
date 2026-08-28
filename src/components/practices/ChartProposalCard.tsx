@@ -267,7 +267,16 @@ function ApplySummaryLine({ summary }: { summary: ApplySummary }) {
       .map((r) => `${r.from} → ${r.to}`)
       .join(", ");
     parts.push(`Renamed your top seats: ${renames}.`);
-  } else if (summary.keptTopSeats.length > 0) {
+  }
+  if (summary.reparentedFunctions.length > 0) {
+    parts.push(
+      `Moved ${summary.reparentedFunctions.join(", ")} under the operator seat.`
+    );
+  }
+  if (
+    summary.renamedTopSeats.length === 0 &&
+    summary.keptTopSeats.length > 0
+  ) {
     const kept = summary.keptTopSeats.join(", ");
     const proposed = summary.proposedTopSeats.join(", ");
     parts.push(

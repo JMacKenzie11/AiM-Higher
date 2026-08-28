@@ -45,6 +45,7 @@ export type ApplySummary = {
   createdSubFunctions: string[]; // titles
   keptTopSeats: string[]; // titles the leader already had at the top (kept as-is)
   renamedTopSeats: Array<{ from: string; to: string }>; // Visionary/Integrator → chosen names
+  reparentedFunctions: string[]; // titles moved from top-level under Integrator
   proposedTopSeats: string[]; // titles the proposal called them
   totalCreatedFunctions: number;
   totalAddedResponsibilities: number;
@@ -141,6 +142,7 @@ export async function applyChartProposalAction(
     createdSubFunctions: [],
     keptTopSeats: [],
     renamedTopSeats: [],
+    reparentedFunctions: [],
     proposedTopSeats: [],
     totalCreatedFunctions: 0,
     totalAddedResponsibilities: 0,
@@ -287,9 +289,40 @@ export async function applyChartProposalAction(
   // recognition): create at top level. Better a slightly odd shape
   // than a swallowed apply.
   const integratorParentId = resolveIntegratorId(allFns, topLevelFns);
+  // The set of top-level ids we consider 'protected' — reparenting
+  // one of these would break the canonical Visionary → Integrator
+  // spine. Everything else at the top level is fair game for
+  // corrective reparenting when the proposal names it.
+  const protectedTopIds = new Set<string>();
+  for (const fn of topLevelFns) {
+    if (fn.title.trim().toLowerCase() === "visionary") {
+      protectedTopIds.add(fn.id);
+    }
+  }
+  // The rename step above may have already updated titles in memory;
+  // also protect anything that IS the current top-level function
+  // count-of-one (which is the CEO/Visionary seat by structural
+  // position).
+  if (topLevelFns.length === 1) protectedTopIds.add(topLevelFns[0]!.id);
+
   for (const fn of proposal.functions) {
     const existingMatch = byLowerName.get(fn.name.trim().toLowerCase());
     if (existingMatch) {
+      // Corrective reparenting: a previous buggy Apply landed
+      // functions at the top level (siblings of Visionary/CEO)
+      // instead of under Integrator/COO. If we see one here and
+      // we have an integrator layer to move it under, reparent
+      // it — the canonical shape (migration 0114) puts every
+      // functional area under Integrator, never at the top.
+      if (
+        integratorParentId &&
+        existingMatch.parent_function_id === null &&
+        !protectedTopIds.has(existingMatch.id)
+      ) {
+        await reparentFunction(admin, existingMatch.id, integratorParentId);
+        existingMatch.parent_function_id = integratorParentId;
+        summary.reparentedFunctions.push(existingMatch.title);
+      }
       const added = await mergeResponsibilities(
         admin,
         existingMatch,
@@ -384,31 +417,67 @@ export async function applyChartProposalAction(
 
 // Find the "Integrator" seat's id — the seeded (or renamed) function
 // that sits between the top Visionary seat and the operational
-// functional areas. Recognises the seat by structural position:
-// it's the sole child of the top-level function (typically
-// Visionary or its renamed variant), OR still literally named
-// "Integrator" if we haven't been renamed yet.
+// functional areas. Three passes, in order of specificity:
 //
-// Returns null when the chart doesn't have a recognisable
-// integrator layer — callers then fall back to nesting at the top.
+//   1. Literal name match: "Integrator" (case-insensitive). Handles
+//      the seeded shape before any renames.
+//   2. Positional (sole child of a lone top-level fn): the shape
+//      after migration 0114 when everything is canonical.
+//   3. Positional (child of any top-level fn that has exactly one
+//      child, when there are multiple top-level functions): handles
+//      the "prior buggy Apply left mispositioned top-level fns
+//      alongside the seed" case — the CEO/Visionary seat is
+//      distinguishable from the strays because only IT has a
+//      child (the Integrator/COO).
+//
+// Returns null when nothing above matches — callers fall back to
+// nesting at the top rather than swallowing the apply.
 function resolveIntegratorId(
   allFns: ExistingFunction[],
   topLevelFns: ExistingFunction[]
 ): string | null {
-  // First pass — literal name match, regardless of position.
-  const named = allFns.find(
+  const literal = allFns.find(
     (f) => f.title.trim().toLowerCase() === "integrator"
   );
-  if (named) return named.id;
-  // Second pass — the sole child of a single top-level function is
-  // the integrator seat by convention (migration 0113/0114 shape).
+  if (literal) return literal.id;
+
   if (topLevelFns.length === 1) {
     const children = allFns.filter(
       (f) => f.parent_function_id === topLevelFns[0]!.id
     );
     if (children.length === 1) return children[0]!.id;
   }
+
+  // Multi-top-level case: find the top-level fn that has children.
+  for (const top of topLevelFns) {
+    const children = allFns.filter(
+      (f) => f.parent_function_id === top.id
+    );
+    if (children.length >= 1) {
+      // Prefer a child literally named integrator or coo if there
+      // are several; otherwise take the first.
+      const namedChild = children.find((c) => {
+        const t = c.title.trim().toLowerCase();
+        return t === "integrator" || t === "coo";
+      });
+      return (namedChild ?? children[0]!).id;
+    }
+  }
   return null;
+}
+
+async function reparentFunction(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  id: string,
+  newParentId: string
+): Promise<void> {
+  const { error } = await admin
+    .from("functions")
+    .update({ parent_function_id: newParentId })
+    .eq("id", id);
+  if (error) {
+    console.error("apply-chart reparentFunction failed", error);
+  }
 }
 
 async function renameFunction(

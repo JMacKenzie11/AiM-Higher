@@ -425,6 +425,63 @@ describe("applyChartProposalAction", () => {
     expect(mocks.functionsInsert).not.toHaveBeenCalled();
   });
 
+  it("reparents existing top-level functions under Integrator when the proposal names them (cleanup for prior buggy Apply)", async () => {
+    // Prior buggy Apply landed Sales/Operations at the top level
+    // as siblings of Visionary/CEO. Migration 0114's canonical
+    // shape puts every functional area under Integrator/COO. A
+    // fresh Apply naming those same functions should move them
+    // to their canonical position, not just skip via name match.
+    mocks.functionsSelect.mockResolvedValue({
+      data: [
+        // Seed shape (renamed by an earlier Apply).
+        { id: "fn_v", title: "CEO", parent_function_id: null },
+        { id: "fn_i", title: "COO", parent_function_id: "fn_v" },
+        // Mispositioned survivors from a previous buggy Apply.
+        { id: "fn_s", title: "Sales", parent_function_id: null },
+        { id: "fn_o", title: "Operations", parent_function_id: null },
+      ],
+      error: null,
+    });
+    mocks.functionsUpdate.mockClear();
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({ role: "company_admin" })
+    );
+    const proposal = JSON.stringify({
+      top_seats: [
+        { name: "CEO", note: "" },
+        { name: "COO", note: "" },
+      ],
+      functions: [
+        { name: "Sales", responsibilities: ["LMA"] },
+        { name: "Operations", responsibilities: ["LMA"] },
+      ],
+    });
+    const { applyChartProposalAction } = await import(
+      "./apply-proposal-action"
+    );
+
+    const res = await applyChartProposalAction(proposal, CONV_ID);
+
+    expect(res.ok).toBe(true);
+    // Sales and Operations should have been UPDATEd to set their
+    // parent_function_id to fn_i (the Integrator/COO seat).
+    const reparents = mocks.functionsUpdate.mock.calls.filter(
+      (c) =>
+        typeof (c[0] as Record<string, unknown>).parent_function_id ===
+        "string"
+    );
+    const reparentedTo = reparents.map(
+      (c) => (c[0] as { parent_function_id: string }).parent_function_id
+    );
+    expect(reparentedTo.every((p) => p === "fn_i")).toBe(true);
+    expect(reparents.length).toBe(2);
+    if (res.ok) {
+      expect(res.summary.reparentedFunctions.sort()).toEqual(
+        ["Operations", "Sales"].sort()
+      );
+    }
+  });
+
   it("is idempotent: applying the same proposal twice creates nothing the second time", async () => {
     // Existing chart already has every function + responsibility
     // from the proposal (state after a prior Apply). The second
