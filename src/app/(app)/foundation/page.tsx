@@ -19,6 +19,7 @@ import { VisionForm } from "./VisionForm";
 import { AddSnippetForm } from "./MarketingForms";
 import { SectionEditToggle } from "./SectionEditToggle";
 import { CardAccent } from "@/components/ui/CardAccent";
+import { PageShell } from "@/components/ui/PageShell";
 import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import type { StrategicFocusArea } from "@/lib/types";
 import styles from "./foundation.module.css";
@@ -66,25 +67,21 @@ export default async function OnePagePlanPage() {
   >;
 
   return (
-    <div className={styles.stage}>
+    <PageShell
+      eyebrow="Plan"
+      title="One-Page Plan"
+      subtitle={
+        <>
+          Who {companyName} is, where you&rsquo;re going, and what
+          you&rsquo;re measuring, all in one place.
+        </>
+      }
+    >
       <TrackOnMount event="plan.viewed" />
-      <section className={styles.hero} aria-label="One-Page Plan summary">
-        <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>Plan</p>
-          <h1 className={styles.h1}>One-Page Plan</h1>
-          <span className={styles.rule} aria-hidden="true" />
-          <p className={styles.subtitle}>
-            Who {companyName} is, where you&rsquo;re going, and what
-            you&rsquo;re measuring, all in one place.
-          </p>
-        </div>
-      </section>
-
-      <div className={styles.content}>
-        {/* Chip nav is sticky inside .content so it stays pinned as
-            you scroll through the sections below. Hero above it
-            scrolls normally so it doesn't eat viewport once you've
-            oriented on the page. */}
+      {/* Chip nav is sticky inside .content so it stays pinned as
+          you scroll through the sections below. Hero above it
+          scrolls normally so it doesn't eat viewport once you've
+          oriented on the page. */}
         <nav className={styles.pageNav} aria-label="One-Page Plan sections">
           <a href="#purpose" className={styles.pageNavLink}>
             Purpose
@@ -455,7 +452,6 @@ export default async function OnePagePlanPage() {
             ) : null}
           </section>
         </div>
-      </div>
-    </div>
+    </PageShell>
   );
 }

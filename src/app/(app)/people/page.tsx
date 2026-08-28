@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getPeopleRoster } from "@/lib/people/service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
+import { PageShell } from "@/components/ui/PageShell";
 import { InviteForm } from "../admin/companies/[id]/InviteForm";
 import { RowActionsMenu } from "./RowActionsMenu";
 import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
@@ -100,21 +101,13 @@ export default async function PeoplePage() {
   const showActionsColumn = isAdmin || managesAnyone;
 
   return (
-    <div className={styles.stage}>
+    <PageShell
+      eyebrow="Roster"
+      title="Team"
+      subtitle="Everyone on the team, with how their week is going."
+    >
       <TrackOnMount event="people.opened" />
-      <section className={styles.hero} aria-label="Team summary">
-        <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>Roster</p>
-          <h1 className={styles.h1}>Team</h1>
-          <span className={styles.rule} aria-hidden="true" />
-          <p className={styles.subtitle}>
-            Everyone on the team, with how their week is going.
-          </p>
-        </div>
-      </section>
-
-      <div className={styles.content}>
-        <section className={styles.card} aria-label="Roster">
+      <section className={styles.card} aria-label="Roster">
           {people.length === 0 ? (
             <p className={styles.emptyLine}>
               No one on the roster yet.{" "}
@@ -203,15 +196,14 @@ export default async function PeoplePage() {
           )}
         </section>
 
-        {isAdmin ? (
-          <section className={styles.card} aria-labelledby="add-person">
-            <h2 id="add-person" className={styles.h2}>
-              Add a person
-            </h2>
-            <InviteForm companyId={companyId} />
-          </section>
-        ) : null}
-      </div>
-    </div>
+      {isAdmin ? (
+        <section className={styles.card} aria-labelledby="add-person">
+          <h2 id="add-person" className={styles.h2}>
+            Add a person
+          </h2>
+          <InviteForm companyId={companyId} />
+        </section>
+      ) : null}
+    </PageShell>
   );
 }

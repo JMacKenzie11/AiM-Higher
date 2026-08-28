@@ -13,6 +13,7 @@ import { DISCIPLINES } from "@/lib/maturity/disciplines";
 import type { ChartFunctionIssue } from "@/lib/maturity/scorers/chart";
 import { loadCompanySetupIfAdmin } from "@/lib/dashboard/setup-steps";
 import { SetupChecklist } from "@/components/setup/SetupChecklist";
+import { PageShell } from "@/components/ui/PageShell";
 import { Sparkline } from "./Sparkline";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./scorecard.module.css";
@@ -62,44 +63,38 @@ export default async function ScorecardPage() {
   );
 
   return (
-    <div className={styles.stage}>
-      <section className={styles.hero} aria-label="Scorecard summary">
-        <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>Workspace</p>
-          <h1 className={styles.h1}>AiMS Implementation</h1>
-          <p className={styles.subtitle}>
-            An overview of how consistently the AiMS disciplines are being
-            practiced across {companyName}.
-          </p>
-
-          <div className={styles.overallRow}>
-            <OverallDial score={scorecard.overall.score} />
-            <div className={styles.overallMeta}>
-              <p className={styles.overallLabel}>Overall</p>
-              <TrendChip trajectory={overallTrend} />
-              <p className={styles.overallCaption}>
-                {scorecard.overall.disciplinesCounted} of {DISCIPLINES.length}{" "}
-                disciplines counted · updated live
-              </p>
-            </div>
-            <div className={styles.overallSpark}>
-              <Sparkline
-                points={scorecard.overallTimeseries.map((p) => ({
-                  x: p.date,
-                  y: p.score,
-                }))}
-                width={280}
-                height={64}
-                ariaLabel="Overall score over the last 26 weeks"
-              />
-              <p className={styles.overallSparkCaption}>Last 26 weeks</p>
-            </div>
+    <PageShell
+      eyebrow="Workspace"
+      title="AiMS Implementation"
+      subtitle={`An overview of how consistently the AiMS disciplines are being practiced across ${companyName}.`}
+      ariaLabel="Scorecard summary"
+      heroExtras={
+        <div className={styles.overallRow}>
+          <OverallDial score={scorecard.overall.score} />
+          <div className={styles.overallMeta}>
+            <p className={styles.overallLabel}>Overall</p>
+            <TrendChip trajectory={overallTrend} />
+            <p className={styles.overallCaption}>
+              {scorecard.overall.disciplinesCounted} of {DISCIPLINES.length}{" "}
+              disciplines counted · updated live
+            </p>
+          </div>
+          <div className={styles.overallSpark}>
+            <Sparkline
+              points={scorecard.overallTimeseries.map((p) => ({
+                x: p.date,
+                y: p.score,
+              }))}
+              width={280}
+              height={64}
+              ariaLabel="Overall score over the last 26 weeks"
+            />
+            <p className={styles.overallSparkCaption}>Last 26 weeks</p>
           </div>
         </div>
-      </section>
-
-      <div className={styles.content}>
-        {setup ? (
+      }
+    >
+      {setup ? (
           <SetupChecklist
             steps={setup.steps}
             companyName={setup.companyName}
@@ -159,8 +154,7 @@ export default async function ScorecardPage() {
           Snapshots taken every Sunday. Live score as of{" "}
           {formatShortDate(scorecard.computedAt.slice(0, 10))}.
         </p>
-      </div>
-    </div>
+    </PageShell>
   );
 }
 

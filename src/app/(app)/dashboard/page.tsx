@@ -18,6 +18,7 @@ import { BriefSection, BriefLoading } from "./BriefSection";
 import { HeroStat } from "./HeroStat";
 import { MeasureInsightsCards } from "./MeasureInsightsCards";
 import { PendingMeasuresCard } from "./PendingMeasuresCard";
+import { PageShell } from "@/components/ui/PageShell";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./dashboard.module.css";
 
@@ -91,32 +92,27 @@ export default async function DashboardPage() {
   );
   const showCoachColumn = isAdmin || managesAnyone;
 
+  const eyebrow = data.openQuarter ? (
+    <>Current quarter · {data.openQuarter.label}</>
+  ) : (
+    <>
+      No open quarter{" "}
+      {isAdmin ? (
+        <Link href="/quarters" className={styles.eyebrowLink}>
+          · Open one
+        </Link>
+      ) : null}
+    </>
+  );
+
   return (
-    <div className={styles.stage}>
-      {/* ============ Hero band ============ */}
-      <section className={styles.hero} aria-label="Company summary">
-        <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>
-            {data.openQuarter ? (
-              <>Current quarter · {data.openQuarter.label}</>
-            ) : (
-              <>
-                No open quarter{" "}
-                {isAdmin ? (
-                  <Link href="/quarters" className={styles.eyebrowLink}>
-                    · Open one
-                  </Link>
-                ) : null}
-              </>
-            )}
-          </p>
-
-          <h1 className={styles.h1}>{data.company.name}</h1>
-          <span className={styles.rule} aria-hidden="true" />
-          <p className={styles.subtitle}>
-            How this quarter and this week are going.
-          </p>
-
+    <PageShell
+      eyebrow={eyebrow}
+      title={data.company.name}
+      subtitle="How this quarter and this week are going."
+      ariaLabel="Company summary"
+      heroExtras={
+        <>
           {/* Primary stat: Follow-Through Rate. Weekly meetings
               open on this number, so it gets a full-width row of
               its own with a larger value font. Everything else
@@ -191,21 +187,19 @@ export default async function DashboardPage() {
               }
             />
           </div>
-        </div>
-      </section>
+        </>
+      }
+    >
+      {/* Setup checklist moved to /scorecard (AiMS Implementation
+          surface) — see src/components/setup/SetupChecklist. This
+          dashboard is for the running rhythm; the setup scaffold
+          belongs on the discipline-progression page where
+          first-run admins go to see how the practice is landing. */}
 
-      {/* ============ Content, overlapping the hero ============ */}
-      <div className={styles.content}>
-        {/* Setup checklist moved to /scorecard (AiMS Implementation
-            surface) — see src/components/setup/SetupChecklist. This
-            dashboard is for the running rhythm; the setup scaffold
-            belongs on the discipline-progression page where
-            first-run admins go to see how the practice is landing. */}
-
-        {/* --- Week in review (admin-only, streamed via Suspense so
-              the rest of the dashboard renders immediately while the
-              model call is in flight) --- */}
-        {isAdmin ? (
+      {/* --- Week in review (admin-only, streamed via Suspense so
+            the rest of the dashboard renders immediately while the
+            model call is in flight) --- */}
+      {isAdmin ? (
           <Suspense fallback={<BriefLoading />}>
             <BriefSection
               companyId={companyId}
@@ -412,8 +406,7 @@ export default async function DashboardPage() {
             </table>
           )}
         </section>
-      </div>
-    </div>
+    </PageShell>
   );
 }
 

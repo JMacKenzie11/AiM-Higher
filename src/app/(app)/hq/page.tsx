@@ -16,6 +16,7 @@ import { MyCommitmentsSection } from "./MyCommitmentsSection";
 import { NeedsAttentionSection } from "./NeedsAttentionSection";
 import { YourCompaniesSection } from "./YourCompaniesSection";
 import { RecentActivitySection } from "./RecentActivitySection";
+import { PageShell } from "@/components/ui/PageShell";
 import styles from "./hq.module.css";
 
 // Guide HQ — the home base for AiMS Guides and system admins. Scoped
@@ -65,26 +66,15 @@ export default async function GuideHqPage() {
   const todayIso = todayInTimezone("UTC").iso;
 
   return (
-    <div className={styles.stage}>
-      <section className={styles.hero} aria-label="Guide HQ header">
-        <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>
-            {session.profile.role === "system_admin"
-              ? "System admin"
-              : "AiMS Guide"}
-          </p>
-          <h1 className={styles.h1}>Guide HQ</h1>
-          <span className={styles.rule} aria-hidden="true" />
-          <p className={styles.subtitle}>
-            Your commitments across every company, the attention queue
-            for this week, and a quick read on the shape of your
-            caseload.
-          </p>
-        </div>
-      </section>
-
-      <div className={styles.content}>
-        {zeroCaseload ? (
+    <PageShell
+      eyebrow={
+        session.profile.role === "system_admin" ? "System admin" : "AiMS Guide"
+      }
+      title="Guide HQ"
+      subtitle="Your commitments across every company, the attention queue for this week, and a quick read on the shape of your caseload."
+      ariaLabel="Guide HQ header"
+    >
+      {zeroCaseload ? (
           <section className={styles.zeroCard} aria-labelledby="hq-zero">
             <h2 id="hq-zero" className={styles.zeroTitle}>
               No coaching assignments yet
@@ -109,17 +99,16 @@ export default async function GuideHqPage() {
           isAdmin={isAdmin}
         />
 
-        {!zeroCaseload ? (
-          <>
-            <NeedsAttentionSection rows={attention} />
-            <YourCompaniesSection
-              rows={rollups}
-              recentBriefsByCompany={briefsByCompany}
-            />
-            <RecentActivitySection items={activity} />
-          </>
-        ) : null}
-      </div>
-    </div>
+      {!zeroCaseload ? (
+        <>
+          <NeedsAttentionSection rows={attention} />
+          <YourCompaniesSection
+            rows={rollups}
+            recentBriefsByCompany={briefsByCompany}
+          />
+          <RecentActivitySection items={activity} />
+        </>
+      ) : null}
+    </PageShell>
   );
 }

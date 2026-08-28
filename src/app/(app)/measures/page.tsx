@@ -10,6 +10,7 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { formatShortDate } from "@/lib/dates";
 import { MeasuresManager } from "./MeasuresManager";
 import { BoardView } from "./board/BoardView";
+import { PageShell } from "@/components/ui/PageShell";
 import styles from "../admin/companies/admin.module.css";
 
 // Key Success Measures — one surface for both authoring the outcome
@@ -53,53 +54,46 @@ export default async function MeasuresPage() {
   );
 
   return (
-    <div className={styles.stage}>
-      <header className={styles.hero}>
-        <div className={styles.heroInner}>
-          <p className={styles.eyebrow}>Company</p>
-          <h1 className={styles.h1}>Key Success Measures</h1>
-          <span className={styles.rule} aria-hidden="true" />
-          <p className={styles.subtitle}>
-            {trackingEnabled ? (
-              <>
-                The last 13 weeks vs. target, by function. Log the week ending{" "}
-                {formatShortDate(weekEnding)} below.
-              </>
-            ) : (
-              <>
-                Every outcome and the key success measure(s) under it, by
-                function. Weekly logging turns on when Success Tracking is
-                enabled for the company.
-              </>
-            )}
-          </p>
-        </div>
-      </header>
-
-      <div className={styles.content}>
-        {trackingEnabled && boardHasContent ? <BoardView data={board} /> : null}
-
-        {functions.length === 0 ? (
-          <EmptyState isAdmin={isAdmin} />
-        ) : !hasAnyMeasure && !isAdmin ? (
-          <section className={styles.card}>
-            <p className={styles.emptyLine}>
-              No key success measures assigned to you yet. They live under the
-              functions you lead on the Chart, the person in the seat is the
-              one on the hook for the numbers.
-            </p>
-          </section>
+    <PageShell
+      eyebrow="Company"
+      title="Key Success Measures"
+      subtitle={
+        trackingEnabled ? (
+          <>
+            The last 13 weeks vs. target, by function. Log the week ending{" "}
+            {formatShortDate(weekEnding)} below.
+          </>
         ) : (
-          <MeasuresManager
-            functions={functions}
-            weekEnding={weekEnding}
-            isAdmin={isAdmin}
-            trackingEnabled={trackingEnabled}
-            rdEnabled={rdEnabled}
-          />
-        )}
-      </div>
-    </div>
+          <>
+            Every outcome and the key success measure(s) under it, by
+            function. Weekly logging turns on when Success Tracking is
+            enabled for the company.
+          </>
+        )
+      }
+    >
+      {trackingEnabled && boardHasContent ? <BoardView data={board} /> : null}
+
+      {functions.length === 0 ? (
+        <EmptyState isAdmin={isAdmin} />
+      ) : !hasAnyMeasure && !isAdmin ? (
+        <section className={styles.card}>
+          <p className={styles.emptyLine}>
+            No key success measures assigned to you yet. They live under the
+            functions you lead on the Chart, the person in the seat is the
+            one on the hook for the numbers.
+          </p>
+        </section>
+      ) : (
+        <MeasuresManager
+          functions={functions}
+          weekEnding={weekEnding}
+          isAdmin={isAdmin}
+          trackingEnabled={trackingEnabled}
+          rdEnabled={rdEnabled}
+        />
+      )}
+    </PageShell>
   );
 }
 
