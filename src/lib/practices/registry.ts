@@ -2,6 +2,7 @@ import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { PracticeCategory } from "./categories";
+import type { Role } from "@/lib/types";
 
 // Practices are prompt modules layered onto the existing coaching
 // infrastructure. Same chat UI, same streaming, same tools, same
@@ -27,6 +28,12 @@ import type { PracticeCategory } from "./categories";
 export { PRACTICE_CATEGORIES } from "./categories";
 export type { PracticeCategory } from "./categories";
 
+// Card renderers are wired by a small string-keyed lookup in the
+// chat view (see ChatView.tsx). Keeping outputCard values as string
+// tags rather than component references means the registry can be
+// serialized to a client component without losing shape.
+export type OutputCardName = "ScriptCard" | "ChartProposalCard";
+
 export type Practice = {
   id: string;
   title: string;
@@ -34,6 +41,44 @@ export type Practice = {
   category: PracticeCategory;
   promptFile: string;
   chips?: readonly string[];
+  // ---- Assembly + launch behavior (added when the third practice
+  // introduced the need for a voice-only base, a scripted opener,
+  // and a role gate). Every existing practice declares these
+  // explicitly rather than relying on defaults so the registry
+  // reads as a full contract at a glance.
+  //
+  // basePromptMode
+  //   "full_coach" — the current behavior: aims-voice.md is spliced
+  //   into leadership-coach.md so the practice runs on top of the
+  //   full coaching spine + diagnostic modes + patterns.
+  //   "voice_only" — only aims-voice.md is loaded as the base. Use
+  //   when the practice is a guided flow that shouldn't inherit
+  //   the coach's diagnostic escalation, spine steps, or patterns-
+  //   to-watch-for content (e.g., a structural chart builder).
+  basePromptMode: "full_coach" | "voice_only";
+  // skipSetup
+  //   When true, launching the practice bypasses the partner picker
+  //   and the empty-chat setup step; the conversation opens with
+  //   the scriptedOpener (if any) already showing.
+  skipSetup: boolean;
+  // scriptedOpener
+  //   When present, launching the practice persists this string as
+  //   the first assistant message with NO API call. The model sees
+  //   it in history from turn two onward. Kept in the registry so
+  //   the opener is versioned alongside the prompt file.
+  scriptedOpener?: string;
+  // allowedRoles
+  //   When present, the practice card is hidden from and the launch
+  //   URL rejects anyone whose role isn't in the list. For aims_guide
+  //   the launcher additionally checks the caller has an assignment
+  //   to the scoped company; unscoped guides fall to the same denial.
+  //   Absent means all members.
+  allowedRoles?: readonly Role[];
+  // outputCard
+  //   Maps a fenced-block tag emitted by the practice prompt to the
+  //   card renderer that consumes it. Absent means no card
+  //   integration (plain text turns).
+  outputCard?: Readonly<Record<string, OutputCardName>>;
 };
 
 export const PRACTICES: readonly Practice[] = [
@@ -49,6 +94,9 @@ export const PRACTICES: readonly Practice[] = [
       "Something's off between us",
       "I need to reset expectations",
     ],
+    basePromptMode: "full_coach",
+    skipSetup: false,
+    outputCard: { script: "ScriptCard" },
   },
   {
     id: "navigate-emotionally-charged-conversation",
@@ -63,6 +111,9 @@ export const PRACTICES: readonly Practice[] = [
       "I keep making things worse when they're stressed",
       "I need to talk to someone who's already frustrated",
     ],
+    basePromptMode: "full_coach",
+    skipSetup: false,
+    outputCard: { script: "ScriptCard" },
   },
   {
     id: "ask-better-questions",
@@ -76,6 +127,8 @@ export const PRACTICES: readonly Practice[] = [
       "I'm stuck on a limiting question",
       "Show me examples for a topic",
     ],
+    basePromptMode: "full_coach",
+    skipSetup: false,
   },
 ] as const;
 
