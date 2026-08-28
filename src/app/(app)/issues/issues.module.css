@@ -266,16 +266,18 @@
 
 .wantInput {
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   background: var(--surface);
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
   font: var(--text-body);
   font-family: inherit;
   color: var(--text);
-  resize: vertical;
-  min-height: calc(var(--control-h-md) * 1.5);
-  line-height: 1.4;
+  /* JS auto-sizes the height to match content (see useAutoResize
+     in IssueCard.tsx). No min-height, no resize handle — the edit
+     surface stays exactly as tall as the read surface. */
+  resize: none;
+  line-height: 1.35;
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 

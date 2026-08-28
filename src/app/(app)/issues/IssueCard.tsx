@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   useActionState,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useTransition,
@@ -224,6 +225,23 @@ export function IssueCard({
   );
 }
 
+// Auto-size a textarea to fit its content. Fixed `rows` clips long
+// text on open ("shrinks" the cell); this resets height to auto +
+// scrollHeight on every keystroke so the box grows and shrinks with
+// the value. Runs in useLayoutEffect so the sizing lands before
+// paint — no visible jump on mount.
+function useAutoResize(
+  ref: React.RefObject<HTMLTextAreaElement | null>,
+  active: boolean,
+  value: string
+) {
+  useLayoutEffect(() => {
+    if (!active || !ref.current) return;
+    ref.current.style.height = "auto";
+    ref.current.style.height = `${ref.current.scrollHeight}px`;
+  }, [ref, active, value]);
+}
+
 // ---- Inline editors -------------------------------------------
 
 function IssueTitleEditor({
@@ -237,6 +255,8 @@ function IssueTitleEditor({
   const [draft, setDraft] = useState(issue.title);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResize(inputRef, editing, draft);
 
   useEffect(() => {
     setDraft(issue.title);
@@ -266,11 +286,12 @@ function IssueTitleEditor({
     return (
       <>
         <textarea
+          ref={inputRef}
           className={styles.issueTitleInput}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
-          rows={3}
+          rows={1}
           onKeyDown={(e) => {
             // Enter commits (titles are single-thought lines, not
             // paragraphs) — matches the click-and-type UX of the
@@ -320,6 +341,10 @@ function DesiredOutcomeEditor({
   const [draft, setDraft] = useState(issue.desired_outcome ?? "");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+  const emptyRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResize(editRef, editing, draft);
+  useAutoResize(emptyRef, !issue.desired_outcome && !editing, draft);
 
   useEffect(() => {
     setDraft(issue.desired_outcome ?? "");
@@ -354,6 +379,7 @@ function DesiredOutcomeEditor({
     return (
       <>
         <textarea
+          ref={emptyRef}
           className={styles.commitmentAddInput}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -385,11 +411,12 @@ function DesiredOutcomeEditor({
     return (
       <>
         <textarea
+          ref={editRef}
           className={styles.wantInput}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
-          rows={3}
+          rows={1}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
@@ -669,6 +696,8 @@ function CommitmentDescriptionEditor({
   const [draft, setDraft] = useState(commitment.description);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResize(inputRef, editing, draft);
 
   useEffect(() => {
     setDraft(commitment.description);
@@ -701,11 +730,12 @@ function CommitmentDescriptionEditor({
     return (
       <>
         <textarea
+          ref={inputRef}
           className={styles.wantInput}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
-          rows={3}
+          rows={1}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
