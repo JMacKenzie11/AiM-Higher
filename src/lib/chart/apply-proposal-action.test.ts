@@ -258,13 +258,23 @@ describe("applyChartProposalAction", () => {
     );
     expect(updated.sort()).toEqual(["CEO", "COO"].sort());
     // Neither CEO nor COO should have been INSERTed.
-    const inserted = mocks.functionsInsert.mock.calls.map(
+    const inserted = mocks.functionsInsert.mock.calls;
+    const insertedTitles = inserted.map(
       (c) => (c[0] as { title: string }).title
     );
-    expect(inserted).not.toContain("CEO");
-    expect(inserted).not.toContain("COO");
-    // Sales still creates as a top-level function.
-    expect(inserted).toContain("Sales");
+    expect(insertedTitles).not.toContain("CEO");
+    expect(insertedTitles).not.toContain("COO");
+    // Sales still creates — as a CHILD of Integrator (fn_i), not
+    // top-level. Migration 0114's shape: every functional area
+    // lives under Integrator.
+    const salesCall = inserted.find(
+      (c) => (c[0] as { title: string }).title === "Sales"
+    );
+    expect(salesCall).toBeDefined();
+    expect(
+      (salesCall?.[0] as { parent_function_id: string | null })
+        .parent_function_id
+    ).toBe("fn_i");
   });
 
   it("does not rename when the leader has already customized the top seats", async () => {

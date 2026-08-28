@@ -220,6 +220,40 @@ export async function applyChartProposalAction(
         }
       }
       summary.keptTopSeats = Array.from(topAndImmediateChildren);
+    } else if (proposal.top_seats.length >= 2) {
+      // Case (c-nested) — empty chart AND the proposal defines two
+      // seats. Create CEO/COO with COO as CEO's child so the shape
+      // mirrors the seeded Visionary → Integrator hierarchy that
+      // every other chart flows through. New functions later in
+      // this apply will nest under COO.
+      const ceoInserted = await insertFunction(admin, {
+        company_id: companyId,
+        parent_function_id: null,
+        title: proposal.top_seats[0]!.name,
+        description: proposal.top_seats[0]!.note || null,
+      });
+      if (ceoInserted) {
+        summary.createdFunctions.push(ceoInserted.title);
+        summary.totalCreatedFunctions += 1;
+        byLowerName.set(
+          ceoInserted.title.trim().toLowerCase(),
+          ceoInserted
+        );
+        const cooInserted = await insertFunction(admin, {
+          company_id: companyId,
+          parent_function_id: ceoInserted.id,
+          title: proposal.top_seats[1]!.name,
+          description: proposal.top_seats[1]!.note || null,
+        });
+        if (cooInserted) {
+          summary.createdFunctions.push(cooInserted.title);
+          summary.totalCreatedFunctions += 1;
+          byLowerName.set(
+            cooInserted.title.trim().toLowerCase(),
+            cooInserted
+          );
+        }
+      }
     } else {
       // Case (c) — empty chart. Create the proposal's seats.
       for (const seat of proposal.top_seats) {
@@ -240,10 +274,19 @@ export async function applyChartProposalAction(
     }
   }
 
-  // ---- Top-level functions from the proposal.functions list.
-  // Skip if a top-level function with the same name exists. If a
-  // function with the same name exists at ANY level (sub too), we
-  // still skip to avoid weird chart shapes.
+  // ---- Functions from the proposal.functions list.
+  // Per migration 0114, the canonical chart shape has every
+  // functional area nested UNDER Integrator (aka COO) — Sales,
+  // Operations, Finance, etc. are children of the Integrator seat,
+  // NOT siblings of Visionary at the top level. So we resolve the
+  // Integrator's id from the current chart (post-rename) and use
+  // it as the parent for new function inserts.
+  //
+  // Fallback if no Integrator can be found (a chart missing the
+  // seed, or one where the leader has customized past
+  // recognition): create at top level. Better a slightly odd shape
+  // than a swallowed apply.
+  const integratorParentId = resolveIntegratorId(allFns, topLevelFns);
   for (const fn of proposal.functions) {
     const existingMatch = byLowerName.get(fn.name.trim().toLowerCase());
     if (existingMatch) {
@@ -263,7 +306,7 @@ export async function applyChartProposalAction(
     } else {
       const inserted = await insertFunction(admin, {
         company_id: companyId,
-        parent_function_id: null,
+        parent_function_id: integratorParentId,
         title: fn.name,
         description: null,
       });
@@ -337,6 +380,35 @@ export async function applyChartProposalAction(
 
   revalidatePath("/chart");
   return { ok: true, summary };
+}
+
+// Find the "Integrator" seat's id — the seeded (or renamed) function
+// that sits between the top Visionary seat and the operational
+// functional areas. Recognises the seat by structural position:
+// it's the sole child of the top-level function (typically
+// Visionary or its renamed variant), OR still literally named
+// "Integrator" if we haven't been renamed yet.
+//
+// Returns null when the chart doesn't have a recognisable
+// integrator layer — callers then fall back to nesting at the top.
+function resolveIntegratorId(
+  allFns: ExistingFunction[],
+  topLevelFns: ExistingFunction[]
+): string | null {
+  // First pass — literal name match, regardless of position.
+  const named = allFns.find(
+    (f) => f.title.trim().toLowerCase() === "integrator"
+  );
+  if (named) return named.id;
+  // Second pass — the sole child of a single top-level function is
+  // the integrator seat by convention (migration 0113/0114 shape).
+  if (topLevelFns.length === 1) {
+    const children = allFns.filter(
+      (f) => f.parent_function_id === topLevelFns[0]!.id
+    );
+    if (children.length === 1) return children[0]!.id;
+  }
+  return null;
 }
 
 async function renameFunction(
