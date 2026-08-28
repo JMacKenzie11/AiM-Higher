@@ -267,6 +267,15 @@ function Toolbar({
       "[link] post-addMark client JSON\n" +
         JSON.stringify(editor.getJSON(), null, 2)
     );
+    // eslint-disable-next-line no-console
+    console.log(
+      "[link] post-addMark client HTML\n" + editor.getHTML()
+    );
+    // eslint-disable-next-line no-console
+    console.log(
+      "[link] mark type attrs schema:",
+      Object.keys(editor.schema.marks.link?.spec.attrs ?? {})
+    );
     if (!ok) {
       onUploadError(
         "That URL doesn't look right. Use https://, http://, or a mailto: address."
