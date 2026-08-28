@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { calendarQuarterOf } from "@/lib/quarters/service";
@@ -282,7 +283,15 @@ export async function deleteCompanyAction(
     };
   }
 
-  const { error } = await supabase
+  // Use the admin (service-role) client to bypass RLS for the write.
+  // The restrictive companies_hide_deleted policy applies to the new
+  // row's implicit RETURNING check on UPDATE — Postgres rejects the
+  // update because deleted_at IS NOT NULL on the new row violates
+  // the SELECT policy the RETURNING has to satisfy. The auth check
+  // (requireRole system_admin + archived-status gate) has already
+  // run above, so bypassing RLS here is safe.
+  const adminSupabase = createSupabaseAdminClient();
+  const { error } = await adminSupabase
     .from("companies")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", companyId);
@@ -291,14 +300,7 @@ export async function deleteCompanyAction(
       companyId,
       supabaseError: error,
     });
-    // Temporary: surface the raw Postgres error so we can see WHAT is
-    // failing (missing column, RLS block, trigger failure, etc.).
-    // Swap back to a generic "Couldn't delete that company." once the
-    // root cause is fixed.
-    return {
-      ok: false,
-      message: `Delete failed: ${error.message ?? "unknown error"} (code ${error.code ?? "?"})`,
-    };
+    return { ok: false, message: "Couldn't delete that company." };
   }
 
   revalidatePath("/admin/companies");
