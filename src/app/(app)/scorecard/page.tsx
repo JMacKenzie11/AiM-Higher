@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   loadCompanyScorecard,
@@ -10,6 +11,8 @@ import {
 } from "@/lib/maturity/service";
 import { DISCIPLINES } from "@/lib/maturity/disciplines";
 import type { ChartFunctionIssue } from "@/lib/maturity/scorers/chart";
+import { loadCompanySetupIfAdmin } from "@/lib/dashboard/setup-steps";
+import { SetupChecklist } from "@/components/setup/SetupChecklist";
 import { Sparkline } from "./Sparkline";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./scorecard.module.css";
@@ -44,6 +47,20 @@ export default async function ScorecardPage() {
     .eq("id", companyId)
     .maybeSingle<{ name: string }>();
   const companyName = companyRow?.name ?? "your company";
+
+  // First-run setup checklist. Rendered as the top card whenever
+  // the caller can manage this company (sysadmin, company admin
+  // scoped here, or assigned guide) AND at least one setup step is
+  // still incomplete. Nothing about completion is persisted —
+  // steps derive per render, and the whole card disappears once
+  // every step ticks off.
+  const canManageCompany = isAdminForCompany(session.profile, companyId);
+  const setup = await loadCompanySetupIfAdmin(
+    companyId,
+    session,
+    canManageCompany
+  );
+  const showSetup = Boolean(setup?.anyIncomplete);
 
   return (
     <div className={styles.stage}>
@@ -83,6 +100,12 @@ export default async function ScorecardPage() {
       </section>
 
       <div className={styles.content}>
+        {showSetup && setup ? (
+          <SetupChecklist
+            steps={setup.steps}
+            companyName={setup.companyName}
+          />
+        ) : null}
         <div className={styles.grid}>
           {DISCIPLINES.map((config) => {
             const score = scorecard.disciplines.find(

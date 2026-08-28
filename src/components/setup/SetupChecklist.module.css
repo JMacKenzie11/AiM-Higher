@@ -1,0 +1,134 @@
+/* Setup checklist card. Self-contained styles so the component can
+   be rendered from any page (originally lived under /dashboard, now
+   the top card on /scorecard). Mirrors the visual language of the
+   other content cards on scorecard for consistency. */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.meta {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.progressBadge {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt);
+  font: var(--text-caption);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.item[data-done="true"] {
+  background: color-mix(in srgb, var(--aims-success-tint) 60%, var(--surface));
+  border-color: color-mix(in srgb, var(--aims-success) 25%, transparent);
+}
+
+.badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.item[data-done="true"] .badge {
+  background: var(--aims-success);
+  color: var(--aims-white);
+}
+
+.body {
+  min-width: 0;
+}
+
+.itemTitle {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 15px;
+}
+
+.itemDescription {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.stepLink {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.stepLink:hover {
+  background: var(--primary-hover);
+}
+
+.doneLabel {
+  font: var(--text-caption);
+  color: var(--aims-success);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
