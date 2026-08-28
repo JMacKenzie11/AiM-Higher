@@ -207,41 +207,55 @@ describe("applyChartProposalAction", () => {
     expect(mocks.functionsInsert).not.toHaveBeenCalled();
   });
 
-  it("skips top_seats entirely when the chart already has ≥ 2 top-level functions", async () => {
-    // Universal case — every company is seeded with Visionary +
-    // Integrator (migration 0112).
+  it("skips top_seats when the chart has the seeded Visionary/Integrator shape (Integrator nested under Visionary)", async () => {
+    // Regression: migration 0112 creates Visionary as top-level and
+    // migration 0113 nests Integrator UNDER Visionary. So a fresh
+    // seeded company has ONE top-level function, not two. Earlier
+    // logic required >= 2 top-level and let a CEO/COO proposal
+    // through, ending up with Visionary + Integrator + CEO + COO
+    // on the chart.
     mocks.functionsSelect.mockResolvedValue({
       data: [
         { id: "fn_v", title: "Visionary", parent_function_id: null },
-        { id: "fn_i", title: "Integrator", parent_function_id: null },
+        { id: "fn_i", title: "Integrator", parent_function_id: "fn_v" },
       ],
       error: null,
     });
     mocks.requireProfile.mockResolvedValue(
       sessionFor({ role: "company_admin" })
     );
-    const { applyChartProposalAction } = await import("./apply-proposal-action");
+    const proposal = JSON.stringify({
+      top_seats: [
+        { name: "CEO", note: "Sets vision" },
+        { name: "COO", note: "Runs day to day" },
+      ],
+      functions: [{ name: "Sales", responsibilities: ["LMA"] }],
+    });
+    const { applyChartProposalAction } = await import(
+      "./apply-proposal-action"
+    );
 
-    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
+    const res = await applyChartProposalAction(proposal, CONV_ID);
 
     expect(res.ok).toBe(true);
     if (res.ok) {
+      // Kept summary should mention both Visionary AND Integrator
+      // even though Integrator lives one level down.
       expect(res.summary.keptTopSeats.sort()).toEqual(
         ["Integrator", "Visionary"].sort()
       );
       expect(res.summary.proposedTopSeats.sort()).toEqual(
-        ["Integrator", "Visionary"].sort()
+        ["CEO", "COO"].sort()
       );
     }
-    // The proposal's two functions should still create.
     const inserted = mocks.functionsInsert.mock.calls.map(
       (c) => (c[0] as { title: string }).title
     );
-    expect(inserted).toEqual(expect.arrayContaining(["Sales", "Operations"]));
-    // But the two top-seat names in the proposal should NOT be
-    // inserted (they'd be dupes of the seeded seats).
-    expect(inserted).not.toContain("Visionary");
-    expect(inserted).not.toContain("Integrator");
+    // Neither CEO nor COO should have been created.
+    expect(inserted).not.toContain("CEO");
+    expect(inserted).not.toContain("COO");
+    // Sales still creates as a top-level function.
+    expect(inserted).toContain("Sales");
   });
 
   it("skips a function whose title matches an existing one (case-insensitive), but merges missing responsibilities", async () => {

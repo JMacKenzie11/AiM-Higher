@@ -144,12 +144,31 @@ export async function applyChartProposalAction(
     totalAddedResponsibilities: 0,
   };
 
-  // ---- Top seats: skip entirely if the chart already has >= 2
-  // ---- top-level seats. Common case (Visionary + Integrator seeded).
+  // ---- Top seats: skip entirely if the chart already has ANY
+  // ---- existing top-level function. The seeded shape from
+  // ---- migration 0112 is Visionary (top-level) + Integrator
+  // ---- nested UNDER Visionary (migration 0113), so a fresh
+  // ---- seeded company has just 1 top-level function, not 2.
+  // ---- The previous >= 2 threshold missed that and duplicated
+  // ---- CEO/COO alongside the Visionary seed.
   if (proposal.top_seats.length > 0) {
     summary.proposedTopSeats = proposal.top_seats.map((s) => s.name);
-    if (topLevelFns.length >= 2) {
-      summary.keptTopSeats = topLevelFns.map((f) => f.title);
+    if (topLevelFns.length >= 1) {
+      // Report both top-level AND their immediate children as
+      // "kept" so the leader sees the whole top structure named,
+      // not just Visionary. (Integrator lives under Visionary
+      // per 0113 so it wouldn't otherwise surface here.)
+      const topAndImmediateChildren = new Set<string>();
+      for (const fn of topLevelFns) topAndImmediateChildren.add(fn.title);
+      for (const fn of allFns) {
+        if (
+          fn.parent_function_id &&
+          topLevelFns.some((t) => t.id === fn.parent_function_id)
+        ) {
+          topAndImmediateChildren.add(fn.title);
+        }
+      }
+      summary.keptTopSeats = Array.from(topAndImmediateChildren);
     } else {
       // Chart is genuinely empty at the top — create the proposal
       // seats as top-level functions with the note as description.
