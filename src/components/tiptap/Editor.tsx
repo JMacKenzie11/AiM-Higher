@@ -251,8 +251,13 @@ function Toolbar({
       },
       href: trimmed,
       ok,
-      resultJson: editor.getJSON(),
     });
+    // Separately, stringified so it copy-pastes as plain text
+    // instead of collapsing to Object in Safari's console.
+    // eslint-disable-next-line no-console
+    console.log(
+      "[link] applyLink resultJson\n" + JSON.stringify(editor.getJSON(), null, 2)
+    );
     if (!ok) {
       onUploadError(
         "That URL doesn't look right. Use https://, http://, or a mailto: address."
