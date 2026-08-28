@@ -115,13 +115,6 @@ const APP_ITEMS: readonly NavItem[] = [
         icon: "book",
         feature: "classroom",
       },
-      {
-        kind: "link",
-        label: "Classroom admin",
-        href: "/admin/classroom",
-        icon: "book",
-        roles: ["system_admin"],
-      },
     ],
   },
   {
@@ -191,6 +184,16 @@ const SYSTEM_ADMIN_BOTTOM_ITEMS: readonly NavItem[] = [
         label: "Platform",
         href: "/admin/dashboard",
         icon: "measure",
+      },
+      // Classroom authoring lives here rather than in Resources so
+      // the group cleanly reads as "platform-wide tools only sysadmins
+      // touch." The reader-side /classroom link (feature-gated for
+      // companies) stays under Resources.
+      {
+        kind: "link",
+        label: "Classroom admin",
+        href: "/admin/classroom",
+        icon: "book",
       },
     ],
   },
