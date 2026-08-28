@@ -122,20 +122,37 @@ export function ChatView({
     };
   }, []);
 
-  // Keep the bottom of the thread in view as the assistant streams.
-  // Previous version used scrollIntoView on a bottom anchor inside the
-  // thread, but the composer is position: sticky; bottom: 0 with its
-  // natural DOM position AFTER the thread. Scrolling only to the anchor
-  // stops short of the document bottom, so the composer's natural spot
-  // is still below viewport, sticky pins it to viewport bottom, and it
-  // overlays the last message — the 12rem of thread bottom-padding
-  // meant to clear the composer never gets shown.
+  // Keep the bottom of the thread in view as the assistant streams,
+  // but ONLY while the user is already near the bottom — a hard
+  // auto-scroll on every token yanks the page away if they scrolled
+  // up to read something earlier in the response.
   //
-  // Scrolling to the document bottom instead lands the composer at its
-  // natural position at viewport bottom, so the padding above it stays
-  // visible and the last bubble clears the composer.
+  // Behavior:
+  //   1. On every messages update, if stickToBottomRef is true,
+  //      schedule a single scroll via rAF (batches multiple
+  //      rapid-fire streaming updates into one paint frame — no
+  //      stutter).
+  //   2. Track user scroll intent. If they scroll away from the
+  //      bottom, flip the ref false. If they scroll back to
+  //      within 80px of the bottom, flip it true.
+  const stickToBottomRef = useRef(true);
   useEffect(() => {
-    window.scrollTo({ top: document.documentElement.scrollHeight });
+    function onScroll() {
+      const scrollTop = window.scrollY;
+      const viewport = window.innerHeight;
+      const total = document.documentElement.scrollHeight;
+      const distanceFromBottom = total - (scrollTop + viewport);
+      stickToBottomRef.current = distanceFromBottom < 80;
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    const id = requestAnimationFrame(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight });
+    });
+    return () => cancelAnimationFrame(id);
   }, [messages]);
 
   useEffect(() => {

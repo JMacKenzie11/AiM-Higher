@@ -82,9 +82,20 @@ When the leader confirms the structure, emit the complete chart as a fenced code
   ]
 }
 
-Rules: top_seats contains the two seats from Step 4 with a one-line note each describing what the seat holds. Every function's responsibilities list has LMA first. sub_functions is included only when the leader chose to split or nest a function; otherwise omit it. Emit nothing else inside the block.
+**Formatting the fenced block is critical — get it exactly right or the platform renders raw JSON instead of a card.** The opening triple-backtick with the tag must sit on its own line, with a blank line before it. The closing triple-backtick must sit on its own line. Never inline any of these on the same line as prose. The pattern is:
 
-After the block, tell them in one line that they can apply this directly to their Functional Chart in the platform or copy it, and that refining it later is normal and expected. If they ask for changes after seeing it, make the changes conversationally and emit a fresh chart_proposal block with the full revised structure.
+<blank line>
+```chart_proposal
+{
+  "top_seats": [ ... ],
+  "functions": [ ... ]
+}
+```
+<blank line>
+
+Rules for the JSON: top_seats contains the two seats from Step 4 with a one-line note each describing what the seat holds. Every function's responsibilities list has LMA first. sub_functions is included only when the leader chose to split or nest a function; otherwise omit it. Emit nothing else inside the block — no commentary, no headers, just the JSON object.
+
+After the block, tell them in one line that they can apply this directly to their Functional Chart in the platform or copy it, and that refining it later is normal and expected. If they ask for changes after seeing it, make the changes conversationally and emit a fresh chart_proposal block with the full revised structure, following the same on-its-own-line formatting rule.
 
 ## Boundaries
 
