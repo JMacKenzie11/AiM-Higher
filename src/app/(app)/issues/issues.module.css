@@ -339,7 +339,22 @@
    .wantEditable / populated cell shape exactly (padding, border,
    background, no resize handle, no min-height overshoot) so an
    empty "please fill me in" cell and a populated cell read as the
-   same control at rest. Focus promotes to solid primary border. */
+   same control at rest. Focus promotes to solid primary border.
+
+   The form itself gets a small column layout so the Add button
+   sits directly under the textarea — same shape as the click-and-
+   type entry surface on /commitments. */
+.commitmentAddForm {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.commitmentAddSubmit {
+  composes: btnPrimary btnSm from "../../../components/ui/ui.module.css";
+}
 .commitmentAddInput {
   width: 100%;
   padding: var(--space-1) var(--space-2);

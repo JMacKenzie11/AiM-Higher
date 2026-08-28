@@ -572,9 +572,15 @@ function DeleteIssueButton({
 }
 
 // Inline commitment-add: fills the three commitment/owner/due
-// cells in place when the issue has no open commitment. Submitting
-// creates an issue-linked commitment; the row rerenders in the
-// "show active" branch on next revalidate.
+// cells in place when the issue has no open commitment. The form
+// action fires createCommitmentAction (which also autoscores the
+// commitment's clarity), and revalidates /issues so the row
+// rerenders in the "show active" branch on the next paint.
+//
+// Submit triggers: the "Add" pill under the textarea, or Cmd/Ctrl+
+// Enter from inside the textarea. A bare Enter inserts a newline
+// (matches the click-to-edit description behavior used elsewhere)
+// so multi-sentence commitments can be typed inline.
 function IssueCommitmentAddInline({
   issueId,
   roster,
@@ -596,6 +602,8 @@ function IssueCommitmentAddInline({
   const [ownerId, setOwnerId] = useState<string>(currentUserId);
   const [dueDate, setDueDate] = useState(todayIso);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  useAutoResize(inputRef, true, description);
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
 
@@ -613,8 +621,9 @@ function IssueCommitmentAddInline({
     <>
       <form
         id={`add-cmt-${issueId}`}
+        ref={formRef}
         action={formAction}
-        className={styles.cellCommitment}
+        className={styles.commitmentAddForm}
       >
         <input type="hidden" name="issue_id" value={issueId} />
         <input type="hidden" name="owner_id" value={ownerId} />
@@ -624,11 +633,14 @@ function IssueCommitmentAddInline({
           name="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={3}
+          rows={1}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.preventDefault();
               setDescription("");
+            } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              if (description.trim()) formRef.current?.requestSubmit();
             }
           }}
           className={styles.commitmentAddInput}
@@ -637,6 +649,13 @@ function IssueCommitmentAddInline({
           disabled={pending}
           aria-label="New commitment"
         />
+        <button
+          type="submit"
+          className={styles.commitmentAddSubmit}
+          disabled={pending || !description.trim()}
+        >
+          {pending ? "Adding…" : "Add"}
+        </button>
         {errorMessage ? (
           <p role="alert" className={styles.rowError}>
             {errorMessage}
