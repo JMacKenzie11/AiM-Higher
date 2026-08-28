@@ -142,6 +142,18 @@ function renderText(node: JSONContent, key: string): React.ReactNode {
       case "code":
         element = <code>{element}</code>;
         break;
+      case "link": {
+        const attrs = (mark as { attrs?: { href?: string } }).attrs;
+        const href = attrs?.href;
+        if (href) {
+          element = (
+            <a href={href} target="_blank" rel="noopener noreferrer">
+              {element}
+            </a>
+          );
+        }
+        break;
+      }
       // Unknown marks are ignored so unknown-mark text still
       // renders as plain text rather than blanking out.
     }

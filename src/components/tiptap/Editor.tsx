@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef, useState } from "react";
 import { VideoEmbed } from "./nodes/VideoEmbed";
 import { ImageEmbed } from "./nodes/ImageEmbed";
+import { Link } from "./marks/Link";
 import { TextAlign } from "./extensions/TextAlign";
 import { parseVideoUrl } from "@/lib/classroom/video-url";
 import { uploadClassroomImageAction } from "@/lib/classroom/actions";
@@ -35,7 +36,7 @@ export function TipTapEditor({
 }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const editor = useEditor({
-    extensions: [StarterKit, VideoEmbed, ImageEmbed, TextAlign],
+    extensions: [StarterKit, VideoEmbed, ImageEmbed, Link, TextAlign],
     content: initial ?? emptyDoc(),
     onUpdate: ({ editor }) => {
       onChange(editor.getJSON());
@@ -226,6 +227,13 @@ function Toolbar({
       >
         ❝
       </ToolbarButton>
+      <ToolbarButton
+        label={editor.isActive("link") ? "Edit or remove link" : "Insert link"}
+        active={editor.isActive("link")}
+        onClick={() => promptForLink(editor)}
+      >
+        🔗
+      </ToolbarButton>
       <ToolbarSeparator />
       <AlignButton editor={editor} value="left" label="Align left" glyph="⇤" />
       <AlignButton editor={editor} value="center" label="Align center" glyph="⇔" />
@@ -273,6 +281,39 @@ function Toolbar({
       </ToolbarButton>
     </div>
   );
+}
+
+// Link insertion / editing. On a caret with no selection, requires
+// text to be selected first (a link mark can't attach to nothing).
+// When the selection already carries a link, prefill the prompt with
+// the current href; blank input removes the link.
+function promptForLink(editor: Editor): void {
+  const isActive = editor.isActive("link");
+  const currentHref = isActive
+    ? (editor.getAttributes("link").href as string | undefined) ?? ""
+    : "";
+  if (!isActive && editor.state.selection.empty) {
+    window.alert("Select the text you want to link first.");
+    return;
+  }
+  const input = window.prompt(
+    isActive
+      ? "Edit the link URL (leave empty to remove):"
+      : "Paste the URL to link to:",
+    currentHref
+  );
+  if (input === null) return; // cancelled
+  const trimmed = input.trim();
+  if (!trimmed) {
+    if (isActive) editor.chain().focus().unsetLink().run();
+    return;
+  }
+  const applied = editor.chain().focus().setLink({ href: trimmed }).run();
+  if (!applied) {
+    window.alert(
+      "That URL doesn't look right. Use https://, http://, or a mailto: address."
+    );
+  }
 }
 
 // Explicit "Insert video" toolbar action. Prompts for the URL,

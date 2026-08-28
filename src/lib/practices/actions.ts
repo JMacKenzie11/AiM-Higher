@@ -100,21 +100,31 @@ export async function createPracticeConversationAction(
   }
 
   if (practice.scriptedOpener) {
-    const { error: openerErr } = await supabase
-      .from("coaching_messages")
-      .insert({
-        conversation_id: data.id,
-        created_by: session.profile.id,
-        role: "assistant",
-        content: practice.scriptedOpener,
-      });
-    if (openerErr) {
-      // The conversation exists; the user can still start typing
-      // and the model will run without the opener in history. Log
-      // so we can spot storage failures, but don't fail the launch.
+    // Wrap in try/catch defensively — a rejected promise from the
+    // storage layer (network blip, RLS surprise) would otherwise
+    // bubble up to the launch page and hit the error boundary. The
+    // conversation is already committed, so the worst case is a
+    // launch with no opener bubble; the user can start typing and
+    // the practice still runs.
+    try {
+      const { error: openerErr } = await supabase
+        .from("coaching_messages")
+        .insert({
+          conversation_id: data.id,
+          created_by: session.profile.id,
+          role: "assistant",
+          content: practice.scriptedOpener,
+        });
+      if (openerErr) {
+        console.error(
+          "createPracticeConversationAction opener insert failed",
+          openerErr
+        );
+      }
+    } catch (err) {
       console.error(
-        "createPracticeConversationAction opener insert failed",
-        openerErr
+        "createPracticeConversationAction opener insert threw",
+        err
       );
     }
   }

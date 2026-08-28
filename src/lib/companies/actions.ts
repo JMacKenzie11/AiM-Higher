@@ -177,6 +177,12 @@ export async function setCompanyFeaturesAction(
 
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${companyId}`);
+  // Toggling a feature must also invalidate the app layout, otherwise
+  // the sidebar keeps rendering the old feature set until the next
+  // full page load — the exact symptom the "Classroom shows on every
+  // company" report was pinned to. The layout re-fetches features on
+  // its next render.
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 

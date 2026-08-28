@@ -41,23 +41,25 @@ export default function GlobalError({
           <p className={styles.digest}>Reference: {error.digest}</p>
         ) : null}
         <div className={styles.actions}>
+          {/* Try again does a hard reload, not reset(). Reload is a
+              superset — it works both for transient errors AND for
+              the stale-server-action-id case after a fresh deploy.
+              reset() alone can't recover from the latter because it
+              reruns the same segment with the same cached IDs. Two
+              buttons read as two things to a user; one that always
+              works is the better UX. */}
           <button
             type="button"
             className={styles.primaryButton}
-            onClick={() => reset()}
+            onClick={() => {
+              // reset() first to give the segment a chance to
+              // re-render (kept for parity with Next.js patterns),
+              // then a full reload as the belt-and-braces recovery.
+              reset();
+              window.location.reload();
+            }}
           >
             Try again
-          </button>
-          {/* Hard reload — needed when the crash was a stale server-
-              action id (post-deploy tab). reset() alone reruns the
-              same segment with the same cached IDs; a full reload
-              grabs the fresh JS + IDs so the retry actually works. */}
-          <button
-            type="button"
-            className={styles.ghostLink}
-            onClick={() => window.location.reload()}
-          >
-            Reload page
           </button>
           <a href="/" className={styles.ghostLink}>
             Back to home

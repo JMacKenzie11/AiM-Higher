@@ -44,6 +44,12 @@ appears in every company that has the Classroom feature turned on
   left / center / right alignment. With the caret in a paragraph
   or heading they align the text; with an image selected they
   align the image within the section.
+- **Insert a hyperlink** — select the text you want to link, then
+  click the 🔗 toolbar button and paste the URL. Only `https://`,
+  `http://`, and `mailto:` URLs are accepted; a bare domain like
+  `aims.institute` is auto-prefixed with `https://`. Click the
+  button again on already-linked text to edit the URL, or clear
+  the field to remove the link.
 - **Walk between sections while editing** — the left rail shows
   the same tab list your readers will see, so click any sibling
   section to jump to its editor.
