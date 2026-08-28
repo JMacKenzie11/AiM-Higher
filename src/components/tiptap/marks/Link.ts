@@ -72,17 +72,22 @@ export const Link = Mark.create({
 
   addCommands() {
     return {
+      // Use `commands.setMark` (not a nested chain) so the mark
+      // application composes into the OUTER chain the caller
+      // started. Nested chain().run() inside a command handler
+      // executes immediately and can race with the outer chain's
+      // run — a classic silent-no-op cause.
       setLink:
         (attrs) =>
-        ({ chain }) => {
+        ({ commands }) => {
           const href = normalizeHref(attrs.href);
           if (!href) return false;
-          return chain().extendMarkRange(this.name).setMark(this.name, { href }).run();
+          return commands.setMark(this.name, { href });
         },
       unsetLink:
         () =>
-        ({ chain }) =>
-          chain().extendMarkRange(this.name).unsetMark(this.name).run(),
+        ({ commands }) =>
+          commands.unsetMark(this.name),
     };
   },
 });

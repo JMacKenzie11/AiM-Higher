@@ -287,12 +287,20 @@ function Toolbar({
 // text to be selected first (a link mark can't attach to nothing).
 // When the selection already carries a link, prefill the prompt with
 // the current href; blank input removes the link.
+//
+// Selection preservation: opening window.prompt() steals focus from
+// the editor. On some browsers this collapses the ProseMirror
+// selection to a caret, which would make setMark apply to zero text
+// (silent no-op). We capture from/to BEFORE the prompt and restore
+// the range explicitly before running setLink so the mark actually
+// lands on the intended text.
 function promptForLink(editor: Editor): void {
   const isActive = editor.isActive("link");
   const currentHref = isActive
     ? (editor.getAttributes("link").href as string | undefined) ?? ""
     : "";
-  if (!isActive && editor.state.selection.empty) {
+  const { from, to } = editor.state.selection;
+  if (!isActive && from === to) {
     window.alert("Select the text you want to link first.");
     return;
   }
@@ -305,10 +313,22 @@ function promptForLink(editor: Editor): void {
   if (input === null) return; // cancelled
   const trimmed = input.trim();
   if (!trimmed) {
-    if (isActive) editor.chain().focus().unsetLink().run();
+    if (isActive) {
+      editor
+        .chain()
+        .focus()
+        .setTextSelection({ from, to })
+        .unsetLink()
+        .run();
+    }
     return;
   }
-  const applied = editor.chain().focus().setLink({ href: trimmed }).run();
+  const applied = editor
+    .chain()
+    .focus()
+    .setTextSelection({ from, to })
+    .setLink({ href: trimmed })
+    .run();
   if (!applied) {
     window.alert(
       "That URL doesn't look right. Use https://, http://, or a mailto: address."
