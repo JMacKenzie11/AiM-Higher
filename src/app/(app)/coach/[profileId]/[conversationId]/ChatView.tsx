@@ -18,8 +18,9 @@ import {
   renameConversationAction,
 } from "@/lib/coach/actions";
 import type { CoachingConversation } from "@/lib/coach/service";
-import type { Practice } from "@/lib/practices/registry";
+import type { OutputCardName, Practice } from "@/lib/practices/registry";
 import { ScriptCard } from "@/components/practices/ScriptCard";
+import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
 import styles from "../../coach.module.css";
 
 // The chat UI. Handles streaming SSE from /api/coach, renders the
@@ -374,6 +375,12 @@ export function ChatView({
               key={m.id}
               message={m}
               onRetry={m.error ? retry : undefined}
+              practice={practice}
+              onFixProposal={() =>
+                void sendMessage(
+                  "Please re-emit the chart_proposal fenced block using the exact schema — top_seats and functions with responsibilities (LMA first), sub_functions only if we split anything."
+                )
+              }
             />
           ))
         )}
@@ -416,9 +423,13 @@ export function ChatView({
 function MessageBubble({
   message,
   onRetry,
+  practice,
+  onFixProposal,
 }: {
   message: UiMessage;
   onRetry?: () => void;
+  practice?: Practice | null;
+  onFixProposal?: () => void;
 }) {
   if (message.role === "user") {
     return (
@@ -435,11 +446,12 @@ function MessageBubble({
   const isThinking = message.streaming && message.content.length === 0;
   const isStreaming = message.streaming === true;
 
-  // Intercept ```script fenced blocks and render them as ScriptCards.
-  // Override the <pre> renderer: react-markdown wraps a fenced block
-  // in <pre><code class="language-X">…</code></pre>, so when the
-  // wrapped code carries `language-script` we swap the whole <pre>
-  // for the card. Everything else falls through to a plain <pre>.
+  // Intercept fenced code blocks whose tag matches the current
+  // practice's outputCard mapping and swap them for the matching
+  // card component. Anything unmapped falls through to a plain <pre>.
+  // Registry-driven so adding a new tag→card wiring is a registry
+  // entry plus a component in CARD_RENDERERS below.
+  const outputCard = practice?.outputCard;
   const markdownComponents: Components = {
     pre({ children }) {
       const only = Children.toArray(children)[0];
@@ -449,13 +461,11 @@ function MessageBubble({
           children?: ReactNode;
         };
         const cls = props.className ?? "";
-        if (cls.includes("language-script")) {
-          return (
-            <ScriptCard
-              raw={extractCodeText(props.children)}
-              streaming={isStreaming}
-            />
-          );
+        const langMatch = cls.match(/language-(\S+)/);
+        const tag = langMatch?.[1];
+        if (tag && outputCard && outputCard[tag]) {
+          const raw = extractCodeText(props.children);
+          return renderCard(outputCard[tag], raw, isStreaming, onFixProposal);
         }
       }
       return <pre>{children}</pre>;
@@ -504,6 +514,30 @@ function MessageBubble({
       </div>
     </div>
   );
+}
+
+// Registry name → component dispatch. Keeps the JSON-friendly
+// string identifiers in the registry mapped to concrete React
+// components here, so client bundles never try to serialize a
+// component reference.
+function renderCard(
+  name: OutputCardName,
+  raw: string,
+  streaming: boolean,
+  onFixProposal?: () => void
+): ReactNode {
+  switch (name) {
+    case "ScriptCard":
+      return <ScriptCard raw={raw} streaming={streaming} />;
+    case "ChartProposalCard":
+      return (
+        <ChartProposalCard
+          raw={raw}
+          streaming={streaming}
+          onFixRequest={onFixProposal}
+        />
+      );
+  }
 }
 
 // Recursively flatten react-markdown's children of a <code> node

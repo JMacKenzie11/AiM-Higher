@@ -1,0 +1,242 @@
+/* ChartProposalCard — a preview of the Functional Accountability
+   Chart the coach proposed, with Apply + Copy actions. */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: var(--space-4) var(--space-5);
+  margin: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.headerMain {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.eyebrow {
+  margin: 0;
+  font: var(--text-eyebrow);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.title {
+  margin: var(--space-1) 0 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.rule {
+  display: block;
+  width: 48px;
+  height: 3px;
+  margin-top: var(--space-2);
+  background: var(--aims-chartreuse);
+  border-radius: var(--radius-pill);
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.primaryButton {
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.primaryButtonDone {
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 40%, transparent);
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: not-allowed;
+}
+
+.ghostButton {
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.topRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.topSeat {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--aims-navy-tint);
+}
+
+.topSeatName {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-heading);
+}
+
+.topSeatNote {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.functionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.functionCard {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.functionName {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-heading);
+}
+
+.responsibilityList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.responsibility {
+  font: var(--text-body-sm);
+  color: var(--text);
+  padding-left: 14px;
+  position: relative;
+}
+
+.responsibility::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.responsibilityLMA {
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.responsibilityLMA::before {
+  background: var(--aims-cobalt);
+}
+
+.subFunctions {
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.subFunction {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subFunctionName {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pending {
+  padding: var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  margin: var(--space-4) 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  text-align: center;
+}
+
+.pendingText {
+  margin: 0 0 var(--space-2);
+}
+
+.summaryLine {
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  background: color-mix(in srgb, var(--success) 6%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--text);
+}
+
+.summaryLine p {
+  margin: 0 0 6px;
+  font: var(--text-body-sm);
+}
+
+.summaryLine p:last-child {
+  margin-bottom: 0;
+}
+
+.errorMessage {
+  margin: 0;
+  color: var(--danger);
+  font: var(--text-body-sm);
+}

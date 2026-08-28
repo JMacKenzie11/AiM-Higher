@@ -428,13 +428,21 @@ async function loadSystemPrompt(
   mode: "about" | "general",
   practiceId: string | null
 ): Promise<string> {
-  const base = await loadCoachBase();
+  const practice = findPractice(practiceId);
+  // A voice_only practice loads aims-voice.md alone as the base —
+  // no coaching spine, no diagnostic modes, no patterns-to-watch-
+  // for. Used by structural practices (chart builder, etc.) where
+  // the practice prompt is the entire flow and inheriting the coach
+  // spine would push it into diagnosis instead of the guided task.
+  const base =
+    practice?.basePromptMode === "voice_only"
+      ? await loadVoiceOnlyBase()
+      : await loadCoachBase();
 
   // Practice sessions layer the registered practice's prompt AFTER
-  // the base coach prompt. The base establishes the coaching stance;
-  // the practice narrows it into a specific guided flow (including
-  // the script-block contract the client renders as a card).
-  const practice = findPractice(practiceId);
+  // the base. The base establishes voice + stance; the practice
+  // narrows it into a specific guided flow (including any card-
+  // block contract the client renders).
   const composed = practice
     ? `${base}\n\n${await loadPracticePrompt(practice)}`
     : mode === "about"
@@ -466,6 +474,15 @@ async function loadCoachBase(): Promise<string> {
     fs.readFile(voicePath, "utf8"),
   ]);
   return remainder.replace("{{AIMS_VOICE}}", voice);
+}
+
+// Voice-only base for practices that don't inherit the full
+// coaching spine. Returns aims-voice.md verbatim; the practice
+// prompt and VOICE_RULES_COACH still layer on around it via
+// loadSystemPrompt.
+async function loadVoiceOnlyBase(): Promise<string> {
+  const voicePath = path.join(process.cwd(), "prompts", "aims-voice.md");
+  return fs.readFile(voicePath, "utf8");
 }
 
 // Injected ahead of leadership-coach.md in general (Ask Aimee) mode.

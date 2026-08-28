@@ -432,6 +432,14 @@
   border-radius: 50%;
   font: var(--text-button-sm);
   letter-spacing: 0.05em;
+  overflow: hidden;
+}
+
+.userAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .userName {
