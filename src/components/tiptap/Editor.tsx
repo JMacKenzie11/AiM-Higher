@@ -3,6 +3,7 @@
 import { useEditor, EditorContent, type Editor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TextSelection } from "@tiptap/pm/state";
+import type { Mark as PMMark, Node as PMNode } from "@tiptap/pm/model";
 import { useEffect, useRef, useState } from "react";
 import { VideoEmbed } from "./nodes/VideoEmbed";
 import { ImageEmbed } from "./nodes/ImageEmbed";
@@ -62,7 +63,15 @@ export function TipTapEditor({
     ],
     content: initial ?? emptyDoc(),
     onUpdate: ({ editor }) => {
-      onChange(editor.getJSON());
+      // Walk the ProseMirror doc ourselves instead of relying on
+      // editor.getJSON(). getJSON() → doc.toJSON() → mark.toJSON()
+      // uses `for (let _ in this.attrs)` which was silently
+      // dropping the link mark's attrs on some Tiptap 3 versions
+      // — mark.attrs.href was present in memory (HTML rendered
+      // with the URL) but the serialized JSON came out as
+      // { "type": "link" } with no attrs. Our custom walker copies
+      // attrs via Object.keys / spread which works everywhere.
+      onChange(pmDocToJson(editor.state.doc));
     },
     immediatelyRender: false,
     editorProps: {
@@ -178,6 +187,40 @@ async function uploadAndInsertImage(
 
 function emptyDoc(): EditorJSON {
   return { type: "doc", content: [{ type: "paragraph" }] };
+}
+
+// Custom ProseMirror doc → JSONContent walker. Mirrors the shape
+// ProseMirror's built-in toJSON produces, but reads attrs via
+// Object.keys/spread so nothing gets silently dropped between the
+// in-memory mark and the emitted JSON.
+function pmDocToJson(node: PMNode): JSONContent {
+  const json: JSONContent = { type: node.type.name };
+  const nodeAttrKeys = Object.keys(node.attrs ?? {});
+  if (nodeAttrKeys.length > 0) {
+    json.attrs = { ...node.attrs };
+  }
+  if (node.marks && node.marks.length > 0) {
+    json.marks = node.marks.map(pmMarkToJson);
+  }
+  if (node.isText) {
+    json.text = node.text ?? "";
+  } else if (node.content.size > 0) {
+    const content: JSONContent[] = [];
+    node.content.forEach((child) => content.push(pmDocToJson(child)));
+    if (content.length > 0) json.content = content;
+  }
+  return json;
+}
+
+function pmMarkToJson(mark: PMMark): { type: string; attrs?: Record<string, unknown> } {
+  const out: { type: string; attrs?: Record<string, unknown> } = {
+    type: mark.type.name,
+  };
+  const keys = Object.keys(mark.attrs ?? {});
+  if (keys.length > 0) {
+    out.attrs = { ...mark.attrs };
+  }
+  return out;
 }
 
 // ------- Toolbar -------
