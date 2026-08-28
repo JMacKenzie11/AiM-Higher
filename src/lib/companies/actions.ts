@@ -253,9 +253,19 @@ export async function setCompanyStatusAction(
 // functions, commitments, meetings, transcripts, coaching
 // conversations, snapshots) stays intact — the row is recoverable
 // by clearing deleted_at in SQL if we ever need to.
+//
+// Return type is intentionally minimal: the same restrictive RLS
+// policy that hides deleted rows from the app also hides the row
+// from a `.select("*")` chained after the update, so we can't read
+// the fresh row back with the authenticated client. Callers only
+// need ok/message anyway.
+export type CompanyDeleteResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
 export async function deleteCompanyAction(
   companyId: string
-): Promise<CompanyResult> {
+): Promise<CompanyDeleteResult> {
   await requireRole(["system_admin"]);
 
   const supabase = await createSupabaseServerClient();
@@ -272,17 +282,15 @@ export async function deleteCompanyAction(
     };
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("companies")
     .update({ deleted_at: new Date().toISOString() })
-    .eq("id", companyId)
-    .select("*")
-    .single<Company>();
-  if (error || !data) {
+    .eq("id", companyId);
+  if (error) {
     return { ok: false, message: "Couldn't delete that company." };
   }
 
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${companyId}`);
-  return { ok: true, company: data };
+  return { ok: true };
 }

@@ -33,6 +33,10 @@ redirected straight to their own company's settings page.
 - **Archive or reactivate a company** — row-level actions. Archive
   hides the company from picker lists and stops sign-ins;
   reactivate restores it.
+- **Delete an archived company** — the *Delete* pill only appears
+  on rows that are already archived (the archive step is the
+  safety on "delete a live tenant by accident"). See *Deleting an
+  archived company* below for what happens under the hood.
 - **Manage AiMS Guides** — the *Guides* card invites external
   coaches, assigns them to companies, and shows each guide's
   current caseload. An `aims_guide` needs at least one
@@ -50,6 +54,25 @@ redirected straight to their own company's settings page.
 - **Route unrouted meetings** — the platform transcripts panel
   at the bottom lists any meeting that didn't match a company
   alias. Route it or dismiss it.
+
+## Deleting an archived company
+
+The *Delete* pill on an archived row is a soft delete. The
+company disappears from every list, picker, and scoped surface,
+but nothing is actually removed from the database:
+
+- **All underlying data stays intact** — people, functions,
+  commitments, meetings, transcripts, coaching conversations,
+  scorecard snapshots. Nothing is dropped or cascaded.
+- **Recovery is SQL-only.** There's no in-app restore. If a
+  company needs to come back, an engineer clears the delete
+  timestamp on the row and it reappears on the list.
+- **Two-step by design.** The Delete pill only shows on archived
+  rows, so an active tenant can't be soft-deleted in one click.
+  Archive first, confirm the tenant really is done, then delete.
+
+The confirm dialog spells out the same thing so no one presses
+Delete under a misunderstanding.
 
 ## Common questions
 

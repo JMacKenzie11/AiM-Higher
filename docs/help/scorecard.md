@@ -10,6 +10,28 @@ view — the Scorecard is transparent by design. Numbers are computed
 on every page load; the sparklines behind them come from the weekly
 Sunday snapshot.
 
+## Setup checklist at the top
+
+If you have admin authority on this company (system admin,
+company admin, or an assigned AiMS Guide), a *Set up {company}*
+card renders above the discipline tiles. It stays visible even
+after every step is ticked off, so the page keeps working as a
+shared map of the operating disciplines.
+
+Five ordered steps, each auto-checking as its condition becomes
+true:
+
+1. **Build the team** — add people and build the functional chart.
+2. **Invite the team** — send invitations to everyone on the roster.
+3. **Open a quarter** — the wrapper every commitment lives in.
+4. **Start the weekly rhythm** — a commitment logged in the last
+   14 days.
+5. **Track Issues / Solutions** — an issue logged in the last
+   14 days.
+
+Team members don't see this card — it's only for people who can
+act on the steps.
+
 ## What you can do here
 
 - **Read the overall score** and the 26-week arc under the hero.

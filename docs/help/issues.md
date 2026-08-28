@@ -16,10 +16,13 @@ owner's Commitments list and scorecard.
 As a team member, you can:
 
 - **Add your own commitment** to an issue that has none — type in
-  the *Commitment* cell, pick a due date, save.
+  the *Commitment* cell. The row auto-saves when you tab out of
+  the form (or press Cmd/Ctrl+Enter); there's no submit button.
 - **Edit the commitment description, owner, and due date** on any
   issue you own or that a commitment of yours is on. Fields are
-  click-to-edit inline; rescheduling asks you for a one-line
+  click-to-edit inline and save on blur. Clearing the description
+  entirely deletes the commitment (the row falls back to the
+  add-commitment state). Rescheduling asks you for a one-line
   reason so patterns stay visible over time.
 - **Toggle the clarity dot** on your own commitment — same
   three-state check as `/commitments` (Timeline agreed? Definition
@@ -60,12 +63,35 @@ someone will take to move it forward.
 
 1. Find the issue's row.
 2. Click into the *Commitment* cell (the dashed input under the
-   Commitment header). Type the next-step description.
-3. Set the owner and due date. If you're not an admin, the owner
-   defaults to you.
-4. Save. The commitment now shows up on the owner's Commitments
-   list and scorecard alongside every other commitment, tagged
-   as linked to this issue.
+   Commitment header) and type the next-step description.
+3. Adjust the owner and due date if you need to. If you're not
+   an admin, the owner defaults to you.
+4. Tab out of the form (or press Cmd/Ctrl+Enter) to save. There's
+   no submit button: the row auto-saves the moment focus leaves
+   the whole form, so tabbing between description → owner → date
+   doesn't fire early. The commitment now shows up on the owner's
+   Commitments list and scorecard alongside every other
+   commitment, tagged as linked to this issue.
+
+## How to edit or delete a commitment on an issue
+
+The commitment description, owner, and due date on an active
+issue are all click-to-edit inline:
+
+- **Description** — click the text, edit in place, click away to
+  save. Cmd/Ctrl+Enter also saves; Escape cancels.
+- **Delete via the description** — clear the description text
+  entirely and blur (click away). That deletes the commitment
+  (soft delete, same as the /commitments trash gesture). The row
+  falls back to the add-commitment state and the clarity dot
+  disappears with it.
+- **Owner** — click the name to open an inline dropdown, pick
+  a new owner, the row rerenders. Same picker /commitments uses.
+- **Due date** — click the date to open the reschedule editor.
+  Non-admins are asked for a one-line reason (patterns stay
+  visible over time); admins can shift the date in one click.
+  Save/Cancel buttons here rather than blur-to-save, so the
+  reason field can't be lost by a stray click outside.
 
 ## How to filter the list
 

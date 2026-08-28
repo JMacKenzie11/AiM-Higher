@@ -8,15 +8,28 @@ A thinking partner for whatever you're working through: a decision,
 a conversation to prep for, an employee not on the platform, or your
 own leadership. Every conversation is private to you.
 
+## How the page is laid out
+
+Two tabs at the top of the content area:
+
+- **Ask Aimee** (default) — your recent conversations plus the
+  *New conversation* button. Open-ended thinking-partner mode.
+- **Practice Coaches** — the entry cards for each guided practice.
+  Pick one and Aimee follows the script for that practice.
+
+The active tab lives in the URL (`?tab=coaches` for Practice
+Coaches), so sending someone a link to either view works.
+
 ## What you can do here
 
-- **Start a Practice** — the cards at the top are structured entry
-  points ("I have a real thing to work through"). Pick one and
-  Aimee follows the script for that practice.
-- **Start a free-form conversation** — the *New conversation*
-  button under Recent conversations. Type your question and send.
+- **Start a Practice** — switch to the *Practice Coaches* tab
+  and pick a card. Each practice is a structured entry point
+  ("I have a real thing to work through").
+- **Start a free-form conversation** — on the *Ask Aimee* tab,
+  click *New conversation*. Type your question and send.
 - **Resume a thread** — every conversation stays under your
-  account and shows in the Recent conversations list.
+  account and shows in the Recent conversations list on the
+  *Ask Aimee* tab.
 - **Archive a conversation** — the row-level action tucks a thread
   out of the way without deleting it.
 - **Get a training recommendation** — when the company has
@@ -62,7 +75,8 @@ nothing gets duplicated, only new pieces land.
 
 ## How to start a conversation
 
-1. Pick a Practice card if what you're working on matches one, or
+1. Pick a card on the *Practice Coaches* tab if what you're
+   working on matches one, or stay on the *Ask Aimee* tab and
    click *New conversation* for open-ended.
 2. Type your question and send. Aimee shows a *Thinking…*
    indicator while she reads context; once tokens stream, a cursor

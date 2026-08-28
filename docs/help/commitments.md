@@ -20,7 +20,9 @@ As a team member, you can:
 - **See your own row set** pinned in a *Yours this week* section
   at the top of the page.
 - **Mark your commitments kept, kept-late, or reschedule** them.
-- **Open a teammate's quick view** by clicking their name.
+- **Reassign a row you own** by clicking the owner name — an
+  inline dropdown opens, pick the new owner, done. Same picker
+  the Issues page uses.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -31,13 +33,23 @@ As an admin or guide, you can also:
   requirements only apply to owners resolving their own rows.
 - **Reschedule any commitment** — including past-due dates — in
   one click without a reason.
-- **Reassign a commitment** to another owner from that person's
-  quick-view drawer.
+- **Reassign a commitment** by clicking the owner name on any
+  row. The inline dropdown opens; pick a new owner. Same picker
+  the Issues page uses.
 - **Force-classify a past-due keep as on-time** for retroactive
   corrections (via the resolve menu). Every admin-driven
   resolution is stamped with the resolving role so coaching
   context can tell "no reason given" from "resolved by admin".
 :::
+
+## How to read a row
+
+Every row group (Needs attention, This week, prior weeks,
+Parking lot) has a labelled column header above it:
+**Commitment / Assigned to / Priority / Due date / Status**.
+The header matches the Issues page so the two surfaces read as
+siblings. On narrow screens the row grid collapses to a stacked
+layout and the header hides.
 
 ## How to resolve a commitment
 

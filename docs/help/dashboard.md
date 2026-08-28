@@ -28,14 +28,12 @@ As a team member, you can:
 ::: role company_admin,aims_guide,system_admin
 As an admin or guide, you can also:
 
-- **Work through the *Set up {company}* checklist** that appears
-  at the top of the dashboard until every step is met. The five
-  steps: open a quarter, build the team, invite the team, start
-  the rhythm, build the vision and strategic plan. Each ticks
-  automatically as its conditions become true; the whole card
-  disappears when setup is done.
 - **Jump to a stalled action** — click any Priority in the
   progress panel to open its detail page and see what's blocking it.
+
+The *Set up {company}* checklist lives on **AiMS Implementation**
+(`/scorecard`) now, not here. Head there when you want to see the
+map of the operating disciplines.
 :::
 
 ## How to log this week's numbers
@@ -63,8 +61,10 @@ definition on hover or keyboard focus.
 
 ## Common questions
 
-**Why is the *Set up* card empty for me?** It only renders for
-admins and guides. Team members see the operating panels directly.
+**Where's the *Set up {company}* checklist?** It moved to AiMS
+Implementation (`/scorecard`). Same five steps, same
+auto-ticking, and it stays visible once complete as a shared map
+of the operating disciplines.
 
 **Why is a generative card (Wins, Streaks, etc.) missing?** Those
 only appear when Success Tracking is on and there's real data
