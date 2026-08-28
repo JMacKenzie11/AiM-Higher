@@ -36,7 +36,11 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
 
   const session = await requireProfile();
   let companyId: string | null = session.profile.company_id;
-  if (!companyId && session.profile.role === "system_admin") {
+  if (
+    !companyId &&
+    (session.profile.role === "system_admin" ||
+      session.profile.role === "aims_guide")
+  ) {
     companyId = await getScopedCompanyId();
   }
   if (!companyId) {

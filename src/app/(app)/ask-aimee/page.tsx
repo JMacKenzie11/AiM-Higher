@@ -31,7 +31,11 @@ export default async function AskAimeePage() {
   // launcher still enforces the gate — this is UX polish, not the
   // security boundary.
   let companyId: string | null = session.profile.company_id;
-  if (!companyId && session.profile.role === "system_admin") {
+  if (
+    !companyId &&
+    (session.profile.role === "system_admin" ||
+      session.profile.role === "aims_guide")
+  ) {
     companyId = await getScopedCompanyId();
   }
   const visiblePractices = PRACTICES.filter((p) => {

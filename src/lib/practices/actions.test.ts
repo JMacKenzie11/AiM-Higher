@@ -17,6 +17,10 @@ const mocks = vi.hoisted(() => {
 
   const profilesSelectMaybeSingle = vi.fn();
 
+  const messagesInsertPatch = vi.fn(async (_patch: unknown) => ({
+    error: null,
+  }));
+
   const fromBuilder = (table: string) => {
     if (table === "profiles") {
       return {
@@ -40,6 +44,11 @@ const mocks = vi.hoisted(() => {
         },
       };
     }
+    if (table === "coaching_messages") {
+      return {
+        insert: (patch: unknown) => messagesInsertPatch(patch),
+      };
+    }
     throw new Error(`Unexpected table in test: ${table}`);
   };
 
@@ -56,6 +65,7 @@ const mocks = vi.hoisted(() => {
     conversationsUpdatePatch,
     conversationsUpdateEq,
     profilesSelectMaybeSingle,
+    messagesInsertPatch,
     serverClient,
     requireProfile,
     getScopedCompanyId,
@@ -89,6 +99,7 @@ function sessionFor(profile: {
   id?: string;
   role?: "system_admin" | "company_admin" | "team_member" | "aims_guide";
   company_id?: string | null;
+  guide_company_ids?: readonly string[];
 }) {
   // Preserve an explicitly-passed null for company_id — ?? would
   // silently coerce it to the default and mask scope tests.
@@ -98,6 +109,7 @@ function sessionFor(profile: {
       role: profile.role ?? "team_member",
       company_id:
         "company_id" in profile ? profile.company_id : "co_acme",
+      guide_company_ids: profile.guide_company_ids ?? [],
     },
   };
 }
@@ -203,6 +215,89 @@ describe("createPracticeConversationAction", () => {
         created_by: "member_1",
       })
     );
+  });
+
+  it("denies a team_member on a role-gated practice before touching the DB", async () => {
+    mocks.findPractice.mockReturnValueOnce({
+      id: "functional-chart-builder",
+      title: "Functional Chart Builder",
+      allowedRoles: ["company_admin", "system_admin", "aims_guide"],
+    });
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({ id: "team_1", role: "team_member", company_id: "co_acme" })
+    );
+    const { createPracticeConversationAction } = await import("./actions");
+
+    const res = await createPracticeConversationAction("functional-chart-builder");
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/isn't available/i);
+    expect(mocks.conversationsInsertPatch).not.toHaveBeenCalled();
+  });
+
+  it("denies an aims_guide on a company they aren't assigned to", async () => {
+    mocks.findPractice.mockReturnValueOnce({
+      id: "functional-chart-builder",
+      title: "Functional Chart Builder",
+      allowedRoles: ["company_admin", "system_admin", "aims_guide"],
+    });
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({
+        id: "guide_1",
+        role: "aims_guide",
+        company_id: null,
+        guide_company_ids: ["co_meridian"],
+      })
+    );
+    mocks.getScopedCompanyId.mockResolvedValueOnce("co_acme");
+    const { createPracticeConversationAction } = await import("./actions");
+
+    const res = await createPracticeConversationAction("functional-chart-builder");
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/aren't assigned/i);
+    expect(mocks.conversationsInsertPatch).not.toHaveBeenCalled();
+  });
+
+  it("persists a scriptedOpener as an assistant message with no API call", async () => {
+    // Scripted-opener practices need to show the opener in the UI
+    // without spinning up the model — the opener is authored copy,
+    // not a generated turn. Assert we INSERT into coaching_messages
+    // with role='assistant' and the exact text.
+    const opener = "Let's build a clear Functional Accountability Chart.";
+    mocks.findPractice.mockReturnValueOnce({
+      id: "functional-chart-builder",
+      title: "Functional Chart Builder",
+      allowedRoles: ["company_admin", "system_admin", "aims_guide"],
+      scriptedOpener: opener,
+    });
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({ id: "admin_1", role: "company_admin", company_id: "co_acme" })
+    );
+    const { createPracticeConversationAction } = await import("./actions");
+
+    const res = await createPracticeConversationAction("functional-chart-builder");
+
+    expect(res.ok).toBe(true);
+    expect(mocks.messagesInsertPatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversation_id: "conv_new",
+        created_by: "admin_1",
+        role: "assistant",
+        content: opener,
+      })
+    );
+  });
+
+  it("does not insert a scripted opener when the practice has none", async () => {
+    // The three legacy practices don't declare a scriptedOpener; a
+    // stray insert would show a phantom assistant message on load.
+    mocks.requireProfile.mockResolvedValue(sessionFor({}));
+    const { createPracticeConversationAction } = await import("./actions");
+
+    await createPracticeConversationAction("prepare-a-hard-conversation");
+
+    expect(mocks.messagesInsertPatch).not.toHaveBeenCalled();
   });
 
   it("stores a bare date as the title (list renderer prepends the practice title)", async () => {

@@ -48,7 +48,17 @@ export async function createPracticeConversationAction(
   const session = await requireProfile();
 
   let companyId: string | null = session.profile.company_id;
-  if (!companyId && session.profile.role === "system_admin") {
+  if (
+    !companyId &&
+    (session.profile.role === "system_admin" ||
+      session.profile.role === "aims_guide")
+  ) {
+    // Cross-tenant roles carry no profile.company_id; the scope
+    // cookie is the source of truth for "which tenant are you in
+    // right now?" Guides also need this fallback so a role-gated
+    // practice launched while scoped into an assigned company
+    // resolves the tenant correctly (and denials for off-caseload
+    // guides fire at the gate, not the scope check).
     companyId = await getScopedCompanyId();
   }
   if (!companyId) {

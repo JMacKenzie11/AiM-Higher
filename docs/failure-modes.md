@@ -156,3 +156,102 @@ coaching-signal work. INTENTIONALLY REVERSIBLE.
 **Pinned by.** `src/lib/commitments/actions.test.ts` — the
 "non-admin cannot soft-delete a resolved commitment" and "admin
 can soft-delete a RESOLVED commitment" cases.
+
+---
+
+## Practices
+
+### 8. Malformed chart_proposal JSON from the Functional Chart Builder
+
+**Situation.** The model emits a `chart_proposal` fenced block
+that isn't valid JSON, or is valid JSON in the wrong shape
+(missing `functions`, a function with no `responsibilities`, a
+top-seat with a non-string `note`, an empty responsibility
+string). The card would either crash on parse or render an
+empty preview if we naively passed the JSON through.
+
+**Rule.** `parseChartProposal` returns null for any structural
+mismatch. The card renders a muted fallback with a "Fix the
+proposal" action that seeds a canned nudge into the composer —
+the model regenerates a fresh, full block on the next turn. The
+Apply server action re-validates through the same parser; a
+call from a tampered client with malformed JSON is rejected
+before touching the chart. During streaming, the same fallback
+reads as "Assembling your chart…" so a partial JSON payload
+doesn't flash a scary error.
+
+**Pinned by.** `src/lib/practices/parse-chart-proposal.test.ts`
+(the malformed cases + the empty-responsibility rejection);
+`src/lib/chart/apply-proposal-action.test.ts` (the "rejects
+malformed proposal JSON with no writes" case).
+
+### 9. Apply-to-Chart called by a caller without edit rights
+
+**Situation.** A team member (or a guide off the caseload) hits
+the Apply button on a ChartProposalCard. The card is only
+mounted inside a role-gated practice, but the server action is
+the security boundary — a hand-crafted request could still get
+here.
+
+**Rule.** `applyChartProposalAction` calls `isAdminForCompany`
+against the scoped tenant AFTER parsing the proposal, and
+returns a friendly error result if the caller isn't a
+company_admin, system_admin, or an aims_guide assigned to this
+company. No writes happen. Writes use the admin Supabase client
+so RLS isn't the enforcement layer for this action; the
+app-layer check IS.
+
+**Pinned by.** `src/lib/chart/apply-proposal-action.test.ts` —
+the "denies a team_member caller even with valid JSON" and
+"denies an aims_guide off caseload" cases; the "is idempotent"
+case guarantees that even a repeat successful call doesn't
+double-write.
+
+### 10. Second Apply of a revised proposal after the first was applied
+
+**Situation.** The leader applied v1 of a chart_proposal, then
+went back to the coach for a revision and got v2. They press
+Apply on v2. Some functions from v1 are now on the chart; v2
+adds a few new ones and enriches the responsibilities of the
+existing ones.
+
+**Rule.** Apply is additive-only:
+- **Function name match (case-insensitive):** skip the function
+  itself, but MERGE any missing responsibilities into it
+  (add-only, case-insensitive on title text). Never delete or
+  modify existing responsibilities.
+- **New functions:** create.
+- **Top seats:** skip entirely when the chart already has ≥ 2
+  top-level functions (universal case; Visionary + Integrator
+  are seeded on every company). Kept-vs-proposed names surface
+  in the summary line.
+
+The idempotency guarantee: applying the same JSON payload twice
+in a row creates nothing the second time — the summary reports
+zero created, zero added, and any kept-top-seats note.
+
+**Pinned by.** `src/lib/chart/apply-proposal-action.test.ts` —
+the "skips a function whose title matches an existing one …
+but merges missing responsibilities" and "is idempotent"
+cases.
+
+### 11. Direct-launch URL for a role-gated practice hit by a team member
+
+**Situation.** A shared link to `/ask-aimee/new?practice=
+functional-chart-builder` lands in a Slack channel, and a team
+member follows it.
+
+**Rule.** The launch route runs `practiceRoleGate` against the
+scoped company before any DB write. Denials render a friendly
+"Practice not available" page with a back link, not an error
+boundary. Guides on off-caseload companies fall through the
+same path (role passes, `isAdminForCompany` fails). The
+practice card is also hidden from the /ask-aimee landing list
+for ineligible callers as UX polish, but the launcher is the
+security boundary.
+
+**Pinned by.** `src/lib/practices/gate.test.ts` — role-not-in-
+list and guide-off-caseload cases; `src/lib/practices/
+actions.test.ts` — the "denies a team_member on a role-gated
+practice" and "denies an aims_guide on a company they aren't
+assigned to" cases through the action layer.

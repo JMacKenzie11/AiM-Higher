@@ -348,6 +348,27 @@ Top-level nav item, always visible to any active member.
 - **Classroom recommendations** — when Classroom is on for the company, Aimee has the `search_classroom` tool and will link a stable training URL when a user's question aligns with library content.
 - **Company context is still injected** (purpose, values, focus areas) — Aimee is grounded in the company Q&A even in general mode. She's explicitly told not to invent per-person data in general mode.
 
+### 14a. Guided Practices
+
+Practices are prompt-narrowed variants of the Ask Aimee coach — a stable card on `/ask-aimee`, a shared chat surface, and (per practice) an optional structured output card the assistant can emit.
+
+- **Registry** — `src/lib/practices/registry.ts`. Adding a practice is a registry entry plus a prompt file at `prompts/practices/<id>.md`; no other code change unless the practice needs a new output card component. Each entry declares:
+  - `basePromptMode` (`full_coach` or `voice_only`). `full_coach` splices `prompts/aims-voice.md` into `prompts/leadership-coach.md` (the current three practices); `voice_only` loads `aims-voice.md` alone as the base — no coaching spine, no diagnostic modes, no patterns-to-watch-for. Used by structural practices (Functional Chart Builder) where the practice prompt IS the flow.
+  - `skipSetup` — when true, the partner picker + setup step are bypassed; the conversation opens directly in the chat.
+  - `scriptedOpener` — optional string persisted as the first assistant message with ZERO API calls at launch time. The model sees it in history from turn two onward. Kept in the registry so the opener is versioned alongside the prompt.
+  - `allowedRoles` — optional role list; the practice card is hidden from and the launch URL rejects anyone outside the list. For aims_guide the launcher additionally requires an assignment to the scoped company (`isAdminForCompany`). Absent means all members.
+  - `outputCard` — optional `{ fenced-tag → card-name }` mapping. `ChatView`'s markdown renderer intercepts matching fenced blocks and dispatches to the named card component (JSON-friendly string identifiers, resolved to React components via a local lookup so registry entries stay serializable).
+- **Voice split** — `prompts/leadership-coach.md` carries a `{{AIMS_VOICE}}` sentinel; the full-coach base recomposes byte-equivalent to the pre-split file. `src/lib/coach/leadership-coach-compose.test.ts` locks the SHA-256 so voice or coach-spine edits stay deliberate acts.
+- **Direct-launch URL** — `/ask-aimee/new?practice={id}` creates the conversation server-side, honors `skipSetup` + `scriptedOpener`, and redirects to `/ask-aimee/<conversationId>`. Denials render a friendly page (never an error boundary) so a shared link that lands on an ineligible caller degrades gracefully.
+- **Existing practices** (all `full_coach`, setup enabled, no opener, no role gate): *Prepare a hard conversation* (LEAD-adjacent, emits a `script` block → ScriptCard); *Navigate an emotionally charged conversation* (LEAD, emits a `script` block → ScriptCard); *Ask great questions* (facilitation, no structured output).
+- **Functional Chart Builder** — third practice, `voice_only` base, `skipSetup: true`, role-gated to `company_admin`/`system_admin`/`aims_guide`. Emits a `chart_proposal` fenced block → **ChartProposalCard**: previews top seats + functions + sub-functions (LMA visually emphasized as the first responsibility on every function), Apply + Copy actions. Malformed JSON falls back with a "Fix the proposal" nudge that seeds a canned regeneration request into the composer. Regenerating from a coach revision produces a fresh card; the disabled done-state is scoped to that card's Apply, never global.
+- **Apply-to-Chart** (`src/lib/chart/apply-proposal-action.ts`) — additive-only writes into the existing chart tables (`functions` + `function_roles`) via the admin Supabase client (guides don't hold RLS insert rights on `function_roles`, so the app-layer `isAdminForCompany` check is the security boundary). Semantics:
+  - Top-level functions matched by case-insensitive title → **skip** (never modify).
+  - Missing responsibilities on an existing function → **merge in** (add-only, case-insensitive on title). Never deletes or modifies existing responsibilities.
+  - Sub-functions same skip/merge; parent resolved to whichever function (existing or just-created) has the matching name.
+  - Top seats are **skipped entirely** when the chart already has ≥ 2 top-level functions (universal case since migration 0112 seeds Visionary + Integrator on every company). Kept-vs-proposed names surface in the summary line so the leader knows the coached names weren't lost silently.
+  - Idempotent by name-collision skip — pressing Apply twice on the same JSON creates nothing the second time.
+
 ---
 
 ## 15. Classroom (Shared Training Library)
