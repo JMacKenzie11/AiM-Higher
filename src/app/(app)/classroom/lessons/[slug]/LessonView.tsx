@@ -28,9 +28,7 @@ export function LessonView({
           <Link href="/classroom" className={styles.crumbLink}>
             ← Classroom
           </Link>
-          <p className={styles.eyebrow}>
-            {lesson.category?.name ?? "Lesson"}
-          </p>
+          <p className={styles.eyebrow}>Lesson</p>
           <h1 className={styles.h1}>{lesson.title}</h1>
           <span className={styles.rule} aria-hidden="true" />
           {lesson.description ? (
