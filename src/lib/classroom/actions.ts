@@ -243,7 +243,14 @@ export async function createTrainingAction(
     .select("id")
     .single<{ id: string }>();
   if (error || !data) {
-    return { ok: false, message: "Couldn't create that section — slug may already exist." };
+    return {
+      ok: false,
+      // Section slugs are unique within a lesson (migration 0149).
+      // The same section title CAN exist in a different lesson —
+      // the collision is only within this one.
+      message:
+        "Couldn't create that section — a section with the same slug already exists in this lesson.",
+    };
   }
   revalidatePath("/admin/classroom");
   revalidatePath(`/admin/classroom/lessons/${input.lesson_id}/edit`);
@@ -286,7 +293,21 @@ export async function updateTrainingAction(
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
-  if (error) return { ok: false, message: "Couldn't save the section." };
+  if (error) {
+    // Most common cause: the new slug collides with another section
+    // in the SAME lesson (per the (lesson_id, slug) unique from
+    // migration 0149). Cross-lesson dupes are allowed. Fall back to
+    // a generic message when Supabase returned something else.
+    const isSlugCollision =
+      typeof error.message === "string" &&
+      error.message.toLowerCase().includes("classroom_trainings_lesson_slug_key");
+    return {
+      ok: false,
+      message: isSlugCollision
+        ? "Couldn't save — another section in this lesson already has the same slug."
+        : "Couldn't save the section.",
+    };
+  }
 
   revalidatePath("/admin/classroom");
   revalidatePath(`/admin/classroom/lessons/${input.lesson_id}/edit`);
