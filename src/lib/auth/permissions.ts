@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { assertCompanyAccess, getEffectiveCompanyId } from "@/lib/admin/scope";
 import type { Profile, Role } from "@/lib/types";
 
 // Shared permission primitives. Every server action + page loader used
@@ -89,11 +89,34 @@ export async function scopedCompanyId(
   formCompanyId: string
 ): Promise<string | null> {
   const role = session.profile.role;
+  let resolved: string | null;
   if (role === "system_admin" || role === "aims_guide") {
-    if (formCompanyId) return formCompanyId;
-    // Neither sysadmins nor guides have a primary company_id; fall
-    // through to the scope cookie via the shared resolver.
-    return getEffectiveCompanyId(session);
+    if (formCompanyId) {
+      resolved = formCompanyId;
+    } else {
+      // Neither sysadmins nor guides have a primary company_id; fall
+      // through to the scope cookie via the shared resolver.
+      resolved = await getEffectiveCompanyId(session);
+    }
+  } else {
+    resolved = session.profile.company_id;
   }
-  return session.profile.company_id;
+  // Belt-and-suspenders backstop. For sysadmins this is a no-op; for
+  // guides it enforces the target is in their assignments; for
+  // company users it enforces the resolved value equals their own
+  // company_id. Throws CrossTenantAccessError on violation so a
+  // regression fails loud instead of quietly returning wrong-tenant
+  // scope.
+  if (resolved !== null) {
+    assertCompanyAccess(
+      {
+        profile: {
+          ...session.profile,
+          guide_company_ids: session.profile.guide_company_ids ?? [],
+        },
+      },
+      resolved
+    );
+  }
+  return resolved;
 }

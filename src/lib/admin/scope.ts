@@ -30,6 +30,63 @@ export async function getScopedCompanyId(): Promise<string | null> {
   return value && value.length > 0 ? value : null;
 }
 
+// Thrown when a caller would be routed to a company they don't have
+// access to. Fail-loud invariant enforcement — the audit found no
+// path today that trips this, but we want an immediate 500 if a
+// future bug ever tries to serve a company user another tenant's
+// data. Grepable in logs / error monitoring.
+export class CrossTenantAccessError extends Error {
+  constructor(
+    public readonly profileId: string,
+    public readonly ownCompanyId: string | null,
+    public readonly attemptedCompanyId: string,
+    public readonly role: string
+  ) {
+    super(
+      `CrossTenantAccessError: ${role} ${profileId} (own=${ownCompanyId ?? "null"}) attempted access to ${attemptedCompanyId}`
+    );
+    this.name = "CrossTenantAccessError";
+  }
+}
+
+// Belt-and-suspenders backstop: hard-asserts that the caller is
+// allowed to see targetCompanyId. Never returns a value — throws on
+// violation. Meant to sit at every choke point where a companyId
+// arrives from outside the caller's own profile (cookie, form
+// input, propagated arg). Existing checks (scopedCompanyId,
+// getEffectiveCompanyId, isAdminForCompany) already enforce the
+// same rules; this exists so a future bug that bypasses those
+// throws instead of silently serving wrong-tenant data.
+//
+// - system_admin: bypass unconditionally.
+// - aims_guide: allowed iff the target is in their assignments.
+// - company_admin / team_member: MUST match profile.company_id.
+export function assertCompanyAccess(
+  session: Scopeable,
+  targetCompanyId: string
+): void {
+  const { role, company_id } = session.profile;
+  if (role === "system_admin") return;
+  if (role === "aims_guide") {
+    const assignments = session.profile.guide_company_ids ?? [];
+    if (assignments.includes(targetCompanyId)) return;
+    throw new CrossTenantAccessError(
+      session.profile.id,
+      company_id,
+      targetCompanyId,
+      role
+    );
+  }
+  // company_admin or team_member — must exactly match own company.
+  if (company_id === targetCompanyId) return;
+  throw new CrossTenantAccessError(
+    session.profile.id,
+    company_id,
+    targetCompanyId,
+    role
+  );
+}
+
 // Resolves the "current company" for the caller in one place. Every
 // company-scoped page (dashboard, plan, weekly-review, etc.) uses
 // this to know which company_id to read.
@@ -38,7 +95,19 @@ export async function getScopedCompanyId(): Promise<string | null> {
 //   1. explicit scope cookie (if it still points at an assigned company)
 //   2. auto-scope to their single assignment when they only have one
 //   3. null → caller redirects to the picker
+//
+// Every non-null return runs through assertCompanyAccess before it
+// leaves this function — a hard invariant check that this resolver
+// is never handing a company user a companyId that isn't theirs.
 export async function getEffectiveCompanyId(
+  session: Scopeable
+): Promise<string | null> {
+  const resolved = await resolveCompanyIdInternal(session);
+  if (resolved !== null) assertCompanyAccess(session, resolved);
+  return resolved;
+}
+
+async function resolveCompanyIdInternal(
   session: Scopeable
 ): Promise<string | null> {
   if (session.profile.company_id) return session.profile.company_id;
