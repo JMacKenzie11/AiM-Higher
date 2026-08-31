@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { fetchCoachingInsightsAction } from "@/lib/admin/coaching-insights-actions";
-import {
-  everythingInsightsFilters,
-  type CoachingInsightsAdoption,
-  type CoachingInsightsFilters,
-  type CoachingInsightsSynthesis,
-  type CompanyOption,
+import type {
+  CoachingInsightsAdoption,
+  CoachingInsightsFilters,
+  CoachingInsightsSynthesis,
+  CompanyOption,
 } from "@/lib/admin/coaching-insights-service";
 import { Sparkline } from "./Sparkline";
 import styles from "./coaching-insights.module.css";
@@ -253,7 +252,7 @@ function CoachingInsightsFilters({
         <button
           type="button"
           className={styles.resetButton}
-          onClick={() => onChange(everythingInsightsFilters())}
+          onClick={() => onChange(allTimeFilters())}
           disabled={pending}
           title="Clear all filters and pull every conversation in the system"
         >
@@ -710,6 +709,19 @@ function formatShort(iso: string): string {
     day: "numeric",
     timeZone: "UTC",
   });
+}
+
+// Mirror of everythingInsightsFilters() in coaching-insights-service.
+// Duplicated here because that module is server-only ("server-only"
+// import blocks it from being pulled into a Client Component). The
+// Reset button is a client interaction, so it needs its own copy.
+function allTimeFilters(): CoachingInsightsFilters {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    companyIds: [],
+    startIso: "2020-01-01",
+    endIso: today,
+  };
 }
 
 function formatWhen(iso: string): string {
