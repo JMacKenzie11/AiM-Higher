@@ -255,7 +255,7 @@ ${transcript}`;
     .join("")
     .trim();
 
-  const parsed = JSON.parse(text) as Partial<AnalysisPayload>;
+  const parsed = JSON.parse(stripCodeFence(text)) as Partial<AnalysisPayload>;
   if (typeof parsed.summary !== "string" || parsed.summary.length === 0) {
     throw new Error("analyzeOne: missing summary");
   }
@@ -288,4 +288,16 @@ ${transcript}`;
     friction_signal,
     opportunity,
   };
+}
+
+// Haiku (and Sonnet) will wrap JSON in ```json ... ``` fences
+// even when the prompt says not to. Strip them defensively so a
+// single ignored instruction doesn't nuke the whole batch.
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("```")) return trimmed;
+  const withoutOpen = trimmed
+    .replace(/^```(?:json|JSON)?\s*/, "")
+    .replace(/```$/, "");
+  return withoutOpen.trim();
 }
