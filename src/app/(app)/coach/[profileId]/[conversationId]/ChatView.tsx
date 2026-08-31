@@ -625,7 +625,7 @@ export function ChatView({
               )}
             </div>
             <p className={styles.chipHint}>
-              Or type your own in the box below.
+              Or type your own prompt in the box below.
             </p>
           </div>
         ) : (
