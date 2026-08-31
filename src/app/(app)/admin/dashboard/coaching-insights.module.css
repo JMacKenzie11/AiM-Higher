@@ -1,0 +1,388 @@
+/* Coaching insights card — bottom of /admin/dashboard.
+   Larger footprint than the other cards on this page because
+   it's a multi-band surface (filters + stats + sparkline +
+   agent list + eventually themes + heatmap). Uses the same
+   card chrome as the rest of the dashboard so it reads as a
+   peer, not a modal. */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font: var(--text-body);
+}
+
+/* ---- Filters ---- */
+
+.filtersRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background: color-mix(in srgb, var(--aims-navy) 3%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.filterField {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.filterLabel {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.companyTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-body);
+  cursor: pointer;
+  min-width: 220px;
+}
+
+.companyTrigger:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.companyTriggerLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.companyMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 260px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.companyMenuClear {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--primary);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.companyMenuClear:hover {
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+
+.companyMenuList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.companyMenuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.companyMenuItem:hover {
+  background: var(--aims-navy-tint);
+}
+
+.companyMenuItem input {
+  accent-color: var(--primary);
+}
+
+.dateInput {
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-body);
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.filterActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-h-md);
+}
+
+.filterPending {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  font-style: italic;
+}
+
+.errorNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-danger-tint);
+  border-radius: var(--radius-sm);
+  color: var(--aims-danger);
+  font: var(--text-body-sm);
+}
+
+/* ---- Adoption stat band ---- */
+
+.statBand,
+.statBandPending {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+
+.statBandPending {
+  opacity: 0.55;
+}
+
+.statPill {
+  padding: var(--space-4) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle chartreuse top edge on every pill — ties the band
+   to the brand accent used across the dashboard's pulse row. */
+.statPill::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--aims-chartreuse);
+  opacity: 0.6;
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-heading);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.statLabel {
+  font: var(--text-body-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.statCaption {
+  margin-top: 4px;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ---- Sparkline ---- */
+
+.sparklineWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--aims-navy) 2%, var(--surface));
+}
+
+.sparklineMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.sparklineTitle {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.sparklineCaption {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.sparklineCanvas {
+  height: 60px;
+}
+
+/* ---- Agent breakdown ---- */
+
+.agentPane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.paneHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.paneTitle {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.paneCaption {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.agentList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.agentRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr auto auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.agentName {
+  font: var(--text-body);
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Layered bars — outer track holds the total count as a light
+   cobalt wash; inner "went deep" segment overlays with the
+   solid cobalt so a reader sees both engagement AND depth at
+   a glance. */
+.agentBarTrack {
+  position: relative;
+  height: 12px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.agentBarTotal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: color-mix(in srgb, var(--primary) 30%, transparent);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.agentBarDeep {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.agentCount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 40px;
+  text-align: right;
+}
+
+.agentDeep {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 60px;
+  text-align: right;
+}

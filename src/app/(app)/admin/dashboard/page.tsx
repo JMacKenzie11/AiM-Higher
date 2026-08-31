@@ -10,9 +10,15 @@ import {
   getLatestThemes,
 } from "@/lib/admin/dashboard-service";
 import { readAnthropicCostSummary } from "@/lib/admin/anthropic-cost";
+import {
+  defaultInsightsFilters,
+  getCoachingInsightsAdoption,
+  listCoachingInsightsCompanies,
+} from "@/lib/admin/coaching-insights-service";
 import { PageShell } from "@/components/ui/PageShell";
 import { PulseNumber } from "./PulseNumber";
 import { ActivityTable } from "./ActivityTable";
+import { CoachingInsightsCard } from "./CoachingInsightsCard";
 import { Sparkline } from "./Sparkline";
 import { InfoTip } from "./InfoTip";
 import styles from "./dashboard.module.css";
@@ -29,16 +35,28 @@ export default async function AdminDashboardPage() {
   // Gate: only system_admin. Non-admins get redirected to /.
   await requireRole(["system_admin"]);
 
-  const [pulse, activity, practices, costs, signups, themes, realCosts] =
-    await Promise.all([
-      getPlatformPulse(),
-      getCompanyActivity(),
-      getPracticeAdoption(),
-      getModelCostSummary(),
-      getSignupStats(),
-      getLatestThemes(),
-      readAnthropicCostSummary(),
-    ]);
+  const insightsInitialFilters = defaultInsightsFilters();
+  const [
+    pulse,
+    activity,
+    practices,
+    costs,
+    signups,
+    themes,
+    realCosts,
+    insightsCompanies,
+    insightsAdoption,
+  ] = await Promise.all([
+    getPlatformPulse(),
+    getCompanyActivity(),
+    getPracticeAdoption(),
+    getModelCostSummary(),
+    getSignupStats(),
+    getLatestThemes(),
+    readAnthropicCostSummary(),
+    listCoachingInsightsCompanies(),
+    getCoachingInsightsAdoption(insightsInitialFilters),
+  ]);
   const atRisk = computeAtRisk(activity);
   // Prefer real invoiced numbers from the Anthropic Admin API when
   // the workspace is configured and at least one bucket has been
@@ -373,6 +391,16 @@ export default async function AdminDashboardPage() {
         </header>
         <ActivityTable rows={activity} />
       </section>
+
+      {/* ---- Coaching insights (filterable) ----
+          Sits at the bottom because it's the deepest surface —
+          filters + adoption band + agent breakdown, with Passes
+          2/3 layering themes + friction + product opportunities. */}
+      <CoachingInsightsCard
+        companies={insightsCompanies}
+        initialFilters={insightsInitialFilters}
+        initialAdoption={insightsAdoption}
+      />
     </PageShell>
   );
 }
