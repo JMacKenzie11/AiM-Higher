@@ -358,7 +358,7 @@ Sharing is an overlay on ownership, added in migration 0150. It lets the owner o
 - **UI surface** — chat header carries a **Share** button (owner) or a muted **Shared with N** badge (sharee); both open the same modal. Modal search is scoped to same-company active profiles; per-row access dropdown + remove for the owner; a **Leave this chat** button for sharees. Read-access callers see the composer replaced by a "Read-only. Ask the owner for write access to reply." helper line.
 - **Attribution** — when a thread has any sharees, user bubbles render a small (avatar + name) row above the bubble for messages authored by someone other than the current viewer. Own bubbles stay unlabeled — the right-aligned position already reads as "you". Assistant bubbles are uniformly labeled Aimee/Coach; the caller's session id is stamped on `coaching_messages.created_by` on every send so attribution is durable across sessions.
 - **Landing surface** — `/ask-aimee` renders a second card, **Shared with you**, below the primary Recent conversations list when the caller has any share rows in their current company scope. Rows show the owner's name and the sharee's access level (Read/Write) in the meta line.
-- **Notification on share** — `shareConversationAction` fires an event-based notification (`kind: 'chat_shared'`) into the sharee's notification bell (see Section 17). One-shot: the row is persisted in `public.notifications` and dismissed when the sharee clicks it or clears the tray. Best-effort — a notification write failure never rolls back the share.
+- **Notification on share** — `shareConversationAction` fires an event-based notification (`kind: 'chat_shared'`) into the sharee's notification bell (see Section 16a). One-shot: the row is persisted in `public.notifications` and dismissed when the sharee clicks it or clears the tray. Best-effort — a notification write failure never rolls back the share.
 - **No auto-share, ever** — about-mode threads about a specific subject and practices with a partner_profile_id do NOT auto-share with those people. Every share is an explicit act by the owner.
 - **RLS recursion fix (migration 0151)** — 0150 introduced cross-referencing SELECT policies (`coaching_conversations` calls `EXISTS(shares)` and vice versa). Semantically each pair terminates, but Postgres refuses to plan `.insert(...).select("*")` under that shape and the practice launcher's read-back tripped RLS with a generic "Couldn't start that practice." Fix: three `SECURITY DEFINER` helpers (`is_coaching_conversation_owner`, `has_coaching_share`, `has_coaching_write_share`) do the row lookup with RLS bypassed; policies call the helpers instead of nesting subqueries into the other table, so no cross-policy reference remains. Access rules unchanged.
 
@@ -425,6 +425,25 @@ Feature-gated (`classroom`). Content is authored centrally by system admins and 
 - **Classroom authoring** (`/admin/classroom`, sysadmin only) — see Section 15.
 - **AiMS Guides admin** (Guides panel on `/admin/companies`) — system admins can invite `aims_guide` profiles, assign them to companies, unassign, and delete. The panel also lists `system_admin` profiles that hold at least one guide assignment, badged "System admin," so an internal admin carrying a caseload appears alongside external guides. A separate "Give a system admin a coaching caseload" mini-form assigns an existing sysadmin to one or more companies in bulk (no invite fired — they already have an account). Row-level *View Guide HQ* action opens the sysadmin oversight surface for that guide. **Unassign semantics differ by role:** removing the last assignment from an aims_guide is refused (invariant: no zero-assignment guide); the same operation on a sysadmin is allowed (their cross-tenant access is role-based, not assignment-based). See Section 17 for the Guide HQ surface these assignments feed.
 - **Dashboard AI briefs** — cached per company with prompt-hash invalidation; `AiBrief` React component types out the reveal on first view of a fresh brief, then renders instantly on revisits (localStorage-tracked, respects `prefers-reduced-motion`).
+
+### 16a. Notifications
+
+Two sources feed the same `NotificationItem[]` rendered by `NotificationBell` in the top nav and sidebar footer.
+
+- **State-derived triggers** (in `src/lib/notifications/service.ts`) — recomputed per header render, nothing persists. Overdue commitments (owner), Due today commitments (owner), Friday metrics (leaders of manual measures, Friday only in company tz). These can never be "dismissed" because the underlying state IS the notification; clearing them means acting on the state.
+- **Event-based notifications** (migration 0152) — persisted rows in `public.notifications` `(id, recipient_id, company_id, kind, payload jsonb, href, eyebrow, title, read_at, created_by, created_at)`. `kind` is open-schema — new event sources drop in without another migration. One-shot lifecycle: the row is created when the event fires, hidden from the bell when `read_at` is set, and never re-fires.
+
+Boundaries:
+- **RLS forbids INSERT to `authenticated` entirely.** Every write goes through `insertNotification()` using the admin client from trusted server code (e.g., `shareConversationAction`). This shuts down the user-to-user spam vector at the DB layer — even a malicious client with a valid JWT cannot fabricate a notification for another user.
+- **SELECT / UPDATE / DELETE** are recipient-only (`recipient_id = auth.uid()`). No admin peek path.
+- **Self-notifications** short-circuit in `insertNotification()` — pinging yourself for something you just did is always noise.
+- **Company scope on read** — the bell filters persisted rows by the caller's current company scope alongside `recipient_id`, mirroring the general scoping story so a system_admin or guide switching tenants doesn't drag notifications along.
+
+Registered kinds:
+- `chat_shared` — fires from `shareConversationAction` on successful insert. Payload carries `conversation_id`, `access`, `shared_by_id`, `shared_by_name`, `mode`, `practice_id`. Best-effort — a notification failure never rolls back the share.
+
+Client wiring:
+- `NotificationBell` marks any `dismissible: true` item read on click (fire-and-forget alongside the navigation). Computed items skip the round-trip since they recompute anyway. `markNotificationReadAction` is idempotent (`.is('read_at', null)` filters already-read rows out of the update) and revalidates the layout so the badge count refreshes on the next paint.
 
 ---
 
@@ -523,7 +542,7 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
 Things intentionally not built (yet):
 
 - No native calendar integration.
-- No push notifications, Slack, or mobile push. Transactional email is limited to (a) auth invitations & password reset, and (b) the per-meeting commitment digest to participants — no daily/weekly digests, no in-app notification centre.
+- No push notifications, Slack, or mobile push. Transactional email is limited to (a) auth invitations & password reset, and (b) the per-meeting commitment digest to participants — no daily/weekly digests, no email notifications for the in-app bell. In-app notifications DO exist (see Section 16a), but stay inside the app.
 - No mobile apps (responsive web only).
 - No CSV / Excel import (seed scripts only). No CSV / PDF export or shareable-report surfaces.
 - No external integrations beyond Google Drive (no HRIS, Notion, Salesforce, QuickBooks, HubSpot).
