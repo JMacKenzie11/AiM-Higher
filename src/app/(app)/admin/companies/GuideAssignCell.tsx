@@ -49,7 +49,7 @@ export function GuideAssignCell({
         </select>
         <button
           type="button"
-          className={styles.ghostButton}
+          className={styles.primaryButton}
           disabled={pending || !pickCompanyId}
           onClick={() => {
             const target = pickCompanyId;
