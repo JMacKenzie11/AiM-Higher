@@ -100,6 +100,11 @@ narrowly scoped:
 - **Attribution shows up automatically.** When a chat has any
   sharees, user bubbles show the sender's name and avatar so
   it's clear who said what.
+- **You'll get a notification when someone shares a chat with
+  you.** A new item appears in the top-right notification bell
+  with the owner's name and a link straight into the thread.
+  Clicking it marks it read; the badge count updates on the next
+  page load.
 - **Practice thread rules don't change.** The Functional Chart
   Builder practice is admin-only to *start*, but once a chart
   builder thread exists, a company admin can share it with a

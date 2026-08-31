@@ -57,8 +57,9 @@ their own coach URL gets redirected there automatically.
 **Can I share a thread with another admin?** Yes. Use the
 *Share* button at the top of the thread. Choose *Read* or
 *Write*, pick the person, and they'll see the thread in their
-Shared with you list. You stay the owner and can change access
-or remove them at any time.
+Shared with you list — and get a notification in their top-right
+bell linking straight into it. You stay the owner and can change
+access or remove them at any time.
 
 **Can I share cross-company?** No. Shares are locked to the
 conversation's company by app logic, RLS, and a database trigger.
