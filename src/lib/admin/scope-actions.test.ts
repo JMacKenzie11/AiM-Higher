@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => {
   const revalidatePath = vi.fn();
   const setScopedCompanyCookie = vi.fn();
   const clearScopedCompanyCookie = vi.fn();
+  // Target ids the fake Supabase treats as soft-deleted (or missing).
+  // Tests toggle entries in this set to exercise the guard.
+  const missingCompanyIds = new Set<string>();
   // redirect() throws in real Next; the test spy records the target
   // AND throws a marker so callers get the same non-return behavior.
   const redirect = vi.fn((url: string) => {
@@ -27,6 +30,7 @@ const mocks = vi.hoisted(() => {
     setScopedCompanyCookie,
     clearScopedCompanyCookie,
     redirect,
+    missingCompanyIds,
   };
 });
 
@@ -45,6 +49,24 @@ vi.mock("@/lib/auth/current-user", () => ({
 vi.mock("./scope", () => ({
   setScopedCompanyCookie: mocks.setScopedCompanyCookie,
   clearScopedCompanyCookie: mocks.clearScopedCompanyCookie,
+}));
+
+// scopeIntoCompanyAction now verifies the target company is still
+// live (not soft-deleted). Under test, every id resolves to a live
+// row unless the test explicitly registers it in missingCompanyIds.
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: async () => ({
+    from: (_table: string) => ({
+      select: (_cols: string) => ({
+        eq: (_col: string, value: string) => ({
+          maybeSingle: async () =>
+            mocks.missingCompanyIds.has(value)
+              ? { data: null }
+              : { data: { id: value } },
+        }),
+      }),
+    }),
+  }),
 }));
 
 // ---- Helpers --------------------------------------------------
@@ -89,6 +111,7 @@ function guideSession(assignments: string[]) {
 describe("scopeIntoCompanyAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.missingCompanyIds.clear();
     // Restore the throwing behavior after vi.clearAllMocks() wipes
     // implementations. Without this, redirect becomes a noop and
     // captureRedirect's "expected a redirect" assertion trips.
@@ -164,6 +187,23 @@ describe("scopeIntoCompanyAction", () => {
 
     const target = await captureRedirect(() =>
       scopeIntoCompanyAction("co_target")
+    );
+
+    expect(target).toBe("/admin/companies");
+    expect(mocks.setScopedCompanyCookie).not.toHaveBeenCalled();
+  });
+
+  it("bounces a sysadmin when the target company is soft-deleted", async () => {
+    // Prevents the "sysadmin scoped into a ghost tenant" bug that
+    // stranded chats on since-deleted companies. RLS hides the row,
+    // the action sees null on the freshness probe, and bounces to
+    // the picker instead of setting a stale cookie.
+    mocks.requireRole.mockResolvedValue(sysAdminSession());
+    mocks.missingCompanyIds.add("co_ghost");
+    const { scopeIntoCompanyAction } = await import("./scope-actions");
+
+    const target = await captureRedirect(() =>
+      scopeIntoCompanyAction("co_ghost")
     );
 
     expect(target).toBe("/admin/companies");

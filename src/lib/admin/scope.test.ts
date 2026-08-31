@@ -31,8 +31,34 @@ vi.mock("next/headers", () => ({
   cookies: async () => cookieMocks.jar,
 }));
 
+// The scope resolver now verifies that any cookie/assignment-derived
+// company is still live (not soft-deleted) before returning it. Under
+// test we return a row for every id by default so pre-existing
+// invariant tests keep passing; the "deleted company" test below
+// swaps this map to return null for a specific id.
+const dbMocks = vi.hoisted(() => {
+  const deletedIds = new Set<string>();
+  return { deletedIds };
+});
+
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: async () => ({
+    from: (_table: string) => ({
+      select: (_cols: string) => ({
+        eq: (_col: string, value: string) => ({
+          maybeSingle: async () =>
+            dbMocks.deletedIds.has(value)
+              ? { data: null }
+              : { data: { id: value } },
+        }),
+      }),
+    }),
+  }),
+}));
+
 beforeEach(() => {
   cookieMocks.store.clear();
+  dbMocks.deletedIds.clear();
 });
 
 // ===============================================================
@@ -306,5 +332,25 @@ describe("getEffectiveCompanyId (invariant coverage)", () => {
     // Single-assignment auto-scope: still lands on co_a, not the
     // planted cookie.
     expect(result).toBe("co_a");
+  });
+
+  it("clears a sysadmin cookie pointing at a soft-deleted company", async () => {
+    // The bug this catches: sysadmin scopes into a company, company
+    // later gets soft-deleted, sysadmin's cookie still points at the
+    // ghost. Without the liveness check, downstream pages read
+    // against a tenant that has no members visible (share picker
+    // empty, orphan chats resurfacing, etc.).
+    cookieMocks.store.set("aims_scope_company", "co_dead");
+    dbMocks.deletedIds.add("co_dead");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "root",
+        role: "system_admin",
+        company_id: null,
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBeNull();
   });
 });

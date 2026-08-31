@@ -66,12 +66,31 @@ export default async function AskAimeeChatPage({
   // Access check: owner (created_by = me) or someone with a share
   // row. RLS already blocks the SELECT for anyone else, but explicit
   // check gives us the right UI branch (owner vs. write vs. read)
-  // and a friendly 404 instead of a silent empty state.
+  // and a friendly 404 instead of a silent empty state. Runs before
+  // the scope-align redirect so a non-participant guide/sysadmin
+  // gets a proper 404 rather than a scope bounce.
   const access = await getAccessForConversation(
     conversation.id,
     session.profile.id
   );
   if (access === null) notFound();
+  // Sysadmin/guide scope alignment: if the chat lives on a tenant
+  // that doesn't match the current cookie scope, bounce through
+  // the route handler so the cookie catches up before we render.
+  // Otherwise the share picker + agent gate would read against the
+  // wrong company (the bug that produced empty pickers on chats
+  // stamped under a since-switched-away-from tenant).
+  const currentScope = await getEffectiveCompanyId(session);
+  const role = session.profile.role;
+  if (
+    (role === "system_admin" || role === "aims_guide") &&
+    currentScope !== conversation.company_id
+  ) {
+    const next = `/ask-aimee/${conversation.id}`;
+    redirect(
+      `/api/coach/align-scope?conversation=${conversation.id}&next=${encodeURIComponent(next)}`
+    );
+  }
 
   const messages = await getMessages(conversationId);
 
@@ -100,13 +119,15 @@ export default async function AskAimeeChatPage({
   // caller. Role-gated at the page level so the modal never
   // shows a card the launch would reject. Only relevant when the
   // caller is the owner — sharees don't get to switch the agent.
-  const scopedCompanyId = await getEffectiveCompanyId(session);
+  // currentScope was resolved above for the scope-alignment guard;
+  // by this point it matches conversation.company_id for a sysadmin
+  // or guide (or the caller's own profile.company_id).
   const agentPickerPractices =
     access === "owner"
       ? PRACTICES.filter((p) => {
           if (!p.allowedRoles) return true;
-          if (!scopedCompanyId) return false;
-          return practiceRoleGate(p, session.profile, scopedCompanyId).ok;
+          if (!currentScope) return false;
+          return practiceRoleGate(p, session.profile, currentScope).ok;
         })
       : null;
 

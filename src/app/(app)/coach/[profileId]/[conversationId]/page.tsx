@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   getAccessForConversation,
   getConversation,
@@ -36,12 +37,28 @@ export default async function CoachChatPage({ params }: PageProps) {
   // Access check admits owner OR sharee. RLS also scopes SELECT, so
   // a non-participant would already have hit notFound() above via
   // getConversation returning null — this branch decides which UI
-  // state to render (write vs. read).
+  // state to render (write vs. read). Runs before the scope-align
+  // redirect so a non-participant gets a proper 404, not a bounce.
   const access = await getAccessForConversation(
     conversation.id,
     session.profile.id
   );
   if (access === null) notFound();
+  // Sysadmin/guide scope alignment (mirror of the /ask-aimee guard).
+  // A person-scoped chat still carries a company_id at the row level
+  // via the subject's tenant; bounce through the align-scope route
+  // so the cookie catches up before we render.
+  const currentScope = await getEffectiveCompanyId(session);
+  const role = session.profile.role;
+  if (
+    (role === "system_admin" || role === "aims_guide") &&
+    currentScope !== conversation.company_id
+  ) {
+    const next = `/coach/${profileId}/${conversation.id}`;
+    redirect(
+      `/api/coach/align-scope?conversation=${conversation.id}&next=${encodeURIComponent(next)}`
+    );
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data: subject } = await supabase

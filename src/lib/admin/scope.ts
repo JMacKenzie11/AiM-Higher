@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile, Role } from "@/lib/types";
 
 // Cross-company scoping (Section 7 + 8.9).
@@ -112,15 +113,51 @@ async function resolveCompanyIdInternal(
 ): Promise<string | null> {
   if (session.profile.company_id) return session.profile.company_id;
   const role = session.profile.role;
-  if (role === "system_admin") return getScopedCompanyId();
+  if (role === "system_admin") {
+    const cookie = await getScopedCompanyId();
+    if (!cookie) return null;
+    // Verify the scoped company still exists and isn't soft-deleted.
+    // Without this, a sysadmin's cookie can stick to a tenant that
+    // was archived + deleted after the scope-in — every subsequent
+    // page renders against a ghost (empty pickers, orphan chats,
+    // etc.). companies_hide_deleted RLS gives us the check for
+    // free: the SELECT returns null when deleted_at is not null.
+    if (!(await companyIsLive(cookie))) {
+      await clearScopedCompanyCookie();
+      return null;
+    }
+    return cookie;
+  }
   if (role === "aims_guide") {
     const assignments = session.profile.guide_company_ids ?? [];
     const cookie = await getScopedCompanyId();
-    if (cookie && assignments.includes(cookie)) return cookie;
-    if (assignments.length === 1) return assignments[0];
+    if (cookie && assignments.includes(cookie)) {
+      if (!(await companyIsLive(cookie))) {
+        await clearScopedCompanyCookie();
+        return null;
+      }
+      return cookie;
+    }
+    if (assignments.length === 1) {
+      if (!(await companyIsLive(assignments[0]))) return null;
+      return assignments[0];
+    }
     return null;
   }
   return null;
+}
+
+// Cheap existence probe. companies_hide_deleted is a restrictive
+// SELECT policy, so a soft-deleted company reads back null even
+// for a sysadmin. Returns true iff the row is visible + live.
+async function companyIsLive(companyId: string): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("id", companyId)
+    .maybeSingle<{ id: string }>();
+  return data !== null;
 }
 
 export async function setScopedCompanyCookie(
