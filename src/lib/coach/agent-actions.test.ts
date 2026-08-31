@@ -310,6 +310,28 @@ describe("setConversationAgentAction", () => {
     expect(res.ok).toBe(false);
   });
 
+  it("refuses to attach an agent to an about-mode thread", async () => {
+    // Coach threads (mode='about') are person-scoped and don't
+    // carry an agent slot in the UI. The picker never renders
+    // there, but the action should refuse defensively so a
+    // hand-crafted call can't smuggle a practice_id into an
+    // 'about' row.
+    seedGeneralConvo({
+      mode: "about",
+      subject_profile_id: "subject_1",
+    });
+    requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
+
+    const { setConversationAgentAction } = await import("./actions");
+    const res = await setConversationAgentAction(
+      "conv_1",
+      "functional-chart-builder"
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/general conversations/);
+    expect(db.coaching_conversations[0].practice_id).toBe(null);
+  });
+
   it("null agentId clears back to plain Aimee", async () => {
     seedGeneralConvo({ practice_id: "functional-chart-builder" });
     requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
