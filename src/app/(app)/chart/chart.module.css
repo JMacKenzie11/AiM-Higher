@@ -511,30 +511,6 @@
   margin: 0;
 }
 
-/* Read-only summary for the Outcomes section on the function page —
-   the authoring surface itself lives on /measures. */
-.measuresSummary {
-  font: var(--text-body);
-  color: var(--text);
-  margin: 0;
-}
-
-.measuresManageLink {
-  margin: var(--space-2) 0 0;
-  font: var(--text-body-sm);
-}
-
-.measuresManageLink a {
-  color: var(--primary);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.measuresManageLink a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 /* ---- Inline add forms ---------------------------------------
    Two visual states.
    Closed → a compact "+ Add …" pill that sits inline.
@@ -1247,16 +1223,6 @@
   flex-direction: column;
   gap: var(--space-1);
   max-width: 400px;
-}
-
-.focusWarning {
-  padding: var(--space-2) var(--space-3);
-  background: var(--aims-warning-tint);
-  border-left: 3px solid var(--aims-warning);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-  color: var(--text);
-  margin: 0;
 }
 
 .dangerZone {

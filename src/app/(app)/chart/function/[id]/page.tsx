@@ -25,8 +25,7 @@ import styles from "../../chart.module.css";
 // Function detail — the whole story for a single function.
 // The org chart is the map (function name, seat). This page is the
 // dashboard: seat holder, roles & responsibilities, decision rights,
-// competency indicators. Outcomes and their key success measures now
-// live on the /measures page (a per-function anchor deep-links here).
+// competency indicators.
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -43,11 +42,6 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
   // "guides = company_admin on assigned companies" — so this uses
   // isAdminForCompany rather than a role-only check.
   const isAdmin = isAdminForCompany(session.profile, detail.fn.company_id);
-  const outcomeCount = detail.outcomes.length;
-  const measureCount = detail.outcomes.reduce(
-    (sum, o) => sum + o.measures.length,
-    0
-  );
 
   const rdEnabled = await companyHasFeature(
     detail.fn.company_id,
@@ -100,38 +94,6 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
             canEdit={isAdmin}
             rdEnabled={rdEnabled}
           />
-        </section>
-
-        <section className={styles.sectionCardAccent} aria-labelledby="measures">
-          <CardAccent />
-          <h2 id="measures" className={styles.sectionTitle}>
-            Outcomes &amp; Key Success Measures
-          </h2>
-          <p className={styles.measuresSummary}>
-            {outcomeCount === 0
-              ? "No outcomes for this function yet."
-              : `${outcomeCount} outcome${outcomeCount === 1 ? "" : "s"}${
-                  measureCount > 0
-                    ? ` · ${measureCount} key success measure${
-                        measureCount === 1 ? "" : "s"
-                      }`
-                    : ""
-                }.`}
-          </p>
-          {outcomeCount > 3 ? (
-            <p className={styles.focusWarning}>
-              <strong>Focus reminder:</strong> {outcomeCount} outcomes on this
-              function. Three or fewer is the norm, everything else should
-              either fold in or move.
-            </p>
-          ) : null}
-          <p className={styles.measuresManageLink}>
-            <Link href={`/measures#fn-${detail.fn.id}`}>
-              {isAdmin
-                ? "Manage in Key Success Measures →"
-                : "View in Key Success Measures →"}
-            </Link>
-          </p>
         </section>
 
         {rdEnabled ? (
