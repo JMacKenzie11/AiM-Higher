@@ -25,16 +25,17 @@ guided or free-form, the entry point is the same.
   click the **agent picker** to the right of the title. Pick
   "Ask Aimee" for open-ended thinking or a specific agent
   (Prepare a hard conversation, Functional Chart Builder, etc.)
-  to run the chat as that guided practice. You can swap the
-  agent freely until you send your first message; once you type,
-  the agent is locked for the rest of the thread. Some agents
-  kick off the first turn on their own the moment they're
-  attached — you'll see them start talking.
+  to run the chat as that guided practice. Every agent opens
+  with a title + a small set of starter chips; pick the chip
+  that matches your situation or type your own — that becomes
+  your first message and the agent responds from there. You can
+  swap the agent freely until you send your first message; once
+  you type, the agent is locked for the rest of the thread.
 - **Deep-link to a fresh agent chat** — `/ask-aimee/new?agent=X`
-  creates a new thread with agent X pre-attached and its opener
-  running. Useful for links from Classroom sections, emails, or
-  anywhere else that wants to drop someone straight into a
-  guided practice.
+  creates a new thread with agent X pre-attached; you land on
+  the chat with its chips ready to click. Useful for links from
+  Classroom sections, emails, or anywhere else that wants to
+  drop someone straight into a guided practice.
 - **Resume a thread** — every conversation stays under your
   account and shows in the Recent conversations list.
 - **Share a chat** — inside any conversation you own, use the
@@ -65,8 +66,7 @@ Open the agent picker inside any chat to pick one:
 - **Functional Chart Builder** — *admin-only*. Walks you through
   building a Functional Accountability Chart for your business:
   the core functions, their top responsibilities, and the two
-  seats above them. Kicks off the conversation on its own once
-  attached. Ends with a chart proposal card that has an
+  seats above them. Ends with a chart proposal card that has an
   **Apply to Chart** button — one click adds the proposed
   functions and responsibilities to your Functional Chart page.
   See "How Apply works" below.
@@ -129,16 +129,14 @@ narrowly scoped:
 
 1. Click *New conversation* on the Recent conversations card.
 2. Optional: use the agent picker at the top of the chat to
-   attach a guided agent. Some agents (like the Functional Chart
-   Builder) start talking as soon as they're attached; others
-   wait for you to describe your situation.
-3. Type your question and send. Aimee shows a *Thinking…*
-   indicator while she reads context; once tokens stream, a cursor
-   tracks the response.
-4. Keep going — the whole thread is one conversation, and Aimee
-   remembers it end-to-end. The agent is locked from the moment
-   you send your first message, so if you want to switch, do it
-   before you type.
+   attach a guided agent. The empty state shows a set of
+   starter chips — click one to send it, or type your own.
+3. Aimee shows a *Thinking…* indicator while she reads context;
+   once tokens stream, a cursor tracks the response.
+4. Keep going — the whole thread is one conversation, and the
+   agent remembers it end-to-end. The agent slot is locked from
+   the moment you send your first message, so if you want to
+   switch, do it before you type.
 
 ## Common questions
 

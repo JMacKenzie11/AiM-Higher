@@ -24,12 +24,18 @@ import styles from "./AgentPicker.module.css";
 //     reads as a persistent label so the leader still knows what
 //     they're talking to.
 
+export type AgentAttachedInfo = {
+  practiceId: string | null;
+  openerContent: string | null;
+  runGenerateOpener: boolean;
+};
+
 export function AgentPicker({
   conversationId,
   practices,
   currentAgent,
   locked,
-  onGenerateOpener,
+  onAgentAttached,
 }: {
   conversationId: string;
   // Registry entries the caller is allowed to launch (already
@@ -37,10 +43,13 @@ export function AgentPicker({
   practices: readonly Practice[];
   currentAgent: Practice | null;
   locked: boolean;
-  // Called when the server action returns runGenerateOpener=true.
-  // The chat view then fires /api/coach with generateOpener=true
-  // to stream the dynamic opener into a fresh assistant bubble.
-  onGenerateOpener: () => void;
+  // Called after a successful attach. ChatView owns the local
+  // message state so it wipes optimistic messages, seeds any
+  // scripted opener, and kicks off the generate flow if signalled.
+  // router.refresh() can't drive this because useState only reads
+  // its initial value once — a fresh `initialMessages` prop after
+  // refresh would not update the client state.
+  onAgentAttached: (info: AgentAttachedInfo) => void;
 }) {
   const [open, setOpen] = useState(false);
   const label = currentAgent ? currentAgent.title : "Ask Aimee";
@@ -79,7 +88,7 @@ export function AgentPicker({
           practices={practices}
           currentAgent={currentAgent}
           onClose={() => setOpen(false)}
-          onGenerateOpener={onGenerateOpener}
+          onAgentAttached={onAgentAttached}
         />
       ) : null}
     </>
@@ -91,13 +100,13 @@ function AgentPickerModal({
   practices,
   currentAgent,
   onClose,
-  onGenerateOpener,
+  onAgentAttached,
 }: {
   conversationId: string;
   practices: readonly Practice[];
   currentAgent: Practice | null;
   onClose: () => void;
-  onGenerateOpener: () => void;
+  onAgentAttached: (info: AgentAttachedInfo) => void;
 }) {
   const [mounted, setMounted] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -139,8 +148,18 @@ function AgentPickerModal({
         setPendingId(null);
         return;
       }
-      if (res.runGenerateOpener) onGenerateOpener();
+      // Hand full state control to ChatView. It wipes optimistic
+      // messages, inserts the scripted opener (if any), and kicks
+      // off the generate flow when signalled.
+      onAgentAttached({
+        practiceId: res.practiceId,
+        openerContent: res.openerContent,
+        runGenerateOpener: res.runGenerateOpener,
+      });
       onClose();
+      // Still refresh so the server-rendered header updates
+      // (title, empty state text) and any other page-level state
+      // stays consistent.
       router.refresh();
     });
   }
@@ -159,9 +178,15 @@ function AgentPickerModal({
     >
       <div className={styles.dialog}>
         <div className={styles.header}>
-          <h2 id="agent-picker-title" className={styles.title}>
-            Choose an agent
-          </h2>
+          <div className={styles.headerText}>
+            <h2 id="agent-picker-title" className={styles.title}>
+              Choose an agent
+            </h2>
+            <p className={styles.subtitle}>
+              Pick an agent to run this chat as a guided practice,
+              or keep Aimee for open-ended thinking.
+            </p>
+          </div>
           <button
             ref={closeRef}
             type="button"
@@ -173,67 +198,64 @@ function AgentPickerModal({
           </button>
         </div>
 
-        <p className={styles.subtitle}>
-          Pick an agent to run this chat as a guided practice, or
-          keep Aimee for open-ended thinking.
-        </p>
+        <div className={styles.body}>
+          {currentAgent ? (
+            <div className={styles.currentRow}>
+              <button
+                type="button"
+                className={styles.clearButton}
+                onClick={() => pick(null)}
+                disabled={pending}
+              >
+                {pendingId === "clear" ? "…" : "Clear (use Aimee)"}
+              </button>
+            </div>
+          ) : null}
 
-        {currentAgent ? (
-          <div className={styles.currentRow}>
-            <button
-              type="button"
-              className={styles.clearButton}
-              onClick={() => pick(null)}
-              disabled={pending}
-            >
-              {pendingId === "clear" ? "…" : "Clear (use Aimee)"}
-            </button>
-          </div>
-        ) : null}
-
-        {grouped.map(({ category, items }) => (
-          <section key={category} className={styles.categoryGroup}>
-            <h3 className={styles.categoryHeader}>{category}</h3>
-            <ul className={styles.rowList}>
-              {items.map((practice) => {
-                const isCurrent = currentAgent?.id === practice.id;
-                return (
-                  <li key={practice.id}>
-                    <button
-                      type="button"
-                      className={
-                        isCurrent ? styles.rowCurrent : styles.row
-                      }
-                      onClick={() => pick(practice.id)}
-                      disabled={pending || isCurrent}
-                      aria-busy={pendingId === practice.id}
-                    >
-                      <span className={styles.rowMain}>
-                        <span className={styles.rowTitle}>
-                          {practice.title}
+          {grouped.map(({ category, items }) => (
+            <section key={category} className={styles.categoryGroup}>
+              <h3 className={styles.categoryHeader}>{category}</h3>
+              <ul className={styles.rowList}>
+                {items.map((practice) => {
+                  const isCurrent = currentAgent?.id === practice.id;
+                  return (
+                    <li key={practice.id}>
+                      <button
+                        type="button"
+                        className={
+                          isCurrent ? styles.rowCurrent : styles.row
+                        }
+                        onClick={() => pick(practice.id)}
+                        disabled={pending || isCurrent}
+                        aria-busy={pendingId === practice.id}
+                      >
+                        <span className={styles.rowMain}>
+                          <span className={styles.rowTitle}>
+                            {practice.title}
+                          </span>
+                          <span className={styles.rowDescription}>
+                            {practice.description}
+                          </span>
                         </span>
-                        <span className={styles.rowDescription}>
-                          {practice.description}
-                        </span>
-                      </span>
-                      {isCurrent ? (
-                        <span className={styles.rowCurrentTag}>Current</span>
-                      ) : (
-                        <ChevronGlyph />
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
+                        {isCurrent ? (
+                          <span className={styles.rowCurrentTag}>Current</span>
+                        ) : (
+                          <ChevronGlyph />
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
 
-        {error ? (
-          <p role="alert" className={styles.errorNote}>
-            {error}
-          </p>
-        ) : null}
+          {error ? (
+            <p role="alert" className={styles.errorNote}>
+              {error}
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>,
     document.body

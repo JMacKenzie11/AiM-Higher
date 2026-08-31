@@ -214,15 +214,14 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
-/* Right-side slot on the chat header — holds the Share button for
-   owners or a muted "Shared with N" badge for sharees. Aligned to
-   the top so it lines up with the eyebrow subject label rather than
-   the taller title beneath it. */
+/* Right-side slot on the chat header — holds the AgentPicker pill
+   and the Share button. Vertically centered so both controls sit
+   on the same baseline regardless of their intrinsic heights. */
 .chatHeaderShare {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  align-self: flex-start;
+  align-self: center;
 }
 
 .thread {

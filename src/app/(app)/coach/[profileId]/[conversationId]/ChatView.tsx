@@ -24,7 +24,10 @@ import type {
 import type { OutputCardName, Practice } from "@/lib/practices/registry";
 import { ScriptCard } from "@/components/practices/ScriptCard";
 import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
-import { AgentPicker } from "@/components/practices/AgentPicker";
+import {
+  AgentPicker,
+  type AgentAttachedInfo,
+} from "@/components/practices/AgentPicker";
 import styles from "../../coach.module.css";
 
 // The chat UI. Handles streaming SSE from /api/coach, renders the
@@ -186,7 +189,10 @@ export function ChatView({
   // agent uses firstTurn='generate' and nothing has been sent yet.
   // Ref-guarded so React 18 dev double-invoke doesn't fire the
   // stream twice. Only owners trigger it — sharees see whatever's
-  // already there.
+  // already there. Currently no agent ships firstTurn: "generate"
+  // (the pattern is empty-state chips), but the plumbing stays so
+  // a future agent can opt into a dynamic first turn without
+  // client changes.
   const openerFiredRef = useRef(false);
   useEffect(() => {
     if (openerFiredRef.current) return;
@@ -380,6 +386,41 @@ export function ChatView({
     void sendMessage(lastUserAttempt, { retry: true });
   }
 
+  // AgentPicker callback. Runs whenever the leader attaches or
+  // clears an agent. Owns the client-side message state (which
+  // useState only initializes once from the initialMessages prop —
+  // a router.refresh() alone wouldn't re-sync it). Wipes any
+  // optimistic messages, seeds the scripted opener returned by
+  // the server, then either fires the generate flow or leaves the
+  // slot empty for plain Aimee.
+  const handleAgentAttached = useCallback(
+    (info: AgentAttachedInfo) => {
+      // Cancel any in-flight streaming so a stale response can't
+      // land into the newly-swapped agent's turn.
+      abortRef.current?.abort();
+      const next: UiMessage[] = info.openerContent
+        ? [
+            {
+              id: `local-a-${Date.now()}`,
+              role: "assistant",
+              content: info.openerContent,
+            },
+          ]
+        : [];
+      setMessages(next);
+      // Auto-title tracking resets — a new agent = a new topic.
+      autoTitledRef.current = false;
+      if (info.runGenerateOpener) {
+        // Small tick so React commits the wiped state before we
+        // append the assistant streaming placeholder.
+        setTimeout(() => runOpenerGeneration(), 0);
+      }
+    },
+    // runOpenerGeneration is a stable useCallback — safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   // Called by the AgentPicker after the server action returns
   // runGenerateOpener=true. Streams the practice's dynamic opener
   // into a fresh assistant bubble via /api/coach — same shape as
@@ -546,7 +587,7 @@ export function ChatView({
               practices={agentPickerPractices ?? []}
               currentAgent={practice}
               locked={hasUserTurns}
-              onGenerateOpener={runOpenerGeneration}
+              onAgentAttached={handleAgentAttached}
             />
           </div>
         ) : null}

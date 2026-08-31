@@ -152,13 +152,11 @@ export const PRACTICES: readonly Practice[] = [
       "Build a clear accountability chart: the functions your business needs, before the people who fill them.",
     category: "Structure",
     promptFile: "prompts/practices/functional-chart-builder.md",
+    chips: ["I need to create my functional chart"],
     basePromptMode: "voice_only",
-    skipSetup: true,
+    skipSetup: false,
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
     outputCard: { chart_proposal: "ChartProposalCard" },
-    firstTurn: "scripted",
-    scriptedOpener:
-      "Let's build a clear Functional Accountability Chart for your business. This is a structure that shows who owns what, and how things run best, with or without you. This isn't about job titles or people. It's about defining the essential functions and responsibilities that make the business work. We'll focus on what functions your business needs before looking at who fills them. Ready to get started?",
   },
 ] as const;
 

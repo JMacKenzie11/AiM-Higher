@@ -189,7 +189,22 @@ export async function createGeneralConversationAction(): Promise<
 // leader who tries three agents in a row doesn't end up with
 // three stacked greetings.
 export type SetAgentResult =
-  | { ok: true; runGenerateOpener: boolean }
+  | {
+      ok: true;
+      // When true, the client should fire /api/coach with
+      // generateOpener:true to stream the practice's dynamic
+      // opener. Set for practices with firstTurn='generate'.
+      runGenerateOpener: boolean;
+      // The scripted opener that was persisted (if any). Returned
+      // so the client can seed its optimistic message list —
+      // router.refresh() alone doesn't sync client useState, and
+      // the modal path always follows agent selection with a
+      // client-side state update anyway.
+      openerContent: string | null;
+      // Echo the resolved practice id back so the client can
+      // reconcile its `practice` prop without a full page reload.
+      practiceId: string | null;
+    }
   | { ok: false; message: string };
 
 export async function setConversationAgentAction(
@@ -275,6 +290,7 @@ export async function setConversationAgentAction(
   // generateOpener=true immediately after this action returns —
   // that keeps the streaming UX identical to a normal turn.
   let runGenerateOpener = false;
+  let openerContent: string | null = null;
   if (nextPractice) {
     if (nextPractice.firstTurn === "scripted" && nextPractice.scriptedOpener) {
       const { error: openerErr } = await supabase
@@ -290,6 +306,8 @@ export async function setConversationAgentAction(
           "setConversationAgentAction opener insert failed",
           openerErr
         );
+      } else {
+        openerContent = nextPractice.scriptedOpener;
       }
     } else if (nextPractice.firstTurn === "generate") {
       runGenerateOpener = true;
@@ -304,7 +322,12 @@ export async function setConversationAgentAction(
   );
 
   revalidatePath(`/ask-aimee/${conversationId}`);
-  return { ok: true, runGenerateOpener };
+  return {
+    ok: true,
+    runGenerateOpener,
+    openerContent,
+    practiceId: nextPractice?.id ?? null,
+  };
 }
 
 // ---- Archive ----------------------------------------------------

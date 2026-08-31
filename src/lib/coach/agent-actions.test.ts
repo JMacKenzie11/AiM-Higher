@@ -206,7 +206,7 @@ describe("setConversationAgentAction", () => {
     reset();
   });
 
-  it("owner can attach an agent to a fresh conversation and gets the scripted opener", async () => {
+  it("owner can attach an agent to a fresh conversation", async () => {
     seedGeneralConvo();
     requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
 
@@ -216,18 +216,18 @@ describe("setConversationAgentAction", () => {
       "functional-chart-builder"
     );
     expect(res.ok).toBe(true);
-    if (res.ok) expect(res.runGenerateOpener).toBe(false);
+    if (res.ok) {
+      expect(res.runGenerateOpener).toBe(false);
+      // Current registry ships every agent with the chip pattern
+      // — no scriptedOpener, no firstTurn. Nothing gets persisted
+      // on attach; the user's chip click becomes turn one.
+      expect(res.openerContent).toBe(null);
+      expect(res.practiceId).toBe("functional-chart-builder");
+    }
     expect(db.coaching_conversations[0].practice_id).toBe(
       "functional-chart-builder"
     );
-    expect(db.coaching_messages).toHaveLength(1);
-    expect(db.coaching_messages[0]).toMatchObject({
-      role: "assistant",
-      conversation_id: "conv_1",
-    });
-    expect(db.coaching_messages[0].content).toMatch(
-      /Functional Accountability Chart/i
-    );
+    expect(db.coaching_messages).toHaveLength(0);
   });
 
   it("swapping agent before first user message wipes the prior opener", async () => {

@@ -1,18 +1,18 @@
 /* Chat-header trigger — reads as a compact pill with icon + label.
-   Kept in the same visual family as the share icon button so the
-   header controls read as one system. */
+   Sized to match the neighbouring 36px share-icon button so the
+   two controls sit on the same visual baseline. */
 .trigger,
 .triggerLocked {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
+  height: 36px;
+  padding: 0 var(--space-3) 0 var(--space-3);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--primary) 8%, transparent);
   border: 1px solid transparent;
   color: var(--primary);
-  font: var(--text-body-sm);
+  font: var(--text-body);
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -54,27 +54,61 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: var(--space-5) var(--space-6) var(--space-6);
+  padding: 0;
   max-width: 640px;
   width: 100%;
   max-height: 80vh;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
 }
 
+/* Branded header — brand gradient background with a chartreuse
+   underline under the title. Keeps the picker in the same visual
+   family as the Ask Aimee empty state and the auth shell. */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  background: var(--grad-brand);
+  color: var(--aims-white);
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .title {
   margin: 0;
   font: var(--text-h3);
-  color: var(--text-heading);
+  color: var(--aims-white);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.title::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 3px;
+  background: var(--aims-chartreuse);
+  border-radius: 2px;
+}
+
+/* Body sits under the branded header. Its own padding so the
+   header doesn't need to know about content spacing. */
+.body {
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .close {
@@ -82,20 +116,21 @@
   border: none;
   font-size: 24px;
   line-height: 1;
-  color: var(--text-muted);
+  color: color-mix(in srgb, var(--aims-white) 75%, transparent);
   cursor: pointer;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
+  align-self: flex-start;
 }
 
 .close:hover {
-  background: var(--aims-navy-tint);
-  color: var(--text);
+  background: color-mix(in srgb, var(--aims-white) 12%, transparent);
+  color: var(--aims-white);
 }
 
 .subtitle {
   margin: 0;
-  color: var(--text-muted);
+  color: color-mix(in srgb, var(--aims-white) 75%, transparent);
   font: var(--text-body-sm);
   line-height: 1.5;
 }
@@ -134,6 +169,21 @@
   letter-spacing: 0.15em;
   color: var(--text-muted);
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Small colored dot before each category header — chartreuse is
+   the brand accent used everywhere else the app wants to signal
+   "here's a grouping." Purely visual; no interaction. */
+.categoryHeader::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--aims-chartreuse);
 }
 
 .rowList {
