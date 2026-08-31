@@ -138,16 +138,17 @@ export async function getCoachingInsightsAdoption(
     filters.companyIds.length > 0 ? filters.companyIds : everyCompanyId;
   const companiesInScope = scopedCompanyIds.length;
 
-  // Convos in the window, scoped to the filter. Pull only the
-  // shape we need for downstream aggregation.
+  // Convos in the window, scoped to the filter. Always constrain
+  // to scopedCompanyIds so soft-deleted tenants can't leak into
+  // the counts — otherwise companiesActive can exceed
+  // companiesInScope (bug: "across 9 of 8 companies") when an old
+  // chat belongs to a since-deleted tenant.
   let convoQuery = admin
     .from("coaching_conversations")
     .select("id, company_id, practice_id, created_by, created_at")
     .gte("created_at", startTs)
-    .lt("created_at", endTs);
-  if (filters.companyIds.length > 0) {
-    convoQuery = convoQuery.in("company_id", filters.companyIds);
-  }
+    .lt("created_at", endTs)
+    .in("company_id", scopedCompanyIds);
   const { data: convosData } = await convoQuery;
   const convos = ((convosData ?? []) as Array<{
     id: string;
@@ -446,15 +447,27 @@ export async function getCoachingInsightsSynthesis(
     // The analyses table is keyed by conversation, but the window
     // filter belongs to the conversation's created_at, not to
     // analyzed_at. Join server-side by pulling the matching convo
-    // ids first, then hydrating analyses.
-    let convoQuery = admin
+    // ids first, then hydrating analyses. Constrain to live
+    // companies (or the explicit filter subset) so orphan chats
+    // on soft-deleted tenants stay out of the synthesis.
+    const { data: liveCompanies } = await admin
+      .from("companies")
+      .select("id")
+      .is("deleted_at", null);
+    const everyCompanyId = ((liveCompanies ?? []) as Array<{ id: string }>).map(
+      (c) => c.id
+    );
+    const scopedCompanyIds =
+      filters.companyIds.length > 0 ? filters.companyIds : everyCompanyId;
+    if (scopedCompanyIds.length === 0) {
+      return emptySynthesis(filters, days);
+    }
+    const convoQuery = admin
       .from("coaching_conversations")
       .select("id")
       .gte("created_at", startTs)
-      .lt("created_at", endTs);
-    if (filters.companyIds.length > 0) {
-      convoQuery = convoQuery.in("company_id", filters.companyIds);
-    }
+      .lt("created_at", endTs)
+      .in("company_id", scopedCompanyIds);
     const { data: convosData, error: convosErr } = await convoQuery;
     if (convosErr) {
       console.error("getCoachingInsightsSynthesis: convo query failed", convosErr);
