@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Company, Profile } from "@/lib/types";
 import type { GuideOverviewRow } from "@/lib/admin/guides-service";
 import { AssignSysadminForm } from "./AssignSysadminForm";
@@ -163,12 +162,6 @@ export function GuidesPanel({
                   </td>
                   <td>
                     <div className={styles.rowActions}>
-                      <Link
-                        href={`/admin/guides/${g.id}/hq`}
-                        className={styles.ghostButton}
-                      >
-                        View Guide HQ
-                      </Link>
                       <GuideRowActions
                         guideId={g.id}
                         canManageAccount={!isSysadmin}
