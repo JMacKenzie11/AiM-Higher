@@ -88,6 +88,19 @@ export function defaultInsightsFilters(): CoachingInsightsFilters {
   };
 }
 
+// "All time" filter — used by the Reset button on the card so
+// a sysadmin can see every coaching conversation ever, without
+// having to remember when the platform launched. 2020-01-01 is
+// safely before any real data; end is today.
+export function everythingInsightsFilters(): CoachingInsightsFilters {
+  const end = new Date();
+  return {
+    companyIds: [],
+    startIso: "2020-01-01",
+    endIso: end.toISOString().slice(0, 10),
+  };
+}
+
 // Companies the filter dropdown offers. Excludes soft-deleted
 // rows (handled by the companies_hide_deleted policy at the DB
 // layer — the admin client bypasses RLS so we filter here too as

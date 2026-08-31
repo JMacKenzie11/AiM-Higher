@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { fetchCoachingInsightsAction } from "@/lib/admin/coaching-insights-actions";
-import type {
-  CoachingInsightsAdoption,
-  CoachingInsightsFilters,
-  CoachingInsightsSynthesis,
-  CompanyOption,
+import {
+  everythingInsightsFilters,
+  type CoachingInsightsAdoption,
+  type CoachingInsightsFilters,
+  type CoachingInsightsSynthesis,
+  type CompanyOption,
 } from "@/lib/admin/coaching-insights-service";
 import { Sparkline } from "./Sparkline";
 import styles from "./coaching-insights.module.css";
@@ -249,6 +250,15 @@ function CoachingInsightsFilters({
       </div>
 
       <div className={styles.filterActions}>
+        <button
+          type="button"
+          className={styles.resetButton}
+          onClick={() => onChange(everythingInsightsFilters())}
+          disabled={pending}
+          title="Clear all filters and pull every conversation in the system"
+        >
+          Reset · show all-time
+        </button>
         {pending ? (
           <span className={styles.filterPending} aria-live="polite">
             Loading…
