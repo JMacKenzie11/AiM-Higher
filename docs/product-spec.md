@@ -338,7 +338,27 @@ Streaming AI coach modeled on the AiMS methodology. Same backend powers both dir
 - **Streaming:** SSE to the client, error-tolerant (user message persists on API failure — retry path reuses it).
 - **Auto-title:** after the first exchange, the model generates a short conversation label.
 - **Message cap:** thread history capped at last 200 messages (no cross-conversation compression in v1).
-- **Privacy** (verified against migration 0021_coaching_platform.sql:53-55) — `coaching_conversations` SELECT is `created_by = auth.uid()`. **Every thread is private to its creator.** Another admin or the person's direct manager can create their own separate threads about the same person; each thread stays private to its author. The subject cannot see any coaching thread written about them. PrivacyNote on the thread list surface makes this explicit.
+- **Privacy** (verified against migrations 0021_coaching_platform.sql and 0150_coaching_conversation_shares.sql) — `coaching_conversations` SELECT is `created_by = auth.uid() OR EXISTS (share row)`; `coaching_messages` SELECT follows the same visibility, and INSERT requires either ownership OR a `write` share row. **Every thread is private to its creator by default.** Another admin or the person's direct manager can create their own separate threads about the same person; each thread stays private to its author unless they explicitly share it. The subject cannot see a thread written about them unless the owner shares it with the subject — there is no auto-share. See Section 13a below for the sharing model.
+
+### 13a. Conversation Sharing
+
+Sharing is an overlay on ownership, added in migration 0150. It lets the owner of any coaching thread (about or general/Ask Aimee/practice) invite specific people from the same company to read the transcript or reply in it, without giving up ownership rights.
+
+- **Data model** — `coaching_conversation_shares` `(conversation_id, profile_id, access, created_by, created_at)` with composite PK; both FKs `ON DELETE CASCADE` (unshare on profile removal or conversation deletion). `access` is `'read' | 'write'`.
+- **Cross-tenant safety, three layers:**
+  1. `shareConversationAction` in `src/lib/coach/actions.ts` checks `sharee.company_id === conversation.company_id` and returns a friendly denial ("You can only share with people in the same company").
+  2. The RLS INSERT policy re-checks the same join so a hand-crafted request fails with a policy denial.
+  3. A `BEFORE INSERT OR UPDATE` trigger (`assert_coaching_share_same_company`, SECURITY DEFINER) raises `coaching_share_cross_tenant` if the two company_ids ever diverge — the last-mile guarantee.
+- **Extended RLS on conversations + messages** — `coaching_conversations` SELECT admits owner OR any share row for the caller; UPDATE stays owner-only (rename, archive). `coaching_messages` SELECT follows conversation visibility; INSERT requires `created_by = auth.uid()` AND (owner OR `access = 'write'` share row).
+- **Server actions** — `shareConversationAction`, `updateShareAccessAction`, `unshareConversationAction` (owner-only), `leaveSharedConversationAction` (self-remove for sharees), `listShareCandidatesAction` (owner-only; returns active same-company profiles minus already-shared and the owner). All go through `getAccessForConversation` for the auth check where relevant.
+- **API route** — `/api/coach/route.ts` swaps the old `created_by === session.profile.id` gate for `getAccessForConversation` and rejects unless the caller is `owner` or `write`; read-share callers get 403.
+- **Auto-title** — remains owner-only. `generateConversationTitleAction` refuses non-owners; the client skips the call when `access !== 'owner'` so a sharee's fourth message doesn't trigger a wasted round trip.
+- **Practice launcher gate is unchanged** — `allowedRoles` still gates *who can create* a practice thread (e.g. Functional Chart Builder = admin-only). Once a thread exists, a company_admin can share it with a team_member as `write`; the sharee can chat inside the thread.
+- **Practice side-effect gates are unchanged** — `applyChartProposalAction` still enforces `isAdminForCompany`, so a non-admin write-sharee in a chart-builder thread can converse but cannot push proposals into the Functional Chart.
+- **UI surface** — chat header carries a **Share** button (owner) or a muted **Shared with N** badge (sharee); both open the same modal. Modal search is scoped to same-company active profiles; per-row access dropdown + remove for the owner; a **Leave this chat** button for sharees. Read-access callers see the composer replaced by a "Read-only. Ask the owner for write access to reply." helper line.
+- **Attribution** — when a thread has any sharees, user bubbles render a small (avatar + name) row above the bubble for messages authored by someone other than the current viewer. Own bubbles stay unlabeled — the right-aligned position already reads as "you". Assistant bubbles are uniformly labeled Aimee/Coach; the caller's session id is stamped on `coaching_messages.created_by` on every send so attribution is durable across sessions.
+- **Landing surface** — `/ask-aimee` renders a second card, **Shared with you**, below the primary Recent conversations list when the caller has any share rows in their current company scope. Rows show the owner's name and the sharee's access level (Read/Write) in the meta line.
+- **No auto-share, ever** — about-mode threads about a specific subject and practices with a partner_profile_id do NOT auto-share with those people. Every share is an explicit act by the owner.
 
 ---
 
@@ -348,7 +368,7 @@ Top-level nav item, always visible to any active member.
 
 - Same coaching backend as coach threads; runs in `general` mode with no subject on file.
 - **Two-tab layout** at the top of the content area: **Ask Aimee** (default) shows recent conversations plus the *New conversation* button; **Practice Coaches** shows the entry cards for each guided practice (see Section 14a). Tab state is a URL search param (`?tab=coaches`) so both tabs are shareable and no client state is needed. The switcher renders in `AskAimeeTabs.tsx`.
-- **Privacy** — same RLS: private to the creator only. No admin, manager, or guide sees a user's Ask Aimee thread. The subtitle on `/ask-aimee` states this plainly ("Your Ask Aimee conversations are visible only to you.").
+- **Privacy** — same RLS spine as `about` threads (Section 13a): the creator is the only viewer by default, and access can be extended per-thread via same-company `read` or `write` shares. No admin, manager, or guide sees an Ask Aimee thread unless the owner explicitly invites them. The subtitle on `/ask-aimee` describes both halves plainly ("Conversations are private to you by default; you can invite specific people from your company as read or write collaborators.").
 - **Classroom recommendations** — when Classroom is on for the company, Aimee has the `search_classroom` tool and will link a stable training URL when a user's question aligns with library content.
 - **Company context is still injected** (purpose, values, focus areas) — Aimee is grounded in the company Q&A even in general mode. She's explicitly told not to invent per-person data in general mode.
 

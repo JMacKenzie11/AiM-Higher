@@ -18,6 +18,12 @@ read what.
   manager.
 - **Resume an existing thread** — every thread carries its own
   history; open one from the list to keep the conversation going.
+- **Share a thread** — the *Share* button at the top of a coaching
+  thread lets you invite another person in your company to read
+  or reply. Useful for co-leaders comparing notes on the same
+  report. Access is same-company only, granted per-person, and
+  the sharee's replies show their name and avatar. See "Who can
+  see this" below for the boundaries.
 - **Archive a thread** — the row-level action tucks a thread out
   of the way without deleting it.
 
@@ -31,20 +37,33 @@ read what.
 
 ## Who can see this
 
-Every thread is private to its creator. Another admin or the
-subject's direct manager can create their own separate threads
-about the same person, but those stay private to them. The subject
-never sees any coaching threads written about them.
+Every thread is private to its creator by default. You can
+explicitly share a specific thread with another active person in
+your company as *Read* (view only) or *Write* (reply too); nobody
+else — including admins, guides, or the subject themselves —
+sees the thread otherwise. Another admin or the subject's direct
+manager can still create their own separate threads about the
+same person, and those stay private to them.
+
+The subject never sees a coaching thread written about them
+unless the owner explicitly shares it with the subject. There is
+no auto-share.
 
 ## Common questions
 
 **Where do I self-coach?** Use *Ask Aimee* — anyone landing on
 their own coach URL gets redirected there automatically.
 
-**Can I share a thread with another admin?** No. Threads are
-per-author by design so the space stays honest. If two coaches
-want a shared record, they need to keep it outside the platform.
+**Can I share a thread with another admin?** Yes. Use the
+*Share* button at the top of the thread. Choose *Read* or
+*Write*, pick the person, and they'll see the thread in their
+Shared with you list. You stay the owner and can change access
+or remove them at any time.
+
+**Can I share cross-company?** No. Shares are locked to the
+conversation's company by app logic, RLS, and a database trigger.
+Every layer blocks it independently.
 
 **Are threads deletable?** They can be archived but not deleted.
-The subject can't read them either way — the whole point is a
-private space for the person doing the coaching.
+The subject can't read them unless the owner shares the thread
+with them.

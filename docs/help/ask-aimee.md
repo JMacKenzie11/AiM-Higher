@@ -6,14 +6,17 @@ title: Ask Aimee
 
 A thinking partner for whatever you're working through: a decision,
 a conversation to prep for, an employee not on the platform, or your
-own leadership. Every conversation is private to you.
+own leadership. Conversations are private to you by default, and you
+can invite specific people from your company to read along or reply.
 
 ## How the page is laid out
 
 Two tabs at the top of the content area:
 
 - **Ask Aimee** (default) — your recent conversations plus the
-  *New conversation* button. Open-ended thinking-partner mode.
+  *New conversation* button. Open-ended thinking-partner mode. If
+  someone has shared a chat with you, a second **Shared with you**
+  card appears underneath.
 - **Practice Coaches** — the entry cards for each guided practice.
   Pick one and Aimee follows the script for that practice.
 
@@ -30,6 +33,12 @@ Coaches), so sending someone a link to either view works.
 - **Resume a thread** — every conversation stays under your
   account and shows in the Recent conversations list on the
   *Ask Aimee* tab.
+- **Share a chat** — inside any conversation you own, use the
+  **Share** button at the top of the chat. Pick a person from
+  your company and choose *Write* (they can reply) or *Read*
+  (they can follow along). Owners can change access later or
+  remove someone; sharees can leave a chat at any time. See
+  "How sharing works" below for the rules.
 - **Archive a conversation** — the row-level action tucks a thread
   out of the way without deleting it.
 - **Get a training recommendation** — when the company has
@@ -73,6 +82,31 @@ The result summary tells you exactly what changed. You can run
 the practice again with a coach revision and press Apply again —
 nothing gets duplicated, only new pieces land.
 
+## How sharing works
+
+You own the conversations you create. Sharing is opt-in and
+narrowly scoped:
+
+- **Same company only.** You can only share with active people in
+  your own company. Cross-tenant shares are blocked by the app,
+  by row-level security, and by a database trigger.
+- **Read or Write.** Read lets someone follow the transcript.
+  Write lets them reply to Aimee in the same thread. Both see
+  every message posted before and after they're added.
+- **Owner controls.** Only the owner can invite, change access,
+  or remove people. Renaming and archiving stay owner-only.
+- **Sharees can leave.** A shared person can open the share
+  dialog and click *Leave this chat* to remove their own access.
+- **Attribution shows up automatically.** When a chat has any
+  sharees, user bubbles show the sender's name and avatar so
+  it's clear who said what.
+- **Practice thread rules don't change.** The Functional Chart
+  Builder practice is admin-only to *start*, but once a chart
+  builder thread exists, a company admin can share it with a
+  team member for input. The team member can chat inside the
+  thread; *Apply to Chart* still requires chart-edit rights, so
+  a non-admin sharee can't push changes to your Functional Chart.
+
 ## How to start a conversation
 
 1. Pick a card on the *Practice Coaches* tab if what you're
@@ -86,9 +120,11 @@ nothing gets duplicated, only new pieces land.
 
 ## Common questions
 
-**Who can see my Ask Aimee conversations?** Only you. Not admins,
-not your manager, not AiMS Guides. Every conversation is
-creator-private end to end.
+**Who can see my Ask Aimee conversations?** Only you, unless you
+explicitly share a thread with someone from your company. Admins,
+your manager, and AiMS Guides can't see your conversations by
+default — access is granted per-thread, per-person by you as the
+owner.
 
 **Why is Aimee "Thinking…" for so long?** First token can take a
 few seconds while she reads your company context. Once content
