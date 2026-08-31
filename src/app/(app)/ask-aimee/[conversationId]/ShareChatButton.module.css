@@ -1,36 +1,61 @@
-/* Header entry point. Owner gets a solid pill (primary action);
-   sharees get a muted pill that reads as informational — same
-   footprint, no false invitation to add people. */
-.shareButton {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  font: var(--text-body-sm);
-  font-weight: 600;
+/* Header entry point. One icon button for both owner and sharee —
+   the click behaviour differs (owner edits, sharee reads), but
+   the affordance is the same: "open the sharing panel". A small
+   chartreuse pip in the top-right shows the current sharee count
+   when non-zero, so an at-a-glance read still signals "shared."
+   Sized to match the compact bell button in the top nav so the
+   chat header reads as one visual system. */
+.shareIconButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--aims-navy) 6%, transparent);
+  border: 1px solid transparent;
+  color: var(--aims-navy);
   cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
-.shareButton:hover {
-  background: var(--primary-hover);
+.shareIconButton:hover {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 24%, transparent);
 }
 
-.shareBadge {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  font: var(--text-body-sm);
-  cursor: pointer;
+.shareIconButton:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
-.shareBadge:hover {
-  background: var(--aims-navy-tint);
-  color: var(--text);
+/* Count pip — sits at the top-right of the icon. Chartreuse on
+   navy is the brand's accent pairing (same combination used on
+   the login CTA, Guide HQ status dots, and every "you've got
+   attention here" affordance). */
+.shareCountPip {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+  font: var(--text-caption);
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border: 2px solid var(--surface);
+  box-sizing: content-box;
 }
 
 /* Modal — mirrors the ConfirmDialog surface style so the two
