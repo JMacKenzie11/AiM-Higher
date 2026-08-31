@@ -124,9 +124,10 @@ export function ChatView({
   // and a name label reads as noise.
   const showAttribution = Object.keys(senders).length > 1;
   // The AgentPicker only renders in owner-general chats where the
-  // page passed practices. Locked once any user turn exists (the
-  // server action enforces the same rule; this is UX polish).
-  const hasUserTurns = initialMessages.some((m) => m.role === "user");
+  // page passed practices. Lock is computed below from the live
+  // messages state so it flips the instant a user turn is sent —
+  // waiting for initialMessages to update would mean the picker
+  // stays interactive until the next page reload.
   const showAgentPicker =
     isOwner &&
     conversation.mode === "general" &&
@@ -159,6 +160,12 @@ export function ChatView({
       ? "Ask Aimee · AiMS Leadership Coach"
       : `${subjectName ?? ""}${subjectPosition ? ` · ${subjectPosition}` : ""}`;
   const [messages, setMessages] = useState<UiMessage[]>(initialMessages);
+  // Live lock signal: flips true the moment a user turn lands in
+  // the message array (whether the server persisted it yet or
+  // it's still an optimistic local bubble). Feeds the AgentPicker's
+  // locked prop so the picker's non-interactive label kicks in
+  // immediately on send, not on the next page reload.
+  const hasUserTurns = messages.some((m) => m.role === "user");
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [lastUserAttempt, setLastUserAttempt] = useState<string | null>(null);
