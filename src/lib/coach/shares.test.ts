@@ -361,6 +361,36 @@ describe("shareConversationAction", () => {
     });
   });
 
+  it("allows sharing with a system_admin holding a caseload assignment", async () => {
+    // Sysadmins can carry a coaching caseload via guide_assignments
+    // (see AssignSysadminForm). They belong in the picker + share
+    // path even though their role isn't 'aims_guide'.
+    requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
+    db.profiles.push({
+      id: "sysadmin_1",
+      company_id: null,
+      status: "active",
+      role: "system_admin",
+      full_name: "Sys Admin",
+      avatar_url: null,
+      position: null,
+    });
+    db.guide_assignments.push({
+      guide_id: "sysadmin_1",
+      company_id: "co_acme",
+    });
+
+    const { shareConversationAction } = await import("./actions");
+    const res = await shareConversationAction(
+      "conv_1",
+      "sysadmin_1",
+      "write"
+    );
+    expect(res.ok).toBe(true);
+    expect(db.coaching_conversation_shares).toHaveLength(1);
+    expect(db.coaching_conversation_shares[0].profile_id).toBe("sysadmin_1");
+  });
+
   it("refuses to share with an unassigned aims_guide", async () => {
     requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
     db.profiles.push({

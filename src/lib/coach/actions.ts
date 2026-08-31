@@ -432,13 +432,12 @@ export async function shareConversationAction(
 
   const { data: sharee } = await supabase
     .from("profiles")
-    .select("id, company_id, status, role")
+    .select("id, company_id, status")
     .eq("id", shareeProfileId)
     .maybeSingle<{
       id: string;
       company_id: string | null;
       status: "pending" | "active" | "inactive";
-      role: "system_admin" | "company_admin" | "team_member" | "aims_guide";
     }>();
   if (!sharee) {
     return { ok: false, message: "That person isn't accessible." };
@@ -446,14 +445,16 @@ export async function shareConversationAction(
   if (sharee.status !== "active") {
     return { ok: false, message: "That person isn't active." };
   }
-  // Same-company check with guide fallback. A member's own company
-  // must match the conversation's; an aims_guide qualifies when
-  // they hold an assignment to the conversation's company (the
-  // platform-wide "guide = company_admin on assigned companies"
-  // rule). Trigger + RLS reinforce with the same shape via
-  // profile_is_in_company (migration 0153).
+  // Same-company check with an assignment fallback. A member's own
+  // company must match the conversation's; anyone else qualifies
+  // when they hold a guide_assignments row for the conversation's
+  // company. Role doesn't factor in — a system_admin carrying a
+  // caseload uses the same guide_assignments table as an
+  // aims_guide (see AssignSysadminForm on /admin/companies). Trigger
+  // + RLS reinforce the same shape via profile_is_in_company
+  // (migrations 0153 + 0154).
   let sharableSameCompany = sharee.company_id === convo.company_id;
-  if (!sharableSameCompany && sharee.role === "aims_guide") {
+  if (!sharableSameCompany) {
     const { data: assignment } = await supabase
       .from("guide_assignments")
       .select("guide_id")
@@ -466,7 +467,7 @@ export async function shareConversationAction(
     return {
       ok: false,
       message:
-        "You can only share with people in the same company (or a guide assigned to it).",
+        "You can only share with people in the same company (or a guide/system admin assigned to it).",
     };
   }
 

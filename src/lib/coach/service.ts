@@ -409,17 +409,17 @@ export async function listShareCandidatesForConversation(
     byId.set(p.id, p);
   }
 
-  // Second round-trip for guide profiles. Kept split from the
-  // embed pattern (which supabase-js types as an array on to-one
-  // FKs) so the shape is unambiguous and doesn't need an unknown
-  // cast.
+  // Second round-trip for the assigned-guide (or sysadmin) profiles.
+  // Kept split from the embed pattern (which supabase-js types as an
+  // array on to-one FKs) so the shape is unambiguous and doesn't
+  // need an unknown cast.
   const guideIds = ((assignments ?? []) as Array<{ guide_id: string }>).map(
     (a) => a.guide_id
   );
   if (guideIds.length > 0) {
     const { data: guides } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, position, status")
+      .select("id, full_name, avatar_url, position, status, role")
       .in("id", guideIds)
       .eq("status", "active");
     const guideRows = (guides ?? []) as Array<{
@@ -428,16 +428,23 @@ export async function listShareCandidatesForConversation(
       avatar_url: string | null;
       position: string | null;
       status: "active";
+      role: "system_admin" | "company_admin" | "team_member" | "aims_guide";
     }>;
     for (const g of guideRows) {
       // Members list wins on the (unlikely) tie so a guide who's
       // also a company member — future case, not today — shows once.
       if (!byId.has(g.id)) {
+        // Prefer the profile's own position label when set; fall
+        // back to a role-accurate hint (sysadmins carrying a
+        // caseload showed as "AiMS Guide" before — misleading for
+        // a leader who knows the difference).
+        const fallbackLabel =
+          g.role === "system_admin" ? "System admin" : "AiMS Guide";
         byId.set(g.id, {
           id: g.id,
           full_name: g.full_name,
           avatar_url: g.avatar_url,
-          position: g.position ?? "AiMS Guide",
+          position: g.position ?? fallbackLabel,
         });
       }
     }
