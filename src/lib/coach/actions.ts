@@ -7,7 +7,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { trackAfter } from "@/lib/analytics/track";
 import type { Profile } from "@/lib/types";
-import type { CoachingConversation, CoachingContextKind } from "./service";
+import {
+  listShareCandidatesForConversation,
+  type CoachingConversation,
+  type CoachingContextKind,
+  type ShareCandidate,
+} from "./service";
 import { cleanGeneratedTitle } from "./title";
 import { logCoachTokenUsage } from "./usage";
 
@@ -378,4 +383,227 @@ function defaultTitleForToday(): string {
     day: "numeric",
   });
   return `Coaching · ${label}`;
+}
+
+// ==============================================================
+// Sharing — grant / revoke / change / leave
+// ==============================================================
+// Cross-tenant rule (non-negotiable): the sharee's profile.company_id
+// MUST equal the conversation's company_id. Enforced in three
+// places — the friendly check below, the RLS insert policy, and
+// the before-insert trigger from migration 0150. This action does
+// the friendly check first so users see a legible error instead of
+// a raw Postgres exception.
+
+export type ShareAccessInput = "read" | "write";
+
+export async function shareConversationAction(
+  conversationId: string,
+  shareeProfileId: string,
+  access: ShareAccessInput
+): Promise<SimpleResult> {
+  if (access !== "read" && access !== "write") {
+    return { ok: false, message: "Access must be read or write." };
+  }
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: convo } = await supabase
+    .from("coaching_conversations")
+    .select("id, company_id, created_by, mode, subject_profile_id")
+    .eq("id", conversationId)
+    .maybeSingle<{
+      id: string;
+      company_id: string;
+      created_by: string;
+      mode: "about" | "general";
+      subject_profile_id: string | null;
+    }>();
+  if (!convo) return { ok: false, message: "Conversation not found." };
+  if (convo.created_by !== session.profile.id) {
+    return { ok: false, message: "Only the owner can share this." };
+  }
+  if (shareeProfileId === convo.created_by) {
+    return { ok: false, message: "You already own this conversation." };
+  }
+
+  const { data: sharee } = await supabase
+    .from("profiles")
+    .select("id, company_id, status")
+    .eq("id", shareeProfileId)
+    .maybeSingle<{
+      id: string;
+      company_id: string | null;
+      status: "pending" | "active" | "inactive";
+    }>();
+  if (!sharee) {
+    return { ok: false, message: "That person isn't accessible." };
+  }
+  if (sharee.status !== "active") {
+    return { ok: false, message: "That person isn't active." };
+  }
+  if (sharee.company_id !== convo.company_id) {
+    return {
+      ok: false,
+      message: "You can only share with people in the same company.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("coaching_conversation_shares")
+    .insert({
+      conversation_id: conversationId,
+      profile_id: shareeProfileId,
+      access,
+      created_by: session.profile.id,
+    });
+  if (error) {
+    console.error("shareConversationAction insert failed", error);
+    const detail = error.message ? ` (${error.message})` : "";
+    return { ok: false, message: `Couldn't share that conversation.${detail}` };
+  }
+
+  trackAfter(
+    session.profile.id,
+    "coach.thread_shared",
+    { access, mode: convo.mode },
+    { company: convo.company_id }
+  );
+
+  if (convo.mode === "general") {
+    revalidatePath(`/ask-aimee/${conversationId}`);
+    revalidatePath("/ask-aimee");
+  } else if (convo.subject_profile_id) {
+    revalidatePath(`/coach/${convo.subject_profile_id}/${conversationId}`);
+  }
+  return { ok: true };
+}
+
+export async function updateShareAccessAction(
+  conversationId: string,
+  shareeProfileId: string,
+  access: ShareAccessInput
+): Promise<SimpleResult> {
+  if (access !== "read" && access !== "write") {
+    return { ok: false, message: "Access must be read or write." };
+  }
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: convo } = await supabase
+    .from("coaching_conversations")
+    .select("id, created_by, mode, subject_profile_id")
+    .eq("id", conversationId)
+    .maybeSingle<
+      Pick<CoachingConversation, "id" | "created_by" | "mode" | "subject_profile_id">
+    >();
+  if (!convo) return { ok: false, message: "Conversation not found." };
+  if (convo.created_by !== session.profile.id) {
+    return { ok: false, message: "Only the owner can change access." };
+  }
+
+  const { error } = await supabase
+    .from("coaching_conversation_shares")
+    .update({ access })
+    .eq("conversation_id", conversationId)
+    .eq("profile_id", shareeProfileId);
+  if (error) return { ok: false, message: "Couldn't update that access level." };
+
+  if (convo.mode === "general") {
+    revalidatePath(`/ask-aimee/${conversationId}`);
+  } else if (convo.subject_profile_id) {
+    revalidatePath(`/coach/${convo.subject_profile_id}/${conversationId}`);
+  }
+  return { ok: true };
+}
+
+export async function unshareConversationAction(
+  conversationId: string,
+  shareeProfileId: string
+): Promise<SimpleResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: convo } = await supabase
+    .from("coaching_conversations")
+    .select("id, created_by, mode, subject_profile_id")
+    .eq("id", conversationId)
+    .maybeSingle<
+      Pick<CoachingConversation, "id" | "created_by" | "mode" | "subject_profile_id">
+    >();
+  if (!convo) return { ok: false, message: "Conversation not found." };
+  if (convo.created_by !== session.profile.id) {
+    return { ok: false, message: "Only the owner can remove people." };
+  }
+
+  const { error } = await supabase
+    .from("coaching_conversation_shares")
+    .delete()
+    .eq("conversation_id", conversationId)
+    .eq("profile_id", shareeProfileId);
+  if (error) return { ok: false, message: "Couldn't remove that access." };
+
+  if (convo.mode === "general") {
+    revalidatePath(`/ask-aimee/${conversationId}`);
+    revalidatePath("/ask-aimee");
+  } else if (convo.subject_profile_id) {
+    revalidatePath(`/coach/${convo.subject_profile_id}/${conversationId}`);
+  }
+  return { ok: true };
+}
+
+// Candidates for the share modal — active members of the
+// conversation's company, minus the owner and anyone already
+// shared. Owner-only because non-owners have no reason to invite
+// (they can only leave). Returns an empty array on any auth miss
+// so the client's autocomplete degrades to "nobody" rather than
+// leaking a distinct error surface for a probe attempt.
+export async function listShareCandidatesAction(
+  conversationId: string
+): Promise<{ ok: true; items: ShareCandidate[] } | { ok: false; message: string }> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: convo } = await supabase
+    .from("coaching_conversations")
+    .select("id, created_by")
+    .eq("id", conversationId)
+    .maybeSingle<{ id: string; created_by: string }>();
+  if (!convo) return { ok: false, message: "Conversation not found." };
+  if (convo.created_by !== session.profile.id) {
+    return { ok: false, message: "Only the owner can invite people." };
+  }
+
+  const items = await listShareCandidatesForConversation(conversationId);
+  return { ok: true, items };
+}
+
+// Self-leave for sharees. Distinct from unshareConversationAction
+// so the UI can render a "Leave this chat" button that a non-owner
+// can click without an ownership check tripping first.
+export async function leaveSharedConversationAction(
+  conversationId: string
+): Promise<SimpleResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: share } = await supabase
+    .from("coaching_conversation_shares")
+    .select("conversation_id")
+    .eq("conversation_id", conversationId)
+    .eq("profile_id", session.profile.id)
+    .maybeSingle<{ conversation_id: string }>();
+  if (!share) {
+    return { ok: false, message: "You don't have access to this chat." };
+  }
+
+  const { error } = await supabase
+    .from("coaching_conversation_shares")
+    .delete()
+    .eq("conversation_id", conversationId)
+    .eq("profile_id", session.profile.id);
+  if (error) return { ok: false, message: "Couldn't leave that chat." };
+
+  revalidatePath("/ask-aimee");
+  return { ok: true };
 }

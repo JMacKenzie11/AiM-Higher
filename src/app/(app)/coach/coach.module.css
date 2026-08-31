@@ -214,6 +214,17 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
+/* Right-side slot on the chat header — holds the Share button for
+   owners or a muted "Shared with N" badge for sharees. Aligned to
+   the top so it lines up with the eyebrow subject label rather than
+   the taller title beneath it. */
+.chatHeaderShare {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+}
+
 .thread {
   flex: 1 1 auto;
   background: var(--aims-sand, var(--surface));
@@ -240,8 +251,18 @@
   justify-content: flex-start;
 }
 
-.bubbleUser {
+/* User bubbles group the (optional) attribution row with the
+   message bubble so both align to the right edge. Only rendered
+   on shared threads where at least one non-owner is a participant. */
+.bubbleUserGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
   max-width: 70%;
+}
+
+.bubbleUser {
   background: var(--primary);
   color: var(--on-primary);
   padding: var(--space-3) var(--space-4);
@@ -249,6 +270,44 @@
   font: var(--text-body);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Attribution row above a user bubble: avatar + name. Small and
+   muted so it labels the bubble without competing with it. Sits
+   above the bubble in the same right-aligned column. */
+.bubbleAttribution {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-1);
+}
+
+.bubbleAvatar,
+.bubbleAvatarFallback {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bubbleAvatar {
+  object-fit: cover;
+}
+
+.bubbleAvatarFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bubbleAuthor {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
 }
 
 .bubbleAssistant {
@@ -382,6 +441,22 @@
 
 .retryButton:hover:not(:disabled) {
   background: var(--aims-danger-tint);
+}
+
+/* Read-only fallback shown to a sharee whose access is 'read'.
+   Sits in the spot the composer would occupy, so the layout
+   footprint is unchanged. Muted so it reads as guidance, not an
+   error. */
+.readOnlyNotice {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  text-align: center;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 /* Composer */

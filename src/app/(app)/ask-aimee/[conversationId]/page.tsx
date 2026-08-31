@@ -1,9 +1,16 @@
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
-import { getConversation, getMessages } from "@/lib/coach/service";
+import {
+  getAccessForConversation,
+  getConversation,
+  getMessages,
+  getMessageSenders,
+  listSharesForConversation,
+} from "@/lib/coach/service";
 import { findPractice } from "@/lib/practices/registry";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
+import { ShareChatButton } from "./ShareChatButton";
 
 type PageProps = {
   params: Promise<{ conversationId: string }>;
@@ -54,9 +61,32 @@ export default async function AskAimeeChatPage({
     }
     notFound();
   }
-  if (conversation.created_by !== session.profile.id) redirect("/");
+  // Access check: owner (created_by = me) or someone with a share
+  // row. RLS already blocks the SELECT for anyone else, but explicit
+  // check gives us the right UI branch (owner vs. write vs. read)
+  // and a friendly 404 instead of a silent empty state.
+  const access = await getAccessForConversation(
+    conversation.id,
+    session.profile.id
+  );
+  if (access === null) notFound();
 
   const messages = await getMessages(conversationId);
+
+  // Build the sender lookup once, server-side, from the union of
+  // (message authors, share list, owner). The client uses it to
+  // render attribution on user bubbles when the thread has any
+  // shares. Owner is included so their own past messages have a
+  // display record even before shares appear — cheap and keeps the
+  // client logic simple.
+  const shares = await listSharesForConversation(conversationId);
+  const senderIds = new Set<string>();
+  senderIds.add(conversation.created_by);
+  for (const s of shares) senderIds.add(s.profile_id);
+  for (const m of messages) senderIds.add(m.created_by);
+  const senderInfo = await getMessageSenders(Array.from(senderIds));
+  const senders: Record<string, { full_name: string; avatar_url: string | null }> = {};
+  for (const [id, info] of senderInfo) senders[id] = info;
 
   // Practice conversations swap the default empty-state chip row for
   // the practice's own header + opening chips. Backend for optional
@@ -82,8 +112,19 @@ export default async function AskAimeeChatPage({
           role: m.role,
           content: m.content,
           created_at: m.created_at,
+          created_by: m.created_by,
         }))}
         practice={practice}
+        access={access}
+        currentUserId={session.profile.id}
+        senders={senders}
+        shareHeader={
+          <ShareChatButton
+            conversationId={conversation.id}
+            access={access}
+            shares={shares}
+          />
+        }
       />
     </PageShell>
   );

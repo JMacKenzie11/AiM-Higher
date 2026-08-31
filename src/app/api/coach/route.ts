@@ -13,9 +13,10 @@ import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { trackAfter } from "@/lib/analytics/track";
 import { findPractice, loadPracticePrompt } from "@/lib/practices/registry";
-import type {
-  CoachingConversation,
-  CoachingMessage,
+import {
+  getAccessForConversation,
+  type CoachingConversation,
+  type CoachingMessage,
 } from "@/lib/coach/service";
 
 // POST /api/coach — streaming chat endpoint for the coaching feature.
@@ -97,8 +98,15 @@ export async function POST(req: NextRequest): Promise<Response> {
   if (!convo) {
     return new Response("Conversation not found", { status: 404 });
   }
-  // Belt-and-braces alongside RLS: only the creator writes here.
-  if (convo.created_by !== session.profile.id) {
+  // Belt-and-braces alongside RLS. Owner + write-share may post;
+  // read-share may not (they get a legible 403 rather than a raw
+  // policy denial from the insert below). Non-sharees get 403 too
+  // — 404 would leak existence to a probe attempt.
+  const access = await getAccessForConversation(
+    conversationId,
+    session.profile.id
+  );
+  if (access !== "owner" && access !== "write") {
     return new Response("Forbidden", { status: 403 });
   }
 

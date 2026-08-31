@@ -1,0 +1,386 @@
+/* Header entry point. Owner gets a solid pill (primary action);
+   sharees get a muted pill that reads as informational — same
+   footprint, no false invitation to add people. */
+.shareButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  font: var(--text-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shareButton:hover {
+  background: var(--primary-hover);
+}
+
+.shareBadge {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.shareBadge:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+}
+
+/* Modal — mirrors the ConfirmDialog surface style so the two
+   feel like one system. Wider than the confirm dialog because it
+   holds a search list. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(17, 21, 26, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  max-width: 560px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.close {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.close:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  line-height: 1.5;
+}
+
+.sectionTitle {
+  margin: var(--space-3) 0 var(--space-2);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.inviteRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  flex: 1 1 220px;
+  min-height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font: var(--text-body);
+  color: var(--text);
+  background: var(--surface);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.accessGroup {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px 6px;
+  display: flex;
+  gap: 4px;
+  margin: 0;
+}
+
+.accessGroup legend {
+  padding: 0;
+}
+
+.accessOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font: var(--text-body-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.accessOption input {
+  accent-color: var(--primary);
+}
+
+.candidateList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.candidateRow,
+.candidateRowActive {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.candidateRow:last-child,
+.candidateRowActive:last-child {
+  border-bottom: none;
+}
+
+.candidateRow:hover {
+  background: var(--aims-navy-tint);
+}
+
+.candidateRowActive {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.candidateName {
+  font: var(--text-body);
+  font-weight: 600;
+}
+
+.candidatePosition {
+  font: var(--text-body-sm);
+  opacity: 0.8;
+}
+
+.inviteActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.primaryButton {
+  height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shareList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.shareRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.shareIdentity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.shareAvatar,
+.shareAvatarFallback {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.shareAvatar {
+  object-fit: cover;
+}
+
+.shareAvatarFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.shareName {
+  font: var(--text-body);
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shareControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.accessSelect {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.accessTag {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  font: var(--text-body-sm);
+  font-weight: 600;
+}
+
+.removeButton {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  font: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.removeButton:hover {
+  border-color: var(--aims-danger);
+  color: var(--aims-danger);
+}
+
+.footerActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+
+.leaveButton {
+  background: transparent;
+  border: 1px solid var(--aims-danger);
+  color: var(--aims-danger);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font: var(--text-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.leaveButton:hover:not(:disabled) {
+  background: var(--aims-danger-tint);
+}
+
+.leaveButton:disabled {
+  opacity: 0.6;
+}
+
+.emptyLine {
+  margin: 0;
+  padding: var(--space-3) 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  text-align: center;
+}
+
+.errorNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-danger-tint);
+  border-radius: var(--radius-sm);
+  color: var(--aims-danger);
+  font: var(--text-body-sm);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

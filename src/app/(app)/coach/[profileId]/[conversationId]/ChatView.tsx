@@ -17,7 +17,10 @@ import {
   generateConversationTitleAction,
   renameConversationAction,
 } from "@/lib/coach/actions";
-import type { CoachingConversation } from "@/lib/coach/service";
+import type {
+  CoachingConversation,
+  ConversationAccess,
+} from "@/lib/coach/service";
 import type { OutputCardName, Practice } from "@/lib/practices/registry";
 import { ScriptCard } from "@/components/practices/ScriptCard";
 import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
@@ -31,8 +34,23 @@ type UiMessage = {
   role: "user" | "assistant";
   content: string;
   created_at?: string;
+  // Author of the message. Only set for persisted rows and for the
+  // local user bubble we optimistically insert on send. Assistant
+  // rows are attributed to the streamer's session (the person who
+  // triggered the turn); the display treats assistant bubbles
+  // uniformly as "Coach", so we don't render their created_by.
+  created_by?: string;
   streaming?: boolean;
   error?: string | null;
+};
+
+// Display info for someone whose messages appear in this thread.
+// Populated on the server for every distinct created_by across the
+// current message set + every share row, so any bubble can look up
+// its author in one map without an extra fetch.
+export type SenderInfo = {
+  full_name: string;
+  avatar_url: string | null;
 };
 
 const ABOUT_SUGGESTION_CHIPS = [
@@ -56,6 +74,10 @@ export function ChatView({
   firstName,
   initialMessages,
   practice = null,
+  access,
+  currentUserId,
+  senders,
+  shareHeader,
 }: {
   conversation: CoachingConversation;
   // Null in general (Ask Aimee) mode — no subject on file.
@@ -67,7 +89,30 @@ export function ChatView({
   // renders PracticeSetup (practice header + opening chips) instead
   // of the default chip row.
   practice?: Practice | null;
+  // How the current caller can interact:
+  //   'owner' — full control (rename, share, chat, auto-title)
+  //   'write' — chat allowed; rename/share/auto-title suppressed
+  //   'read'  — composer hidden; helper line offered instead
+  access: ConversationAccess;
+  // The caller's profile id. Used to decide whether a user bubble
+  // should render as "you" vs. show a coworker's name + avatar.
+  currentUserId: string;
+  // Author id → display info for every distinct writer in this
+  // thread (owner + sharees + anyone whose past messages appear in
+  // the loaded history). Built server-side so the client renders
+  // attribution without additional fetches.
+  senders: Record<string, SenderInfo>;
+  // Slot for the share button (owner) or the "Shared with N" badge
+  // (non-owners). Passed in from the page so the client doesn't
+  // need to import the share modal at this layer.
+  shareHeader?: ReactNode;
 }) {
+  const isOwner = access === "owner";
+  const canWrite = access === "owner" || access === "write";
+  // Attribution shows once at least one sharee exists — with just
+  // the owner in the thread, every user bubble is trivially "them",
+  // and a name label reads as noise.
+  const showAttribution = Object.keys(senders).length > 1;
   const isGeneral = conversation.mode === "general";
   const isPractice = practice !== null;
   const suggestions = isGeneral ? GENERAL_SUGGESTION_CHIPS : ABOUT_SUGGESTION_CHIPS;
@@ -164,11 +209,18 @@ export function ChatView({
 
       // Only place a fresh user bubble when this is a NEW send; on
       // retry the bubble is already there and the server's row already
-      // exists — sending another would duplicate.
+      // exists — sending another would duplicate. Stamp created_by so
+      // attribution shows the sender's name + avatar immediately (the
+      // eventual DB row will match).
       if (!opts.retry) {
         setMessages((prev) => [
           ...prev,
-          { id: `local-u-${Date.now()}`, role: "user", content: trimmed },
+          {
+            id: `local-u-${Date.now()}`,
+            role: "user",
+            content: trimmed,
+            created_by: currentUserId,
+          },
         ]);
       }
       const assistantId = `local-a-${Date.now()}`;
@@ -232,7 +284,11 @@ export function ChatView({
               // issue", which produces a generic title — waiting one
               // more round gets the actual topic. Guard on the exact
               // count so this doesn't refire on later exchanges.
-              if (!autoTitledRef.current && next.length === 4) {
+              // Only the owner triggers auto-title; the server action
+              // rejects non-owners anyway, but skipping the call
+              // avoids a wasted round-trip when a sharee sends the
+              // fourth message.
+              if (isOwner && !autoTitledRef.current && next.length === 4) {
                 autoTitledRef.current = true;
                 generateConversationTitleAction(conversation.id)
                   .then((result) => {
@@ -279,7 +335,7 @@ export function ChatView({
         }
       }
     },
-    [conversation.id, sending]
+    [conversation.id, sending, currentUserId, isOwner, router]
   );
 
   function retry() {
@@ -318,7 +374,7 @@ export function ChatView({
       <div className={styles.chatHeader}>
         <div className={styles.chatHeaderMain}>
           <span className={styles.chatHeaderSubject}>{headerSubject}</span>
-          {renaming ? (
+          {renaming && isOwner ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <input
                 type="text"
@@ -349,7 +405,7 @@ export function ChatView({
                 </span>
               ) : null}
             </div>
-          ) : (
+          ) : isOwner ? (
             <button
               type="button"
               className={styles.chatHeaderTitle}
@@ -358,8 +414,16 @@ export function ChatView({
             >
               {title}
             </button>
+          ) : (
+            // Non-owners see the title as static text — the rename
+            // affordance is owner-only. Static <span> keeps the same
+            // visual weight as the button without inviting a click.
+            <span className={styles.chatHeaderTitle}>{title}</span>
           )}
         </div>
+        {shareHeader ? (
+          <div className={styles.chatHeaderShare}>{shareHeader}</div>
+        ) : null}
       </div>
 
       <div className={styles.thread}>
@@ -400,11 +464,23 @@ export function ChatView({
                   "Please re-emit the chart_proposal fenced block using the exact schema — top_seats and functions with responsibilities (LMA first), sub_functions only if we split anything."
                 )
               }
+              senders={senders}
+              currentUserId={currentUserId}
+              showAttribution={showAttribution}
             />
           ))
         )}
       </div>
 
+      {!canWrite ? (
+        // Read-only sharees see the composer replaced with a helper
+        // line rather than a disabled textarea — a greyed-out box
+        // invites clicking, then reads as broken. This is explicit
+        // about who to ask.
+        <div className={styles.readOnlyNotice} role="status">
+          Read-only. Ask the owner for write access to reply.
+        </div>
+      ) : (
       <form
         className={styles.composer}
         onSubmit={(e) => {
@@ -443,6 +519,7 @@ export function ChatView({
           {sending ? "…" : "Send"}
         </button>
       </form>
+      )}
     </div>
   );
 }
@@ -453,17 +530,50 @@ function MessageBubble({
   practice,
   conversationId,
   onFixProposal,
+  senders,
+  currentUserId,
+  showAttribution,
 }: {
   message: UiMessage;
   onRetry?: () => void;
   practice?: Practice | null;
   conversationId: string;
   onFixProposal?: () => void;
+  senders: Record<string, SenderInfo>;
+  currentUserId: string;
+  showAttribution: boolean;
 }) {
   if (message.role === "user") {
+    const author =
+      message.created_by && message.created_by !== currentUserId
+        ? senders[message.created_by] ?? null
+        : null;
+    // Only surface attribution when the thread is shared AND this
+    // bubble is from someone other than the caller. Own bubbles stay
+    // unlabeled — the right-aligned position already reads as "you".
+    const showLabel = showAttribution && author !== null;
     return (
       <div className={`${styles.bubbleRow} ${styles.bubbleRowUser}`}>
-        <div className={styles.bubbleUser}>{message.content}</div>
+        <div className={styles.bubbleUserGroup}>
+          {showLabel ? (
+            <div className={styles.bubbleAttribution}>
+              {author.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={author.avatar_url}
+                  alt=""
+                  className={styles.bubbleAvatar}
+                />
+              ) : (
+                <span className={styles.bubbleAvatarFallback} aria-hidden="true">
+                  {initialsFor(author.full_name)}
+                </span>
+              )}
+              <span className={styles.bubbleAuthor}>{author.full_name}</span>
+            </div>
+          ) : null}
+          <div className={styles.bubbleUser}>{message.content}</div>
+        </div>
       </div>
     );
   }
@@ -575,6 +685,17 @@ function renderCard(
         />
       );
   }
+}
+
+// Two-letter initials fallback for the attribution avatar when a
+// sharee doesn't have an avatar_url set. Uses the first + last
+// space-separated tokens of the display name; degrades gracefully
+// for single-word names.
+function initialsFor(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
 }
 
 // Recursively flatten react-markdown's children of a <code> node
