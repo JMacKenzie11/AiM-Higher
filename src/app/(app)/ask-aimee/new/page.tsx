@@ -2,25 +2,32 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { requireProfile } from "@/lib/auth/current-user";
-import { getScopedCompanyId } from "@/lib/admin/scope";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { findPractice } from "@/lib/practices/registry";
 import { practiceRoleGate } from "@/lib/practices/gate";
 import { createPracticeConversation } from "@/lib/practices/create";
+import { createGeneralConversationAction } from "@/lib/coach/actions";
 import { PageShell } from "@/components/ui/PageShell";
 
-// Direct-launch route for guided practices. A stable URL any
-// authored surface can link to (e.g., the Classroom Functional
-// Chart training links straight to
-// /ask-aimee/new?practice=functional-chart-builder). Creates the
-// conversation server-side (honoring skipSetup + scriptedOpener
-// via the shared action) and redirects the caller into the chat.
+// Unified launch route. Two shapes:
+//   - No query params → create a plain general (Ask Aimee)
+//     conversation with practice_id=null. The AgentPicker in
+//     the composer lets the leader attach an agent later.
+//   - ?agent=X (or legacy ?practice=X) → create a general
+//     conversation with practice_id=X, run the practice's opener
+//     (scripted or generate), redirect straight into the chat.
 //
-// Denials render a friendly page rather than throwing so a user
-// following a shared link doesn't hit an error boundary. Guides
-// without an assignment to the scoped company also land here.
+// Denials render a friendly page rather than throwing so a link
+// that lands on an ineligible caller (guides without an
+// assignment, missing scope, unknown agent) doesn't hit an
+// error boundary.
 
 type PageProps = {
-  searchParams: Promise<{ practice?: string; from?: string }>;
+  searchParams: Promise<{
+    agent?: string;
+    practice?: string;
+    from?: string;
+  }>;
 };
 
 // Allowlist of URL prefixes we're willing to preserve as a "from"
@@ -36,10 +43,6 @@ function normalizeFrom(raw: string | undefined | null): string | null {
     : null;
 }
 
-// Extract a safe in-app path from the Referer header. Only lets the
-// referer through when it points at one of our own SAFE_FROM_PREFIXES
-// paths — anything cross-origin or off-list is dropped so a stray
-// external referer can't ride the back-link contract.
 async function fromFromReferer(): Promise<string | null> {
   const h = await headers();
   const referer = h.get("referer");
@@ -54,45 +57,42 @@ async function fromFromReferer(): Promise<string | null> {
 
 export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const practiceId = params.practice;
-  // Prefer an explicit ?from= param when present, fall back to
-  // the Referer header for the common case where a classroom
-  // section links straight at /ask-aimee/new?practice=X without
-  // knowing what the current URL was.
+  // ?agent= is the new canonical name; ?practice= is kept as an
+  // alias so the Classroom section links (which currently use
+  // ?practice=) keep working without a coordinated rewrite.
+  const agentId = params.agent ?? params.practice;
   const from =
     normalizeFrom(params.from) ?? (await fromFromReferer());
 
-  if (!practiceId) {
-    redirect("/ask-aimee");
-  }
-
-  const practice = findPractice(practiceId);
-  if (!practice) return notAvailable("That practice isn't available.");
-
   const session = await requireProfile();
-  let companyId: string | null = session.profile.company_id;
-  if (
-    !companyId &&
-    (session.profile.role === "system_admin" ||
-      session.profile.role === "aims_guide")
-  ) {
-    companyId = await getScopedCompanyId();
+
+  // Plain start — no agent — hands off to createGeneralConversationAction,
+  // which handles the getEffectiveCompanyId resolution for us and
+  // returns a friendly error if the caller has no scope.
+  if (!agentId) {
+    const result = await createGeneralConversationAction();
+    if (!result.ok) return notAvailable(result.message);
+    const target = from
+      ? `/ask-aimee/${result.item.id}?from=${encodeURIComponent(from)}`
+      : `/ask-aimee/${result.item.id}`;
+    redirect(target);
   }
+
+  // Agent-attached start — reuses the practice-launch path so the
+  // opener + scripted-first-message behaviour is unchanged.
+  const practice = findPractice(agentId);
+  if (!practice) return notAvailable("That agent isn't available.");
+
+  const companyId = await getEffectiveCompanyId(session);
   if (!companyId) {
     return notAvailable(
-      "Scope into a company first — practices run against a company's context."
+      "Scope into a company first — agents run against a company's context."
     );
   }
 
   const gate = practiceRoleGate(practice, session.profile, companyId);
   if (!gate.ok) return notAvailable(gate.message);
 
-  // Wrap the conversation-create in try/catch and surface the
-  // error message instead of throwing through to the error
-  // boundary. Any uncaught error here would show the leader a
-  // generic "That page didn't load" — worse than a specific
-  // message. redirect() throws NEXT_REDIRECT which the catch
-  // needs to re-throw so the framework can handle it.
   let conversationId: string;
   try {
     const result = await createPracticeConversation(practice.id);
@@ -100,15 +100,11 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
     conversationId = result.item.id;
   } catch (err) {
     if (isRedirectError(err)) throw err;
-    const message =
-      err instanceof Error ? err.message : "Unknown error";
+    const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[ask-aimee/new] launch failed", err);
-    return notAvailable(`Couldn't start that practice: ${message}`);
+    return notAvailable(`Couldn't start that agent: ${message}`);
   }
 
-  // Carry the sanitized `from` through to the chat so the back
-  // link points back to where the leader came from (usually a
-  // classroom section that hosted the practice link).
   const target = from
     ? `/ask-aimee/${conversationId}?from=${encodeURIComponent(from)}`
     : `/ask-aimee/${conversationId}`;
@@ -119,7 +115,7 @@ function notAvailable(message: string) {
   return (
     <PageShell
       eyebrow="Coaching"
-      title="Practice not available"
+      title="Couldn't start that chat"
       subtitle={message}
     >
       <p style={{ marginTop: "var(--space-4)" }}>

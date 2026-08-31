@@ -14,6 +14,8 @@ import {
   type CoachingContextKind,
   type ShareCandidate,
 } from "./service";
+import { findPractice, type Practice } from "@/lib/practices/registry";
+import { practiceRoleGate } from "@/lib/practices/gate";
 import { cleanGeneratedTitle } from "./title";
 import { logCoachTokenUsage } from "./usage";
 
@@ -165,6 +167,144 @@ export async function createGeneralConversationAction(): Promise<
     { company: companyId }
     );
   return { ok: true, item: data };
+}
+
+// ---- Attach / detach an agent to a general conversation --------
+// The unified /ask-aimee entry lets a leader start a plain chat
+// and *then* choose an agent (or pick one via the composer's
+// picker after the fact, as long as they haven't sent a user turn
+// yet). This action is the single write path for that choice.
+//
+// Lock semantic: once the leader has sent ANY user-role message
+// to this thread, the agent slot is frozen for the life of the
+// conversation. Downstream — prompt selection, output-card
+// rendering, per-turn context — trusts that practice_id is
+// stable from turn one forward. The action refuses to change it
+// after that lock lands.
+//
+// Opener replacement: before the lock, any assistant messages on
+// the conversation are by definition auto-inserted openers from a
+// previous agent selection (or none at all). The action wipes
+// them before installing the new agent's scripted opener so a
+// leader who tries three agents in a row doesn't end up with
+// three stacked greetings.
+export type SetAgentResult =
+  | { ok: true; runGenerateOpener: boolean }
+  | { ok: false; message: string };
+
+export async function setConversationAgentAction(
+  conversationId: string,
+  agentId: string | null
+): Promise<SetAgentResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: convo } = await supabase
+    .from("coaching_conversations")
+    .select("id, company_id, created_by, mode, practice_id")
+    .eq("id", conversationId)
+    .maybeSingle<
+      Pick<
+        CoachingConversation,
+        "id" | "company_id" | "created_by" | "mode" | "practice_id"
+      >
+    >();
+  if (!convo) return { ok: false, message: "Conversation not found." };
+  if (convo.created_by !== session.profile.id) {
+    return { ok: false, message: "Only the owner can change the agent." };
+  }
+  if (convo.mode !== "general") {
+    return {
+      ok: false,
+      message: "Agents only attach to general conversations.",
+    };
+  }
+
+  // Lock check — count user-role messages. Any prior assistant
+  // messages are openers we'll wipe below, so they don't count as
+  // "started."
+  const { count: userTurns } = await supabase
+    .from("coaching_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", conversationId)
+    .eq("role", "user");
+  if ((userTurns ?? 0) > 0) {
+    return {
+      ok: false,
+      message: "This conversation is already underway — the agent is locked.",
+    };
+  }
+
+  // Validate + role-gate the target agent (null = clear back to
+  // plain Ask Aimee).
+  let nextPractice: Practice | null = null;
+  if (agentId !== null) {
+    const candidate = findPractice(agentId);
+    if (!candidate) {
+      return { ok: false, message: "That agent isn't available." };
+    }
+    const gate = practiceRoleGate(
+      candidate,
+      session.profile,
+      convo.company_id
+    );
+    if (!gate.ok) return gate;
+    nextPractice = candidate;
+  }
+
+  // Wipe any prior auto-openers. Safe because we're pre-lock —
+  // by definition no user message exists, so every assistant row
+  // is an opener.
+  await supabase
+    .from("coaching_messages")
+    .delete()
+    .eq("conversation_id", conversationId)
+    .eq("role", "assistant");
+
+  const { error: updateErr } = await supabase
+    .from("coaching_conversations")
+    .update({ practice_id: nextPractice?.id ?? null })
+    .eq("id", conversationId);
+  if (updateErr) {
+    console.error("setConversationAgentAction update failed", updateErr);
+    return { ok: false, message: "Couldn't attach that agent." };
+  }
+
+  // Persist the scripted opener when applicable. The "generate"
+  // path is deferred to the client, which fires /api/coach with
+  // generateOpener=true immediately after this action returns —
+  // that keeps the streaming UX identical to a normal turn.
+  let runGenerateOpener = false;
+  if (nextPractice) {
+    if (nextPractice.firstTurn === "scripted" && nextPractice.scriptedOpener) {
+      const { error: openerErr } = await supabase
+        .from("coaching_messages")
+        .insert({
+          conversation_id: conversationId,
+          created_by: session.profile.id,
+          role: "assistant",
+          content: nextPractice.scriptedOpener,
+        });
+      if (openerErr) {
+        console.error(
+          "setConversationAgentAction opener insert failed",
+          openerErr
+        );
+      }
+    } else if (nextPractice.firstTurn === "generate") {
+      runGenerateOpener = true;
+    }
+  }
+
+  trackAfter(
+    session.profile.id,
+    "coach.agent_set",
+    { agent: nextPractice?.id ?? null },
+    { company: convo.company_id }
+  );
+
+  revalidatePath(`/ask-aimee/${conversationId}`);
+  return { ok: true, runGenerateOpener };
 }
 
 // ---- Archive ----------------------------------------------------

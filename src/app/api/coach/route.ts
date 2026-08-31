@@ -48,7 +48,20 @@ type IncomingBody = {
   // admin's original message survived the API failure and is already
   // in the DB, so we mustn't insert a duplicate.
   retry?: unknown;
+  // When true, kick off the practice's dynamic opener: no user
+  // message is persisted; a synthetic "introduce yourself and
+  // start" instruction seeds the model. Used by the composer's
+  // Agent picker for practices with firstTurn='generate'. Ignored
+  // unless the conversation has a practice_id AND no user turns.
+  generateOpener?: unknown;
 };
+
+// Synthetic user turn used to seed the model when a practice is
+// attached with firstTurn='generate'. Not shown in the UI (never
+// persisted as a user row); lives only in the request-time
+// message array.
+const GENERATE_OPENER_PROMPT =
+  "Open this conversation. Introduce yourself briefly in your role, then begin the guided flow you're designed for — start with your first question or step. Keep the opener under 120 words.";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 2000;
@@ -83,10 +96,12 @@ export async function POST(req: NextRequest): Promise<Response> {
   const userMessage =
     typeof body.userMessage === "string" ? body.userMessage.trim() : "";
   const isRetry = body.retry === true;
-  if (!conversationId || (!isRetry && !userMessage)) {
-    return new Response("Missing conversationId or userMessage", {
-      status: 400,
-    });
+  const isGenerateOpener = body.generateOpener === true;
+  if (!conversationId) {
+    return new Response("Missing conversationId", { status: 400 });
+  }
+  if (!isRetry && !isGenerateOpener && !userMessage) {
+    return new Response("Missing userMessage", { status: 400 });
   }
 
   const supabase = await createSupabaseServerClient();
@@ -111,9 +126,14 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   // Persist the user message immediately so it can't be lost if the
-  // API call below fails. On retry the row already exists — reuse it.
+  // API call below fails. On retry the row already exists — reuse
+  // it. On the opener-generation path there IS no user message;
+  // the model gets a synthetic instruction that never touches the
+  // DB, and userRow stays null.
   let userRow: CoachingMessage | null = null;
-  if (isRetry) {
+  if (isGenerateOpener) {
+    // No-op — no user turn to persist.
+  } else if (isRetry) {
     const { data: last } = await supabase
       .from("coaching_messages")
       .select("*")
@@ -146,17 +166,21 @@ export async function POST(req: NextRequest): Promise<Response> {
   // Fire coach.message_sent as soon as the user's message is
   // persisted. This is the honest "user sent something" moment;
   // the streaming assistant response is a separate concern.
-  trackAfter(
-    session.profile.id,
-    "coach.message_sent",
-    {
-      mode: convo.mode,
-      context_kind: convo.context_kind,
-      retry: isRetry,
-      message_length: userMessage.length,
-    },
-    { company: convo.company_id }
+  // Suppressed on the opener-generation path — no user turn
+  // exists there, so it wouldn't be an honest event.
+  if (!isGenerateOpener) {
+    trackAfter(
+      session.profile.id,
+      "coach.message_sent",
+      {
+        mode: convo.mode,
+        context_kind: convo.context_kind,
+        retry: isRetry,
+        message_length: userMessage.length,
+      },
+      { company: convo.company_id }
     );
+  }
 
   // Load the turn-by-turn history so the model sees the same thread
   // the UI shows. Only role + content leave the DB — id, created_by,
@@ -177,10 +201,23 @@ export async function POST(req: NextRequest): Promise<Response> {
     .slice()
     .reverse() as Array<Pick<CoachingMessage, "role" | "content">>;
 
+  // Opener-generation path needs a user turn in the message array
+  // for the model to respond to (Anthropic messages must alternate
+  // starting with user). Inject a synthetic instruction — never
+  // persisted, only exists at request time. buildMessages will
+  // prepend the standard context prefix to it just like any user
+  // turn, so the model still sees the company/person blocks.
+  if (isGenerateOpener) {
+    history.push({ role: "user", content: GENERATE_OPENER_PROMPT });
+  }
+
   // First exchange = the one user row we just inserted, no assistant
   // row yet. When the cap is reached this is trivially false; when
-  // it isn't, the counts match the true totals.
+  // it isn't, the counts match the true totals. Opener-generation
+  // is NOT a "first exchange" for auto-title purposes — the leader
+  // hasn't actually spoken yet.
   const isFirstExchange =
+    !isGenerateOpener &&
     history.filter((m) => m.role === "user").length === 1 &&
     history.filter((m) => m.role === "assistant").length === 0;
 
@@ -235,7 +272,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        controller.enqueue(encodeEvent("ready", { userMessageId: userRow.id }));
+        controller.enqueue(
+          encodeEvent("ready", { userMessageId: userRow?.id ?? null })
+        );
 
         // Tool loop. Each iteration streams one Anthropic response;
         // if it ends in tool_use we execute the tools, append the

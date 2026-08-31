@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   getAccessForConversation,
   getConversation,
@@ -7,7 +8,8 @@ import {
   getMessageSenders,
   listSharesForConversation,
 } from "@/lib/coach/service";
-import { findPractice } from "@/lib/practices/registry";
+import { PRACTICES, findPractice } from "@/lib/practices/registry";
+import { practiceRoleGate } from "@/lib/practices/gate";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 import { ShareChatButton } from "./ShareChatButton";
@@ -94,6 +96,20 @@ export default async function AskAimeeChatPage({
   // context builder) but no longer surfaced in the UI.
   const practice = findPractice(conversation.practice_id);
 
+  // Registry entries the AgentPicker is allowed to offer for this
+  // caller. Role-gated at the page level so the modal never
+  // shows a card the launch would reject. Only relevant when the
+  // caller is the owner — sharees don't get to switch the agent.
+  const scopedCompanyId = await getEffectiveCompanyId(session);
+  const agentPickerPractices =
+    access === "owner"
+      ? PRACTICES.filter((p) => {
+          if (!p.allowedRoles) return true;
+          if (!scopedCompanyId) return false;
+          return practiceRoleGate(p, session.profile, scopedCompanyId).ok;
+        })
+      : null;
+
   const back = backLinkForFrom(from);
   return (
     <PageShell
@@ -115,6 +131,7 @@ export default async function AskAimeeChatPage({
           created_by: m.created_by,
         }))}
         practice={practice}
+        agentPickerPractices={agentPickerPractices}
         access={access}
         currentUserId={session.profile.id}
         senders={senders}

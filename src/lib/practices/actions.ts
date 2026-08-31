@@ -20,12 +20,16 @@ export type PracticeActionResult<T> =
 
 export type SimpleResult = { ok: true } | { ok: false; message: string };
 
-// Thin server-action wrapper around createPracticeConversation. Adds
-// revalidatePath so a click from the PracticeCards on /ask-aimee
-// refreshes the recent-conversations list. The launch page at
-// /ask-aimee/new calls createPracticeConversation directly — Next.js
-// 15 forbids revalidatePath during a render pass, so the launch
-// path skips it (redirect to the new conversation makes it moot).
+// Thin server-action wrapper around createPracticeConversation.
+// Adds revalidatePath so the /ask-aimee list refreshes if a
+// caller uses this from a client component. The unified launch
+// page at /ask-aimee/new calls createPracticeConversation
+// directly — Next.js 15 forbids revalidatePath during a render
+// pass, so the launch path skips it (the redirect to the new
+// conversation makes it moot). This action is now unused by the
+// UI (the AgentPicker uses setConversationAgentAction to attach
+// an agent to an existing thread) but kept as a public surface
+// for any future entry point that wants a one-shot create.
 export async function createPracticeConversationAction(
   practiceId: string
 ): Promise<PracticeActionResult<CoachingConversation>> {

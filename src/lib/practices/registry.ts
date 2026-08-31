@@ -67,6 +67,21 @@ export type Practice = {
   //   it in history from turn two onward. Kept in the registry so
   //   the opener is versioned alongside the prompt file.
   scriptedOpener?: string;
+  // firstTurn
+  //   Controls what happens the moment an agent is attached to a
+  //   thread (via the composer's Agent picker, a deep-link, or the
+  //   /ask-aimee/new?agent= route):
+  //   "scripted" — persist scriptedOpener as the first assistant
+  //     message with zero API calls. Cheap, deterministic. Requires
+  //     a scriptedOpener to be present.
+  //   "generate" — call the model with the practice's system prompt
+  //     and a synthetic "introduce yourself and start" instruction.
+  //     Streams a fresh opener each time. More expressive; costs one
+  //     Anthropic turn per selection. No scriptedOpener needed (any
+  //     one that IS present is ignored — the prompt is authoritative).
+  //   Omitted — no opener runs; the empty state renders as it does
+  //     today for a plain Ask Aimee thread.
+  firstTurn?: "scripted" | "generate";
   // allowedRoles
   //   When present, the practice card is hidden from and the launch
   //   URL rejects anyone whose role isn't in the list. For aims_guide
@@ -141,6 +156,7 @@ export const PRACTICES: readonly Practice[] = [
     skipSetup: true,
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
     outputCard: { chart_proposal: "ChartProposalCard" },
+    firstTurn: "scripted",
     scriptedOpener:
       "Let's build a clear Functional Accountability Chart for your business. This is a structure that shows who owns what, and how things run best, with or without you. This isn't about job titles or people. It's about defining the essential functions and responsibilities that make the business work. We'll focus on what functions your business needs before looking at who fills them. Ready to get started?",
   },

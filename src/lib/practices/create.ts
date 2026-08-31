@@ -1,7 +1,7 @@
 import "server-only";
 
 import { requireProfile } from "@/lib/auth/current-user";
-import { getScopedCompanyId } from "@/lib/admin/scope";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CoachingConversation } from "@/lib/coach/service";
 import { findPractice } from "./registry";
@@ -33,14 +33,10 @@ export async function createPracticeConversation(
 
   const session = await requireProfile();
 
-  let companyId: string | null = session.profile.company_id;
-  if (
-    !companyId &&
-    (session.profile.role === "system_admin" ||
-      session.profile.role === "aims_guide")
-  ) {
-    companyId = await getScopedCompanyId();
-  }
+  // Route resolution through the canonical helper so system_admin
+  // and aims_guide callers both work (guide-only fallback lives
+  // inside getEffectiveCompanyId).
+  const companyId = await getEffectiveCompanyId(session);
   if (!companyId) {
     return {
       ok: false,
@@ -72,7 +68,15 @@ export async function createPracticeConversation(
     return { ok: false, message: "Couldn't start that practice." };
   }
 
-  if (practice.scriptedOpener) {
+  // Persist the scripted opener up-front. Only for firstTurn:
+  // "scripted" (or omitted for backward compat) — practices with
+  // firstTurn: "generate" get their opener streamed by ChatView
+  // right after landing on the chat page (a client-side effect
+  // fires /api/coach with generateOpener: true).
+  const shouldPersistScripted =
+    practice.scriptedOpener &&
+    (practice.firstTurn === "scripted" || practice.firstTurn === undefined);
+  if (shouldPersistScripted) {
     try {
       const { error: openerErr } = await supabase
         .from("coaching_messages")

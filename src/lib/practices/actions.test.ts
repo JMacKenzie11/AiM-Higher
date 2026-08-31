@@ -54,7 +54,7 @@ const mocks = vi.hoisted(() => {
 
   const serverClient = { from: fromBuilder };
   const requireProfile = vi.fn();
-  const getScopedCompanyId = vi.fn();
+  const getEffectiveCompanyId = vi.fn();
   const findPractice = vi.fn();
   const revalidatePath = vi.fn();
 
@@ -68,7 +68,7 @@ const mocks = vi.hoisted(() => {
     messagesInsertPatch,
     serverClient,
     requireProfile,
-    getScopedCompanyId,
+    getEffectiveCompanyId,
     findPractice,
     revalidatePath,
   };
@@ -83,7 +83,7 @@ vi.mock("@/lib/auth/current-user", () => ({
 }));
 
 vi.mock("@/lib/admin/scope", () => ({
-  getScopedCompanyId: mocks.getScopedCompanyId,
+  getEffectiveCompanyId: mocks.getEffectiveCompanyId,
 }));
 
 vi.mock("./registry", () => ({
@@ -119,7 +119,7 @@ function primeHappyPath() {
     id: "prepare-a-hard-conversation",
     title: "Prepare a hard conversation",
   });
-  mocks.getScopedCompanyId.mockResolvedValue("co_acme");
+  mocks.getEffectiveCompanyId.mockResolvedValue("co_acme");
   mocks.conversationsInsertSingle.mockResolvedValue({
     data: {
       id: "conv_new",
@@ -180,7 +180,7 @@ describe("createPracticeConversationAction", () => {
     mocks.requireProfile.mockResolvedValue(
       sessionFor({ id: "root", role: "system_admin", company_id: null })
     );
-    mocks.getScopedCompanyId.mockResolvedValueOnce(null);
+    mocks.getEffectiveCompanyId.mockResolvedValueOnce(null);
     const { createPracticeConversationAction } = await import("./actions");
 
     const res = await createPracticeConversationAction(
@@ -249,7 +249,7 @@ describe("createPracticeConversationAction", () => {
         guide_company_ids: ["co_meridian"],
       })
     );
-    mocks.getScopedCompanyId.mockResolvedValueOnce("co_acme");
+    mocks.getEffectiveCompanyId.mockResolvedValueOnce("co_acme");
     const { createPracticeConversationAction } = await import("./actions");
 
     const res = await createPracticeConversationAction("functional-chart-builder");

@@ -1,5 +1,5 @@
 // Practice categories. Split into their own module (no server-only
-// directive, no fs deps) so client components like PracticeCards can
+// directive, no fs deps) so client components like AgentPicker can
 // import the constant + type without pulling in the registry's
 // server-only guarantees.
 //

@@ -24,6 +24,7 @@ import type {
 import type { OutputCardName, Practice } from "@/lib/practices/registry";
 import { ScriptCard } from "@/components/practices/ScriptCard";
 import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
+import { AgentPicker } from "@/components/practices/AgentPicker";
 import styles from "../../coach.module.css";
 
 // The chat UI. Handles streaming SSE from /api/coach, renders the
@@ -74,6 +75,7 @@ export function ChatView({
   firstName,
   initialMessages,
   practice = null,
+  agentPickerPractices = null,
   access,
   currentUserId,
   senders,
@@ -89,6 +91,11 @@ export function ChatView({
   // renders PracticeSetup (practice header + opening chips) instead
   // of the default chip row.
   practice?: Practice | null;
+  // Registry entries the current caller is allowed to attach as
+  // an agent to THIS conversation, pre-filtered by role. Null (or
+  // omitted) hides the AgentPicker entirely — used for about-mode
+  // threads where the agent slot isn't meaningful.
+  agentPickerPractices?: readonly Practice[] | null;
   // How the current caller can interact:
   //   'owner' — full control (rename, share, chat, auto-title)
   //   'write' — chat allowed; rename/share/auto-title suppressed
@@ -113,6 +120,14 @@ export function ChatView({
   // the owner in the thread, every user bubble is trivially "them",
   // and a name label reads as noise.
   const showAttribution = Object.keys(senders).length > 1;
+  // The AgentPicker only renders in owner-general chats where the
+  // page passed practices. Locked once any user turn exists (the
+  // server action enforces the same rule; this is UX polish).
+  const hasUserTurns = initialMessages.some((m) => m.role === "user");
+  const showAgentPicker =
+    isOwner &&
+    conversation.mode === "general" &&
+    agentPickerPractices !== null;
   const isGeneral = conversation.mode === "general";
   const isPractice = practice !== null;
   const suggestions = isGeneral ? GENERAL_SUGGESTION_CHIPS : ABOUT_SUGGESTION_CHIPS;
@@ -166,6 +181,24 @@ export function ChatView({
       abortRef.current?.abort();
     };
   }, []);
+
+  // Auto-fire the generate opener on landing if the attached
+  // agent uses firstTurn='generate' and nothing has been sent yet.
+  // Ref-guarded so React 18 dev double-invoke doesn't fire the
+  // stream twice. Only owners trigger it — sharees see whatever's
+  // already there.
+  const openerFiredRef = useRef(false);
+  useEffect(() => {
+    if (openerFiredRef.current) return;
+    if (!isOwner) return;
+    if (!practice || practice.firstTurn !== "generate") return;
+    if (initialMessages.length > 0) return;
+    openerFiredRef.current = true;
+    runOpenerGeneration();
+    // Depend only on stable inputs — runOpenerGeneration is a
+    // useCallback so its identity is stable across re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwner, practice, initialMessages.length]);
 
   // Keep the bottom of the thread in view as the assistant streams,
   // but ONLY while the user is already near the bottom — a hard
@@ -278,17 +311,19 @@ export function ChatView({
               const next = prev.map((m) =>
                 m.id === assistantId ? { ...m, streaming: false } : m
               );
-              // Fire auto-title after the SECOND exchange completes
-              // (four total messages). The first user turn is usually
-              // a starter chip like "I need help thinking through an
-              // issue", which produces a generic title — waiting one
-              // more round gets the actual topic. Guard on the exact
-              // count so this doesn't refire on later exchanges.
-              // Only the owner triggers auto-title; the server action
-              // rejects non-owners anyway, but skipping the call
-              // avoids a wasted round-trip when a sharee sends the
-              // fourth message.
-              if (isOwner && !autoTitledRef.current && next.length === 4) {
+              // Fire auto-title after the SECOND user turn's response
+              // lands. Counting user messages (not total length)
+              // makes this robust to agent openers, which add a
+              // pre-conversation assistant turn and would otherwise
+              // shift the total-length guard by one. Only the owner
+              // triggers auto-title; the server action rejects
+              // non-owners anyway, but skipping the call avoids a
+              // wasted round-trip when a sharee sends the fourth
+              // message.
+              const userTurnCount = next.filter(
+                (m) => m.role === "user"
+              ).length;
+              if (isOwner && !autoTitledRef.current && userTurnCount === 2) {
                 autoTitledRef.current = true;
                 generateConversationTitleAction(conversation.id)
                   .then((result) => {
@@ -344,6 +379,89 @@ export function ChatView({
     setMessages((prev) => prev.filter((m) => !m.error));
     void sendMessage(lastUserAttempt, { retry: true });
   }
+
+  // Called by the AgentPicker after the server action returns
+  // runGenerateOpener=true. Streams the practice's dynamic opener
+  // into a fresh assistant bubble via /api/coach — same shape as
+  // a normal turn, but with generateOpener:true and no user text.
+  const runOpenerGeneration = useCallback(() => {
+    if (sending) return;
+    setSending(true);
+
+    // Optimistic assistant slot so the "Thinking…" indicator lands
+    // immediately. Same id-shape as the normal path.
+    const assistantId = `local-a-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantId, role: "assistant", content: "", streaming: true },
+    ]);
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/coach", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversationId: conversation.id,
+            generateOpener: true,
+          }),
+          signal: controller.signal,
+        });
+        if (!response.ok || !response.body) {
+          throw new Error(
+            `Request failed (${response.status}): ${await response.text()}`
+          );
+        }
+        await consumeSse(response.body, controller.signal, {
+          onDelta: (chunk) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: m.content + chunk }
+                  : m
+              )
+            );
+          },
+          onError: (message) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, streaming: false, error: message }
+                  : m
+              )
+            );
+          },
+          onDone: () => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, streaming: false } : m
+              )
+            );
+          },
+        });
+      } catch (error) {
+        if (
+          controller.signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError")
+        ) {
+          return;
+        }
+        const msg =
+          error instanceof Error ? error.message : "Something went wrong.";
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, streaming: false, error: msg } : m
+          )
+        );
+      } finally {
+        if (!controller.signal.aborted) setSending(false);
+      }
+    })();
+  }, [conversation.id, sending]);
 
   function submitRename() {
     const next = renameValue.trim();
@@ -421,6 +539,17 @@ export function ChatView({
             <span className={styles.chatHeaderTitle}>{title}</span>
           )}
         </div>
+        {showAgentPicker ? (
+          <div className={styles.chatHeaderShare}>
+            <AgentPicker
+              conversationId={conversation.id}
+              practices={agentPickerPractices ?? []}
+              currentAgent={practice}
+              locked={hasUserTurns}
+              onGenerateOpener={runOpenerGeneration}
+            />
+          </div>
+        ) : null}
         {shareHeader ? (
           <div className={styles.chatHeaderShare}>{shareHeader}</div>
         ) : null}

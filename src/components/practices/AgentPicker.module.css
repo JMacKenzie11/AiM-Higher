@@ -1,0 +1,214 @@
+/* Chat-header trigger — reads as a compact pill with icon + label.
+   Kept in the same visual family as the share icon button so the
+   header controls read as one system. */
+.trigger,
+.triggerLocked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border: 1px solid transparent;
+  color: var(--primary);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.trigger:hover {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.triggerLocked {
+  cursor: default;
+  background: color-mix(in srgb, var(--aims-navy) 6%, transparent);
+  color: var(--aims-navy);
+}
+
+/* Modal — mirrors the ShareChatButton dialog surface so the two
+   feel like the same picker family. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(17, 21, 26, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  max-width: 640px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.close {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.close:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  line-height: 1.5;
+}
+
+.currentRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.clearButton {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.clearButton:hover:not(:disabled) {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+}
+
+.categoryGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.categoryHeader {
+  margin: 0;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.rowList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row,
+.rowCurrent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.row:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
+}
+
+.rowCurrent {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  cursor: default;
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTitle {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.rowDescription {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.rowCurrentTag {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.errorNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-danger-tint);
+  border-radius: var(--radius-sm);
+  color: var(--aims-danger);
+  font: var(--text-body-sm);
+}
