@@ -122,20 +122,20 @@ async function resolveCompanyIdInternal(
     // page renders against a ghost (empty pickers, orphan chats,
     // etc.). companies_hide_deleted RLS gives us the check for
     // free: the SELECT returns null when deleted_at is not null.
-    if (!(await companyIsLive(cookie))) {
-      await clearScopedCompanyCookie();
-      return null;
-    }
+    //
+    // Just returns null on a dead cookie — cookie clearing needs a
+    // Server Action or Route Handler (Server Components can't mutate
+    // cookies), and every caller of getEffectiveCompanyId already
+    // handles null. The next scope-in overwrites the cookie, and
+    // scopeIntoCompanyAction refuses to point it at a dead tenant.
+    if (!(await companyIsLive(cookie))) return null;
     return cookie;
   }
   if (role === "aims_guide") {
     const assignments = session.profile.guide_company_ids ?? [];
     const cookie = await getScopedCompanyId();
     if (cookie && assignments.includes(cookie)) {
-      if (!(await companyIsLive(cookie))) {
-        await clearScopedCompanyCookie();
-        return null;
-      }
+      if (!(await companyIsLive(cookie))) return null;
       return cookie;
     }
     if (assignments.length === 1) {
