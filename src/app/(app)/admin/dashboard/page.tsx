@@ -13,6 +13,7 @@ import { readAnthropicCostSummary } from "@/lib/admin/anthropic-cost";
 import {
   defaultInsightsFilters,
   getCoachingInsightsAdoption,
+  getCoachingInsightsSynthesis,
   listCoachingInsightsCompanies,
 } from "@/lib/admin/coaching-insights-service";
 import { PageShell } from "@/components/ui/PageShell";
@@ -46,6 +47,7 @@ export default async function AdminDashboardPage() {
     realCosts,
     insightsCompanies,
     insightsAdoption,
+    insightsSynthesis,
   ] = await Promise.all([
     getPlatformPulse(),
     getCompanyActivity(),
@@ -56,6 +58,7 @@ export default async function AdminDashboardPage() {
     readAnthropicCostSummary(),
     listCoachingInsightsCompanies(),
     getCoachingInsightsAdoption(insightsInitialFilters),
+    getCoachingInsightsSynthesis(insightsInitialFilters),
   ]);
   const atRisk = computeAtRisk(activity);
   // Prefer real invoiced numbers from the Anthropic Admin API when
@@ -400,6 +403,7 @@ export default async function AdminDashboardPage() {
         companies={insightsCompanies}
         initialFilters={insightsInitialFilters}
         initialAdoption={insightsAdoption}
+        initialSynthesis={insightsSynthesis}
       />
     </PageShell>
   );

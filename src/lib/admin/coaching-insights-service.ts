@@ -344,3 +344,316 @@ function buildDailySeries(
   }
   return out;
 }
+
+// ---- Pass 2 + 3 synthesis ---------------------------------
+// Reads the per-conversation LLM analyses produced by
+// /api/cron/coaching-insights and aggregates them in JS. No
+// LLM call at read time — the nightly job did the expensive
+// work; this layer just filters + counts + cross-tabs.
+
+export type ThemeRow = {
+  label: string;
+  count: number;
+  // Up to three PII-stripped one-liners drawn from the underlying
+  // analyses so a reader can see WHAT leaders were saying under
+  // this theme, not just a bar-chart label.
+  examples: string[];
+};
+
+export type FrictionRow = {
+  label: string;
+  count: number;
+  // Highest observed friction_level for this signal (1..3), so the
+  // UI can tint the row's chip.
+  level: 1 | 2 | 3;
+  examples: string[];
+};
+
+export type OpportunityRow = {
+  label: string;
+  count: number;
+  // Sample summary sentence for context.
+  example: string;
+};
+
+// One cell of the practice × theme cross-tab. A null practiceId
+// means Ask Aimee (no agent attached).
+export type HeatmapCell = {
+  practiceId: string | null;
+  practiceTitle: string;
+  themeLabel: string;
+  count: number;
+};
+
+export type CoachingInsightsSynthesis = {
+  window: CoachingInsightsWindow;
+  // How many analyses fed this synthesis. If < 3 the panes render
+  // an "insufficient data" state rather than misleading clusters.
+  analysesCount: number;
+  themes: ThemeRow[];
+  friction: FrictionRow[];
+  opportunities: OpportunityRow[];
+  heatmap: {
+    practices: Array<{ practiceId: string | null; practiceTitle: string }>;
+    themes: string[];
+    cells: HeatmapCell[];
+  };
+  // Freshness — the most recent analysis timestamp in the set.
+  // The UI shows this so a sysadmin knows how caught-up the
+  // nightly job is.
+  lastAnalyzedAt: string | null;
+};
+
+type AnalysisRow = {
+  conversation_id: string;
+  company_id: string;
+  practice_id: string | null;
+  summary: string;
+  topics: string[] | null;
+  friction_level: number;
+  friction_signal: string | null;
+  opportunity: string | null;
+  analyzed_at: string;
+};
+
+const MAX_THEMES = 8;
+const MAX_FRICTION = 6;
+const MAX_OPPORTUNITIES = 6;
+const HEATMAP_TOP_THEMES = 5;
+
+export async function getCoachingInsightsSynthesis(
+  filters: CoachingInsightsFilters
+): Promise<CoachingInsightsSynthesis> {
+  const admin = createSupabaseAdminClient();
+
+  const startTs = `${filters.startIso}T00:00:00.000Z`;
+  const endExclusive = new Date(`${filters.endIso}T00:00:00.000Z`);
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+  const endTs = endExclusive.toISOString();
+  const days = Math.max(
+    1,
+    Math.round(
+      (endExclusive.getTime() - Date.parse(startTs)) / (24 * 60 * 60 * 1000)
+    )
+  );
+
+  // The analyses table is keyed by conversation, but the window
+  // filter belongs to the conversation's created_at, not to
+  // analyzed_at. Join server-side by pulling the matching convo
+  // ids first, then hydrating analyses.
+  let convoQuery = admin
+    .from("coaching_conversations")
+    .select("id")
+    .gte("created_at", startTs)
+    .lt("created_at", endTs);
+  if (filters.companyIds.length > 0) {
+    convoQuery = convoQuery.in("company_id", filters.companyIds);
+  }
+  const { data: convosData } = await convoQuery;
+  const convoIds = ((convosData ?? []) as Array<{ id: string }>).map(
+    (c) => c.id
+  );
+
+  if (convoIds.length === 0) {
+    return emptySynthesis(filters, days);
+  }
+
+  const { data: rowsData } = await admin
+    .from("coaching_conversation_analyses")
+    .select(
+      "conversation_id, company_id, practice_id, summary, topics, friction_level, friction_signal, opportunity, analyzed_at"
+    )
+    .in("conversation_id", convoIds);
+  const rows = (rowsData ?? []) as AnalysisRow[];
+
+  if (rows.length === 0) {
+    return emptySynthesis(filters, days);
+  }
+
+  // ---- Themes: normalize + bucket topics --------------------
+  const themeBuckets = new Map<
+    string,
+    { label: string; count: number; examples: string[] }
+  >();
+  for (const row of rows) {
+    const topics = (row.topics ?? []).filter(
+      (t): t is string => typeof t === "string" && t.trim().length > 0
+    );
+    // De-dupe topics inside a single row — a row shouldn't get
+    // double-credit for the same theme.
+    const seen = new Set<string>();
+    for (const raw of topics) {
+      const norm = normalizeLabel(raw);
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      const bucket = themeBuckets.get(norm) ?? {
+        label: prettifyLabel(raw),
+        count: 0,
+        examples: [],
+      };
+      bucket.count += 1;
+      if (bucket.examples.length < 3 && !bucket.examples.includes(row.summary)) {
+        bucket.examples.push(row.summary);
+      }
+      themeBuckets.set(norm, bucket);
+    }
+  }
+  const themes: ThemeRow[] = Array.from(themeBuckets.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, MAX_THEMES);
+
+  // ---- Friction: only rows with level >= 1, group by signal ---
+  const frictionBuckets = new Map<
+    string,
+    { label: string; count: number; level: 1 | 2 | 3; examples: string[] }
+  >();
+  for (const row of rows) {
+    if (row.friction_level < 1) continue;
+    const signal = row.friction_signal?.trim();
+    if (!signal) continue;
+    const norm = normalizeLabel(signal);
+    const level = Math.min(3, Math.max(1, row.friction_level)) as 1 | 2 | 3;
+    const bucket = frictionBuckets.get(norm) ?? {
+      label: prettifyLabel(signal),
+      count: 0,
+      level,
+      examples: [],
+    };
+    bucket.count += 1;
+    if (level > bucket.level) bucket.level = level;
+    if (bucket.examples.length < 3 && !bucket.examples.includes(row.summary)) {
+      bucket.examples.push(row.summary);
+    }
+    frictionBuckets.set(norm, bucket);
+  }
+  const friction: FrictionRow[] = Array.from(frictionBuckets.values())
+    .sort((a, b) => b.count - a.count || b.level - a.level)
+    .slice(0, MAX_FRICTION);
+
+  // ---- Opportunities: group by phrase ----------------------
+  const opportunityBuckets = new Map<
+    string,
+    { label: string; count: number; example: string }
+  >();
+  for (const row of rows) {
+    const opp = row.opportunity?.trim();
+    if (!opp) continue;
+    const norm = normalizeLabel(opp);
+    const bucket = opportunityBuckets.get(norm) ?? {
+      label: prettifyLabel(opp),
+      count: 0,
+      example: row.summary,
+    };
+    bucket.count += 1;
+    opportunityBuckets.set(norm, bucket);
+  }
+  const opportunities: OpportunityRow[] = Array.from(
+    opportunityBuckets.values()
+  )
+    .sort((a, b) => b.count - a.count)
+    .slice(0, MAX_OPPORTUNITIES);
+
+  // ---- Heatmap: practice × top-N theme cross-tab ------------
+  const topThemeLabels = themes.slice(0, HEATMAP_TOP_THEMES).map((t) => t.label);
+  const topThemeSet = new Set(topThemeLabels.map((t) => normalizeLabel(t)));
+
+  // Practice ordering by total volume so the busiest agent sits
+  // on top. Ask Aimee (no practice) is included as a null id.
+  const practiceCounts = new Map<string | null, number>();
+  for (const row of rows) {
+    practiceCounts.set(
+      row.practice_id,
+      (practiceCounts.get(row.practice_id) ?? 0) + 1
+    );
+  }
+  const practices = Array.from(practiceCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([pid]) => ({
+      practiceId: pid,
+      practiceTitle:
+        pid === null
+          ? "Ask Aimee"
+          : findPractice(pid)?.title ?? pid,
+    }));
+
+  const cellMap = new Map<string, HeatmapCell>();
+  for (const row of rows) {
+    const topics = (row.topics ?? []).filter(
+      (t): t is string => typeof t === "string" && t.trim().length > 0
+    );
+    const seenTopics = new Set<string>();
+    for (const raw of topics) {
+      const norm = normalizeLabel(raw);
+      if (!topThemeSet.has(norm)) continue;
+      if (seenTopics.has(norm)) continue;
+      seenTopics.add(norm);
+      const key = `${row.practice_id ?? "null"}::${norm}`;
+      const cell = cellMap.get(key) ?? {
+        practiceId: row.practice_id,
+        practiceTitle:
+          row.practice_id === null
+            ? "Ask Aimee"
+            : findPractice(row.practice_id)?.title ?? row.practice_id,
+        themeLabel: prettifyLabel(raw),
+        count: 0,
+      };
+      cell.count += 1;
+      cellMap.set(key, cell);
+    }
+  }
+  const cells = Array.from(cellMap.values());
+
+  const lastAnalyzedAt = rows
+    .map((r) => r.analyzed_at)
+    .sort()
+    .at(-1) ?? null;
+
+  return {
+    window: { startIso: filters.startIso, endIso: filters.endIso, days },
+    analysesCount: rows.length,
+    themes,
+    friction,
+    opportunities,
+    heatmap: {
+      practices,
+      themes: topThemeLabels,
+      cells,
+    },
+    lastAnalyzedAt,
+  };
+}
+
+function emptySynthesis(
+  filters: CoachingInsightsFilters,
+  days: number
+): CoachingInsightsSynthesis {
+  return {
+    window: { startIso: filters.startIso, endIso: filters.endIso, days },
+    analysesCount: 0,
+    themes: [],
+    friction: [],
+    opportunities: [],
+    heatmap: { practices: [], themes: [], cells: [] },
+    lastAnalyzedAt: null,
+  };
+}
+
+// Cheap fold so "Accountability" and "accountability " collapse
+// into one bucket without dragging in a stemmer. Presentation
+// still uses the first observed spelling via prettifyLabel.
+function normalizeLabel(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function prettifyLabel(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return trimmed;
+  // Sentence-case the label so a lowercase-tag input reads as a
+  // proper heading in the pane.
+  return trimmed[0].toUpperCase() + trimmed.slice(1);
+}

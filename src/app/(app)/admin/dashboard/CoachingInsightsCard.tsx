@@ -5,31 +5,37 @@ import { fetchCoachingInsightsAction } from "@/lib/admin/coaching-insights-actio
 import type {
   CoachingInsightsAdoption,
   CoachingInsightsFilters,
+  CoachingInsightsSynthesis,
   CompanyOption,
 } from "@/lib/admin/coaching-insights-service";
 import { Sparkline } from "./Sparkline";
 import styles from "./coaching-insights.module.css";
 
-// Bottom-of-dashboard card. Pass 1 renders the adoption/volume
-// slice for a caller-selected (company + date range) window.
-// Passes 2 + 3 will layer themes + friction + product
-// opportunities on top of the same filter state.
-//
-// Everything below the filters re-fetches when filters change
-// (useTransition keeps the current view visible so the numbers
-// don't blank out during a re-fetch).
+// Bottom-of-dashboard card. Renders four bands for a caller-selected
+// (company + date range) window:
+//   1. Adoption stats (Pass 1)  — sourced from live SQL.
+//   2. Themes + friction (Pass 2) — sourced from the nightly per-
+//      conversation analyses (LLM, PII-stripped).
+//   3. Opportunities + agent×theme heatmap (Pass 3) — same source.
+// Everything below the filter row re-fetches together when filters
+// change (useTransition keeps the current view visible so the
+// numbers don't blank out during a re-fetch).
 
 export function CoachingInsightsCard({
   companies,
   initialFilters,
   initialAdoption,
+  initialSynthesis,
 }: {
   companies: CompanyOption[];
   initialFilters: CoachingInsightsFilters;
   initialAdoption: CoachingInsightsAdoption;
+  initialSynthesis: CoachingInsightsSynthesis;
 }) {
   const [filters, setFilters] = useState<CoachingInsightsFilters>(initialFilters);
   const [adoption, setAdoption] = useState<CoachingInsightsAdoption>(initialAdoption);
+  const [synthesis, setSynthesis] =
+    useState<CoachingInsightsSynthesis>(initialSynthesis);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   // Guard against a stale request landing after a newer filter
@@ -50,6 +56,7 @@ export function CoachingInsightsCard({
         }
         setError(null);
         setAdoption(res.adoption);
+        setSynthesis(res.synthesis);
       });
     },
     // startTransition is stable by contract, safe to omit.
@@ -96,10 +103,15 @@ export function CoachingInsightsCard({
 
       <AgentBreakdown adoption={adoption} />
 
-      {/*
-        Pass 2 will add: <ThemesPane adoption={adoption} filters={filters} />
-        Pass 3 will add: <OpportunitiesPane /> and <AgentCategoryHeatmap />
-      */}
+      <SynthesisFreshness synthesis={synthesis} />
+
+      <ThemesPane synthesis={synthesis} pending={pending} />
+
+      <FrictionPane synthesis={synthesis} pending={pending} />
+
+      <OpportunitiesPane synthesis={synthesis} pending={pending} />
+
+      <AgentThemeHeatmap synthesis={synthesis} pending={pending} />
     </section>
   );
 }
@@ -384,6 +396,301 @@ function AgentBreakdown({ adoption }: { adoption: CoachingInsightsAdoption }) {
   );
 }
 
+// ---- Synthesis freshness ----------------------------------
+
+function SynthesisFreshness({
+  synthesis,
+}: {
+  synthesis: CoachingInsightsSynthesis;
+}) {
+  const dot =
+    synthesis.analysesCount === 0
+      ? styles.freshnessDotIdle
+      : synthesis.analysesCount < 5
+        ? styles.freshnessDotLow
+        : styles.freshnessDotOk;
+  const label =
+    synthesis.analysesCount === 0
+      ? "No analyses in this window yet"
+      : `${synthesis.analysesCount.toLocaleString()} conversations analyzed`;
+  const stamp = synthesis.lastAnalyzedAt
+    ? ` · last run ${formatWhen(synthesis.lastAnalyzedAt)}`
+    : "";
+  return (
+    <div className={styles.freshnessRow}>
+      <span className={dot} aria-hidden="true" />
+      <span>{label}{stamp}</span>
+    </div>
+  );
+}
+
+// ---- Themes ------------------------------------------------
+
+function ThemesPane({
+  synthesis,
+  pending,
+}: {
+  synthesis: CoachingInsightsSynthesis;
+  pending: boolean;
+}) {
+  if (synthesis.analysesCount < 3) {
+    return (
+      <EmptyPane
+        title="Themes"
+        caption="Wait for the nightly job to build a big enough sample. Themes need at least three analyzed conversations to be trustworthy."
+      />
+    );
+  }
+  const max = Math.max(1, ...synthesis.themes.map((t) => t.count));
+  return (
+    <div
+      className={pending ? styles.subPanePending : styles.subPane}
+      aria-busy={pending}
+    >
+      <div className={styles.paneHead}>
+        <span className={styles.paneTitle}>Top themes</span>
+        <span className={styles.paneCaption}>
+          What leaders are working on. Bar width shows how many
+          conversations landed in each theme.
+        </span>
+      </div>
+      <ul className={styles.themeList}>
+        {synthesis.themes.map((theme) => (
+          <li key={theme.label} className={styles.themeRow}>
+            <div className={styles.themeName}>{theme.label}</div>
+            <div className={styles.themeBarTrack} aria-hidden="true">
+              <div
+                className={styles.themeBarFill}
+                style={{ width: `${(theme.count / max) * 100}%` }}
+              />
+            </div>
+            <div className={styles.themeCount}>
+              {theme.count.toLocaleString()}
+            </div>
+            {theme.examples.length > 0 ? (
+              <ul className={styles.themeExamples}>
+                {theme.examples.map((ex, i) => (
+                  <li key={i}>{ex}</li>
+                ))}
+              </ul>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ---- Friction ---------------------------------------------
+
+function FrictionPane({
+  synthesis,
+  pending,
+}: {
+  synthesis: CoachingInsightsSynthesis;
+  pending: boolean;
+}) {
+  if (synthesis.analysesCount < 3) return null;
+  if (synthesis.friction.length === 0) {
+    return (
+      <EmptyPane
+        title="Friction signals"
+        caption="No frustration or stuck moments in this window. That's a good week."
+      />
+    );
+  }
+  return (
+    <div
+      className={pending ? styles.subPanePending : styles.subPane}
+      aria-busy={pending}
+    >
+      <div className={styles.paneHead}>
+        <span className={styles.paneTitle}>Friction signals</span>
+        <span className={styles.paneCaption}>
+          Where leaders sounded stuck or frustrated. Chip tint
+          reflects severity.
+        </span>
+      </div>
+      <ul className={styles.frictionList}>
+        {synthesis.friction.map((f) => (
+          <li key={f.label} className={styles.frictionRow}>
+            <span className={frictionChipClass(f.level)}>
+              {f.label}
+            </span>
+            <span className={styles.frictionCount}>
+              {f.count} {f.count === 1 ? "signal" : "signals"}
+            </span>
+            {f.examples[0] ? (
+              <span className={styles.frictionExample}>
+                “{f.examples[0]}”
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function frictionChipClass(level: 1 | 2 | 3): string {
+  if (level >= 3) return styles.frictionChipHigh;
+  if (level === 2) return styles.frictionChipMed;
+  return styles.frictionChipLow;
+}
+
+// ---- Opportunities ----------------------------------------
+
+function OpportunitiesPane({
+  synthesis,
+  pending,
+}: {
+  synthesis: CoachingInsightsSynthesis;
+  pending: boolean;
+}) {
+  if (synthesis.analysesCount < 3) return null;
+  if (synthesis.opportunities.length === 0) {
+    return (
+      <EmptyPane
+        title="Product opportunities"
+        caption="No platform opportunities surfaced in this window. Keep listening."
+      />
+    );
+  }
+  return (
+    <div
+      className={pending ? styles.subPanePending : styles.subPane}
+      aria-busy={pending}
+    >
+      <div className={styles.paneHead}>
+        <span className={styles.paneTitle}>Product opportunities</span>
+        <span className={styles.paneCaption}>
+          Feature or workflow needs pulled from the conversations.
+          Repeats are the strongest signal.
+        </span>
+      </div>
+      <ul className={styles.opportunityList}>
+        {synthesis.opportunities.map((op) => (
+          <li key={op.label} className={styles.opportunityRow}>
+            <div className={styles.opportunityLabel}>{op.label}</div>
+            <div className={styles.opportunityCount}>
+              {op.count}× {op.count === 1 ? "mention" : "mentions"}
+            </div>
+            {op.example ? (
+              <div className={styles.opportunityExample}>{op.example}</div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ---- Agent × theme heatmap --------------------------------
+
+function AgentThemeHeatmap({
+  synthesis,
+  pending,
+}: {
+  synthesis: CoachingInsightsSynthesis;
+  pending: boolean;
+}) {
+  const { practices, themes, cells } = synthesis.heatmap;
+  if (
+    synthesis.analysesCount < 3 ||
+    practices.length === 0 ||
+    themes.length === 0
+  ) {
+    return null;
+  }
+  const byKey = new Map<string, number>();
+  let max = 1;
+  for (const c of cells) {
+    const key = `${c.practiceId ?? "null"}::${c.themeLabel}`;
+    byKey.set(key, c.count);
+    if (c.count > max) max = c.count;
+  }
+  return (
+    <div
+      className={pending ? styles.subPanePending : styles.subPane}
+      aria-busy={pending}
+    >
+      <div className={styles.paneHead}>
+        <span className={styles.paneTitle}>Agent × theme heatmap</span>
+        <span className={styles.paneCaption}>
+          Which agent surfaces which topic. Darker cells = more
+          conversations. Ask Aimee is the no-agent baseline.
+        </span>
+      </div>
+      <div className={styles.heatmapWrap}>
+        <table className={styles.heatmapTable}>
+          <thead>
+            <tr>
+              <th scope="col" className={styles.heatmapCorner}>
+                Agent
+              </th>
+              {themes.map((t) => (
+                <th key={t} scope="col" className={styles.heatmapColHead}>
+                  {t}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {practices.map((p) => (
+              <tr key={p.practiceId ?? "null"}>
+                <th scope="row" className={styles.heatmapRowHead}>
+                  {p.practiceTitle}
+                </th>
+                {themes.map((t) => {
+                  const key = `${p.practiceId ?? "null"}::${t}`;
+                  const n = byKey.get(key) ?? 0;
+                  const intensity = n / max;
+                  return (
+                    <td
+                      key={t}
+                      className={styles.heatmapCell}
+                      style={{
+                        background:
+                          n === 0
+                            ? "transparent"
+                            : `color-mix(in srgb, var(--primary) ${Math.round(
+                                12 + intensity * 68
+                              )}%, transparent)`,
+                        color:
+                          intensity > 0.5 ? "var(--surface)" : "var(--text)",
+                      }}
+                      title={`${n} ${n === 1 ? "conversation" : "conversations"} · ${p.practiceTitle} × ${t}`}
+                    >
+                      {n > 0 ? n : ""}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---- Shared empty state -----------------------------------
+
+function EmptyPane({
+  title,
+  caption,
+}: {
+  title: string;
+  caption: string;
+}) {
+  return (
+    <div className={styles.subPaneEmpty}>
+      <span className={styles.paneTitle}>{title}</span>
+      <p className={styles.paneCaption}>{caption}</p>
+    </div>
+  );
+}
+
 // ---- Small helpers ----------------------------------------
 
 function formatShort(iso: string): string {
@@ -392,5 +699,20 @@ function formatShort(iso: string): string {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
+  });
+}
+
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  const now = Date.now();
+  const diffH = (now - d.getTime()) / (60 * 60 * 1000);
+  if (diffH < 1) return "just now";
+  if (diffH < 24) return `${Math.round(diffH)}h ago`;
+  const diffD = diffH / 24;
+  if (diffD < 30) return `${Math.round(diffD)}d ago`;
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }

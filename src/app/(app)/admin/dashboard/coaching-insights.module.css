@@ -386,3 +386,295 @@
   min-width: 60px;
   text-align: right;
 }
+
+/* ---- Synthesis panes (Pass 2 + 3) ---- */
+
+/* Small freshness strip between adoption + themes so a reader
+   knows how caught-up the nightly job is before scanning the
+   theme bars. Dot color signals confidence. */
+.freshnessRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--border);
+}
+
+.freshnessDotOk,
+.freshnessDotLow,
+.freshnessDotIdle {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.freshnessDotOk {
+  background: var(--aims-chartreuse);
+}
+
+.freshnessDotLow {
+  background: color-mix(in srgb, var(--aims-chartreuse) 45%, var(--text-muted));
+}
+
+.freshnessDotIdle {
+  background: var(--text-muted);
+  opacity: 0.4;
+}
+
+.subPane,
+.subPanePending,
+.subPaneEmpty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--aims-navy) 2%, var(--surface));
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+
+.subPanePending {
+  opacity: 0.55;
+}
+
+.subPaneEmpty {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--aims-navy) 1%, var(--surface));
+}
+
+/* ---- Themes list ---- */
+
+.themeList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.themeRow {
+  display: grid;
+  grid-template-columns: minmax(160px, 200px) 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  row-gap: 4px;
+}
+
+.themeName {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.themeBarTrack {
+  height: 10px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.themeBarFill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 40%, transparent),
+    var(--primary)
+  );
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.themeCount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 40px;
+  text-align: right;
+}
+
+.themeExamples {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  border-left: 2px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+/* ---- Friction ---- */
+
+.frictionList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.frictionRow {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.frictionChipLow,
+.frictionChipMed,
+.frictionChipHigh {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.frictionChipLow {
+  background: color-mix(in srgb, var(--aims-chartreuse) 20%, transparent);
+  color: var(--text);
+}
+
+.frictionChipMed {
+  background: color-mix(in srgb, var(--aims-warning, #f4a017) 22%, transparent);
+  color: var(--text);
+}
+
+.frictionChipHigh {
+  background: var(--aims-danger-tint);
+  color: var(--aims-danger);
+}
+
+.frictionCount {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+.frictionExample {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Opportunities ---- */
+
+.opportunityList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.opportunityRow {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+
+.opportunityRow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--primary);
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.opportunityLabel {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.opportunityCount {
+  font: var(--text-body-sm);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.opportunityExample {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ---- Heatmap ---- */
+
+.heatmapWrap {
+  overflow-x: auto;
+}
+
+.heatmapTable {
+  border-collapse: separate;
+  border-spacing: 2px;
+  min-width: 100%;
+}
+
+.heatmapCorner {
+  text-align: left;
+  padding: var(--space-2);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  background: transparent;
+}
+
+.heatmapColHead {
+  padding: var(--space-2);
+  font: var(--text-body-sm);
+  color: var(--text-heading);
+  font-weight: 600;
+  text-align: center;
+  vertical-align: bottom;
+  min-width: 90px;
+}
+
+.heatmapRowHead {
+  padding: var(--space-2);
+  font: var(--text-body-sm);
+  color: var(--text-heading);
+  font-weight: 600;
+  text-align: left;
+  background: color-mix(in srgb, var(--aims-navy) 3%, var(--surface));
+  border-radius: var(--radius-sm);
+}
+
+.heatmapCell {
+  padding: var(--space-3);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  min-width: 60px;
+  transition:
+    background var(--duration-normal) var(--ease-out),
+    color var(--duration-normal) var(--ease-out);
+}

@@ -9,6 +9,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/coaching-insights",
+      "schedule": "30 5 * * *"
+    },
+    {
       "path": "/api/cron/anthropic-cost",
       "schedule": "0 5 * * *"
     },

@@ -80,6 +80,7 @@ export type CoachUsagePurpose =
   | "brief" // dashboard "Week in review" brief
   | "clarity" // commitment clarity, measure critique, measure target check
   | "facilitation" // leadership facilitation review
+  | "insights_analysis" // per-conversation Coaching insights summarizer
   | "other";
 
 // Fire-and-forget log. Callers should NOT await this in the
