@@ -397,17 +397,43 @@
   border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
-.composerInput {
+/* Auto-growing textarea via the CSS grid mirror trick. The wrapper is
+   a single-cell grid; the textarea and a ::after pseudo replicating
+   its value share that cell (grid-area: 1 / 1). The pseudo grows the
+   track as content wraps; the textarea sizes to match. All box metrics
+   (padding, border, font, line-height) must match between the two so
+   they measure identically. max-height caps the wrapper — past that
+   the textarea scrolls internally. */
+.composerInputWrap {
   flex: 1 1 auto;
-  min-height: var(--control-h-md);
+  display: grid;
   max-height: 200px;
+}
+
+.composerInputWrap::after {
+  content: attr(data-value) " ";
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  visibility: hidden;
+}
+
+.composerInputWrap > .composerInput,
+.composerInputWrap::after {
+  grid-area: 1 / 1;
+  min-height: var(--control-h-md);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font: var(--text-body);
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.composerInput {
   color: var(--text);
   background: var(--surface);
   resize: none;
+  overflow: auto;
 }
 
 .composerInput:focus {

@@ -155,14 +155,6 @@ export function ChatView({
     return () => cancelAnimationFrame(id);
   }, [messages]);
 
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    const lineHeight = 24;
-    el.style.height = `${Math.min(lineHeight * 6, el.scrollHeight)}px`;
-  }, [input]);
-
   const sendMessage = useCallback(
     async (text: string, opts: { retry?: boolean } = {}) => {
       const trimmed = text.trim();
@@ -420,21 +412,29 @@ export function ChatView({
           void sendMessage(input);
         }}
       >
-        <textarea
-          ref={textareaRef}
-          className={styles.composerInput}
-          placeholder={composerPlaceholder}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void sendMessage(input);
-            }
-          }}
-          disabled={sending}
-          rows={1}
-        />
+        {/* Wrapper drives auto-grow via the CSS grid mirror trick — a
+            hidden ::after pseudo replicates the textarea's value and
+            grows the grid track, and the textarea inherits that track
+            size. Doing this in CSS avoids the per-keystroke JS layout
+            thrash (setting height=auto then reading scrollHeight) that
+            made the sticky composer stutter as the leader typed. */}
+        <div className={styles.composerInputWrap} data-value={input}>
+          <textarea
+            ref={textareaRef}
+            className={styles.composerInput}
+            placeholder={composerPlaceholder}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void sendMessage(input);
+              }
+            }}
+            disabled={sending}
+            rows={1}
+          />
+        </div>
         <button
           type="submit"
           className={styles.sendButton}
