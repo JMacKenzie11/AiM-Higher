@@ -424,8 +424,6 @@ const HEATMAP_TOP_THEMES = 5;
 export async function getCoachingInsightsSynthesis(
   filters: CoachingInsightsFilters
 ): Promise<CoachingInsightsSynthesis> {
-  const admin = createSupabaseAdminClient();
-
   const startTs = `${filters.startIso}T00:00:00.000Z`;
   const endExclusive = new Date(`${filters.endIso}T00:00:00.000Z`);
   endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
@@ -437,38 +435,67 @@ export async function getCoachingInsightsSynthesis(
     )
   );
 
-  // The analyses table is keyed by conversation, but the window
-  // filter belongs to the conversation's created_at, not to
-  // analyzed_at. Join server-side by pulling the matching convo
-  // ids first, then hydrating analyses.
-  let convoQuery = admin
-    .from("coaching_conversations")
-    .select("id")
-    .gte("created_at", startTs)
-    .lt("created_at", endTs);
-  if (filters.companyIds.length > 0) {
-    convoQuery = convoQuery.in("company_id", filters.companyIds);
-  }
-  const { data: convosData } = await convoQuery;
-  const convoIds = ((convosData ?? []) as Array<{ id: string }>).map(
-    (c) => c.id
-  );
+  // Everything below is best-effort: if the analyses table isn't
+  // there yet (migration not applied), if the schema drifted, or
+  // if Supabase errors, the dashboard should render with empty
+  // synthesis panes rather than 500 the whole page. Errors are
+  // logged so we notice, but never propagated.
+  try {
+    const admin = createSupabaseAdminClient();
 
-  if (convoIds.length === 0) {
+    // The analyses table is keyed by conversation, but the window
+    // filter belongs to the conversation's created_at, not to
+    // analyzed_at. Join server-side by pulling the matching convo
+    // ids first, then hydrating analyses.
+    let convoQuery = admin
+      .from("coaching_conversations")
+      .select("id")
+      .gte("created_at", startTs)
+      .lt("created_at", endTs);
+    if (filters.companyIds.length > 0) {
+      convoQuery = convoQuery.in("company_id", filters.companyIds);
+    }
+    const { data: convosData, error: convosErr } = await convoQuery;
+    if (convosErr) {
+      console.error("getCoachingInsightsSynthesis: convo query failed", convosErr);
+      return emptySynthesis(filters, days);
+    }
+    const convoIds = ((convosData ?? []) as Array<{ id: string }>).map(
+      (c) => c.id
+    );
+
+    if (convoIds.length === 0) {
+      return emptySynthesis(filters, days);
+    }
+
+    const { data: rowsData, error: rowsErr } = await admin
+      .from("coaching_conversation_analyses")
+      .select(
+        "conversation_id, company_id, practice_id, summary, topics, friction_level, friction_signal, opportunity, analyzed_at"
+      )
+      .in("conversation_id", convoIds);
+    if (rowsErr) {
+      console.error("getCoachingInsightsSynthesis: analyses query failed", rowsErr);
+      return emptySynthesis(filters, days);
+    }
+    const rows = (rowsData ?? []) as AnalysisRow[];
+
+    if (rows.length === 0) {
+      return emptySynthesis(filters, days);
+    }
+
+    return buildSynthesis(rows, filters, days);
+  } catch (err) {
+    console.error("getCoachingInsightsSynthesis: unexpected failure", err);
     return emptySynthesis(filters, days);
   }
+}
 
-  const { data: rowsData } = await admin
-    .from("coaching_conversation_analyses")
-    .select(
-      "conversation_id, company_id, practice_id, summary, topics, friction_level, friction_signal, opportunity, analyzed_at"
-    )
-    .in("conversation_id", convoIds);
-  const rows = (rowsData ?? []) as AnalysisRow[];
-
-  if (rows.length === 0) {
-    return emptySynthesis(filters, days);
-  }
+function buildSynthesis(
+  rows: AnalysisRow[],
+  filters: CoachingInsightsFilters,
+  days: number
+): CoachingInsightsSynthesis {
 
   // ---- Themes: normalize + bucket topics --------------------
   const themeBuckets = new Map<
