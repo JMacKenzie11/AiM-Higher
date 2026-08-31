@@ -598,11 +598,15 @@
 
 /* Guides panel — Companies cell layout: chips wrap, then the
    Assign row sits below. Keeps the cell tidy even when a guide
-   is coaching many companies. */
+   is coaching many companies.
+   max-width caps the column so a long chip list ("Centre North
+   Physiotherapy Clinic" and friends) doesn't blow out the table
+   width and squash the neighbouring Assign To column to zero. */
 .guideCompaniesCell {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  max-width: 22rem;
 }
 
 .guideCompanyChips {
@@ -630,10 +634,19 @@
   align-self: flex-start;
 }
 
+/* Belt on top of the assignments cap: give the picker itself a
+   min-width so even if a future layout change squeezes the
+   column, the select stays clickable and readable ("Assign to…"
+   fits without being clipped to the ⇕ arrows). */
 .guideAssignRow {
   display: flex;
   gap: var(--space-2);
   align-items: center;
+  min-width: 14rem;
+}
+
+.guideAssignRow > .select {
+  min-width: 10rem;
 }
 
 /* Legacy — the Phase 2 minimal page used these; keep as aliases so
