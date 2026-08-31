@@ -380,14 +380,72 @@ export async function listShareCandidatesForConversation(
   );
   alreadyShared.add(convo.created_by);
 
-  const { data: people } = await supabase
-    .from("profiles")
-    .select("id, full_name, avatar_url, position")
-    .eq("company_id", convo.company_id)
-    .eq("status", "active")
-    .order("full_name", { ascending: true });
-  const rows = (people ?? []) as ShareCandidate[];
-  return rows.filter((p) => !alreadyShared.has(p.id));
+  // Two disjoint sources of candidates, unioned:
+  //   1. Regular members of the conversation's company — profiles
+  //      whose company_id matches.
+  //   2. aims_guides assigned to the conversation's company — their
+  //      company_id is null, so they don't match #1; membership is
+  //      derived from guide_assignments. Per the platform-wide
+  //      "guide = company_admin on assigned companies" rule they
+  //      belong in this picker too.
+  const [
+    { data: members },
+    { data: assignments },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, position")
+      .eq("company_id", convo.company_id)
+      .eq("status", "active")
+      .order("full_name", { ascending: true }),
+    supabase
+      .from("guide_assignments")
+      .select("guide_id")
+      .eq("company_id", convo.company_id),
+  ]);
+
+  const byId = new Map<string, ShareCandidate>();
+  for (const p of (members ?? []) as ShareCandidate[]) {
+    byId.set(p.id, p);
+  }
+
+  // Second round-trip for guide profiles. Kept split from the
+  // embed pattern (which supabase-js types as an array on to-one
+  // FKs) so the shape is unambiguous and doesn't need an unknown
+  // cast.
+  const guideIds = ((assignments ?? []) as Array<{ guide_id: string }>).map(
+    (a) => a.guide_id
+  );
+  if (guideIds.length > 0) {
+    const { data: guides } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, position, status")
+      .in("id", guideIds)
+      .eq("status", "active");
+    const guideRows = (guides ?? []) as Array<{
+      id: string;
+      full_name: string;
+      avatar_url: string | null;
+      position: string | null;
+      status: "active";
+    }>;
+    for (const g of guideRows) {
+      // Members list wins on the (unlikely) tie so a guide who's
+      // also a company member — future case, not today — shows once.
+      if (!byId.has(g.id)) {
+        byId.set(g.id, {
+          id: g.id,
+          full_name: g.full_name,
+          avatar_url: g.avatar_url,
+          position: g.position ?? "AiMS Guide",
+        });
+      }
+    }
+  }
+
+  return Array.from(byId.values())
+    .filter((p) => !alreadyShared.has(p.id))
+    .sort((a, b) => a.full_name.localeCompare(b.full_name));
 }
 
 // Sender display info for a set of message authors. Used by the

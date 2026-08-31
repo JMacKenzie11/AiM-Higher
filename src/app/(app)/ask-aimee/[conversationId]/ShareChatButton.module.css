@@ -14,9 +14,9 @@
   height: 36px;
   padding: 0;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--aims-navy) 6%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
   border: 1px solid transparent;
-  color: var(--aims-navy);
+  color: var(--primary);
   cursor: pointer;
   transition:
     background var(--duration-fast) var(--ease-out),
@@ -25,9 +25,9 @@
 }
 
 .shareIconButton:hover {
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-  color: var(--primary);
-  border-color: color-mix(in srgb, var(--primary) 24%, transparent);
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
 }
 
 .shareIconButton:focus-visible {

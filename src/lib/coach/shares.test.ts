@@ -27,6 +27,7 @@ type ProfileRow = {
   id: string;
   company_id: string | null;
   status: "pending" | "active" | "inactive";
+  role: "system_admin" | "company_admin" | "team_member" | "aims_guide";
   full_name: string;
   avatar_url: string | null;
   position: string | null;
@@ -40,10 +41,16 @@ type ShareRow = {
   created_at: string;
 };
 
+type GuideAssignmentRow = {
+  guide_id: string;
+  company_id: string;
+};
+
 const db = {
   coaching_conversations: [] as ConvoRow[],
   profiles: [] as ProfileRow[],
   coaching_conversation_shares: [] as ShareRow[],
+  guide_assignments: [] as GuideAssignmentRow[],
   insertError: null as null | { message: string },
 };
 
@@ -51,6 +58,7 @@ function reset() {
   db.coaching_conversations = [];
   db.profiles = [];
   db.coaching_conversation_shares = [];
+  db.guide_assignments = [];
   db.insertError = null;
 }
 
@@ -235,6 +243,7 @@ describe("shareConversationAction", () => {
       id: "sharee_1",
       company_id: "co_acme",
       status: "active",
+      role: "team_member",
       full_name: "Sharee One",
       avatar_url: null,
       position: null,
@@ -253,6 +262,7 @@ describe("shareConversationAction", () => {
       id: "sharee_other",
       company_id: "co_other",
       status: "active",
+      role: "team_member",
       full_name: "Outsider",
       avatar_url: null,
       position: null,
@@ -275,6 +285,7 @@ describe("shareConversationAction", () => {
       id: "sharee_inactive",
       company_id: "co_acme",
       status: "inactive",
+      role: "team_member",
       full_name: "Left Building",
       avatar_url: null,
       position: null,
@@ -296,6 +307,7 @@ describe("shareConversationAction", () => {
       id: "sharee_1",
       company_id: "co_acme",
       status: "active",
+      role: "team_member",
       full_name: "Sharee One",
       avatar_url: null,
       position: null,
@@ -325,12 +337,57 @@ describe("shareConversationAction", () => {
     if (!res.ok) expect(res.message).toMatch(/read or write/);
   });
 
+  it("allows sharing with an assigned aims_guide even though guide.company_id is null", async () => {
+    requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
+    db.profiles.push({
+      id: "guide_1",
+      company_id: null,
+      status: "active",
+      role: "aims_guide",
+      full_name: "Assigned Guide",
+      avatar_url: null,
+      position: "AiMS Guide",
+    });
+    db.guide_assignments.push({ guide_id: "guide_1", company_id: "co_acme" });
+
+    const { shareConversationAction } = await import("./actions");
+    const res = await shareConversationAction("conv_1", "guide_1", "write");
+    expect(res.ok).toBe(true);
+    expect(db.coaching_conversation_shares).toHaveLength(1);
+    expect(db.coaching_conversation_shares[0]).toMatchObject({
+      conversation_id: "conv_1",
+      profile_id: "guide_1",
+      access: "write",
+    });
+  });
+
+  it("refuses to share with an unassigned aims_guide", async () => {
+    requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
+    db.profiles.push({
+      id: "guide_stray",
+      company_id: null,
+      status: "active",
+      role: "aims_guide",
+      full_name: "Unrelated Guide",
+      avatar_url: null,
+      position: "AiMS Guide",
+    });
+    // No guide_assignments row for co_acme.
+
+    const { shareConversationAction } = await import("./actions");
+    const res = await shareConversationAction("conv_1", "guide_stray", "write");
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/same company/);
+    expect(db.coaching_conversation_shares).toHaveLength(0);
+  });
+
   it("fires exactly one chat_shared notification on the happy path", async () => {
     requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
     db.profiles.push({
       id: "sharee_1",
       company_id: "co_acme",
       status: "active",
+      role: "team_member",
       full_name: "Sharee One",
       avatar_url: null,
       position: null,
@@ -359,6 +416,7 @@ describe("shareConversationAction", () => {
       id: "sharee_other",
       company_id: "co_other",
       status: "active",
+      role: "team_member",
       full_name: "Outsider",
       avatar_url: null,
       position: null,

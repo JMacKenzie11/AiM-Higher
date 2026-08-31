@@ -35,7 +35,8 @@ Coaches), so sending someone a link to either view works.
   *Ask Aimee* tab.
 - **Share a chat** — inside any conversation you own, use the
   **Share** button at the top of the chat. Pick a person from
-  your company and choose *Write* (they can reply) or *Read*
+  your company (or an AiMS Guide assigned to it) and choose
+  *Collaborate* (they can reply) or *Read-only*
   (they can follow along). Owners can change access later or
   remove someone; sharees can leave a chat at any time. See
   "How sharing works" below for the rules.
@@ -90,9 +91,14 @@ narrowly scoped:
 - **Same company only.** You can only share with active people in
   your own company. Cross-tenant shares are blocked by the app,
   by row-level security, and by a database trigger.
-- **Read or Write.** Read lets someone follow the transcript.
-  Write lets them reply to Aimee in the same thread. Both see
-  every message posted before and after they're added.
+- **Collaborate or Read-only.** *Read-only* lets someone follow
+  the transcript. *Collaborate* lets them reply to Aimee in the
+  same thread. Both see every message posted before and after
+  they're added.
+- **Guides can be sharees too.** An AiMS Guide assigned to your
+  company shows up in the picker alongside your teammates —
+  useful when you want your guide's input on a thread you've
+  been working through.
 - **Owner controls.** Only the owner can invite, change access,
   or remove people. Renaming and archiving stay owner-only.
 - **Sharees can leave.** A shared person can open the share

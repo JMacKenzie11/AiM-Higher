@@ -167,7 +167,7 @@ export default async function AskAimeePage({ searchParams }: PageProps) {
                         </span>
                       )}
                       <span className={styles.conversationMeta}>
-                        From {c.owner_name} · {c.access === "write" ? "Write" : "Read"} ·
+                        From {c.owner_name} · {c.access === "write" ? "Collaborate" : "Read-only"} ·
                         Updated {formatShortDate(c.updated_at)}
                       </span>
                     </Link>

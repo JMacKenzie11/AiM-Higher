@@ -432,12 +432,13 @@ export async function shareConversationAction(
 
   const { data: sharee } = await supabase
     .from("profiles")
-    .select("id, company_id, status")
+    .select("id, company_id, status, role")
     .eq("id", shareeProfileId)
     .maybeSingle<{
       id: string;
       company_id: string | null;
       status: "pending" | "active" | "inactive";
+      role: "system_admin" | "company_admin" | "team_member" | "aims_guide";
     }>();
   if (!sharee) {
     return { ok: false, message: "That person isn't accessible." };
@@ -445,10 +446,27 @@ export async function shareConversationAction(
   if (sharee.status !== "active") {
     return { ok: false, message: "That person isn't active." };
   }
-  if (sharee.company_id !== convo.company_id) {
+  // Same-company check with guide fallback. A member's own company
+  // must match the conversation's; an aims_guide qualifies when
+  // they hold an assignment to the conversation's company (the
+  // platform-wide "guide = company_admin on assigned companies"
+  // rule). Trigger + RLS reinforce with the same shape via
+  // profile_is_in_company (migration 0153).
+  let sharableSameCompany = sharee.company_id === convo.company_id;
+  if (!sharableSameCompany && sharee.role === "aims_guide") {
+    const { data: assignment } = await supabase
+      .from("guide_assignments")
+      .select("guide_id")
+      .eq("guide_id", shareeProfileId)
+      .eq("company_id", convo.company_id)
+      .maybeSingle<{ guide_id: string }>();
+    sharableSameCompany = assignment !== null;
+  }
+  if (!sharableSameCompany) {
     return {
       ok: false,
-      message: "You can only share with people in the same company.",
+      message:
+        "You can only share with people in the same company (or a guide assigned to it).",
     };
   }
 
@@ -490,7 +508,8 @@ export async function shareConversationAction(
     recipientId: shareeProfileId,
     companyId: convo.company_id,
     kind: "chat_shared",
-    eyebrow: access === "write" ? "Shared · Write" : "Shared · Read",
+    eyebrow:
+      access === "write" ? "Shared · Collaborate" : "Shared · Read-only",
     title: `${senderName} shared "${conversationLabel}" with you`,
     href,
     payload: {

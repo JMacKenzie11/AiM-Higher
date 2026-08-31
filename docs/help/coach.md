@@ -39,7 +39,8 @@ read what.
 
 Every thread is private to its creator by default. You can
 explicitly share a specific thread with another active person in
-your company as *Read* (view only) or *Write* (reply too); nobody
+your company — or an AiMS Guide assigned to it — as *Read-only*
+(view only) or *Collaborate* (reply too); nobody
 else — including admins, guides, or the subject themselves —
 sees the thread otherwise. Another admin or the subject's direct
 manager can still create their own separate threads about the
@@ -55,8 +56,9 @@ no auto-share.
 their own coach URL gets redirected there automatically.
 
 **Can I share a thread with another admin?** Yes. Use the
-*Share* button at the top of the thread. Choose *Read* or
-*Write*, pick the person, and they'll see the thread in their
+*Share* button at the top of the thread. Choose *Read-only* or
+*Collaborate*, pick the person (teammate or assigned guide),
+and they'll see the thread in their
 Shared with you list — and get a notification in their top-right
 bell linking straight into it. You stay the owner and can change
 access or remove them at any time.

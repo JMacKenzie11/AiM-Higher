@@ -281,8 +281,9 @@ function ShareModal({
 
         {isOwner ? (
           <p className={styles.subtitle}>
-            Only people in your company can be added. Write lets them
-            reply; read lets them follow along.
+            Only people in your company (or a guide assigned to it)
+            can be added. Collaborate lets them reply; read-only
+            lets them follow along.
           </p>
         ) : (
           <p className={styles.subtitle}>
@@ -315,7 +316,7 @@ function ShareModal({
                   onChange={() => setAccessChoice("write")}
                   disabled={pending}
                 />
-                Write
+                Collaborate
               </label>
               <label className={styles.accessOption}>
                 <input
@@ -326,7 +327,7 @@ function ShareModal({
                   onChange={() => setAccessChoice("read")}
                   disabled={pending}
                 />
-                Read
+                Read-only
               </label>
             </fieldset>
           </div>
@@ -419,8 +420,8 @@ function ShareModal({
                         }
                         aria-label={`Access for ${s.full_name}`}
                       >
-                        <option value="write">Write</option>
-                        <option value="read">Read</option>
+                        <option value="write">Collaborate</option>
+                        <option value="read">Read-only</option>
                       </select>
                       <button
                         type="button"
@@ -433,7 +434,7 @@ function ShareModal({
                     </div>
                   ) : (
                     <span className={styles.accessTag}>
-                      {s.access === "write" ? "Write" : "Read"}
+                      {s.access === "write" ? "Collaborate" : "Read-only"}
                     </span>
                   )}
                 </li>

@@ -478,7 +478,7 @@ export function ChatView({
         // invites clicking, then reads as broken. This is explicit
         // about who to ask.
         <div className={styles.readOnlyNotice} role="status">
-          Read-only. Ask the owner for write access to reply.
+          Read-only. Ask the owner for Collaborate access to reply.
         </div>
       ) : (
       <form
