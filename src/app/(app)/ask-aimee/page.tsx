@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth/current-user";
-import { getScopedCompanyId } from "@/lib/admin/scope";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { listGeneralConversationsForUser } from "@/lib/coach/service";
 import { PageShell } from "@/components/ui/PageShell";
 import { PracticeCards } from "@/components/practices/PracticeCards";
@@ -31,18 +31,17 @@ export default async function AskAimeePage({ searchParams }: PageProps) {
   const { tab } = await searchParams;
   const activeTab: AskAimeeTab = tab === "coaches" ? "coaches" : "ask";
 
+  // The "current" company for this caller: their own for regular
+  // members, the scope cookie for system_admin, cookie-or-single-
+  // assignment for aims_guide. Drives both the practice card filter
+  // (below) and the conversation list scope (a system_admin who's
+  // toggled between two tenants otherwise sees both stacks mixed).
+  const companyId = await getEffectiveCompanyId(session);
+
   // Role-gated practices are hidden from ineligible callers so the
   // landing list doesn't show cards the launcher would reject. The
   // launcher still enforces the gate — this is UX polish, not the
   // security boundary.
-  let companyId: string | null = session.profile.company_id;
-  if (
-    !companyId &&
-    (session.profile.role === "system_admin" ||
-      session.profile.role === "aims_guide")
-  ) {
-    companyId = await getScopedCompanyId();
-  }
   const visiblePractices = PRACTICES.filter((p) => {
     if (!p.allowedRoles) return true;
     if (!companyId) return false;
@@ -51,7 +50,7 @@ export default async function AskAimeePage({ searchParams }: PageProps) {
 
   const conversations =
     activeTab === "ask"
-      ? await listGeneralConversationsForUser(session.profile.id)
+      ? await listGeneralConversationsForUser(session.profile.id, companyId)
       : [];
 
   return (

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
-import { getScopedCompanyId } from "@/lib/admin/scope";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { trackAfter } from "@/lib/analytics/track";
@@ -106,18 +106,20 @@ export async function createConversationAction(
 }
 
 // ---- Create a GENERAL conversation (Ask Aimee) ----------------
-// Any active member of a company can start one. System admins fall
-// back to their scoped company. The subject stays null; the user
-// brings the situation in-thread.
+// Any active member of a company can start one. System admins and
+// guides use their currently scoped company. The subject stays null;
+// the user brings the situation in-thread.
 export async function createGeneralConversationAction(): Promise<
   CoachActionResult<CoachingConversation>
 > {
   const session = await requireProfile();
 
-  let companyId: string | null = session.profile.company_id;
-  if (!companyId && session.profile.role === "system_admin") {
-    companyId = await getScopedCompanyId();
-  }
+  // Single-source-of-truth resolver: regular members return their
+  // own company_id, system_admins their scope cookie, aims_guides
+  // cookie-or-single-assignment. The old version here only handled
+  // system_admin, so a guide would fail with "scope into a company
+  // first" even with a valid scope set.
+  const companyId = await getEffectiveCompanyId(session);
   if (!companyId) {
     return {
       ok: false,

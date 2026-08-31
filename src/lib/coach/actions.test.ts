@@ -90,7 +90,7 @@ const mocks = vi.hoisted(() => {
   const serverClient = { from: fromBuilder };
 
   const requireProfile = vi.fn();
-  const getScopedCompanyId = vi.fn();
+  const getEffectiveCompanyId = vi.fn();
   const companyHasFeature = vi.fn();
   const cleanGeneratedTitle = vi.fn();
   const logCoachTokenUsage = vi.fn();
@@ -112,7 +112,7 @@ const mocks = vi.hoisted(() => {
     conversationSelectCallCount,
     serverClient,
     requireProfile,
-    getScopedCompanyId,
+    getEffectiveCompanyId,
     companyHasFeature,
     cleanGeneratedTitle,
     logCoachTokenUsage,
@@ -130,7 +130,7 @@ vi.mock("@/lib/auth/current-user", () => ({
 }));
 
 vi.mock("@/lib/admin/scope", () => ({
-  getScopedCompanyId: mocks.getScopedCompanyId,
+  getEffectiveCompanyId: mocks.getEffectiveCompanyId,
 }));
 
 vi.mock("@/lib/subscriptions/service", () => ({
@@ -182,7 +182,7 @@ function primeHappyPath() {
   // Reset the shared counter that routes coaching_conversations
   // selects to the initial vs "fresh re-read" spy.
   mocks.conversationSelectCallCount.n = 0;
-  mocks.getScopedCompanyId.mockResolvedValue("co_acme");
+  mocks.getEffectiveCompanyId.mockResolvedValue("co_acme");
   mocks.companyHasFeature.mockResolvedValue(true);
   // Default subject: someone in the caller's company, no direct-report link.
   mocks.profilesSelectMaybeSingle.mockResolvedValue({
@@ -349,7 +349,7 @@ describe("createGeneralConversationAction", () => {
     mocks.requireProfile.mockResolvedValue(
       sessionFor({ id: "root", role: "system_admin", company_id: null })
     );
-    mocks.getScopedCompanyId.mockResolvedValueOnce(null);
+    mocks.getEffectiveCompanyId.mockResolvedValueOnce(null);
     const { createGeneralConversationAction } = await import("./actions");
 
     const res = await createGeneralConversationAction();

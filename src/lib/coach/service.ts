@@ -102,8 +102,15 @@ export async function listConversationsForSubject(
 // already restricts SELECT to created_by = auth.uid(); the filter
 // here is a scoping convenience so the query stays cheap even if the
 // caller ever creates conversations in multiple companies.
+//
+// companyId, when provided, further narrows the list to the caller's
+// currently active company scope — a system_admin or guide who's
+// worked in two tenants will otherwise see both stacks mixed on the
+// Ask Aimee landing. Pass null to skip the scope filter (regular
+// members always have exactly one, so it never matters for them).
 export async function listGeneralConversationsForUser(
   userId: string,
+  companyId: string | null,
   includeArchived = false
 ): Promise<ConversationWithSnippet[]> {
   const supabase = await createSupabaseServerClient();
@@ -114,6 +121,7 @@ export async function listGeneralConversationsForUser(
     .eq("mode", "general")
     .eq("created_by", userId)
     .order("updated_at", { ascending: false });
+  if (companyId) query = query.eq("company_id", companyId);
   if (!includeArchived) query = query.eq("archived", false);
 
   const { data: convos } = await query;
