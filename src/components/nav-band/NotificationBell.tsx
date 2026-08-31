@@ -4,12 +4,20 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { NotificationItem } from "@/lib/notifications/service";
+import { markNotificationReadAction } from "@/lib/notifications/actions";
 import styles from "./NavBand.module.css";
 
 // Bell in the nav band. Click opens a small dropdown of the current
 // notifications (state-derived items from getHeaderNotifications).
 // Badge = items.length. Bell hides entirely when the list is empty —
 // no dead chrome. Closes on outside click, Escape, or navigation.
+//
+// Persisted (event-based) items — anything with dismissible=true —
+// get marked read when the user clicks them. We fire the action
+// alongside the navigation so the badge count updates on the next
+// layout render without waiting for the action to round-trip.
+// Computed items (dismissible=false) recompute from live state on
+// every render, so there's nothing to mark on click.
 
 export function NotificationBell({
   items,
@@ -100,6 +108,16 @@ export function NotificationBell({
                   href={item.href}
                   className={styles.bellMenuItem}
                   role="menuitem"
+                  onClick={() => {
+                    // Fire-and-forget: persisted rows get marked
+                    // read alongside the navigation. Computed items
+                    // (dismissible=false) skip the round-trip entirely
+                    // — they recompute from state on the next paint,
+                    // so an action would be a no-op anyway.
+                    if (item.dismissible) {
+                      void markNotificationReadAction(item.id);
+                    }
+                  }}
                 >
                   <span className={styles.bellMenuItemBody}>
                     {item.eyebrow ? (
@@ -136,6 +154,8 @@ function hintFor(href: string): string {
   if (href.startsWith("/measures")) return "Go to Key Success Measures";
   if (href.startsWith("/leadership")) return "Go to Meetings";
   if (href.startsWith("/dashboard")) return "Go to Dashboard";
+  if (href.startsWith("/ask-aimee/")) return "Open the chat";
+  if (href.startsWith("/coach/")) return "Open the coaching thread";
   return "Open";
 }
 

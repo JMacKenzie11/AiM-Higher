@@ -1,29 +1,48 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { thisFriday, todayInTimezone } from "@/lib/dates";
 import type { ModuleFeature } from "@/lib/subscriptions/service";
 
-// Header notification service — computes the live triggers rendered by
-// NotificationBell in the top nav. All items are STATE-DERIVED (not
-// events), so nothing persists — each call recomputes the current
-// picture. When we later add event-based notifications (meeting-
-// analysis-complete, coach messages, assignments), those will land in
-// a real `notifications` table and be merged into this same
-// NotificationItem[] shape without changing the header consumer.
+// Header notification service. Two sources feed the same
+// NotificationItem[] shape rendered by NotificationBell:
 //
-// Kept intentionally cheap: 2-3 lightweight counts per header render,
-// each a HEAD-only exact count with no row payload. Gated by module
-// feature so an execution-only tenant doesn't pay for a measure check.
+//   1. STATE-DERIVED triggers (this file, unchanged). Nothing
+//      persists; each header render recomputes them. Overdue
+//      commitments, Friday metrics. They can never be "dismissed"
+//      because the underlying state is the notification.
+//
+//   2. EVENT-BASED notifications (added in migration 0151). A row
+//      in public.notifications, inserted via insertNotification()
+//      below whenever an event fires (e.g., someone shares a
+//      conversation with you). One-shot: `read_at` marks it
+//      dismissed and the header hides it forever after.
+//
+// Kept intentionally cheap: 2-3 lightweight counts + one indexed
+// SELECT per header render.
+//
+// Insert boundary: notifications RLS forbids INSERT for
+// authenticated users, so every write goes through
+// insertNotification() using the admin client. This shuts down
+// the user-to-user spam vector — no client-code path can
+// fabricate a notification for another user.
+
+// Kind identifiers. Persisted events use the same string in
+// public.notifications.kind so the header can dispatch on kind
+// without a mapping layer.
+export type NotificationKind =
+  | "friday-metrics"
+  | "overdue-commitments"
+  | "due-today-commitments"
+  | "chat_shared";
 
 export type NotificationItem = {
   // Stable id for React key. Synthetic (kind-prefixed) for computed
-  // items; real UUID once event-persisted notifications ship.
+  // items; real UUID for persisted rows so the mark-read action can
+  // find them.
   id: string;
-  kind:
-    | "friday-metrics"
-    | "overdue-commitments"
-    | "due-today-commitments";
+  kind: NotificationKind;
   // Small uppercase label above the title — e.g. "OVERDUE",
   // "DUE TODAY". Set when title carries the concrete item name
   // (rich single-item state) so the reader still knows what
@@ -35,8 +54,9 @@ export type NotificationItem = {
   // meaningful — the condition is true right now, not because of a
   // moment in the past.
   createdAt: string | null;
-  // Reserved for the future event-based path — computed items are
-  // never dismissible (they'd reappear on the next request anyway).
+  // True for persisted rows (event-based; clicking or a manual
+  // dismiss should call markNotificationReadAction). Computed items
+  // are never dismissible — they'd reappear on the next request.
   dismissible?: boolean;
 };
 
@@ -155,7 +175,87 @@ export async function getHeaderNotifications({
     }
   }
 
+  // Persisted (event-based) notifications for this user. Scoped to
+  // the current company scope so a system_admin or guide sees only
+  // events raised inside the tenant they're currently in. RLS is
+  // recipient_id = auth.uid() so cross-user leakage is already
+  // blocked; the company filter is a UX belt so a scope switch
+  // doesn't drag notifications from the other tenant along.
+  const { data: persistedRows } = await supabase
+    .from("notifications")
+    .select("id, kind, eyebrow, title, href, created_at")
+    .eq("recipient_id", userId)
+    .eq("company_id", companyId)
+    .is("read_at", null)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const persisted = (persistedRows ?? []) as Array<{
+    id: string;
+    kind: string;
+    eyebrow: string | null;
+    title: string;
+    href: string;
+    created_at: string;
+  }>;
+  for (const row of persisted) {
+    items.push({
+      id: row.id,
+      kind: row.kind as NotificationKind,
+      eyebrow: row.eyebrow ?? undefined,
+      title: row.title,
+      href: row.href,
+      createdAt: row.created_at,
+      dismissible: true,
+    });
+  }
+
   return items;
+}
+
+// ---- Insert (event source path) -----------------------------
+// Called from server actions when an event fires. Uses the admin
+// client because notifications RLS forbids INSERT to authenticated
+// — that's the boundary that prevents user-to-user spam. Callers
+// MUST have already authorized the event (e.g., shareConversationAction
+// already checked the caller owns the conversation) before invoking
+// this helper.
+export async function insertNotification(input: {
+  recipientId: string;
+  companyId: string;
+  kind: NotificationKind;
+  title: string;
+  href: string;
+  eyebrow?: string;
+  payload?: Record<string, unknown>;
+  createdBy?: string | null;
+}): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
+  // Self-notifications are almost always a bug (why ping yourself
+  // for something you just did?), so silently skip rather than
+  // insert. Callers that legitimately want a self-note can pass a
+  // sentinel later; today, no such case exists.
+  if (input.recipientId === input.createdBy) {
+    return { ok: false, message: "skipped self-notification" };
+  }
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("notifications")
+    .insert({
+      recipient_id: input.recipientId,
+      company_id: input.companyId,
+      kind: input.kind,
+      title: input.title,
+      href: input.href,
+      eyebrow: input.eyebrow ?? null,
+      payload: input.payload ?? {},
+      created_by: input.createdBy ?? null,
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !data) {
+    console.error("insertNotification failed", error);
+    return { ok: false, message: error?.message ?? "insert failed" };
+  }
+  return { ok: true, id: data.id };
 }
 
 async function getPendingMeasuresForUser({

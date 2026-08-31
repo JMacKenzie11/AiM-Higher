@@ -181,6 +181,15 @@ vi.mock("@/lib/analytics/track", () => ({
   trackAfter: vi.fn(),
 }));
 
+// Notification insert is fire-and-forget from shareConversationAction.
+// Stub it so tests don't try to spin up the admin Supabase client
+// (which requires real env). We also spy on it so the share tests
+// can assert the notification fired exactly when it should.
+const insertNotificationMock = vi.fn(async () => ({ ok: true, id: "notif_1" }));
+vi.mock("@/lib/notifications/service", () => ({
+  insertNotification: insertNotificationMock,
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
@@ -314,6 +323,51 @@ describe("shareConversationAction", () => {
     );
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.message).toMatch(/read or write/);
+  });
+
+  it("fires exactly one chat_shared notification on the happy path", async () => {
+    requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
+    db.profiles.push({
+      id: "sharee_1",
+      company_id: "co_acme",
+      status: "active",
+      full_name: "Sharee One",
+      avatar_url: null,
+      position: null,
+    });
+
+    const { shareConversationAction } = await import("./actions");
+    const res = await shareConversationAction("conv_1", "sharee_1", "write");
+    expect(res.ok).toBe(true);
+    // Give the void-fired notification a microtask tick to land.
+    await Promise.resolve();
+    expect(insertNotificationMock).toHaveBeenCalledTimes(1);
+    expect(insertNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientId: "sharee_1",
+        companyId: "co_acme",
+        kind: "chat_shared",
+        createdBy: "owner_1",
+      })
+    );
+  });
+
+  it("does not fire a notification when the share is denied", async () => {
+    // Cross-tenant sharee — the friendly path returns before insert.
+    requireProfileMock.mockResolvedValue(sessionFor("owner_1"));
+    db.profiles.push({
+      id: "sharee_other",
+      company_id: "co_other",
+      status: "active",
+      full_name: "Outsider",
+      avatar_url: null,
+      position: null,
+    });
+
+    const { shareConversationAction } = await import("./actions");
+    await shareConversationAction("conv_1", "sharee_other", "write");
+    await Promise.resolve();
+    expect(insertNotificationMock).not.toHaveBeenCalled();
   });
 });
 

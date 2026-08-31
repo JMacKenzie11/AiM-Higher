@@ -6,6 +6,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { trackAfter } from "@/lib/analytics/track";
+import { insertNotification } from "@/lib/notifications/service";
 import type { Profile } from "@/lib/types";
 import {
   listShareCandidatesForConversation,
@@ -410,7 +411,7 @@ export async function shareConversationAction(
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
-    .select("id, company_id, created_by, mode, subject_profile_id")
+    .select("id, company_id, created_by, mode, subject_profile_id, title, practice_id")
     .eq("id", conversationId)
     .maybeSingle<{
       id: string;
@@ -418,6 +419,8 @@ export async function shareConversationAction(
       created_by: string;
       mode: "about" | "general";
       subject_profile_id: string | null;
+      title: string;
+      practice_id: string | null;
     }>();
   if (!convo) return { ok: false, message: "Conversation not found." };
   if (convo.created_by !== session.profile.id) {
@@ -469,6 +472,37 @@ export async function shareConversationAction(
     { access, mode: convo.mode },
     { company: convo.company_id }
   );
+
+  // Fire the recipient's notification. Best-effort: a notification
+  // failure never rolls back the share (the share is authoritative;
+  // the ping is a convenience). insertNotification logs its own
+  // errors, so `void` here keeps this path free of nested error
+  // handling that would just re-log the same message.
+  const href =
+    convo.mode === "general"
+      ? `/ask-aimee/${conversationId}`
+      : convo.subject_profile_id
+        ? `/coach/${convo.subject_profile_id}/${conversationId}`
+        : `/ask-aimee/${conversationId}`;
+  const senderName = session.profile.full_name?.trim() || "A teammate";
+  const conversationLabel = convo.title?.trim() || "a coaching thread";
+  void insertNotification({
+    recipientId: shareeProfileId,
+    companyId: convo.company_id,
+    kind: "chat_shared",
+    eyebrow: access === "write" ? "Shared · Write" : "Shared · Read",
+    title: `${senderName} shared "${conversationLabel}" with you`,
+    href,
+    payload: {
+      conversation_id: conversationId,
+      access,
+      shared_by_id: session.profile.id,
+      shared_by_name: senderName,
+      mode: convo.mode,
+      practice_id: convo.practice_id,
+    },
+    createdBy: session.profile.id,
+  });
 
   if (convo.mode === "general") {
     revalidatePath(`/ask-aimee/${conversationId}`);
