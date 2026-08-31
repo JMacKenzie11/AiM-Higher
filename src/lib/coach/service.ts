@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 // Read-side helpers for the /coach surface. RLS scopes everything to
 // the current admin's created_by; server helpers here just return the
@@ -227,6 +228,14 @@ export async function getAccessForConversation(
 // shares SELECT admits owner + sharee (own row), so a sharee
 // calling this only sees themselves, which is fine for their
 // read-only view.
+//
+// Profile hydration uses the admin client. Reason: a guide
+// sharee's profiles.company_id is null, and profiles RLS admits
+// same-company / sysadmin / self. A company_admin owner viewing
+// their own thread's shares would otherwise silently drop the
+// guide from the list because the join comes back empty. The
+// share row visibility check is still gated by RLS; only the
+// name/avatar hydration bypasses it.
 export async function listSharesForConversation(
   conversationId: string
 ): Promise<ShareeSummary[]> {
@@ -242,7 +251,8 @@ export async function listSharesForConversation(
   }>;
   if (shares.length === 0) return [];
 
-  const { data: profiles } = await supabase
+  const admin = createSupabaseAdminClient();
+  const { data: profiles } = await admin
     .from("profiles")
     .select("id, full_name, avatar_url")
     .in("id", shares.map((s) => s.profile_id));
@@ -388,17 +398,28 @@ export async function listShareCandidatesForConversation(
   //      derived from guide_assignments. Per the platform-wide
   //      "guide = company_admin on assigned companies" rule they
   //      belong in this picker too.
+  //
+  // Both queries use the admin client. Reason: guide_assignments
+  // SELECT admits sysadmin or the guide themselves (not
+  // company_admin), and guide profiles have company_id = null so
+  // profiles RLS blocks a company_admin owner from seeing them.
+  // Without the admin client, a company_admin who owns a chat
+  // couldn't invite their assigned guide via the picker. The
+  // caller has already been proven the conversation owner by the
+  // shareConversationAction / listShareCandidatesAction gate
+  // upstream, so bypassing RLS here is safe.
+  const admin = createSupabaseAdminClient();
   const [
     { data: members },
     { data: assignments },
   ] = await Promise.all([
-    supabase
+    admin
       .from("profiles")
       .select("id, full_name, avatar_url, position")
       .eq("company_id", convo.company_id)
       .eq("status", "active")
       .order("full_name", { ascending: true }),
-    supabase
+    admin
       .from("guide_assignments")
       .select("guide_id")
       .eq("company_id", convo.company_id),
@@ -417,7 +438,7 @@ export async function listShareCandidatesForConversation(
     (a) => a.guide_id
   );
   if (guideIds.length > 0) {
-    const { data: guides } = await supabase
+    const { data: guides } = await admin
       .from("profiles")
       .select("id, full_name, avatar_url, position, status, role")
       .in("id", guideIds)
@@ -459,12 +480,19 @@ export async function listShareCandidatesForConversation(
 // chat view to render "name + avatar" attribution on user bubbles
 // once a thread has any shares. Returns a Map keyed by profile id
 // so the caller can look up each message.created_by in O(1).
+//
+// Uses the admin client because a guide sharee has company_id =
+// null and would be invisible to a company_admin owner under
+// profiles RLS. Callers of this function have already been
+// authorized to see the messages (page-level access check via
+// getAccessForConversation); attribution display doesn't need
+// to re-litigate that boundary.
 export async function getMessageSenders(
   profileIds: readonly string[]
 ): Promise<Map<string, { full_name: string; avatar_url: string | null }>> {
   if (profileIds.length === 0) return new Map();
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
     .from("profiles")
     .select("id, full_name, avatar_url")
     .in("id", profileIds);
