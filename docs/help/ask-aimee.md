@@ -11,28 +11,32 @@ can invite specific people from your company to read along or reply.
 
 ## How the page is laid out
 
-Two tabs at the top of the content area:
-
-- **Ask Aimee** (default) — your recent conversations plus the
-  *New conversation* button. Open-ended thinking-partner mode. If
-  someone has shared a chat with you, a second **Shared with you**
-  card appears underneath.
-- **Practice Coaches** — the entry cards for each guided practice.
-  Pick one and Aimee follows the script for that practice.
-
-The active tab lives in the URL (`?tab=coaches` for Practice
-Coaches), so sending someone a link to either view works.
+One unified surface: your **Recent conversations** at the top,
+plus a **Shared with you** card underneath if anyone has invited
+you into a thread. Every conversation lives in the same place —
+guided or free-form, the entry point is the same.
 
 ## What you can do here
 
-- **Start a Practice** — switch to the *Practice Coaches* tab
-  and pick a card. Each practice is a structured entry point
-  ("I have a real thing to work through").
-- **Start a free-form conversation** — on the *Ask Aimee* tab,
-  click *New conversation*. Type your question and send.
+- **Start a conversation** — click *New conversation* on the
+  Recent conversations card. Type your question and send, or
+  attach an agent first (see below).
+- **Attach an agent to a chat** — inside any thread you own,
+  click the **agent picker** to the right of the title. Pick
+  "Ask Aimee" for open-ended thinking or a specific agent
+  (Prepare a hard conversation, Functional Chart Builder, etc.)
+  to run the chat as that guided practice. You can swap the
+  agent freely until you send your first message; once you type,
+  the agent is locked for the rest of the thread. Some agents
+  kick off the first turn on their own the moment they're
+  attached — you'll see them start talking.
+- **Deep-link to a fresh agent chat** — `/ask-aimee/new?agent=X`
+  creates a new thread with agent X pre-attached and its opener
+  running. Useful for links from Classroom sections, emails, or
+  anywhere else that wants to drop someone straight into a
+  guided practice.
 - **Resume a thread** — every conversation stays under your
-  account and shows in the Recent conversations list on the
-  *Ask Aimee* tab.
+  account and shows in the Recent conversations list.
 - **Share a chat** — inside any conversation you own, use the
   **Share** button at the top of the chat. Pick a person from
   your company (or an AiMS Guide assigned to it) and choose
@@ -46,7 +50,9 @@ Coaches), so sending someone a link to either view works.
   Classroom on, Aimee can search the library and suggest a lesson.
   Try "what should I watch on facilitating a weekly meeting?".
 
-## Practices available today
+## Agents available today
+
+Open the agent picker inside any chat to pick one:
 
 - **Prepare a hard conversation** — walks you through preparing
   for a specific conversation with a specific person. Ends with a
@@ -59,7 +65,8 @@ Coaches), so sending someone a link to either view works.
 - **Functional Chart Builder** — *admin-only*. Walks you through
   building a Functional Accountability Chart for your business:
   the core functions, their top responsibilities, and the two
-  seats above them. Ends with a chart proposal card that has an
+  seats above them. Kicks off the conversation on its own once
+  attached. Ends with a chart proposal card that has an
   **Apply to Chart** button — one click adds the proposed
   functions and responsibilities to your Functional Chart page.
   See "How Apply works" below.
@@ -120,14 +127,18 @@ narrowly scoped:
 
 ## How to start a conversation
 
-1. Pick a card on the *Practice Coaches* tab if what you're
-   working on matches one, or stay on the *Ask Aimee* tab and
-   click *New conversation* for open-ended.
-2. Type your question and send. Aimee shows a *Thinking…*
+1. Click *New conversation* on the Recent conversations card.
+2. Optional: use the agent picker at the top of the chat to
+   attach a guided agent. Some agents (like the Functional Chart
+   Builder) start talking as soon as they're attached; others
+   wait for you to describe your situation.
+3. Type your question and send. Aimee shows a *Thinking…*
    indicator while she reads context; once tokens stream, a cursor
    tracks the response.
-3. Keep going — the whole thread is one conversation, and Aimee
-   remembers it end-to-end.
+4. Keep going — the whole thread is one conversation, and Aimee
+   remembers it end-to-end. The agent is locked from the moment
+   you send your first message, so if you want to switch, do it
+   before you type.
 
 ## Common questions
 
@@ -145,12 +156,13 @@ starts streaming, the indicator disappears.
 answers are grounded in what she can see. If a piece of data seems
 missing, check the underlying page — she doesn't invent numbers.
 
-**Why can't I see the Functional Chart Builder practice?** It's
+**Why can't I see the Functional Chart Builder agent?** It's
 restricted to company admins, system admins, and AiMS Guides
 assigned to your company — the chart is a company-wide artifact,
 so the coached version comes with edit rights. If your role
-should have access and the card isn't showing, ask a system
-admin to check your role and (for guides) your assignments.
+should have access and the option isn't in the agent picker, ask
+a system admin to check your role and (for guides) your
+assignments.
 
 **The chart proposal didn't render.** Occasionally the model
 emits a proposal in the wrong shape and the card falls back to
