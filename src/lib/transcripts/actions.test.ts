@@ -17,9 +17,11 @@ const mocks = vi.hoisted(() => {
   const sourcesUpdateEq = vi.fn();
   const sourcesDeleteEq = vi.fn();
 
+  const meetingsSelectMaybeSingle = vi.fn();
   const meetingsUpdatePatch = vi.fn();
   const meetingsUpdateEq = vi.fn();
 
+  const aliasesSelectMaybeSingle = vi.fn();
   const aliasesInsert = vi.fn();
   const aliasesDeleteEq = vi.fn();
 
@@ -42,6 +44,9 @@ const mocks = vi.hoisted(() => {
     }
     if (table === "meetings") {
       return {
+        select: () => ({
+          eq: () => ({ maybeSingle: meetingsSelectMaybeSingle }),
+        }),
         update: (patch: unknown) => {
           meetingsUpdatePatch(patch);
           return {
@@ -52,6 +57,9 @@ const mocks = vi.hoisted(() => {
     }
     if (table === "transcript_aliases") {
       return {
+        select: () => ({
+          eq: () => ({ maybeSingle: aliasesSelectMaybeSingle }),
+        }),
         insert: aliasesInsert,
         delete: () => ({ eq: () => aliasesDeleteEq() }),
       };
@@ -76,8 +84,10 @@ const mocks = vi.hoisted(() => {
     sourcesUpdatePatch,
     sourcesUpdateEq,
     sourcesDeleteEq,
+    meetingsSelectMaybeSingle,
     meetingsUpdatePatch,
     meetingsUpdateEq,
+    aliasesSelectMaybeSingle,
     aliasesInsert,
     aliasesDeleteEq,
     admin,
@@ -141,9 +151,36 @@ function primeHappyPath() {
   });
   mocks.sourcesUpdateEq.mockResolvedValue({ error: null });
   mocks.sourcesDeleteEq.mockResolvedValue({ error: null });
+  // Default meeting is unrouted (company_id null): the happy-path
+  // caller is a system_admin, who may route those.
+  mocks.meetingsSelectMaybeSingle.mockResolvedValue({
+    data: { company_id: null },
+    error: null,
+  });
   mocks.meetingsUpdateEq.mockResolvedValue({ error: null });
+  mocks.aliasesSelectMaybeSingle.mockResolvedValue({
+    data: { company_id: "co_acme" },
+    error: null,
+  });
   mocks.aliasesInsert.mockResolvedValue({ error: null });
   mocks.aliasesDeleteEq.mockResolvedValue({ error: null });
+}
+
+// The real isAdminForCompany rule for a company_admin: their own
+// company and nothing else. Tests that exercise the tenant boundary
+// swap this in so the guard is checked against a real comparison
+// rather than a blanket true.
+function useRealCompanyAdminRule() {
+  mocks.isAdminForCompany.mockImplementation(
+    (profile: { role: string; company_id: string | null }, companyId: string) =>
+      profile.role === "system_admin" || profile.company_id === companyId
+  );
+}
+
+function companyAdminOf(companyId: string) {
+  mocks.requireProfile.mockResolvedValue({
+    profile: { id: "admin_1", role: "company_admin", company_id: companyId },
+  });
 }
 
 // ==============================================================
@@ -379,6 +416,40 @@ describe("createAliasAction", () => {
     expect(mocks.aliasesInsert).not.toHaveBeenCalled();
   });
 
+  it("blocks a company_admin from registering an alias for another company", async () => {
+    // company_id is a hidden field on the alias editor, which a
+    // company_admin sees on their own company page. Editing it must
+    // not let them plant aliases on (or siphon transcripts toward)
+    // another tenant. The insert goes through the admin client, so
+    // this check is the only thing standing in the way.
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    const { createAliasAction } = await import("./actions");
+
+    const res = await createAliasAction(
+      formDataFrom({ company_id: "co_other", alias: "Other Co" })
+    );
+
+    expect(res).toEqual({ ok: false, message: "Not your company." });
+    expect(mocks.aliasesInsert).not.toHaveBeenCalled();
+  });
+
+  it("lets a company_admin register an alias for their own company", async () => {
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    const { createAliasAction } = await import("./actions");
+
+    const res = await createAliasAction(
+      formDataFrom({ company_id: "co_acme", alias: "Acme" })
+    );
+
+    expect(res).toEqual({ ok: true });
+    expect(mocks.aliasesInsert).toHaveBeenCalledWith({
+      company_id: "co_acme",
+      alias: "Acme",
+    });
+  });
+
   it("translates SQLSTATE 23505 into the 'another company uses that alias' message", async () => {
     // A raw duplicate-key error would leak that ANOTHER company has
     // claimed the alias (which is what we want to communicate but
@@ -441,6 +512,198 @@ describe("routeMeetingAction + dismissMeetingAction", () => {
 
     await dismissMeetingAction("meeting_1");
 
+    expect(mocks.meetingsUpdatePatch).toHaveBeenCalledWith({
+      status: "failed",
+      error: "dismissed",
+    });
+  });
+});
+
+// ==============================================================
+// deleteAliasAction — tenant boundary
+// ==============================================================
+describe("deleteAliasAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  it("blocks a company_admin from deleting another tenant's alias", async () => {
+    // Deleting a victim's alias silently un-routes all their future
+    // transcripts. The alias row names its company; the caller must
+    // admin that company.
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    mocks.aliasesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { company_id: "co_other" },
+      error: null,
+    });
+    const { deleteAliasAction } = await import("./actions");
+
+    const res = await deleteAliasAction("alias_1");
+
+    expect(res).toEqual({ ok: false, message: "Not your alias to manage." });
+    expect(mocks.aliasesDeleteEq).not.toHaveBeenCalled();
+  });
+
+  it("returns not-found (and deletes nothing) for an unknown alias id", async () => {
+    mocks.aliasesSelectMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    const { deleteAliasAction } = await import("./actions");
+
+    const res = await deleteAliasAction("alias_missing");
+
+    expect(res).toEqual({ ok: false, message: "Alias not found." });
+    expect(mocks.aliasesDeleteEq).not.toHaveBeenCalled();
+  });
+
+  it("lets a company_admin delete their own company's alias", async () => {
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    const { deleteAliasAction } = await import("./actions");
+
+    const res = await deleteAliasAction("alias_1");
+
+    expect(res).toEqual({ ok: true });
+    expect(mocks.aliasesDeleteEq).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ==============================================================
+// routeMeetingAction / dismissMeetingAction — tenant boundary
+// ==============================================================
+describe("routeMeetingAction + dismissMeetingAction (tenant boundary)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+    mocks.processPendingMeetings.mockResolvedValue({ processed: 1 });
+  });
+
+  it("blocks a company_admin from routing ANOTHER tenant's meeting into their own company", async () => {
+    // The original hole: the update ran through the admin client
+    // with no check on whose meeting it was. Re-homing a victim's
+    // meeting exposed its transcript to the attacker's whole team
+    // and analyzed it into their commitments and issues.
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    mocks.meetingsSelectMaybeSingle.mockResolvedValueOnce({
+      data: { company_id: "co_other" },
+      error: null,
+    });
+    const { routeMeetingAction } = await import("./actions");
+
+    const res = await routeMeetingAction("meeting_victim", "co_acme", true);
+
+    expect(res).toEqual({ ok: false, message: "Not your meeting to manage." });
+    expect(mocks.meetingsUpdatePatch).not.toHaveBeenCalled();
+    expect(mocks.processPendingMeetings).not.toHaveBeenCalled();
+  });
+
+  it("blocks a company_admin from routing an UNROUTED (shared-scope) meeting", async () => {
+    // Unrouted meetings have no company yet. They came from a shared
+    // folder that may hold other clients' transcripts, so only a
+    // system_admin may decide where they go.
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    mocks.meetingsSelectMaybeSingle.mockResolvedValueOnce({
+      data: { company_id: null },
+      error: null,
+    });
+    const { routeMeetingAction } = await import("./actions");
+
+    const res = await routeMeetingAction("meeting_unrouted", "co_acme", false);
+
+    expect(res).toEqual({ ok: false, message: "Not your meeting to manage." });
+    expect(mocks.meetingsUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("blocks a company_admin from routing their OWN meeting into another tenant", async () => {
+    // Reverse direction: injecting a transcript (and the commitments
+    // extracted from it) into someone else's company.
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    mocks.meetingsSelectMaybeSingle.mockResolvedValueOnce({
+      data: { company_id: "co_acme" },
+      error: null,
+    });
+    const { routeMeetingAction } = await import("./actions");
+
+    const res = await routeMeetingAction("meeting_mine", "co_other", false);
+
+    expect(res).toEqual({ ok: false, message: "Not your company." });
+    expect(mocks.meetingsUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("lets a company_admin re-route a meeting that already belongs to their company", async () => {
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    mocks.meetingsSelectMaybeSingle.mockResolvedValueOnce({
+      data: { company_id: "co_acme" },
+      error: null,
+    });
+    const { routeMeetingAction } = await import("./actions");
+
+    const res = await routeMeetingAction("meeting_mine", "co_acme", false);
+
+    expect(res).toEqual({ ok: true });
+    expect(mocks.meetingsUpdatePatch).toHaveBeenCalledWith({
+      company_id: "co_acme",
+      status: "pending",
+      routed_by_alias: "(manual)",
+    });
+  });
+
+  it("lets a system_admin route an unrouted meeting anywhere", async () => {
+    const { routeMeetingAction } = await import("./actions");
+
+    const res = await routeMeetingAction("meeting_unrouted", "co_target", false);
+
+    expect(res).toEqual({ ok: true });
+    expect(mocks.meetingsUpdatePatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns not-found (and writes nothing) for an unknown meeting id", async () => {
+    mocks.meetingsSelectMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    const { routeMeetingAction } = await import("./actions");
+
+    const res = await routeMeetingAction("meeting_missing", "co_target", false);
+
+    expect(res).toEqual({ ok: false, message: "Meeting not found." });
+    expect(mocks.meetingsUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("blocks a company_admin from dismissing another tenant's meeting", async () => {
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    mocks.meetingsSelectMaybeSingle.mockResolvedValueOnce({
+      data: { company_id: "co_other" },
+      error: null,
+    });
+    const { dismissMeetingAction } = await import("./actions");
+
+    const res = await dismissMeetingAction("meeting_victim");
+
+    expect(res).toEqual({ ok: false, message: "Not your meeting to manage." });
+    expect(mocks.meetingsUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("lets a company_admin dismiss their own company's meeting", async () => {
+    useRealCompanyAdminRule();
+    companyAdminOf("co_acme");
+    mocks.meetingsSelectMaybeSingle.mockResolvedValueOnce({
+      data: { company_id: "co_acme" },
+      error: null,
+    });
+    const { dismissMeetingAction } = await import("./actions");
+
+    const res = await dismissMeetingAction("meeting_mine");
+
+    expect(res).toEqual({ ok: true });
     expect(mocks.meetingsUpdatePatch).toHaveBeenCalledWith({
       status: "failed",
       error: "dismissed",

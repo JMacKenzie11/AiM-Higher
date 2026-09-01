@@ -5,6 +5,10 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { APP_URL } from "@/lib/supabase/env";
 import { requireRole } from "@/lib/auth/current-user";
+import {
+  isAdminForCompany,
+  type SessionProfileLike,
+} from "@/lib/auth/permissions";
 import { sendInviteEmail } from "@/lib/email";
 import { trackAfter } from "@/lib/analytics/track";
 import type { Profile } from "@/lib/types";
@@ -23,6 +27,26 @@ import type { Profile } from "@/lib/types";
 export type UserActionResult =
   | { ok: true; profileId?: string; warning?: string }
   | { ok: false; message: string };
+
+// Can the caller manage (create in / edit / invite / delete) a
+// profile that lives in targetCompanyId? Every roster action funnels
+// through this so the rule can't drift between copies:
+//   system_admin: always.
+//   anyone else: never for a company-less profile (those are
+//     sysadmins and guides), otherwise isAdminForCompany, which
+//     admits a company_admin for their own company and an
+//     aims_guide for their assigned companies.
+// Before this helper the scope check only fired for company_admin,
+// which let a guide edit any profile on the platform through the
+// admin client (RLS doesn't apply there).
+function canManageProfileIn(
+  profile: SessionProfileLike,
+  targetCompanyId: string | null
+): boolean {
+  if (profile.role === "system_admin") return true;
+  if (targetCompanyId === null) return false;
+  return isAdminForCompany(profile, targetCompanyId);
+}
 
 // ---- Create a user (no email sent) ----------------------------
 export async function createUserAction(
@@ -45,13 +69,19 @@ export async function createUserAction(
     return { ok: false, message: "Choose a valid role." };
   }
 
+  // company_admin always creates in their own company; sysadmins
+  // and guides name the company in the form (guides have no
+  // company_id of their own, so the form value is the only source).
   const companyId =
-    session.profile.role === "system_admin"
-      ? companyIdRaw
-      : session.profile.company_id!;
+    session.profile.role === "company_admin"
+      ? (session.profile.company_id ?? "")
+      : companyIdRaw;
 
   if (!companyId) {
     return { ok: false, message: "Pick a company for this user." };
+  }
+  if (!canManageProfileIn(session.profile, companyId)) {
+    return { ok: false, message: "Not your company." };
   }
 
   const admin = createSupabaseAdminClient();
@@ -150,10 +180,16 @@ export async function updateUserAction(
     return { ok: false, message: "Choose a valid role." };
   }
   if (
-    session.profile.role === "company_admin" &&
+    session.profile.role !== "system_admin" &&
     (role === "system_admin" || role === "aims_guide")
   ) {
-    return { ok: false, message: "Company admins can't grant that role." };
+    return {
+      ok: false,
+      message:
+        session.profile.role === "company_admin"
+          ? "Company admins can't grant that role."
+          : "Guides can't grant that role.",
+    };
   }
 
   const admin = createSupabaseAdminClient();
@@ -168,11 +204,26 @@ export async function updateUserAction(
     .maybeSingle<Pick<Profile, "id" | "company_id">>();
   if (fetchErr || !current) return { ok: false, message: "User not found." };
 
-  if (
-    session.profile.role === "company_admin" &&
-    session.profile.company_id !== current.company_id
-  ) {
+  if (!canManageProfileIn(session.profile, current.company_id)) {
     return { ok: false, message: "Not your user to edit." };
+  }
+
+  // reports_to is a free-form id from the form. A manager in another
+  // company would make an outsider satisfy the "reports to me"
+  // checks elsewhere (coach access, for one), so pin it to the same
+  // company as the person being edited.
+  if (reportsTo) {
+    const { data: manager } = await admin
+      .from("profiles")
+      .select("id, company_id")
+      .eq("id", reportsTo)
+      .maybeSingle<Pick<Profile, "id" | "company_id">>();
+    if (!manager || manager.company_id !== current.company_id) {
+      return {
+        ok: false,
+        message: "The manager must be in the same company.",
+      };
+    }
   }
 
   // Grab the auth email so we know whether an update is needed.
@@ -293,10 +344,7 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
     .maybeSingle<Pick<Profile, "id" | "company_id" | "status">>();
 
   if (!profile) return { ok: false, message: "That user doesn't exist." };
-  if (
-    session.profile.role === "company_admin" &&
-    session.profile.company_id !== profile.company_id
-  ) {
+  if (!canManageProfileIn(session.profile, profile.company_id)) {
     return { ok: false, message: "Not your user to invite." };
   }
   // Invites only make sense while the user hasn't accepted yet.
@@ -355,10 +403,7 @@ export async function getInviteLinkAction(
     .eq("id", profileId)
     .maybeSingle<Pick<Profile, "id" | "company_id" | "status">>();
   if (!profile) return { ok: false, message: "That user doesn't exist." };
-  if (
-    session.profile.role === "company_admin" &&
-    session.profile.company_id !== profile.company_id
-  ) {
+  if (!canManageProfileIn(session.profile, profile.company_id)) {
     return { ok: false, message: "Not your user to invite." };
   }
   // Same guard as sendInviteAction: no invite link for an active or
@@ -562,10 +607,7 @@ export async function deleteUserAction(profileId: string): Promise<UserActionRes
     .maybeSingle<Pick<Profile, "id" | "company_id">>();
   if (!profile) return { ok: false, message: "That user doesn't exist." };
 
-  if (
-    session.profile.role === "company_admin" &&
-    session.profile.company_id !== profile.company_id
-  ) {
+  if (!canManageProfileIn(session.profile, profile.company_id)) {
     return { ok: false, message: "Not your user to delete." };
   }
 

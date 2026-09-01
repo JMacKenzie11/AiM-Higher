@@ -945,3 +945,293 @@ describe("acceptInviteAction", () => {
     expect(mocks.profilesUpdatePatch).toHaveBeenCalledWith({ status: "active" });
   });
 });
+
+// ==============================================================
+// aims_guide scope — every roster action must scope guides the
+// same way it scopes company admins (assigned companies only).
+// Before canManageProfileIn, the company check only ran for
+// company_admin, so a guide could edit ANY profile on the
+// platform through the admin client, including granting
+// themselves system_admin.
+// ==============================================================
+function guideSession(assigned: string[] = ["co_acme"]) {
+  return {
+    profile: {
+      id: "guide_1",
+      role: "aims_guide",
+      company_id: null,
+      guide_company_ids: assigned,
+    },
+  };
+}
+
+function editForm(overrides: Record<string, string> = {}): FormData {
+  return formDataFrom({
+    id: "profile_1",
+    first_name: "First",
+    last_name: "Last",
+    email: "existing@acme.co",
+    role: "team_member",
+    ...overrides,
+  });
+}
+
+describe("updateUserAction (aims_guide + reports_to scope)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  it("blocks an aims_guide from editing a user in a company they aren't assigned to", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "profile_1", company_id: "co_other" },
+      error: null,
+    });
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(undefined, editForm());
+
+    expect(res).toEqual({ ok: false, message: "Not your user to edit." });
+    expect(mocks.updateUserById).not.toHaveBeenCalled();
+    expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("blocks an aims_guide from editing a company-less profile (sysadmins, other guides, themselves)", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "guide_1", company_id: null },
+      error: null,
+    });
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(
+      undefined,
+      editForm({ id: "guide_1", role: "team_member" })
+    );
+
+    expect(res).toEqual({ ok: false, message: "Not your user to edit." });
+    expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("blocks an aims_guide from granting system_admin or aims_guide", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(
+      undefined,
+      editForm({ role: "system_admin" })
+    );
+
+    expect(res).toEqual({ ok: false, message: "Guides can't grant that role." });
+    expect(mocks.profilesSelectMaybeSingle).not.toHaveBeenCalled();
+    expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("lets an aims_guide edit a user in an assigned company", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "profile_1", company_id: "co_acme" },
+      error: null,
+    });
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(undefined, editForm());
+
+    expect(res).toEqual({ ok: true, profileId: "profile_1" });
+    expect(mocks.profilesUpdatePatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a reports_to manager who lives in a different company", async () => {
+    // A cross-company manager makes an outsider satisfy "reports to
+    // me" checks elsewhere (coach access on the report, for one).
+    mocks.requireRole.mockResolvedValue(sysAdminSession());
+    mocks.profilesSelectMaybeSingle
+      .mockResolvedValueOnce({
+        data: { id: "profile_1", company_id: "co_acme" },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { id: "mgr_other", company_id: "co_other" },
+        error: null,
+      });
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(
+      undefined,
+      editForm({ reports_to: "mgr_other" })
+    );
+
+    expect(res).toEqual({
+      ok: false,
+      message: "The manager must be in the same company.",
+    });
+    expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a reports_to id that doesn't resolve to any profile", async () => {
+    mocks.requireRole.mockResolvedValue(sysAdminSession());
+    mocks.profilesSelectMaybeSingle
+      .mockResolvedValueOnce({
+        data: { id: "profile_1", company_id: "co_acme" },
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: null, error: null });
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(
+      undefined,
+      editForm({ reports_to: "mgr_missing" })
+    );
+
+    expect(res.ok).toBe(false);
+    expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("accepts a same-company manager and writes reports_to", async () => {
+    mocks.requireRole.mockResolvedValue(companyAdminSession("co_acme"));
+    mocks.profilesSelectMaybeSingle
+      .mockResolvedValueOnce({
+        data: { id: "profile_1", company_id: "co_acme" },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { id: "mgr_same", company_id: "co_acme" },
+        error: null,
+      });
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(
+      undefined,
+      editForm({ reports_to: "mgr_same" })
+    );
+
+    expect(res).toEqual({ ok: true, profileId: "profile_1" });
+    expect(mocks.profilesUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({ reports_to: "mgr_same" })
+    );
+  });
+});
+
+describe("createUserAction (aims_guide scope)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  it("lets an aims_guide create a user in an assigned company via the form company_id", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    const { createUserAction } = await import("./users");
+
+    const res = await createUserAction(
+      undefined,
+      formDataFrom({
+        email: "new@acme.co",
+        full_name: "New Person",
+        role: "team_member",
+        company_id: "co_acme",
+      })
+    );
+
+    expect(res.ok).toBe(true);
+    expect(mocks.profilesInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ company_id: "co_acme" })
+    );
+  });
+
+  it("blocks an aims_guide from creating a user in a company they aren't assigned to", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    const { createUserAction } = await import("./users");
+
+    const res = await createUserAction(
+      undefined,
+      formDataFrom({
+        email: "new@other.co",
+        full_name: "New Person",
+        role: "team_member",
+        company_id: "co_other",
+      })
+    );
+
+    expect(res).toEqual({ ok: false, message: "Not your company." });
+    expect(mocks.createUser).not.toHaveBeenCalled();
+    expect(mocks.profilesInsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("sendInviteAction / getInviteLinkAction / deleteUserAction (aims_guide scope)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  it("blocks an aims_guide from inviting a user outside their assignments", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "profile_1", company_id: "co_other", status: "pending" },
+      error: null,
+    });
+    const { sendInviteAction } = await import("./users");
+
+    const res = await sendInviteAction("profile_1");
+
+    expect(res).toEqual({ ok: false, message: "Not your user to invite." });
+    expect(mocks.generateLink).not.toHaveBeenCalled();
+  });
+
+  it("blocks an aims_guide from generating an invite link outside their assignments", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "profile_1", company_id: "co_other", status: "pending" },
+      error: null,
+    });
+    const { getInviteLinkAction } = await import("./users");
+
+    const res = await getInviteLinkAction("profile_1");
+
+    expect(res).toEqual({ ok: false, message: "Not your user to invite." });
+    expect(mocks.generateLink).not.toHaveBeenCalled();
+  });
+
+  it("blocks an aims_guide from deleting a user outside their assignments", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "profile_1", company_id: "co_other" },
+      error: null,
+    });
+    const { deleteUserAction } = await import("./users");
+
+    const res = await deleteUserAction("profile_1");
+
+    expect(res).toEqual({ ok: false, message: "Not your user to delete." });
+    expect(mocks.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("blocks a company_admin from deleting a company-less profile (a sysadmin or guide)", async () => {
+    mocks.requireRole.mockResolvedValue(companyAdminSession("co_acme"));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "root", company_id: null },
+      error: null,
+    });
+    const { deleteUserAction } = await import("./users");
+
+    const res = await deleteUserAction("root");
+
+    expect(res).toEqual({ ok: false, message: "Not your user to delete." });
+    expect(mocks.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("lets an aims_guide delete a user in an assigned company", async () => {
+    mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "profile_1", company_id: "co_acme" },
+      error: null,
+    });
+    const { deleteUserAction } = await import("./users");
+
+    const res = await deleteUserAction("profile_1");
+
+    expect(res).toEqual({ ok: true });
+    expect(mocks.deleteUser).toHaveBeenCalledWith("profile_1");
+  });
+});

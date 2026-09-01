@@ -4,6 +4,11 @@ import {
   SCOPE_COOKIE_NAME,
   SCOPE_COOKIE_MAX_AGE,
 } from "@/lib/admin/scope";
+import {
+  autoScopeTarget,
+  isPrefetchRequest,
+  roleCanAutoScope,
+} from "@/lib/admin/scope-request";
 
 // Middleware handles three concerns per request:
 //   1. Supabase session refresh (always).
@@ -15,12 +20,13 @@ import {
 //      a session fetch.
 //   3. Auto-scope for /admin/companies/[id] — mutate request cookies
 //      so the current render sees the new scope, and set the response
-//      cookie so subsequent clicks keep it.
+//      cookie so subsequent clicks keep it. Skipped for prefetch
+//      requests (a Link scrolling into view is not the user choosing
+//      a company) and only persisted for cross-tenant roles. See
+//      scope-request.ts for the incident this guards against.
 //
 // The cookie-mutation pattern uses NextResponse.next({request}) —
 // mirrors the supabase session refresh helper so both moves compose.
-
-const COMPANY_ADMIN_PATH = /^\/admin\/companies\/([0-9a-f-]{36})(?:\/|$)/i;
 
 // Paths where a pending (not-yet-accepted) user IS allowed to be
 // while signed in. Everywhere else, they get bounced back to
@@ -40,10 +46,13 @@ function pendingAllowsPath(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  const match = request.nextUrl.pathname.match(COMPANY_ADMIN_PATH);
-  const targetScope = match ? match[1] : null;
   const currentScope = request.cookies.get(SCOPE_COOKIE_NAME)?.value ?? null;
-  const shouldSetScope = targetScope !== null && targetScope !== currentScope;
+  const targetScope = autoScopeTarget({
+    pathname: request.nextUrl.pathname,
+    currentScope,
+    isPrefetch: isPrefetchRequest(request.headers),
+  });
+  const shouldSetScope = targetScope !== null;
   // NOTE: /hq deliberately does NOT clear the scope cookie. Preserving
   // it lets Dashboard/Chart/Plan (hidden from the sidebar while on /hq,
   // see Sidebar) still navigate back to the last-scoped company when
@@ -81,7 +90,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(home, request.url));
   }
 
-  if (shouldSetScope && targetScope) {
+  // Persist the scope only for roles that use it. The request-cookie
+  // mutation above is inert for company users (the resolver reads
+  // their profile first), so it's fine that it ran before the role
+  // was known; the response cookie is what would survive.
+  if (shouldSetScope && targetScope && roleCanAutoScope(role)) {
     response.cookies.set({
       name: SCOPE_COOKIE_NAME,
       value: targetScope,
