@@ -163,6 +163,16 @@ export async function connectGoogleFolderAction(
     return { ok: false, message: error?.message ?? "Couldn't save the source." };
   }
 
+  // Audit trail: pair with removeSourceAction's log line so any
+  // "source disappeared then reappeared" mystery has a matching
+  // Vercel log timestamp + actor. See Benson 2026-08-27 incident.
+  console.warn("connectGoogleFolderAction: created transcript_source", {
+    sourceId: data.id,
+    profileId: g.profileId,
+    companyId,
+    folderId,
+  });
+
   revalidatePath("/admin/companies", "layout");
   trackAfter(
     g.profileId,
@@ -204,18 +214,16 @@ export async function removeSourceAction(id: string): Promise<ActionResult> {
   const g = await guardForSource(id);
   if (!g.ok) return g;
   const admin = createSupabaseAdminClient();
-  // Detach meetings so the history stays; the FK is on delete cascade
-  // for the source_id column, so we nullify manually first.
-  await admin
-    .from("meetings")
-    .update({ source_id: null } as never) // TS: this column is not null; we can't nullify
-    .eq("source_id", id)
-    .then(() => undefined, () => undefined);
-  // Actually — meetings.source_id is NOT NULL. Deleting the source
-  // would cascade the meetings away. To keep meeting history, mark
-  // sources as removed by pausing + tagging instead of deleting.
-  // For v1 simplicity, we do a hard delete AND the meetings go with
-  // it. If the operator wants history preservation, they Pause.
+  // Meeting history must survive a source removal (migration 0158
+  // switched the FK to ON DELETE SET NULL so the meetings table is
+  // no longer collateral damage). Belt: log who removed which
+  // source so an audit of the transcript_sources row disappearing
+  // has a matching server-log line.
+  console.warn("removeSourceAction: deleting transcript_source", {
+    sourceId: id,
+    profileId: g.profileId,
+    companyId: g.companyId,
+  });
   const { error } = await admin.from("transcript_sources").delete().eq("id", id);
   if (error) return { ok: false, message: "Couldn't remove." };
   revalidatePath("/admin/companies", "layout");
