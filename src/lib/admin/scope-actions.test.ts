@@ -209,6 +209,49 @@ describe("scopeIntoCompanyAction", () => {
     expect(target).toBe("/admin/companies");
     expect(mocks.setScopedCompanyCookie).not.toHaveBeenCalled();
   });
+
+  it("returns a redirect target instead of throwing when redirectTo is null", async () => {
+    // The client (CompanyNameLink) passes null to opt out of the
+    // server-side redirect and do window.location.href instead.
+    // A full browser reload is what defeats Next's Router Cache
+    // holding stale RSC payloads keyed by URL — the bug where the
+    // sidebar showed the new tenant while the destination page
+    // still served the old tenant's rows. If this contract breaks
+    // and the action goes back to throwing NEXT_REDIRECT, the
+    // client would never reach the reload call.
+    mocks.requireRole.mockResolvedValue(sysAdminSession());
+    const { scopeIntoCompanyAction } = await import("./scope-actions");
+
+    const result = await scopeIntoCompanyAction("co_target", null);
+
+    expect(result).toEqual({ ok: true, redirectTo: "/dashboard" });
+    expect(mocks.setScopedCompanyCookie).toHaveBeenCalledWith(
+      "co_target",
+      "system_admin"
+    );
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    // The layout still gets a server-side revalidation ping so any
+    // subsequent server-render (before the client reload lands)
+    // sees the fresh cookie.
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("still guards a soft-deleted tenant when redirectTo is null", async () => {
+    // The freshness check must run regardless of which return
+    // shape the caller asked for — otherwise a client caller
+    // could pass null and slip a ghost-tenant scope past the
+    // guard.
+    mocks.requireRole.mockResolvedValue(sysAdminSession());
+    mocks.missingCompanyIds.add("co_ghost");
+    const { scopeIntoCompanyAction } = await import("./scope-actions");
+
+    const target = await captureRedirect(() =>
+      scopeIntoCompanyAction("co_ghost", null)
+    );
+
+    expect(target).toBe("/admin/companies");
+    expect(mocks.setScopedCompanyCookie).not.toHaveBeenCalled();
+  });
 });
 
 // ==============================================================
