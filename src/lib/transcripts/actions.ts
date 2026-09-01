@@ -22,6 +22,45 @@ export type ActionResult<T = null> =
   | { ok: true; item?: T }
   | { ok: false; message: string };
 
+// Persistent audit log — every lifecycle change to a
+// transcript_source writes one row here so a future "who did what
+// and when" investigation has a source of truth beyond Vercel's
+// short log retention. See migration 0159.
+// Fire-and-forget; a failed audit write must never block the
+// user-visible action from succeeding. The console.warn fallback
+// keeps at least one signal alive if the insert errors.
+async function auditTranscriptSourceEvent(args: {
+  eventType: "created" | "removed" | "paused" | "resumed";
+  sourceId: string;
+  companyId: string | null;
+  actorProfileId: string;
+  payload?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const admin = createSupabaseAdminClient();
+    const { error } = await admin
+      .from("transcript_source_audit_log")
+      .insert({
+        event_type: args.eventType,
+        source_id: args.sourceId,
+        company_id: args.companyId,
+        actor_profile_id: args.actorProfileId,
+        payload: args.payload ?? {},
+      });
+    if (error) {
+      console.warn("auditTranscriptSourceEvent: insert failed", {
+        error,
+        args,
+      });
+    }
+  } catch (err) {
+    console.warn("auditTranscriptSourceEvent: unexpected failure", {
+      err,
+      args,
+    });
+  }
+}
+
 async function guard(): Promise<
   | { ok: true; profileId: string; profile: SessionProfileLike }
   | { ok: false; message: string }
@@ -163,14 +202,20 @@ export async function connectGoogleFolderAction(
     return { ok: false, message: error?.message ?? "Couldn't save the source." };
   }
 
-  // Audit trail: pair with removeSourceAction's log line so any
-  // "source disappeared then reappeared" mystery has a matching
-  // Vercel log timestamp + actor. See Benson 2026-08-27 incident.
-  console.warn("connectGoogleFolderAction: created transcript_source", {
+  // Audit trail: persist to transcript_source_audit_log so any
+  // "source disappeared then reappeared" mystery has a permanent
+  // server-side record. See Benson 2026-08-27 incident.
+  await auditTranscriptSourceEvent({
+    eventType: "created",
     sourceId: data.id,
-    profileId: g.profileId,
     companyId,
-    folderId,
+    actorProfileId: g.profileId,
+    payload: {
+      provider: "google_drive",
+      scope,
+      folder_id: folderId,
+      folder_name: folderName,
+    },
   });
 
   revalidatePath("/admin/companies", "layout");
@@ -193,6 +238,12 @@ export async function pauseSourceAction(id: string): Promise<ActionResult> {
     .update({ status: "paused" })
     .eq("id", id);
   if (error) return { ok: false, message: "Couldn't pause." };
+  await auditTranscriptSourceEvent({
+    eventType: "paused",
+    sourceId: id,
+    companyId: g.companyId,
+    actorProfileId: g.profileId,
+  });
   revalidatePath("/admin/companies", "layout");
   return { ok: true };
 }
@@ -206,6 +257,12 @@ export async function resumeSourceAction(id: string): Promise<ActionResult> {
     .update({ status: "active", last_error: null })
     .eq("id", id);
   if (error) return { ok: false, message: "Couldn't resume." };
+  await auditTranscriptSourceEvent({
+    eventType: "resumed",
+    sourceId: id,
+    companyId: g.companyId,
+    actorProfileId: g.profileId,
+  });
   revalidatePath("/admin/companies", "layout");
   return { ok: true };
 }
@@ -214,18 +271,33 @@ export async function removeSourceAction(id: string): Promise<ActionResult> {
   const g = await guardForSource(id);
   if (!g.ok) return g;
   const admin = createSupabaseAdminClient();
-  // Meeting history must survive a source removal (migration 0158
-  // switched the FK to ON DELETE SET NULL so the meetings table is
-  // no longer collateral damage). Belt: log who removed which
-  // source so an audit of the transcript_sources row disappearing
-  // has a matching server-log line.
-  console.warn("removeSourceAction: deleting transcript_source", {
-    sourceId: id,
-    profileId: g.profileId,
-    companyId: g.companyId,
-  });
+  // Snapshot the source row BEFORE deletion so the audit payload
+  // preserves the folder id/name/provider — otherwise a later
+  // investigation only sees an actor + timestamp and can't tell
+  // which folder disappeared.
+  const { data: snapshot } = await admin
+    .from("transcript_sources")
+    .select("provider, scope, folder_id, folder_name, status")
+    .eq("id", id)
+    .maybeSingle<{
+      provider: string;
+      scope: string;
+      folder_id: string;
+      folder_name: string | null;
+      status: string;
+    }>();
+  // Meeting history survives (migration 0158 switched the FK to
+  // ON DELETE SET NULL); the audit row below is the source of
+  // truth for who removed what and when.
   const { error } = await admin.from("transcript_sources").delete().eq("id", id);
   if (error) return { ok: false, message: "Couldn't remove." };
+  await auditTranscriptSourceEvent({
+    eventType: "removed",
+    sourceId: id,
+    companyId: g.companyId,
+    actorProfileId: g.profileId,
+    payload: snapshot ? { snapshot } : {},
+  });
   revalidatePath("/admin/companies", "layout");
   return { ok: true };
 }
