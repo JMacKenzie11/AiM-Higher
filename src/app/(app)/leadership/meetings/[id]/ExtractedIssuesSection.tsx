@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { addExtractedIssueToOpenIssuesAction } from "@/lib/transcripts/routing-actions";
+import {
+  addExtractedIssueAsResolvedAction,
+  addExtractedIssueToOpenIssuesAction,
+} from "@/lib/transcripts/routing-actions";
 import type { ExtractedIssue } from "@/lib/types";
 import type { SimilarMatch } from "@/lib/transcripts/similarity";
 import uiStyles from "@/components/ui/ui.module.css";
@@ -66,9 +69,13 @@ function ExtractedIssueRowItem({
 }) {
   const [added, setAdded] = useState(row.alreadyAdded);
   const [pending, startTransition] = useTransition();
+  // Track which action fired so the correct done-state label shows
+  // and buttons independently disable each other during the
+  // network round-trip.
+  const [addedAs, setAddedAs] = useState<"open" | "resolved" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function add() {
+  function addAsOpen() {
     setError(null);
     startTransition(async () => {
       const result = await addExtractedIssueToOpenIssuesAction(
@@ -76,7 +83,25 @@ function ExtractedIssueRowItem({
         row.issue.title
       );
       if (!result.ok) setError(result.message);
-      else setAdded(true);
+      else {
+        setAdded(true);
+        setAddedAs("open");
+      }
+    });
+  }
+
+  function addAsResolved() {
+    setError(null);
+    startTransition(async () => {
+      const result = await addExtractedIssueAsResolvedAction(
+        meetingId,
+        row.issue.title
+      );
+      if (!result.ok) setError(result.message);
+      else {
+        setAdded(true);
+        setAddedAs("resolved");
+      }
     });
   }
 
@@ -93,16 +118,37 @@ function ExtractedIssueRowItem({
       </div>
       <div className={styles.rowActions}>
         {added ? (
-          <DoneChip label="Added as issue" />
+          <DoneChip
+            label={
+              addedAs === "resolved"
+                ? "Resolved in meeting"
+                : "Added as issue"
+            }
+          />
         ) : canAdd ? (
-          <button
-            type="button"
-            className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
-            onClick={add}
-            disabled={pending}
-          >
-            {pending ? "Adding…" : "Add to open issues"}
-          </button>
+          <>
+            {/* Order matches the spec: "Resolved in Meeting" on the
+                left, "Add to open issues" on the right. Both use
+                the primary brand button so the row reads with the
+                rest of the app's button vocabulary. */}
+            <button
+              type="button"
+              className={`${uiStyles.btnPrimary} ${uiStyles.btnSm}`}
+              onClick={addAsResolved}
+              disabled={pending}
+              title="Add to the resolved list right away — no follow-up work needed."
+            >
+              {pending ? "…" : "Resolved in meeting"}
+            </button>
+            <button
+              type="button"
+              className={`${uiStyles.btnPrimary} ${uiStyles.btnSm}`}
+              onClick={addAsOpen}
+              disabled={pending}
+            >
+              {pending ? "…" : "Add to open issues"}
+            </button>
+          </>
         ) : (
           <span className={styles.doneMuted}>Admin action</span>
         )}

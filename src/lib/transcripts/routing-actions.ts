@@ -98,6 +98,79 @@ export async function addExtractedIssueToOpenIssuesAction(
   return { ok: true };
 }
 
+// ---- Extracted issue → already-resolved issue --------------
+// "Resolved in Meeting" shortcut on the meeting summary. Creates
+// the issue row already closed — no desired outcome, no
+// commitment, no owner. resolved_at is stamped so the resolved
+// section of /issues shows it immediately with the meeting date
+// as its close mark.
+//
+// Idempotent against source_meeting_id + title exactly like
+// addExtractedIssueToOpenIssuesAction, so a double-click doesn't
+// create twins. If the row already exists in an "open" state
+// from a prior click, this path does NOT flip it to resolved —
+// the two shortcuts are mutually exclusive by first click.
+export async function addExtractedIssueAsResolvedAction(
+  meetingId: string,
+  title: string
+): Promise<RoutingResult> {
+  const session = await requireProfile();
+  const trimmed = title.trim();
+  if (!trimmed) return { ok: false, message: "Issue title is empty." };
+  if (trimmed.length > 200) {
+    return { ok: false, message: "Issue title is too long." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data: meeting } = await supabase
+    .from("meetings")
+    .select("id, company_id")
+    .eq("id", meetingId)
+    .maybeSingle<{ id: string; company_id: string }>();
+  if (!meeting) return { ok: false, message: "Meeting not found." };
+  if (!isAdminForCompany(session.profile, meeting.company_id)) {
+    return {
+      ok: false,
+      message: "Only admins and guides can add issues from a meeting.",
+    };
+  }
+
+  const { data: existing } = await supabase
+    .from("issues")
+    .select("id")
+    .eq("source_meeting_id", meetingId)
+    .eq("title", trimmed)
+    .maybeSingle<{ id: string }>();
+  if (existing) return { ok: true };
+
+  // Resolved rows don't need a rank — the /issues page ranks the
+  // open list, resolved sits in a separate table below. Still
+  // set 0 so the not-null column has a value.
+  const { error } = await supabase
+    .from("issues")
+    .insert({
+      company_id: meeting.company_id,
+      title: trimmed,
+      rank: 0,
+      status: "resolved",
+      resolved_at: new Date().toISOString(),
+      source_meeting_id: meetingId,
+      created_by: session.profile.id,
+    });
+  if (error) return { ok: false, message: "Couldn't add that issue." };
+
+  revalidatePath("/issues");
+  revalidatePath(`/leadership/meetings/${meetingId}`);
+  trackAfter(
+    session.profile.id,
+    "issue.resolved_from_meeting",
+    {},
+    { company: meeting.company_id }
+  );
+  return { ok: true };
+}
+
 // ---- Extracted commitment → commitment (with chosen link) ----
 export type ExtractedCommitmentTarget =
   | { type: "priority"; id: string }
