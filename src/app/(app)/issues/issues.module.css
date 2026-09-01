@@ -467,6 +467,85 @@
   height: 1px;
 }
 
+/* ---- Mobile: stack the row -------------------------------- */
+/* Below 640px the 9-column grid squeezes every cell into a
+   sliver — the "What we want" / "Commitment" text ends up 6-8
+   chars wide and towers vertically. Switch the row to a single
+   column below 640px and label each cell with a small caption
+   so a reader knows what's in it without the column header. */
+@media (max-width: 640px) {
+  .issueRow {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Drag + clarity placeholders take up nothing useful on
+     mobile — hide them so the visible column is really
+     issue → what → commitment → owner → due → actions. */
+  .issueRow .dragHandle,
+  .issueRow .dragHandlePlaceholder,
+  .issueRow .cellClarity:empty {
+    display: none;
+  }
+
+  /* Give the labeled cells a small uppercase caption so they
+     still read like data even without the desktop column head. */
+  .cellWant::before,
+  .cellCommitment::before,
+  .cellOwner::before,
+  .cellDue::before {
+    display: block;
+    font: var(--text-caption);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+    width: 100%;
+  }
+  .cellWant::before { content: "What we want"; }
+  .cellCommitment::before { content: "Commitment"; }
+  .cellOwner::before { content: "Assigned to"; }
+  .cellDue::before { content: "Due"; }
+
+  /* Cells become block-level rows; reset the flex/align rules
+     that only make sense inside the grid layout. */
+  .cellIssue,
+  .cellWant,
+  .cellCommitment,
+  .cellOwner,
+  .cellDue {
+    display: block;
+  }
+
+  /* Delete + Resolve line up together at the bottom instead of
+     sitting in their own trailing grid columns. */
+  .issueRow > .deletePlaceholder,
+  .issueRow > .resolvePlaceholder {
+    display: none;
+  }
+  .deleteButton,
+  .resolveButton {
+    align-self: flex-end;
+  }
+
+  /* Resolved rows use a different grid — collapse them too so
+     the two lists stay visually consistent below the breakpoint. */
+  .resolvedRow,
+  .resolvedRowWithDelete {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--border);
+  }
+  .resolvedColumnHeader,
+  .resolvedColumnHeaderWithDelete {
+    display: none;
+  }
+}
+
 /* ---- Resolved section (unchanged from previous cut) --------- */
 .resolvedSection {
   margin-top: var(--space-4);
