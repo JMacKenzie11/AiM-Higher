@@ -296,6 +296,10 @@ Ingest → analyse → extract commitments → optionally review facilitation �
 - **Post-analysis email** — after commitments are extracted, a branded transactional email (Resend, via `src/lib/email.ts`) is sent to meeting participants listing each commitment by owner with a CTA back to `/commitments`. Best-effort — skipped silently if `RESEND_API_KEY` is not configured.
 - **Leadership surface** (`/leadership`) — table of every ingested meeting for the scoped company (title, received date, status, Facilitation chip if the feature is on, View link). Rows show `pending` / `analyzing` / `complete` / `failed` — failed rows surface the error verbatim.
 - **Meeting detail** (`/leadership/meetings/[id]`) — analysis markdown, list of commitments the meeting created, facilitation review (when feature on). PrivacyNote at the top: "Meeting analyses and facilitation reviews are visible to system admins, company admins, and AiMS Guides for this company only. Meeting participants don't see this page."
+- **Issues identified — dual promotion path** — every extracted issue on the meeting summary has two admin/guide-only shortcuts:
+  - *Add to open issues* → creates an `issues` row with `status='open'`, ranked at the tail of the open list. Standard backlog flow — desired outcome, commitment, and owner are added later on `/issues`.
+  - *Resolved in meeting* → creates an `issues` row with `status='resolved'`, `resolved_at=now()`, no desired outcome / commitment / owner. For questions the team already talked through in the meeting; lands in the resolved list immediately.
+  Both paths idempotency-check on `(source_meeting_id, title)` so double-clicks and reanalyses don't spawn twins. First click wins between the two paths (the second becomes a no-op).
 
 ---
 

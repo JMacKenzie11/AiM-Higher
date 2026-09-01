@@ -35,10 +35,17 @@ As an admin or guide, you can also:
   *Captured as commitment* (no link), or *Issue created*. Same
   read on a hard refresh, so you can walk away and come back.
 - **Add extracted issues to the open list** — *Issues identified*
-  lists each unresolved question the team raised. Click *Add to
-  open issues* on the ones worth working on; the row flips to
-  a green *Added as issue* chip. Idempotent by title + meeting,
-  so a double-click doesn't create twins.
+  lists each unresolved question the team raised. Two paths:
+  - *Resolved in meeting* on the left drops the item straight into
+    the resolved list — the team already talked through it and no
+    follow-up work is needed. No desired outcome, no commitment,
+    no owner; the row lands closed with a *Resolved in meeting*
+    chip and today's timestamp.
+  - *Add to open issues* on the right keeps it as work: the row
+    joins the open backlog on /issues where a leader can add the
+    desired outcome, a commitment, and an owner.
+  Both are idempotent by title + meeting, so a double-click
+  doesn't create twins. First click wins between the two paths.
 - **Read the facilitation review** *(when Meeting Facilitation
   Review is on)* — the "How the meeting was run" panel is a
   coaching-tone read against the AiMS Weekly Leadership Meeting

@@ -165,6 +165,7 @@ vi.mock("@/lib/analytics/track", () => ({
 }));
 
 import {
+  addExtractedIssueAsResolvedAction,
   addExtractedIssueToOpenIssuesAction,
   addExtractedCommitmentAction,
   convertExtractedCommitmentToIssueAction,
@@ -265,6 +266,85 @@ describe("addExtractedIssueToOpenIssuesAction", () => {
     expect(patch.created_by).toBe(ADMIN.id);
     expect(patch.rank).toBe(4);
     expect(patch.company_id).toBe("co_acme");
+  });
+});
+
+// ---- addExtractedIssueAsResolvedAction ------------------------
+describe("addExtractedIssueAsResolvedAction", () => {
+  it("blocks a non-admin", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: MEMBER });
+    const result = await addExtractedIssueAsResolvedAction(
+      "m_1",
+      "Already handled in the meeting"
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/admins and guides/i);
+    expect(mocks.issuesInsertPatch).not.toHaveBeenCalled();
+  });
+
+  it("returns not-found when the meeting is missing", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.meetingsSelectMaybeSingle.mockResolvedValueOnce({ data: null });
+    const result = await addExtractedIssueAsResolvedAction(
+      "m_missing",
+      "Handled"
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/not found/i);
+  });
+
+  it("rejects an empty title", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    const result = await addExtractedIssueAsResolvedAction("m_1", "   ");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/empty/i);
+    expect(mocks.issuesInsertPatch).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent when the same title already exists for this meeting", async () => {
+    // First-click-wins: an issue already created via either path
+    // (open or resolved) blocks a second insert. Prevents twins.
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.issuesSelectMaybeSingle.mockResolvedValue({
+      data: { id: "i_existing" },
+    });
+    const result = await addExtractedIssueAsResolvedAction(
+      "m_1",
+      "Already handled"
+    );
+    expect(result.ok).toBe(true);
+    expect(mocks.issuesInsertPatch).not.toHaveBeenCalled();
+  });
+
+  it("inserts as resolved with resolved_at stamped, no desired outcome / commitment / owner", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    const before = Date.now();
+    const result = await addExtractedIssueAsResolvedAction(
+      "m_1",
+      "Handled in the meeting"
+    );
+    const after = Date.now();
+    expect(result.ok).toBe(true);
+    const patch = mocks.issuesInsertPatch.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(patch.title).toBe("Handled in the meeting");
+    expect(patch.status).toBe("resolved");
+    expect(patch.source_meeting_id).toBe("m_1");
+    expect(patch.created_by).toBe(ADMIN.id);
+    expect(patch.company_id).toBe("co_acme");
+    // resolved_at must be an ISO timestamp within the window of
+    // this test — proves the action stamped "now" and didn't leak
+    // a stale value.
+    const resolvedAt = Date.parse(patch.resolved_at as string);
+    expect(resolvedAt).toBeGreaterThanOrEqual(before);
+    expect(resolvedAt).toBeLessThanOrEqual(after);
+    // Fields the spec says must be absent: the row lands closed
+    // with no follow-up work attached.
+    expect(patch.desired_outcome).toBeUndefined();
+    // Nothing about this action should ever touch commitments.
+    expect(mocks.commitmentsInsertPatch).not.toHaveBeenCalled();
   });
 });
 
