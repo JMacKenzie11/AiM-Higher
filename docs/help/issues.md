@@ -29,7 +29,13 @@ As a team member, you can:
   of done observable?).
 - **See resolved history** — the *Resolved issues* section at the
   bottom is read-only and mirrors the open table (Issue / What we
-  want / Commitment / Assigned to / Due date).
+  want / Commitment / Assigned to / Due date). Rows with no *What
+  we want*, no *Commitment*, and no *Assigned to* were closed via
+  the *Resolved in meeting* shortcut on the meeting summary —
+  the team talked the issue through in the meeting and no
+  follow-up work was needed, so it landed straight in the
+  resolved list. The *Due date* column on those rows shows the
+  date the button was clicked.
 :::
 
 ::: role company_admin,aims_guide,system_admin

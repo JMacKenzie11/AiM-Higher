@@ -297,9 +297,10 @@ Ingest → analyse → extract commitments → optionally review facilitation �
 - **Leadership surface** (`/leadership`) — table of every ingested meeting for the scoped company (title, received date, status, Facilitation chip if the feature is on, View link). Rows show `pending` / `analyzing` / `complete` / `failed` — failed rows surface the error verbatim.
 - **Meeting detail** (`/leadership/meetings/[id]`) — analysis markdown, list of commitments the meeting created, facilitation review (when feature on). PrivacyNote at the top: "Meeting analyses and facilitation reviews are visible to system admins, company admins, and AiMS Guides for this company only. Meeting participants don't see this page."
 - **Issues identified — dual promotion path** — every extracted issue on the meeting summary has two admin/guide-only shortcuts:
-  - *Add to open issues* → creates an `issues` row with `status='open'`, ranked at the tail of the open list. Standard backlog flow — desired outcome, commitment, and owner are added later on `/issues`.
-  - *Resolved in meeting* → creates an `issues` row with `status='resolved'`, `resolved_at=now()`, no desired outcome / commitment / owner. For questions the team already talked through in the meeting; lands in the resolved list immediately.
-  Both paths idempotency-check on `(source_meeting_id, title)` so double-clicks and reanalyses don't spawn twins. First click wins between the two paths (the second becomes a no-op).
+  - *Add to open issues* → creates an `issues` row with `status='open'`, ranked at the tail of the open list. Standard backlog flow — desired outcome, commitment, and owner are added later on `/issues`. Post-action chip: *Added as issue*.
+  - *Resolved in meeting* → creates an `issues` row with `status='resolved'`, `resolved_at=now()`, no desired outcome / commitment / owner. For questions the team already talked through in the meeting; lands in the resolved list immediately. Post-action chip: *Resolved in meeting*.
+  Both paths idempotency-check on `(source_meeting_id, title)` so double-clicks and reanalyses don't spawn twins. First click wins between the two paths (the second becomes a no-op). The chip label survives a page refresh — the extracted-issue row seeds its post-action state from the persisted `issues.status`, not just an in-memory flag, so a reader coming back to the meeting summary later sees WHICH path was taken.
+  - **Read-side consequence** on `/issues`: resolved rows with no commitment fall back to `issues.resolved_at` in the *Due date* column instead of an em-dash. That's how a *Resolved in meeting* row surfaces its close date — the button doesn't (and can't) write to `commitments.due_date` because it deliberately doesn't create a commitment.
 
 ---
 
