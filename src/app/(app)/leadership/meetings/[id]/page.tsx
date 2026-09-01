@@ -156,7 +156,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   const [alreadyAddedIssues, alreadyAddedCommitments] = await Promise.all([
     supabase
       .from("issues")
-      .select("id, title")
+      .select("id, title, status")
       .eq("source_meeting_id", meeting.id),
     supabase
       .from("commitments")
@@ -167,6 +167,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   const addedIssueRows = (alreadyAddedIssues.data ?? []) as Array<{
     id: string;
     title: string;
+    status: "open" | "resolved";
   }>;
   const addedCommitmentRows = (alreadyAddedCommitments.data ?? []) as Array<{
     id: string;
@@ -175,6 +176,12 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     functional_area_id: string | null;
   }>;
   const addedIssueTitles = new Set(addedIssueRows.map((r) => r.title));
+  // Title → status map so the extracted-issue row can remember
+  // whether it was added-as-open or resolved-in-meeting across a
+  // page refresh (drives the chip label).
+  const addedIssueStatusByTitle = new Map(
+    addedIssueRows.map((r) => [r.title, r.status])
+  );
   const addedCommitmentDescriptions = new Set(
     addedCommitmentRows.map((r) => r.description)
   );
@@ -286,6 +293,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       extractedIssues.map(async (issue) => ({
         issue,
         alreadyAdded: addedIssueTitles.has(issue.title),
+        alreadyAddedAs: addedIssueStatusByTitle.get(issue.title) ?? null,
         similar: stripSelfMatch(
           await findSimilarOpenItem(companyId, issue.title)
         ),

@@ -101,6 +101,13 @@ function ResolvedRow({
         <div className={styles.cellDue}>
           {last?.due_date ? (
             last.due_date
+          ) : issue.resolved_at ? (
+            // Fallback: an issue with no commitment (e.g. one
+            // created via "Resolved in meeting") still deserves a
+            // date in the Due column — use resolved_at so the
+            // reader sees WHEN the issue closed rather than a
+            // silent em-dash. Reads as "due/closed on YYYY-MM-DD".
+            issue.resolved_at.slice(0, 10)
           ) : (
             <span className={styles.cellMuted}>—</span>
           )}

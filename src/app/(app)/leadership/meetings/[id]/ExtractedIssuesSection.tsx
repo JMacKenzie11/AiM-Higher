@@ -22,6 +22,11 @@ import { DoneChip } from "./DoneChip";
 export type ExtractedIssueRow = {
   issue: ExtractedIssue;
   alreadyAdded: boolean;
+  // When alreadyAdded is true, remembers which path created the
+  // row so the chip label survives a page refresh — "Resolved in
+  // meeting" for the closed shortcut, "Added as issue" for the
+  // open path. Null when alreadyAdded is false.
+  alreadyAddedAs: "open" | "resolved" | null;
   similar: SimilarMatch | null;
 };
 
@@ -70,9 +75,12 @@ function ExtractedIssueRowItem({
   const [added, setAdded] = useState(row.alreadyAdded);
   const [pending, startTransition] = useTransition();
   // Track which action fired so the correct done-state label shows
-  // and buttons independently disable each other during the
-  // network round-trip.
-  const [addedAs, setAddedAs] = useState<"open" | "resolved" | null>(null);
+  // after a click. Seed from row.alreadyAddedAs so a page refresh
+  // keeps the "Resolved in meeting" label rather than falling back
+  // to the generic "Added as issue".
+  const [addedAs, setAddedAs] = useState<"open" | "resolved" | null>(
+    row.alreadyAddedAs
+  );
   const [error, setError] = useState<string | null>(null);
 
   function addAsOpen() {
