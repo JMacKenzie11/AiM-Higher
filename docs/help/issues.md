@@ -116,8 +116,27 @@ issue are all click-to-edit inline:
 The extraction pipeline flags unresolved questions the team
 raised and lists them under *Issues identified* on the meeting
 summary. Nothing lands here automatically — an admin or guide
-clicks *Add to open issues* on each one worth working. That's on
-purpose: issues named too eagerly clutter the list.
+decides what to do with each one. Two shortcuts per row:
+
+- **Add to open issues** — the issue joins the open backlog on
+  `/issues` where a leader can add the desired outcome, a
+  commitment, and an owner. Standard flow when the team wants
+  to work the issue further. Post-click the row flips to a green
+  *Added as issue* chip.
+- **Resolved in meeting** — the issue lands in the *Resolved
+  issues* section right away with no *What we want*, no
+  *Commitment*, and no *Assigned to*. Use it when the team
+  already talked the issue through in the meeting and there's
+  no follow-up work needed. Post-click the row flips to a green
+  *Resolved in meeting* chip; the *Due date* on that row shows
+  the date the button was clicked. So if you're scanning
+  `/issues` later and see a resolved row with no commitment or
+  owner, that's how it got there.
+
+First click wins between the two shortcuts — a second click on
+the other button is a no-op, and the label persists across
+page refreshes (the chip is seeded from the issue's status in
+the database, not just in-memory state).
 
 If the extraction flagged something similar to an issue you
 already added recently, you'll see a small *Possibly already
