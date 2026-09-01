@@ -50,6 +50,23 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* On a 375px viewport the actions column's min-content (the
+   ~150px "Add to open issues" button) leaves the text column
+   ~150px too — so long titles wrapped one word per line. Stack
+   at mobile so text gets the full width and the button flows
+   underneath, left-aligned. */
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+    padding: var(--space-4) 0;
+    align-items: stretch;
+  }
+  .rowActions {
+    justify-content: flex-start;
+  }
+}
+
 .rowMain {
   min-width: 0;
   display: flex;
