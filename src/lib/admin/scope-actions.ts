@@ -11,10 +11,22 @@ import {
 
 // Server actions callable from Client Components.
 
+export type ScopeIntoResult =
+  | { ok: true; redirectTo: string }
+  | { ok: false; message: string };
+
+// Kept the signature Promise<never> historically because it always
+// redirect()'d. It now returns a result object when redirectTo is
+// null so the client can hard-reload instead of a Next.js
+// client-side navigation. That's the fix for the Router Cache
+// staleness where the sidebar showed the new tenant while a
+// previously-visited page (e.g. /leadership) served cached rows
+// from the old tenant. A full window.location reload guarantees
+// a fresh render of every server component in the tree.
 export async function scopeIntoCompanyAction(
   companyId: string,
-  redirectTo: string = "/dashboard"
-): Promise<never> {
+  redirectTo: string | null = "/dashboard"
+): Promise<ScopeIntoResult | never> {
   // Both system admins and aims_guides can scope. For a guide the
   // target company must be one of their assignments; enforcement
   // relies on their session.profile.guide_company_ids (loaded by
@@ -40,6 +52,11 @@ export async function scopeIntoCompanyAction(
   if (!target) redirect("/admin/companies");
   await setScopedCompanyCookie(companyId, session.profile.role);
   revalidatePath("/", "layout");
+  if (redirectTo === null) {
+    // Caller wants to hard-reload on the client — return the
+    // default destination so it knows where to send the user.
+    return { ok: true, redirectTo: "/dashboard" };
+  }
   redirect(redirectTo);
 }
 

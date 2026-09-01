@@ -4,10 +4,17 @@ import { useTransition } from "react";
 import { scopeIntoCompanyAction } from "@/lib/admin/scope-actions";
 import styles from "./admin.module.css";
 
-// Clickable company name in the fleet list. Fires the scope server
-// action (which sets the cookie + redirects to /dashboard) so clicking
-// the name is a single move — no intermediate detail page, no separate
-// "Open" button.
+// Clickable company name in the fleet list. Sets the scope cookie
+// server-side, then hard-reloads the destination on the client.
+//
+// Why the hard reload (window.location.href instead of a Next.js
+// redirect): Next's Router Cache holds previously-visited pages
+// keyed by URL, not by cookie. After a scope switch, navigating
+// back to a page you'd already visited (e.g. /leadership) would
+// serve the OLD tenant's rendering with the NEW tenant's sidebar
+// because layout re-renders faster than cached RSC payloads
+// invalidate. A full browser reload flushes the whole tree so
+// every server component reads the fresh cookie.
 
 export function CompanyNameLink({
   companyId,
@@ -25,7 +32,10 @@ export function CompanyNameLink({
       disabled={pending}
       onClick={() => {
         startTransition(async () => {
-          await scopeIntoCompanyAction(companyId);
+          const result = await scopeIntoCompanyAction(companyId, null);
+          if (result.ok) {
+            window.location.href = result.redirectTo;
+          }
         });
       }}
     >
