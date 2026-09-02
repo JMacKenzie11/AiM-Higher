@@ -173,6 +173,20 @@
   font: var(--text-body-sm);
   font-weight: 600;
   white-space: nowrap;
+  /* The actions column is right-aligned, so without a shared width
+     the two labels ("Resolved in meeting" vs "Added as issue") push
+     their icons to different x positions and the icon column reads
+     ragged down the list. A common min-width makes every chip the
+     same box, so the icons stack in one line and the eye can run
+     down them. The trade is a ragged right edge, which is the right
+     way round: the icon is what's being scanned.
+
+     Sized in ch so it tracks the font rather than a magic pixel
+     count: 19ch covers the longest label, plus 22px for the 15px
+     icon and its 7px gap. A longer label elsewhere (the commitments
+     section renders "Added to <title>") simply sets its own width —
+     this is a floor, not a cap. */
+  min-width: calc(19ch + 22px);
 }
 
 .doneChip svg {
