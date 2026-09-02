@@ -155,6 +155,10 @@ export async function addExtractedIssueAsResolvedAction(
       rank: 0,
       status: "resolved",
       resolved_at: new Date().toISOString(),
+      // Provenance marker (migration 0162). Without it, an issue
+      // closed by this shortcut is indistinguishable on /issues from
+      // one resolved by any other route with no commitment attached.
+      resolved_in_meeting: true,
       source_meeting_id: meetingId,
       created_by: session.profile.id,
     });

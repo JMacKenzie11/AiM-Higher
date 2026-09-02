@@ -266,6 +266,11 @@ describe("addExtractedIssueToOpenIssuesAction", () => {
     expect(patch.created_by).toBe(ADMIN.id);
     expect(patch.rank).toBe(4);
     expect(patch.company_id).toBe("co_acme");
+    // The OPEN path must NOT claim the resolved-in-meeting
+    // provenance. If it ever did, an issue added from a meeting and
+    // worked normally would mislabel itself on /issues the moment
+    // someone resolved it.
+    expect(patch.resolved_in_meeting).toBeUndefined();
   });
 });
 
@@ -334,6 +339,11 @@ describe("addExtractedIssueAsResolvedAction", () => {
     expect(patch.source_meeting_id).toBe("m_1");
     expect(patch.created_by).toBe(ADMIN.id);
     expect(patch.company_id).toBe("co_acme");
+    // Provenance marker (migration 0162). This is what lets /issues
+    // print "Resolved in meeting" in the Commitment column instead of
+    // a bare dash. Without it the row is indistinguishable from an
+    // issue resolved by any other route with no commitment attached.
+    expect(patch.resolved_in_meeting).toBe(true);
     // resolved_at must be an ISO timestamp within the window of
     // this test — proves the action stamped "now" and didn't leak
     // a stale value.

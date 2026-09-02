@@ -93,7 +93,18 @@ function ResolvedRow({
           )}
         </div>
         <div className={styles.cellCommitment}>
-          {last ? last.description : <span className={styles.cellMuted}>—</span>}
+          {last ? (
+            last.description
+          ) : issue.resolved_in_meeting ? (
+            // Closed by the meeting-summary shortcut, so no commitment
+            // was ever created. Say that rather than showing a dash
+            // that reads as missing data.
+            <span className={styles.cellResolvedInMeeting}>
+              Resolved in meeting
+            </span>
+          ) : (
+            <span className={styles.cellMuted}>—</span>
+          )}
         </div>
         <div className={styles.cellOwner}>
           {ownerName ?? <span className={styles.cellMuted}>—</span>}
