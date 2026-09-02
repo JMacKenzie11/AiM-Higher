@@ -3,7 +3,10 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { requireProfile } from "@/lib/auth/current-user";
-import { transcriptSourcesAllowed } from "@/lib/auth/permissions";
+import {
+  isAdminForCompany,
+  transcriptSourcesAllowed,
+} from "@/lib/auth/permissions";
 import { exchangeCodeAndPersist } from "@/lib/transcripts/providers/google-drive";
 import { APP_URL } from "@/lib/supabase/env";
 
@@ -54,6 +57,14 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.redirect(
       `${fallback}?oauth_error=missing_company`
     );
+  }
+  // /start checked the caller admins this company before minting
+  // the state cookie, but the cookie lives in the caller's own
+  // browser and can be rewritten. Re-check here, on the value we're
+  // about to persist against: without this a company_admin could
+  // bind their Google account to another tenant's Drive ingest.
+  if (!isAdminForCompany(session.profile, companyId)) {
+    return NextResponse.redirect(`${fallback}?oauth_error=forbidden`);
   }
   const destination = `${APP_URL()}/admin/companies/${companyId}`;
 

@@ -132,6 +132,59 @@ function guardForCompany(
   return { ok: true };
 }
 
+// Meetings: the caller must admin the company the meeting currently
+// belongs to. Unrouted meetings (company_id null) came from a
+// shared-scope source and have no owner yet, so only a system_admin
+// may route or dismiss them. Without this, any company_admin could
+// pass another tenant's meeting id and re-home its transcript into
+// their own company (the admin client below bypasses RLS).
+async function guardForMeeting(
+  meetingId: string
+): Promise<
+  | { ok: true; profileId: string; profile: SessionProfileLike; companyId: string | null }
+  | { ok: false; message: string }
+> {
+  const g = await guard();
+  if (!g.ok) return g;
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("meetings")
+    .select("company_id")
+    .eq("id", meetingId)
+    .maybeSingle<{ company_id: string | null }>();
+  if (!data) return { ok: false, message: "Meeting not found." };
+  const c = guardForCompany(g, data.company_id);
+  if (!c.ok) return { ok: false, message: "Not your meeting to manage." };
+  return {
+    ok: true,
+    profileId: g.profileId,
+    profile: g.profile,
+    companyId: data.company_id,
+  };
+}
+
+// Aliases: same shape. The alias row carries its company, so the
+// caller must admin THAT company before touching it.
+async function guardForAlias(
+  aliasId: string
+): Promise<
+  | { ok: true; profileId: string; companyId: string }
+  | { ok: false; message: string }
+> {
+  const g = await guard();
+  if (!g.ok) return g;
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("transcript_aliases")
+    .select("company_id")
+    .eq("id", aliasId)
+    .maybeSingle<{ company_id: string }>();
+  if (!data) return { ok: false, message: "Alias not found." };
+  const c = guardForCompany(g, data.company_id);
+  if (!c.ok) return { ok: false, message: "Not your alias to manage." };
+  return { ok: true, profileId: g.profileId, companyId: data.company_id };
+}
+
 // ---- Connect a folder (Google Drive only in v1) ----
 export async function connectGoogleFolderAction(
   formData: FormData
@@ -405,8 +458,16 @@ export async function routeMeetingAction(
   companyId: string,
   analyzeNow: boolean
 ): Promise<ActionResult> {
-  const g = await guard();
+  // Source side: caller must admin the meeting's current company
+  // (system_admin only for unrouted meetings). Destination side:
+  // caller must admin the company they're routing INTO. A guide can
+  // move a meeting between two of their assigned companies; nobody
+  // can move one into or out of a tenant they don't admin.
+  const g = await guardForMeeting(meetingId);
   if (!g.ok) return g;
+  if (!companyId) return { ok: false, message: "Pick a company." };
+  const dest = guardForCompany(g, companyId);
+  if (!dest.ok) return dest;
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("meetings")
@@ -435,7 +496,7 @@ export async function routeMeetingAction(
 export async function dismissMeetingAction(
   meetingId: string
 ): Promise<ActionResult> {
-  const g = await guard();
+  const g = await guardForMeeting(meetingId);
   if (!g.ok) return g;
   const admin = createSupabaseAdminClient();
   const { error } = await admin
@@ -456,6 +517,12 @@ export async function createAliasAction(
   const companyId = String(formData.get("company_id") ?? "");
   const alias = String(formData.get("alias") ?? "").trim();
   if (!companyId || !alias) return { ok: false, message: "Missing alias." };
+  // company_id arrives from a hidden form field. The alias editor
+  // renders on the company page a company_admin can see, so the
+  // field is trivially editable; the caller must admin the company
+  // the alias is being registered for.
+  const c = guardForCompany(g, companyId);
+  if (!c.ok) return c;
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("transcript_aliases")
@@ -471,7 +538,7 @@ export async function createAliasAction(
 }
 
 export async function deleteAliasAction(aliasId: string): Promise<ActionResult> {
-  const g = await guard();
+  const g = await guardForAlias(aliasId);
   if (!g.ok) return g;
   const admin = createSupabaseAdminClient();
   const { error } = await admin
