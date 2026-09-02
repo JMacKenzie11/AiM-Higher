@@ -50,7 +50,16 @@ select
   coalesce(sum(case when c.status = 'missed' then 1 else 0 end), 0) as missed_count,
   -- Vestigial: 'carried' was dropped in migration 0011. Kept in the
   -- projection so the row shape stays stable for existing callers.
-  0               as carried_count,
+  --
+  -- The ::bigint cast is REQUIRED, not decoration. CREATE OR REPLACE
+  -- VIEW cannot change an existing column's data type, and the
+  -- original expression was coalesce(sum(...), 0), which is bigint.
+  -- A bare 0 is integer, and Postgres rejects the whole statement
+  -- with 42P16 "cannot change data type of view column". Dropping and
+  -- recreating instead is not an option: annual_goal_progress depends
+  -- on this view, so DROP would need CASCADE and would take the
+  -- rollups with it.
+  0::bigint       as carried_count,
   count(c.id)     as denominator,
   case
     when p.status = 'complete' then 100
