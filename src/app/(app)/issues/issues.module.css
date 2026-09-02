@@ -334,6 +334,17 @@
   font-style: italic;
 }
 
+/* Stands in for the commitment on an issue the team closed in the
+   room. Not italic-muted like .cellMuted — this is a real statement
+   about how the issue closed, not absent data. Brand navy via
+   --text-heading (light: navy, dark: white) to match the same label
+   on the meeting summary; --aims-navy is avoided because --surface
+   resolves to navy in dark mode. */
+.cellResolvedInMeeting {
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
 /* Inline commitment-add — fills the commitment/owner/due cells
    in place when the issue has no open commitment. Matches the
    .wantEditable / populated cell shape exactly (padding, border,

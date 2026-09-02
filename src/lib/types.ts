@@ -232,6 +232,13 @@ export type Issue = {
   // "Add to open issues" action. Null for hand-entered issues.
   source_meeting_id: string | null;
   resolved_at: string | null;
+  // True when the issue was created already-resolved by the
+  // meeting-summary "Resolved in meeting" shortcut, so the /issues
+  // Commitment column can say so instead of showing a bare dash.
+  // Optional on the type because the column arrives in migration
+  // 0162 and the loader selects "*": before that migration runs the
+  // field is simply absent, which reads as falsy.
+  resolved_in_meeting?: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;
