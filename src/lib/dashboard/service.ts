@@ -90,47 +90,148 @@ export async function getDashboardData(
 ): Promise<DashboardData | null> {
   const supabase = await createSupabaseServerClient();
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("id, name, timezone")
-    .eq("id", companyId)
-    .maybeSingle<Pick<Company, "id" | "name" | "timezone">>();
+  // ---- Wave 1: everything that needs only companyId ----------
+  // These six have no dependency on each other. Previously they ran
+  // in a straight line along with everything below, so a page load
+  // paid 13 sequential round trips where the real dependency graph
+  // is only two levels deep. Ordering is preserved in the
+  // destructure, not in time.
+  const [
+    { data: company },
+    openQuarter,
+    { data: sfaRows },
+    { data: orphanGoalRows },
+    { data: people },
+    { data: openRows },
+  ] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("id, name, timezone")
+      .eq("id", companyId)
+      .maybeSingle<Pick<Company, "id" | "name" | "timezone">>(),
+    getCurrentQuarter(companyId),
+    supabase
+      .from("strategic_focus_areas")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("archived", false)
+      .order("sort_order")
+      .order("created_at"),
+    // Orphan goals count for the muted footnote row.
+    supabase
+      .from("annual_goals")
+      .select("id")
+      .eq("company_id", companyId)
+      .is("sfa_id", null)
+      .eq("archived", false),
+    // People — per-owner counts in the OPEN QUARTER (Section 8.2).
+    // Pending users included so they surface on the dashboard as soon
+    // as they're added, even before they accept the invite.
+    supabase
+      .from("profiles")
+      .select("id, full_name, position, reports_to")
+      .eq("company_id", companyId)
+      .neq("status", "inactive")
+      .order("full_name"),
+    supabase
+      .from("commitments")
+      .select("owner_id")
+      .eq("company_id", companyId)
+      .eq("status", "open"),
+  ]);
+
+  // Bail before wave 2 rather than inside it — a missing company row
+  // means there is nothing to render and no point spending the
+  // second batch of queries.
   if (!company) return null;
 
-  const openQuarter = await getCurrentQuarter(companyId);
-
-  // Focus areas + sponsors + progress percent.
-  const { data: sfaRows } = await supabase
-    .from("strategic_focus_areas")
-    .select("*")
-    .eq("company_id", companyId)
-    .eq("archived", false)
-    .order("sort_order")
-    .order("created_at");
   const sfas = (sfaRows ?? []) as StrategicFocusArea[];
+  const orphanGoalCount = orphanGoalRows?.length ?? 0;
+  const roster = (people ?? []) as Pick<
+    Profile,
+    "id" | "full_name" | "position" | "reports_to"
+  >[];
 
+  // ---- Wave 2: everything that needed one thing from wave 1 ----
+  // Sponsors and progress need the focus areas; priorities and
+  // quarter commitments need the open quarter; this-week and the
+  // trend need the company's timezone; recent successes needs the
+  // quarter. None of them need each other.
   const sponsorIds = Array.from(
     new Set(sfas.map((s) => s.sponsor_id).filter((x): x is string => Boolean(x)))
   );
-  const { data: sponsorRows } = sponsorIds.length
-    ? await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", sponsorIds)
-    : { data: [] };
+  const tz = company.timezone ?? "America/Anchorage";
+  const thisFri = thisFriday(tz);
+  const trendWeeks: string[] = [];
+  for (let i = 11; i >= 0; i -= 1) {
+    trendWeeks.push(addDays(thisFri, -7 * i));
+  }
+  const oldestWeek = trendWeeks[0];
+
+  const [
+    { data: sponsorRows },
+    { data: sfaProgress },
+    { data: priorityStatusRows },
+    { data: quarterCommitmentRows },
+    { data: thisWeekRows },
+    { data: trendRows },
+    recentSuccesses,
+  ] = await Promise.all([
+    sponsorIds.length
+      ? supabase.from("profiles").select("id, full_name").in("id", sponsorIds)
+      : Promise.resolve({ data: [] }),
+    sfas.length
+      ? supabase
+          .from("sfa_progress")
+          .select("sfa_id, percent")
+          .in(
+            "sfa_id",
+            sfas.map((s) => s.id)
+          )
+      : Promise.resolve({ data: [] }),
+    // On Track — priority-level status counts for the open quarter.
+    openQuarter
+      ? supabase
+          .from("priorities")
+          .select("id, status, archived")
+          .eq("company_id", companyId)
+          .eq("quarter_id", openQuarter.id)
+          .eq("archived", false)
+      : Promise.resolve({ data: [] }),
+    // Commitments in the open quarter — derived from week_ending
+    // falling inside the quarter window, so operational (unlinked)
+    // commitments count toward keep-rate identically to strategic
+    // ones. The two clarity booleans ride along so the headline can
+    // report share-with-both-met without a second scan.
+    openQuarter
+      ? supabase
+          .from("commitments")
+          .select("status, owner_id, clarity_timeline, clarity_success")
+          .eq("company_id", companyId)
+          .gte("week_ending", openQuarter.start_date)
+          .lte("week_ending", openQuarter.end_date)
+      : Promise.resolve({ data: [] }),
+    // This Week — count of open commitments due this Friday.
+    supabase
+      .from("commitments")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("status", "open")
+      .eq("week_ending", thisFri),
+    // Keep-rate trend: last 12 weeks ending this Friday.
+    supabase
+      .from("commitments")
+      .select("week_ending, status")
+      .eq("company_id", companyId)
+      .gte("week_ending", oldestWeek)
+      .lte("week_ending", thisFri),
+    loadRecentSuccesses(supabase, companyId, openQuarter),
+  ]);
+
   const sponsorById = new Map(
     (sponsorRows ?? []).map((p) => [p.id, p as Pick<Profile, "id" | "full_name">])
   );
 
-  const { data: sfaProgress } = sfas.length
-    ? await supabase
-        .from("sfa_progress")
-        .select("sfa_id, percent")
-        .in(
-          "sfa_id",
-          sfas.map((s) => s.id)
-        )
-    : { data: [] };
   const percentBySfaId = new Map(
     ((sfaProgress ?? []) as SfaProgressRow[]).map((row) => [
       row.sfa_id,
@@ -156,60 +257,23 @@ export async function getDashboardData(
             executionValues.length
         );
 
-  // Orphan goals count for the muted footnote row.
-  const { data: orphanGoalRows } = await supabase
-    .from("annual_goals")
-    .select("id")
-    .eq("company_id", companyId)
-    .is("sfa_id", null)
-    .eq("archived", false);
-  const orphanGoalCount = orphanGoalRows?.length ?? 0;
+  // Derivations from wave 2. Identical arithmetic to before; only
+  // the fetching moved.
+  const priorities = (priorityStatusRows ?? []) as Pick<
+    Priority,
+    "id" | "status" | "archived"
+  >[];
+  const onTrackTotal = priorities.length;
+  const onTrackGood = priorities.filter(
+    (p) => p.status === "on_track" || p.status === "complete"
+  ).length;
 
-  // On Track — priority-level status counts for the open quarter.
-  let onTrackGood = 0;
-  let onTrackTotal = 0;
-  if (openQuarter) {
-    const { data: pRows } = await supabase
-      .from("priorities")
-      .select("id, status, archived")
-      .eq("company_id", companyId)
-      .eq("quarter_id", openQuarter.id)
-      .eq("archived", false);
-    const priorities = (pRows ?? []) as Pick<
-      Priority,
-      "id" | "status" | "archived"
-    >[];
-    onTrackTotal = priorities.length;
-    onTrackGood = priorities.filter(
-      (p) => p.status === "on_track" || p.status === "complete"
-    ).length;
-  }
-
-  // Commitments in the open quarter — now derived from week_ending
-  // falling inside the quarter window, so operational (unlinked)
-  // commitments count toward keep-rate identically to strategic ones.
-  // We also pull the two clarity booleans so the headline can
-  // report share-with-both-met without a second scan.
-  let quarterCommitments: Array<
+  const quarterCommitments = (quarterCommitmentRows ?? []) as Array<
     Pick<
       Commitment,
       "status" | "owner_id" | "clarity_timeline" | "clarity_success"
     >
-  > = [];
-  if (openQuarter) {
-    const { data: cRows } = await supabase
-      .from("commitments")
-      .select("status, owner_id, clarity_timeline, clarity_success")
-      .eq("company_id", companyId)
-      .gte("week_ending", openQuarter.start_date)
-      .lte("week_ending", openQuarter.end_date);
-    quarterCommitments = (cRows ?? []) as Array<
-      Pick<
-        Commitment,
-        "status" | "owner_id" | "clarity_timeline" | "clarity_success"
-      >
-    >;
-  }
+  >;
 
   const keepRatePercent = computeFollowThroughRate(
     quarterCommitments.map((c) => c.status)
@@ -234,29 +298,8 @@ export async function getDashboardData(
       ? null
       : Math.round((clarityAllClear / clarityAssessed) * 100);
 
-  // This Week — count of open commitments due this Friday.
-  const tz = company.timezone ?? "America/Anchorage";
-  const thisFri = thisFriday(tz);
-  const { data: thisWeekRows } = await supabase
-    .from("commitments")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("status", "open")
-    .eq("week_ending", thisFri);
   const thisWeekOpen = thisWeekRows?.length ?? 0;
 
-  // Keep-rate trend: last 12 weeks ending this Friday.
-  const trendWeeks: string[] = [];
-  for (let i = 11; i >= 0; i -= 1) {
-    trendWeeks.push(addDays(thisFri, -7 * i));
-  }
-  const oldestWeek = trendWeeks[0];
-  const { data: trendRows } = await supabase
-    .from("commitments")
-    .select("week_ending, status")
-    .eq("company_id", companyId)
-    .gte("week_ending", oldestWeek)
-    .lte("week_ending", thisFri);
   const trendByWeek = bucketKeepRates(
     (trendRows ?? []) as Pick<Commitment, "week_ending" | "status">[],
     (row) => row.week_ending
@@ -267,27 +310,8 @@ export async function getDashboardData(
     isCurrentWeek: week === thisFri,
   }));
 
-  // People — per-owner counts in the OPEN QUARTER (Section 8.2).
-  // Pending users included so they surface on the dashboard as soon
-  // as they're added, even before they accept the invite.
-  const { data: people } = await supabase
-    .from("profiles")
-    .select("id, full_name, position, reports_to")
-    .eq("company_id", companyId)
-    .neq("status", "inactive")
-    .order("full_name");
-  const roster = (people ?? []) as Pick<
-    Profile,
-    "id" | "full_name" | "position" | "reports_to"
-  >[];
-
   // Group commitments by owner for the quarter's kept/missed counts
   // and the overall open count (open uses today's snapshot).
-  const { data: openRows } = await supabase
-    .from("commitments")
-    .select("owner_id")
-    .eq("company_id", companyId)
-    .eq("status", "open");
   const openByOwner = new Map<string, number>();
   for (const row of (openRows ?? []) as Pick<Commitment, "owner_id">[]) {
     // Person keep-rate ignores unassigned commitments (they show up
@@ -326,12 +350,6 @@ export async function getDashboardData(
     if (b.keepRate === null) return -1;
     return a.keepRate - b.keepRate;
   });
-
-  const recentSuccesses = await loadRecentSuccesses(
-    supabase,
-    companyId,
-    openQuarter
-  );
 
   return {
     company,

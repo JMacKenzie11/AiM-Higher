@@ -4,6 +4,7 @@ import { HelpWidget } from "@/components/help/HelpWidget";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { deriveCompanyContext } from "@/lib/companies/context-label";
 import { getHeaderNotifications } from "@/lib/notifications/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -48,45 +49,49 @@ export default async function AppLayout({
   // latter is display-formatted ("System admin · Acme Co").
   let analyticsCompanyName: string | null = null;
 
+  // Resolve the effective company FIRST, then fetch its row and its
+  // entitlements together. Those two have no dependency on each
+  // other; they used to run back to back, and this layout renders on
+  // every authenticated route, so the extra round trip was paid on
+  // every page in the product.
   if (isCrossCompanyRole) {
     scopedCompanyId = await getEffectiveCompanyId(session);
-    if (scopedCompanyId) {
-      const supabase = await createSupabaseServerClient();
-      const { data: company } = await supabase
-        .from("companies")
-        .select("name, timezone")
-        .eq("id", scopedCompanyId)
-        .maybeSingle<Pick<Company, "name" | "timezone">>();
-      scopedCompanyName = company?.name;
-      analyticsCompanyName = company?.name ?? null;
-      companyTimezone = company?.timezone ?? null;
-      contextLabel = scopedCompanyName
-        ? `${roleLabel} · ${scopedCompanyName}`
-        : (roleLabel ?? undefined);
-    } else {
-      contextLabel = roleLabel ?? undefined;
-    }
-  } else if (session.profile.company_id) {
-    const supabase = await createSupabaseServerClient();
-    const { data: company } = await supabase
-      .from("companies")
-      .select("name, timezone")
-      .eq("id", session.profile.company_id)
-      .maybeSingle<Pick<Company, "name" | "timezone">>();
-    if (company?.name) contextLabel = company.name;
-    analyticsCompanyName = company?.name ?? null;
-    companyTimezone = company?.timezone ?? null;
   }
-
-  // Fetch the effective company's feature entitlements so NavBand
-  // can gate module-specific links. Cross-company roles with no
-  // scoped company see no module links either way.
   const effectiveCompanyId = isCrossCompanyRole
     ? scopedCompanyId
     : session.profile.company_id;
-  const features: ModuleFeature[] = effectiveCompanyId
-    ? await getCompanyFeatures(effectiveCompanyId)
-    : [];
+
+  const [companyRow, features] = await Promise.all([
+    effectiveCompanyId
+      ? (async () => {
+          const supabase = await createSupabaseServerClient();
+          const { data } = await supabase
+            .from("companies")
+            .select("name, timezone")
+            .eq("id", effectiveCompanyId)
+            .maybeSingle<Pick<Company, "name" | "timezone">>();
+          return data;
+        })()
+      : Promise.resolve(null),
+    // Feature entitlements gate module-specific nav links. Cross-company
+    // roles with no scoped company see no module links either way.
+    effectiveCompanyId
+      ? getCompanyFeatures(effectiveCompanyId)
+      : Promise.resolve([] as ModuleFeature[]),
+  ]);
+
+  // Branching lives in lib/companies/context-label.ts so it carries
+  // test cover — a server component can't be unit-tested here.
+  ({
+    contextLabel,
+    scopedCompanyName,
+    analyticsCompanyName,
+    companyTimezone,
+  } = deriveCompanyContext({
+    isCrossCompanyRole,
+    roleLabel,
+    companyRow: companyRow ?? null,
+  }));
 
   // Companies exploring metrics before flipping the paid Success
   // Tracking entitlement shouldn't get an invisible nav link. When
