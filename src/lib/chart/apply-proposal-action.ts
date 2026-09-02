@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
+import { getAccessForConversation } from "@/lib/coach/service";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   parseChartProposal,
@@ -98,9 +99,34 @@ export async function applyChartProposalAction(
   if (!convo) {
     return { ok: false, message: "Couldn't find that conversation." };
   }
-  if (convo.created_by !== session.profile.id) {
-    return { ok: false, message: "Not yours to apply." };
+
+  // Creator OR a write-share holder. This used to be a bare
+  // created_by equality check, which silently broke the whole point
+  // of sharing a practice conversation: the leader shares the chart
+  // session with their guide, the guide is the one who actually
+  // builds the chart, and Apply refused them with "Not yours to
+  // apply" — including for a system admin.
+  //
+  // Read-only sharees are still refused. They can see the proposal
+  // but they haven't been given a hand on the wheel.
+  //
+  // Note this is NOT the check that protects the chart. Chart-edit
+  // rights are isAdminForCompany below, which is unchanged. This one
+  // governs acting on someone else's coaching conversation.
+  const access = await getAccessForConversation(
+    conversationId,
+    session.profile.id
+  );
+  if (access !== "owner" && access !== "write") {
+    return {
+      ok: false,
+      message:
+        access === "read"
+          ? "You have read-only access to this chat, so you can't apply it."
+          : "Not yours to apply.",
+    };
   }
+
   const companyId = convo.company_id;
   if (!isAdminForCompany(session.profile, companyId)) {
     return { ok: false, message: "You can't edit this company's chart." };
