@@ -60,7 +60,15 @@ const mocks = vi.hoisted(() => {
     if (table === "commitments") {
       return {
         select: () => ({
-          eq: () => ({ eq: () => commitmentsOpenByPriority() }),
+          // .eq(priority_id).eq(status).is(deleted_at).is(parked_at)
+          // The two is() calls exclude soft-deleted and parked rows,
+          // which the UI hides — closing them would resurrect them
+          // into the kept counts. The chain is thenable at the end.
+          eq: () => ({
+            eq: () => ({
+              is: () => ({ is: () => commitmentsOpenByPriority() }),
+            }),
+          }),
         }),
         update: (patch: unknown) => {
           commitmentsUpdatePatch(patch);
@@ -167,9 +175,16 @@ describe("completePriorityAction", () => {
     const res = await completePriorityAction("pri_1");
 
     expect(res).toEqual({ ok: true, commitmentsClosedCount: 3 });
+    // MUST be kept_on_time, not "kept". Migration 0139 replaced the
+    // old 'kept' value and added a CHECK constraint that rejects it,
+    // so writing "kept" here made the whole action fail with
+    // "Couldn't close the open commitments" whenever the priority had
+    // any open commitment. This assertion previously read "kept" and
+    // passed anyway, because the fake below has no CHECK constraint —
+    // the suite stayed green while the feature was broken in prod.
     expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: "kept",
+        status: "kept_on_time",
         completed_at: expect.any(String),
         missed_reason: null,
       })

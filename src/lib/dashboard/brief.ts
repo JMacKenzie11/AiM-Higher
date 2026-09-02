@@ -269,7 +269,13 @@ async function buildWeeklySnapshot(
   const quarterStatuses = ((quarterKeep ?? []) as Array<{ status: string }>).map(
     (r) => r.status
   );
-  const quarterKept = quarterStatuses.filter((s) => s === "kept").length;
+  // Both kept statuses count as "did the work". "kept" alone has
+  // matched nothing since migration 0139, so this rate was being
+  // reported to leaders as 0% in the generated brief. The recent-week
+  // block above was already fixed; this one was missed.
+  const quarterKept = quarterStatuses.filter(
+    (s) => s === "kept_on_time" || s === "kept_late"
+  ).length;
   const quarterMissed = quarterStatuses.filter((s) => s === "missed").length;
   const quarterRate =
     quarterKept + quarterMissed === 0
