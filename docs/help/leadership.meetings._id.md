@@ -29,7 +29,7 @@ As an admin or guide, you can also:
   Tracking is off)* — each extracted commitment shows in the
   *Commitments identified* card with three actions: link to a
   Priority, link to a Functional Area, or *Convert to issue*.
-  Once you act, the pickers disappear and a green checkmark
+  Once you act, the pickers disappear and a navy checkmark
   chip takes their place spelling out what happened — *Added to
   &lt;Priority name&gt;*, *Added to &lt;Function name&gt;*,
   *Captured as commitment* (no link), or *Issue created*. Same
@@ -46,6 +46,12 @@ As an admin or guide, you can also:
     desired outcome, a commitment, and an owner.
   Both are idempotent by title + meeting, so a double-click
   doesn't create twins. First click wins between the two paths.
+  The two chips are deliberately different marks so the column is
+  scannable: a check in a circle means the loop closed in the
+  room, a plus in a circle means it went onto the list to work
+  later. Over on /issues, a row closed by the shortcut reads
+  *Resolved in meeting* in its *Commitment* column rather than
+  showing a blank, so you can tell later how it got there.
 - **Read the facilitation review** *(when Meeting Facilitation
   Review is on)* — the "How the meeting was run" panel is a
   coaching-tone read against the AiMS Weekly Leadership Meeting
