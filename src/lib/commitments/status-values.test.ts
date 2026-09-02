@@ -120,6 +120,61 @@ describe("commitment status values", () => {
     expect(body).toMatch(/parked_at is null/i);
   });
 
+  it("the replacement view keeps the original column names, in order", () => {
+    // CREATE OR REPLACE VIEW can only ADD trailing columns. It cannot
+    // rename, reorder, or retype an existing one — Postgres rejects
+    // the whole statement (42P16). Dropping and recreating is not an
+    // escape hatch either: annual_goal_progress depends on this view,
+    // so DROP would need CASCADE and would take the rollups with it.
+    //
+    // This bit on the first attempt at 0163: carried_count went from
+    // coalesce(sum(...), 0) — a bigint — to a bare 0, an integer, and
+    // the migration failed in the SQL editor. The fix was an explicit
+    // ::bigint. This test compares the projected column list of the
+    // original definition against the latest one so the next person
+    // finds out here rather than in production.
+    const files = readdirSync(MIGRATIONS)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
+    const defs: string[] = [];
+    for (const f of files) {
+      const sql = readFileSync(path.join(MIGRATIONS, f), "utf8");
+      const m = sql.match(
+        /create\s+or\s+replace\s+view\s+public\.priority_progress\s+as([\s\S]*?)from\s+public\.priorities/i
+      );
+      if (m) defs.push(m[1]);
+    }
+    expect(defs.length).toBeGreaterThanOrEqual(2);
+
+    // Pull the "as <name>" aliases in projection order.
+    const aliases = (body: string) =>
+      Array.from(body.matchAll(/\bas\s+([a-z_]+)\s*(?:,|$)/gim)).map(
+        (m) => m[1]
+      );
+
+    const original = aliases(defs[0]);
+    const latest = aliases(defs[defs.length - 1]);
+
+    expect(original.length).toBeGreaterThan(0);
+    expect(latest).toEqual(original);
+  });
+
+  it("casts carried_count to bigint so the column type is unchanged", () => {
+    // The specific trap above. A bare 0 here is an integer and the
+    // replacement is rejected.
+    const files = readdirSync(MIGRATIONS)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
+    let latest = "";
+    for (const f of files) {
+      const sql = readFileSync(path.join(MIGRATIONS, f), "utf8");
+      if (/create\s+or\s+replace\s+view\s+public\.priority_progress/i.test(sql)) {
+        latest = sql;
+      }
+    }
+    expect(latest).toMatch(/0::bigint\s+as carried_count/);
+  });
+
   it("documents the live status set so a future rename updates this list", () => {
     // Pins the set itself. If someone adds a fifth status, this fails
     // and they are pointed at every consumer above.
