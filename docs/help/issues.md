@@ -29,13 +29,15 @@ As a team member, you can:
   of done observable?).
 - **See resolved history** — the *Resolved issues* section at the
   bottom is read-only and mirrors the open table (Issue / What we
-  want / Commitment / Assigned to / Due date). Rows with no *What
-  we want*, no *Commitment*, and no *Assigned to* were closed via
-  the *Resolved in meeting* shortcut on the meeting summary —
-  the team talked the issue through in the meeting and no
-  follow-up work was needed, so it landed straight in the
-  resolved list. The *Due date* column on those rows shows the
-  date the button was clicked.
+  want / Commitment / Assigned to / Due date). A row whose
+  *Commitment* column reads **Resolved in meeting** was closed via
+  that shortcut on the meeting summary — the team talked the issue
+  through in the meeting and no follow-up work was needed, so it
+  landed straight in the resolved list with no *What we want* and
+  no *Assigned to*. The *Due date* on those rows shows the date the
+  button was clicked. A row showing a plain dash in *Commitment*
+  was resolved some other way without a commitment ever being
+  attached; the two used to look identical.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -121,17 +123,18 @@ decides what to do with each one. Two shortcuts per row:
 - **Add to open issues** — the issue joins the open backlog on
   `/issues` where a leader can add the desired outcome, a
   commitment, and an owner. Standard flow when the team wants
-  to work the issue further. Post-click the row flips to a green
-  *Added as issue* chip.
+  to work the issue further. Post-click the row flips to an
+  *Added as issue* chip, marked with a plus in a circle.
 - **Resolved in meeting** — the issue lands in the *Resolved
-  issues* section right away with no *What we want*, no
-  *Commitment*, and no *Assigned to*. Use it when the team
-  already talked the issue through in the meeting and there's
-  no follow-up work needed. Post-click the row flips to a green
-  *Resolved in meeting* chip; the *Due date* on that row shows
-  the date the button was clicked. So if you're scanning
-  `/issues` later and see a resolved row with no commitment or
-  owner, that's how it got there.
+  issues* section right away with no *What we want* and no
+  *Assigned to*. Use it when the team already talked the issue
+  through in the meeting and there's no follow-up work needed.
+  Post-click the row flips to a *Resolved in meeting* chip, marked
+  with a check in a circle. On `/issues` that row's *Due date*
+  shows the date the button was clicked, and its *Commitment*
+  column reads *Resolved in meeting* — so when you scan the
+  resolved list later, you can tell at a glance which rows were
+  closed in the room rather than worked.
 
 First click wins between the two shortcuts — a second click on
 the other button is a no-op, and the label persists across

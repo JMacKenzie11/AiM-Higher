@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteIssueAction } from "@/lib/issues/actions";
+import { resolvedCommitmentCell } from "@/lib/issues/resolved-row";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { IssueWithCommitments } from "@/lib/issues/service";
 import type { Profile } from "@/lib/types";
@@ -71,6 +72,12 @@ function ResolvedRow({
   // render an em-dash. Nothing to interact with either way.
   const last = [...issue.commitments]
     .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))[0] ?? null;
+  // Rule lives in lib/issues/resolved-row.ts so it can be tested —
+  // there's no DOM test tooling in this project.
+  const commitmentCell = resolvedCommitmentCell({
+    commitmentDescription: last?.description,
+    resolvedInMeeting: issue.resolved_in_meeting,
+  });
   const ownerName = last?.owner_id
     ? roster.find((p) => p.id === last.owner_id)?.full_name ?? null
     : null;
@@ -93,9 +100,9 @@ function ResolvedRow({
           )}
         </div>
         <div className={styles.cellCommitment}>
-          {last ? (
-            last.description
-          ) : issue.resolved_in_meeting ? (
+          {commitmentCell.kind === "commitment" ? (
+            commitmentCell.text
+          ) : commitmentCell.kind === "in-meeting" ? (
             // Closed by the meeting-summary shortcut, so no commitment
             // was ever created. Say that rather than showing a dash
             // that reads as missing data.
