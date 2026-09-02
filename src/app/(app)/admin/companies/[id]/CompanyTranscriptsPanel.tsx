@@ -1,5 +1,9 @@
 import Link from "next/link";
-import type { Meeting, TranscriptAlias, TranscriptSource } from "@/lib/types";
+import type {
+  MeetingAdminRow,
+  TranscriptAlias,
+  TranscriptSource,
+} from "@/lib/types";
 import { ConnectCompanyFolderForm } from "./ConnectCompanyFolderForm";
 import { ConnectGoogleButton } from "@/app/(app)/admin/transcripts/ConnectGoogleButton";
 import { SourceRowActions } from "@/app/(app)/admin/transcripts/SourceRowActions";
@@ -23,7 +27,7 @@ export function CompanyTranscriptsPanel({
   companyId: string;
   connectedAccount: string | null;
   sources: TranscriptSource[];
-  meetings: Meeting[];
+  meetings: MeetingAdminRow[];
   aliases: TranscriptAlias[];
   flashConnected: string | null;
   flashError: string | null;

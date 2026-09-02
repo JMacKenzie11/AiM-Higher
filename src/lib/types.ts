@@ -593,6 +593,27 @@ export type OAuthCredentials = {
   updated_at: string;
 };
 
+// Narrow projections of Meeting for list surfaces. Meeting itself
+// carries transcript_text (the entire meeting transcript), so any
+// list that selects "*" drags megabytes per page. List queries select
+// these column sets instead; Pick keeps them honest if Meeting is
+// renamed.
+export type MeetingListRow = Pick<
+  Meeting,
+  "id" | "meeting_title" | "file_name" | "status" | "error" | "created_at"
+>;
+
+export type MeetingAdminRow = Pick<
+  Meeting,
+  | "id"
+  | "meeting_title"
+  | "file_name"
+  | "status"
+  | "error"
+  | "created_at"
+  | "source_id"
+>;
+
 export type MeetingAnalysis = {
   id: string;
   meeting_id: string;

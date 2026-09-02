@@ -96,12 +96,19 @@ export async function getHeaderNotifications({
       { data: overdueRows, count: overdue },
       { data: dueTodayRows, count: dueToday },
     ] = await Promise.all([
+      // deleted_at / parked_at are REQUIRED here. Without them the
+      // bell counted soft-deleted and parked commitments as overdue,
+      // so a user who tidied up their list still saw the badge. These
+      // two filters also make commitments_owner_open_due_idx an exact
+      // match for the query.
       supabase
         .from("commitments")
         .select("id, description", { count: "exact" })
         .eq("owner_id", userId)
         .eq("company_id", companyId)
         .eq("status", "open")
+        .is("deleted_at", null)
+        .is("parked_at", null)
         .lt("due_date", todayIso)
         .order("due_date", { ascending: true })
         .limit(1),
@@ -111,6 +118,8 @@ export async function getHeaderNotifications({
         .eq("owner_id", userId)
         .eq("company_id", companyId)
         .eq("status", "open")
+        .is("deleted_at", null)
+        .is("parked_at", null)
         .eq("due_date", todayIso)
         .order("due_date", { ascending: true })
         .limit(1),
