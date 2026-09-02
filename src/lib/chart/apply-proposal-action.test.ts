@@ -30,6 +30,10 @@ const mocks = vi.hoisted(() => {
   const rolesInsert = vi.fn(); // returns { error, count }
   const rolesInsertPatch = vi.fn(); // captures the rows
   const conversationMaybeSingle = vi.fn(); // returns { data }
+  // Conversation access: "owner" | "write" | "read" | null. Apply is
+  // allowed for owner + write; read-only sharees and non-sharees are
+  // refused.
+  const getAccessForConversation = vi.fn();
 
   const fromBuilder = (table: string) => {
     if (table === "coaching_conversations") {
@@ -84,6 +88,7 @@ const mocks = vi.hoisted(() => {
     rolesInsert,
     rolesInsertPatch,
     conversationMaybeSingle,
+    getAccessForConversation,
     adminClient,
   };
 });
@@ -94,6 +99,10 @@ vi.mock("@/lib/auth/current-user", () => ({
 
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => mocks.adminClient,
+}));
+
+vi.mock("@/lib/coach/service", () => ({
+  getAccessForConversation: mocks.getAccessForConversation,
 }));
 
 vi.mock("next/cache", () => ({
@@ -161,6 +170,7 @@ const CONV_ID = "conv_1";
 
 describe("applyChartProposalAction", () => {
   beforeEach(() => {
+    mocks.getAccessForConversation.mockResolvedValue("owner");
     vi.clearAllMocks();
     primeEmptyChart();
     // Every apply now resolves the target company from the
@@ -407,10 +417,11 @@ describe("applyChartProposalAction", () => {
     }
   });
 
-  it("rejects an apply against a conversation the caller doesn't own", async () => {
+  it("rejects a caller with no access to the conversation", async () => {
     mocks.conversationMaybeSingle.mockResolvedValueOnce({
       data: { id: CONV_ID, company_id: "co_acme", created_by: "someone_else" },
     });
+    mocks.getAccessForConversation.mockResolvedValue(null);
     mocks.requireProfile.mockResolvedValue(
       sessionFor({ id: "u1", role: "system_admin" })
     );
@@ -422,6 +433,70 @@ describe("applyChartProposalAction", () => {
 
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.message).toMatch(/not yours/i);
+    expect(mocks.functionsInsert).not.toHaveBeenCalled();
+  });
+
+  it("ALLOWS a write-share holder who isn't the creator", async () => {
+    // The reported bug. A leader shares the chart-building session
+    // with their guide, the guide is the one who actually builds the
+    // chart, and Apply refused them because created_by wasn't theirs.
+    // Sharing the conversation is meaningless if the sharee can't act
+    // on it.
+    mocks.conversationMaybeSingle.mockResolvedValueOnce({
+      data: { id: CONV_ID, company_id: "co_acme", created_by: "the_leader" },
+    });
+    mocks.getAccessForConversation.mockResolvedValue("write");
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({ id: "the_guide", role: "system_admin" })
+    );
+    const { applyChartProposalAction } = await import(
+      "./apply-proposal-action"
+    );
+
+    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
+
+    expect(res.ok).toBe(true);
+    expect(mocks.functionsInsert).toHaveBeenCalled();
+  });
+
+  it("refuses a read-only sharee, who can see the proposal but not act on it", async () => {
+    mocks.conversationMaybeSingle.mockResolvedValueOnce({
+      data: { id: CONV_ID, company_id: "co_acme", created_by: "the_leader" },
+    });
+    mocks.getAccessForConversation.mockResolvedValue("read");
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({ id: "a_reader", role: "system_admin" })
+    );
+    const { applyChartProposalAction } = await import(
+      "./apply-proposal-action"
+    );
+
+    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/read-only/i);
+    expect(mocks.functionsInsert).not.toHaveBeenCalled();
+  });
+
+  it("still refuses a write-share holder who can't edit THIS company's chart", async () => {
+    // Conversation access and chart-edit rights are separate gates.
+    // A guide with a write share but no assignment to the company
+    // must not be able to write its chart.
+    mocks.conversationMaybeSingle.mockResolvedValueOnce({
+      data: { id: CONV_ID, company_id: "co_acme", created_by: "the_leader" },
+    });
+    mocks.getAccessForConversation.mockResolvedValue("write");
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({ id: "g1", role: "aims_guide", guide_company_ids: ["co_other"] })
+    );
+    const { applyChartProposalAction } = await import(
+      "./apply-proposal-action"
+    );
+
+    const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/can't edit/i);
     expect(mocks.functionsInsert).not.toHaveBeenCalled();
   });
 
