@@ -51,6 +51,27 @@ export async function findSimilarOpenItem(
     }),
   ]);
 
+  // Surface RPC failures instead of swallowing them. Only .data was
+  // read before, so a missing function, a revoked grant or a bad
+  // argument all returned "no similar item found" — indistinguishable
+  // from a genuine miss. That's how a duplicate-detection outage could
+  // run indefinitely with no signal. Still non-fatal: the badge is an
+  // enhancement, and a failed lookup must never block the page.
+  if (commitmentRes.error) {
+    console.warn("findSimilarOpenItem: commitment RPC failed", {
+      companyId,
+      code: commitmentRes.error.code,
+      message: commitmentRes.error.message,
+    });
+  }
+  if (issueRes.error) {
+    console.warn("findSimilarOpenItem: issue RPC failed", {
+      companyId,
+      code: issueRes.error.code,
+      message: issueRes.error.message,
+    });
+  }
+
   const c = firstRow<{ id: string; description: string; sim: number }>(
     commitmentRes.data
   );

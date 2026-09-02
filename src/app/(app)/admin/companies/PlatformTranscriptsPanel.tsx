@@ -1,4 +1,4 @@
-import type { Company, Meeting } from "@/lib/types";
+import type { Company, MeetingListRow } from "@/lib/types";
 import { UnroutedRowActions } from "@/app/(app)/admin/transcripts/UnroutedRowActions";
 import styles from "./admin.module.css";
 
@@ -12,7 +12,7 @@ export function PlatformTranscriptsPanel({
   unrouted,
   companies,
 }: {
-  unrouted: Meeting[];
+  unrouted: MeetingListRow[];
   companies: Pick<Company, "id" | "name">[];
 }) {
   if (unrouted.length === 0) return null;

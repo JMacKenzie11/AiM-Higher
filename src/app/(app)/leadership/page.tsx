@@ -9,7 +9,7 @@ import { FacilitationListChip } from "@/components/leadership/FacilitationReview
 import { PageShell } from "@/components/ui/PageShell";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
-import type { Meeting } from "@/lib/types";
+import type { MeetingListRow } from "@/lib/types";
 import styles from "../admin/companies/admin.module.css";
 
 // Leadership — the home for meeting-transcript analyses.
@@ -30,13 +30,18 @@ export default async function LeadershipPage() {
   const isAdmin = isAdminForCompany(session.profile, companyId);
 
   const supabase = await createSupabaseServerClient();
+  // Explicit column list, NOT select("*"). The Meeting row carries
+  // transcript_text (the full meeting transcript); selecting it for
+  // 100 rows pulled megabytes over the wire and through JSON.parse to
+  // render a table of titles and dates. These six columns are exactly
+  // what the table below reads.
   const { data: rows } = await supabase
     .from("meetings")
-    .select("*")
+    .select("id, meeting_title, file_name, status, error, created_at")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
     .limit(100);
-  const meetings = (rows ?? []) as Meeting[];
+  const meetings = (rows ?? []) as MeetingListRow[];
 
   // Facilitation column is only fetched (and only rendered) when the
   // feature is on AND the caller can manage this company. Grades the

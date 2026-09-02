@@ -124,7 +124,10 @@ vi.mock("./provider", () => ({
   getProvider: mocks.getProvider,
 }));
 
-vi.mock("./providers/google-drive", () => ({
+// parseGoogleFolderId now lives in its own dependency-free module so
+// actions.ts doesn't drag `googleapis` into every consumer. Mock the
+// module actions.ts actually imports.
+vi.mock("./providers/drive-url", () => ({
   parseGoogleFolderId: mocks.parseGoogleFolderId,
 }));
 

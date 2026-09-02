@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile, Role } from "@/lib/types";
@@ -32,7 +33,20 @@ export type CurrentSession = {
   profile: SessionProfile | null;
 };
 
-export async function getCurrentSession(): Promise<CurrentSession | null> {
+// Wrapped in React's cache() so the whole auth resolution — the
+// getUser() round trip to GoTrue, the profiles read, and the guide
+// assignments read — happens ONCE per request instead of once per
+// caller. Middleware, the (app) layout and the page each call
+// requireProfile independently; a server action adds a fourth as the
+// tree re-renders. getUser() is not a local token decode, it's an
+// HTTPS call that revalidates against the auth server every time, so
+// the duplicates were the single most repeated round trip in the app.
+//
+// cache() is per-request and per-render, so there's no cross-request
+// or cross-user leakage: two different users' requests never share an
+// entry. Nothing else changes — requireSession, requireProfile and
+// requireRole all funnel through here.
+export const getCurrentSession = cache(async function getCurrentSession(): Promise<CurrentSession | null> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -63,7 +77,7 @@ export async function getCurrentSession(): Promise<CurrentSession | null> {
       ? { ...profile, guide_company_ids: guideCompanyIds }
       : null,
   };
-}
+});
 
 // Redirects to /sign-in if there is no session. Returns the session
 // object otherwise. For pages that require an established profile

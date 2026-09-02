@@ -22,7 +22,6 @@
     "posthog:insights": "node --env-file=.env.local --experimental-strip-types scripts/setup-posthog-insights.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.16",
     "@anthropic-ai/sdk": "^0.111.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
@@ -33,7 +32,6 @@
     "@tiptap/pm": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
-    "ai": "^7.0.31",
     "docx": "^9.7.1",
     "googleapis": "^173.0.0",
     "mammoth": "^1.12.0",

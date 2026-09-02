@@ -8,7 +8,7 @@ import { getBulkResetImpact } from "@/lib/plan/service";
 import { BulkResetButton } from "@/app/(app)/plan/BulkResetButton";
 import type {
   Company,
-  Meeting,
+  MeetingAdminRow,
   TranscriptAlias,
   TranscriptSource,
 } from "@/lib/types";
@@ -71,7 +71,11 @@ export default async function CompanyDetailPage({
       .order("created_at", { ascending: false }),
     supabase
       .from("meetings")
-      .select("*")
+      // Column list, not "*": Meeting carries transcript_text and this
+      // panel renders metadata only. See MeetingAdminRow.
+      .select(
+        "id, meeting_title, file_name, status, error, created_at, source_id"
+      )
       .eq("company_id", id)
       .order("created_at", { ascending: false })
       .limit(50),
@@ -83,7 +87,7 @@ export default async function CompanyDetailPage({
   const features = await getCompanyFeatures(company.id);
   const aliasRows = (aliases ?? []) as TranscriptAlias[];
   const sourceRows = (sources ?? []) as TranscriptSource[];
-  const meetingRows = (meetings ?? []) as Meeting[];
+  const meetingRows = (meetings ?? []) as MeetingAdminRow[];
 
   // Fetch the "how many things will this archive" counts for anyone
   // who might see the Planning cycle card (system admin or company

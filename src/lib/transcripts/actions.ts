@@ -11,7 +11,10 @@ import type { SessionProfileLike } from "@/lib/auth/permissions";
 import { trackAfter } from "@/lib/analytics/track";
 import { ingestSource, processPendingMeetings } from "./ingest";
 import { getProvider } from "./provider";
-import { parseGoogleFolderId } from "./providers/google-drive";
+// Imported from the dependency-free module, NOT from
+// ./providers/google-drive — that module imports `googleapis` and
+// would pull it into every consumer of this file.
+import { parseGoogleFolderId } from "./providers/drive-url";
 import type {
   TranscriptSource,
   TranscriptProviderKind,

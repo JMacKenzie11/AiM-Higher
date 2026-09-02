@@ -8,7 +8,7 @@ import {
 } from "@/lib/admin/guides-service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ProgressBar } from "@/components/plan/ProgressBar";
-import type { Meeting } from "@/lib/types";
+import type { MeetingListRow } from "@/lib/types";
 import { CompanyNameLink } from "./CompanyNameLink";
 import { CompanyRowActions } from "./CompanyRowActions";
 import { CreateCompanyForm } from "./CreateCompanyForm";
@@ -63,14 +63,15 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
   const supabase = await createSupabaseServerClient();
   // Unrouted queue is only meaningful for the sysadmin who manages
   // routing across the platform; guides don't need it in their view.
-  const unrouted: Meeting[] = [];
+  const unrouted: MeetingListRow[] = [];
   if (isSystemAdmin) {
     const { data: unroutedRows } = await supabase
       .from("meetings")
-      .select("*")
+      // Metadata only — the unrouted queue shows file name and date.
+      .select("id, meeting_title, file_name, status, error, created_at")
       .eq("status", "unrouted")
       .order("created_at", { ascending: false });
-    unrouted.push(...((unroutedRows ?? []) as Meeting[]));
+    unrouted.push(...((unroutedRows ?? []) as MeetingListRow[]));
   }
 
   const oauthConnected = flash.oauth_connected ?? null;

@@ -5,6 +5,11 @@ import { google, type drive_v3 } from "googleapis";
 // google-auth-library returns a class from a separate copy of the
 // package that TypeScript won't accept in google.drive({ auth }).
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+// Re-exported for backwards compatibility. New callers should import
+// from ./drive-url directly — importing it from here drags googleapis
+// into the caller's module graph, which is the whole reason the parser
+// was moved out.
+export { parseGoogleFolderId } from "./drive-url";
 
 type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 import type {
@@ -205,18 +210,6 @@ export async function debugListFolder(source: TranscriptSource): Promise<{
       message: err instanceof Error ? err.message : String(err),
     };
   }
-}
-
-// Parses a folder id from a raw Drive URL or from the id itself.
-export function parseGoogleFolderId(input: string): string | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  if (/^[A-Za-z0-9_-]{20,}$/.test(trimmed)) return trimmed;
-  const foldersMatch = trimmed.match(/\/folders\/([A-Za-z0-9_-]{20,})/);
-  if (foldersMatch) return foldersMatch[1];
-  const idParam = trimmed.match(/[?&]id=([A-Za-z0-9_-]{20,})/);
-  if (idParam) return idParam[1];
-  return null;
 }
 
 async function verifyFolderAccess(
