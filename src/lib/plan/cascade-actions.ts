@@ -140,14 +140,22 @@ async function cascadeClosePriorityCommitments(
     .from("commitments")
     .select("id")
     .eq("priority_id", priorityId)
-    .eq("status", "open");
+    .eq("status", "open")
+    // Soft-deleted and parked rows are hidden everywhere in the UI;
+    // closing them here would resurrect them into the kept counts.
+    .is("deleted_at", null)
+    .is("parked_at", null);
   const openIds = (openRows ?? []).map((r) => r.id);
   if (openIds.length === 0) return 0;
 
   const { error } = await supabase
     .from("commitments")
     .update({
-      status: "kept",
+      // kept_on_time, NOT "kept". Migration 0139 replaced that value
+      // and added a CHECK constraint rejecting it, so this write was
+      // failing and aborting the whole Mark-complete action whenever
+      // the priority had an open commitment.
+      status: "kept_on_time",
       completed_at: new Date().toISOString(),
       missed_reason: null,
     })

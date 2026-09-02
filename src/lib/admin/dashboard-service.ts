@@ -136,7 +136,10 @@ export async function getCompanyActivity(): Promise<CompanyActivityRow[]> {
       .from("commitments")
       .select("company_id, status")
       .gte("week_ending", new Date(Date.now() - 30 * DAY_MS).toISOString().slice(0, 10))
-      .in("status", ["kept", "missed"]),
+      // Both kept statuses; "kept" alone has matched nothing since
+      // migration 0139, which pinned every company's keep-rate on the
+      // platform admin dashboard to 0.
+      .in("status", ["kept_on_time", "kept_late", "missed"]),
   ]);
 
   type MsgRow = {
@@ -213,7 +216,9 @@ export async function getCompanyActivity(): Promise<CompanyActivityRow[]> {
       commitTotals.set(c.company_id, { kept: 0, missed: 0 });
     }
     const rec = commitTotals.get(c.company_id)!;
-    if (c.status === "kept") rec.kept += 1;
+    if (c.status === "kept_on_time" || c.status === "kept_late") {
+      rec.kept += 1;
+    }
     else if (c.status === "missed") rec.missed += 1;
   }
 
