@@ -127,6 +127,7 @@ function ExtractedIssueRowItem({
       <div className={styles.rowActions}>
         {added ? (
           <DoneChip
+            variant={addedAs === "resolved" ? "resolved" : "added"}
             label={
               addedAs === "resolved"
                 ? "Resolved in meeting"

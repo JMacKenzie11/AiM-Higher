@@ -157,14 +157,19 @@
   white-space: nowrap;
 }
 
-/* Done chip — check icon + label. Replaces the pickers + button
-   once the extracted item has been acted on. Same green tone as
-   .done but with the check icon leading. */
+/* Done chip — icon + label. Replaces the pickers + button once the
+   extracted item has been acted on.
+   Brand navy via --text-heading, not the functional green: this is a
+   neutral "state" marker, not a success/pass signal, and green read as
+   off-brand next to the navy section headings. --text-heading (navy in
+   light, white in dark) is used rather than --aims-navy because
+   --surface resolves TO navy in dark mode, where a hardcoded navy chip
+   would disappear into the card. */
 .doneChip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: var(--aims-success);
+  gap: 7px;
+  color: var(--text-heading);
   font: var(--text-body-sm);
   font-weight: 600;
   white-space: nowrap;
