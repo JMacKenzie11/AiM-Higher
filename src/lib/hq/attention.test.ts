@@ -22,7 +22,10 @@ const mocks = vi.hoisted(() => {
   const prioritiesResult = vi.fn();
   const analysesResult = vi.fn();
 
-  const loadCompanyScorecard = vi.fn();
+  // Live scores only. The prior snapshot now arrives from a separate
+  // batched loader rather than riding along inside the scorecard.
+  const loadCompanyScorecardScores = vi.fn();
+  const loadLatestOverallSnapshots = vi.fn();
 
   const supabase = {
     from(table: string) {
@@ -108,7 +111,8 @@ const mocks = vi.hoisted(() => {
     meetingsUnroutedResult,
     aliasesResult,
     analysesResult,
-    loadCompanyScorecard,
+    loadCompanyScorecardScores,
+    loadLatestOverallSnapshots,
     supabase,
   };
 });
@@ -118,7 +122,8 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/maturity/service", () => ({
-  loadCompanyScorecard: mocks.loadCompanyScorecard,
+  loadCompanyScorecardScores: mocks.loadCompanyScorecardScores,
+  loadLatestOverallSnapshots: mocks.loadLatestOverallSnapshots,
 }));
 
 function primeNoTriggers() {
@@ -132,14 +137,15 @@ function primeNoTriggers() {
   mocks.meetingsUnroutedResult.mockResolvedValue({ data: [] });
   mocks.aliasesResult.mockResolvedValue({ data: [] });
   mocks.analysesResult.mockResolvedValue({ data: [] });
-  mocks.loadCompanyScorecard.mockResolvedValue({
+  mocks.loadCompanyScorecardScores.mockResolvedValue({
     companyId: "co_1",
     computedAt: "2026-01-01",
     overall: { score: 7, disciplinesCounted: 4 },
     disciplines: [],
-    timeseries: {},
-    overallTimeseries: [{ date: "2025-12-01", score: 7 }],
   });
+  mocks.loadLatestOverallSnapshots.mockResolvedValue(
+    new Map([["co_1", { date: "2025-12-01", score: 7 }]])
+  );
 }
 
 describe("computeAttentionForCompanies — per-trigger", () => {
@@ -155,14 +161,15 @@ describe("computeAttentionForCompanies — per-trigger", () => {
   });
 
   it("scorecard_dropped fires when current < last snapshot", async () => {
-    mocks.loadCompanyScorecard.mockResolvedValueOnce({
+    mocks.loadCompanyScorecardScores.mockResolvedValueOnce({
       companyId: "co_1",
       computedAt: "2026-01-01",
       overall: { score: 5, disciplinesCounted: 4 },
       disciplines: [],
-      timeseries: {},
-      overallTimeseries: [{ date: "2025-12-01", score: 8 }],
     });
+    mocks.loadLatestOverallSnapshots.mockResolvedValue(
+      new Map([["co_1", { date: "2025-12-01", score: 8 }]])
+    );
     const { computeAttentionForCompanies } = await import("./attention");
     const rows = await computeAttentionForCompanies(["co_1"]);
     expect(rows).toHaveLength(1);

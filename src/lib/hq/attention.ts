@@ -1,7 +1,10 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { loadCompanyScorecard } from "@/lib/maturity/service";
+import {
+  loadCompanyScorecardScores,
+  loadLatestOverallSnapshots,
+} from "@/lib/maturity/service";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 
 // Guide HQ attention queue. Computes, for a caseload of companies,
@@ -279,15 +282,18 @@ export async function computeAttentionForCompanies(
     }
   }
 
-  // ---- Scorecard delta — per-company live compute ----
+  // ---- Scorecard delta — live score vs the last snapshot ----
+  // The prior snapshots come from ONE query for the whole caseload
+  // rather than a full scorecard load per company, which used to drag
+  // 26 weeks of every discipline's history along for a single number.
+  const priorByCompany = await loadLatestOverallSnapshots(companyIds);
   const scorecardDeltas = await Promise.all(
     companyIds.map(async (cid) => {
       try {
-        const sc = await loadCompanyScorecard(cid);
+        const sc = await loadCompanyScorecardScores(cid);
         const currentScore = sc.overall.score;
         if (currentScore === null) return { cid, drop: null };
-        const priorSnap =
-          sc.overallTimeseries[sc.overallTimeseries.length - 1];
+        const priorSnap = priorByCompany.get(cid);
         if (!priorSnap || priorSnap.score === null) {
           return { cid, drop: null };
         }

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { loadCompanyScorecard } from "@/lib/maturity/service";
+import { loadCompanyScorecardScores } from "@/lib/maturity/service";
 import type {
   Commitment,
   Priority,
@@ -262,7 +262,9 @@ export async function loadCompanyRollups(
     companyIds.map(async (cid) => {
       let scorecardOverall: number | null = null;
       try {
-        const sc = await loadCompanyScorecard(cid);
+        // Live scores only — this rollup reads overall.score and
+        // nothing else, so it has no use for snapshot history.
+        const sc = await loadCompanyScorecardScores(cid);
         scorecardOverall = sc.overall.score;
       } catch {
         scorecardOverall = null;
