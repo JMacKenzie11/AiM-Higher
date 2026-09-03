@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Subscription-gate helpers. NavBand + module pages call these to
@@ -36,7 +38,13 @@ export type ModuleFeature =
   // description with draft + version history.
   | "role_descriptions";
 
-export async function getCompanyFeatures(
+// Wrapped in React's cache() so a company's entitlements are read
+// ONCE per request no matter how many callers ask. They were being
+// re-fetched constantly: the (app) layout reads them, the page reads
+// them again via companyHasFeature, and computeCompanyScorecard asks
+// twice more per company — which on Guide HQ multiplied by the whole
+// caseload. Per-request and per-render, so no cross-tenant sharing.
+export const getCompanyFeatures = cache(async function getCompanyFeatures(
   companyId: string
 ): Promise<ModuleFeature[]> {
   const supabase = await createSupabaseServerClient();
@@ -47,7 +55,7 @@ export async function getCompanyFeatures(
   return ((data ?? []) as Array<{ feature: string }>).map(
     (row) => row.feature as ModuleFeature
   );
-}
+});
 
 export async function companyHasFeature(
   companyId: string,

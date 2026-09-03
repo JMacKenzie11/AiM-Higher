@@ -29,13 +29,92 @@ import type {
 
 const TRAJECTORY_WINDOW_DAYS = 90;
 
+// Live scores only — no snapshot history, no timeseries bucketing.
+//
+// This is what Guide HQ actually needs: both consumers there read
+// `overall.score` and nothing else. Going through loadCompanyScorecard
+// made every company on a guide's caseload also fetch 26 weeks of
+// every discipline's snapshots and bucket them into eight arrays, to
+// then use one number.
+//
+// Cached for the same reason loadCompanyScorecard is: the attention
+// pass and the rollup pass both walk the caseload, and without this
+// they would each compute every company's scorecard from scratch.
+export const loadCompanyScorecardScores = cache(
+  async function loadCompanyScorecardScores(companyId: string) {
+    const supabase = await createSupabaseServerClient();
+    return computeCompanyScorecard(companyId, supabase);
+  }
+);
+
+// The most recent snapshot per company, for a whole caseload, in ONE
+// query. Guide HQ's attention pass compares each company's live score
+// against its last snapshot; it used to get that by loading the full
+// scorecard per company. Same weighting rule as everywhere else
+// (overallFrom) so the comparison stays apples-to-apples.
+//
+// Returns an empty map entry for a company with no snapshots yet — a
+// new tenant the weekly cron hasn't reached. Callers treat a missing
+// entry as "no prior to compare against", which is what they already
+// did when overallTimeseries was empty.
+export async function loadLatestOverallSnapshots(
+  companyIds: readonly string[]
+): Promise<Map<string, { date: string; score: number | null }>> {
+  const result = new Map<string, { date: string; score: number | null }>();
+  if (companyIds.length === 0) return result;
+
+  const supabase = await createSupabaseServerClient();
+  // 26 weeks matches loadCompanyScorecard's window. We only need the
+  // newest date per company, but the rows are small and one bounded
+  // query beats N unbounded ones.
+  const sinceIso = new Date(Date.now() - 26 * 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const { data } = await supabase
+    .from("company_discipline_snapshots")
+    .select("*")
+    .in("company_id", companyIds)
+    .gte("snapshot_date", sinceIso)
+    .order("snapshot_date", { ascending: true });
+
+  const rows = (data ?? []) as ScorecardSnapshotRow[];
+
+  // company -> date -> rows, then take the last date per company.
+  const byCompany = new Map<string, Map<string, ScorecardSnapshotRow[]>>();
+  for (const row of rows) {
+    const dates = byCompany.get(row.company_id) ?? new Map();
+    const forDate = dates.get(row.snapshot_date) ?? [];
+    forDate.push(row);
+    dates.set(row.snapshot_date, forDate);
+    byCompany.set(row.company_id, dates);
+  }
+
+  for (const [companyId, dates] of byCompany) {
+    const latestDate = Array.from(dates.keys()).sort().pop();
+    if (!latestDate) continue;
+    const scores: DisciplineScore[] = (dates.get(latestDate) ?? []).map(
+      (r) => ({
+        key: r.discipline,
+        score: r.score,
+        breakdown: r.breakdown_json,
+      })
+    );
+    const { score } = overallFrom(scores);
+    result.set(companyId, { date: latestDate, score });
+  }
+
+  return result;
+}
+
 export const loadCompanyScorecard = cache(async function loadCompanyScorecard(
   companyId: string
 ): Promise<CompanyScorecard> {
   // Compute live via the server client — reads only, RLS is scoped
   // to the caller's tenant which is the same tenant we're loading.
   const supabase = await createSupabaseServerClient();
-  const scorecard = await computeCompanyScorecard(companyId, supabase);
+  // Shares the cache with Guide HQ so a request that hits both pays
+  // for the live computation once.
+  const scorecard = await loadCompanyScorecardScores(companyId);
 
   // Historical snapshots for the trend chart. Limit to last 26 weeks
   // — enough to see a two-quarter arc without shipping a novel of
