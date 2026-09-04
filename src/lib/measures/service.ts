@@ -177,10 +177,29 @@ export type MeasureTreeMeasure = {
   }>;
 };
 
+// A CSF is a measure now, so it carries everything a measure does:
+// a target, a value type, a direction, this week's value and the
+// recent trail. Phase 4 of the CSF/KPI migration.
+//
+// `target` stays nullable on purpose. Decided 2026-09-04: a company
+// may name its CSFs and come back to set targets later, so a CSF
+// without one is a normal state, not a failure. Anything reading
+// this must render it as "no target set", never as off target.
 export type MeasureTreeOutcome = {
   id: string;
   title: string;
   description: string | null;
+  target: string | null;
+  value_type: MetricValueType;
+  target_direction: TargetDirection;
+  auto_track: boolean;
+  target_hint: string | null;
+  currentValue: { number: number | null; text: string | null } | null;
+  recent: Array<{
+    weekEnding: string;
+    number: number | null;
+    text: string | null;
+  }>;
   measures: MeasureTreeMeasure[];
 };
 
@@ -232,7 +251,9 @@ export async function getMeasuresTree(
   // called `description`.
   const { data: csfRows } = await supabase
     .from("success_measures")
-    .select("id, description, detail, function_id, sort_order")
+    .select(
+      "id, description, detail, target, value_type, target_direction, auto_track, target_hint, function_id, sort_order"
+    )
     .in("function_id", functionIds)
     .eq("kind", "csf")
     .eq("archived", false);
@@ -240,12 +261,22 @@ export async function getMeasuresTree(
     id: string;
     description: string;
     detail: string | null;
+    target: string | null;
+    value_type: MetricValueType;
+    target_direction: TargetDirection;
+    auto_track: boolean;
+    target_hint: string | null;
     function_id: string;
     sort_order: number;
   }>).map((c) => ({
     id: c.id,
     title: c.description,
     description: c.detail,
+    target: c.target,
+    value_type: c.value_type,
+    target_direction: c.target_direction,
+    auto_track: c.auto_track,
+    target_hint: c.target_hint,
     function_id: c.function_id,
     sort_order: c.sort_order,
   }));
@@ -291,7 +322,9 @@ export async function getMeasuresTree(
         }>);
 
   const oldest = addDays(weekEnding, -35);
-  const measureIds = measureRows.map((m) => m.id);
+  // CSF ids ride along: a CSF is measured now, so it has its own
+  // weekly entries and its own recent trail, exactly like a KPI.
+  const measureIds = [...outcomeIds, ...measureRows.map((m) => m.id)];
   const entryRows =
     measureIds.length === 0
       ? []
@@ -373,10 +406,22 @@ export async function getMeasuresTree(
     return a.title.localeCompare(b.title);
   });
   for (const o of outcomes) {
+    const csfRecent = entriesByMeasure.get(o.id) ?? [];
+    const csfCurrent =
+      csfRecent.find((r) => r.weekEnding === weekEnding) ?? null;
     const shaped: MeasureTreeOutcome = {
       id: o.id,
       title: o.title,
       description: o.description,
+      target: o.target,
+      value_type: o.value_type,
+      target_direction: o.target_direction,
+      auto_track: o.auto_track,
+      target_hint: o.target_hint,
+      currentValue: csfCurrent
+        ? { number: csfCurrent.number, text: csfCurrent.text }
+        : null,
+      recent: csfRecent,
       measures: measuresByOutcome.get(o.id) ?? [],
     };
     const list = outcomesByFunction.get(o.function_id) ?? [];

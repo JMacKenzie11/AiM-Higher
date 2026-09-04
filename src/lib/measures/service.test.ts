@@ -79,7 +79,8 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 // Column lists the loader uses, so fixtures can be keyed exactly.
-const CSF_COLS = "id, description, detail, function_id, sort_order";
+const CSF_COLS =
+  "id, description, detail, target, value_type, target_direction, auto_track, target_hint, function_id, sort_order";
 const KPI_COLS =
   "id, description, target, value_type, target_direction, auto_track, target_hint, sort_order";
 
@@ -104,9 +105,25 @@ function outcome(
   title: string,
   function_id: string,
   sort_order = 0,
-  description: string | null = null
+  description: string | null = null,
+  overrides: Record<string, unknown> = {}
 ) {
-  return { id, description: title, detail: description, function_id, sort_order };
+  return {
+    id,
+    description: title,
+    detail: description,
+    function_id,
+    sort_order,
+    // A CSF is measured now (phase 4). Defaults mirror the column
+    // defaults; target stays null because an untargeted CSF is a
+    // normal state, not a failure.
+    target: null,
+    value_type: "number",
+    target_direction: "higher_is_better",
+    auto_track: false,
+    target_hint: null,
+    ...overrides,
+  };
 }
 
 // A measure is a KPI, reached through csf_kpi_links rather than a
@@ -422,5 +439,77 @@ describe("getMeasuresTree — values and the five-week trail", () => {
     );
 
     expect(weekEnding).toBe(THIS_FRIDAY);
+  });
+});
+
+describe("getMeasuresTree — CSFs are measured (phase 4)", () => {
+  beforeEach(() => {
+    seed("functions", [fn("f_1", "Sales")]);
+  });
+
+  it("carries a CSF's own target, value and trail", async () => {
+    seed(`success_measures::${CSF_COLS}`, [
+      outcome("csf_1", "On-time delivery", "f_1", 0, "Why it matters", {
+        target: "95",
+        value_type: "percent",
+        target_direction: "higher_is_better",
+      }),
+    ]);
+    seedMeasures([], []);
+    seed("success_measure_entries", [
+      entry("csf_1", THIS_FRIDAY, 94),
+      entry("csf_1", "2026-08-28", 91),
+    ]);
+    const { getMeasuresTree } = await import("./service");
+
+    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
+    const csf = functions[0].outcomes[0];
+
+    expect(csf.title).toBe("On-time delivery");
+    expect(csf.description).toBe("Why it matters");
+    expect(csf.target).toBe("95");
+    expect(csf.value_type).toBe("percent");
+    expect(csf.currentValue).toEqual({ number: 94, text: null });
+    expect(csf.recent).toHaveLength(2);
+  });
+
+  it("leaves a CSF with no target null rather than treating it as a miss", async () => {
+    // Decided 2026-09-04: targets are optional on CSFs. A company may
+    // name them and set targets later, so this is a normal state and
+    // anything rendering it must say "no target", never "off target".
+    seed(`success_measures::${CSF_COLS}`, [
+      outcome("csf_1", "On-time delivery", "f_1"),
+    ]);
+    seedMeasures([], []);
+    seed("success_measure_entries", [entry("csf_1", THIS_FRIDAY, 94)]);
+    const { getMeasuresTree } = await import("./service");
+
+    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
+
+    expect(functions[0].outcomes[0].target).toBeNull();
+    expect(functions[0].outcomes[0].currentValue).toEqual({
+      number: 94,
+      text: null,
+    });
+  });
+
+  it("keeps a CSF's values separate from its KPIs'", async () => {
+    seed(`success_measures::${CSF_COLS}`, [
+      outcome("csf_1", "On-time delivery", "f_1"),
+    ]);
+    seedMeasures([measure("kpi_1", "Schedule confirmed", "csf_1")], [
+      ["csf_1", "kpi_1"],
+    ]);
+    seed("success_measure_entries", [
+      entry("csf_1", THIS_FRIDAY, 94),
+      entry("kpi_1", THIS_FRIDAY, 5),
+    ]);
+    const { getMeasuresTree } = await import("./service");
+
+    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
+    const csf = functions[0].outcomes[0];
+
+    expect(csf.currentValue?.number).toBe(94);
+    expect(csf.measures[0].currentValue?.number).toBe(5);
   });
 });
