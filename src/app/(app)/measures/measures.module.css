@@ -768,10 +768,6 @@
    columns, which read as a second header rather than a number to
    type into. Marked here so it is clearly the result, not one of the
    lead measures beneath it, without leaving the grid. */
-.measureRowCsf {
-  background: transparent;
-}
-
 .measureCsfName {
   font: var(--text-body);
   font-weight: 700;
@@ -854,4 +850,25 @@
   font-variant-numeric: tabular-nums;
   color: var(--text);
   padding: 0 var(--space-2);
+}
+
+/* KPI names sit indented under the critical success factor they
+   drive, with a hairline running down the gutter. Consecutive rows
+   join into one continuous line because the title cell stretches to
+   the full row height, so the group reads as one set hanging off the
+   row above it rather than a flat list. */
+.measureCellTitleKpi {
+  padding-left: var(--space-4);
+  margin-left: var(--space-2);
+  border-left: 2px solid var(--border);
+}
+
+@media (max-width: 720px) {
+  /* The grid stacks here, so an indent would push the name into the
+     middle of the card instead of reading as nesting. */
+  .measureCellTitleKpi {
+    padding-left: 0;
+    margin-left: 0;
+    border-left: none;
+  }
 }

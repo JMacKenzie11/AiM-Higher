@@ -107,7 +107,14 @@ export function ManagedMeasureRow({
       }
       role="row"
     >
-      <div className={styles.measureCellTitle} role="cell">
+      <div
+        className={
+          kind === "kpi"
+            ? `${styles.measureCellTitle} ${styles.measureCellTitleKpi}`
+            : styles.measureCellTitle
+        }
+        role="cell"
+      >
         {kind === "csf" ? (
           <span className={styles.measureCsfEyebrow}>
             Critical Success Factor
