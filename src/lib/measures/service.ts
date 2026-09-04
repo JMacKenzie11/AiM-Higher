@@ -225,30 +225,58 @@ export async function getMeasuresTree(
     : [...functions].sort((a, b) => a.title.localeCompare(b.title));
   const functionIds = orderedFunctions.map((f) => f.id);
 
-  const { data: outcomeRows } = await supabase
-    .from("function_outcomes")
-    .select("id, title, description, function_id, sort_order")
+  // CSF measures ARE the outcomes now (migration 0166). Same rows,
+  // reached by function + kind instead of through function_outcomes.
+  // The name mapping matters: a CSF's `description` holds what the
+  // outcome called `title`, and its `detail` holds what the outcome
+  // called `description`.
+  const { data: csfRows } = await supabase
+    .from("success_measures")
+    .select("id, description, detail, function_id, sort_order")
     .in("function_id", functionIds)
+    .eq("kind", "csf")
     .eq("archived", false);
-  const outcomes = (outcomeRows ?? []) as Array<{
+  const outcomes = ((csfRows ?? []) as Array<{
     id: string;
-    title: string;
-    description: string | null;
+    description: string;
+    detail: string | null;
     function_id: string;
     sort_order: number;
-  }>;
+  }>).map((c) => ({
+    id: c.id,
+    title: c.description,
+    description: c.detail,
+    function_id: c.function_id,
+    sort_order: c.sort_order,
+  }));
   const outcomeIds = outcomes.map((o) => o.id);
 
-  const measureRows =
+  // Which KPIs hang off those CSFs. Read as a list per CSF from the
+  // start, even though the authoring UI allows only one CSF per KPI
+  // today — writing this for a single parent would mean rewriting it
+  // the day that rule is widened, which is the whole reason the link
+  // table is many-to-many.
+  const linkRows =
     outcomeIds.length === 0
       ? []
-      : ((
+      : (((
+          await supabase
+            .from("csf_kpi_links")
+            .select("csf_id, kpi_id")
+            .in("csf_id", outcomeIds)
+        ).data ?? []) as Array<{ csf_id: string; kpi_id: string }>);
+  const kpiIds = Array.from(new Set(linkRows.map((l) => l.kpi_id)));
+
+  const measureRows =
+    kpiIds.length === 0
+      ? []
+      : (((
           await supabase
             .from("success_measures")
             .select(
-              "id, description, target, value_type, target_direction, auto_track, target_hint, outcome_id, sort_order"
+              "id, description, target, value_type, target_direction, auto_track, target_hint, sort_order"
             )
-            .in("outcome_id", outcomeIds)
+            .in("id", kpiIds)
             .eq("archived", false)
             .order("sort_order")
         ).data ?? []) as Array<{
@@ -259,9 +287,8 @@ export async function getMeasuresTree(
           target_direction: TargetDirection;
           auto_track: boolean;
           target_hint: string | null;
-          outcome_id: string;
           sort_order: number;
-        }>;
+        }>);
 
   const oldest = addDays(weekEnding, -35);
   const measureIds = measureRows.map((m) => m.id);
@@ -301,11 +328,11 @@ export async function getMeasuresTree(
     entriesByMeasure.set(row.measure_id, list);
   }
 
-  const measuresByOutcome = new Map<string, MeasureTreeMeasure[]>();
+  const shapedById = new Map<string, MeasureTreeMeasure>();
   for (const m of measureRows) {
     const recent = entriesByMeasure.get(m.id) ?? [];
     const current = recent.find((r) => r.weekEnding === weekEnding) ?? null;
-    const shaped: MeasureTreeMeasure = {
+    shapedById.set(m.id, {
       id: m.id,
       description: m.description,
       target: m.target,
@@ -317,10 +344,27 @@ export async function getMeasuresTree(
         ? { number: current.number, text: current.text }
         : null,
       recent,
-    };
-    const list = measuresByOutcome.get(m.outcome_id) ?? [];
-    list.push(shaped);
-    measuresByOutcome.set(m.outcome_id, list);
+    });
+  }
+
+  // Walk the links rather than a parent column. measureRows is
+  // already ordered by sort_order, so filtering it per CSF preserves
+  // that order without re-sorting.
+  const kpiIdsByCsf = new Map<string, Set<string>>();
+  for (const link of linkRows) {
+    const set = kpiIdsByCsf.get(link.csf_id) ?? new Set<string>();
+    set.add(link.kpi_id);
+    kpiIdsByCsf.set(link.csf_id, set);
+  }
+  const measuresByOutcome = new Map<string, MeasureTreeMeasure[]>();
+  for (const csfId of outcomeIds) {
+    const ids = kpiIdsByCsf.get(csfId);
+    if (!ids || ids.size === 0) continue;
+    const ordered = measureRows
+      .filter((m) => ids.has(m.id))
+      .map((m) => shapedById.get(m.id))
+      .filter((m): m is MeasureTreeMeasure => Boolean(m));
+    if (ordered.length > 0) measuresByOutcome.set(csfId, ordered);
   }
 
   const outcomesByFunction = new Map<string, MeasureTreeOutcome[]>();

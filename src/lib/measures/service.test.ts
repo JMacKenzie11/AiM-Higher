@@ -41,13 +41,21 @@ const mocks = vi.hoisted(() => {
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => {
     const make = (table: string) => {
+      let key = table;
       const chain: Record<string, unknown> = {};
       const record = (op: string) => (...args: unknown[]) => {
         mocks.calls.push({ table, op, args });
         return chain;
       };
       Object.assign(chain, {
-        select: record("select"),
+        // getMeasuresTree hits success_measures twice with different
+        // column lists — once for CSFs, once for the linked KPIs — so
+        // the fixture key includes the select string.
+        select: (cols: string) => {
+          key = `${table}::${cols}`;
+          mocks.calls.push({ table, op: "select", args: [cols] });
+          return chain;
+        },
         eq: record("eq"),
         neq: record("neq"),
         in: record("in"),
@@ -57,16 +65,23 @@ vi.mock("@/lib/supabase/server", () => ({
         order: record("order"),
         limit: record("limit"),
         maybeSingle: async () => ({
-          data: (mocks.rows.get(table) ?? [])[0] ?? null,
+          data: (mocks.rows.get(key) ?? mocks.rows.get(table) ?? [])[0] ?? null,
         }),
         then: (res: (v: unknown) => unknown) =>
-          Promise.resolve({ data: mocks.rows.get(table) ?? [] }).then(res),
+          Promise.resolve({
+            data: mocks.rows.get(key) ?? mocks.rows.get(table) ?? [],
+          }).then(res),
       });
       return chain;
     };
     return { from: (table: string) => make(table) };
   },
 }));
+
+// Column lists the loader uses, so fixtures can be keyed exactly.
+const CSF_COLS = "id, description, detail, function_id, sort_order";
+const KPI_COLS =
+  "id, description, target, value_type, target_direction, auto_track, target_hint, sort_order";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);
@@ -81,6 +96,9 @@ function fn(
   return { id, title, sort_order, parent_function_id };
 }
 
+// An outcome IS a CSF measure now. title maps to the measure's
+// `description` (the field holding a measure's name) and the
+// outcome's own description maps to `detail`.
 function outcome(
   id: string,
   title: string,
@@ -88,19 +106,20 @@ function outcome(
   sort_order = 0,
   description: string | null = null
 ) {
-  return { id, title, description, function_id, sort_order };
+  return { id, description: title, detail: description, function_id, sort_order };
 }
 
+// A measure is a KPI, reached through csf_kpi_links rather than a
+// parent column. seedMeasures below writes both the rows and links.
 function measure(
   id: string,
   description: string,
-  outcome_id: string,
+  _outcome_id: string,
   overrides: Record<string, unknown> = {}
 ) {
   return {
     id,
     description,
-    outcome_id,
     target: null,
     value_type: "number",
     target_direction: "higher_is_better",
@@ -109,6 +128,19 @@ function measure(
     sort_order: 0,
     ...overrides,
   };
+}
+
+// Seeds KPI rows and the links that attach them to their CSF, so a
+// test writes one call instead of remembering two tables.
+function seedMeasures(
+  rows: Array<{ id: string } & Record<string, unknown>>,
+  linkPairs: Array<[string, string]>
+) {
+  seed(`success_measures::${KPI_COLS}`, rows);
+  seed(
+    "csf_kpi_links",
+    linkPairs.map(([csf_id, kpi_id]) => ({ csf_id, kpi_id }))
+  );
 }
 
 function entry(
@@ -146,7 +178,7 @@ describe("getMeasuresTree — scoping", () => {
 
   it("filters to the caller's own functions when includeAll is false", async () => {
     seed("functions", [fn("f_1", "Sales")]);
-    seed("function_outcomes", []);
+    seed(`success_measures::${CSF_COLS}`, []);
     const { getMeasuresTree } = await import("./service");
 
     await getMeasuresTree("co_1", "u_leader", "America/Anchorage", false);
@@ -159,7 +191,7 @@ describe("getMeasuresTree — scoping", () => {
 
   it("does not filter by leader when includeAll is true", async () => {
     seed("functions", [fn("f_1", "Sales")]);
-    seed("function_outcomes", []);
+    seed(`success_measures::${CSF_COLS}`, []);
     const { getMeasuresTree } = await import("./service");
 
     await getMeasuresTree("co_1", "u_admin", "America/Anchorage", true);
@@ -172,7 +204,7 @@ describe("getMeasuresTree — scoping", () => {
 
   it("keeps functions that have no outcomes, so admins can author from scratch", async () => {
     seed("functions", [fn("f_1", "Sales"), fn("f_2", "Operations", 1)]);
-    seed("function_outcomes", []);
+    seed(`success_measures::${CSF_COLS}`, []);
     const { getMeasuresTree } = await import("./service");
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
@@ -193,7 +225,7 @@ describe("getMeasuresTree — function ordering", () => {
       fn("f_sales", "Sales", 1, "f_int"),
       fn("f_vis", "Visionary", 9, null),
     ]);
-    seed("function_outcomes", []);
+    seed(`success_measures::${CSF_COLS}`, []);
     const { getMeasuresTree } = await import("./service");
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
@@ -214,7 +246,7 @@ describe("getMeasuresTree — function ordering", () => {
       fn("f_z", "Warehouse", 1, "f_missing"),
       fn("f_a", "Assembly", 2, "f_missing"),
     ]);
-    seed("function_outcomes", []);
+    seed(`success_measures::${CSF_COLS}`, []);
     const { getMeasuresTree } = await import("./service");
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", false);
@@ -229,7 +261,7 @@ describe("getMeasuresTree — function ordering", () => {
       fn("f_vis", "Visionary", 0, null),
       fn("f_orphan", "Detached", 1, "f_not_here"),
     ]);
-    seed("function_outcomes", []);
+    seed(`success_measures::${CSF_COLS}`, []);
     const { getMeasuresTree } = await import("./service");
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
@@ -245,12 +277,12 @@ describe("getMeasuresTree — outcome and measure shaping", () => {
   });
 
   it("sorts outcomes by sort_order, then by title as the tiebreak", async () => {
-    seed("function_outcomes", [
+    seed(`success_measures::${CSF_COLS}`, [
       outcome("o_b", "Beta", "f_1", 2),
       outcome("o_z", "Zulu", "f_1", 1),
       outcome("o_a", "Alpha", "f_1", 1),
     ]);
-    seed("success_measures", []);
+    seedMeasures([], []);
     const { getMeasuresTree } = await import("./service");
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
@@ -263,14 +295,17 @@ describe("getMeasuresTree — outcome and measure shaping", () => {
   });
 
   it("nests measures under their outcome and leaves outcomes with none empty", async () => {
-    seed("function_outcomes", [
+    seed(`success_measures::${CSF_COLS}`, [
       outcome("o_1", "Revenue", "f_1", 0),
       outcome("o_2", "Retention", "f_1", 1),
     ]);
-    seed("success_measures", [
-      measure("m_1", "Closed won", "o_1"),
-      measure("m_2", "Pipeline", "o_1"),
-    ]);
+    seedMeasures(
+      [measure("m_1", "Closed won", "o_1"), measure("m_2", "Pipeline", "o_1")],
+      [
+        ["o_1", "m_1"],
+        ["o_1", "m_2"],
+      ]
+    );
     seed("success_measure_entries", []);
     const { getMeasuresTree } = await import("./service");
 
@@ -284,16 +319,19 @@ describe("getMeasuresTree — outcome and measure shaping", () => {
   });
 
   it("carries every authoring field through to the shaped measure", async () => {
-    seed("function_outcomes", [outcome("o_1", "Revenue", "f_1")]);
-    seed("success_measures", [
-      measure("m_1", "Closed won", "o_1", {
-        target: "100",
-        value_type: "percent",
-        target_direction: "lower_is_better",
-        auto_track: false,
-        target_hint: "Consider a time bound",
-      }),
-    ]);
+    seed(`success_measures::${CSF_COLS}`, [outcome("o_1", "Revenue", "f_1")]);
+    seedMeasures(
+      [
+        measure("m_1", "Closed won", "o_1", {
+          target: "100",
+          value_type: "percent",
+          target_direction: "lower_is_better",
+          auto_track: false,
+          target_hint: "Consider a time bound",
+        }),
+      ],
+      [["o_1", "m_1"]]
+    );
     seed("success_measure_entries", []);
     const { getMeasuresTree } = await import("./service");
 
@@ -316,8 +354,8 @@ describe("getMeasuresTree — outcome and measure shaping", () => {
 describe("getMeasuresTree — values and the five-week trail", () => {
   beforeEach(() => {
     seed("functions", [fn("f_1", "Sales")]);
-    seed("function_outcomes", [outcome("o_1", "Revenue", "f_1")]);
-    seed("success_measures", [measure("m_1", "Closed won", "o_1")]);
+    seed(`success_measures::${CSF_COLS}`, [outcome("o_1", "Revenue", "f_1")]);
+    seedMeasures([measure("m_1", "Closed won", "o_1")], [["o_1", "m_1"]]);
   });
 
   it("sets currentValue only from an entry dated exactly this Friday", async () => {
