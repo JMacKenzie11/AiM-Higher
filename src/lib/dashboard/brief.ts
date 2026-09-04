@@ -3,6 +3,7 @@ import "server-only";
 import crypto from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { summarizeFollowThrough } from "@/lib/commitments/follow-through";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { todayInTimezone } from "@/lib/dates";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
@@ -207,11 +208,15 @@ async function buildWeeklySnapshot(
     openQuarter
       ? supabase
           .from("commitments")
-          .select("status")
+          .select("status, due_date")
           .eq("company_id", companyId)
           .gte("week_ending", openQuarter.start_date)
           .lte("week_ending", openQuarter.end_date)
-      : Promise.resolve({ data: [] as Array<{ status: string }> }),
+          .is("deleted_at", null)
+          .is("parked_at", null)
+      : Promise.resolve({
+          data: [] as Array<{ status: string; due_date: string | null }>,
+        }),
   ]);
   const recentCommitments = recentRes.data;
   const priorities = priorityRes.data;
@@ -266,21 +271,15 @@ async function buildWeeklySnapshot(
     priorityBucket.set(p.status, (priorityBucket.get(p.status) ?? 0) + 1);
   }
 
-  const quarterStatuses = ((quarterKeep ?? []) as Array<{ status: string }>).map(
-    (r) => r.status
+  // One shared rule, so the brief cannot contradict the number
+  // printed directly above it on the same page. Its own arithmetic
+  // used to count late keeps as successes, which is how B&B Electric
+  // read "13 for 13, a clean run" while their dashboard showed 62%.
+  const quarterSummary = summarizeFollowThrough(
+    (quarterKeep ?? []) as Array<{ status: string; due_date: string | null }>,
+    today
   );
-  // Both kept statuses count as "did the work". "kept" alone has
-  // matched nothing since migration 0139, so this rate was being
-  // reported to leaders as 0% in the generated brief. The recent-week
-  // block above was already fixed; this one was missed.
-  const quarterKept = quarterStatuses.filter(
-    (s) => s === "kept_on_time" || s === "kept_late"
-  ).length;
-  const quarterMissed = quarterStatuses.filter((s) => s === "missed").length;
-  const quarterRate =
-    quarterKept + quarterMissed === 0
-      ? null
-      : Math.round((quarterKept / (quarterKept + quarterMissed)) * 100);
+  const quarterRate = quarterSummary.rate;
 
   const lines: string[] = [];
   lines.push(`Company: ${companyName}`);
@@ -289,7 +288,11 @@ async function buildWeeklySnapshot(
     lines.push(
       `Quarter ${openQuarter.label} — follow-through: ${
         quarterRate === null ? "—" : `${quarterRate}%`
-      } (kept ${quarterKept}, closed late ${quarterMissed}).`
+      } (on time ${quarterSummary.keptOnTime}, late ${
+        quarterSummary.keptLate
+      }, missed ${quarterSummary.missed}, overdue and still open ${
+        quarterSummary.overdueOpen
+      }).`
     );
   }
   lines.push("");

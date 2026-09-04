@@ -167,14 +167,14 @@ function seedHappyPath() {
   ]);
 
   // Quarter commitments: drives keep-rate, clarity, and per-person.
-  seed("commitments::status, owner_id, clarity_timeline, clarity_success", [
-    { status: "kept_on_time", owner_id: "p_ana", clarity_timeline: true, clarity_success: true },
-    { status: "kept_on_time", owner_id: "p_ana", clarity_timeline: true, clarity_success: false },
-    { status: "kept_late", owner_id: "p_ben", clarity_timeline: false, clarity_success: true },
-    { status: "missed", owner_id: "p_ben", clarity_timeline: null, clarity_success: true },
-    { status: "open", owner_id: "p_cara", clarity_timeline: true, clarity_success: true },
+  seed("commitments::status, owner_id, due_date, clarity_timeline, clarity_success", [
+    { status: "kept_on_time", owner_id: "p_ana", due_date: "2026-08-28", clarity_timeline: true, clarity_success: true },
+    { status: "kept_on_time", owner_id: "p_ana", due_date: "2026-08-28", clarity_timeline: true, clarity_success: false },
+    { status: "kept_late", owner_id: "p_ben", due_date: "2026-08-28", clarity_timeline: false, clarity_success: true },
+    { status: "missed", owner_id: "p_ben", due_date: "2026-08-28", clarity_timeline: null, clarity_success: true },
+    { status: "open", owner_id: "p_cara", due_date: "2026-09-11", clarity_timeline: true, clarity_success: true },
     // Unassigned: counts toward company keep-rate, no person row.
-    { status: "missed", owner_id: null, clarity_timeline: null, clarity_success: null },
+    { status: "missed", owner_id: null, due_date: "2026-08-28", clarity_timeline: null, clarity_success: null },
   ]);
 
   seed("commitments::id", [{ id: "c_1" }, { id: "c_2" }]);
@@ -305,6 +305,9 @@ describe("getDashboardData — headline numbers", () => {
   });
 
   it("computes keep-rate over the quarter, counting the unassigned row", async () => {
+    // Follow-through now also counts an open commitment past its due
+    // date. The open row here is due 2026-09-11, a week out, so it
+    // stays excluded and the number is unchanged.
     // Resolved rows: 2 kept_on_time, 1 kept_late, 2 missed (one of
     // them unassigned). The open row is not resolved and does not
     // count. Follow-through is on-time only: 2 of 5 = 40%.
@@ -332,7 +335,7 @@ describe("getDashboardData — headline numbers", () => {
   });
 
   it("reports null clarity when nothing has been assessed", async () => {
-    seed("commitments::status, owner_id, clarity_timeline, clarity_success", [
+    seed("commitments::status, owner_id, due_date, clarity_timeline, clarity_success", [
       { status: "open", owner_id: "p_ana", clarity_timeline: null, clarity_success: null },
     ]);
     const { getDashboardData } = await import("./service");
@@ -467,5 +470,37 @@ describe("getDashboardData — no open quarter", () => {
     // Trend and roster are not quarter-scoped and still populate.
     expect(data.keepRateTrend).toHaveLength(12);
     expect(data.people).toHaveLength(3);
+  });
+});
+
+describe("getDashboardData — overdue commitments count against follow-through", () => {
+  it("counts an open commitment past its due date as a miss", async () => {
+    // Reported 2026-09-04 on B&B Electric: the dashboard showed a
+    // healthy rate while the commitments list was full of overdue
+    // open rows. An overdue commitment was invisible to the rate, so
+    // a company could be weeks behind on everything and still look
+    // fine. Two on time, one overdue and open, so 2 of 3.
+    seed("commitments::status, owner_id, due_date, clarity_timeline, clarity_success", [
+      { status: "kept_on_time", owner_id: "p_ana", due_date: "2026-08-21", clarity_timeline: null, clarity_success: null },
+      { status: "kept_on_time", owner_id: "p_ana", due_date: "2026-08-21", clarity_timeline: null, clarity_success: null },
+      { status: "open", owner_id: "p_ben", due_date: "2026-08-28", clarity_timeline: null, clarity_success: null },
+    ]);
+    const { getDashboardData } = await import("./service");
+
+    const data = (await getDashboardData("co_1"))!;
+
+    expect(data.headline.keepRatePercent).toBe(67);
+  });
+
+  it("leaves a commitment that is not due yet out of the rate", async () => {
+    seed("commitments::status, owner_id, due_date, clarity_timeline, clarity_success", [
+      { status: "kept_on_time", owner_id: "p_ana", due_date: "2026-08-21", clarity_timeline: null, clarity_success: null },
+      { status: "open", owner_id: "p_ben", due_date: "2026-09-30", clarity_timeline: null, clarity_success: null },
+    ]);
+    const { getDashboardData } = await import("./service");
+
+    const data = (await getDashboardData("co_1"))!;
+
+    expect(data.headline.keepRatePercent).toBe(100);
   });
 });

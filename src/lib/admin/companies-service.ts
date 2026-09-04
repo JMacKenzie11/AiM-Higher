@@ -1,7 +1,9 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { computeFollowThroughRate, groupBy } from "@/lib/utils";
+import { groupBy } from "@/lib/utils";
+import { computeFollowThrough } from "@/lib/commitments/follow-through";
+import { todayInTimezone } from "@/lib/dates";
 import type { Commitment, Company, Quarter } from "@/lib/types";
 
 // Read model for the polished /admin/companies overview.
@@ -60,43 +62,42 @@ export async function getCompaniesOverview(): Promise<CompanyOverviewRow[]> {
     openQuarters.map((q) => [q.company_id, { id: q.id, label: q.label }])
   );
 
-  // Prioritiy → owning company_id map, so we can group commitment status
-  // rows by company after the batched fetch.
-  const openQuarterIds = openQuarters.map((q) => q.id);
-  const priorityToCompany = new Map<string, string>();
-  if (openQuarterIds.length > 0) {
-    const { data: priorityRows } = await supabase
-      .from("priorities")
-      .select("id, company_id")
-      .in("quarter_id", openQuarterIds);
-    const priorities = (priorityRows ?? []) as Array<{
-      id: string;
-      company_id: string;
-    }>;
-    for (const row of priorities) {
-      priorityToCompany.set(row.id, row.company_id);
-    }
-  }
-  const priorityIds = Array.from(priorityToCompany.keys());
-
-  const commitmentStatusesByCompany = new Map<string, string[]>();
-  if (priorityIds.length > 0) {
+  // Commitments group straight by company now. The priority lookup
+  // that used to sit here existed only to reach priority-linked
+  // commitments, and that filter was the bug: operational work never
+  // counted.
+  const commitmentRowsByCompany = new Map<
+    string,
+    Array<{ status: string; due_date: string | null }>
+  >();
+  // Overdue is judged against the viewer's own day. This list is a
+  // cross-company admin view spanning timezones, so there is no single
+  // company clock to use; UTC keeps every row judged the same way.
+  const { iso: todayIso } = todayInTimezone("UTC");
+  {
     const { data: commitmentRows } = await supabase
       .from("commitments")
-      .select("priority_id, status")
-      .in("priority_id", priorityIds);
-    const commitments = (commitmentRows ?? []) as Array<
-      Pick<Commitment, "priority_id" | "status">
-    >;
-    const byCompany = groupBy(commitments, (c) => {
-      return c.priority_id
-        ? priorityToCompany.get(c.priority_id) ?? "__unknown"
-        : "__unknown";
-    });
+      .select("company_id, status, due_date")
+      .in("company_id", companyIds)
+      .is("deleted_at", null)
+      .is("parked_at", null);
+    const commitments = (commitmentRows ?? []) as Array<{
+      company_id: string;
+      status: string;
+      due_date: string | null;
+    }>;
+    // Was filtered to priority-linked commitments only, which is why
+    // B&B Electric read 100% here and 62% on their own dashboard: a
+    // company doing mostly operational work had almost none of it
+    // counted. Now every commitment counts, matching the dashboard.
+    const byCompany = groupBy(commitments, (c) => c.company_id);
     for (const [companyId, items] of byCompany.entries()) {
-      commitmentStatusesByCompany.set(
+      commitmentRowsByCompany.set(
         companyId,
-        items.map((item) => item.status)
+        items.map((item) => ({
+          status: item.status,
+          due_date: item.due_date,
+        }))
       );
     }
   }
@@ -105,8 +106,9 @@ export async function getCompaniesOverview(): Promise<CompanyOverviewRow[]> {
     ...company,
     peopleCount: peopleByCompany.get(company.id) ?? 0,
     openQuarterLabel: openQuarterByCompany.get(company.id)?.label ?? null,
-    keepRate: computeFollowThroughRate(
-      commitmentStatusesByCompany.get(company.id) ?? []
+    keepRate: computeFollowThrough(
+      commitmentRowsByCompany.get(company.id) ?? [],
+      todayIso
     ),
   }));
 }

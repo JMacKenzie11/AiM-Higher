@@ -2,11 +2,9 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
-import { addDays, thisFriday } from "@/lib/dates";
-import {
-  bucketKeepRates,
-  computeFollowThroughRate,
-} from "@/lib/utils";
+import { addDays, thisFriday, todayInTimezone } from "@/lib/dates";
+import { bucketKeepRates } from "@/lib/utils";
+import { computeFollowThrough } from "@/lib/commitments/follow-through";
 import type {
   Company,
   Commitment,
@@ -206,10 +204,16 @@ export async function getDashboardData(
     openQuarter
       ? supabase
           .from("commitments")
-          .select("status, owner_id, clarity_timeline, clarity_success")
+          .select(
+            "status, owner_id, due_date, clarity_timeline, clarity_success"
+          )
           .eq("company_id", companyId)
           .gte("week_ending", openQuarter.start_date)
           .lte("week_ending", openQuarter.end_date)
+          // Deleted and parked rows never counted toward
+          // follow-through anywhere else; they were counting here.
+          .is("deleted_at", null)
+          .is("parked_at", null)
       : Promise.resolve({ data: [] }),
     // This Week — count of open commitments due this Friday.
     supabase
@@ -271,12 +275,23 @@ export async function getDashboardData(
   const quarterCommitments = (quarterCommitmentRows ?? []) as Array<
     Pick<
       Commitment,
-      "status" | "owner_id" | "clarity_timeline" | "clarity_success"
+      | "status"
+      | "owner_id"
+      | "due_date"
+      | "clarity_timeline"
+      | "clarity_success"
     >
   >;
 
-  const keepRatePercent = computeFollowThroughRate(
-    quarterCommitments.map((c) => c.status)
+  // One shared rule, so this number matches the companies list and
+  // the generated brief. Includes overdue-open commitments, which
+  // previously were invisible to the rate.
+  const keepRatePercent = computeFollowThrough(
+    quarterCommitments.map((c) => ({
+      status: c.status,
+      due_date: c.due_date,
+    })),
+    todayInTimezone(company.timezone ?? "America/Anchorage").iso
   );
 
   // Clarity: percentage of assessed commitments where both
