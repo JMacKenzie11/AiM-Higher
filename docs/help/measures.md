@@ -163,19 +163,20 @@ Nothing hard-deletes from this page, so past weekly values survive.
 Turn the entitlement on from company settings and the tracking
 columns appear on the next load.
 
-## Where else values can be logged
+## Where values are logged
 
-**Quick log** (`/measures/[id]`) — one measure, one big input,
-phone-friendly. Click any measure name.
+Here, on this page, in the row itself. That is the only place.
 
-That is the only other place. The dashboard used to carry a second
-copy of this week's inputs; it listed KPIs only, so filling it in left
-every critical success factor outstanding without saying so. It is
-gone. What still nudges you: the notification bell counts what you
-have left, and the Saturday job opens a commitment for anything set to
-remind its owner.
+There used to be two others: a card on the dashboard and a
+single-measure page you reached by clicking a measure's name. Both
+have gone. The dashboard card listed KPIs only, so filling it in left
+every critical success factor outstanding without saying so, and the
+single-measure page asked you to open a whole screen to type one
+number that already had a box on this one.
 
-Both routes write the same row, keyed on the measure and the week.
+What still tells you when something is outstanding: the notification
+bell counts what you have left, and the Saturday job opens a
+commitment for anything set to remind its owner.
 
 ## Common questions
 
