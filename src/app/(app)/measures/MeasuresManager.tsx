@@ -64,6 +64,22 @@ export function MeasuresManager({
   // input on the card header, and leaving them out of the save list
   // meant a leader could type a CSF value, press Save, and watch it
   // disappear with no error.
+  // Only what this caller can actually write. A count that included
+  // other people's functions would tell a reader they had six things
+  // to do when they have none, and would never reach zero.
+  const myEntryTargets = useMemo(
+    () =>
+      functions
+        .filter((f) => f.canLog)
+        .flatMap((f) =>
+          f.outcomes.flatMap((o) => [
+            o.id,
+            ...o.measures.map((m) => m.id),
+          ])
+        ),
+    [functions]
+  );
+
   const allEntryTargets = useMemo(
     () =>
       functions.flatMap((f) =>
@@ -129,8 +145,8 @@ export function MeasuresManager({
   // values, so typing a number makes the number go down before the
   // save lands.
   const outstanding = useMemo(
-    () => allEntryTargets.filter((m) => !(values[m.id] ?? "").trim()).length,
-    [allEntryTargets, values]
+    () => myEntryTargets.filter((id) => !(values[id] ?? "").trim()).length,
+    [myEntryTargets, values]
   );
   const anyTargets = allMeasures.some((m) => !!m.target?.trim());
 
@@ -240,17 +256,21 @@ export function MeasuresManager({
                 </button>
               </div>
             ) : null}
-            <p
-              className={
-                outstanding === 0
-                  ? localStyles.outstandingDone
-                  : localStyles.outstanding
-              }
-            >
-              {outstanding === 0
-                ? `All ${allEntryTargets.length} logged for the week ending ${formatShortDate(weekEnding)}.`
-                : `${outstanding} of ${allEntryTargets.length} still to log for the week ending ${formatShortDate(weekEnding)}.`}
-            </p>
+            {/* Silent for someone with nothing to log — a reader does
+                not need a to-do line about other people's numbers. */}
+            {myEntryTargets.length > 0 ? (
+              <p
+                className={
+                  outstanding === 0
+                    ? localStyles.outstandingDone
+                    : localStyles.outstanding
+                }
+              >
+                {outstanding === 0
+                  ? `All ${myEntryTargets.length} logged for the week ending ${formatShortDate(weekEnding)}.`
+                  : `${outstanding} of ${myEntryTargets.length} still to log for the week ending ${formatShortDate(weekEnding)}.`}
+              </p>
+            ) : null}
           </div>
           {anyTargets ? (
           <div className={localStyles.scoreboardStats}>

@@ -234,6 +234,12 @@ export type MeasureTreeOutcome = {
 export type MeasureTreeFunction = {
   id: string;
   title: string;
+  // Whether this caller can write values against this function.
+  // Per function, not per user: a leader reads the whole company and
+  // types only into their own seats, and an admin or guide types
+  // everywhere. Mirrors upsertMeasureEntryAction exactly, which is
+  // the rule the server will actually enforce.
+  canLog: boolean;
   outcomes: MeasureTreeOutcome[];
 };
 
@@ -246,32 +252,46 @@ export async function getMeasuresTree(
   const supabase = await createSupabaseServerClient();
   const weekEnding = thisFriday(timezone);
 
-  let functionsQuery = supabase
+  // Everyone in the company reads every function. These are the
+  // company's commitments to itself, and someone who cannot see what
+  // their own function is held to cannot align to it. Writing stays
+  // narrow: `canLog` below decides who gets an input instead of a
+  // read-only value.
+  const functionsQuery = supabase
     .from("functions")
-    .select("id, title, sort_order, parent_function_id")
+    .select("id, title, sort_order, parent_function_id, lead_id, track_id")
     .eq("company_id", companyId)
     .eq("archived", false);
-  if (!includeAll) {
-    functionsQuery = functionsQuery.or(
-      `lead_id.eq.${userId},track_id.eq.${userId}`
-    );
-  }
   const { data: functionRows } = await functionsQuery;
   const functions = (functionRows ?? []) as Array<{
     id: string;
     title: string;
+    lead_id: string | null;
+    track_id: string | null;
     sort_order: number;
     parent_function_id: string | null;
   }>;
   if (functions.length === 0) return { functions: [], weekEnding };
-  // Admins / guides see the whole company — order by hierarchy so
-  // Visionary sits at the top, Integrator second, and every other
-  // function follows its parent (depth-first pre-order). Leaders
-  // see only their own seats, so the tree can't be reconstructed
-  // meaningfully; fall back to alphabetical.
+  // Everyone gets the whole company now, so the hierarchy can always
+  // be reconstructed: Visionary at the top, Integrator second, every
+  // other function following its parent. The alphabetical fallback
+  // existed because a partial tree cannot be walked meaningfully;
+  // there are no partial trees any more.
+  //
+  // `includeAll` no longer decides what is loaded. It decides whose
+  // functions come first, so a leader opening the page still lands on
+  // their own seats rather than scrolling past everyone else's.
+  const ordered = orderFunctionsByHierarchy(functions);
   const orderedFunctions = includeAll
-    ? orderFunctionsByHierarchy(functions)
-    : [...functions].sort((a, b) => a.title.localeCompare(b.title));
+    ? ordered
+    : [
+        ...ordered.filter(
+          (f) => f.lead_id === userId || f.track_id === userId
+        ),
+        ...ordered.filter(
+          (f) => f.lead_id !== userId && f.track_id !== userId
+        ),
+      ];
   const functionIds = orderedFunctions.map((f) => f.id);
 
   // CSF measures ARE the outcomes now (migration 0166). Same rows,
@@ -467,6 +487,9 @@ export async function getMeasuresTree(
   const tree: MeasureTreeFunction[] = orderedFunctions.map((f) => ({
     id: f.id,
     title: f.title,
+    // Same rule upsertMeasureEntryAction enforces. Computed here so
+    // the page never renders an input the server would refuse.
+    canLog: includeAll || f.lead_id === userId || f.track_id === userId,
     outcomes: outcomesByFunction.get(f.id) ?? [],
   }));
 

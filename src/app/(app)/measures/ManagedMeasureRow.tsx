@@ -51,6 +51,7 @@ export function ManagedMeasureRow({
   weekEnding,
   kind = "kpi",
   archiveSlot,
+  canLog,
 }: {
   measure: MeasureTreeMeasure;
   outcomeTitle: string;
@@ -74,6 +75,11 @@ export function ManagedMeasureRow({
   // archiving one measure. The caller supplies the right control
   // rather than this row guessing from `kind`.
   archiveSlot?: ReactNode;
+  // Whether this caller can write a value here. Read-only is not a
+  // disabled input: a greyed-out box is a tease and leaves a dead
+  // column. The cell shows the number instead, which is the thing a
+  // reader came for.
+  canLog: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const status = computeStatus(measure);
@@ -159,24 +165,33 @@ export function ManagedMeasureRow({
             <TrendPills measure={measure} weekEnding={weekEnding} />
           </div>
           <div className={styles.measureCellInput} role="cell">
-            <input
-              type={measure.value_type === "text" ? "text" : "number"}
-              step="any"
-              className={statusInputClass(status)}
-              value={value}
-              onChange={(e) => onValueChange(e.target.value)}
-              disabled={disabled}
-              placeholder={placeholderFor(measure.value_type)}
-              aria-label={`${measure.description} this week`}
-            />
+            {canLog ? (
+              <input
+                type={measure.value_type === "text" ? "text" : "number"}
+                step="any"
+                className={statusInputClass(status)}
+                value={value}
+                onChange={(e) => onValueChange(e.target.value)}
+                disabled={disabled}
+                placeholder={placeholderFor(measure.value_type)}
+                aria-label={`${measure.description} this week`}
+              />
+            ) : (
+              <span className={styles.measureReadValue}>
+                {value.trim() || "—"}
+              </span>
+            )}
           </div>
           <div className={styles.measureCellDot} role="cell">
             <StatusDot status={status} />
           </div>
         </>
       ) : null}
-      {authoring ? (
-        <div className={styles.measureCellActions} role="cell">
+      {/* Always rendered, empty when not authoring. See the note on
+          the header row: a short row shifts every row beneath it. */}
+      <div className={styles.measureCellActions} role="cell">
+        {authoring ? (
+          <>
           <button
             type="button"
             className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
@@ -189,8 +204,9 @@ export function ManagedMeasureRow({
           ) : (
             archiveSlot
           )}
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

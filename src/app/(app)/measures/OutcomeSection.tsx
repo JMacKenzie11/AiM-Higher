@@ -34,6 +34,7 @@ export function OutcomeSection({
   disabled,
   isAdmin,
   authoring,
+  canLog,
   trackingEnabled,
   rdEnabled,
   weekEnding,
@@ -46,6 +47,7 @@ export function OutcomeSection({
   disabled: boolean;
   isAdmin: boolean;
   authoring: boolean;
+  canLog: boolean;
   trackingEnabled: boolean;
   rdEnabled: boolean;
   weekEnding: string;
@@ -89,7 +91,7 @@ export function OutcomeSection({
                 <span className={styles.headCellHideMobile} aria-hidden />
               </>
             ) : null}
-            {authoring ? <span aria-hidden /> : null}
+            <span aria-hidden />
           </div>
           {/* The critical success factor IS the first row, not a
               heading above one. It used to be both: the card had a
@@ -111,6 +113,7 @@ export function OutcomeSection({
             authoring={authoring}
             trackingEnabled={trackingEnabled}
             weekEnding={weekEnding}
+            canLog={canLog}
             kind="csf"
             archiveSlot={
               authoring ? <ArchiveOutcomeButton outcomeId={outcome.id} /> : null
@@ -127,6 +130,7 @@ export function OutcomeSection({
               onValueChange={(v) => onValueChange(m.id, v)}
               disabled={disabled}
               authoring={authoring}
+              canLog={canLog}
               trackingEnabled={trackingEnabled}
               weekEnding={weekEnding}
             />

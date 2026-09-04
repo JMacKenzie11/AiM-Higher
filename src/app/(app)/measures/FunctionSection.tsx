@@ -87,6 +87,7 @@ export function FunctionSection({
             disabled={disabled}
             isAdmin={isAdmin}
             authoring={authoring}
+            canLog={fn.canLog}
             trackingEnabled={trackingEnabled}
             rdEnabled={rdEnabled}
             weekEnding={weekEnding}
@@ -94,7 +95,7 @@ export function FunctionSection({
         ))
       )}
 
-      {trackingEnabled && outcomesWithVisibleRows.length > 0 ? (
+      {trackingEnabled && fn.canLog && outcomesWithVisibleRows.length > 0 ? (
         <div className={styles.fnSaveRow}>
           <button
             type="button"

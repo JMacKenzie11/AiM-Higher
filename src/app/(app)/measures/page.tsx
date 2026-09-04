@@ -60,8 +60,9 @@ export default async function MeasuresPage() {
       subtitle={
         trackingEnabled ? (
           <>
-            The last 13 weeks vs. target, by function. Log the week ending{" "}
-            {formatShortDate(weekEnding)} below.
+            Every function&rsquo;s critical success factors and the KPIs
+            that drive them. Log the week ending{" "}
+            {formatShortDate(weekEnding)} for the functions you lead.
           </>
         ) : (
           <>
@@ -79,9 +80,9 @@ export default async function MeasuresPage() {
       ) : !hasAnyMeasure && !isAdmin ? (
         <section className={styles.card}>
           <p className={styles.emptyLine}>
-            No critical success factors assigned to you yet. They live under the
-            functions you lead on the Chart, the person in the seat is the
-            one on the hook for the numbers.
+            Nobody has set critical success factors for this company yet.
+            They live under each function on the Chart, and the person in
+            the seat is the one on the hook for the numbers.
           </p>
         </section>
       ) : (
