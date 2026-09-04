@@ -105,7 +105,7 @@ export function FunctionSection({
             className={styles.addToggleButton}
             onClick={() => setAddOutcomeOpen(true)}
           >
-            + Add an outcome
+            + Add a critical success factor
           </button>
         )
       ) : null}

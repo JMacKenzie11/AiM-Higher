@@ -9,7 +9,11 @@ import styles from "./board.module.css";
 type ViewMode = "cockpit" | "timeline";
 
 export function BoardView({ data }: { data: BoardData }) {
-  const [view, setView] = useState<ViewMode>("cockpit");
+  // Timeline is the default. The board only renders when Success
+  // Tracking is on, and the question that surface answers is "how has
+  // this been trending", which is the timeline's job. The grid is the
+  // detail view you go to second.
+  const [view, setView] = useState<ViewMode>("timeline");
 
   // Company-level headline stat — how many current-week metric
   // readings hit target across every function. Same math both
