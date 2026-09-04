@@ -406,10 +406,27 @@ export type FunctionCompetency = {
 
 export type TargetDirection = "higher_is_better" | "lower_is_better";
 
+// Which side of the CSF/KPI split a measure sits on. Introduced in
+// migration 0166. 'csf' is the lagging result a function is
+// accountable for; 'kpi' is the leading activity that moves one.
+// The distinction cannot be positional because a KPI may drive more
+// than one CSF, so an unlinked KPI would otherwise be
+// indistinguishable from a CSF.
+export type MeasureKind = "csf" | "kpi";
+
 export type SuccessMeasure = {
   id: string;
-  outcome_id: string;
+  // Null on a CSF, which has no parent outcome. Nullable since 0166;
+  // dropped entirely once every read path is off it.
+  outcome_id: string | null;
+  // The function this measure belongs to. Nullable only while both
+  // models are live; required in the target shape.
+  function_id: string | null;
+  kind: MeasureKind;
   description: string;
+  // Longer descriptive text. Carries what function_outcomes.description
+  // held before the migration; KPIs generally leave it null.
+  detail: string | null;
   target: string | null;
   value_type: MetricValueType;
   // Direction determines what "at or above target" means. Higher-is-
@@ -429,6 +446,15 @@ export type SuccessMeasure = {
   archived: boolean;
   created_at: string;
   updated_at: string;
+};
+
+// Which KPIs drive which CSF. Many-to-many in the data from day one
+// even though the authoring UI enforces one CSF per KPI, so widening
+// the rule later is a UI change rather than a migration.
+export type CsfKpiLink = {
+  csf_id: string;
+  kpi_id: string;
+  created_at: string;
 };
 
 export type SuccessMeasureEntry = {
