@@ -72,7 +72,7 @@ export function ruleBasedCritique(input: {
 
   let targetHint: string | null = null;
   if (d.length > 0 && t.length === 0) {
-    targetHint = "Set a target so you know when the number is good enough.";
+    targetHint = "Set a target so you know what success looks like.";
   } else if (
     (input.valueType === "number" || input.valueType === "percent") &&
     t.length > 0 &&

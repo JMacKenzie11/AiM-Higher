@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   useActionState,
@@ -114,21 +113,13 @@ export function ManagedMeasureRow({
             Critical Success Factor
           </span>
         ) : null}
-        <Link
-          href={`/measures/${measure.id}`}
+        <span
           className={
-            kind === "csf" ? styles.measureCsfName : styles.measureTitleLink
-          }
-          title={
-            trackingEnabled
-              ? "Open quick-log view"
-              : kind === "csf"
-                ? "Open critical success factor detail"
-                : "Open KPI detail"
+            kind === "csf" ? styles.measureCsfName : styles.measureTitleText
           }
         >
           {measure.description}
-        </Link>
+        </span>
         {trackingEnabled && measure.update_frequency &&
         measure.update_frequency !== "weekly" ? (
           <span className={styles.measureFreq}>

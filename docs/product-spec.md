@@ -291,8 +291,14 @@ Whether the tracking columns render is gated by
   falls as you type. Silent when you have nothing to log. The counts
   existed inside the chips; nobody had ever stated it as a sentence, so
   a leader scanned every row to find the empty boxes.
-- **Individual measure quick-log** (`/measures/[id]`) — one
-  measure, one big input, phone-friendly. Weekly history table.
+- **Individual measure quick-log (`/measures/[id]`) — removed
+  2026-09-04.** One measure, one big input, plus a "rather log a whole
+  week in one place?" link straight back to the page it was reached
+  from. It was a second place to type one number, and the row it was
+  reached from already has that input. Removed alongside the dashboard
+  pending card for the same reason: **/measures is the one place values
+  are entered.** Measure names in the manager are plain text now rather
+  than links to it.
 - **Entitlement-off variant** — tracking columns, Recent pills, filter
   chips and save buttons all hide; the page becomes a pure authoring
   surface. `.measureGridAuthor` drops the grid to two tracks so the
