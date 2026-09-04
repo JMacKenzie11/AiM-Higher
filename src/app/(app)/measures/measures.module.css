@@ -792,3 +792,22 @@
   margin-top: 0.25rem;
   border-top: 1px solid var(--grad-rule);
 }
+
+/* Advisory note when a critical success factor collects too many
+   lead measures. Reads as guidance, not an error: muted text on the
+   page ground, no icon, no border. */
+.outcomeNudge {
+  margin: 0;
+  padding: var(--space-2) 0 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Says which mode the card is in while its details are being edited.
+   Matches the uppercase eyebrow the card normally shows, so the
+   swap reads as the same card changing state, not a new panel. */
+.outcomeEditingLabel {
+  composes: outcomeLabel;
+  margin: 0 0 var(--space-2);
+}

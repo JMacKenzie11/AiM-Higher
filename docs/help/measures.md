@@ -1,135 +1,176 @@
 ---
-title: Key Success Measures
+title: Critical Success Factors
 ---
 
-# Key Success Measures
+# Critical Success Factors
 
-One surface for two jobs: **defining what "winning" looks like**
-(outcomes + the measures under them) and **logging weekly values**.
-Grouped by function so a leader scanning their seats and a coach
-scanning the whole company both find rows without a search.
+Two levels, one page.
 
-Sections stack top-to-bottom:
+A **Critical Success Factor** is a result a function is accountable for.
+It is a lagging measure: by the time it moves, the work that moved it is
+already done. "All jobs invoiced by month end."
 
-1. **Board (read)** — a 13-week view of every metric vs. target
-   across every function. Only shown when Success Tracking is on.
-2. **Manager (author + track)** — every function's outcomes and
-   their key success measures. Author inline. When Success Tracking
-   is on, each row also shows *recent* pills, a *this week* input,
-   and a status dot.
+A **Key Performance Indicator** is a leading measure that drives it. It
+is something a person can act on this week. "Jobs closed out within two
+days of completion."
+
+Both carry a target and a weekly value. The difference is not how they
+are tracked, it is what they tell you. A CSF tells you where you ended
+up. A KPI tells you whether you are going to like where you end up.
+
+Everything is grouped by function, because a function head owns their
+own critical success factors and the KPIs beneath them.
+
+## The two sections
+
+1. **The board** — 13 weeks of every measure against its target, across
+   every function. Only shown when Success Tracking is on. Opens on
+   **Timeline**.
+2. **The manager** — every function's critical success factors, the KPIs
+   under each, and the inputs for this week's values.
 
 ## What you can do here
 
 ::: role team_member
 As a team member, you can:
 
-- **Read the Board** — 13 weeks vs. target across every function.
-  Toggle *Grid* for per-metric sparklines on function cards, or
-  *Timeline* for cross-function patterns row-by-row.
-- **Log this week's numbers** on any key success measure under a
-  function you lead. Type into the *This week* input, click *Save
-  week* at the bottom.
-- **Filter by status** — click the *On target* / *Off* / *Not yet
-  logged* chips at the top to narrow the manager. Chips are
-  multi-select; click again to clear.
-- **See prior weeks at a glance** — the *Recent* column shows the
-  last three weeks as coloured pills (green on target, red off).
-- **Fix a bad number** — retype and save. Rows upsert on
-  `(measure_id, week ending)`, so the last value wins.
-- **Log from your phone** — click a measure name (or open its
-  quick-log deep link) for a big, centred single-metric input.
+- **Read the board.** *Timeline* shows one row per function, each week
+  rolled into a single cell, so you can see which functions have been
+  drifting. *Grid* breaks each function into per-measure sparklines.
+- **Log this week's numbers** for any function you lead — the critical
+  success factor's own value and each KPI under it. Type into the *This
+  week* boxes, then press the save button in that function's card.
+- **Filter by status.** The *On target* / *Off* / *Not yet logged* chips
+  narrow the list. They are multi-select; click again to clear.
+- **See the last three weeks** in the *Recent* column, as coloured
+  pills.
+- **Fix a bad number.** Retype and save. Values are keyed on the measure
+  and the week, so the last one wins.
+- **Log from your phone.** Click a measure name for a single big input.
 :::
 
 ::: role company_admin,aims_guide,system_admin
 As an admin or guide, you can also:
 
-- **See every function in the company** in the manager, not just
-  the ones on your seats.
-- **Add an outcome** to any function via the always-live *Add an
-  outcome* row at the bottom of the function block.
-- **Rename an outcome** inline (click the title). Open *Details* to
-  edit the "why this matters" description or archive the outcome.
-- **Add a key success measure** to any outcome via the always-live
-  add-measure row under the outcome. Description, target, value
-  type; press Enter.
-- **Edit a measure** — click *Edit* on any row to expand into the
-  full form (description, target, value type, direction, auto-track,
-  AI + rule-based coaching hints on the metric quality). Save
-  in-place; the row collapses back.
-- **Archive an outcome or measure** — archive is soft; historical
-  weekly entries stay intact.
-- **Log a value on anyone's behalf** — same input the leader sees.
+- **See every function in the company**, not just your own seats.
+- **Add a critical success factor** to any function.
+- **Rename one** by clicking its title. *Details* opens the
+  why-this-matters note.
+- **Add a KPI** under any critical success factor.
+- **Edit a measure** — description, target, value type, direction,
+  update frequency, and whether it is chased when a value is missing.
+- **Archive** a critical success factor or a KPI. Archiving is soft;
+  past weekly values stay.
+- **Log a value for anyone**, using the same inputs the leader sees.
 :::
 
-## How the surface changes when Success Tracking is off
+## Saving
 
-When the company doesn't have Success Tracking enabled:
+Each function has its own save button, inside its own card. There is no
+single save for the whole page, because there is no single person who
+fills the whole page in. A function head saves their function.
 
-- The Board hides entirely.
-- The manager drops its filter chips, *Recent* column, *This week*
-  input, status dot, and *Save week* button.
-- What's left is a pure authoring surface — every function's
-  outcomes and the measures under them, with add/edit/archive
-  affordances for admins and guides.
+An admin or guide sees every function and can enter numbers for someone,
+one function at a time.
 
-Flip the entitlement on the company settings page and the tracking
-columns activate on the next page load.
+## How often a measure is expected
 
-## How the surface is organised
+Every measure has an update frequency: **every week**, **every two
+weeks**, or **every month**.
 
-- **Function heading** — one per function you can see. The heading
-  links back to the function's detail page on the chart.
-- **Outcome block** — one per outcome. Header shows the outcome
-  title (admin: click to rename) + optional description +
-  *Details* / *Archive* buttons.
-- **Measure rows** — dense grid of measures under the outcome.
-  Columns adapt to tracking on/off and role.
-- **Add rows** — always-live inputs for adding an outcome (per
-  function) and a measure (per outcome). Enter to save; focus
-  returns for the next entry.
+The clock starts from when the measure was created, not from the
+calendar. A monthly measure created in the second week of the month is
+expected in the second week of every month after that.
 
-## Where else to log a value
+This is what the system chases on. A monthly measure is not "missing"
+three weeks out of four.
 
-- **Metric quick-log** (`/measures/[id]`) — one metric, one big
-  input, phone-friendly. Click any measure name in the manager.
-- **Dashboard *Pending this week*** — inline entry for the measures
-  the leader hasn't logged yet.
+## What happens when a number is late or bad
 
-All surfaces write to the same row, upserted on `(measure_id, week
-ending)`.
+A job runs on Saturday morning and looks at every measure that was due
+that week.
+
+**No value logged** creates a **commitment** for the person who owns the
+function: *"Log this week's value for [measure]."* Due at the end of the
+same week, so it closes as soon as the number is in. This is an
+administrative nudge, so it is a commitment.
+
+**A value below target** raises an **issue**: *"Off target: [measure]."*
+Missing a target is a business problem, not an admin task. It belongs
+where the team discusses problems, not on someone's to-do list.
+
+Both apply to critical success factors and KPIs.
+
+Turn off *chase this measure* in the measure's edit form for numbers you
+track as context rather than as a target, like headcount.
+
+## Targets
+
+A KPI needs a target. A leading measure with no target is not telling
+anyone anything.
+
+A **critical success factor does not have to have one**. Some results
+are named before anyone has worked out what good looks like, and forcing
+a number at that point produces a made-up one. A CSF with no target
+still collects values and still appears on the board; its cells read as
+*no target set* rather than on or off.
+
+## How many KPIs
+
+Two or three per critical success factor is usually right. Past three
+the page tells you so.
+
+It is a nudge, not a limit. Some functions genuinely need a fourth, and
+a hard cap would only push people into vaguer KPIs that bundle two
+things together.
+
+## Archiving
+
+Archiving a critical success factor archives the KPIs under it. A KPI
+that outlives the result it was there to move keeps collecting values
+and keeps chasing its owner while pointing at nothing.
+
+Restoring a CSF does **not** restore its KPIs, since some of them were
+probably archived deliberately beforehand.
+
+Nothing hard-deletes from this page, so past weekly values survive.
+
+## When Success Tracking is off
+
+- The board is hidden.
+- The manager drops the filter chips, the *Recent* column, the *This
+  week* inputs, the status dots and the save buttons.
+- What is left is a place to write down critical success factors and the
+  KPIs beneath them.
+
+Turn the entitlement on from company settings and the tracking columns
+appear on the next load.
+
+## Where else values can be logged
+
+- **Quick log** (`/measures/[id]`) — one measure, one big input.
+- **Dashboard, *Pending this week*** — the measures a leader has not
+  logged yet.
+
+Every route writes the same row, keyed on the measure and the week.
 
 ## Common questions
 
-**Where did the "add measure" flow on the chart page go?** It moved
-here. The chart function page shows a compact summary and a link
-back to *Key Success Measures* — the chart stays a chart.
+**Are these the old Outcomes and Key Success Measures?** Yes. An outcome
+became a critical success factor and a key success measure became a KPI.
+The rename came with a real change: a critical success factor is now
+measured itself, where before it was only a heading.
 
-**Who sees which functions in the manager?** Team members see
-functions they lead. Admins see every function in the company.
-Guides see every function in each company they're assigned to.
+**Can one KPI drive more than one critical success factor?** The data
+allows it. The screen does not, yet. A KPI is attached to one CSF today,
+and that can be opened up later without a migration.
 
-**Does a measure need a target?** With Success Tracking on, yes —
-every new measure requires a target (server rejects the create
-otherwise). With Success Tracking off, target is optional.
+**Where did the add-measure flow on the chart page go?** Here. The chart
+function page shows a summary and links back. The chart stays a chart.
 
-**What if I miss a week?** With Success Tracking on, missing a
-week's update on an `auto_track` measure triggers an auto-commitment
-on Saturday reminding the leader to log it. Due end of the same
-week so it can be closed as soon as the value's in. Turn *auto-track*
-off in the measure's Edit form if it's context (like headcount)
-rather than a target to hit.
+**Who sees which functions?** Team members see the functions they lead.
+Admins see everything in the company. Guides see everything in each
+company they are assigned to.
 
-**What if a value is below target?** Same Saturday cron opens a
-second flavour of auto-commitment on the leader: *"Off target
-this week: [measure] (value vs. target)."* Due the following
-Friday, so the leader has the upcoming week to look at what
-happened and act on it. Same `auto_track` filter — context
-measures don't fire. If the value corrects itself before Saturday
-the commitment doesn't get created.
-
-**Why can't I hard-delete an outcome or measure?** Both only
-archive from the UI, so past-quarter weekly entries stay intact.
-
-**Do AiMS Guides have admin access?** Yes, on the companies they're
-assigned to. Guides can add, rename, and archive outcomes and
-measures, and log values for anyone's seat.
+**Do guides have admin access?** Yes, on their assigned companies. They
+can add, rename and archive, and log values for anyone.

@@ -53,15 +53,26 @@ export function OutcomeSection({
   const [addMeasureOpen, setAddMeasureOpen] = useState(false);
   const visibleMeasures = outcome.measures.filter(isVisible);
 
-  return (
-    <div className={styles.outcomeBlock}>
-      {editingDetails ? (
+  // Editing the details takes over the whole card rather than
+  // appearing inside it. The form used to replace the header only,
+  // which left the weekly value row and the KPI table sitting below
+  // its Save button — so the button looked like it committed those
+  // too. Nothing below a save button should be outside its scope.
+  if (editingDetails) {
+    return (
+      <div className={styles.outcomeBlock}>
+        <p className={styles.outcomeEditingLabel}>Editing this critical success factor</p>
         <EditOutcomeForm
           outcome={outcome}
           onDone={() => setEditingDetails(false)}
         />
-      ) : (
-        <header className={styles.outcomeHeader}>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.outcomeBlock}>
+      <header className={styles.outcomeHeader}>
           <div className={styles.outcomeHeaderTitleWrap}>
             <p className={styles.outcomeLabel}>Critical Success Factor</p>
             {isAdmin ? (
@@ -92,8 +103,7 @@ export function OutcomeSection({
               <ArchiveOutcomeButton outcomeId={outcome.id} />
             </div>
           ) : null}
-        </header>
-      )}
+      </header>
 
       {/* A CSF is measured now, so it needs somewhere to record its
           own value. Without this the page named a result the function
@@ -185,6 +195,19 @@ export function OutcomeSection({
           ))}
         </div>
       )}
+
+      {/* A nudge, not a limit. Three lead measures is about what a
+          function head can actually move in a week; past that the
+          list becomes a report nobody acts on. Deliberately advisory:
+          some functions genuinely need a fourth, and a hard cap would
+          just push people into vaguer KPIs that bundle two things. */}
+      {isAdmin && outcome.measures.length >= 3 ? (
+        <p className={styles.outcomeNudge}>
+          {outcome.measures.length} KPIs on this critical success
+          factor. Two or three is usually enough. More than that and
+          the weekly update becomes a chore rather than a decision.
+        </p>
+      ) : null}
 
       {isAdmin ? (
         <div className={styles.outcomeAdd}>
