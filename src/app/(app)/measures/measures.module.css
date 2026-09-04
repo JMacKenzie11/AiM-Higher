@@ -803,3 +803,11 @@
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* Says which mode the card is in while its details are being edited.
+   Matches the uppercase eyebrow the card normally shows, so the
+   swap reads as the same card changing state, not a new panel. */
+.outcomeEditingLabel {
+  composes: outcomeLabel;
+  margin: 0 0 var(--space-2);
+}

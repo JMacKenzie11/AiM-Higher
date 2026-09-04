@@ -7,6 +7,7 @@ import type {
   MeasureTreeMeasure,
 } from "@/lib/measures/service";
 import styles from "./measures.module.css";
+import uiStyles from "@/components/ui/ui.module.css";
 import { OutcomeSection } from "./OutcomeSection";
 import { AddOutcomeInline } from "./AddOutcomeInline";
 
@@ -92,11 +93,17 @@ export function FunctionSection({
         <div className={styles.fnSaveRow}>
           <button
             type="button"
-            className={styles.primaryButton}
+            // The shared primary button, same as every other save in
+            // the app. This referenced a local class that does not
+            // exist in the stylesheet, so it rendered unstyled.
+            className={uiStyles.btnPrimary}
             onClick={onSave}
             disabled={disabled}
           >
-            {saving ? "Saving…" : `Save ${fn.title} values`}
+            {/* The function's name is already the card's heading
+                directly above, so repeating it here only made the
+                button wide enough to read as something else. */}
+            {saving ? "Saving…" : "Save this week"}
           </button>
         </div>
       ) : null}
