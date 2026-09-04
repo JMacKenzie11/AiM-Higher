@@ -9,7 +9,6 @@ import {
 import {
   archiveOutcomeAction,
   renameOutcomeAction,
-  updateOutcomeDetailAction,
   type ChartResult,
 } from "@/lib/chart/actions";
 import type {
@@ -53,11 +52,6 @@ export function OutcomeSection({
   const [addMeasureOpen, setAddMeasureOpen] = useState(false);
   const visibleMeasures = outcome.measures.filter(isVisible);
 
-  // Editing the details takes over the whole card rather than
-  // appearing inside it. The form used to replace the header only,
-  // which left the weekly value row and the KPI table sitting below
-  // its Save button — so the button looked like it committed those
-  // too. Nothing below a save button should be outside its scope.
   return (
     <div className={styles.outcomeBlock}>
       <header className={styles.outcomeHeader}>
@@ -68,13 +62,6 @@ export function OutcomeSection({
             ) : (
               <h3 className={styles.outcomeTitle}>{outcome.title}</h3>
             )}
-            {isAdmin ? (
-              <InlineOutcomeDetailEditor outcome={outcome} />
-            ) : outcome.description ? (
-              <p className={styles.outcomeDescription}>
-                {outcome.description}
-              </p>
-            ) : null}
           </div>
           {isAdmin ? (
             <div className={styles.outcomeHeaderActions}>
@@ -202,89 +189,6 @@ export function OutcomeSection({
         </div>
       ) : null}
     </div>
-  );
-}
-
-// The why-this-matters note, edited in place and saved on blur, the
-// same as the title above it. Both were behind a Details drawer
-// before — a two-field modal for two pieces of text people mostly
-// skim, which is more ceremony than the edit deserves.
-//
-// Blank is a legitimate value here, unlike the title, so clearing
-// the box clears the note rather than reverting.
-function InlineOutcomeDetailEditor({
-  outcome,
-}: {
-  outcome: MeasureTreeOutcome;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(outcome.description ?? "");
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDraft(outcome.description ?? "");
-  }, [outcome.description]);
-
-  function commit() {
-    if (pending) return;
-    const next = draft.trim();
-    if (next === (outcome.description ?? "")) {
-      setEditing(false);
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await updateOutcomeDetailAction(outcome.id, next);
-      if (!result.ok) setError(result.message);
-      else setEditing(false);
-    });
-  }
-
-  if (editing) {
-    return (
-      <>
-        <textarea
-          className={styles.outcomeDetailInput}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              e.preventDefault();
-              setDraft(outcome.description ?? "");
-              setEditing(false);
-              setError(null);
-            }
-          }}
-          rows={2}
-          autoFocus
-          disabled={pending}
-          placeholder="Why this matters"
-          aria-label="Why this critical success factor matters"
-        />
-        {error ? (
-          <p role="alert" className={styles.rowError}>
-            {error}
-          </p>
-        ) : null}
-      </>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className={
-        outcome.description
-          ? styles.outcomeDescriptionEditable
-          : styles.outcomeDescriptionEmpty
-      }
-      onClick={() => setEditing(true)}
-      title="Click to edit"
-    >
-      {outcome.description || "Add why this matters"}
-    </button>
   );
 }
 

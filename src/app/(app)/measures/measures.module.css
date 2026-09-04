@@ -426,6 +426,13 @@
 
 
 
+.outcomeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .outcomeHeaderTitleWrap {
   display: flex;
   flex-direction: column;
@@ -793,40 +800,5 @@
   color: var(--text-muted);
 }
 
-/* The why-this-matters note as a click-to-edit target. Reads as
-   plain text until hovered, so the card is not covered in controls;
-   the affordance appears where the cursor is. */
-.outcomeDescriptionEditable {
-  composes: outcomeDescription;
-  text-align: left;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 2px 4px;
-  margin-left: -4px;
-  cursor: text;
-  font: inherit;
-}
 
-.outcomeDescriptionEditable:hover {
-  border-color: var(--border);
-}
 
-/* When there is no note yet. Fainter and italic so an empty slot
-   invites a click without competing with the title above it. */
-.outcomeDescriptionEmpty {
-  composes: outcomeDescriptionEditable;
-  color: var(--text-faint);
-  font-style: italic;
-}
-
-.outcomeDetailInput {
-  width: 100%;
-  font: var(--text-body-sm);
-  color: var(--text);
-  padding: var(--space-2);
-  border: 1px solid var(--primary);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  resize: vertical;
-}
