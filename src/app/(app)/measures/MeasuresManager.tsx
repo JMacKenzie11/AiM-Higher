@@ -94,6 +94,11 @@ export function MeasuresManager({
     () => new Set()
   );
   const [pending, startTransition] = useTransition();
+  // Which function's save is in flight, so only that card's button
+  // shows a spinner instead of every one of them at once.
+  const [savingFunctionId, setSavingFunctionId] = useState<string | null>(
+    null
+  );
   const [message, setMessage] = useState<{
     ok: boolean;
     text: string;
@@ -117,24 +122,44 @@ export function MeasuresManager({
     });
   }
 
-  function save() {
+  // Saves one function's values, not the page's.
+  //
+  // This used to be a single page-level button. That implied one
+  // person sits down and fills in the whole company, when in fact
+  // every function head manages their own critical success factors
+  // and the KPIs beneath them. A save control that spans other
+  // people's functions describes a workflow nobody actually follows.
+  //
+  // Admins and guides still see every function, so they can still
+  // enter values on someone's behalf — they just do it one function
+  // at a time, which is how the accountability actually sits.
+  function saveFunction(fn: MeasureTreeFunction) {
     setMessage(null);
-    const entries: MeasureEntryInput[] = allEntryTargets.map((m) => ({
-      measureId: m.id,
-      valueType: m.value_type,
-      rawValue: values[m.id] ?? "",
-    }));
+    const entries: MeasureEntryInput[] = fn.outcomes.flatMap((o) => [
+      {
+        measureId: o.id,
+        valueType: o.value_type,
+        rawValue: values[o.id] ?? "",
+      },
+      ...o.measures.map((m) => ({
+        measureId: m.id,
+        valueType: m.value_type,
+        rawValue: values[m.id] ?? "",
+      })),
+    ]);
+    setSavingFunctionId(fn.id);
     startTransition(async () => {
       const result = await logMeasureEntriesAction(entries, weekEnding);
+      setSavingFunctionId(null);
       if (result.ok) {
         setMessage({
           ok: true,
           text:
             result.savedCount === 0
-              ? "Nothing to save — enter values first."
+              ? `Nothing to save for ${fn.title} — enter values first.`
               : `Saved ${result.savedCount} value${
                   result.savedCount === 1 ? "" : "s"
-                }.`,
+                } for ${fn.title}.`,
         });
       } else {
         setMessage({ ok: false, text: result.message });
@@ -188,6 +213,8 @@ export function MeasuresManager({
           trackingEnabled={trackingEnabled}
           rdEnabled={rdEnabled}
           weekEnding={weekEnding}
+          onSave={() => saveFunction(fn)}
+          saving={savingFunctionId === fn.id}
         />
       ))}
 
@@ -202,18 +229,7 @@ export function MeasuresManager({
         </p>
       ) : null}
 
-      {trackingEnabled ? (
-        <div className={localStyles.saveRow}>
-          <button
-            type="button"
-            className={styles.primaryButton}
-            onClick={save}
-            disabled={pending}
-          >
-            {pending ? "Saving…" : "Save this week's values"}
-          </button>
-        </div>
-      ) : null}
+
     </div>
   );
 }

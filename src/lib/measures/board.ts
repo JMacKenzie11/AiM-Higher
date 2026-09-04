@@ -34,6 +34,11 @@ export type BoardMetric = {
   valueType: MetricValueType;
   direction: TargetDirection;
   outcomeTitle: string;
+  // Which half of the model this row is. A critical success factor is
+  // the result the function is accountable for; a KPI is a lead
+  // measure someone moves weekly to get there. The timeline shows
+  // both, so a row has to say which it is.
+  kind: "csf" | "kpi";
   cells: BoardCell[];
 };
 
@@ -101,16 +106,27 @@ export async function getBoardData(
   // called `title`.
   const { data: csfRaw } = await supabase
     .from("success_measures")
-    .select("id, description, function_id")
+    .select(
+      "id, description, function_id, target, value_type, target_direction, sort_order"
+    )
     .in("function_id", functionIds)
     .eq("kind", "csf")
     .eq("archived", false)
     .order("sort_order");
-  const outcomes = ((csfRaw ?? []) as Array<{
+  const csfRows = (csfRaw ?? []) as Array<{
     id: string;
     description: string;
     function_id: string;
-  }>).map((c) => ({ id: c.id, title: c.description, function_id: c.function_id }));
+    target: string | null;
+    value_type: MetricValueType;
+    target_direction: TargetDirection;
+    sort_order: number;
+  }>;
+  const outcomes = csfRows.map((c) => ({
+    id: c.id,
+    title: c.description,
+    function_id: c.function_id,
+  }));
   const outcomeById = new Map(outcomes.map((o) => [o.id, o]));
   const outcomeIds = outcomes.map((o) => o.id);
 
@@ -140,7 +156,28 @@ export async function getBoardData(
     value_type: MetricValueType;
     target_direction: TargetDirection;
     sort_order: number;
+    kind: "csf" | "kpi";
   }> = [];
+
+  // Critical success factors are plotted rows in their own right,
+  // not just group headings. They carry a target and a weekly value
+  // like any KPI does (migration 0166 made them measurable), so a
+  // board that only drew KPIs was hiding the very numbers the
+  // function is held to. Each CSF groups under itself, which puts it
+  // at the head of its own set of lead measures.
+  measures.push(
+    ...csfRows.map((c) => ({
+      id: c.id,
+      description: c.description,
+      target: c.target,
+      value_type: c.value_type,
+      target_direction: c.target_direction,
+      sort_order: c.sort_order,
+      outcome_id: c.id,
+      kind: "csf" as const,
+    }))
+  );
+
   if (outcomeIds.length > 0) {
     const kpiIds = Array.from(csfIdByKpi.keys());
     const { data: measuresRaw } = kpiIds.length
@@ -166,6 +203,7 @@ export async function getBoardData(
         // Kept named outcome_id so the rest of this module reads
         // unchanged; it now holds the linked CSF's id.
         outcome_id: csfIdByKpi.get(m.id) ?? "",
+        kind: "kpi" as const,
       }))
     );
   }
@@ -217,9 +255,16 @@ export async function getBoardData(
     const fnOutcomeIds = outcomes
       .filter((o) => o.function_id === fn.id)
       .map((o) => o.id);
-    const fnMeasures = measures.filter((m) =>
-      fnOutcomeIds.includes(m.outcome_id)
-    );
+    // Group by CSF, and inside each group put the CSF row first so
+    // the lag measure reads above the lead measures that drive it.
+    const fnMeasures = fnOutcomeIds.flatMap((outcomeId) => {
+      const inGroup = measures.filter((m) => m.outcome_id === outcomeId);
+      const csf = inGroup.filter((m) => m.kind === "csf");
+      const kpis = inGroup
+        .filter((m) => m.kind === "kpi")
+        .sort((a, b) => a.sort_order - b.sort_order);
+      return [...csf, ...kpis];
+    });
     return {
       id: fn.id,
       title: fn.title,
@@ -241,6 +286,7 @@ export async function getBoardData(
           valueType: m.value_type,
           direction: m.target_direction,
           outcomeTitle: outcomeById.get(m.outcome_id)?.title ?? "—",
+          kind: m.kind,
           cells: weeks.map((w) => {
             const entry = entriesByMeasureWeek.get(`${m.id}|${w}`) ?? null;
             const status = computeStatus(m, entry);

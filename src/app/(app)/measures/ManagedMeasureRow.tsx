@@ -146,7 +146,7 @@ export function ManagedMeasureRow({
         <div className={styles.measureCellActions} role="cell">
           <button
             type="button"
-            className={styles.ghostButton}
+            className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
             onClick={() => setEditing(true)}
           >
             Edit

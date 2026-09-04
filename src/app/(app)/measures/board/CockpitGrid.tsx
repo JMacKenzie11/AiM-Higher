@@ -109,6 +109,13 @@ function MetricSparklineRow({
     <div className={styles.sparkRow}>
       <div className={styles.sparkLabel}>
         <span className={styles.sparkName} title={metric.description}>
+          {metric.kind === "csf" ? (
+            // The lag measure the function is accountable for. Marked
+            // because it now sits in the same list as the lead
+            // measures that drive it, and the two read very
+            // differently at a glance.
+            <span className={styles.sparkKindChip}>CSF</span>
+          ) : null}
           {metric.description}
         </span>
         <span className={styles.sparkTarget}>
