@@ -87,7 +87,17 @@ export function OutcomeSection({
             role="row"
             aria-hidden="true"
           >
-            <span>KPI</span>
+            {/* Deliberately unlabelled. The first column holds the
+                name of whatever is on the row, and the rows are not
+                all the same kind: the critical success factor is the
+                first one, its KPIs follow. "KPI" over a column whose
+                top entry is a CSF says the CSF is a sort of KPI, and
+                "Measure" is a word this page stopped using. The rows
+                identify themselves — the CSF carries an eyebrow, and
+                everything under it is a KPI, which the "Add a KPI"
+                button below the list confirms. The other three
+                columns label values, which do need naming. */}
+            <span />
             {trackingEnabled ? (
               <>
                 <span>Target</span>
