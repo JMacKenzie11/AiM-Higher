@@ -28,6 +28,9 @@ const mocks = vi.hoisted(() => {
   const outcomesJoinedMaybeSingle = vi.fn(); // for createMeasure
   const measuresInsertPatch = vi.fn();
   const linkUpsertPayload = vi.fn();
+  // Lets a test make the link write fail so the rollback path runs.
+  const linkInsertResult = vi.fn(() => ({ data: null, error: null }));
+  const measuresDeleteEq = vi.fn();
   const csfUpsertPayload = vi.fn();
   const measuresInsertSingle = vi.fn();
   const measuresJoinedMaybeSingle = vi.fn(); // for updateMeasure / upsertEntry
@@ -98,6 +101,12 @@ const mocks = vi.hoisted(() => {
           csfUpsertPayload(payload);
           return Promise.resolve({ data: null, error: null });
         },
+        delete: () => ({
+          eq: (col: string, val: unknown) => {
+            measuresDeleteEq(col, val);
+            return Promise.resolve({ data: null, error: null });
+          },
+        }),
       };
     }
     if (table === "csf_kpi_links") {
@@ -107,7 +116,7 @@ const mocks = vi.hoisted(() => {
       return {
         insert: (payload: unknown) => {
           linkUpsertPayload(payload);
-          return Promise.resolve({ data: null, error: null });
+          return Promise.resolve(linkInsertResult());
         },
         upsert: (payload: unknown) => {
           linkUpsertPayload(payload);
@@ -167,6 +176,8 @@ const mocks = vi.hoisted(() => {
     outcomesJoinedMaybeSingle,
     measuresInsertPatch,
     linkUpsertPayload,
+    linkInsertResult,
+    measuresDeleteEq,
     csfUpsertPayload,
     measuresInsertSingle,
     measuresJoinedMaybeSingle,
@@ -448,6 +459,51 @@ describe("createMeasureAction", () => {
     expect(mocks.linkUpsertPayload).toHaveBeenCalledWith(
       expect.objectContaining({ csf_id: "o_1", kpi_id: "m_new" })
     );
+  });
+
+  it("refuses when the parent critical success factor can't be resolved", async () => {
+    // A stale id, an archived CSF, or a row RLS will not show this
+    // caller. Since migration 0168 function_id is NOT NULL, so
+    // carrying on would fail on the constraint and surface as the
+    // generic "Couldn't add that measure", which says nothing about
+    // what actually went wrong.
+    mocks.outcomesJoinedMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    const { createMeasureAction } = await import("./actions");
+
+    const res = await createMeasureAction(
+      undefined,
+      formDataFrom({ outcome_id: "o_gone", description: "Calls booked" })
+    );
+
+    expect(res.ok).toBe(false);
+    expect(res.ok === false && res.message).toMatch(
+      /critical success factor/i
+    );
+    // And nothing was written.
+    expect(mocks.measuresInsertPatch).not.toHaveBeenCalled();
+  });
+
+  it("removes the measure when its link can't be written", async () => {
+    // Every read path finds a KPI through csf_kpi_links. A measure
+    // with no link is invisible, so the leader who just created it
+    // sees no new row and adds it again. Leaving that behind is
+    // worse than failing the create.
+    mocks.linkInsertResult.mockReturnValueOnce({
+      data: null,
+      error: { message: "link failed" },
+    });
+    const { createMeasureAction } = await import("./actions");
+
+    const res = await createMeasureAction(
+      undefined,
+      formDataFrom({ outcome_id: "o_1", description: "Calls booked" })
+    );
+
+    expect(res.ok).toBe(false);
+    expect(mocks.measuresDeleteEq).toHaveBeenCalledWith("id", "m_new");
   });
 
   it("defaults an unknown value_type to 'number' and unknown direction to 'higher_is_better'", async () => {
