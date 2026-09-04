@@ -27,6 +27,8 @@ const mocks = vi.hoisted(() => {
 
   const outcomesJoinedMaybeSingle = vi.fn(); // for createMeasure
   const measuresInsertPatch = vi.fn();
+  const linkUpsertPayload = vi.fn();
+  const csfUpsertPayload = vi.fn();
   const measuresInsertSingle = vi.fn();
   const measuresJoinedMaybeSingle = vi.fn(); // for updateMeasure / upsertEntry
   const measuresUpdateSingle = vi.fn();
@@ -78,9 +80,34 @@ const mocks = vi.hoisted(() => {
           eq: () => ({ maybeSingle: measuresJoinedMaybeSingle }),
         }),
         update: () => ({
+          // Two shapes are live: the target-hint path chains
+          // .select().single(), while the transition mirror just
+          // awaits .eq(). Support both by making eq() thenable.
           eq: () => ({
             select: () => ({ single: measuresUpdateSingle }),
+            then: (res: (v: unknown) => unknown) =>
+              Promise.resolve({ data: null, error: null }).then(res),
           }),
+          in: () =>
+            Promise.resolve({ data: null, error: null }),
+        }),
+        upsert: (payload: unknown) => {
+          csfUpsertPayload(payload);
+          return Promise.resolve({ data: null, error: null });
+        },
+      };
+    }
+    if (table === "csf_kpi_links") {
+      // Transition table (migration 0166). The mirror writes a link
+      // when a measure is created under an outcome, and reads links
+      // when a CSF is archived.
+      return {
+        upsert: (payload: unknown) => {
+          linkUpsertPayload(payload);
+          return Promise.resolve({ data: null, error: null });
+        },
+        select: () => ({
+          eq: () => Promise.resolve({ data: [], error: null }),
         }),
       };
     }
@@ -132,6 +159,8 @@ const mocks = vi.hoisted(() => {
     functionsUpdateSingle,
     outcomesJoinedMaybeSingle,
     measuresInsertPatch,
+    linkUpsertPayload,
+    csfUpsertPayload,
     measuresInsertSingle,
     measuresJoinedMaybeSingle,
     measuresUpdateSingle,

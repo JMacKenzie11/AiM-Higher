@@ -5,6 +5,11 @@ import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { isAdminForCompany, scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
+import {
+  cascadeArchiveKpis,
+  mirrorMeasureToKpi,
+  mirrorOutcomeToCsf,
+} from "@/lib/measures/mirror";
 import { scoreMeasureTarget } from "@/lib/measures/target-check";
 import { nullableString } from "@/lib/utils";
 import type {
@@ -390,6 +395,10 @@ export async function createOutcomeAction(
     .single<FunctionOutcome>();
   if (error || !data) return { ok: false, message: "Couldn't add that outcome." };
 
+  // Transition mirror (phases 3-7): reads run off the new model, so a
+  // new outcome has to appear as a CSF or it never shows up.
+  await mirrorOutcomeToCsf(supabase, data);
+
   revalidatePath("/chart");
   revalidatePath(`/chart/function/${functionId}`);
   revalidatePath("/measures");
@@ -416,6 +425,8 @@ export async function updateOutcomeAction(
     .select("*")
     .single<FunctionOutcome>();
   if (error || !data) return { ok: false, message: "Couldn't save changes." };
+
+  await mirrorOutcomeToCsf(supabase, data);
 
   revalidatePath("/chart");
   revalidatePath("/measures");
@@ -446,6 +457,10 @@ export async function renameOutcomeAction(
     .single<FunctionOutcome>();
   if (error || !data) return { ok: false, message: "Couldn't rename." };
 
+  // Title is the CSF's name in the new model, so a rename has to
+  // reach it or the two drift apart on the most visible field.
+  await mirrorOutcomeToCsf(supabase, data);
+
   revalidatePath("/chart");
   revalidatePath("/measures");
   return { ok: true, item: data };
@@ -464,6 +479,13 @@ export async function archiveOutcomeAction(
     .select("*")
     .single<FunctionOutcome>();
   if (error || !data) return { ok: false, message: "Couldn't archive." };
+
+  await mirrorOutcomeToCsf(supabase, data);
+  // Archiving a CSF archives the KPIs beneath it, so nothing is left
+  // parentless and invisible while still collecting values. Only on
+  // the way in: restoring a CSF does not restore its KPIs.
+  if (archived) await cascadeArchiveKpis(supabase, outcomeId);
+
   revalidatePath("/chart");
   revalidatePath("/measures");
   return { ok: true, item: data };
@@ -533,6 +555,19 @@ export async function createMeasureAction(
     .select("*")
     .single<SuccessMeasure>();
   if (error || !data) return { ok: false, message: "Couldn't add that measure." };
+
+  // Transition mirror: tag the row as a KPI, give it the function it
+  // belongs to, and record the link to its CSF. The outcome id is the
+  // CSF measure id, so no lookup is needed. Without this a measure
+  // created during the transition has no kind and no link, and the
+  // new read paths would not find it.
+  if (outcome?.function_id) {
+    await mirrorMeasureToKpi(supabase, {
+      measureId: data.id,
+      outcomeId,
+      functionId: outcome.function_id,
+    });
+  }
 
   // Coaching hint on the target, only when the flag is on and a
   // target was provided. Best-effort — a null result silently
