@@ -63,21 +63,24 @@ const mocks = vi.hoisted(() => {
         },
       };
     }
-    if (table === "function_outcomes") {
-      return {
-        select: () => ({
-          eq: () => ({ maybeSingle: outcomesJoinedMaybeSingle }),
-        }),
-      };
-    }
     if (table === "success_measures") {
+      // One table serves both kinds since migration 0168. A create
+      // looks up the parent CSF here (an extra .eq("kind","csf") in
+      // the chain); an update looks up the measure itself. The fake
+      // routes on how many eq() calls the caller makes, which is the
+      // only thing that distinguishes them.
       return {
         insert: (patch: unknown) => {
           measuresInsertPatch(patch);
           return { select: () => ({ single: measuresInsertSingle }) };
         },
         select: () => ({
-          eq: () => ({ maybeSingle: measuresJoinedMaybeSingle }),
+          eq: () => ({
+            // measure lookup: .eq("id", …).maybeSingle()
+            maybeSingle: measuresJoinedMaybeSingle,
+            // CSF parent lookup: .eq("id", …).eq("kind","csf").maybeSingle()
+            eq: () => ({ maybeSingle: outcomesJoinedMaybeSingle }),
+          }),
         }),
         update: () => ({
           // Two shapes are live: the target-hint path chains
@@ -102,6 +105,10 @@ const mocks = vi.hoisted(() => {
       // when a measure is created under an outcome, and reads links
       // when a CSF is archived.
       return {
+        insert: (payload: unknown) => {
+          linkUpsertPayload(payload);
+          return Promise.resolve({ data: null, error: null });
+        },
         upsert: (payload: unknown) => {
           linkUpsertPayload(payload);
           return Promise.resolve({ data: null, error: null });
@@ -255,13 +262,11 @@ function primeHappyPath() {
     data: {
       id: "m_1",
       value_type: "number",
-      outcome: {
-        function: {
-          id: "fn_1",
-          company_id: "co_acme",
-          lead_id: "leader_1",
-          track_id: "tracker_1",
-        },
+      function: {
+        id: "fn_1",
+        company_id: "co_acme",
+        lead_id: "leader_1",
+        track_id: "tracker_1",
       },
     },
     error: null,
@@ -427,12 +432,21 @@ describe("createMeasureAction", () => {
     );
 
     expect(res.ok).toBe(true);
+    // The parent moved off the row and onto the link table in 0168,
+    // so the measure carries its function and its kind, and the
+    // pairing is asserted separately below.
     expect(mocks.measuresInsertPatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        outcome_id: "o_1",
+        function_id: "fn_1",
+        kind: "kpi",
         description: "% on-time delivery",
         target: null,
       })
+    );
+    // Which CSF it drives. Without the link the measure exists but
+    // hangs off nothing, and no read path finds it.
+    expect(mocks.linkUpsertPayload).toHaveBeenCalledWith(
+      expect.objectContaining({ csf_id: "o_1", kpi_id: "m_new" })
     );
   });
 
@@ -508,13 +522,11 @@ describe("upsertMeasureEntryAction", () => {
       data: {
         id: "m_1",
         value_type: "text",
-        outcome: {
-          function: {
-            id: "fn_1",
-            company_id: "co_acme",
-            lead_id: "leader_1",
-            track_id: "tracker_1",
-          },
+        function: {
+          id: "fn_1",
+          company_id: "co_acme",
+          lead_id: "leader_1",
+          track_id: "tracker_1",
         },
       },
       error: null,

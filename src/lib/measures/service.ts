@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addDays, thisFriday } from "@/lib/dates";
+import { firstCsfIdByKpi } from "@/lib/measures/csf-as-outcome";
 import type {
   UpdateFrequency, MetricValueType, TargetDirection } from "@/lib/types";
 
@@ -61,39 +62,56 @@ export async function getMeasuresOwnedBy(
   const functionIds = functions.map((f) => f.id);
   const functionTitleById = new Map(functions.map((f) => [f.id, f.title]));
 
-  // Outcomes under those functions.
+  // The critical success factors under those functions. These are
+  // success_measures rows tagged csf since migration 0166, and their
+  // `description` is what the outcome called `title`.
   const { data: outcomeRows } = await supabase
-    .from("function_outcomes")
-    .select("id, title, function_id")
+    .from("success_measures")
+    .select("id, description, function_id")
+    .eq("kind", "csf")
+    .eq("archived", false)
     .in("function_id", functionIds);
-  const outcomes = (outcomeRows ?? []) as Array<{
+  const outcomes = ((outcomeRows ?? []) as Array<{
     id: string;
-    title: string;
+    description: string;
     function_id: string;
-  }>;
+  }>).map((c) => ({
+    id: c.id,
+    title: c.description,
+    function_id: c.function_id,
+  }));
   if (outcomes.length === 0) return { measures: [], weekEnding };
   const outcomeById = new Map(outcomes.map((o) => [o.id, o]));
   const outcomeIds = outcomes.map((o) => o.id);
 
-  // Measures under those outcomes.
+  // The KPIs those CSFs are driven by. The pairing lives in its own
+  // table now, so read the links first and ask for exactly those.
+  const { data: linkRows } = await supabase
+    .from("csf_kpi_links")
+    .select("csf_id, kpi_id")
+    .in("csf_id", outcomeIds);
+  const links = (linkRows ?? []) as Array<{ csf_id: string; kpi_id: string }>;
+  const csfIdByKpi = firstCsfIdByKpi(links);
+  const kpiIds = Array.from(csfIdByKpi.keys());
+  if (kpiIds.length === 0) return { measures: [], weekEnding };
+
   const { data: measureRows } = await supabase
     .from("success_measures")
     .select(
-      "id, description, target, value_type, target_direction, auto_track, outcome_id, archived, sort_order"
+      "id, description, target, value_type, target_direction, auto_track, archived, sort_order"
     )
-    .in("outcome_id", outcomeIds)
+    .in("id", kpiIds)
     .eq("archived", false)
     .order("sort_order");
-  const measures = (measureRows ?? []) as Array<{
+  const measures = ((measureRows ?? []) as Array<{
     id: string;
     description: string;
     target: string | null;
     value_type: MetricValueType;
     target_direction: TargetDirection;
     auto_track: boolean;
-    outcome_id: string;
     sort_order: number;
-  }>;
+  }>).map((m) => ({ ...m, csfId: csfIdByKpi.get(m.id) ?? "" }));
   if (measures.length === 0) return { measures: [], weekEnding };
 
   // Recent 6 weeks of entries — one round trip for all measures.
@@ -122,7 +140,7 @@ export async function getMeasuresOwnedBy(
   }
 
   const owned: OwnedMeasure[] = measures.map((m) => {
-    const outcome = outcomeById.get(m.outcome_id);
+    const outcome = outcomeById.get(m.csfId);
     const rows = entriesByMeasure.get(m.id) ?? [];
     const current = rows.find((r) => r.week_ending === weekEnding);
     return {

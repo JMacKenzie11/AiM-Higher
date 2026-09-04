@@ -57,7 +57,7 @@
 }
 
 .noticeCard {
-  background: var(--aims-navy-tint);
+  background: var(--grad-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-4);

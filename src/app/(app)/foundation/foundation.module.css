@@ -193,15 +193,18 @@
 }
 
 /* Content tile for singleton statement sections (Purpose, Vision).
-   Uses the same grey/border treatment as the numbered subcards
-   inside the multi-item sections so the whole page reads with one
-   consistent "content-tile-on-white-card" pattern. */
+   Uses the same treatment as the numbered subcards inside the
+   multi-item sections so the whole page reads with one consistent
+   "content-tile-on-white-card" pattern. That fill is now the brand's
+   secondary wash (white falling to sky-tint), which is what every
+   shaded content tile in the app uses. Semantic fills, hover states
+   and table headers are deliberately not on it. */
 .sectionBody {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   position: relative;
-  background: var(--bg);
+  background: var(--grad-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: var(--space-4);
@@ -309,7 +312,7 @@
 /* ---- Subcard (nested item inside a section card) ---- */
 
 .subcard {
-  background: var(--bg);
+  background: var(--grad-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: var(--space-4);

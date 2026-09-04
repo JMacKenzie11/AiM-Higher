@@ -28,7 +28,7 @@ function fakeAdmin(config: {
 }) {
   const rows: Record<string, unknown[]> = {
     functions: config.functions ?? [],
-    function_outcomes: config.outcomes ?? [],
+    csf_kpi_links: config.outcomes ?? [],
     success_measures: config.measures ?? [],
     success_measure_entries: config.entries ?? [],
   };

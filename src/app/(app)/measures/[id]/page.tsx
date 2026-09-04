@@ -29,16 +29,21 @@ type MeasureRow = {
   target: string | null;
   value_type: MetricValueType;
   target_direction: TargetDirection;
-  outcome: {
-    title: string;
-    function: {
-      id: string;
-      title: string;
-      company_id: string;
-      lead_id: string | null;
-      track_id: string | null;
-    };
-  };
+  function:
+    | {
+        id: string;
+        title: string;
+        company_id: string;
+        lead_id: string | null;
+        track_id: string | null;
+      }
+    | Array<{
+        id: string;
+        title: string;
+        company_id: string;
+        lead_id: string | null;
+        track_id: string | null;
+      }>;
 };
 
 export default async function QuickLogPage({ params }: PageProps) {
@@ -51,14 +56,34 @@ export default async function QuickLogPage({ params }: PageProps) {
   const { data: measure } = await supabase
     .from("success_measures")
     .select(
-      "id, description, target, value_type, target_direction, outcome:function_outcomes!inner(title, function:functions!inner(id, title, company_id, lead_id, track_id))"
+      "id, description, target, value_type, target_direction, function:functions!inner(id, title, company_id, lead_id, track_id)"
     )
     .eq("id", id)
     .eq("archived", false)
     .maybeSingle<MeasureRow>();
 
   if (!measure) notFound();
-  const fn = measure.outcome.function;
+  const fn = Array.isArray(measure.function)
+    ? measure.function[0]
+    : measure.function;
+  if (!fn) notFound();
+
+  // The critical success factor this KPI drives, for the eyebrow. It
+  // comes through the link table now rather than a parent column, so
+  // a KPI with no link yet simply shows its function alone instead of
+  // failing to render.
+  const { data: linkRow } = await supabase
+    .from("csf_kpi_links")
+    .select("csf:success_measures!csf_kpi_links_csf_id_fkey(description)")
+    .eq("kpi_id", id)
+    .limit(1)
+    .maybeSingle<{ csf: { description: string } | { description: string }[] }>();
+  const csfRow = linkRow
+    ? Array.isArray(linkRow.csf)
+      ? linkRow.csf[0] ?? null
+      : linkRow.csf
+    : null;
+  const csfTitle = csfRow?.description ?? null;
 
   // Cross-company safety: the URL id is authoritative for who can
   // write, but only measures in the currently-scoped company are
@@ -98,7 +123,7 @@ export default async function QuickLogPage({ params }: PageProps) {
     <PageShell
       backHref="/measures"
       backLabel="Back to Key Success Measures"
-      eyebrow={`${fn.title} · ${measure.outcome.title}`}
+      eyebrow={csfTitle ? `${fn.title} · ${csfTitle}` : fn.title}
       title={measure.description}
       subtitle={`Log the week ending ${formatShortDate(weekEnding)}.`}
     >

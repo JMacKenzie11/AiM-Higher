@@ -350,6 +350,10 @@ export type FunctionNode = {
   updated_at: string;
 };
 
+// The shape the functional chart renders for a critical success
+// factor. There is no table behind it any more: migration 0168
+// dropped function_outcomes, and `csfAsOutcome` maps a CSF row into
+// this. Kept because the chart's own vocabulary still says "outcome".
 export type FunctionOutcome = {
   id: string;
   function_id: string;
@@ -421,16 +425,14 @@ export type UpdateFrequency = "weekly" | "biweekly" | "monthly";
 
 export type SuccessMeasure = {
   id: string;
-  // Null on a CSF, which has no parent outcome. Nullable since 0166;
-  // dropped entirely once every read path is off it.
-  outcome_id: string | null;
-  // The function this measure belongs to. Nullable only while both
-  // models are live; required in the target shape.
-  function_id: string | null;
+  // The function this measure belongs to. Required since 0168: it is
+  // how every measure of either kind reaches its company, and every
+  // RLS policy on this table is keyed on it.
+  function_id: string;
   kind: MeasureKind;
   description: string;
-  // Longer descriptive text. Carries what function_outcomes.description
-  // held before the migration; KPIs generally leave it null.
+  // Longer descriptive text. On a critical success factor this is the
+  // why-this-matters copy; KPIs generally leave it null.
   detail: string | null;
   target: string | null;
   value_type: MetricValueType;

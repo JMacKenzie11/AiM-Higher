@@ -106,12 +106,12 @@ export default async function AppLayout({
     const supabase = await createSupabaseServerClient();
     const { count } = await supabase
       .from("success_measures")
-      .select(
-        "id, function_outcomes!inner(function_id, functions!inner(company_id))",
-        { count: "exact", head: true }
-      )
+      .select("id, functions!inner(company_id)", {
+        count: "exact",
+        head: true,
+      })
       .eq("archived", false)
-      .eq("function_outcomes.functions.company_id", effectiveCompanyId)
+      .eq("functions.company_id", effectiveCompanyId)
       .limit(1);
     hasChartMeasures = (count ?? 0) > 0;
   }

@@ -18,9 +18,9 @@ export async function scoreMeasures(
   admin: SupabaseClient,
   companyId: string
 ): Promise<DisciplineScore> {
-  // Measures live under function_outcomes → functions. Resolve the
-  // company via the function join and pull only active (non-archived)
-  // measures for that company.
+  // Every measure, of either kind, hangs off a function directly.
+  // Resolve the company through that and pull only active
+  // (non-archived) measures for it.
   const { data: fnRows } = await admin
     .from("functions")
     .select("id")
