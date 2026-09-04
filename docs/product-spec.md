@@ -35,7 +35,7 @@ Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coac
 | Flag | Turns on |
 | --- | --- |
 | `execution` | Core: commitments, plan cascade, chart, coaching, dashboard |
-| `performance_tracking` (labelled **Success Tracking**) | Requires a target on every KPI (a critical success factor may go without one); turns on the tracking columns (recent pills, this-week input, status dot, filter chips) on `/measures`; enables the Board view; enables the AI target-quality check on measure creation, the AI measure-draft critique panel, and the four generative dashboard insight cards. When off, `/measures` collapses to a pure authoring surface. The Saturday cron was restored on 2026-09-04 after its behaviour change landed |
+| `performance_tracking` (labelled **Success Tracking**) | Requires a target on every KPI (a critical success factor may go without one); turns on the tracking columns (recent pills, this-week input or read-only value, status dot, filter chips) on `/measures`; enables the Board view; enables the AI target-quality check on measure creation, the AI measure-draft critique panel, and the four generative dashboard insight cards. When off, `/measures` collapses to a pure authoring surface. The Saturday cron was restored on 2026-09-04 after its behaviour change landed |
 | `meeting_facilitation_review` | Second LLM pass on every ingested meeting scoring how the meeting was run against the AiMS Weekly Leadership Meeting framework; renders as a coaching-tone panel on the meeting detail page + a signal chip on the Leadership list |
 | `automated_commitment_tracking` (default ON at create) | Auto-create commitments extracted from meeting transcripts as rows on `/commitments`. When OFF, the analyzer + facilitation review still run but the team authors commitments manually — extractions surface only in the meeting analysis, not on the Commitments board |
 | `classroom` | Adds the shared training library (top-level nav item, consumer surfaces at `/classroom`) + a `search_classroom` tool for the coach + Ask Aimee |
@@ -173,11 +173,12 @@ Scoring code lives in `src/lib/maturity/` (config in `disciplines.ts`, one file 
 
 The functional org chart at `/chart` (nav label: **Functional Org Chart**). Distinct from the reporting hierarchy in `profiles.reports_to`.
 
-- **Function nodes** — hierarchical (parent → child), each with title, description, and one seat holder (`leader_id`). Rendered on a pan-and-zoom canvas (react-zoom-pan-pinch): auto-fits the full tree to the viewport on load and on container resize, scroll-wheel or ±/fit-to-view buttons to zoom, drag on empty canvas to pan. Cards keep a fixed 220px minimum width so the tree stays legible at every zoom level.
+- **Function nodes** — hierarchical (parent → child), each with title, description, and one seat holder (`lead_id`; the column was called `leader_id` before migration 0020, and stale references to that name are the subject of a note in Section 19). Rendered on a pan-and-zoom canvas (react-zoom-pan-pinch): auto-fits the full tree to the viewport on load and on container resize, scroll-wheel or ±/fit-to-view buttons to zoom, drag on empty canvas to pan. Cards keep a fixed 220px minimum width so the tree stays legible at every zoom level.
 - **LTD model** — Lead / Track / Decide are three responsibilities of the *one* seat holder, not three assignees (distinguishing simplification vs traditional EOS-style Accountability Chart).
 - **Function roles** — beyond LTD, function nodes carry named leadership archetypes (Visionary, Integrator, etc.) via `function_roles` for the strategic top of the chart.
-- **Critical Success Factors** — the results each function is accountable for. Lagging measures. Level 1 of the measures tree. Since migration 0166 a CSF is a `success_measures` row with `kind = 'csf'`, carrying its own target, `value_type`, `target_direction` and weekly entries, exactly like a KPI. It reaches its company through `function_id`. TypeScript type `SuccessMeasure`; the chart renders it through the `FunctionOutcome` shape via `src/lib/measures/csf-as-outcome.ts`, which is a read-side adapter, not a second store.
+- **Critical Success Factors** — the results each function is accountable for. Lagging measures. Level 1 of the measures tree, though on `/measures` a CSF renders as the first *row* of its own table rather than a heading above it (Section 10). Since migration 0166 a CSF is a `success_measures` row with `kind = 'csf'`, carrying its own target, `value_type`, `target_direction` and weekly entries, exactly like a KPI. It reaches its company through `function_id`. TypeScript type `SuccessMeasure`; the chart renders it through the `FunctionOutcome` shape via `src/lib/measures/csf-as-outcome.ts`, which is a read-side adapter, not a second store.
 - **Key Performance Indicators** — leading measures that drive a CSF. Level 2. Same row type, `kind = 'kpi'`. Each carries: description, target (required whenever Success Tracking is on), `value_type` (`number` / `percent` / `text`), `target_direction` (`higher_is_better` / `lower_is_better`), `update_frequency` (`weekly` / `biweekly` / `monthly`, migration 0167) and `auto_track` (labelled *Remind the owner when this is due*; opt out for context numbers like headcount).
+- **`detail` (the why-this-matters note) has no UI.** Removed from the card on 2026-09-04. The column and `updateOutcomeDetailAction` stay, so nothing already written is lost and it can return without a migration.
 - **The CSF ↔ KPI link is many-to-many** — `csf_kpi_links` (migration 0166). The UI attaches one CSF per KPI today; the data model already allows more, so opening that up later needs no migration.
 - **A target is required on a KPI, optional on a CSF.** A leading measure with no target says nothing. A result is often named before anyone knows what good looks like, and forcing a number there produces a made-up one. A CSF with no target still collects values; its board cells read *no target set*.
 - **Two or three KPIs per CSF** — advised, not enforced. Past three the manager shows a note. A hard cap would push people into vaguer KPIs that bundle two things.
@@ -211,24 +212,54 @@ for the data model.
 Whether the tracking columns render is gated by
 `performance_tracking`; the authoring surface is always on.
 
+- **Access model (2026-09-04).** Everyone in the company **reads every
+  function**. Writing is per function, not per user: `getMeasuresTree`
+  returns `canLog` on each function, computed as `isAdmin || lead_id ===
+  me || track_id === me` — exactly the rule `upsertMeasureEntryAction`
+  enforces — so the page never renders an input the server would refuse.
+  A function head is therefore a reader on most of the page and a writer
+  on their own seats at the same time. Read-only cells render **the
+  value**, not a disabled input: a greyed box is a tease and leaves a
+  dead column where the number should be. The save button, and the
+  outstanding-count line, follow `canLog` too; a count spanning other
+  people's functions would never reach zero.
+  - This replaced a narrow read (`leader_id = user.id`) that had been
+    **broken since migration 0020**, which renamed that column to
+    `lead_id`. Every non-admin loaded an empty page. See the
+    Non-Functional section on silent PostgREST column errors.
+- **Two modes.** Admins and guides get a **Log values / Edit setup**
+  switch above the function list, defaulting to logging. The page does
+  two jobs at very different frequencies — typing four numbers takes
+  half a minute, defining a CSF and its KPIs is quarterly — and showing
+  both at once made the short job look like a project and left a delete
+  beside an input people tap at speed. `isAdmin` (who sees every
+  function) and `authoring` (whether the add/edit/archive controls
+  render) are separate props for this reason; they used to be one flag.
 - **Manager view** (`/measures`) — grouped by function → CSF → KPI,
-  each function rendered as its own card. Function order is
-  depth-first pre-order over the parent tree with Visionary pinned
-  first and Integrator second at the root level (leaders see only
-  their own seats, fall back to alphabetical). Function anchors are
-  `#fn-<id>` so the chart page can deep-link. Renders in
+  each function rendered as its own card. Function order is depth-first
+  pre-order over the parent tree with Visionary pinned first and
+  Integrator second at the root level. A non-admin gets the same
+  hierarchy with their own seats hoisted to the front; the old
+  alphabetical fallback existed because a leader saw a partial tree that
+  could not be walked, and there are no partial trees now. Function
+  anchors are `#fn-<id>` so the chart page can deep-link. Renders in
   `MeasuresManager` (client), fed by `getMeasuresTree` (server,
   `src/lib/measures/service.ts`).
-  - **Admin surface** (system_admin, company_admin for the scoped
-    company, aims_guide assigned to it) — sees every function in
-    the company plus authoring affordances: add a CSF per function;
-    inline title rename + Details drawer + archive per CSF;
-    `AddMetricRow` per CSF; per-KPI Edit (expand-to-form) +
-    Archive. Filtered functions with zero CSFs still render so
-    admins can seed the first one.
-  - **Leader surface** (team_member with `functions.leader_id =
-    user.id`) — sees only their own functions, read-only for
-    authoring, writable for weekly values.
+- **The CSF is the first row of its own table, not a heading above it.**
+  It renders through `ManagedMeasureRow` with `kind="csf"`, the same
+  component as its KPIs, which is what guarantees neither kind ends up
+  with a control the other has — that is how `update_frequency` came to
+  exist for KPIs and not CSFs. It also removed a duplicate (the name
+  printed twice, four lines apart) and a split where the name was edited
+  in one place and the target in another. Editing a CSF renames it
+  because a CSF's name **is** its `description` column.
+- **Grid alignment is load-bearing.** Rows are `display: contents`, so
+  every cell is placed by `.measureGrid`'s six tracks. A row emitting
+  five cells does not leave the last column empty — the next row's first
+  cell flows into it and every row below walks one column right. The
+  trailing actions cell is therefore rendered **unconditionally**, empty
+  when not authoring. `grid-alignment.test.ts` guards it, because the
+  failure renders fine, throws nothing and fails no other test.
 - **Save is per function, not per page.** Each function card carries
   its own save button, below its own inputs. A single page-level
   save described a workflow nobody follows — one person filling in
@@ -239,21 +270,33 @@ Whether the tracking columns render is gated by
   that card shows a spinner.
 - **Board view** (top of the same page, `BoardView` component) —
   13 weeks across every function. Hidden when Success Tracking is
-  off. **Opens on Timeline.** Plots **both kinds**: a CSF is a row
+  off. **Collapsed by default** behind a summary line that has to earn
+  the click ("3 functions off target this week"); the open/closed
+  choice is remembered per person in `localStorage`
+  (`measures-board-open`), and every read is wrapped because storage
+  throws in a private window. Opens on **Timeline**. Plots **both kinds**: a CSF is a row
   in its own right, grouped under itself and ordered ahead of the
   KPIs that drive it, and the Timeline's per-function weekly
   rollup therefore includes it. Rows carry `kind`; the Grid marks
   CSF rows. Before this the board drew KPIs only and used the CSF
   as a group label, so the numbers a function is actually held to
   were absent from the screen built to show whether it is on track.
-- **Filter chips** — *On target / Off / Not yet logged*, multi-
-  select, only rendered when Success Tracking is on AND at least
-  one measure has a target.
+- **Filter chips** — *On target / Off / Not yet logged*, multi-select,
+  only rendered when Success Tracking is on AND at least one measure has
+  a target. They live **inside the function list's own header**: sitting
+  loose between the board and the list made them read as a page-level
+  toolbar governing both, when they filter the list alone.
+- **Outstanding line** — *"2 of 6 still to log for the week ending 4
+  Sep."* Reads the live inputs rather than saved values, so the number
+  falls as you type. Silent when you have nothing to log. The counts
+  existed inside the chips; nobody had ever stated it as a sentence, so
+  a leader scanned every row to find the empty boxes.
 - **Individual measure quick-log** (`/measures/[id]`) — one
   measure, one big input, phone-friendly. Weekly history table.
-- **Entitlement-off variant** — tracking columns, Recent pills,
-  filter chips and save buttons all hide; the page becomes a pure
-  authoring surface.
+- **Entitlement-off variant** — tracking columns, Recent pills, filter
+  chips and save buttons all hide; the page becomes a pure authoring
+  surface. `.measureGridAuthor` drops the grid to two tracks so the
+  alignment rule above still holds.
 - **Saturday cron** (`src/app/api/cron/performance/route.ts`,
   Saturday 15:00 UTC). Sweeps **both kinds**, filtered to
   `auto_track = true`, and respects `update_frequency` via
@@ -524,6 +567,36 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
 ---
 
 ## 19. Non-Functional Characteristics
+
+### Silent PostgREST failures
+
+The most dangerous class of bug in this codebase, because it produces
+a page that renders correctly and is simply missing its data.
+
+PostgREST reports an unknown table or column **inside the response
+body**, not as a thrown error. Every loader here reads `data`, gets
+`undefined`, falls back to `[]` and carries on. Nobody reports it,
+because an empty measures page looks like a company that has not
+entered anything yet.
+
+Three instances found so far, all from renames whose call sites were
+not swept:
+
+| what | renamed in | consequence |
+|---|---|---|
+| `function_outcomes`, `success_measures.outcome_id` | 0168 | loaders would have rendered empty measure lists |
+| `functions.leader_id` → `lead_id` | **0020** | every non-admin saw an empty `/measures`; the notification bell's pending count was always zero; every commitment the Saturday cron created was **unowned** |
+
+The `leader_id` one survived four years of migrations and two
+characterisation tests that had pinned `.eq("leader_id", …)` — the
+tests recorded the bug rather than the rule.
+
+**Guard:** `src/lib/measures/no-legacy-outcomes.test.ts` walks every
+source file for references to dropped names. Any future rename of a
+column or table with live call sites should extend it rather than rely
+on a grep at the time.
+
+### Everything else
 
 - **Auth:** Supabase Auth (email + password). Flows:
   - Sign-in at `/sign-in`.
