@@ -13,7 +13,7 @@ import { BoardView } from "./board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "../admin/companies/admin.module.css";
 
-// Key Success Measures — one surface for both authoring the outcome
+// Critical Success Factors — one surface for both authoring the CSF
 // / measure tree and logging weekly values. The chart page defers
 // the "what are we measuring" question here so it can stay a chart.
 //
@@ -56,7 +56,7 @@ export default async function MeasuresPage() {
   return (
     <PageShell
       eyebrow="Company"
-      title="Key Success Measures"
+      title="Critical Success Factors"
       subtitle={
         trackingEnabled ? (
           <>
@@ -65,7 +65,7 @@ export default async function MeasuresPage() {
           </>
         ) : (
           <>
-            Every outcome and the key success measure(s) under it, by
+            Every critical success factor and the KPIs that drive it, by
             function. Weekly logging turns on when Success Tracking is
             enabled for the company.
           </>
