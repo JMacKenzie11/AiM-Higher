@@ -264,3 +264,60 @@ describe("scoreMeasures — deduplication", () => {
     });
   });
 });
+
+describe("scoreMeasures — CSFs count too", () => {
+  // Decided 2026-09-04. Success Tracking measures how well a company
+  // keeps up with its numbers, and a CSF is one of those numbers.
+  // This is the one place in the CSF/KPI migration where pinned
+  // behaviour was changed on purpose rather than preserved.
+
+  it("counts a CSF in the denominator alongside KPIs", async () => {
+    const result = await scoreMeasures(
+      fakeAdmin({
+        functions: [{ id: "f_1" }],
+        outcomes: [{ id: "o_1" }],
+        // One targeted and logged KPI, one bare CSF.
+        measures: [m("kpi_1", "95"), m("csf_1", null, false)],
+        entries: [{ measure_id: "kpi_1" }],
+      }),
+      "co_1"
+    );
+
+    expect(result.breakdown).toMatchObject({ totalMeasures: 2 });
+  });
+
+  it("lets an untargeted, unlogged CSF pull the score down", async () => {
+    // The accepted consequence. Half the measures have a target and
+    // half have been logged: 0.5 × 3 + 0.5 × 5 = 4.
+    const result = await scoreMeasures(
+      fakeAdmin({
+        functions: [{ id: "f_1" }],
+        outcomes: [{ id: "o_1" }],
+        measures: [m("kpi_1", "95"), m("csf_1", null, false)],
+        entries: [{ measure_id: "kpi_1" }],
+      }),
+      "co_1"
+    );
+
+    expect(result.score).toBe(4);
+  });
+
+  it("does not penalise a migrated CSF for going unlogged", async () => {
+    // Migrated CSFs arrive with auto_track false, so they lower the
+    // shares but never trigger the missed-logging penalty. Without
+    // that, every company would take the full 2-point deduction on
+    // day one for work nobody had been asked to do yet.
+    const result = await scoreMeasures(
+      fakeAdmin({
+        functions: [{ id: "f_1" }],
+        outcomes: [{ id: "o_1" }],
+        measures: [m("csf_1", null, false), m("csf_2", null, false)],
+        entries: [],
+      }),
+      "co_1"
+    );
+
+    expect(result.breakdown).toMatchObject({ autoTrackGaps: 0 });
+    expect(result.score).toBe(0);
+  });
+});

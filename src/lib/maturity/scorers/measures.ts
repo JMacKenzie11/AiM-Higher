@@ -40,21 +40,22 @@ export async function scoreMeasures(
     };
   }
 
-  // Reads by function + kind rather than walking through
-  // function_outcomes (migration 0166). Same set of rows: every KPI's
-  // function_id was backfilled from its outcome's, so this returns
-  // exactly what the outcome join returned, one query shorter.
+  // Counts BOTH kinds. Decided 2026-09-04: Success Tracking measures
+  // how well a company keeps up with its numbers, and a CSF is a
+  // number the company is accountable for. Leaving it out would
+  // report a rosier picture than the truth.
   //
-  // kind = 'kpi' is deliberate and load-bearing. CSFs are measures
-  // too now, and dropping the filter would grow the denominator to
-  // include them, moving every company's Success Tracking score. That
-  // is a product decision, not a side effect of moving the plumbing,
-  // so it stays out of this change.
+  // Consequence, accepted at the time: scores fall the day this
+  // ships, because migrated CSFs arrive with no target and no
+  // history. That is the score being honest about work not yet done,
+  // not a regression. It recovers as leaders set targets and log.
+  //
+  // Migrated CSFs carry auto_track = false, so they lower the target
+  // and cadence shares but never trigger the missed-logging penalty.
   const { data: measureRows } = await admin
     .from("success_measures")
     .select("id, target, auto_track")
     .in("function_id", fnIds)
-    .eq("kind", "kpi")
     .eq("archived", false);
   const measures = (measureRows ?? []) as Array<{
     id: string;
