@@ -51,11 +51,25 @@ export function MeasuresManager({
   // their own input on the card header; leaving them out of this list
   // meant a leader could type a CSF value, press Save, and watch it
   // vanish with no error.
-  // The KPI rows. Stats and filter chips are about KPIs, so this stays
-  // as it was.
+  // Every row the chips count and filter: critical success factors as
+  // well as their KPIs.
+  //
+  // The chips used to count KPIs only, which put two different
+  // numbers for the same job side by side — "9 not yet logged" beside
+  // "28 of 28 still to log". Both were arithmetically right over
+  // different populations, which is exactly the shape of the
+  // follow-through bug on the companies page. One population now.
+  //
+  // A CSF's name lives in `title`; a measure row reads `description`.
+  // Mapped at the boundary so status and filtering see one shape.
   const allMeasures = useMemo(
     () =>
-      functions.flatMap((f) => f.outcomes.flatMap((o) => o.measures)),
+      functions.flatMap((f) =>
+        f.outcomes.flatMap((o) => [
+          { ...o, description: o.title },
+          ...o.measures,
+        ])
+      ),
     [functions]
   );
 
@@ -144,6 +158,9 @@ export function MeasuresManager({
   // Counts both kinds and reads the live inputs, not the saved
   // values, so typing a number makes the number go down before the
   // save lands.
+  // True when the page shows functions this caller cannot log.
+  const scoped = myEntryTargets.length < allEntryTargets.length;
+
   const outstanding = useMemo(
     () => myEntryTargets.filter((id) => !(values[id] ?? "").trim()).length,
     [myEntryTargets, values]
@@ -266,9 +283,16 @@ export function MeasuresManager({
                     : localStyles.outstanding
                 }
               >
+                {/* Says "on your functions" only when there are
+                    others on screen. For an admin, who can log
+                    everything, this line and the chips describe the
+                    same set and the qualifier would be noise. For a
+                    leader they differ, and two unqualified numbers
+                    side by side is the confusion this whole change
+                    was about. */}
                 {outstanding === 0
-                  ? `All ${myEntryTargets.length} logged for the week ending ${formatShortDate(weekEnding)}.`
-                  : `${outstanding} of ${myEntryTargets.length} still to log for the week ending ${formatShortDate(weekEnding)}.`}
+                  ? `All ${myEntryTargets.length} logged for the week ending ${formatShortDate(weekEnding)}${scoped ? " on your functions" : ""}.`
+                  : `${outstanding} of ${myEntryTargets.length} still to log for the week ending ${formatShortDate(weekEnding)}${scoped ? " on your functions" : ""}.`}
               </p>
             ) : null}
           </div>

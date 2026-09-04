@@ -42,14 +42,19 @@ export function FunctionSection({
 }) {
   const [addOutcomeOpen, setAddOutcomeOpen] = useState(false);
   const outcomesWithVisibleRows = fn.outcomes.filter((o) =>
-    // If admin can author, show the outcome even when no measures pass
+    // If an admin can author, show the block even when nothing passes
     // the current filter — otherwise the "add KPI" affordance
     // disappears and a chip filter silently blocks authoring.
+    //
+    // Otherwise the block shows if the critical success factor itself
+    // passes or any KPI does. The CSF counts here because the chips
+    // count it: a filter that hides its KPIs but leaves the CSF
+    // stranded, or vice versa, makes the totals stop describing what
+    // is on screen.
     isAdmin
       ? true
-      : o.measures.length === 0
-        ? false
-        : o.measures.some(isVisible)
+      : isVisible({ ...o, description: o.title }) ||
+        o.measures.some(isVisible)
   );
 
   // Hide entire function when no outcome shows through and the user

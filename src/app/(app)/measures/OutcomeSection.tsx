@@ -55,6 +55,11 @@ export function OutcomeSection({
   const [editingDetails, setEditingDetails] = useState(false);
   const [addMeasureOpen, setAddMeasureOpen] = useState(false);
   const visibleMeasures = outcome.measures.filter(isVisible);
+  // The critical success factor is filtered on the same footing as
+  // its KPIs. It is counted by the chips, so a chip that counts it
+  // and then leaves it on screen would make the numbers stop
+  // matching what you can see.
+  const csfVisible = isVisible({ ...outcome, description: outcome.title });
 
   return (
     <div className={styles.outcomeBlock}>
@@ -93,6 +98,8 @@ export function OutcomeSection({
             ) : null}
             <span aria-hidden />
           </div>
+          {csfVisible ? (
+          <>
           {/* The critical success factor IS the first row, not a
               heading above one. It used to be both: the card had a
               title and then its own table repeated that title four
@@ -119,6 +126,8 @@ export function OutcomeSection({
               authoring ? <ArchiveOutcomeButton outcomeId={outcome.id} /> : null
             }
           />
+          </>
+          ) : null}
 
           {visibleMeasures.map((m) => (
             <ManagedMeasureRow
