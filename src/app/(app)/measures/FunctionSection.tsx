@@ -18,6 +18,7 @@ export function FunctionSection({
   onValueChange,
   disabled,
   isAdmin,
+  authoring,
   trackingEnabled,
   rdEnabled,
   weekEnding,
@@ -30,6 +31,9 @@ export function FunctionSection({
   onValueChange: (id: string, v: string) => void;
   disabled: boolean;
   isAdmin: boolean;
+  // Seeing every function is an admin question; showing the add and
+  // delete controls is a mode question. They were the same flag.
+  authoring: boolean;
   trackingEnabled: boolean;
   rdEnabled: boolean;
   weekEnding: string;
@@ -39,7 +43,7 @@ export function FunctionSection({
   const [addOutcomeOpen, setAddOutcomeOpen] = useState(false);
   const outcomesWithVisibleRows = fn.outcomes.filter((o) =>
     // If admin can author, show the outcome even when no measures pass
-    // the current filter — otherwise the "add measure" affordance
+    // the current filter — otherwise the "add KPI" affordance
     // disappears and a chip filter silently blocks authoring.
     isAdmin
       ? true
@@ -82,6 +86,7 @@ export function FunctionSection({
             onValueChange={onValueChange}
             disabled={disabled}
             isAdmin={isAdmin}
+            authoring={authoring}
             trackingEnabled={trackingEnabled}
             rdEnabled={rdEnabled}
             weekEnding={weekEnding}
@@ -108,7 +113,7 @@ export function FunctionSection({
         </div>
       ) : null}
 
-      {isAdmin ? (
+      {authoring ? (
         addOutcomeOpen ? (
           <div className={styles.addPanel}>
             <AddOutcomeInline

@@ -409,7 +409,6 @@
      across the diagonal, rather than a flat tinted panel, which at
      this size looked like a colour from another product. */
   background: var(--grad-secondary);
-  border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 
@@ -777,7 +776,7 @@
    type into. Marked here so it is clearly the result, not one of the
    lead measures beneath it, without leaving the grid. */
 .measureRowCsf {
-  background: var(--aims-navy-tint);
+  background: transparent;
 }
 
 .measureCsfName {
@@ -802,3 +801,93 @@
 
 
 
+
+/* The eyebrow that used to sit on the card heading. It moved onto
+   the row when the heading and the row became one thing. */
+.measureCsfEyebrow {
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+}
+
+/* Header for the function list. Gives the filter chips somewhere to
+   belong: they filter this list and nothing else, and sitting loose
+   between the board and the list made them look page-wide. */
+.managerHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--grad-rule);
+}
+
+.managerHeaderTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.managerHeading {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+/* The answer to "what am I here for". Stated rather than left to be
+   counted off the rows. */
+.outstanding {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* When there is nothing left, say so and stop drawing the eye. */
+.outstandingDone {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+/* Which of the page's two jobs you are doing. Sits in the list
+   header rather than the page header, because it changes this list
+   and not the board above it. Same segmented shape as the board's
+   own Grid / Timeline toggle, so the two read as the same kind of
+   control. */
+.modeToggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+}
+
+.modeButton {
+  border: none;
+  background: none;
+  padding: 0.28rem 0.8rem;
+  border-radius: var(--radius-pill);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.modeButton:hover {
+  color: var(--text);
+}
+
+.modeButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.modeButtonActive {
+  background: var(--surface);
+  color: var(--text-heading);
+}

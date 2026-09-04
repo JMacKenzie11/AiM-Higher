@@ -105,7 +105,7 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
     weight: 1,
     feature: "performance_tracking",
     href: "/measures",
-    hrefLabel: "Open key success measures",
+    hrefLabel: "Open critical success factors",
     showsTrend: true,
     scoringNote:
       "% of measures with a target set (3 pts) + % logged in the last 7 days (5 pts) + penalty for auto-track measures missing this week (2 pts). Only scored when Success Tracking is enabled.",

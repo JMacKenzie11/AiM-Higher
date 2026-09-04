@@ -104,13 +104,13 @@ async function runForCompany(
 
   const { data: fnRows } = await admin
     .from("functions")
-    .select("id, title, leader_id")
+    .select("id, title, lead_id")
     .eq("company_id", companyId)
     .eq("archived", false);
   const functions = (fnRows ?? []) as Array<{
     id: string;
     title: string;
-    leader_id: string | null;
+    lead_id: string | null;
   }>;
   if (functions.length === 0) {
     return { createdMissing: 0, createdOffTarget: 0 };
@@ -238,7 +238,7 @@ async function runForCompany(
       // on the company /commitments page under the correct lane and
       // roll up to the right seat in weekly-review views.
       functional_area_id: m.function_id ?? null,
-      owner_id: fn?.leader_id ?? null,
+      owner_id: fn?.lead_id ?? null,
       description,
       week_ending: cutoffFriday,
       due_date: cutoffFriday,

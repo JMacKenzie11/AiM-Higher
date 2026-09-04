@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   useActionState,
   useEffect,
@@ -45,10 +46,11 @@ export function ManagedMeasureRow({
   value,
   onValueChange,
   disabled,
-  isAdmin,
+  authoring,
   trackingEnabled,
   weekEnding,
   kind = "kpi",
+  archiveSlot,
 }: {
   measure: MeasureTreeMeasure;
   outcomeTitle: string;
@@ -56,7 +58,10 @@ export function ManagedMeasureRow({
   value: string;
   onValueChange: (v: string) => void;
   disabled: boolean;
-  isAdmin: boolean;
+  // Whether the authoring controls show. Not the same as being an
+  // admin: an admin logging this week's numbers does not want Edit
+  // and a delete on every row while they type.
+  authoring: boolean;
   trackingEnabled: boolean;
   weekEnding: string;
   // Critical success factors are measures too, and their settings
@@ -64,6 +69,11 @@ export function ManagedMeasureRow({
   // same set. Rendering both kinds through this row means neither
   // can quietly end up with a control the other has.
   kind?: "csf" | "kpi";
+  // Archiving a critical success factor cascades to the KPIs beneath
+  // it, so it is a different action with a different consequence from
+  // archiving one measure. The caller supplies the right control
+  // rather than this row guessing from `kind`.
+  archiveSlot?: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const status = computeStatus(measure);
@@ -86,13 +96,18 @@ export function ManagedMeasureRow({
   return (
     <div
       className={
-        isAdmin
+        authoring
           ? `${styles.measureRow} ${styles.measureRowEditable}`
           : styles.measureRow
       }
       role="row"
     >
       <div className={styles.measureCellTitle} role="cell">
+        {kind === "csf" ? (
+          <span className={styles.measureCsfEyebrow}>
+            Critical Success Factor
+          </span>
+        ) : null}
         <Link
           href={`/measures/${measure.id}`}
           className={
@@ -160,7 +175,7 @@ export function ManagedMeasureRow({
           </div>
         </>
       ) : null}
-      {isAdmin ? (
+      {authoring ? (
         <div className={styles.measureCellActions} role="cell">
           <button
             type="button"
@@ -171,7 +186,9 @@ export function ManagedMeasureRow({
           </button>
           {kind === "kpi" ? (
             <ArchiveMeasureButton measureId={measure.id} />
-          ) : null}
+          ) : (
+            archiveSlot
+          )}
         </div>
       ) : null}
     </div>
@@ -549,7 +566,7 @@ function ArchiveMeasureButton({ measureId }: { measureId: string }) {
       <ConfirmDialog
         open={confirming}
         title="Archive this KPI?"
-        message="Historical weekly entries are kept. The measure disappears from the outcome and stops feeding the weekly check."
+        message="Historical weekly entries are kept. The KPI disappears from its critical success factor and stops feeding the weekly check."
         confirmLabel="Archive"
         tone="danger"
         onConfirm={run}

@@ -592,3 +592,54 @@
   background: transparent;
   border: 1px dashed var(--border-strong);
 }
+
+/* The collapsed board's one line. It has to carry enough for someone
+   to decide whether to open it, so it names the consequence ("3
+   functions off target") rather than counting readings. */
+.boardSummary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.boardSummary:hover {
+  background: var(--aims-navy-tint);
+}
+
+.boardSummary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.boardSummaryCaret {
+  color: var(--text-faint);
+  font-size: 0.7rem;
+}
+
+.boardSummaryTitle {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+/* Something needs attention. Never red on its own: red plus a number
+   in a collapsed row reads as an error the page just threw. */
+.boardSummaryAlert {
+  font: var(--text-body-sm);
+  color: var(--aims-danger);
+  font-weight: 600;
+}
+
+.boardSummaryCalm {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}

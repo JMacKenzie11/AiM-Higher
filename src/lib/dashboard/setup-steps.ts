@@ -128,7 +128,7 @@ export async function computeCompanySetup(
       key: "team",
       label: "Build the team",
       description:
-        "Add your people, build the functional chart, and set outcomes with key success measures. Everything else lands on real names.",
+        "Add your people, build the functional chart, and set critical success factors with the KPIs that drive them. Everything else lands on real names.",
       href: "/people",
       done: hasPeople && hasFunction,
     },

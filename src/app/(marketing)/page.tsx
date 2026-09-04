@@ -318,7 +318,7 @@ export default function LandingPage() {
             <div className={styles.pillarCol}>
               <p className={styles.pillarEyebrow}>PEOPLE</p>
               <ul className={styles.pillarList}>
-                <li>Functional chart with outcomes and key success measures</li>
+                <li>Functional chart with critical success factors and KPIs</li>
                 <li>Coaching threads private to their author</li>
                 <li>Follow-through visible by person</li>
               </ul>

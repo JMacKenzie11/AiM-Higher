@@ -33,6 +33,7 @@ export function OutcomeSection({
   onValueChange,
   disabled,
   isAdmin,
+  authoring,
   trackingEnabled,
   rdEnabled,
   weekEnding,
@@ -44,6 +45,7 @@ export function OutcomeSection({
   onValueChange: (id: string, v: string) => void;
   disabled: boolean;
   isAdmin: boolean;
+  authoring: boolean;
   trackingEnabled: boolean;
   rdEnabled: boolean;
   weekEnding: string;
@@ -54,31 +56,15 @@ export function OutcomeSection({
 
   return (
     <div className={styles.outcomeBlock}>
-      <header className={styles.outcomeHeader}>
-          <div className={styles.outcomeHeaderTitleWrap}>
-            <p className={styles.outcomeLabel}>Critical Success Factor</p>
-            {isAdmin ? (
-              <InlineOutcomeTitleEditor outcome={outcome} />
-            ) : (
-              <h3 className={styles.outcomeTitle}>{outcome.title}</h3>
-            )}
-          </div>
-          {isAdmin ? (
-            <div className={styles.outcomeHeaderActions}>
-              <ArchiveOutcomeButton outcomeId={outcome.id} />
-            </div>
-          ) : null}
-      </header>
-
       {outcome.measures.length === 0 && !trackingEnabled ? (
         <p className={styles.outcomeEmpty}>
-          {isAdmin
+          {authoring
             ? "No KPIs yet. Add the leading activity that moves this number."
             : "No KPIs yet."}
         </p>
       ) : visibleMeasures.length === 0 && !trackingEnabled ? (
         <p className={styles.outcomeEmpty}>
-          All measures on this outcome are hidden by the current filter.
+          Every KPI here is hidden by the current filter.
         </p>
       ) : (
         <div
@@ -103,13 +89,15 @@ export function OutcomeSection({
                 <span className={styles.headCellHideMobile} aria-hidden />
               </>
             ) : null}
-            {isAdmin ? <span aria-hidden /> : null}
+            {authoring ? <span aria-hidden /> : null}
           </div>
-          {/* The critical success factor renders through the same row
-              as its KPIs. It carries the same fields, so sharing the
-              row means neither kind can end up with a control the
-              other has — which is how the frequency setting existed
-              for KPIs and not for CSFs. */}
+          {/* The critical success factor IS the first row, not a
+              heading above one. It used to be both: the card had a
+              title and then its own table repeated that title four
+              lines down, which read as two objects with one name.
+              Collapsing them also removes a level of nesting and the
+              split where the name was edited in one place and the
+              target in another. */}
           <ManagedMeasureRow
             // A CSF keeps its name in `title` for the chart's sake;
             // a measure row reads `description`. Mapped here so the
@@ -120,10 +108,13 @@ export function OutcomeSection({
             value={values[outcome.id] ?? ""}
             onValueChange={(v) => onValueChange(outcome.id, v)}
             disabled={disabled}
-            isAdmin={isAdmin}
+            authoring={authoring}
             trackingEnabled={trackingEnabled}
             weekEnding={weekEnding}
             kind="csf"
+            archiveSlot={
+              authoring ? <ArchiveOutcomeButton outcomeId={outcome.id} /> : null
+            }
           />
 
           {visibleMeasures.map((m) => (
@@ -135,7 +126,7 @@ export function OutcomeSection({
               value={values[m.id] ?? ""}
               onValueChange={(v) => onValueChange(m.id, v)}
               disabled={disabled}
-              isAdmin={isAdmin}
+              authoring={authoring}
               trackingEnabled={trackingEnabled}
               weekEnding={weekEnding}
             />
@@ -148,7 +139,7 @@ export function OutcomeSection({
           list becomes a report nobody acts on. Deliberately advisory:
           some functions genuinely need a fourth, and a hard cap would
           just push people into vaguer KPIs that bundle two things. */}
-      {isAdmin && outcome.measures.length >= 3 ? (
+      {authoring && outcome.measures.length >= 3 ? (
         <p className={styles.outcomeNudge}>
           {outcome.measures.length} KPIs on this critical success
           factor. Two or three is usually enough. More than that and
@@ -156,7 +147,7 @@ export function OutcomeSection({
         </p>
       ) : null}
 
-      {isAdmin ? (
+      {authoring ? (
         <div className={styles.outcomeAdd}>
           {addMeasureOpen ? (
             <div className={styles.addPanel}>
@@ -189,87 +180,6 @@ export function OutcomeSection({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function InlineOutcomeTitleEditor({
-  outcome,
-}: {
-  outcome: MeasureTreeOutcome;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(outcome.title);
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDraft(outcome.title);
-  }, [outcome.title]);
-
-  function commit() {
-    if (pending) return;
-    const next = draft.trim();
-    if (!next) {
-      cancel();
-      return;
-    }
-    if (next === outcome.title) {
-      setEditing(false);
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await renameOutcomeAction(outcome.id, next);
-      if (!result.ok) setError(result.message);
-      else setEditing(false);
-    });
-  }
-
-  function cancel() {
-    setDraft(outcome.title);
-    setEditing(false);
-    setError(null);
-  }
-
-  if (editing) {
-    return (
-      <>
-        <input
-          className={styles.outcomeTitleInput}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commit();
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              cancel();
-            }
-          }}
-          autoFocus
-          disabled={pending}
-          aria-label="Edit critical success factor"
-        />
-        {error ? (
-          <p role="alert" className={styles.rowError}>
-            {error}
-          </p>
-        ) : null}
-      </>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className={styles.outcomeTitleEditable}
-      onClick={() => setEditing(true)}
-      title="Click to rename"
-    >
-      {outcome.title}
-    </button>
   );
 }
 function ArchiveOutcomeButton({ outcomeId }: { outcomeId: string }) {
@@ -309,7 +219,7 @@ function ArchiveOutcomeButton({ outcomeId }: { outcomeId: string }) {
       <ConfirmDialog
         open={confirming}
         title="Archive this outcome?"
-        message="Its key success measures stay linked to it but disappear from the function. Historical weekly entries are kept."
+        message="Its KPIs are archived with it. Historical weekly entries are kept."
         confirmLabel="Archive"
         tone="danger"
         onConfirm={run}
