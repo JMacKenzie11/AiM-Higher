@@ -7,7 +7,6 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDashboardData } from "@/lib/dashboard/service";
 import { getMeasureInsights } from "@/lib/measures/insights";
-import { getMeasuresOwnedBy } from "@/lib/measures/service";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { StatusChip } from "@/components/plan/StatusChip";
@@ -17,7 +16,6 @@ import { CardAccent } from "@/components/ui/CardAccent";
 import { BriefSection, BriefLoading } from "./BriefSection";
 import { HeroStat } from "./HeroStat";
 import { MeasureInsightsCards } from "./MeasureInsightsCards";
-import { PendingMeasuresCard } from "./PendingMeasuresCard";
 import { PageShell } from "@/components/ui/PageShell";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./dashboard.module.css";
@@ -63,19 +61,6 @@ export default async function DashboardPage() {
   // page where new admins go to see how the practice is landing.
   // See src/lib/dashboard/setup-steps.ts +
   // src/components/setup/SetupChecklist.tsx.
-
-  const { measures: ownedMeasures, weekEnding: measuresWeekEnding } =
-    perfTrackingOn
-      ? await getMeasuresOwnedBy(
-          companyId,
-          session.profile.id,
-          data.company.timezone,
-          isAdmin
-        )
-      : { measures: [], weekEnding: "" };
-  const pendingMeasures = ownedMeasures.filter(
-    (m) => m.auto_track && m.currentValue === null
-  );
 
   // Generative "gaining ground / streaks / wins / worth a
   // conversation" cards for the whole company. Only compute when
@@ -206,13 +191,6 @@ export default async function DashboardPage() {
               adminId={session.profile.id}
             />
           </Suspense>
-        ) : null}
-
-        {pendingMeasures.length > 0 ? (
-          <PendingMeasuresCard
-            measures={pendingMeasures}
-            weekEnding={measuresWeekEnding}
-          />
         ) : null}
 
         {measureInsights ? (

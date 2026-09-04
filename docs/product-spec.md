@@ -318,8 +318,16 @@ Whether the tracking columns render is gated by
   `ANTHROPIC_CLARITY_MODEL`) validates that the target is specific
   and consistent with `value_type` + `target_direction`. Advisory —
   never blocks the save.
-- **Dashboard pending card** — inline entry for measures without a
-  value for the current week.
+- **Dashboard pending card — removed 2026-09-04.** It duplicated this
+  page, and duplicated it wrongly: it listed KPIs only, so someone who
+  filled it in still had every critical success factor outstanding
+  with nothing saying so. The duplication also stopped making sense
+  once /measures grew its own outstanding-count line and per-function
+  saving. `PendingMeasuresCard` and `getMeasuresOwnedBy` are deleted.
+  What remains as a nudge: the Saturday cron opens a commitment for an
+  `auto_track` measure with no value, and the notification bell counts
+  the rest (both kinds, since 2026-09-04 — it had the same KPI-only
+  gap).
 - **Dashboard generative cards** — four coaching-tone insight cards
   (see Section 6).
 - **Nothing is deleted or overwritten** — archived rows stay in

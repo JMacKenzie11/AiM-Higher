@@ -165,11 +165,17 @@ columns appear on the next load.
 
 ## Where else values can be logged
 
-- **Quick log** (`/measures/[id]`) — one measure, one big input.
-- **Dashboard, *Pending this week*** — the measures a leader has not
-  logged yet.
+**Quick log** (`/measures/[id]`) — one measure, one big input,
+phone-friendly. Click any measure name.
 
-Every route writes the same row, keyed on the measure and the week.
+That is the only other place. The dashboard used to carry a second
+copy of this week's inputs; it listed KPIs only, so filling it in left
+every critical success factor outstanding without saying so. It is
+gone. What still nudges you: the notification bell counts what you
+have left, and the Saturday job opens a commitment for anything set to
+remind its owner.
+
+Both routes write the same row, keyed on the measure and the week.
 
 ## Common questions
 

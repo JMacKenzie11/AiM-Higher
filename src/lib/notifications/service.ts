@@ -291,9 +291,11 @@ async function getPendingMeasuresForUser({
   const functionIds = (functions ?? []).map((f) => f.id as string);
   if (functionIds.length === 0) return empty;
 
-  // Reads KPIs by function directly (migration 0166). The
-  // function_outcomes hop is gone; kind='kpi' keeps the set identical
-  // to what the hop returned, since CSFs were never measures before.
+  // Both kinds. A critical success factor carries a target and a
+  // weekly value like any KPI (migration 0166), so leaving it out
+  // undercounted what someone still had to log. This was the last
+  // place doing that: the dashboard's pending card had the same gap
+  // and was removed on 2026-09-04 as a duplicate of /measures.
   //
   // Pull description too — if exactly one measure ends up pending,
   // the tray can show it by name instead of just a count.
@@ -301,7 +303,6 @@ async function getPendingMeasuresForUser({
     .from("success_measures")
     .select("id, description, auto_track")
     .in("function_id", functionIds)
-    .eq("kind", "kpi")
     .eq("archived", false);
   const manual = (measures ?? []).filter(
     (m) => !(m as { auto_track: boolean }).auto_track
