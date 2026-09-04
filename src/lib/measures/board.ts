@@ -96,19 +96,41 @@ export async function getBoardData(
   const rosterById = new Map(roster.map((r) => [r.id, r.full_name]));
 
   const functionIds = functions.map((f) => f.id);
-  const { data: outcomesRaw } = await supabase
-    .from("function_outcomes")
-    .select("id, title, function_id")
+  // CSF measures supply the grouping label each metric row shows
+  // (migration 0166). A CSF's `description` is what the outcome
+  // called `title`.
+  const { data: csfRaw } = await supabase
+    .from("success_measures")
+    .select("id, description, function_id")
     .in("function_id", functionIds)
+    .eq("kind", "csf")
     .eq("archived", false)
     .order("sort_order");
-  const outcomes = (outcomesRaw ?? []) as Array<{
+  const outcomes = ((csfRaw ?? []) as Array<{
     id: string;
-    title: string;
+    description: string;
     function_id: string;
-  }>;
+  }>).map((c) => ({ id: c.id, title: c.description, function_id: c.function_id }));
   const outcomeById = new Map(outcomes.map((o) => [o.id, o]));
   const outcomeIds = outcomes.map((o) => o.id);
+
+  // Which KPI drives which CSF, so each row can still show the group
+  // it belongs to. Read as a list per KPI and take the first for the
+  // label: the UI allows one CSF per KPI today, but the data model
+  // does not, and a row that drives two should not crash the board.
+  const linkRows =
+    outcomeIds.length === 0
+      ? []
+      : (((
+          await supabase
+            .from("csf_kpi_links")
+            .select("csf_id, kpi_id")
+            .in("csf_id", outcomeIds)
+        ).data ?? []) as Array<{ csf_id: string; kpi_id: string }>);
+  const csfIdByKpi = new Map<string, string>();
+  for (const link of linkRows) {
+    if (!csfIdByKpi.has(link.kpi_id)) csfIdByKpi.set(link.kpi_id, link.csf_id);
+  }
 
   const measures: Array<{
     id: string;
@@ -120,24 +142,31 @@ export async function getBoardData(
     sort_order: number;
   }> = [];
   if (outcomeIds.length > 0) {
-    const { data: measuresRaw } = await supabase
-      .from("success_measures")
-      .select(
-        "id, outcome_id, description, target, value_type, target_direction, sort_order"
-      )
-      .in("outcome_id", outcomeIds)
-      .eq("archived", false)
-      .order("sort_order");
+    const kpiIds = Array.from(csfIdByKpi.keys());
+    const { data: measuresRaw } = kpiIds.length
+      ? await supabase
+          .from("success_measures")
+          .select(
+            "id, description, target, value_type, target_direction, sort_order"
+          )
+          .in("id", kpiIds)
+          .eq("archived", false)
+          .order("sort_order")
+      : { data: [] };
     measures.push(
       ...((measuresRaw ?? []) as Array<{
         id: string;
-        outcome_id: string;
         description: string;
         target: string | null;
         value_type: MetricValueType;
         target_direction: TargetDirection;
         sort_order: number;
-      }>)
+      }>).map((m) => ({
+        ...m,
+        // Kept named outcome_id so the rest of this module reads
+        // unchanged; it now holds the linked CSF's id.
+        outcome_id: csfIdByKpi.get(m.id) ?? "",
+      }))
     );
   }
 

@@ -64,30 +64,32 @@ export async function scoreChart(
 
   const fnIds = functions.map((f) => f.id);
 
-  // Which functions have at least one outcome + at least one measure?
-  const { data: outcomeRows } = await admin
-    .from("function_outcomes")
-    .select("id, function_id")
+  // Which functions have at least one CSF + at least one KPI?
+  // Both come from success_measures now (migration 0166), split by
+  // kind, so this is one query where it used to be two plus a join
+  // through function_outcomes.
+  const { data: allMeasureRows } = await admin
+    .from("success_measures")
+    .select("id, function_id, kind")
     .in("function_id", fnIds);
-  const outcomes = (outcomeRows ?? []) as Array<{
+  const allMeasures = (allMeasureRows ?? []) as Array<{
     id: string;
-    function_id: string;
+    function_id: string | null;
+    kind: "csf" | "kpi";
   }>;
-  const fnsWithOutcome = new Set(outcomes.map((o) => o.function_id));
+  const fnsWithOutcome = new Set(
+    allMeasures
+      .filter((m) => m.kind === "csf" && m.function_id)
+      .map((m) => m.function_id as string)
+  );
 
-  const outcomeIds = outcomes.map((o) => o.id);
   let fnsWithMeasure = new Set<string>();
-  if (outcomeIds.length > 0) {
-    const { data: measureRows } = await admin
-      .from("success_measures")
-      .select("outcome_id")
-      .in("outcome_id", outcomeIds);
-    const measures = (measureRows ?? []) as Array<{ outcome_id: string }>;
-    const outcomeIdToFn = new Map(outcomes.map((o) => [o.id, o.function_id]));
+  {
+    // function_id is on the row now, so no lookup map is needed.
     fnsWithMeasure = new Set(
-      measures
-        .map((m) => outcomeIdToFn.get(m.outcome_id))
-        .filter((fnId): fnId is string => !!fnId)
+      allMeasures
+        .filter((m) => m.kind === "kpi" && m.function_id)
+        .map((m) => m.function_id as string)
     );
   }
 

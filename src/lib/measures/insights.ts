@@ -73,31 +73,20 @@ export async function getMeasureInsights(
   if (functions.length === 0) return EMPTY;
   const functionTitleById = new Map(functions.map((f) => [f.id, f.title]));
 
-  const { data: outcomeRows } = await supabase
-    .from("function_outcomes")
-    .select("id, function_id")
-    .in(
-      "function_id",
-      functions.map((f) => f.id)
-    );
-  const outcomes = (outcomeRows ?? []) as Array<{
-    id: string;
-    function_id: string;
-  }>;
-  if (outcomes.length === 0) return EMPTY;
-  const functionByOutcome = new Map(
-    outcomes.map((o) => [o.id, o.function_id])
-  );
 
+  // KPIs by function (migration 0166). function_id replaces the
+  // outcome hop, so the owning function comes back on the row itself
+  // instead of needing a lookup map.
   const { data: measureRows } = await supabase
     .from("success_measures")
     .select(
-      "id, description, target, value_type, target_direction, auto_track, outcome_id, archived"
+      "id, description, target, value_type, target_direction, auto_track, function_id, archived"
     )
     .in(
-      "outcome_id",
-      outcomes.map((o) => o.id)
+      "function_id",
+      functions.map((f) => f.id)
     )
+    .eq("kind", "kpi")
     .eq("archived", false)
     .eq("auto_track", true);
   type Measure = {
@@ -106,7 +95,7 @@ export async function getMeasureInsights(
     target: string | null;
     value_type: MetricValueType;
     target_direction: TargetDirection;
-    outcome_id: string;
+    function_id: string | null;
   };
   const measures = (measureRows ?? []) as Measure[];
   if (measures.length === 0) return EMPTY;
@@ -164,7 +153,7 @@ export async function getMeasureInsights(
           : v <= targetValue;
 
     const functionTitle =
-      functionTitleById.get(functionByOutcome.get(m.outcome_id) ?? "") ?? "—";
+      functionTitleById.get(m.function_id ?? "") ?? "—";
 
     const base = {
       measureId: m.id,
