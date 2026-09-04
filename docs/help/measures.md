@@ -54,8 +54,8 @@ As an admin or guide, you can also:
 
 - **See every function in the company**, not just your own seats.
 - **Add a critical success factor** to any function.
-- **Rename one** by clicking its title. *Details* opens the
-  why-this-matters note.
+- **Rename one** by clicking its title, or click the note beneath it
+  to write why it matters. Both save when you click away.
 - **Add a KPI** under any critical success factor.
 - **Edit a measure** — description, target, value type, direction,
   update frequency, and whether it is chased when a value is missing.
