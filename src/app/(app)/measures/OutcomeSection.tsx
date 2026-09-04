@@ -91,11 +91,50 @@ export function OutcomeSection({
         </header>
       )}
 
+      {/* A CSF is measured now, so it needs somewhere to record its
+          own value. Without this the page named a result the function
+          is accountable for and then gave nobody a way to track it. */}
+      {trackingEnabled ? (
+        <div className={styles.csfTrackRow}>
+          <span className={styles.csfTrackLabel}>This critical success factor</span>
+          {outcome.target ? (
+            <span className={styles.csfTrackTarget}>
+              Target {outcome.target}{" "}
+              {outcome.target_direction === "lower_is_better" ? "≤" : "≥"}
+            </span>
+          ) : (
+            /* No target is a normal state, not a failure. Muted and
+               never red, per the decision that targets are optional
+               on a CSF. */
+            <span className={styles.csfTrackNoTarget}>No target set</span>
+          )}
+          <span className={styles.csfTrackTarget}>
+            {outcome.recent.length > 0 && outcome.recent[0]
+              ? `Last ${
+                  outcome.recent[0].text ?? outcome.recent[0].number ?? "—"
+                }`
+              : "Nothing logged yet"}
+          </span>
+          <input
+            type={outcome.value_type === "text" ? "text" : "number"}
+            step="any"
+            className={styles.outcomeTitleInput}
+            value={values[outcome.id] ?? ""}
+            onChange={(e) => onValueChange(outcome.id, e.target.value)}
+            disabled={disabled}
+            placeholder={
+              outcome.value_type === "percent" ? "0 – 100" : "This week"
+            }
+            aria-label={`${outcome.title} this week`}
+          />
+        </div>
+      ) : null}
+
       {outcome.measures.length === 0 ? (
         <p className={styles.outcomeEmpty}>
           {isAdmin
-            ? "No key success measures yet. Add one below."
-            : "No key success measures yet."}
+            ? "No KPIs yet. Add the leading activity that moves this number."
+            : "No KPIs yet."}
         </p>
       ) : visibleMeasures.length === 0 ? (
         <p className={styles.outcomeEmpty}>
@@ -170,7 +209,7 @@ export function OutcomeSection({
               className={styles.addToggleButton}
               onClick={() => setAddMeasureOpen(true)}
             >
-              + Add a key success measure
+              + Add a KPI
             </button>
           )}
         </div>

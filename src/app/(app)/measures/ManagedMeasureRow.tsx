@@ -381,6 +381,20 @@ function EditMeasureForm({
             </select>
           </label>
 
+          <label className={chartStyles.formField}>
+            <span className={chartStyles.formLabel}>How often to update</span>
+            <select
+              name="update_frequency"
+              defaultValue={measure.update_frequency ?? "weekly"}
+              disabled={pending}
+              className={chartStyles.formInput}
+            >
+              <option value="weekly">Every week</option>
+              <option value="biweekly">Every two weeks</option>
+              <option value="monthly">Every month</option>
+            </select>
+          </label>
+
           <label
             className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
           >
@@ -392,7 +406,11 @@ function EditMeasureForm({
                 disabled={pending}
                 style={{ marginRight: "8px" }}
               />
-              Auto-track weekly updates
+              {/* Was "Auto-track weekly updates", which said what the
+                  system does rather than what happens to the person
+                  reading it, and hard-coded weekly now that frequency
+                  is a choice. */}
+              Remind the owner when this is due
             </span>
           </label>
         </>

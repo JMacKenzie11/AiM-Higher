@@ -2,7 +2,8 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addDays, thisFriday } from "@/lib/dates";
-import type { MetricValueType, TargetDirection } from "@/lib/types";
+import type {
+  UpdateFrequency, MetricValueType, TargetDirection } from "@/lib/types";
 
 // Reads for the Success Tracking surfaces: the /measures batch
 // page and the dashboard "Pending this week" widget.
@@ -168,6 +169,7 @@ export type MeasureTreeMeasure = {
   value_type: MetricValueType;
   target_direction: TargetDirection;
   auto_track: boolean;
+  update_frequency: UpdateFrequency;
   target_hint: string | null;
   currentValue: { number: number | null; text: string | null } | null;
   recent: Array<{
@@ -193,6 +195,7 @@ export type MeasureTreeOutcome = {
   value_type: MetricValueType;
   target_direction: TargetDirection;
   auto_track: boolean;
+  update_frequency: UpdateFrequency;
   target_hint: string | null;
   currentValue: { number: number | null; text: string | null } | null;
   recent: Array<{
@@ -252,7 +255,7 @@ export async function getMeasuresTree(
   const { data: csfRows } = await supabase
     .from("success_measures")
     .select(
-      "id, description, detail, target, value_type, target_direction, auto_track, target_hint, function_id, sort_order"
+      "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order"
     )
     .in("function_id", functionIds)
     .eq("kind", "csf")
@@ -265,6 +268,7 @@ export async function getMeasuresTree(
     value_type: MetricValueType;
     target_direction: TargetDirection;
     auto_track: boolean;
+    update_frequency: UpdateFrequency;
     target_hint: string | null;
     function_id: string;
     sort_order: number;
@@ -276,6 +280,7 @@ export async function getMeasuresTree(
     value_type: c.value_type,
     target_direction: c.target_direction,
     auto_track: c.auto_track,
+    update_frequency: c.update_frequency ?? "weekly",
     target_hint: c.target_hint,
     function_id: c.function_id,
     sort_order: c.sort_order,
@@ -305,7 +310,7 @@ export async function getMeasuresTree(
           await supabase
             .from("success_measures")
             .select(
-              "id, description, target, value_type, target_direction, auto_track, target_hint, sort_order"
+              "id, description, target, value_type, target_direction, auto_track, update_frequency, target_hint, sort_order"
             )
             .in("id", kpiIds)
             .eq("archived", false)
@@ -317,6 +322,7 @@ export async function getMeasuresTree(
           value_type: MetricValueType;
           target_direction: TargetDirection;
           auto_track: boolean;
+          update_frequency: UpdateFrequency;
           target_hint: string | null;
           sort_order: number;
         }>);
@@ -372,6 +378,7 @@ export async function getMeasuresTree(
       value_type: m.value_type,
       target_direction: m.target_direction,
       auto_track: m.auto_track,
+      update_frequency: m.update_frequency ?? "weekly",
       target_hint: m.target_hint,
       currentValue: current
         ? { number: current.number, text: current.text }
@@ -417,6 +424,7 @@ export async function getMeasuresTree(
       value_type: o.value_type,
       target_direction: o.target_direction,
       auto_track: o.auto_track,
+      update_frequency: o.update_frequency,
       target_hint: o.target_hint,
       currentValue: csfCurrent
         ? { number: csfCurrent.number, text: csfCurrent.text }

@@ -414,6 +414,11 @@ export type TargetDirection = "higher_is_better" | "lower_is_better";
 // indistinguishable from a CSF.
 export type MeasureKind = "csf" | "kpi";
 
+// How often a measure is expected to be logged (migration 0167).
+// Applies to both kinds: a CSF is often the slower number while the
+// KPIs driving it are weekly.
+export type UpdateFrequency = "weekly" | "biweekly" | "monthly";
+
 export type SuccessMeasure = {
   id: string;
   // Null on a CSF, which has no parent outcome. Nullable since 0166;
@@ -436,6 +441,7 @@ export type SuccessMeasure = {
   // Opt-out for context measures (headcount, cash on hand) that are
   // worth tracking but shouldn't fire "you didn't update" commitments.
   auto_track: boolean;
+  update_frequency: UpdateFrequency;
   // Short AI-generated coaching hint about the target. Populated
   // when Performance Tracking is on and the model thinks the target
   // could be sharper (vague, not time-bound, not measurable, or
