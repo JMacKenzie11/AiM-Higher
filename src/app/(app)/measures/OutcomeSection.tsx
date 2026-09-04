@@ -186,6 +186,19 @@ export function OutcomeSection({
         </div>
       )}
 
+      {/* A nudge, not a limit. Three lead measures is about what a
+          function head can actually move in a week; past that the
+          list becomes a report nobody acts on. Deliberately advisory:
+          some functions genuinely need a fourth, and a hard cap would
+          just push people into vaguer KPIs that bundle two things. */}
+      {isAdmin && outcome.measures.length >= 3 ? (
+        <p className={styles.outcomeNudge}>
+          {outcome.measures.length} KPIs on this critical success
+          factor. Two or three is usually enough. More than that and
+          the weekly update becomes a chore rather than a decision.
+        </p>
+      ) : null}
+
       {isAdmin ? (
         <div className={styles.outcomeAdd}>
           {addMeasureOpen ? (
