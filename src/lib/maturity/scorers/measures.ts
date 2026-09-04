@@ -40,30 +40,21 @@ export async function scoreMeasures(
     };
   }
 
-  const { data: outcomeRows } = await admin
-    .from("function_outcomes")
-    .select("id")
-    .in("function_id", fnIds);
-  const outcomeIds = ((outcomeRows ?? []) as Array<{ id: string }>).map(
-    (o) => o.id
-  );
-  if (outcomeIds.length === 0) {
-    return {
-      key: "measures",
-      score: 0,
-      breakdown: {
-        totalMeasures: 0,
-        withTarget: 0,
-        withRecentEntry: 0,
-        autoTrackGaps: 0,
-      },
-    };
-  }
-
+  // Reads by function + kind rather than walking through
+  // function_outcomes (migration 0166). Same set of rows: every KPI's
+  // function_id was backfilled from its outcome's, so this returns
+  // exactly what the outcome join returned, one query shorter.
+  //
+  // kind = 'kpi' is deliberate and load-bearing. CSFs are measures
+  // too now, and dropping the filter would grow the denominator to
+  // include them, moving every company's Success Tracking score. That
+  // is a product decision, not a side effect of moving the plumbing,
+  // so it stays out of this change.
   const { data: measureRows } = await admin
     .from("success_measures")
     .select("id, target, auto_track")
-    .in("outcome_id", outcomeIds)
+    .in("function_id", fnIds)
+    .eq("kind", "kpi")
     .eq("archived", false);
   const measures = (measureRows ?? []) as Array<{
     id: string;

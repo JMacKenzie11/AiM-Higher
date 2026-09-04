@@ -73,9 +73,12 @@ describe("scoreMeasures — the empty ladder", () => {
     });
   });
 
-  it("scores 0 when functions exist but no outcomes do", async () => {
+  it("scores 0 when functions exist but carry no KPIs", async () => {
+    // Since the move to reading by function + kind, the scorer no
+    // longer walks function_outcomes at all. The outcome fixture is
+    // retained only to prove its absence changes nothing.
     const result = await scoreMeasures(
-      fakeAdmin({ functions: [{ id: "f_1" }], outcomes: [] }),
+      fakeAdmin({ functions: [{ id: "f_1" }], outcomes: [], measures: [] }),
       "co_1"
     );
 
