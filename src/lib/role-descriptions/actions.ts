@@ -58,20 +58,26 @@ export async function suggestForFunctionAction(input: {
     if (!input.outcomeId) {
       return {
         ok: false,
-        message: "Pick which outcome the measures should serve.",
+        message: "Pick which critical success factor the KPIs should serve.",
       };
     }
+    // The CSF measure, checked against the function so a caller
+    // cannot point this at another function's CSF.
     const { data: outcome } = await supabase
-      .from("function_outcomes")
-      .select("title, description")
+      .from("success_measures")
+      .select("description, detail")
       .eq("id", input.outcomeId)
       .eq("function_id", input.functionId)
-      .maybeSingle<{ title: string; description: string | null }>();
+      .eq("kind", "csf")
+      .maybeSingle<{ description: string; detail: string | null }>();
     if (!outcome) {
-      return { ok: false, message: "That outcome doesn't belong to this function." };
+      return {
+        ok: false,
+        message: "That critical success factor doesn't belong to this function.",
+      };
     }
-    outcomeTitle = outcome.title;
-    outcomeDescription = outcome.description;
+    outcomeTitle = outcome.description;
+    outcomeDescription = outcome.detail;
   }
 
   const recommendations = await recommendForFunction({

@@ -20,12 +20,15 @@ const mocks = vi.hoisted(() => {
         }),
       };
     }
-    if (table === "function_outcomes") {
-      // Two chained eq()s (id, function_id) before maybeSingle.
+    if (table === "success_measures") {
+      // A CSF is a measure now (migration 0166). Three chained eq()s
+      // — id, function_id, kind — before maybeSingle.
       return {
         select: () => ({
           eq: () => ({
-            eq: () => ({ maybeSingle: outcomesSelectMaybeSingle }),
+            eq: () => ({
+              eq: () => ({ maybeSingle: outcomesSelectMaybeSingle }),
+            }),
           }),
         }),
       };
@@ -84,10 +87,12 @@ function primeHappyPath() {
     data: { company_id: "co_acme" },
     error: null,
   });
+  // A CSF measure: `description` is the name, `detail` the longer
+  // text. That is the reverse of what function_outcomes called them.
   mocks.outcomesSelectMaybeSingle.mockResolvedValue({
     data: {
-      title: "On-time delivery",
-      description: "Deliver every project on the committed date.",
+      description: "On-time delivery",
+      detail: "Deliver every project on the committed date.",
     },
     error: null,
   });
@@ -205,11 +210,11 @@ describe("suggestForFunctionAction", () => {
     });
 
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/which outcome/);
+    if (!res.ok) expect(res.message).toMatch(/critical success factor/);
     expect(mocks.recommendForFunction).not.toHaveBeenCalled();
   });
 
-  it("rejects an outcomeId that doesn't belong to the given function", async () => {
+  it("rejects a CSF id that doesn't belong to the given function", async () => {
     // Guard against a client crafting a request where outcomeId comes
     // from a different function's row. The double-eq (id + function_id)
     // in the query enforces this; we pin the error message here.
@@ -230,12 +235,12 @@ describe("suggestForFunctionAction", () => {
 
     expect(res).toEqual({
       ok: false,
-      message: "That outcome doesn't belong to this function.",
+      message: "That critical success factor doesn't belong to this function.",
     });
     expect(mocks.recommendForFunction).not.toHaveBeenCalled();
   });
 
-  it("feeds outcome title + description into the recommendation engine for target=measures", async () => {
+  it("feeds the CSF name + detail into the recommendation engine for target=measures", async () => {
     mocks.requireProfile.mockResolvedValue(
       sessionFor({ role: "system_admin" })
     );
