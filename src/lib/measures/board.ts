@@ -150,7 +150,7 @@ export async function getBoardData(
 
   const measures: Array<{
     id: string;
-    outcome_id: string;
+    csfId: string;
     description: string;
     target: string | null;
     value_type: MetricValueType;
@@ -173,7 +173,7 @@ export async function getBoardData(
       value_type: c.value_type,
       target_direction: c.target_direction,
       sort_order: c.sort_order,
-      outcome_id: c.id,
+      csfId: c.id,
       kind: "csf" as const,
     }))
   );
@@ -200,9 +200,7 @@ export async function getBoardData(
         sort_order: number;
       }>).map((m) => ({
         ...m,
-        // Kept named outcome_id so the rest of this module reads
-        // unchanged; it now holds the linked CSF's id.
-        outcome_id: csfIdByKpi.get(m.id) ?? "",
+        csfId: csfIdByKpi.get(m.id) ?? "",
         kind: "kpi" as const,
       }))
     );
@@ -258,7 +256,7 @@ export async function getBoardData(
     // Group by CSF, and inside each group put the CSF row first so
     // the lag measure reads above the lead measures that drive it.
     const fnMeasures = fnOutcomeIds.flatMap((outcomeId) => {
-      const inGroup = measures.filter((m) => m.outcome_id === outcomeId);
+      const inGroup = measures.filter((m) => m.csfId === outcomeId);
       const csf = inGroup.filter((m) => m.kind === "csf");
       const kpis = inGroup
         .filter((m) => m.kind === "kpi")
@@ -285,7 +283,7 @@ export async function getBoardData(
           targetNumeric,
           valueType: m.value_type,
           direction: m.target_direction,
-          outcomeTitle: outcomeById.get(m.outcome_id)?.title ?? "—",
+          outcomeTitle: outcomeById.get(m.csfId)?.title ?? "—",
           kind: m.kind,
           cells: weeks.map((w) => {
             const entry = entriesByMeasureWeek.get(`${m.id}|${w}`) ?? null;

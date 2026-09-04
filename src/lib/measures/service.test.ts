@@ -191,8 +191,8 @@ describe("getMeasuresTree — scoping", () => {
     const result = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
 
     expect(result).toEqual({ functions: [], weekEnding: THIS_FRIDAY });
-    // Bails before touching outcomes at all.
-    expect(mocks.calls.some((c) => c.table === "function_outcomes")).toBe(false);
+    // Bails before touching measures at all.
+    expect(mocks.calls.some((c) => c.table === "success_measures")).toBe(false);
   });
 
   it("filters to the caller's own functions when includeAll is false", async () => {

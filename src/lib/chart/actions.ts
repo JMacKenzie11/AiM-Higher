@@ -6,10 +6,12 @@ import { isAdminForCompany, scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import {
+  CSF_AS_OUTCOME_COLUMNS,
   cascadeArchiveKpis,
-  mirrorMeasureToKpi,
-  mirrorOutcomeToCsf,
-} from "@/lib/measures/mirror";
+  csfAsOutcome,
+  outcomeFieldsToCsf,
+  type CsfRow,
+} from "@/lib/measures/csf-as-outcome";
 import { scoreMeasureTarget } from "@/lib/measures/target-check";
 import { nullableString } from "@/lib/utils";
 import type {
@@ -394,22 +396,26 @@ export async function createOutcomeAction(
 
   const description = nullableString(formData.get("description"));
 
+  // An outcome is a critical success factor: one row in
+  // success_measures, tagged csf. There is no second table to keep in
+  // step any more.
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
-    .from("function_outcomes")
-    .insert({ function_id: functionId, title, description })
-    .select("*")
-    .single<FunctionOutcome>();
+    .from("success_measures")
+    .insert({
+      function_id: functionId,
+      kind: "csf",
+      ...outcomeFieldsToCsf({ title, description }),
+    })
+    .select(CSF_AS_OUTCOME_COLUMNS)
+    .single<CsfRow>();
   if (error || !data) return { ok: false, message: "Couldn't add that outcome." };
-
-  // Transition mirror (phases 3-7): reads run off the new model, so a
-  // new outcome has to appear as a CSF or it never shows up.
-  await mirrorOutcomeToCsf(supabase, data);
+  const item = csfAsOutcome(data);
 
   revalidatePath("/chart");
   revalidatePath(`/chart/function/${functionId}`);
   revalidatePath("/measures");
-  return { ok: true, item: data };
+  return { ok: true, item };
 }
 
 export async function updateOutcomeAction(
@@ -426,18 +432,17 @@ export async function updateOutcomeAction(
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
-    .from("function_outcomes")
-    .update({ title, description })
+    .from("success_measures")
+    .update(outcomeFieldsToCsf({ title, description }))
     .eq("id", id)
-    .select("*")
-    .single<FunctionOutcome>();
+    .eq("kind", "csf")
+    .select(CSF_AS_OUTCOME_COLUMNS)
+    .single<CsfRow>();
   if (error || !data) return { ok: false, message: "Couldn't save changes." };
-
-  await mirrorOutcomeToCsf(supabase, data);
 
   revalidatePath("/chart");
   revalidatePath("/measures");
-  return { ok: true, item: data };
+  return { ok: true, item: csfAsOutcome(data) };
 }
 
 // Lightweight inline rename for the outcome title. Mirrors
@@ -457,20 +462,17 @@ export async function renameOutcomeAction(
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
-    .from("function_outcomes")
-    .update({ title })
+    .from("success_measures")
+    .update(outcomeFieldsToCsf({ title }))
     .eq("id", outcomeId)
-    .select("*")
-    .single<FunctionOutcome>();
+    .eq("kind", "csf")
+    .select(CSF_AS_OUTCOME_COLUMNS)
+    .single<CsfRow>();
   if (error || !data) return { ok: false, message: "Couldn't rename." };
-
-  // Title is the CSF's name in the new model, so a rename has to
-  // reach it or the two drift apart on the most visible field.
-  await mirrorOutcomeToCsf(supabase, data);
 
   revalidatePath("/chart");
   revalidatePath("/measures");
-  return { ok: true, item: data };
+  return { ok: true, item: csfAsOutcome(data) };
 }
 
 export async function archiveOutcomeAction(
@@ -480,14 +482,14 @@ export async function archiveOutcomeAction(
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
-    .from("function_outcomes")
+    .from("success_measures")
     .update({ archived })
     .eq("id", outcomeId)
-    .select("*")
-    .single<FunctionOutcome>();
+    .eq("kind", "csf")
+    .select(CSF_AS_OUTCOME_COLUMNS)
+    .single<CsfRow>();
   if (error || !data) return { ok: false, message: "Couldn't archive." };
 
-  await mirrorOutcomeToCsf(supabase, data);
   // Archiving a CSF archives the KPIs beneath it, so nothing is left
   // parentless and invisible while still collecting values. Only on
   // the way in: restoring a CSF does not restore its KPIs.
@@ -495,7 +497,7 @@ export async function archiveOutcomeAction(
 
   revalidatePath("/chart");
   revalidatePath("/measures");
-  return { ok: true, item: data };
+  return { ok: true, item: csfAsOutcome(data) };
 }
 
 // ---- Success measures -------------------------------------------
@@ -527,9 +529,10 @@ export async function createMeasureAction(
   // company it is.
   const supabase = await createSupabaseServerClient();
   const { data: outcome } = await supabase
-    .from("function_outcomes")
+    .from("success_measures")
     .select("function_id, functions!inner(company_id)")
     .eq("id", outcomeId)
+    .eq("kind", "csf")
     .maybeSingle<{
       function_id: string;
       functions: { company_id: string } | { company_id: string }[];
@@ -555,7 +558,11 @@ export async function createMeasureAction(
   const { data, error } = await supabase
     .from("success_measures")
     .insert({
-      outcome_id: outcomeId,
+      // A KPI belongs to a function directly and reaches its CSF
+      // through the link table below, which is many-to-many by
+      // design even though the UI allows one parent today.
+      function_id: outcome?.function_id ?? null,
+      kind: "kpi",
       description,
       target,
       value_type: valueType,
@@ -567,18 +574,11 @@ export async function createMeasureAction(
     .single<SuccessMeasure>();
   if (error || !data) return { ok: false, message: "Couldn't add that measure." };
 
-  // Transition mirror: tag the row as a KPI, give it the function it
-  // belongs to, and record the link to its CSF. The outcome id is the
-  // CSF measure id, so no lookup is needed. Without this a measure
-  // created during the transition has no kind and no link, and the
-  // new read paths would not find it.
-  if (outcome?.function_id) {
-    await mirrorMeasureToKpi(supabase, {
-      measureId: data.id,
-      outcomeId,
-      functionId: outcome.function_id,
-    });
-  }
+  // Record which CSF this KPI drives. Without the link the measure
+  // exists but hangs off nothing, so no read path finds it.
+  await supabase
+    .from("csf_kpi_links")
+    .insert({ csf_id: outcomeId, kpi_id: data.id });
 
   // Coaching hint on the target, only when the flag is on and a
   // target was provided. Best-effort — a null result silently
@@ -635,35 +635,21 @@ export async function updateMeasureAction(
 
   const supabase = await createSupabaseServerClient();
 
-  // Resolve company + enforce target when the flag is on. Same
-  // derivation as create — walk measure → outcome → function.
+  // Resolve company + enforce target when the flag is on. A measure
+  // reaches its function directly now, so this is one join rather
+  // than the two the old outcome hop needed.
   const { data: existing } = await supabase
     .from("success_measures")
-    .select(
-      "outcome_id, function_outcomes!inner(function_id, functions!inner(company_id))"
-    )
+    .select("function_id, functions!inner(company_id)")
     .eq("id", id)
     .maybeSingle<{
-      outcome_id: string;
-      function_outcomes:
-        | {
-            function_id: string;
-            functions: { company_id: string } | { company_id: string }[];
-          }
-        | Array<{
-            function_id: string;
-            functions: { company_id: string } | { company_id: string }[];
-          }>;
+      function_id: string;
+      functions: { company_id: string } | { company_id: string }[];
     }>();
-  const outcomeRow = existing
-    ? Array.isArray(existing.function_outcomes)
-      ? existing.function_outcomes[0] ?? null
-      : existing.function_outcomes
-    : null;
-  const fnRow = outcomeRow
-    ? Array.isArray(outcomeRow.functions)
-      ? outcomeRow.functions[0] ?? null
-      : outcomeRow.functions
+  const fnRow = existing
+    ? Array.isArray(existing.functions)
+      ? existing.functions[0] ?? null
+      : existing.functions
     : null;
   const companyId = fnRow?.company_id ?? null;
   if (
@@ -763,29 +749,39 @@ export async function upsertMeasureEntryAction(
 
   const supabase = await createSupabaseServerClient();
 
-  // Load the measure → outcome → function so we can (a) authorize and
-  // (b) coerce the input based on the measure's value_type.
+  // Load the measure and its function so we can (a) authorize and
+  // (b) coerce the input based on the measure's value_type. Critical
+  // success factors and KPIs both hang off a function directly, which
+  // is what makes one query serve both kinds.
   const { data: measureRow } = await supabase
     .from("success_measures")
     .select(
-      "id, value_type, outcome:function_outcomes!inner(function:functions!inner(id, company_id, lead_id, track_id))"
+      "id, value_type, function:functions!inner(id, company_id, lead_id, track_id)"
     )
     .eq("id", measureId)
     .maybeSingle<{
       id: string;
       value_type: MetricValueType;
-      outcome: {
-        function: {
-          id: string;
-          company_id: string;
-          lead_id: string | null;
-          track_id: string | null;
-        };
-      };
+      function:
+        | {
+            id: string;
+            company_id: string;
+            lead_id: string | null;
+            track_id: string | null;
+          }
+        | Array<{
+            id: string;
+            company_id: string;
+            lead_id: string | null;
+            track_id: string | null;
+          }>;
     }>();
   if (!measureRow) return { ok: false, message: "Measure not found." };
 
-  const fn = measureRow.outcome.function;
+  const fn = Array.isArray(measureRow.function)
+    ? measureRow.function[0]
+    : measureRow.function;
+  if (!fn) return { ok: false, message: "Measure not found." };
   const isAdmin = isAdminForCompany(session.profile, fn.company_id);
   const isLtd =
     fn.lead_id === session.profile.id || fn.track_id === session.profile.id;
