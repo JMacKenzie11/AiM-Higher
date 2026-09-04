@@ -1,5 +1,9 @@
 # AiM Higher (AiMS Execution Platform) — Product Build Spec
 
+*Current state of the product: what each surface is and what it does.
+Reasoning, history and superseded designs live in commit messages and
+pull requests, not here.*
+
 **One-liner:** Multi-tenant SaaS operating system for small-to-mid company leaders who run their business by the AiMS methodology — turns strategic plan → weekly commitments → follow-through data into one operating rhythm, layered with meeting-transcript intelligence, an AI coach, an AI reflection companion, and a shared training library.
 
 **Target customer:** Owner-led companies, $2M–$50M revenue, 10–150 employees. Bought by the CEO/owner or COO. Delivered through the AiMS advisor network.
@@ -19,9 +23,9 @@
   - `aims_guide` — external AiMS coach assigned to one or more companies; admin-like within assigned companies, no cross-tenant privileges beyond assignments. For an aims_guide, a `guide_assignments` row IS their access grant to the company.
   - `team_member` — read + self-write.
 - **Scope-in (system_admin + aims_guide):** clicking a company on `/admin/companies` (or navigating to `/admin/companies/[id]`) auto-scopes them into that company via a signed cookie set by middleware on both the incoming request (so the current render sees it) and the response (so subsequent navigations resolve to the right tenant). The Sidebar renders a persistent "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") context pill under the logo with an *Exit company* affordance in the user menu at the bottom of the rail.
-  - **Prefetch exclusion (required for correctness).** The URL-driven scope-in fires only on a real navigation. Next.js prefetches a `<Link>` when it scrolls into view or is hovered, and every prefetch is a real middleware request — so without this guard, merely landing on `/hq` (whose *Needs your attention* list links to several companies) rewrote the cookie to whichever company was prefetched last, and the operator's next click landed in a tenant they never chose. Middleware ignores any request carrying `Next-Router-Prefetch`, `Purpose: prefetch`, or `Sec-Purpose: prefetch`. The decision logic is pure and unit-tested in `src/lib/admin/scope-request.ts`. Symptom to recognise if this ever regresses: occasional, unreproducible tenant switching that never appears in `next dev` (prefetch is off there).
-  - **Role restriction.** The response cookie is only persisted for `system_admin` and `aims_guide`. Company users ignore the cookie entirely (the resolver returns `profile.company_id` before it ever reads it), so this is defence in depth rather than the load-bearing check.
-  - **Guide HQ does NOT clear the cookie.** It used to; that was removed deliberately. `/hq` hides company-scoped links by pathname in `Sidebar.tsx` instead, which keeps the cookie intact so Week in Review / Functional Org Chart still resolve to the last-scoped company when reached directly.
+  - **Prefetch exclusion.** Scope-in fires only on a real navigation. Middleware ignores any request carrying `Next-Router-Prefetch`, `Purpose: prefetch`, or `Sec-Purpose: prefetch`. Decision logic is pure and unit-tested in `src/lib/admin/scope-request.ts`.
+  - **Role restriction.** The response cookie persists only for `system_admin` and `aims_guide`. Company users never read it; the resolver returns `profile.company_id` first.
+  - **Guide HQ keeps the cookie.** `/hq` hides company-scoped links by pathname in `Sidebar.tsx`, so Week in Review and Functional Org Chart still resolve to the last-scoped company when reached directly.
 - **Root URL routing:** middleware sends authenticated `/` to `/hq` for cross-tenant roles (`system_admin` and `aims_guide`), and to `/dashboard` for everyone else. Deliberately ignores the scope cookie so typing the bare domain doesn't strand a sysadmin inside whichever company they last scoped into.
 - **Managers:** `profiles.reports_to` establishes a direct manager, unlocking manager-level affordances (e.g., coach *about* a direct report) without granting admin.
 - **Invitations:** email invite flow with expiry; role assigned at invite time. Admins can pre-stage the roster (create as pending, send invite later).
@@ -35,7 +39,7 @@ Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coac
 | Flag | Turns on |
 | --- | --- |
 | `execution` | Core: commitments, plan cascade, chart, coaching, dashboard |
-| `performance_tracking` (labelled **Success Tracking**) | Requires a target on every KPI (a critical success factor may go without one); turns on the tracking columns (recent pills, this-week input or read-only value, status dot, filter chips) on `/measures`; enables the Board view; enables the AI target-quality check on measure creation, the AI measure-draft critique panel, and the four generative dashboard insight cards. When off, `/measures` collapses to a pure authoring surface. The Saturday cron was restored on 2026-09-04 after its behaviour change landed |
+| `performance_tracking` (labelled **Success Tracking**) | Requires a target on every KPI (a critical success factor may go without one); turns on the tracking columns (recent pills, this-week input or read-only value, status dot, filter chips) on `/measures`; enables the Board view; enables the AI target-quality check on measure creation, the AI measure-draft critique panel, and the four generative dashboard insight cards. When off, `/measures` collapses to a pure authoring surface |
 | `meeting_facilitation_review` | Second LLM pass on every ingested meeting scoring how the meeting was run against the AiMS Weekly Leadership Meeting framework; renders as a coaching-tone panel on the meeting detail page + a signal chip on the Leadership list |
 | `automated_commitment_tracking` (default ON at create) | Auto-create commitments extracted from meeting transcripts as rows on `/commitments`. When OFF, the analyzer + facilitation review still run but the team authors commitments manually — extractions surface only in the meeting analysis, not on the Commitments board |
 | `classroom` | Adds the shared training library (top-level nav item, consumer surfaces at `/classroom`) + a `search_classroom` tool for the coach + Ask Aimee |
@@ -51,7 +55,7 @@ The "why we exist, where we're going, who we serve, and how we'll know it's work
 **Section order (top to bottom, mirrored by the chip nav):**
 
 1. **Purpose** — statement + short context line.
-2. **Vision** — single free-form body (3-year horizon). The legacy title/tagline/body split and vision_milestone items were consolidated in migration 0106.
+2. **Vision** — single free-form body (3-year horizon).
 3. **Core values** — titled + body, ordered, admin-writable.
 4. **Strengths & Differentiators** — titled + body, numbered, admin-writable.
 5. **Ideal Customer Profile** — two sub-lists (best-fit clients/projects and psychographics). Each entry is a single line with delete-only management; `AddSnippetForm` per sub-list.
@@ -61,10 +65,10 @@ The "why we exist, where we're going, who we serve, and how we'll know it's work
 **Visual system:**
 
 - Every section wrapper is a white `cardAccent` (soft sky-tint corner accent shape).
-- Every list item inside a section renders as a **numbered card** (`.numberedCard`, formerly `.differentiatorCard`) — cobalt "01/02/03" number on a grey/bordered tile with a title, optional body, and Edit/Delete actions in a footer row. ICP snippets render the same shell but the content sits as body-weight text (no title) since snippets are single statements.
+- Every list item inside a section renders as a **numbered card** (`.numberedCard`) — cobalt "01/02/03" number on a grey/bordered tile with a title, optional body, and Edit/Delete actions in a footer row. ICP snippets render the same shell but the content sits as body-weight text (no title) since snippets are single statements.
 - Singleton statement sections (Purpose, Vision) wrap their content in the same grey `.sectionBody` tile so the whole page reads as one "grey content tile inside white section card" pattern.
 - **Sticky chip nav** at the top of `.content`, `position: sticky; top: 0; z-index: 15`, styled as a card (cobalt-text-on-bordered-pill chips matching the app's ghost/edit button vocabulary). Overlaps the bottom of the hero band via `-32px` margin on `.content`. Anchors on section h2 IDs with `scroll-margin-top: 96px` so jumps clear the sticky bar. Global `scroll-behavior: smooth` on `html` (respects `prefers-reduced-motion`) makes chip clicks glide.
-- `.grid2` uses `repeat(auto-fill, minmax(320px, 1fr))` — `auto-fill` (not `auto-fit`) keeps ghost tracks so a lone card stays 320-420px wide instead of stretching to page width.
+- `.grid2` uses `repeat(auto-fill, minmax(320px, 1fr))` — `auto-fill` keeps ghost tracks so a lone card stays 320-420px wide.
 
 All items admin-writable. Consumed by the AI coach, meeting analyzer, and marketing surfaces. Every card has a first-run empty state that teaches ("Add the purpose statement to give the whole company a shared north star.").
 
@@ -79,7 +83,7 @@ Three-level strategic plan tied to quarters. Progressive add reveal — each lev
 - **Quarterly Priorities** — belong to an Annual Goal (or orphan), owner assigned, per-quarter, status: `not_started` / `on_track` / `behind` / `complete` / `ongoing`.
 - **Quarters** — start/end dates, status: `open` / `closed`, one open per company. `/quarters` admin page lets an admin roll a new quarter, adjust ranges, or close the current one.
 - Progress rolls up: priorities → goals → SFAs → company-level **Strategic Progress %**.
-- **Start a new planning cycle** (formerly "Bulk Reset") — collapsed *danger zone* panel at the bottom of the plan page (admins only). Archives every active SFA / Goal / Priority in the company; nothing is deleted (records remain on file). Open commitments that were linked to now-archived priorities become Operational (their `priority_id` nulls out); resolved commitments keep their historical link so past-quarter priority progress stays intact.
+- **Start a new planning cycle** — collapsed *danger zone* panel at the bottom of the plan page (admins only). Archives every active SFA / Goal / Priority in the company; nothing is deleted (records remain on file). Open commitments that were linked to now-archived priorities become Operational (their `priority_id` nulls out); resolved commitments keep their historical link so past-quarter priority progress stays intact.
 
 ---
 
@@ -87,19 +91,18 @@ Three-level strategic plan tied to quarters. Progressive add reveal — each lev
 
 The heart of the operating rhythm.
 
-- **Resolution model** — every commitment sits in one of four states: `open`, `kept_on_time`, `kept_late`, `missed`. Kept-late is the same "did the work" signal as kept-on-time but distinct in the UI (green check + clock badge, never X, never danger colour) and NOT counted in the Follow-Through numerator. The prior `in_progress` state was retired in 0139; the prior conflated `kept`/`missed` semantics were split there too.
+- **Resolution model** — every commitment sits in one of four states: `open`, `kept_on_time`, `kept_late`, `missed`. Kept-late is the same "did the work" signal as kept-on-time but distinct in the UI (green check + clock badge, never X, never danger colour) and NOT counted in the Follow-Through numerator.
 - **Columns of note**: owner, description, due_date, week_ending (Friday), optional priority link (strategic vs operational), status, missed_reason (verbatim text, optional now), completed_at, resolved_by_role (`owner` / `admin` / `guide`), resolved_by_profile_id, source_meeting_id (nullable), `is_ongoing` (weekly cycle), `parked_at` (parking lot), `deleted_at` (soft delete).
 - **Week ends Friday** — hardcoded assumption; commitments always belong to a Fri-ending week.
 - **Owner-visibility RLS clause** (migration 0141): a supplementary SELECT policy admits any caller to see rows where `owner_id = auth.uid()`, regardless of company scope. Additive to the existing company / sysadmin / guide policies — lets a guide's own commitments across many tenants surface in one place on `/hq` without special routing. Harmless for team members since their own commitments already live inside their single company.
-- **Follow-Through Rate** = `kept_on_time / (kept_on_time + kept_late + missed + open-past-due)`, computed across any window by the single definition in `src/lib/commitments/follow-through.ts` (`summarizeFollowThrough`). Late keeps and misses count in the denominator only — the discipline signal is "on time," not "at all." An **open commitment past its due date counts in the denominator too**: a rate that improves by leaving work open rewards the wrong thing. Deleted and parked rows are excluded everywhere. `rate` is `null` when there is nothing to judge, which is not the same as `0` and must never be rendered as one. Title-cased consistently across the app.
-  - **Why one module.** B&B Electric surfaced three different follow-through numbers on three surfaces at once: 100% on the companies list, 62% on their own page, and "13 for 13" in the dashboard brief. All three were arithmetically correct over three different populations, and none of them excluded deleted or parked rows. Every surface now calls the same function, so a disagreement is a bug rather than a definition.
+- **Follow-Through Rate** = `kept_on_time / (kept_on_time + kept_late + missed + open-past-due)`, computed across any window by the single definition in `src/lib/commitments/follow-through.ts` (`summarizeFollowThrough`). Late keeps and misses count in the denominator only — the discipline signal is "on time," not "at all." An open commitment past its due date counts in the denominator. Deleted and parked rows are excluded everywhere. `rate` is `null` when there is nothing to judge, never `0`. Title-cased consistently across the app.
 - **Ongoing (weekly) commitments** — `is_ongoing = true` rows always sit at status `open` and always carry a current due date. Each resolution (kept-on-time, kept-late, or missed) writes a row to `commitment_occurrences` for that week and rolls the parent's `due_date` + `week_ending` forward 7 days. One row in `commitments`, many weeks of history. Follow-Through math iterates BOTH tables so per-week resolutions all count individually. *Stop repeating* converts the row to a normal commitment due at its current date.
 - **Parking lot** — rows with `parked_at IS NOT NULL` are excluded from every metric, overdue count, and Needs Attention grouping. Rendered in a muted section at the bottom of `/commitments` with a *Bring back* action that clears `parked_at` and sets a fresh due date. No reason required for park or bring-back.
 - **Soft delete** — `delete` sets `deleted_at`; the row hides from every UI + metric but is retained internally. INTENTIONALLY REVERSIBLE — no user-facing recovery UI in this build, but the data is there for future coaching-signal work (churn / abandonment patterns).
 - **Reason requirements by role** — owners resolving missed or rescheduling must supply a reason; owners marking kept-late get an OPTIONAL reason prompt with a ghost Skip button. System admins, company admins, and AiMS guides on their assigned companies are **exempt from every reason requirement** and may change past-due dates or mark any resolution in one click. `resolved_by_role` records who did the resolving so the coaching context can distinguish "no reason from owner" from "resolved by admin in the meeting."
 - **Row layout** — resolve circle | clarity dot | description (+ Ongoing / From-meeting chips) | owner name | priority link | due date | status chip | delete (hover-revealed on the far right).
-- **Resolve interaction (safety-hardened)** — 28px resolve circle at the left triggers a menu with the available actions (never resolves directly). "Marked kept · Undo" chip appears for 30 seconds after each resolve so misclicks reverse in one gesture. Delete lives at the far right, hover-revealed, styled as a trash glyph — deliberately separated from the resolve circle so the two can't be confused.
-- **Owner click → inline reassign dropdown.** Clicking an owner name opens the same inline picker used on `/issues`: choose a new owner, `reassignCommitmentAction` fires, the row rerenders. The previous right-side `PersonQuickViewDrawer` (stats + Coach jump + reassign UI) has been retired — the extra ceremony didn't match the frequency of the gesture and drifted from the `/issues` pattern. Read-only rows now render the owner name as a plain span rather than a drawer-opening button.
+- **Resolve interaction (safety-hardened)** — 28px resolve circle at the left triggers a menu with the available actions (never resolves directly). "Marked kept · Undo" chip appears for 30 seconds after each resolve so misclicks reverse in one gesture. Delete lives at the far right, hover-revealed, styled as a trash glyph.
+- **Owner click → inline reassign dropdown.** Clicking an owner name opens the same inline picker used on `/issues`: choose a new owner, `reassignCommitmentAction` fires, the row rerenders. Read-only rows render the owner name as a plain span.
 - **Column headers above every row group** — `Commitment / Assigned to / Priority / Due date / Status` render as a labelled header above each group on `/commitments` (matches `/issues`). Hidden on mobile, where the row grid collapses to a stacked layout.
 - **Full-width editor strips** for reschedule / missed-with-reason / late-keep-optional-reason / clarity review / unpark-with-date — direct grid children of the row so they span all columns and drop in as clean sub-rows.
 - **AI clarity scoring** — background Anthropic Haiku call (`src/lib/commitments/clarity.ts`, model `ANTHROPIC_CLARITY_MODEL`) scores two boolean criteria (`clarity_timeline`, `clarity_success`) + optional `clarity_note` at creation time. Best-effort. Rendered as a coloured dot beside the resolve circle.
@@ -116,9 +119,8 @@ The heart of the operating rhythm.
 Real-time single-page view for admins + members.
 
 - **Hero band** (--grad-brand navy gradient) — company name, current quarter label, and a row of stat pills. Each pill: big value + label + short caption underneath naming what it measures. On admin: five stats — **Strategic Progress**, **Follow-Through Rate**, **On Track**, **Open This Week**, **Commitment Clarity**. Hover tooltip carries the fuller explanation; caption ensures the meaning is legible under projection without hover.
-- **Setup Checklist has moved to `/scorecard`.** The *Set up {company}* card no longer renders on the dashboard; it lives permanently at the top of AiMS Implementation (Section 7) as the shared map of the operating disciplines. Kept out of the dashboard so the daily read stays focused on live signal.
+- **Setup Checklist** lives at the top of AiMS Implementation (Section 7), not on the dashboard.
 - **Week in review** (admin-only, streamed) — AI brief summarising what's worth knowing right now. Streams via Suspense + a light typewriter reveal on first view of a fresh brief; instant on revisits (localStorage-tracked, respects `prefers-reduced-motion`). Cached with a prompt-hash so identical inputs don't regenerate. Uses `ANTHROPIC_COACH_MODEL` (Sonnet 4.6 default).
-- **This week's numbers — removed 2026-09-04.** A pending-measure card with inline inputs and a *Save what I have* action. It listed KPIs only, so filling it in left every critical success factor outstanding with nothing saying so, and it duplicated a job `/measures` now does better (a save per function, and a line stating what is left). The notification bell is the surviving nudge; it counts both kinds as of the same date. See Section 10.
 - **Success Tracking generative cards** (Success Tracking on, with data) — four coaching-tone cards, each staggered-animated in:
   - **Gaining ground this quarter** — measures moving in the right direction across 6 weeks. Rows show an SVG sparkline (stroke-drawn on load, chartreuse endpoint dot) + a coloured delta chip.
   - **Streaks in flight** — measures at or above target for 3+ consecutive weeks.
@@ -135,13 +137,13 @@ Real-time single-page view for admins + members.
 
 Company-wide "how are we doing at running the AiMS disciplines?" view at `/scorecard`. Visible to **everyone in the company** (transparency by design — team members see the same view leaders do). Nav label: **AiMS Implementation**; internal scorer/API names retain `scorecard` for stability.
 
-- **Setup Checklist at the top** — a *Set up {company}* card renders above the discipline tiles for anyone with admin authority on this company (system_admin, company_admin scoped here, or an aims_guide assigned to it). Unlike the earlier dashboard version, it stays visible even after every step ticks off, so the page keeps working as a permanent "here's the map" reference for the operating disciplines. Five ordered steps: **Build the team** (add people + build the chart), **Invite the team** (send invitations to the roster), **Open a quarter** (the wrapper every commitment lives in), **Start the weekly rhythm** (a commitment logged in the last 14 days), **Track Issues / Solutions** (an issue logged in the last 14 days). Each step auto-checks as its condition becomes true. The prior "Build the vision and strategic plan" step was retired: the practice happens off the platform and the placement was pulling attention from the four operating disciplines. Assembly lives in `src/lib/dashboard/setup-steps.ts`; the component is `src/components/setup/SetupChecklist.tsx`.
+- **Setup Checklist at the top** — a *Set up {company}* card renders above the discipline tiles for anyone with admin authority on this company (system_admin, company_admin scoped here, or an aims_guide assigned to it). It stays visible after every step ticks off. Five ordered steps: **Build the team** (add people + build the chart), **Invite the team** (send invitations to the roster), **Open a quarter** (the wrapper every commitment lives in), **Start the weekly rhythm** (a commitment logged in the last 14 days), **Track Issues / Solutions** (an issue logged in the last 14 days). Each step auto-checks as its condition becomes true. Assembly lives in `src/lib/dashboard/setup-steps.ts`; the component is `src/components/setup/SetupChecklist.tsx`.
 
 - **Eight disciplines, each rated 0–10.** Foundation, Accountability Chart, Strategic Plan, Execution, Success Tracking (feature-gated on `performance_tracking`), Weekly Leadership Meeting, Solution Seeking (aggregate 4Ws closure), and Appreciative Practice (positive-framing signal) — the last three feature-gated on `meeting_facilitation_review`. Feature-gated disciplines whose feature is OFF render as a muted "Not enabled" tile and are dropped from the overall average — the weight redistributes across the ones that scored, so a company without Success Tracking isn't dinged for not having it.
 - **Overall score** — weighted average across scored disciplines. Planning and Execution weight 2× (the two the whole system is oriented around); the others weight 1×.
 - **State vs behavior disciplines.** Foundation and Accountability Chart are state-based (either filled in or not) and render **without** a trend chip or sparkline — history adds noise where the signal is done-or-not. The other four (Planning, Execution, Success Tracking, Meetings) fluctuate over time, so they carry the trend arrow + 26-week sparkline.
 - **Strategic Plan = cascade + closure.** Populated cascade (SFAs + goals + priorities) is a 2-point baseline; annual goal closure by target_date and priority closure by due_date each contribute up to 4 points. Fresh plans with nothing past due yet receive full credit on the closure halves so a new company isn't dragged down.
-- **Execution scoring.** Follow-through over rolling 30 days = 7 pts; aging opens (>14 days past due) = 3 pts. Priority linkage is deliberately **not** scored — some commitments are operational floaters by design, so the linked-to-priority ratio isn't a discipline signal.
+- **Execution scoring.** Follow-through over rolling 30 days = 7 pts; aging opens (>14 days past due) = 3 pts. Priority linkage is not scored.
 - **Rolling by construction.** Behavior-based scorers use recent-window aggregates (Execution = 30 days, Measures = 7 days, Meetings = 8 weeks). If meeting cadence drops off, the Meetings score falls the following week without any manual intervention.
 - **Trajectory arrow vs 90 days ago.** Behavior-based cards (and the overall number) show ↑ / ↓ / flat vs the oldest snapshot inside the 90-day window. Absolute score AND trajectory both live on the card so "low but climbing" reads distinctly from "high but sliding."
 - **26-week sparkline** under each behavior-based score using hand-rolled SVG — nulls (feature-was-off periods) render as gaps, not fake zeros.
@@ -151,7 +153,7 @@ Company-wide "how are we doing at running the AiMS disciplines?" view at `/score
 - **Solution Seeking tile** aggregates the `fourws_audit[]` rows across every reviewed meeting in the rolling 8-week window; closure rate (Ws closed ÷ Ws surfaced) maps to 0–10. When no issues have come up in the window, the tile isn't scored (avoids reading as a zero for a period of quiet meetings).
 - **Appreciative Practice tile** rolls up the facilitation review's new `positive_framing` dimension (v2 prompt) across the rolling 8-week window, plus running counts of `appreciation_moments`, `generative_questions`, and `reframes`. Not scored until the v2 review has run at least once — pre-v2 rows carry no positive_framing dimension.
 - **Info tooltip per tile.** Every card has a `?` icon next to the title with a hover/long-press tooltip explaining exactly how that discipline is scored. Rubric copy lives on the DisciplineConfig `scoringNote` field so tuning the wording is a one-line change per discipline.
-- **Explicit non-goal: leader attendance.** Transcript speaker-to-profile matching isn't reliable enough to score, so attendance is out. Meeting quality still surfaces via the facilitation-review `overall` score.
+- **Leader attendance is not scored.** Meeting quality surfaces via the facilitation-review `overall` score.
 
 Scoring code lives in `src/lib/maturity/` (config in `disciplines.ts`, one file per discipline in `scorers/`, orchestrator in `compute.ts`, read helpers in `service.ts`). Adding a new discipline is a three-file change: add the key to `disciplines.ts` + `DISCIPLINES` array, extend the `discipline` CHECK constraint on `company_discipline_snapshots`, add a scorer, wire it into `compute.ts`, and add an evidence case to `evidenceLines` on the page.
 
@@ -173,184 +175,72 @@ Scoring code lives in `src/lib/maturity/` (config in `disciplines.ts`, one file 
 
 The functional org chart at `/chart` (nav label: **Functional Org Chart**). Distinct from the reporting hierarchy in `profiles.reports_to`.
 
-- **Function nodes** — hierarchical (parent → child), each with title, description, and one seat holder (`lead_id`; the column was called `leader_id` before migration 0020, and stale references to that name are the subject of a note in Section 19). Rendered on a pan-and-zoom canvas (react-zoom-pan-pinch): auto-fits the full tree to the viewport on load and on container resize, scroll-wheel or ±/fit-to-view buttons to zoom, drag on empty canvas to pan. Cards keep a fixed 220px minimum width so the tree stays legible at every zoom level.
-- **LTD model** — Lead / Track / Decide are three responsibilities of the *one* seat holder, not three assignees (distinguishing simplification vs traditional EOS-style Accountability Chart).
+- **Function nodes** — hierarchical (parent → child), each with title, description, and one seat holder (`lead_id`). Rendered on a pan-and-zoom canvas (react-zoom-pan-pinch): auto-fits the full tree to the viewport on load and on container resize, scroll-wheel or ±/fit-to-view buttons to zoom, drag on empty canvas to pan. Cards keep a fixed 220px minimum width so the tree stays legible at every zoom level.
+- **LTD model** — Lead / Track / Decide are three responsibilities of the *one* seat holder, not three assignees.
 - **Function roles** — beyond LTD, function nodes carry named leadership archetypes (Visionary, Integrator, etc.) via `function_roles` for the strategic top of the chart.
-- **Critical Success Factors** — the results each function is accountable for. Lagging measures. Level 1 of the measures tree, though on `/measures` a CSF renders as the first *row* of its own table rather than a heading above it (Section 10). Since migration 0166 a CSF is a `success_measures` row with `kind = 'csf'`, carrying its own target, `value_type`, `target_direction` and weekly entries, exactly like a KPI. It reaches its company through `function_id`. TypeScript type `SuccessMeasure`; the chart renders it through the `FunctionOutcome` shape via `src/lib/measures/csf-as-outcome.ts`, which is a read-side adapter, not a second store.
-- **Key Performance Indicators** — leading measures that drive a CSF. Level 2. Same row type, `kind = 'kpi'`. Each carries: description, target (required whenever Success Tracking is on), `value_type` (`number` / `percent` / `text`), `target_direction` (`higher_is_better` / `lower_is_better`), `update_frequency` (`weekly` / `biweekly` / `monthly`, migration 0167) and `auto_track` (labelled *Remind the owner when this is due*; opt out for context numbers like headcount).
-- **`detail` (the why-this-matters note) has no UI.** Removed from the card on 2026-09-04. The column and `updateOutcomeDetailAction` stay, so nothing already written is lost and it can return without a migration.
-- **The CSF ↔ KPI link is many-to-many** — `csf_kpi_links` (migration 0166). The UI attaches one CSF per KPI today; the data model already allows more, so opening that up later needs no migration.
-- **A target is required on a KPI, optional on a CSF.** A leading measure with no target says nothing. A result is often named before anyone knows what good looks like, and forcing a number there produces a made-up one. A CSF with no target still collects values; its board cells read *no target set*.
-- **Two or three KPIs per CSF** — advised, not enforced. Past three the manager shows a note. A hard cap would push people into vaguer KPIs that bundle two things.
-- **Archiving cascades downward only** — archiving a CSF archives its KPIs (`cascadeArchiveKpis`), so no KPI outlives the result it existed to move. Restoring a CSF does not restore them.
-- **`function_outcomes` is gone** (migration 0168), along with `success_measures.outcome_id`. `function_id` is NOT NULL: every RLS policy on the table is keyed on it. `src/lib/measures/no-legacy-outcomes.test.ts` fails the build if either name returns, because PostgREST reports an unknown table inside the response body and the loaders would silently render an empty page rather than crash.
-- **Authoring lives on `/measures`, not on the function page.** The function page shows a read-only summary and a link to `/measures#fn-<id>`. The chart stays a chart; every add/rename/archive happens on the /measures manager. Server actions revalidate both routes.
-- **AI measure-draft critique** (Success Tracking on) — when a leader adds or edits a KPI, a background Anthropic Haiku call (`src/lib/measures/critique.ts`, model `ANTHROPIC_CLARITY_MODEL`) scores three dimensions (description clarity, target quality, fit to the parent critical success factor) and renders as an amber coaching panel next to the form. Best-effort — the measure saves whether the critique lands or not.
+- **Critical Success Factors** — the results each function is accountable for. Lagging measures. A `success_measures` row with `kind = 'csf'`, carrying a target, `value_type`, `target_direction` and weekly entries. Reaches its company through `function_id` (NOT NULL; every RLS policy on the table is keyed on it). TypeScript type `SuccessMeasure`. The chart renders it through the `FunctionOutcome` shape via `src/lib/measures/csf-as-outcome.ts`.
+- **Key Performance Indicators** — leading measures that drive a CSF. Same row type, `kind = 'kpi'`. Fields: description, target, `value_type` (`number` / `percent` / `text`), `target_direction` (`higher_is_better` / `lower_is_better`), `update_frequency` (`weekly` / `biweekly` / `monthly`), `auto_track` (labelled *Remind the owner when this is due*).
+- **Targets** — required on a KPI whenever Success Tracking is on; optional on a CSF. A CSF without one still collects values and reads *no target set* rather than on or off.
+- **CSF ↔ KPI link** — `csf_kpi_links`, many-to-many in the data model. The UI attaches one CSF per KPI.
+- **KPI count** — the manager shows an advisory note past three KPIs on one CSF. Not enforced.
+- **Archiving** — archiving a CSF archives its KPIs (`cascadeArchiveKpis`). Restoring a CSF does not restore them. Nothing hard-deletes; weekly entries are retained.
+- **Authoring lives on `/measures`**, not the function page. The function page shows a read-only summary and a link to `/measures#fn-<id>`. Server actions revalidate both routes.
+- **AI measure-draft critique** (Success Tracking on) — background Anthropic Haiku call (`src/lib/measures/critique.ts`, model `ANTHROPIC_CLARITY_MODEL`) scoring description clarity, target quality, and fit to the parent CSF. Renders as an amber panel beside the form. Best-effort; the measure saves regardless.
 - **Weekly value entries** — `success_measure_entries` keyed on measure + week_ending Friday.
 - Drag-to-reorder functions within a parent (admin-only) via `@dnd-kit/sortable`; drag handle on hover, opts out of pan via a `chart-no-pan` class so dnd-kit gets clean pointer events.
 - **Delete function** — hard delete with a branded confirmation that spells out the cascade (sub-functions, critical success factors, KPIs, and recorded values go with it).
 
-*(The old `/scorecard` route redirects to `/chart`; scorecard functionality was consolidated in migration 0019.)*
+*(The `/scorecard` route on this module redirects to `/chart`.)*
 
 ---
 
 ## 10. Critical Success Factors (`/measures`)
 
-> **Status (2026-09-04): live again.** The nav item is back under
-> *Workspace* as **Critical Success Factors**, and the
-> `/api/cron/performance` Vercel entry was restored
-> (`{ "path": "/api/cron/performance", "schedule": "0 15 * * 6" }`)
-> once the cron's behaviour change had landed, so it never resumed
-> doing the old thing. The 2026-08-27 pause is over.
+Two levels on one page. A **critical success factor** is a result a function is accountable for (lagging). A **key performance indicator** is a leading measure that drives it. Data model in Section 9.
 
-Two levels on one page. A **critical success factor** is a result a
-function is accountable for (lagging). A **key performance
-indicator** is a leading measure that drives it. Both are tracked
-the same way; the difference is what they tell you. See Section 9
-for the data model.
+Nav label: **Critical Success Factors**, under *Workspace*. The tracking columns are gated by `performance_tracking`; the authoring surface is always on.
 
-Whether the tracking columns render is gated by
-`performance_tracking`; the authoring surface is always on.
+**Access**
 
-- **Access model (2026-09-04).** Everyone in the company **reads every
-  function**. Writing is per function, not per user: `getMeasuresTree`
-  returns `canLog` on each function, computed as `isAdmin || lead_id ===
-  me || track_id === me` — exactly the rule `upsertMeasureEntryAction`
-  enforces — so the page never renders an input the server would refuse.
-  A function head is therefore a reader on most of the page and a writer
-  on their own seats at the same time. Read-only cells render **the
-  value**, not a disabled input: a greyed box is a tease and leaves a
-  dead column where the number should be. The save button, and the
-  outstanding-count line, follow `canLog` too; a count spanning other
-  people's functions would never reach zero.
-  - This replaced a narrow read (`leader_id = user.id`) that had been
-    **broken since migration 0020**, which renamed that column to
-    `lead_id`. Every non-admin loaded an empty page. See the
-    Non-Functional section on silent PostgREST column errors.
-- **One layout, not two. (Reverted 2026-09-04, same day it shipped.)**
-  A **Log values / Edit setup** switch briefly separated the weekly
-  entry job from authoring, on the reasoning that they happen at very
-  different frequencies. In practice the two views differed by an Edit
-  button and a delete at the end of each row — two small controls in
-  their own cell, well clear of the inputs. Not enough difference to
-  justify a mode, a second control to notice, and a choice to make
-  before doing either job. Everyone now sees one layout with the
-  controls they are entitled to. `authoring` survives as a prop
-  because it names what it gates; `MeasuresManager` passes `isAdmin`
-  straight into it.
-- **Manager view** (`/measures`) — grouped by function → CSF → KPI,
-  each function rendered as its own card. Function order is depth-first
-  pre-order over the parent tree with Visionary pinned first and
-  Integrator second at the root level. A non-admin gets the same
-  hierarchy with their own seats hoisted to the front; the old
-  alphabetical fallback existed because a leader saw a partial tree that
-  could not be walked, and there are no partial trees now. Function
-  anchors are `#fn-<id>` so the chart page can deep-link. Renders in
-  `MeasuresManager` (client), fed by `getMeasuresTree` (server,
-  `src/lib/measures/service.ts`).
-- **The CSF is the first row of its own table, not a heading above it.**
-  It renders through `ManagedMeasureRow` with `kind="csf"`, the same
-  component as its KPIs, which is what guarantees neither kind ends up
-  with a control the other has — that is how `update_frequency` came to
-  exist for KPIs and not CSFs. It also removed a duplicate (the name
-  printed twice, four lines apart) and a split where the name was edited
-  in one place and the target in another. Editing a CSF renames it
-  because a CSF's name **is** its `description` column.
-- **Grid alignment is load-bearing.** Rows are `display: contents`, so
-  every cell is placed by `.measureGrid`'s six tracks. A row emitting
-  five cells does not leave the last column empty — the next row's first
-  cell flows into it and every row below walks one column right. The
-  trailing actions cell is therefore rendered **unconditionally**, empty
-  when not authoring. `grid-alignment.test.ts` guards it, because the
-  failure renders fine, throws nothing and fails no other test.
-- **Save is per function, not per page.** Each function card carries
-  its own save button, below its own inputs. A single page-level
-  save described a workflow nobody follows — one person filling in
-  the whole company — when every function head owns their own CSF
-  and the KPIs beneath it. Admins and guides still see every
-  function and can enter on someone's behalf, one function at a
-  time. `MeasuresManager` tracks which function is saving so only
-  that card shows a spinner.
-- **Board view** (top of the same page, `BoardView` component) —
-  13 weeks across every function. Hidden when Success Tracking is
-  off. **Collapsed by default** behind a summary line that has to earn
-  the click ("3 functions off target this week"); the open/closed
-  choice is remembered per person in `localStorage`
-  (`measures-board-open`), and every read is wrapped because storage
-  throws in a private window. Opens on **Timeline**. Plots **both kinds**: a CSF is a row
-  in its own right, grouped under itself and ordered ahead of the
-  KPIs that drive it, and the Timeline's per-function weekly
-  rollup therefore includes it. Rows carry `kind`; the Grid marks
-  CSF rows. Before this the board drew KPIs only and used the CSF
-  as a group label, so the numbers a function is actually held to
-  were absent from the screen built to show whether it is on track.
-- **Filter chips** — *On target / Off / Not yet logged*, multi-select,
-  only rendered when Success Tracking is on AND at least one measure has
-  a target. They live **inside the function list's own header**: sitting
-  loose between the board and the list made them read as a page-level
-  toolbar governing both, when they filter the list alone.
-- **Outstanding line** — *"2 of 6 still to log for the week ending 4
-  Sep."* Reads the live inputs rather than saved values, so the number
-  falls as you type. Silent when you have nothing to log. The counts
-  existed inside the chips; nobody had ever stated it as a sentence, so
-  a leader scanned every row to find the empty boxes.
-- **Individual measure quick-log (`/measures/[id]`) — removed
-  2026-09-04.** One measure, one big input, plus a "rather log a whole
-  week in one place?" link straight back to the page it was reached
-  from. It was a second place to type one number, and the row it was
-  reached from already has that input. Removed alongside the dashboard
-  pending card for the same reason: **/measures is the one place values
-  are entered.** Measure names in the manager are plain text now rather
-  than links to it.
-- **Entitlement-off variant** — tracking columns, Recent pills, filter
-  chips and save buttons all hide; the page becomes a pure authoring
-  surface. `.measureGridAuthor` drops the grid to two tracks so the
-  alignment rule above still holds.
-- **Saturday cron** (`src/app/api/cron/performance/route.ts`,
-  Saturday 15:00 UTC). Sweeps **both kinds**, filtered to
-  `auto_track = true`, and respects `update_frequency` via
-  `isDueForWeek` — a monthly measure is only chased monthly, and
-  the cycle is anchored to the measure's own creation date rather
-  than the calendar. Timing is UTC-fixed so one run covers every
-  tenant regardless of company timezone.
-  - **Missing value → a commitment.** *"Log this week's value for
-    '{measure}'"*, due the just-closed Friday. Chasing an admin
-    task belongs on a to-do list.
-  - **Off target → an issue.** *"Off target: '{measure}'"*. Missing
-    a target is a business problem, not an admin task, so it
-    belongs where the team discusses problems. The rule lives in
-    `src/lib/measures/off-target.ts`, deliberately outside the cron
-    handler, so an integration feeding a KPI raises the same issue
-    a typed value does.
-- **AI target-quality check** — on measure creation, a background
-  Anthropic Haiku call (`src/lib/measures/target-check.ts`, model
-  `ANTHROPIC_CLARITY_MODEL`) validates that the target is specific
-  and consistent with `value_type` + `target_direction`. Advisory —
-  never blocks the save.
-- **Dashboard pending card — removed 2026-09-04.** It duplicated this
-  page, and duplicated it wrongly: it listed KPIs only, so someone who
-  filled it in still had every critical success factor outstanding
-  with nothing saying so. The duplication also stopped making sense
-  once /measures grew its own outstanding-count line and per-function
-  saving. `PendingMeasuresCard` and `getMeasuresOwnedBy` are deleted.
-  What remains as a nudge: the Saturday cron opens a commitment for an
-  `auto_track` measure with no value, and the notification bell counts
-  the rest (both kinds, since 2026-09-04 — it had the same KPI-only
-  gap).
-- **Dashboard generative cards** — four coaching-tone insight cards
-  (see Section 6).
-- **Nothing is deleted or overwritten** — archived rows stay in
-  history; weekly entries are kept.
+- Everyone in the company reads every function.
+- Writing is per function. `getMeasuresTree` returns `canLog` on each one: `isAdmin || lead_id === me || track_id === me`, matching what `upsertMeasureEntryAction` enforces.
+- Read-only cells render the value, not a disabled input. The save button and the outstanding line follow `canLog`.
+- Authoring controls (add, edit, archive) render for admins, company admins scoped here, and guides assigned to the company.
 
-**Permissions.** All authoring actions in `src/lib/chart/actions.ts`
-(create/update/rename/archive of CSFs and KPIs) admit
-`system_admin`, `company_admin`, and `aims_guide`. Weekly value
-writes (`upsertMeasureEntryAction`, `logMeasureEntriesAction`) admit
-the same three roles OR the function's Lead / Track holder. Every
-app-layer check goes through `isAdminForCompany` so the guide role
-never regresses. RLS on `success_measure_entries` mirrors this with
-a `_write_guide` policy, and `success_measures` policies are keyed
-on `function_id` since migration 0166 with `_guide` mirrors.
+**Layout**
+
+- One card per function. Function order is depth-first pre-order over the parent tree, Visionary first and Integrator second at root level; a non-admin gets the same order with their own seats hoisted to the front. Anchors are `#fn-<id>`.
+- Inside a card: the CSF is the first row of the table, its KPIs follow. Both render through `ManagedMeasureRow` (`kind="csf"` / `"kpi"`). The CSF row carries an eyebrow and the card's tint separates it from the KPIs.
+- Columns: name (unlabelled) | Target | Recent | This week | status dot | actions. Rows are `display: contents`, so every row must emit a cell per track; the trailing actions cell is rendered unconditionally and is empty when not authoring. `grid-alignment.test.ts` guards this.
+- `.measureGridAuthor` drops the grid to two tracks when tracking is off.
+- Editing a CSF renames it: a CSF's name is its `description` column.
+
+**Saving**
+
+- One save button per function card, shown only on functions the caller can write to. `MeasuresManager` tracks which function is saving so only that card shows a spinner.
+- **Outstanding line** — "2 of 6 still to log for the week ending 4 Sep." Counts both kinds across functions the caller can log, read from the live inputs. Silent when there is nothing to log. Adds "on your functions" when the page shows functions the caller cannot log.
+
+**Board** (`BoardView`, top of the page)
+
+- 13 weeks across every function. Hidden when Success Tracking is off.
+- Collapsed by default behind a summary line ("3 functions off target this week"). The open/closed choice persists per person in `localStorage` (`measures-board-open`).
+- Opens on **Timeline**; **Grid** is the second view.
+- Plots both kinds. A CSF is a row grouped under itself, ordered ahead of its KPIs, so the Timeline's per-function rollup includes it. Rows carry `kind`; the Grid marks CSF rows.
+
+**Filter chips** — *On target / Off / Not yet logged*, multi-select, in the function list's header. Rendered when Success Tracking is on and at least one measure has a target. They count and filter both kinds. `counts-agree.test.ts` pins the chips and the outstanding line to one population.
+
+**Saturday cron** (`src/app/api/cron/performance/route.ts`, 15:00 UTC, `{ "path": "/api/cron/performance", "schedule": "0 15 * * 6" }`)
+
+- Sweeps both kinds where `auto_track = true`, respecting `update_frequency` via `isDueForWeek`. The cycle is anchored to the measure's creation date, not the calendar.
+- **Missing value → a commitment**: *"Log this week's value for '{measure}'"*, due the just-closed Friday.
+- **Off target → an issue**: *"Off target: '{measure}'"*. The rule lives in `src/lib/measures/off-target.ts`, outside the cron handler, so integrations raise the same issue.
+- UTC-fixed so one run covers every tenant.
+
+**AI target-quality check** — on measure creation, a background Haiku call (`src/lib/measures/target-check.ts`, model `ANTHROPIC_CLARITY_MODEL`) validates the target against `value_type` + `target_direction`. Advisory; never blocks the save.
+
+**`/measures` is the only place values are entered.** There is no dashboard card and no single-measure page.
+
+**Permissions.** Authoring actions in `src/lib/chart/actions.ts` admit `system_admin`, `company_admin`, and `aims_guide`. Weekly value writes (`upsertMeasureEntryAction`, `logMeasureEntriesAction`) admit those three or the function's Lead / Track holder. App-layer checks go through `isAdminForCompany`. RLS on `success_measures` and `success_measure_entries` is keyed on `function_id`, with `_guide` mirrors.
 
 ---
 
@@ -374,7 +264,7 @@ Ingest → analyse → extract commitments → optionally review facilitation �
   - *Resolved in meeting* → creates an `issues` row with `status='resolved'`, `resolved_at=now()`, no desired outcome / commitment / owner. For questions the team already talked through in the meeting; lands in the resolved list immediately. Post-action chip: *Resolved in meeting*.
   Both paths idempotency-check on `(source_meeting_id, title)` so double-clicks and reanalyses don't spawn twins. First click wins between the two paths (the second becomes a no-op). The chip label survives a page refresh — the extracted-issue row seeds its post-action state from the persisted `issues.status`, not just an in-memory flag, so a reader coming back to the meeting summary later sees WHICH path was taken.
   - **Read-side consequence** on `/issues`: a *Resolved in meeting* row has no commitment by design, so two columns fill in for one:
-    - *Due date* falls back to `issues.resolved_at` instead of an em-dash. The button doesn't (and can't) write to `commitments.due_date` because it deliberately doesn't create a commitment.
+    - *Due date* falls back to `issues.resolved_at` instead of an em-dash. The button does not create a commitment, so it never writes `commitments.due_date`.
     - *Commitment* reads **"Resolved in meeting"**, driven by `issues.resolved_in_meeting` (migration 0162), a boolean stamped at insert by the shortcut and never toggled afterwards. Before that column existed the cell was a bare em-dash, indistinguishable from an issue resolved by any other route with nothing attached.
     Provenance is recorded at write time rather than inferred at read time. The tempting display-time heuristic — *resolved + came from a meeting + no commitment* — is wrong for a real case: an issue added **open** from a meeting and later resolved without a commitment would claim the button was used when it wasn't. Migration 0162 backfills history on timestamp proximity (the shortcut stamps `resolved_at` in the same insert as `created_at`, so they land milliseconds apart; a later resolution leaves a real gap), scoped to meeting-sourced resolved rows so hand-entered issues are untouched. The rule itself lives in `src/lib/issues/resolved-row.ts` as a pure function so it carries test cover.
 
@@ -568,7 +458,7 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
 
 ## 18. Cross-cutting UX System
 
-- **Left Sidebar** (`components/sidebar/Sidebar.tsx`) — fixed rail at 260px expanded, 68px collapsed (icons-only). Collapse state persists in an HTTP-only cookie (`nav-collapsed`) read server-side by the app layout so first paint matches the user's preference (no post-hydration jump). Nav items grouped as flat section headers rather than dropdowns — one click to any surface. Group set is role-dependent: cross-tenant roles (`system_admin`, `aims_guide`) see **Guide HQ** at the top (Overview → `/hq`, Companies → `/admin/companies`, Week in Review → `/dashboard`) followed by **Workspace** (AiMS Implementation, One-Page Plan, Team, Functional Org Chart, Goals & Priorities, Functional Commitments, Meeting Summaries) — Key Success Measures was pulled from this group on 2026-08-27 and restored on 2026-09-04 as **Critical Success Factors**; see Section 10, then **Resources**, then **Strengths**. Company users (`company_admin`, `team_member`) get **Week in Review** prepended as a top-level link (their daily entry point stays one click) and skip Guide HQ. Inline SVG icons per item; hover slides a chartreuse left-accent bar in with a subtle white-tint bg + icon color shift on a single 200ms `--ease-out` curve. Active item keeps the accent bar and a slightly stronger bg. Context pill under the logo reads "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") when a cross-tenant role is scoped in. Footer holds the notification bell (opens upward via `placement="up"` on `NotificationBell` so the tray doesn't fall off the bottom of the screen) and the user pill (opens a popover upward with Profile / Exit company / Sign out). Below 768px the rail slides off-canvas and a hamburger in a slim top strip opens it as a drawer with a backdrop scrim. `NavBand.tsx` was deleted on 2026-09-04 — the sidebar had fully replaced it and nothing imported it. `NavBand.module.css` stays, because `NotificationBell` still uses it; the tray's placement variant lives with the bell for reuse.
+- **Left Sidebar** (`components/sidebar/Sidebar.tsx`) — fixed rail at 260px expanded, 68px collapsed (icons-only). Collapse state persists in an HTTP-only cookie (`nav-collapsed`) read server-side by the app layout so first paint matches the user's preference (no post-hydration jump). Nav items grouped as flat section headers rather than dropdowns — one click to any surface. Group set is role-dependent: cross-tenant roles (`system_admin`, `aims_guide`) see **Guide HQ** at the top (Overview → `/hq`, Companies → `/admin/companies`, Week in Review → `/dashboard`) followed by **Workspace** (AiMS Implementation, One-Page Plan, Team, Functional Org Chart, Goals & Priorities, Functional Commitments, Meeting Summaries) and Critical Success Factors, then **Resources**, then **Strengths**. Company users (`company_admin`, `team_member`) get **Week in Review** prepended as a top-level link (their daily entry point stays one click) and skip Guide HQ. Inline SVG icons per item; hover slides a chartreuse left-accent bar in with a subtle white-tint bg + icon color shift on a single 200ms `--ease-out` curve. Active item keeps the accent bar and a slightly stronger bg. Context pill under the logo reads "SYSTEM ADMIN · COMPANY NAME" (or "AIMS GUIDE · COMPANY NAME") when a cross-tenant role is scoped in. Footer holds the notification bell (opens upward via `placement="up"` on `NotificationBell` so the tray doesn't fall off the bottom of the screen) and the user pill (opens a popover upward with Profile / Exit company / Sign out). Below 768px the rail slides off-canvas and a hamburger in a slim top strip opens it as a drawer with a backdrop scrim. `NavBand.module.css` is retained for `NotificationBell`; the tray's placement variant lives with the bell.
 - **ConfirmDialog** (`components/ui/ConfirmDialog.tsx`) — branded replacement for native `window.confirm()`. Auto-focuses Cancel so a stray Enter can't fire destruction; Escape cancels; overlay click cancels; danger vs primary tone. Used everywhere destructive actions land — no `confirm()` or `alert()` remains in user-visible code paths.
 - **PrivacyNote** (`components/ui/PrivacyNote.tsx`) — small, subtle line telling the user who can see the surrounding content. Three tones (private / managerial / shared). Placed on coaching surfaces, meeting analyses, and the personal scorecard.
 - **Undo affordance on commitment resolves** — 6-second inline chip that reverses the state without needing to hunt for a reopen gesture.
@@ -585,45 +475,15 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
 
 ## 19. Non-Functional Characteristics
 
-### Silent PostgREST failures
-
-The most dangerous class of bug in this codebase, because it produces
-a page that renders correctly and is simply missing its data.
-
-PostgREST reports an unknown table or column **inside the response
-body**, not as a thrown error. Every loader here reads `data`, gets
-`undefined`, falls back to `[]` and carries on. Nobody reports it,
-because an empty measures page looks like a company that has not
-entered anything yet.
-
-Three instances found so far, all from renames whose call sites were
-not swept:
-
-| what | renamed in | consequence |
-|---|---|---|
-| `function_outcomes`, `success_measures.outcome_id` | 0168 | loaders would have rendered empty measure lists |
-| `functions.leader_id` → `lead_id` | **0020** | every non-admin saw an empty `/measures`; the notification bell's pending count was always zero; every commitment the Saturday cron created was **unowned** |
-
-The `leader_id` one survived four years of migrations and two
-characterisation tests that had pinned `.eq("leader_id", …)` — the
-tests recorded the bug rather than the rule.
-
-**Guard:** `src/lib/measures/no-legacy-outcomes.test.ts` walks every
-source file for references to dropped names. Any future rename of a
-column or table with live call sites should extend it rather than rely
-on a grep at the time.
-
-### Everything else
-
 - **Auth:** Supabase Auth (email + password). Flows:
   - Sign-in at `/sign-in`.
   - Password change on `/profile`.
   - Forgot-password magic link at `/forgot-password`, verified at `/reset-password`.
   - Email invitation acceptance at `/accept-invite` (role assigned at invite time; user sets password on first login).
 - **Isolation:** every table has RLS enabled + `force row level security`; company-scoped policies check both role and company match. Cross-tenant reads flow through `auth_profile()` and `company_has_feature()` helper functions.
-  - **RLS is not a backstop on service-role paths.** Anything routed through `createSupabaseAdminClient()` bypasses RLS entirely, so every such call site must check company membership itself. The recurring bug shape is a role gate that admits `company_admin` followed by a service-role write keyed on a client-supplied row id, with nothing checking whose row it is. Transcript routing/dismissal and alias create/delete (`src/lib/transcripts/actions.ts`) load the target row and run `isAdminForCompany` against its company before writing; unrouted meetings (no company yet) are system-admin only. The Google OAuth callback re-checks membership on the company id parsed from the state cookie before persisting a credential — the state cookie lives in the caller's own browser and cannot be trusted on its own, even though `/start` checked membership when minting it.
-  - **Roster actions scope guides too.** `src/lib/auth/users.ts` funnels create / update / invite / invite-link / delete through one `canManageProfileIn()` rule. Guides are limited to their assignments and nobody below `system_admin` can grant `system_admin` or `aims_guide`; `reports_to` must resolve to a profile in the same company, since a cross-company manager would otherwise satisfy the "reports to me" checks that unlock coaching access.
-  - **`SECURITY DEFINER` RPCs need explicit grants.** `find_similar_open_commitment` / `find_similar_open_issue` take a company id as a parameter and do no membership check of their own; they were granted to `authenticated` and therefore callable from any browser with the public anon key. Migration 0160 revokes `public`, `anon` and `authenticated`, leaving `service_role` (their only caller). A test replays the grant history across migrations so a future re-grant fails CI.
+  - **RLS is not a backstop on service-role paths.** Anything routed through `createSupabaseAdminClient()` bypasses RLS entirely, so every such call site must check company membership itself. Transcript routing/dismissal and alias create/delete (`src/lib/transcripts/actions.ts`) load the target row and run `isAdminForCompany` against its company before writing; unrouted meetings (no company yet) are system-admin only. The Google OAuth callback re-checks membership on the company id parsed from the state cookie before persisting a credential.
+  - **Roster actions scope guides too.** `src/lib/auth/users.ts` funnels create / update / invite / invite-link / delete through one `canManageProfileIn()` rule. Guides are limited to their assignments and nobody below `system_admin` can grant `system_admin` or `aims_guide`. `reports_to` must resolve to a profile in the same company.
+  - **`SECURITY DEFINER` RPCs need explicit grants.** `find_similar_open_commitment` / `find_similar_open_issue` take a company id as a parameter and do no membership check of their own. Execute is granted to `service_role` only; `public`, `anon` and `authenticated` are revoked. A test replays the grant history across migrations so a re-grant fails CI.
 - **Timezone:** per-company (`companies.timezone`). Week-ending Friday is computed in the company's local time. AI cron jobs run on a UTC schedule but resolve week boundaries per tenant.
 - **AI providers:** Anthropic Claude across the app. **Ten distinct AI callers, three model tiers:**
   - **Sonnet 4.6** (`ANTHROPIC_SUMMARY_MODEL`, `ANTHROPIC_COACH_MODEL`, `ANTHROPIC_FACILITATION_MODEL` — all default to Sonnet 4.6):
@@ -651,13 +511,13 @@ on a grep at the time.
   - `/api/cron/transcripts` — every 15 min, polls all active Google Drive sources, ingests + analyzes + emails.
   - `/api/cron/performance` — Saturdays 15:00 UTC, opens "Log this week's value" commitments for missed `auto_track` measures.
   - `/api/cron/scorecard` — Sundays 07:00 UTC, writes one `company_discipline_snapshots` row per (company, discipline) so the AiMS Scorecard sparklines + trajectory arrows have history. Current score is computed live; the snapshot is only for the trend line.
-- **Middleware:** three concerns per request — Supabase session refresh; `/admin/companies/[id]` auto-scope (mutates request + response cookies, skipped on prefetch requests, response cookie persisted only for cross-tenant roles — see Section 1); and root-path routing (unauthenticated → marketing landing; authenticated cross-tenant roles → `/hq`; authenticated everyone else → `/dashboard`). A pending-user check rides along on the same profile read. `updateSession` returns the profile role alongside auth/pending state so root-path routing can differentiate roles without a second DB round-trip. There is no longer a `/hq` scope-clear; Guide HQ hides company links by pathname instead.
+- **Middleware:** three concerns per request — Supabase session refresh; `/admin/companies/[id]` auto-scope (mutates request + response cookies, skipped on prefetch requests, response cookie persisted only for cross-tenant roles — see Section 1); and root-path routing (unauthenticated → marketing landing; authenticated cross-tenant roles → `/hq`; authenticated everyone else → `/dashboard`). A pending-user check rides along on the same profile read. `updateSession` returns the profile role alongside auth/pending state so root-path routing can differentiate roles without a second DB round-trip. Guide HQ hides company links by pathname rather than clearing the scope cookie.
 - **Observability:** Sentry (`sentry.server.config.ts`, `sentry.edge.config.ts`, `sentry.client.config.ts`) with a JWT-scrubbing `beforeSend` so Supabase session tokens never leave the process. Both `src/app/error.tsx` (below-root error boundary) and `src/app/global-error.tsx` (root-layout crash boundary) call `Sentry.captureException(error)` inside a `useEffect` — without this, boundary-caught errors are silent in Sentry even though the user sees the digest on-screen.
 - **Request-path cost.** Deliberate choices, all from the 2026-09-02 performance audit:
   - **Session resolution is memoized per request.** `getCurrentSession` is wrapped in React's `cache()`. Middleware, the `(app)` layout and the page each call `requireProfile` independently, and a server action adds a fourth as the tree re-renders — so a single navigation was making three `auth.getUser()` calls (an HTTPS round trip that revalidates the token, not a local decode) plus three profile reads. **Never replace this with a module-level memo:** module scope is shared by every request in the container, which would make it a cross-tenant leak rather than an optimization. The dedupe is only observable inside a request scope, so the unit tests pin behaviour plus a source guard rather than asserting call counts, which vitest cannot see.
   - **List queries name their columns.** `meetings` rows carry `transcript_text` (the entire transcript), so `select("*")` on a list surface pulls megabytes to render titles and dates. `/leadership`, the company detail page and the unrouted queue select explicit column sets, typed as `MeetingListRow` / `MeetingAdminRow` (`Pick`s of `Meeting`) so a projection can't silently drift from the base type.
   - **Indexes** (migration 0161) cover the notification bell's `due_date` filter, the Guide HQ follow-through window on `completed_at`, the 14-day duplicate-detection lookback on both tables, and coaching threads by subject. Plain `CREATE INDEX`, not `CONCURRENTLY`: the CLI wraps each migration in a transaction, and at current volume each build is milliseconds.
-  - **Known and deferred:** RLS policy helpers are not wrapped in the `(select fn())` form, so they evaluate per row rather than once per statement — the largest remaining database win. The dashboard and layout loaders still run mostly sequential awaits. Both are documented in the audit and deliberately unshipped.
+  - **Known and deferred:** RLS policy helpers are not wrapped in the `(select fn())` form, so they evaluate per row rather than once per statement — the largest remaining database win. The dashboard and layout loaders still run mostly sequential awaits. Both are documented in the audit and unshipped.
 - **Failure visibility.** `findSimilarOpenItem` logs RPC errors instead of swallowing them. It previously read only `.data`, so a missing function or a revoked grant returned "no duplicate found" — indistinguishable from a genuine miss, which is how a duplicate-detection outage could run indefinitely with no signal. Still non-fatal: the badge is an enhancement and must never block the page.
 - **Idempotent seeds:** demo companies (e.g., Meridian Construction Group) rebuild in place; safe to rerun.
 - **CI enforcement:** `npm run typecheck` (tsc), `npm run lint` (Next), `npm run test` (Vitest), `npm run check:help` (help doc coverage).
