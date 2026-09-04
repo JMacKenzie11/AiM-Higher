@@ -87,10 +87,15 @@ const APP_ITEMS: readonly NavItem[] = [
       { kind: "link", label: "One-Page Plan", href: "/foundation", icon: "doc" },
       { kind: "link", label: "Team", href: "/people", icon: "people" },
       { kind: "link", label: "Functional Org Chart", href: "/chart", icon: "chart" },
-      // Key Success Measures nav item pulled 2026-08-27 pending a
-      // rethink of the surface. The /measures route + component tree
-      // stay in place (chart function page still summary-links into
-      // it) but it's off the primary rail.
+      // Restored 2026-09-04 as Critical Success Factors, the rethink
+      // the surface was pulled for. Deliberately NOT gated on
+      // performance_tracking: naming the results a function is
+      // accountable for is the method, not a paid add-on, and the old
+      // gate meant a company without the entitlement and without any
+      // measures yet could not find the page to create its first one.
+      // Success Tracking still gates the weekly value columns, the
+      // 13-week board and the nudges, inside the page.
+      { kind: "link", label: "Critical Success Factors", href: "/measures", icon: "measure" },
       { kind: "link", label: "Goals & Priorities", href: "/plan", icon: "calendar" },
       { kind: "link", label: "Issues/Solutions", href: "/issues", icon: "sparkle" },
       { kind: "link", label: "Functional Commitments", href: "/commitments", icon: "check" },

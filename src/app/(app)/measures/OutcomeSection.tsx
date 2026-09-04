@@ -63,7 +63,7 @@ export function OutcomeSection({
       ) : (
         <header className={styles.outcomeHeader}>
           <div className={styles.outcomeHeaderTitleWrap}>
-            <p className={styles.outcomeLabel}>Outcome</p>
+            <p className={styles.outcomeLabel}>Critical Success Factor</p>
             {isAdmin ? (
               <InlineOutcomeTitleEditor outcome={outcome} />
             ) : (
@@ -237,7 +237,7 @@ function InlineOutcomeTitleEditor({
           }}
           autoFocus
           disabled={pending}
-          aria-label="Edit outcome title"
+          aria-label="Edit critical success factor"
         />
         {error ? (
           <p role="alert" className={styles.rowError}>
@@ -286,7 +286,7 @@ function EditOutcomeForm({
       <label
         className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
       >
-        <span className={chartStyles.formLabel}>Outcome</span>
+        <span className={chartStyles.formLabel}>Critical Success Factor</span>
         <input
           className={chartStyles.formInput}
           type="text"
@@ -360,7 +360,7 @@ function ArchiveOutcomeButton({ outcomeId }: { outcomeId: string }) {
         className={styles.iconDeleteButton}
         onClick={() => setConfirming(true)}
         disabled={pending}
-        aria-label="Archive this outcome"
+        aria-label="Archive this critical success factor"
         title="Archive this outcome"
       >
         <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>

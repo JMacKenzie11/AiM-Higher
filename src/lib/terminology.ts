@@ -66,14 +66,14 @@ export const TERMS: Record<TermKey, Term> = {
       "A commitment reads as clear when it has both a real deadline (not a placeholder date) and an agreed definition of what done looks like.",
   },
   outcome: {
-    label: "Outcome",
+    label: "Critical Success Factor",
     definition:
-      "A result the seat is accountable for delivering. Each Outcome has one or more Key Success Measures that show whether it's being delivered.",
+      "A result your function must deliver to be successful, tracked with its own target and value. Most functions have two or three. Sometimes shortened to CSF.",
   },
   keySuccessMeasure: {
-    label: "Key Success Measure",
+    label: "Key Performance Indicator",
     definition:
-      "A metric with a target and a weekly value that tells you whether the parent Outcome is being delivered. Sometimes shortened to KSM.",
+      "A leading measure of the activity that drives a Critical Success Factor. It moves before the result does, so it tells you early whether you're on track. Sometimes shortened to KPI.",
   },
 };
 

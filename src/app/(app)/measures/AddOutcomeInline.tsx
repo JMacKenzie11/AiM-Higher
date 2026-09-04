@@ -60,10 +60,10 @@ export function AddOutcomeInline({
           }
         }}
         className={styles.addOutcomeInput}
-        placeholder="Add an outcome, press Enter to save."
+        placeholder="Add a critical success factor, press Enter to save."
         required
         disabled={pending}
-        aria-label="New outcome"
+        aria-label="New critical success factor"
       />
       {pending ? <span className={styles.savingHint}>Saving…</span> : null}
       {errorMessage ? (
