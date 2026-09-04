@@ -78,7 +78,7 @@ export function FunctionSection({
 
       {outcomesWithVisibleRows.length === 0 ? (
         <p className={styles.fnEmpty}>
-          No outcomes yet. Add the first below.
+          No critical success factors yet. Add the first below.
         </p>
       ) : (
         outcomesWithVisibleRows.map((o) => (

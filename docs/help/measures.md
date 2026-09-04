@@ -52,20 +52,6 @@ Writing is narrower, and it works per function rather than per person:
 So a function head is a reader on most of this page and a writer on
 their own seats, at the same time.
 
-## The two modes
-
-Admins and guides get a **Log values / Edit setup** switch above the
-list. It starts on logging.
-
-Logging shows names, targets, recent weeks, inputs and a save.
-Editing brings back adding, editing and archiving.
-
-The page does two jobs that happen at very different frequencies.
-Typing this week's numbers takes half a minute. Defining a critical
-success factor and the KPIs beneath it is quarterly work. Showing
-both at once made the short job look like a project, and left a
-delete button beside an input people tap at speed.
-
 ## Saving
 
 Each function has its own save button, inside its own card, and it
