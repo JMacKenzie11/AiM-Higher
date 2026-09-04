@@ -148,6 +148,12 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
   const measuresByOutcome = new Map<string, ChartMeasureWithLatest[]>();
 
   for (const measure of measures) {
+    // outcome_id is nullable since migration 0166: a CSF measure has
+    // no parent outcome. This grouping is the pre-CSF shape and only
+    // handles KPIs, so skip anything without a parent. Phase 3
+    // replaces this loop with a kind + link read; until then a CSF
+    // must not be silently filed under an undefined key.
+    if (!measure.outcome_id) continue;
     const arr = measuresByOutcome.get(measure.outcome_id) ?? [];
     arr.push({
       ...measure,
