@@ -45,17 +45,46 @@ export function MeasuresManager({
   trackingEnabled: boolean;
   rdEnabled: boolean;
 }) {
+  // Every measure with a value input on the page — the CSFs AND the
+  // KPIs beneath them. CSFs became measurable in phase 4 and got
+  // their own input on the card header; leaving them out of this list
+  // meant a leader could type a CSF value, press Save, and watch it
+  // vanish with no error.
+  // The KPI rows. Stats and filter chips are about KPIs, so this stays
+  // as it was.
   const allMeasures = useMemo(
     () =>
+      functions.flatMap((f) => f.outcomes.flatMap((o) => o.measures)),
+    [functions]
+  );
+
+  // Everything with a value input on the page: the CSFs as well as
+  // their KPIs. CSFs became measurable in phase 4 and got their own
+  // input on the card header, and leaving them out of the save list
+  // meant a leader could type a CSF value, press Save, and watch it
+  // disappear with no error.
+  const allEntryTargets = useMemo(
+    () =>
       functions.flatMap((f) =>
-        f.outcomes.flatMap((o) => o.measures)
+        f.outcomes.flatMap((o) => [
+          {
+            id: o.id,
+            value_type: o.value_type,
+            currentValue: o.currentValue,
+          },
+          ...o.measures.map((m) => ({
+            id: m.id,
+            value_type: m.value_type,
+            currentValue: m.currentValue,
+          })),
+        ])
       ),
     [functions]
   );
 
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      allMeasures.map((m) => [
+      allEntryTargets.map((m) => [
         m.id,
         formatEntryValue(m.value_type, m.currentValue),
       ])
@@ -90,7 +119,7 @@ export function MeasuresManager({
 
   function save() {
     setMessage(null);
-    const entries: MeasureEntryInput[] = allMeasures.map((m) => ({
+    const entries: MeasureEntryInput[] = allEntryTargets.map((m) => ({
       measureId: m.id,
       valueType: m.value_type,
       rawValue: values[m.id] ?? "",
@@ -181,7 +210,7 @@ export function MeasuresManager({
             onClick={save}
             disabled={pending}
           >
-            {pending ? "Saving…" : "Save week"}
+            {pending ? "Saving…" : "Save this week's values"}
           </button>
         </div>
       ) : null}
