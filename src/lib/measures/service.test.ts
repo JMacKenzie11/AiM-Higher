@@ -93,9 +93,17 @@ function fn(
   id: string,
   title: string,
   sort_order = 0,
-  parent_function_id: string | null = null
+  parent_function_id: string | null = null,
+  seats: { lead_id?: string | null; track_id?: string | null } = {}
 ) {
-  return { id, title, sort_order, parent_function_id };
+  return {
+    id,
+    title,
+    sort_order,
+    parent_function_id,
+    lead_id: seats.lead_id ?? null,
+    track_id: seats.track_id ?? null,
+  };
 }
 
 // An outcome IS a CSF measure now. title maps to the measure's
@@ -203,18 +211,76 @@ describe("getMeasuresTree — scoping", () => {
 
     await getMeasuresTree("co_1", "u_leader", "America/Anchorage", false);
 
-    // Was pinned to .eq("leader_id", ...) — which recorded a bug
-    // rather than a rule. `functions.leader_id` was renamed to
-    // `lead_id` in migration 0020, so that filter had matched nothing
-    // for as long as it existed and every non-admin saw an empty
-    // page. The scope is Lead OR Track, matching exactly who
-    // upsertMeasureEntryAction lets write a value.
-    const leaderFilter = mocks.calls.find(
-      (c) => c.table === "functions" && c.op === "or"
+    // Nothing is filtered out any more. Everyone in the company
+    // reads every function; what narrows is writing, and that is
+    // `canLog` per function rather than a query filter.
+    //
+    // This assertion has now recorded three different rules. The
+    // first pinned .eq("leader_id", …), which was a bug: that column
+    // was renamed to `lead_id` in migration 0020, so it matched
+    // nothing and every non-admin saw an empty page.
+    const seatFilter = mocks.calls.find(
+      (c) => c.table === "functions" && (c.op === "or" || c.args[0] === "lead_id")
     );
-    expect(leaderFilter?.args[0]).toBe(
-      "lead_id.eq.u_leader,track_id.eq.u_leader"
+    expect(seatFilter).toBeUndefined();
+  });
+
+  it("marks only the caller's own seats as writable", async () => {
+    seed("functions", [
+      fn("f_mine", "Sales", 0, null, { lead_id: "u_leader" }),
+      fn("f_tracked", "Ops", 1, null, { track_id: "u_leader" }),
+      fn("f_theirs", "Finance", 2, null, { lead_id: "u_other" }),
+    ]);
+    seed(`success_measures::${CSF_COLS}`, []);
+    const { getMeasuresTree } = await import("./service");
+
+    const { functions } = await getMeasuresTree(
+      "co_1",
+      "u_leader",
+      "America/Anchorage",
+      false
     );
+
+    // Lead and Track both write, matching upsertMeasureEntryAction.
+    // Everything else is readable and not writable.
+    expect(
+      Object.fromEntries(functions.map((f) => [f.title, f.canLog]))
+    ).toEqual({ Sales: true, Ops: true, Finance: false });
+  });
+
+  it("puts the caller's own seats first", async () => {
+    // A leader still lands on their own functions rather than
+    // scrolling past everyone else's to reach them.
+    seed("functions", [
+      fn("f_a", "Admin", 0, null, { lead_id: "u_other" }),
+      fn("f_z", "Warehouse", 1, null, { lead_id: "u_leader" }),
+    ]);
+    seed(`success_measures::${CSF_COLS}`, []);
+    const { getMeasuresTree } = await import("./service");
+
+    const { functions } = await getMeasuresTree(
+      "co_1",
+      "u_leader",
+      "America/Anchorage",
+      false
+    );
+
+    expect(functions.map((f) => f.title)).toEqual(["Warehouse", "Admin"]);
+  });
+
+  it("marks every function writable for an admin", async () => {
+    seed("functions", [fn("f_1", "Sales", 0, null, { lead_id: "u_other" })]);
+    seed(`success_measures::${CSF_COLS}`, []);
+    const { getMeasuresTree } = await import("./service");
+
+    const { functions } = await getMeasuresTree(
+      "co_1",
+      "u_admin",
+      "America/Anchorage",
+      true
+    );
+
+    expect(functions[0].canLog).toBe(true);
   });
 
   it("does not filter by leader when includeAll is true", async () => {
@@ -266,20 +332,26 @@ describe("getMeasuresTree — function ordering", () => {
     ]);
   });
 
-  it("falls back to alphabetical for a leader, who only sees part of the tree", async () => {
-    // A leader's functions can't be walked as a hierarchy because the
-    // parents are missing from the set, so hierarchy ordering would
-    // produce something arbitrary.
+  it("orders a leader's view by hierarchy too, not alphabetically", async () => {
+    // The alphabetical fallback existed because a leader saw a
+    // partial tree that could not be walked. There are no partial
+    // trees any more, so hierarchy order applies to everyone; a
+    // leader's own seats are simply hoisted to the front.
     seed("functions", [
-      fn("f_z", "Warehouse", 1, "f_missing"),
-      fn("f_a", "Assembly", 2, "f_missing"),
+      fn("f_vis", "Visionary", 0, null),
+      fn("f_z", "Warehouse", 1, "f_vis"),
+      fn("f_a", "Assembly", 2, "f_vis"),
     ]);
     seed(`success_measures::${CSF_COLS}`, []);
     const { getMeasuresTree } = await import("./service");
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", false);
 
-    expect(functions.map((f) => f.title)).toEqual(["Assembly", "Warehouse"]);
+    expect(functions.map((f) => f.title)).toEqual([
+      "Visionary",
+      "Warehouse",
+      "Assembly",
+    ]);
   });
 
   it("never drops a function whose parent is missing from the set", async () => {

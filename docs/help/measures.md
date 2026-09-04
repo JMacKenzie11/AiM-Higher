@@ -31,6 +31,20 @@ own critical success factors and the KPIs beneath them.
 
 ## What you can do here
 
+## Who sees what
+
+Everyone in the company reads every function. These are the company's
+commitments to itself, and someone who cannot see what their own
+function is held to cannot align to it.
+
+Writing is narrower, and it works per function rather than per person:
+
+- **The Lead or the Track** on a function types this week's values for
+  it. Everywhere else they see the numbers, not input boxes.
+- **Admins and guides** can type on any function, and can switch to
+  *Edit setup* to add, edit and archive.
+- **Everyone else** reads. No inputs, no save, no edit controls.
+
 ::: role team_member
 As a team member, you can:
 

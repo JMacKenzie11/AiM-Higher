@@ -891,3 +891,13 @@
   background: var(--surface);
   color: var(--text-heading);
 }
+
+/* This week's number for someone who cannot log it. Sits where the
+   input would, aligned the same way, so a reader scanning the column
+   gets values rather than a row of dead boxes. */
+.measureReadValue {
+  font: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  padding: 0 var(--space-2);
+}
