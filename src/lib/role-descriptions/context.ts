@@ -90,16 +90,21 @@ export async function loadFunctionContext(
       .select("title, is_default")
       .eq("function_id", fn.id)
       .order("sort_order"),
-    supabase
-      .from("function_outcomes")
-      .select("id, title, description")
-      .eq("function_id", fn.id)
-      .eq("archived", false)
-      .order("sort_order"),
+    // CSF measures are the outcomes now (migration 0166). A CSF's
+    // `description` holds the name and `detail` the longer text, which
+    // is the reverse of what function_outcomes called them.
     supabase
       .from("success_measures")
-      .select("outcome_id")
-      .eq("archived", false),
+      .select("id, description, detail")
+      .eq("function_id", fn.id)
+      .eq("kind", "csf")
+      .eq("archived", false)
+      .order("sort_order"),
+    // How many KPIs drive each CSF, so the prompt knows which CSFs
+    // already have leading measures and which are still bare.
+    supabase
+      .from("csf_kpi_links")
+      .select("csf_id"),
     supabase
       .from("function_decision_rights")
       .select("title")
@@ -113,15 +118,14 @@ export async function loadFunctionContext(
   ]);
 
   const items = (foundationItems ?? []) as FoundationItem[];
-  const outcomes =
-    (outcomesRaw ?? []) as Array<{
-      id: string;
-      title: string;
-      description: string | null;
-    }>;
+  const outcomes = ((outcomesRaw ?? []) as Array<{
+    id: string;
+    description: string;
+    detail: string | null;
+  }>).map((c) => ({ id: c.id, title: c.description, description: c.detail }));
   const measureCounts: Record<string, number> = {};
-  for (const row of (measuresRaw ?? []) as Array<{ outcome_id: string }>) {
-    measureCounts[row.outcome_id] = (measureCounts[row.outcome_id] ?? 0) + 1;
+  for (const row of (measuresRaw ?? []) as Array<{ csf_id: string }>) {
+    measureCounts[row.csf_id] = (measureCounts[row.csf_id] ?? 0) + 1;
   }
 
   return {
