@@ -250,6 +250,19 @@
   min-width: 0;
 }
 
+.sparkKindChip {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.05rem 0.32rem;
+  border-radius: 3px;
+  background: var(--aims-sky-tint);
+  color: var(--aims-navy);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: 0.05em;
+}
+
 .sparkName {
   font: var(--text-body-sm);
   color: var(--text-heading);

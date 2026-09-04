@@ -20,6 +20,8 @@ export function FunctionSection({
   trackingEnabled,
   rdEnabled,
   weekEnding,
+  onSave,
+  saving,
 }: {
   fn: MeasureTreeFunction;
   isVisible: (m: MeasureTreeMeasure) => boolean;
@@ -30,6 +32,8 @@ export function FunctionSection({
   trackingEnabled: boolean;
   rdEnabled: boolean;
   weekEnding: string;
+  onSave: () => void;
+  saving: boolean;
 }) {
   const [addOutcomeOpen, setAddOutcomeOpen] = useState(false);
   const outcomesWithVisibleRows = fn.outcomes.filter((o) =>
@@ -83,6 +87,19 @@ export function FunctionSection({
           />
         ))
       )}
+
+      {trackingEnabled && outcomesWithVisibleRows.length > 0 ? (
+        <div className={styles.fnSaveRow}>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={onSave}
+            disabled={disabled}
+          >
+            {saving ? "Saving…" : `Save ${fn.title} values`}
+          </button>
+        </div>
+      ) : null}
 
       {isAdmin ? (
         addOutcomeOpen ? (

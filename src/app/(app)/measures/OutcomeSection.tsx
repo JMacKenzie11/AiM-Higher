@@ -79,7 +79,11 @@ export function OutcomeSection({
             <div className={styles.outcomeHeaderActions}>
               <button
                 type="button"
-                className={styles.ghostButton}
+                // The shared ghost button at small size, the same
+                // pair every other inline card action in the app
+                // uses. It was on a local alias before, which drifted
+                // to full height and read as its own kind of control.
+                className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
                 onClick={() => setEditingDetails(true)}
                 title="Edit description"
               >
@@ -364,7 +368,11 @@ function EditOutcomeForm({
           className={uiStyles.btnPrimary}
           disabled={pending}
         >
-          {pending ? "Saving…" : "Save"}
+          {/* Named for what it saves. A bare "Save" here sits
+              directly above the weekly value fields and reads as
+              though it commits them, when it only writes the title
+              and the why-this-matters note. */}
+          {pending ? "Saving…" : "Save details"}
         </button>
         <button
           type="button"

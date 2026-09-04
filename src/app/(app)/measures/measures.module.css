@@ -403,13 +403,12 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  /* Plain surface with a hairline, not a tinted fill. Sky-tint is
-     used elsewhere in the product as a small accent — a card corner,
-     a gradient edge — never as a large flat panel, so filling a block
-     this size with it read as a colour from another application.
-     The CSF earns its emphasis from the chartreuse rule under its
-     title and the size of its number, not from a background wash. */
-  background: var(--surface);
+  /* Shaded so a critical success factor reads as a different kind of
+     thing from the KPIs listed inside it. This is the same wash the
+     dashboard's week-in-review card uses: white falling to sky-tint
+     across the diagonal, rather than a flat tinted panel, which at
+     this size looked like a colour from another product. */
+  background: var(--grad-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
@@ -782,7 +781,14 @@
   }
 }
 
-.ghostButton {
-  composes: btnGhost from "../../../components/ui/ui.module.css";
-}
 
+/* One save per function, because one function head owns it.
+   Sits with the function's own rows rather than at the foot of the
+   page, so it never looks like it commits someone else's numbers. */
+.fnSaveRow {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--grad-rule);
+}
