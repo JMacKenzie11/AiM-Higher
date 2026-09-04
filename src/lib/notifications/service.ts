@@ -291,19 +291,17 @@ async function getPendingMeasuresForUser({
   const functionIds = (functions ?? []).map((f) => f.id as string);
   if (functionIds.length === 0) return empty;
 
-  const { data: outcomes } = await supabase
-    .from("function_outcomes")
-    .select("id")
-    .in("function_id", functionIds);
-  const outcomeIds = (outcomes ?? []).map((o) => o.id as string);
-  if (outcomeIds.length === 0) return empty;
-
+  // Reads KPIs by function directly (migration 0166). The
+  // function_outcomes hop is gone; kind='kpi' keeps the set identical
+  // to what the hop returned, since CSFs were never measures before.
+  //
   // Pull description too — if exactly one measure ends up pending,
   // the tray can show it by name instead of just a count.
   const { data: measures } = await supabase
     .from("success_measures")
     .select("id, description, auto_track")
-    .in("outcome_id", outcomeIds)
+    .in("function_id", functionIds)
+    .eq("kind", "kpi")
     .eq("archived", false);
   const manual = (measures ?? []).filter(
     (m) => !(m as { auto_track: boolean }).auto_track
