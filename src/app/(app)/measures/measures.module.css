@@ -845,45 +845,6 @@
   color: var(--text-muted);
 }
 
-/* Which of the page's two jobs you are doing. Sits in the list
-   header rather than the page header, because it changes this list
-   and not the board above it. Same segmented shape as the board's
-   own Grid / Timeline toggle, so the two read as the same kind of
-   control. */
-.modeToggle {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--aims-navy-tint);
-  border-radius: var(--radius-pill);
-}
-
-.modeButton {
-  border: none;
-  background: none;
-  padding: 0.28rem 0.8rem;
-  border-radius: var(--radius-pill);
-  font: var(--text-body-sm);
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.modeButton:hover {
-  color: var(--text);
-}
-
-.modeButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
-}
-
-.modeButtonActive {
-  background: var(--surface);
-  color: var(--text-heading);
-}
 
 /* This week's number for someone who cannot log it. Sits where the
    input would, aligned the same way, so a reader scanning the column

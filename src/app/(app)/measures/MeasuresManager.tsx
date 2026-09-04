@@ -125,18 +125,6 @@ export function MeasuresManager({
     () => new Set()
   );
 
-  // The page does two unrelated jobs. Most weeks someone opens it to
-  // type four numbers and leave, which takes half a minute. Defining
-  // a critical success factor, attaching KPIs, setting targets and
-  // frequencies, archiving what no longer matters — that is quarterly
-  // work. Both used to be on screen at once, at the same weight,
-  // every time.
-  //
-  // Logging is the default because it is the common visit, and it
-  // also puts a delete somewhere other than beside an input people
-  // tap at speed once a week.
-  const [mode, setMode] = useState<"log" | "setup">("log");
-  const authoring = isAdmin && mode === "setup";
   const [pending, startTransition] = useTransition();
   // Which function's save is in flight, so only that card's button
   // shows a spinner instead of every one of them at once.
@@ -239,40 +227,6 @@ export function MeasuresManager({
         <div className={localStyles.managerHeader}>
           <div className={localStyles.managerHeaderTop}>
             <h2 className={localStyles.managerHeading}>By function</h2>
-            {isAdmin ? (
-              <div
-                className={localStyles.modeToggle}
-                role="tablist"
-                aria-label="What you're here to do"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === "log"}
-                  className={
-                    mode === "log"
-                      ? `${localStyles.modeButton} ${localStyles.modeButtonActive}`
-                      : localStyles.modeButton
-                  }
-                  onClick={() => setMode("log")}
-                >
-                  Log values
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === "setup"}
-                  className={
-                    mode === "setup"
-                      ? `${localStyles.modeButton} ${localStyles.modeButtonActive}`
-                      : localStyles.modeButton
-                  }
-                  onClick={() => setMode("setup")}
-                >
-                  Edit setup
-                </button>
-              </div>
-            ) : null}
             {/* Silent for someone with nothing to log — a reader does
                 not need a to-do line about other people's numbers. */}
             {myEntryTargets.length > 0 ? (
@@ -337,7 +291,7 @@ export function MeasuresManager({
           }
           disabled={pending}
           isAdmin={isAdmin}
-          authoring={authoring}
+          authoring={isAdmin}
           trackingEnabled={trackingEnabled}
           rdEnabled={rdEnabled}
           weekEnding={weekEnding}

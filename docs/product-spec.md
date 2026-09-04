@@ -227,14 +227,17 @@ Whether the tracking columns render is gated by
     **broken since migration 0020**, which renamed that column to
     `lead_id`. Every non-admin loaded an empty page. See the
     Non-Functional section on silent PostgREST column errors.
-- **Two modes.** Admins and guides get a **Log values / Edit setup**
-  switch above the function list, defaulting to logging. The page does
-  two jobs at very different frequencies — typing four numbers takes
-  half a minute, defining a CSF and its KPIs is quarterly — and showing
-  both at once made the short job look like a project and left a delete
-  beside an input people tap at speed. `isAdmin` (who sees every
-  function) and `authoring` (whether the add/edit/archive controls
-  render) are separate props for this reason; they used to be one flag.
+- **One layout, not two. (Reverted 2026-09-04, same day it shipped.)**
+  A **Log values / Edit setup** switch briefly separated the weekly
+  entry job from authoring, on the reasoning that they happen at very
+  different frequencies. In practice the two views differed by an Edit
+  button and a delete at the end of each row — two small controls in
+  their own cell, well clear of the inputs. Not enough difference to
+  justify a mode, a second control to notice, and a choice to make
+  before doing either job. Everyone now sees one layout with the
+  controls they are entitled to. `authoring` survives as a prop
+  because it names what it gates; `MeasuresManager` passes `isAdmin`
+  straight into it.
 - **Manager view** (`/measures`) — grouped by function → CSF → KPI,
   each function rendered as its own card. Function order is depth-first
   pre-order over the parent tree with Visionary pinned first and
