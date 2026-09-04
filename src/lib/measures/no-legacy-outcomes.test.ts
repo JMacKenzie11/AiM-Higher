@@ -127,6 +127,42 @@ describe("migration 0168", () => {
     expect(sql).not.toContain("success_measures_write_by_function on");
   });
 
+  it("rewrites every policy that reached through the dropped column", () => {
+    // The first attempt at this migration dropped only the four
+    // success_measures policies and hit 2BP01: four more on
+    // success_measure_entries joined success_measures to
+    // function_outcomes to reach a company.
+    //
+    // They must be recreated, not merely dropped. These four are the
+    // entire policy set on that table, so dropping them without
+    // replacements locks every role out of every weekly value.
+    for (const name of [
+      "success_measure_entries_select",
+      "success_measure_entries_write",
+      "success_measure_entries_select_guide",
+      "success_measure_entries_write_guide",
+    ]) {
+      expect(sql).toContain(`drop policy if exists ${name} on`);
+      expect(sql).toContain(`create policy ${name} on`);
+    }
+  });
+
+  it("leaves no policy joining through function_outcomes", () => {
+    // A recreated policy that still walks the old path would fail on
+    // the very next statement, and a reviewer skimming a wall of SQL
+    // is exactly who misses one.
+    const created = sql.slice(0, sql.indexOf("drop table if exists"));
+    expect(created).not.toMatch(/join\s+public\.function_outcomes/);
+  });
+
+  it("reaches a company through function_id in the new policies", () => {
+    // This is what fixes the CSF bug as well as the drop: on a
+    // critical success factor outcome_id is NULL, so the old join
+    // matched nothing and every write was denied.
+    expect(sql).toMatch(/join public\.functions f on f\.id = m\.function_id/);
+    expect(sql).toMatch(/join public\.functions f on f\.id = sm\.function_id/);
+  });
+
   it("makes function_id required", () => {
     // Every RLS policy on the table is keyed on function_id now. A
     // row without one is invisible to its own company.
