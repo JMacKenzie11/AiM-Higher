@@ -80,9 +80,9 @@ vi.mock("@/lib/supabase/server", () => ({
 
 // Column lists the loader uses, so fixtures can be keyed exactly.
 const CSF_COLS =
-  "id, description, detail, target, value_type, target_direction, auto_track, target_hint, function_id, sort_order";
+  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order";
 const KPI_COLS =
-  "id, description, target, value_type, target_direction, auto_track, target_hint, sort_order";
+  "id, description, target, value_type, target_direction, auto_track, update_frequency, target_hint, sort_order";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);
@@ -121,6 +121,7 @@ function outcome(
     value_type: "number",
     target_direction: "higher_is_better",
     auto_track: false,
+    update_frequency: "weekly",
     target_hint: null,
     ...overrides,
   };
@@ -141,6 +142,7 @@ function measure(
     value_type: "number",
     target_direction: "higher_is_better",
     auto_track: true,
+    update_frequency: "weekly",
     target_hint: null,
     sort_order: 0,
     ...overrides,
@@ -361,6 +363,7 @@ describe("getMeasuresTree — outcome and measure shaping", () => {
       value_type: "percent",
       target_direction: "lower_is_better",
       auto_track: false,
+      update_frequency: "weekly",
       target_hint: "Consider a time bound",
       currentValue: null,
       recent: [],

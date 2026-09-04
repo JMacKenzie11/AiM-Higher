@@ -403,12 +403,69 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  /* Sky-tint is the "gentle background" of choice elsewhere in the
-     brand (see --grad-secondary for AI/insight cards). Pale enough
-     that the tint alone reads as a distinct panel without needing
-     a hairline border on top. */
-  background: var(--aims-sky-tint);
+  /* Plain surface with a hairline, not a tinted fill. Sky-tint is
+     used elsewhere in the product as a small accent — a card corner,
+     a gradient edge — never as a large flat panel, so filling a block
+     this size with it read as a colour from another application.
+     The CSF earns its emphasis from the chartreuse rule under its
+     title and the size of its number, not from a background wash. */
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
+}
+
+/* The tapered chartreuse rule the design system reserves for key
+   headings. This is the one place on the page that earns it — do not
+   repeat it on the KPI rows beneath. */
+.outcomeRule {
+  height: 3px;
+  width: 96px;
+  border-radius: 999px;
+  background: var(--grad-rule);
+  margin-top: var(--space-1);
+}
+
+/* The CSF's own measurement strip: target, this week's value and the
+   recent trail, on the card header rather than in the KPI grid. A CSF
+   is measured now, and without this there is nowhere to enter it. */
+.csfTrackRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding-top: var(--space-2);
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.csfTrackLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.csfTrackTarget {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* No target set is a normal state for a CSF, not a failure. Muted,
+   never red. */
+.csfTrackNoTarget {
+  font: var(--text-body-sm);
+  color: var(--text-faint);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .csfTrackRow {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
 }
 
 .outcomeHeader {

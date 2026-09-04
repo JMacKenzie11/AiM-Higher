@@ -22,6 +22,7 @@ import type {
   SuccessMeasure,
   SuccessMeasureEntry,
   TargetDirection,
+  UpdateFrequency,
 } from "@/lib/types";
 
 // Chart write actions. RLS gates access (admin OR the function's
@@ -38,6 +39,12 @@ function parseValueType(raw: string): MetricValueType {
   return VALUE_TYPES.includes(raw as MetricValueType)
     ? (raw as MetricValueType)
     : "number";
+}
+
+// Frequency arrives from a select, so anything unexpected means a
+// tampered or stale form. Fall back to weekly rather than trusting it.
+function parseUpdateFrequency(raw: string): UpdateFrequency {
+  return raw === "biweekly" || raw === "monthly" ? raw : "weekly";
 }
 
 function parseTargetDirection(raw: string): TargetDirection {
@@ -511,6 +518,9 @@ export async function createMeasureAction(
     String(formData.get("target_direction") ?? "higher_is_better")
   );
   const autoTrack = formData.get("auto_track") !== null;
+  const updateFrequency = parseUpdateFrequency(
+    String(formData.get("update_frequency") ?? "weekly")
+  );
 
   // Derive the company_id via outcome → function so we can enforce
   // the performance_tracking gate without the caller knowing which
@@ -551,6 +561,7 @@ export async function createMeasureAction(
       value_type: valueType,
       target_direction: direction,
       auto_track: autoTrack,
+      update_frequency: updateFrequency,
     })
     .select("*")
     .single<SuccessMeasure>();
@@ -618,6 +629,9 @@ export async function updateMeasureAction(
     String(formData.get("target_direction") ?? "higher_is_better")
   );
   const autoTrack = formData.get("auto_track") !== null;
+  const updateFrequency = parseUpdateFrequency(
+    String(formData.get("update_frequency") ?? "weekly")
+  );
 
   const supabase = await createSupabaseServerClient();
 
@@ -673,6 +687,7 @@ export async function updateMeasureAction(
       value_type: valueType,
       target_direction: direction,
       auto_track: autoTrack,
+      update_frequency: updateFrequency,
     })
     .eq("id", id)
     .select("*")

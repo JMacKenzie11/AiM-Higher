@@ -156,10 +156,13 @@ describe("0166 link table shape", () => {
 });
 
 describe("migration ordering", () => {
-  it("0166 is the latest migration", () => {
+  it("0166 still exists and nothing renumbered it", () => {
+    // Was "is the latest migration", which only held until the next
+    // one landed. What actually matters is that 0166 is still there
+    // and still the file these guards read.
     const files = readdirSync(MIGRATIONS)
       .filter((f) => f.endsWith(".sql"))
       .sort();
-    expect(files[files.length - 1]).toBe(FILE);
+    expect(files).toContain(FILE);
   });
 });
