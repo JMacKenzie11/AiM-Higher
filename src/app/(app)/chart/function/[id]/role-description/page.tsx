@@ -296,7 +296,7 @@ async function AssembledDocument({
         </Section>
       ) : null}
 
-      {/* 4 · Outcomes with their Key Success Measures, from chart */}
+      {/* 4 · Critical success factors with their KPIs, from chart */}
       {detail.outcomes.some((o) => o.measures.length > 0) ? (
         <Section id="rd-measures" title="Outcomes">
           <div className={styles.rdMeasuresBlock}>

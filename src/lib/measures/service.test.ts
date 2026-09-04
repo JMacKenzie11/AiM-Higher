@@ -57,6 +57,7 @@ vi.mock("@/lib/supabase/server", () => ({
           return chain;
         },
         eq: record("eq"),
+        or: record("or"),
         neq: record("neq"),
         in: record("in"),
         is: record("is"),
@@ -202,10 +203,18 @@ describe("getMeasuresTree — scoping", () => {
 
     await getMeasuresTree("co_1", "u_leader", "America/Anchorage", false);
 
+    // Was pinned to .eq("leader_id", ...) — which recorded a bug
+    // rather than a rule. `functions.leader_id` was renamed to
+    // `lead_id` in migration 0020, so that filter had matched nothing
+    // for as long as it existed and every non-admin saw an empty
+    // page. The scope is Lead OR Track, matching exactly who
+    // upsertMeasureEntryAction lets write a value.
     const leaderFilter = mocks.calls.find(
-      (c) => c.table === "functions" && c.op === "eq" && c.args[0] === "leader_id"
+      (c) => c.table === "functions" && c.op === "or"
     );
-    expect(leaderFilter?.args[1]).toBe("u_leader");
+    expect(leaderFilter?.args[0]).toBe(
+      "lead_id.eq.u_leader,track_id.eq.u_leader"
+    );
   });
 
   it("does not filter by leader when includeAll is true", async () => {
@@ -216,7 +225,7 @@ describe("getMeasuresTree — scoping", () => {
     await getMeasuresTree("co_1", "u_admin", "America/Anchorage", true);
 
     const leaderFilter = mocks.calls.find(
-      (c) => c.table === "functions" && c.op === "eq" && c.args[0] === "leader_id"
+      (c) => c.table === "functions" && c.op === "or"
     );
     expect(leaderFilter).toBeUndefined();
   });

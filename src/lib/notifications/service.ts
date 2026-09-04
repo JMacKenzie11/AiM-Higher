@@ -278,16 +278,16 @@ async function getPendingMeasuresForUser({
   userId: string;
   weekEnding: string;
 }): Promise<{ count: number; firstDescription: string | null }> {
-  // Same ownership model as getMeasuresOwnedBy: leader_id on
-  // functions decides who's on the hook. Chain the joins narrowly
-  // so we don't pull full rows we'll never read.
+  // Same ownership model as getMeasuresOwnedBy: the Lead or Track on
+  // a function is on the hook. Chain the joins narrowly so we don't
+  // pull full rows we'll never read.
   const empty = { count: 0, firstDescription: null };
   const { data: functions } = await supabase
     .from("functions")
     .select("id")
     .eq("company_id", companyId)
     .eq("archived", false)
-    .eq("leader_id", userId);
+    .or(`lead_id.eq.${userId},track_id.eq.${userId}`);
   const functionIds = (functions ?? []).map((f) => f.id as string);
   if (functionIds.length === 0) return empty;
 

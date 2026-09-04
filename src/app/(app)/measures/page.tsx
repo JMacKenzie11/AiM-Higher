@@ -79,7 +79,7 @@ export default async function MeasuresPage() {
       ) : !hasAnyMeasure && !isAdmin ? (
         <section className={styles.card}>
           <p className={styles.emptyLine}>
-            No key success measures assigned to you yet. They live under the
+            No critical success factors assigned to you yet. They live under the
             functions you lead on the Chart, the person in the seat is the
             one on the hook for the numbers.
           </p>
@@ -115,7 +115,7 @@ function EmptyState({ isAdmin }: { isAdmin: boolean }) {
         <Link href="/chart" className={styles.emptyLink}>
           Build the Functional Org Chart first
         </Link>
-        , then come back here to add outcomes and key success measures under
+        , then come back here to add critical success factors and KPIs under
         each function.
       </p>
     </section>

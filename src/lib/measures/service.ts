@@ -9,7 +9,8 @@ import type {
 // Reads for the Success Tracking surfaces: the /measures batch
 // page and the dashboard "Pending this week" widget.
 //
-// Ownership is derived from function.leader_id — the person in the
+// Ownership is derived from functions.lead_id / track_id — the person
+// in the
 // seat is the person on the hook for the numbers. Admins (system_admin
 // and company_admin) pass includeAllInCompany=true to see and enter
 // values for every function in the company, e.g. when a leader is out
@@ -54,7 +55,13 @@ export async function getMeasuresOwnedBy(
     .eq("company_id", companyId)
     .eq("archived", false);
   if (!includeAllInCompany) {
-    functionsQuery = functionsQuery.eq("leader_id", userId);
+    // Lead OR Track, matching who upsertMeasureEntryAction lets write.
+    // These were two different rules: the page filtered on `leader_id`
+    // (renamed to `lead_id` in migration 0020, so it matched nobody)
+    // while the write allowed lead or track.
+    functionsQuery = functionsQuery.or(
+      `lead_id.eq.${userId},track_id.eq.${userId}`
+    );
   }
   const { data: functionRows } = await functionsQuery;
   const functions = (functionRows ?? []) as Array<{ id: string; title: string }>;
@@ -245,7 +252,9 @@ export async function getMeasuresTree(
     .eq("company_id", companyId)
     .eq("archived", false);
   if (!includeAll) {
-    functionsQuery = functionsQuery.eq("leader_id", userId);
+    functionsQuery = functionsQuery.or(
+      `lead_id.eq.${userId},track_id.eq.${userId}`
+    );
   }
   const { data: functionRows } = await functionsQuery;
   const functions = (functionRows ?? []) as Array<{

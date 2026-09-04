@@ -10,12 +10,13 @@ import type {
   MeasureTreeMeasure,
 } from "@/lib/measures/service";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
+import { formatShortDate } from "@/lib/dates";
 import styles from "../admin/companies/admin.module.css";
 import localStyles from "./measures.module.css";
 import { FunctionSection } from "./FunctionSection";
 
 // The /measures manager. One surface for both authoring (outcomes +
-// key success measures) and weekly logging, filtered by function and
+// KPIs) and weekly logging, filtered by function and
 // outcome so the reader can find a row without a search. Filter
 // chips + tracking inputs disappear when the company doesn't have
 // performance_tracking on — the surface degrades to pure authoring.
@@ -93,6 +94,19 @@ export function MeasuresManager({
   const [activeChips, setActiveChips] = useState<Set<MeasureStatus>>(
     () => new Set()
   );
+
+  // The page does two unrelated jobs. Most weeks someone opens it to
+  // type four numbers and leave, which takes half a minute. Defining
+  // a critical success factor, attaching KPIs, setting targets and
+  // frequencies, archiving what no longer matters — that is quarterly
+  // work. Both used to be on screen at once, at the same weight,
+  // every time.
+  //
+  // Logging is the default because it is the common visit, and it
+  // also puts a delete somewhere other than beside an input people
+  // tap at speed once a week.
+  const [mode, setMode] = useState<"log" | "setup">("log");
+  const authoring = isAdmin && mode === "setup";
   const [pending, startTransition] = useTransition();
   // Which function's save is in flight, so only that card's button
   // shows a spinner instead of every one of them at once.
@@ -105,6 +119,19 @@ export function MeasuresManager({
   } | null>(null);
 
   const stats = useMemo(() => computeStats(allMeasures), [allMeasures]);
+
+  // What most visits are actually asking. The counts existed inside
+  // the filter chips already; nobody had ever stated it as a
+  // sentence, so a leader had to scan every row of every card to find
+  // the two boxes still empty.
+  //
+  // Counts both kinds and reads the live inputs, not the saved
+  // values, so typing a number makes the number go down before the
+  // save lands.
+  const outstanding = useMemo(
+    () => allEntryTargets.filter((m) => !(values[m.id] ?? "").trim()).length,
+    [allEntryTargets, values]
+  );
   const anyTargets = allMeasures.some((m) => !!m.target?.trim());
 
   function isVisible(measure: MeasureTreeMeasure): boolean {
@@ -169,8 +196,63 @@ export function MeasuresManager({
 
   return (
     <div className={localStyles.managerStack}>
-      {trackingEnabled && anyTargets ? (
-        <div className={localStyles.chipsBand}>
+      {/* The chips filter the function list below and nothing else.
+          They used to sit loose between the board and the list, which
+          made them read as a page-level toolbar governing both — and
+          clicking one while half the screen ignored you is the kind
+          of thing people quietly stop trusting. Housed with the list
+          they filter, under a heading that says so. */}
+      {trackingEnabled ? (
+        <div className={localStyles.managerHeader}>
+          <div className={localStyles.managerHeaderTop}>
+            <h2 className={localStyles.managerHeading}>By function</h2>
+            {isAdmin ? (
+              <div
+                className={localStyles.modeToggle}
+                role="tablist"
+                aria-label="What you're here to do"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === "log"}
+                  className={
+                    mode === "log"
+                      ? `${localStyles.modeButton} ${localStyles.modeButtonActive}`
+                      : localStyles.modeButton
+                  }
+                  onClick={() => setMode("log")}
+                >
+                  Log values
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === "setup"}
+                  className={
+                    mode === "setup"
+                      ? `${localStyles.modeButton} ${localStyles.modeButtonActive}`
+                      : localStyles.modeButton
+                  }
+                  onClick={() => setMode("setup")}
+                >
+                  Edit setup
+                </button>
+              </div>
+            ) : null}
+            <p
+              className={
+                outstanding === 0
+                  ? localStyles.outstandingDone
+                  : localStyles.outstanding
+              }
+            >
+              {outstanding === 0
+                ? `All ${allEntryTargets.length} logged for the week ending ${formatShortDate(weekEnding)}.`
+                : `${outstanding} of ${allEntryTargets.length} still to log for the week ending ${formatShortDate(weekEnding)}.`}
+            </p>
+          </div>
+          {anyTargets ? (
           <div className={localStyles.scoreboardStats}>
             {FILTER_CHIPS.map((chip) => {
               if (chip.status === "off" || chip.status === "good") {
@@ -196,6 +278,7 @@ export function MeasuresManager({
               );
             })}
           </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -210,6 +293,7 @@ export function MeasuresManager({
           }
           disabled={pending}
           isAdmin={isAdmin}
+          authoring={authoring}
           trackingEnabled={trackingEnabled}
           rdEnabled={rdEnabled}
           weekEnding={weekEnding}
