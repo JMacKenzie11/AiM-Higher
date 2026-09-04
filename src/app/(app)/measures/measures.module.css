@@ -424,55 +424,7 @@
   margin-top: var(--space-1);
 }
 
-/* The CSF's own measurement strip: target, this week's value and the
-   recent trail, on the card header rather than in the KPI grid. A CSF
-   is measured now, and without this there is nowhere to enter it. */
-.csfTrackRow {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  gap: var(--space-3);
-  align-items: center;
-  padding-top: var(--space-2);
-  margin-top: var(--space-2);
-  border-top: 1px solid var(--border);
-}
 
-.csfTrackLabel {
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-muted);
-}
-
-.csfTrackTarget {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-/* No target set is a normal state for a CSF, not a failure. Muted,
-   never red. */
-.csfTrackNoTarget {
-  font: var(--text-body-sm);
-  color: var(--text-faint);
-  font-style: italic;
-  white-space: nowrap;
-}
-
-@media (max-width: 720px) {
-  .csfTrackRow {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-}
-
-.outcomeHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
 
 .outcomeHeaderTitleWrap {
   display: flex;
@@ -810,4 +762,31 @@
 .outcomeEditingLabel {
   composes: outcomeLabel;
   margin: 0 0 var(--space-2);
+}
+
+/* The critical success factor's own row inside the measures table.
+   It was a separate strip above the table before, outside the
+   columns, which read as a second header rather than a number to
+   type into. Marked here so it is clearly the result, not one of the
+   lead measures beneath it, without leaving the grid. */
+.measureRowCsf {
+  background: var(--aims-navy-tint);
+}
+
+.measureCsfName {
+  font: var(--text-body);
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+/* Says what the row is in the reader's own terms. "Critical success
+   factor" is already the card's eyebrow two lines up, so repeating
+   it here would name the thing twice and explain it never. */
+.measureCsfTag {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.csfValueInput {
+  composes: scoreboardInput;
 }
