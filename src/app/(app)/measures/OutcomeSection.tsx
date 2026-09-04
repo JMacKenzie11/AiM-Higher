@@ -9,7 +9,7 @@ import {
 import {
   archiveOutcomeAction,
   renameOutcomeAction,
-  updateOutcomeAction,
+  updateOutcomeDetailAction,
   type ChartResult,
 } from "@/lib/chart/actions";
 import type {
@@ -58,18 +58,6 @@ export function OutcomeSection({
   // which left the weekly value row and the KPI table sitting below
   // its Save button — so the button looked like it committed those
   // too. Nothing below a save button should be outside its scope.
-  if (editingDetails) {
-    return (
-      <div className={styles.outcomeBlock}>
-        <p className={styles.outcomeEditingLabel}>Editing this critical success factor</p>
-        <EditOutcomeForm
-          outcome={outcome}
-          onDone={() => setEditingDetails(false)}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className={styles.outcomeBlock}>
       <header className={styles.outcomeHeader}>
@@ -80,7 +68,9 @@ export function OutcomeSection({
             ) : (
               <h3 className={styles.outcomeTitle}>{outcome.title}</h3>
             )}
-            {outcome.description ? (
+            {isAdmin ? (
+              <InlineOutcomeDetailEditor outcome={outcome} />
+            ) : outcome.description ? (
               <p className={styles.outcomeDescription}>
                 {outcome.description}
               </p>
@@ -88,18 +78,6 @@ export function OutcomeSection({
           </div>
           {isAdmin ? (
             <div className={styles.outcomeHeaderActions}>
-              <button
-                type="button"
-                // The shared ghost button at small size, the same
-                // pair every other inline card action in the app
-                // uses. It was on a local alias before, which drifted
-                // to full height and read as its own kind of control.
-                className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
-                onClick={() => setEditingDetails(true)}
-                title="Edit description"
-              >
-                Details
-              </button>
               <ArchiveOutcomeButton outcomeId={outcome.id} />
             </div>
           ) : null}
@@ -129,7 +107,7 @@ export function OutcomeSection({
             role="row"
             aria-hidden="true"
           >
-            <span>Measure</span>
+            <span>KPI</span>
             {trackingEnabled ? (
               <>
                 <span>Target</span>
@@ -140,71 +118,26 @@ export function OutcomeSection({
             ) : null}
             {isAdmin ? <span aria-hidden /> : null}
           </div>
-          {/* The critical success factor's own weekly value. It used
-              to sit in a strip above this table, outside the columns,
-              which made it read as a second header rather than a
-              number anyone was meant to type into. It is a measure,
-              so it belongs in the table of measures — first, because
-              it is the result the rows beneath it drive. */}
-          {trackingEnabled ? (
-            <div
-              className={`${styles.measureRow} ${styles.measureRowCsf}`}
-              role="row"
-            >
-              <div className={styles.measureCellTitle} role="cell">
-                <span className={styles.measureCsfName}>{outcome.title}</span>
-                <span className={styles.measureCsfTag}>
-                  the result these drive
-                </span>
-              </div>
-              <div className={styles.measureCellTarget} role="cell">
-                {outcome.target ? (
-                  <>
-                    <span className={styles.targetValue}>
-                      {outcome.target}
-                    </span>
-                    <span className={styles.targetDirection}>
-                      {outcome.target_direction === "lower_is_better"
-                        ? "≤"
-                        : "≥"}
-                    </span>
-                  </>
-                ) : (
-                  /* No target is a normal state on a CSF, not a
-                     failure. Same muted dash a KPI without one gets,
-                     rather than a sentence that draws the eye. */
-                  <span className={styles.targetMuted}>—</span>
-                )}
-              </div>
-              <div className={styles.measureCellRecent} role="cell">
-                {outcome.recent.length > 0 && outcome.recent[0] ? (
-                  <span className={styles.targetValue}>
-                    {outcome.recent[0].text ??
-                      outcome.recent[0].number ??
-                      "—"}
-                  </span>
-                ) : (
-                  <span className={styles.targetMuted}>—</span>
-                )}
-              </div>
-              <div className={styles.measureCellInput} role="cell">
-                <input
-                  type={outcome.value_type === "text" ? "text" : "number"}
-                  step="any"
-                  className={styles.csfValueInput}
-                  value={values[outcome.id] ?? ""}
-                  onChange={(e) => onValueChange(outcome.id, e.target.value)}
-                  disabled={disabled}
-                  placeholder={
-                    outcome.value_type === "percent" ? "0 – 100" : "—"
-                  }
-                  aria-label={`${outcome.title} this week`}
-                />
-              </div>
-              <div className={styles.measureCellDot} role="cell" />
-              {isAdmin ? <div role="cell" /> : null}
-            </div>
-          ) : null}
+          {/* The critical success factor renders through the same row
+              as its KPIs. It carries the same fields, so sharing the
+              row means neither kind can end up with a control the
+              other has — which is how the frequency setting existed
+              for KPIs and not for CSFs. */}
+          <ManagedMeasureRow
+            // A CSF keeps its name in `title` for the chart's sake;
+            // a measure row reads `description`. Mapped here so the
+            // row stays one shape.
+            measure={{ ...outcome, description: outcome.title }}
+            outcomeTitle={outcome.title}
+            outcomeDescription={outcome.description}
+            value={values[outcome.id] ?? ""}
+            onValueChange={(v) => onValueChange(outcome.id, v)}
+            disabled={disabled}
+            isAdmin={isAdmin}
+            trackingEnabled={trackingEnabled}
+            weekEnding={weekEnding}
+            kind="csf"
+          />
 
           {visibleMeasures.map((m) => (
             <ManagedMeasureRow
@@ -269,6 +202,89 @@ export function OutcomeSection({
         </div>
       ) : null}
     </div>
+  );
+}
+
+// The why-this-matters note, edited in place and saved on blur, the
+// same as the title above it. Both were behind a Details drawer
+// before — a two-field modal for two pieces of text people mostly
+// skim, which is more ceremony than the edit deserves.
+//
+// Blank is a legitimate value here, unlike the title, so clearing
+// the box clears the note rather than reverting.
+function InlineOutcomeDetailEditor({
+  outcome,
+}: {
+  outcome: MeasureTreeOutcome;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(outcome.description ?? "");
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(outcome.description ?? "");
+  }, [outcome.description]);
+
+  function commit() {
+    if (pending) return;
+    const next = draft.trim();
+    if (next === (outcome.description ?? "")) {
+      setEditing(false);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await updateOutcomeDetailAction(outcome.id, next);
+      if (!result.ok) setError(result.message);
+      else setEditing(false);
+    });
+  }
+
+  if (editing) {
+    return (
+      <>
+        <textarea
+          className={styles.outcomeDetailInput}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setDraft(outcome.description ?? "");
+              setEditing(false);
+              setError(null);
+            }
+          }}
+          rows={2}
+          autoFocus
+          disabled={pending}
+          placeholder="Why this matters"
+          aria-label="Why this critical success factor matters"
+        />
+        {error ? (
+          <p role="alert" className={styles.rowError}>
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={
+        outcome.description
+          ? styles.outcomeDescriptionEditable
+          : styles.outcomeDescriptionEmpty
+      }
+      onClick={() => setEditing(true)}
+      title="Click to edit"
+    >
+      {outcome.description || "Add why this matters"}
+    </button>
   );
 }
 
@@ -352,91 +368,6 @@ function InlineOutcomeTitleEditor({
     </button>
   );
 }
-
-function EditOutcomeForm({
-  outcome,
-  onDone,
-}: {
-  outcome: MeasureTreeOutcome;
-  onDone: () => void;
-}) {
-  const [state, formAction, pending] = useActionState<
-    ChartResult<FunctionOutcome>,
-    FormData
-  >(updateOutcomeAction, INITIAL);
-  const errorMessage =
-    state && "ok" in state && !state.ok && state.message ? state.message : null;
-
-  useEffect(() => {
-    if (state && "ok" in state && state.ok) onDone();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
-
-  return (
-    <form action={formAction} className={chartStyles.addForm}>
-      <input type="hidden" name="id" value={outcome.id} />
-
-      <label
-        className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
-      >
-        <span className={chartStyles.formLabel}>Critical Success Factor</span>
-        <input
-          className={chartStyles.formInput}
-          type="text"
-          name="title"
-          defaultValue={outcome.title}
-          required
-          disabled={pending}
-          autoFocus
-        />
-      </label>
-
-      <label
-        className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
-      >
-        <span className={chartStyles.formLabel}>
-          Why this matters (optional)
-        </span>
-        <textarea
-          className={chartStyles.formTextarea}
-          name="description"
-          defaultValue={outcome.description ?? ""}
-          rows={2}
-          disabled={pending}
-        />
-      </label>
-
-      {errorMessage ? (
-        <p role="alert" className={chartStyles.errorMessage}>
-          {errorMessage}
-        </p>
-      ) : null}
-
-      <div className={chartStyles.formSubmit}>
-        <button
-          type="submit"
-          className={uiStyles.btnPrimary}
-          disabled={pending}
-        >
-          {/* Named for what it saves. A bare "Save" here sits
-              directly above the weekly value fields and reads as
-              though it commits them, when it only writes the title
-              and the why-this-matters note. */}
-          {pending ? "Saving…" : "Save details"}
-        </button>
-        <button
-          type="button"
-          className={uiStyles.btnGhost}
-          disabled={pending}
-          onClick={onDone}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
 function ArchiveOutcomeButton({ outcomeId }: { outcomeId: string }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);

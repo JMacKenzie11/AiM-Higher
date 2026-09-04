@@ -15,6 +15,7 @@ import {
   type ChartResult,
 } from "@/lib/chart/actions";
 import { critiqueMeasureDraftAction } from "@/lib/measures/actions";
+import { FREQUENCY_LABELS } from "@/lib/measures/frequency";
 import { ruleBasedCritique } from "@/lib/measures/critique-rules";
 import type { MeasureCritique } from "@/lib/measures/critique-rules";
 import type { MeasureTreeMeasure } from "@/lib/measures/service";
@@ -47,6 +48,7 @@ export function ManagedMeasureRow({
   isAdmin,
   trackingEnabled,
   weekEnding,
+  kind = "kpi",
 }: {
   measure: MeasureTreeMeasure;
   outcomeTitle: string;
@@ -57,6 +59,11 @@ export function ManagedMeasureRow({
   isAdmin: boolean;
   trackingEnabled: boolean;
   weekEnding: string;
+  // Critical success factors are measures too, and their settings
+  // (target, value type, direction, how often to update) are the
+  // same set. Rendering both kinds through this row means neither
+  // can quietly end up with a control the other has.
+  kind?: "csf" | "kpi";
 }) {
   const [editing, setEditing] = useState(false);
   const status = computeStatus(measure);
@@ -70,6 +77,7 @@ export function ManagedMeasureRow({
           outcomeDescription={outcomeDescription}
           trackingEnabled={trackingEnabled}
           onDone={() => setEditing(false)}
+          kind={kind}
         />
       </div>
     );
@@ -87,15 +95,25 @@ export function ManagedMeasureRow({
       <div className={styles.measureCellTitle} role="cell">
         <Link
           href={`/measures/${measure.id}`}
-          className={styles.measureTitleLink}
+          className={
+            kind === "csf" ? styles.measureCsfName : styles.measureTitleLink
+          }
           title={
             trackingEnabled
               ? "Open quick-log view"
-              : "Open measure detail"
+              : kind === "csf"
+                ? "Open critical success factor detail"
+                : "Open KPI detail"
           }
         >
           {measure.description}
         </Link>
+        {trackingEnabled && measure.update_frequency &&
+        measure.update_frequency !== "weekly" ? (
+          <span className={styles.measureFreq}>
+            {FREQUENCY_LABELS[measure.update_frequency]}
+          </span>
+        ) : null}
         {/* Only surface the coaching flag when the target is
             actually being tracked — otherwise it's a stale nag from
             a prior tracking-on period. */}
@@ -151,7 +169,9 @@ export function ManagedMeasureRow({
           >
             Edit
           </button>
-          <ArchiveMeasureButton measureId={measure.id} />
+          {kind === "kpi" ? (
+            <ArchiveMeasureButton measureId={measure.id} />
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -214,12 +234,16 @@ function EditMeasureForm({
   outcomeDescription,
   trackingEnabled,
   onDone,
+  kind,
 }: {
   measure: MeasureTreeMeasure;
   outcomeTitle: string;
   outcomeDescription: string | null;
   trackingEnabled: boolean;
   onDone: () => void;
+  // Same form for both kinds, so its labels have to say which one is
+  // open rather than name a level that no longer exists.
+  kind: "csf" | "kpi";
 }) {
   const [state, formAction, pending] = useActionState<
     ChartResult<SuccessMeasure>,
@@ -302,7 +326,7 @@ function EditMeasureForm({
       <p
         className={`${chartStyles.addMetricAnchor} ${chartStyles.formFieldFull}`}
       >
-        Should drive progress on:{" "}
+        Drives progress on:{" "}
         <span className={chartStyles.addMetricAnchorTitle}>
           {outcomeTitle}
         </span>
@@ -311,7 +335,9 @@ function EditMeasureForm({
       <label
         className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
       >
-        <span className={chartStyles.formLabel}>Key success measure</span>
+        <span className={chartStyles.formLabel}>
+          {kind === "csf" ? "Critical success factor" : "Key performance indicator"}
+        </span>
         <input
           className={chartStyles.formInput}
           type="text"
@@ -435,7 +461,9 @@ function EditMeasureForm({
         >
           {shownHints.descriptionHint ? (
             <p className={chartStyles.critiqueLine}>
-              <span className={chartStyles.critiqueLabel}>Measure</span>{" "}
+              <span className={chartStyles.critiqueLabel}>
+                {kind === "csf" ? "Factor" : "KPI"}
+              </span>{" "}
               {shownHints.descriptionHint}
             </p>
           ) : null}
@@ -469,7 +497,7 @@ function EditMeasureForm({
           className={uiStyles.btnPrimary}
           disabled={pending}
         >
-          {pending ? "Saving…" : "Save measure"}
+          {pending ? "Saving…" : "Save"}
         </button>
         <button
           type="button"
@@ -504,8 +532,8 @@ function ArchiveMeasureButton({ measureId }: { measureId: string }) {
         className={styles.iconDeleteButton}
         onClick={() => setConfirming(true)}
         disabled={pending}
-        aria-label="Archive this measure"
-        title="Archive this measure"
+        aria-label="Archive this KPI"
+        title="Archive this KPI"
       >
         <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
           <path
@@ -520,7 +548,7 @@ function ArchiveMeasureButton({ measureId }: { measureId: string }) {
       </button>
       <ConfirmDialog
         open={confirming}
-        title="Archive this measure?"
+        title="Archive this KPI?"
         message="Historical weekly entries are kept. The measure disappears from the outcome and stops feeding the weekly check."
         confirmLabel="Archive"
         tone="danger"

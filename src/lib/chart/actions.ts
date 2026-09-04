@@ -475,6 +475,37 @@ export async function renameOutcomeAction(
   return { ok: true, item: csfAsOutcome(data) };
 }
 
+// Inline edit for the why-this-matters note, saved on blur. Mirrors
+// renameOutcomeAction: one field, no form. Both fields on a critical
+// success factor are now edited in place on the card, which is why
+// the Details drawer is gone — a two-field modal for two pieces of
+// text people mostly skim is more ceremony than the edit deserves.
+export async function updateOutcomeDetailAction(
+  outcomeId: string,
+  newDetail: string
+): Promise<ChartResult<FunctionOutcome>> {
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  if (!outcomeId) return { ok: false, message: "Missing id." };
+
+  // Empty clears the note rather than failing. Unlike the title,
+  // blank is a legitimate value here.
+  const detail = newDetail.trim() || null;
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("success_measures")
+    .update(outcomeFieldsToCsf({ description: detail }))
+    .eq("id", outcomeId)
+    .eq("kind", "csf")
+    .select(CSF_AS_OUTCOME_COLUMNS)
+    .single<CsfRow>();
+  if (error || !data) return { ok: false, message: "Couldn't save that." };
+
+  revalidatePath("/chart");
+  revalidatePath("/measures");
+  return { ok: true, item: csfAsOutcome(data) };
+}
+
 export async function archiveOutcomeAction(
   outcomeId: string,
   archived: boolean
@@ -660,10 +691,11 @@ export async function updateMeasureAction(
   // than the two the old outcome hop needed.
   const { data: existing } = await supabase
     .from("success_measures")
-    .select("function_id, functions!inner(company_id)")
+    .select("function_id, kind, functions!inner(company_id)")
     .eq("id", id)
     .maybeSingle<{
       function_id: string;
+      kind: "csf" | "kpi";
       functions: { company_id: string } | { company_id: string }[];
     }>();
   const fnRow = existing
@@ -672,7 +704,13 @@ export async function updateMeasureAction(
       : existing.functions
     : null;
   const companyId = fnRow?.company_id ?? null;
+  // A KPI needs a target: a leading measure without one says nothing.
+  // A critical success factor does not. Decided 2026-09-04 — a
+  // company may name the results it owns before it knows what good
+  // looks like, and forcing a number there produces a made-up one.
+  // This action now edits both kinds, so the rule has to know which.
   if (
+    existing?.kind !== "csf" &&
     companyId &&
     (await companyHasFeature(companyId, "performance_tracking"))
   ) {
@@ -680,7 +718,7 @@ export async function updateMeasureAction(
       return {
         ok: false,
         message:
-          "Performance tracking is on for this company — every measure needs a target.",
+          "Performance tracking is on for this company — every KPI needs a target.",
       };
     }
   }

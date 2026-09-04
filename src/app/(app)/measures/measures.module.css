@@ -779,14 +779,54 @@
   color: var(--text-heading);
 }
 
-/* Says what the row is in the reader's own terms. "Critical success
-   factor" is already the card's eyebrow two lines up, so repeating
-   it here would name the thing twice and explain it never. */
-.measureCsfTag {
+
+.csfValueInput {
+  composes: scoreboardInput;
+}
+
+/* How often a measure is expected, on the row rather than inside the
+   edit form. It decides what gets chased, so a leader has to be able
+   to see it without opening anything. Only shown when it is not the
+   weekly default, so the common case stays quiet. */
+.measureFreq {
   font: var(--text-caption);
   color: var(--text-muted);
 }
 
-.csfValueInput {
-  composes: scoreboardInput;
+/* The why-this-matters note as a click-to-edit target. Reads as
+   plain text until hovered, so the card is not covered in controls;
+   the affordance appears where the cursor is. */
+.outcomeDescriptionEditable {
+  composes: outcomeDescription;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  margin-left: -4px;
+  cursor: text;
+  font: inherit;
+}
+
+.outcomeDescriptionEditable:hover {
+  border-color: var(--border);
+}
+
+/* When there is no note yet. Fainter and italic so an empty slot
+   invites a click without competing with the title above it. */
+.outcomeDescriptionEmpty {
+  composes: outcomeDescriptionEditable;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.outcomeDetailInput {
+  width: 100%;
+  font: var(--text-body-sm);
+  color: var(--text);
+  padding: var(--space-2);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  resize: vertical;
 }

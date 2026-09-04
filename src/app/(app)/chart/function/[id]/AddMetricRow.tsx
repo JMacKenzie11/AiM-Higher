@@ -167,7 +167,7 @@ export function AddMetricRow({
   return (
     <div className={styles.addMetricGroup}>
       <p className={styles.addMetricAnchor}>
-        Should drive progress on:{" "}
+        Drives progress on:{" "}
         <span className={styles.addMetricAnchorTitle}>{outcomeTitle}</span>
       </p>
       <form action={formAction} className={styles.addMetricRow}>

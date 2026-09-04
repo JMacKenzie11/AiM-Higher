@@ -27,9 +27,12 @@ const mocks = vi.hoisted(() => {
 
   const outcomesJoinedMaybeSingle = vi.fn(); // for createMeasure
   const measuresInsertPatch = vi.fn();
+  const measuresUpdatePatch = vi.fn();
   const linkUpsertPayload = vi.fn();
   // Lets a test make the link write fail so the rollback path runs.
-  const linkInsertResult = vi.fn(() => ({ data: null, error: null }));
+  const linkInsertResult = vi.fn<
+    () => { data: null; error: { message: string } | null }
+  >(() => ({ data: null, error: null }));
   const measuresDeleteEq = vi.fn();
   const csfUpsertPayload = vi.fn();
   const measuresInsertSingle = vi.fn();
@@ -85,15 +88,23 @@ const mocks = vi.hoisted(() => {
             eq: () => ({ maybeSingle: outcomesJoinedMaybeSingle }),
           }),
         }),
-        update: () => ({
+        update: (patch: unknown) => ({
           // Two shapes are live: the target-hint path chains
           // .select().single(), while the transition mirror just
           // awaits .eq(). Support both by making eq() thenable.
-          eq: () => ({
-            select: () => ({ single: measuresUpdateSingle }),
-            then: (res: (v: unknown) => unknown) =>
-              Promise.resolve({ data: null, error: null }).then(res),
-          }),
+          eq: () => {
+            measuresUpdatePatch(patch);
+            return {
+              // A CSF write chains a second .eq("kind","csf") before
+              // selecting, so the returned object has to offer both.
+              eq: () => ({
+                select: () => ({ single: measuresUpdateSingle }),
+              }),
+              select: () => ({ single: measuresUpdateSingle }),
+              then: (res: (v: unknown) => unknown) =>
+                Promise.resolve({ data: null, error: null }).then(res),
+            };
+          },
           in: () =>
             Promise.resolve({ data: null, error: null }),
         }),
@@ -175,6 +186,7 @@ const mocks = vi.hoisted(() => {
     functionsUpdateSingle,
     outcomesJoinedMaybeSingle,
     measuresInsertPatch,
+    measuresUpdatePatch,
     linkUpsertPayload,
     linkInsertResult,
     measuresDeleteEq,
@@ -388,6 +400,30 @@ describe("reorderFunctionsAction", () => {
 // ==============================================================
 // createMeasureAction — performance_tracking gate
 // ==============================================================
+describe("updateOutcomeDetailAction", () => {
+  it("writes the note to the CSF's detail column", async () => {
+    const { updateOutcomeDetailAction } = await import("./actions");
+    const res = await updateOutcomeDetailAction("o_1", "  Cash flow  ");
+    expect(res.ok).toBe(true);
+    // Trimmed, and mapped onto `detail` — a CSF's `description` is
+    // its name, so writing there would rename it.
+    expect(mocks.measuresUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: "Cash flow" })
+    );
+  });
+
+  it("clears the note when the box is emptied", async () => {
+    // Unlike the title, blank is a real value here: someone deleting
+    // the text means they want no note, not a reverted edit.
+    const { updateOutcomeDetailAction } = await import("./actions");
+    const res = await updateOutcomeDetailAction("o_1", "   ");
+    expect(res.ok).toBe(true);
+    expect(mocks.measuresUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: null })
+    );
+  });
+});
+
 describe("createMeasureAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
