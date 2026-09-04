@@ -537,11 +537,23 @@ export async function createMeasureAction(
       function_id: string;
       functions: { company_id: string } | { company_id: string }[];
     }>();
-  const companyId = outcome
-    ? Array.isArray(outcome.functions)
-      ? outcome.functions[0]?.company_id ?? null
-      : outcome.functions?.company_id ?? null
-    : null;
+  // Bail here rather than at the insert. Since migration 0168
+  // function_id is NOT NULL, so a KPI whose parent could not be
+  // resolved — a stale id, an archived CSF, a row RLS will not show
+  // this caller — used to fail on the constraint and come back as
+  // the generic "Couldn't add that measure", which says nothing
+  // about what went wrong. Before 0168 it was worse: it inserted an
+  // orphan with a null function that no policy could see again.
+  if (!outcome?.function_id) {
+    return {
+      ok: false,
+      message: "Couldn't find the critical success factor for this KPI.",
+    };
+  }
+
+  const companyId = Array.isArray(outcome.functions)
+    ? outcome.functions[0]?.company_id ?? null
+    : outcome.functions?.company_id ?? null;
   if (
     companyId &&
     (await companyHasFeature(companyId, "performance_tracking"))
@@ -561,7 +573,7 @@ export async function createMeasureAction(
       // A KPI belongs to a function directly and reaches its CSF
       // through the link table below, which is many-to-many by
       // design even though the UI allows one parent today.
-      function_id: outcome?.function_id ?? null,
+      function_id: outcome.function_id,
       kind: "kpi",
       description,
       target,
@@ -576,9 +588,17 @@ export async function createMeasureAction(
 
   // Record which CSF this KPI drives. Without the link the measure
   // exists but hangs off nothing, so no read path finds it.
-  await supabase
+  const { error: linkError } = await supabase
     .from("csf_kpi_links")
     .insert({ csf_id: outcomeId, kpi_id: data.id });
+  if (linkError) {
+    // Every read path finds a KPI through this link, so a measure
+    // without one is invisible: it would sit in the table collecting
+    // nothing while the leader who just created it sees no new row
+    // and adds it again. Remove it rather than leave that behind.
+    await supabase.from("success_measures").delete().eq("id", data.id);
+    return { ok: false, message: "Couldn't attach that KPI. Try again." };
+  }
 
   // Coaching hint on the target, only when the flag is on and a
   // target was provided. Best-effort — a null result silently
