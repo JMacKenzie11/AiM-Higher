@@ -17,8 +17,10 @@ As a team member, you can:
 - **See the company's follow-through** and the operating panels (Wins,
   Streaks, Where a conversation could help) — anyone in the company sees
   these.
-- **Log this week's numbers** on any Key Performance Indicator you own —
-  they appear in *This week's numbers* until saved.
+- **See what you still owe this week** — the notification bell counts
+  the critical success factors and KPIs you have not logged, and links
+  straight to them. Logging itself happens on Critical Success Factors,
+  not here.
 - **Close the loop on your commitments** — the *This week* strip links
   straight into Commitments with the filter pre-applied.
 - **Refresh the AI brief** if the summary looks stale — click *Refresh
@@ -36,12 +38,19 @@ The *Set up {company}* checklist lives on **AiMS Implementation**
 the operating disciplines.
 :::
 
-## How to log this week's numbers
+## Where logging this week's numbers went
 
-1. Look for *This week's numbers* on the dashboard (only appears when
-   there are unfilled measures and Success Tracking is on).
-2. Enter values inline and click Save. The row disappears once filled.
-3. The full batch-entry view lives at **Workspace → Success Measures**.
+The dashboard used to carry a *This week's numbers* card with inline
+inputs. It was removed on 4 September 2026.
+
+It listed KPIs only, so someone who filled it in and saved still had
+every critical success factor outstanding, with nothing on the card
+saying so. It also duplicated a job that **Critical Success Factors**
+now does better, with a save per function and a line telling you how
+many you have left.
+
+Log this week's numbers on **Workspace → Critical Success Factors**.
+The notification bell will tell you when you have some outstanding.
 
 ## How to interpret the hero stats
 
