@@ -27,7 +27,6 @@ export function GuideRowActions({
   // keeps the column tidy vs a disabled menu.
   canManageAccount?: boolean;
 }) {
-  if (!canManageAccount) return null;
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [manualCopyLink, setManualCopyLink] = useState<string | null>(null);
@@ -50,6 +49,12 @@ export function GuideRowActions({
       document.removeEventListener("keydown", onKey);
     };
   }, [menuOpen]);
+
+  // Below the hooks, deliberately. React requires the same hooks in
+  // the same order on every render, so an early return above them
+  // throws "rendered fewer hooks than expected" the moment a row
+  // flips between manageable and not.
+  if (!canManageAccount) return null;
 
   function runResendInvite() {
     setMenuOpen(false);

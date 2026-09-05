@@ -156,7 +156,7 @@ export async function getCoachingInsightsAdoption(
   // the counts — otherwise companiesActive can exceed
   // companiesInScope (bug: "across 9 of 8 companies") when an old
   // chat belongs to a since-deleted tenant.
-  let convoQuery = admin
+  const convoQuery = admin
     .from("coaching_conversations")
     .select("id, company_id, practice_id, created_by, created_at")
     .gte("created_at", startTs)

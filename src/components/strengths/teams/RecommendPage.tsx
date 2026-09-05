@@ -467,7 +467,7 @@ export default function RecommendPage({
           <div className="subhead">Exclude people (optional)</div>
           <p className="caption" style={{ margin: 0 }}>
             Excluded people are kept out of the recommendation. Handy when
-            someone is on leave, isn't a fit for this mission, or already has
+            someone is on leave, isn&apos;t a fit for this mission, or already has
             too much on their plate.
           </p>
           <div
@@ -532,14 +532,14 @@ export default function RecommendPage({
         <div className="stack-2">
           <div className="subhead">How the recommendation works</div>
           <p className="muted" style={{ margin: 0 }}>
-            The recommendation reads each person's assessment, which measures
-            two things separately: what they're good at and what gives them
+            The recommendation reads each person&apos;s assessment, which measures
+            two things separately: what they&apos;re good at and what gives them
             energy. It builds a roster that covers the full arc of this
             mission, from generating ideas to aligning people to driving the
             work to done. It leans hardest on strengths where capability and
             energy come together. When someone has energy for something but
-            hasn't fully developed the skill yet, it counts that as promise,
-            not proven strength. It won't build a team that depends on work
+            hasn&apos;t fully developed the skill yet, it counts that as promise,
+            not proven strength. It won&apos;t build a team that depends on work
             someone is good at but that drains them. It also names where the
             team has the most room to grow, because every real team has
             somewhere to develop into.
@@ -576,8 +576,8 @@ export default function RecommendPage({
               </span>
             </div>
             <p className="caption" style={{ margin: 0 }}>
-              One line per person on why they're on this roster. Swap or remove
-              anyone. The read updates when you're settled.
+              One line per person on why they&apos;re on this roster. Swap or remove
+              anyone. The read updates when you&apos;re settled.
             </p>
             <div className="stack-3">
               {proposal.roster.map((r) => {

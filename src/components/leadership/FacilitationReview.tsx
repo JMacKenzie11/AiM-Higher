@@ -136,8 +136,8 @@ export function FacilitationReview({
           <h3 className={styles.sectionHeading}>4Ws audit</h3>
           <p className={styles.auditCaption}>
             For each issue the meeting worked through, whether the four
-            steps landed. A hollow circle means the flow didn't get there
-            — it's an invitation, not a grade.
+            steps landed. A hollow circle means the flow didn&apos;t get there
+            — it&apos;s an invitation, not a grade.
           </p>
           <div className={styles.auditTableWrap}>
             <table className={styles.auditTable}>
