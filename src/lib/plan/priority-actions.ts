@@ -8,6 +8,7 @@ import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
 import type { CascadeStatus, Priority } from "@/lib/types";
 import { parseStatus, type PlanResult } from "./_shared";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export async function createPriorityAction(
   _prev: PlanResult<Priority> | undefined,
@@ -33,7 +34,7 @@ export async function createPriorityAction(
   const status = parseStatus(String(formData.get("status") ?? "not_started"))
     ?? "not_started";
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("priorities")
     .insert({
@@ -84,7 +85,7 @@ export async function updatePriorityAction(
   const quarterId = nullableString(formData.get("quarter_id"));
   const status = parseStatus(String(formData.get("status") ?? ""));
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("priorities")
     .update({
@@ -115,7 +116,7 @@ export async function updatePriorityStatusAction(
   }
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("priorities")
     .select("*")
@@ -158,7 +159,7 @@ export async function archivePriorityAction(
   archived: boolean
 ): Promise<PlanResult<Priority>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("priorities")
     .update({ archived })
@@ -175,7 +176,7 @@ export async function setPriorityGoalAction(
   goalId: string | null
 ): Promise<PlanResult<Priority>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("priorities")
     .update({ annual_goal_id: goalId })

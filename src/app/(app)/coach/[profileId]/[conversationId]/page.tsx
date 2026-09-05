@@ -13,6 +13,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "./ChatView";
 import { ShareChatButton } from "../../../ask-aimee/[conversationId]/ShareChatButton";
 import type { Profile } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 type PageProps = {
   params: Promise<{ profileId: string; conversationId: string }>;
@@ -60,7 +61,7 @@ export default async function CoachChatPage({ params }: PageProps) {
     );
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: subject } = await supabase
     .from("profiles")
     .select("id, full_name, position, company_id")

@@ -14,6 +14,7 @@ import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
 import { TermTooltip } from "@/components/ui/TermTooltip";
 import type { Profile } from "@/lib/types";
 import styles from "../people.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Person Scorecard — Section 8.6.
 
@@ -346,8 +347,8 @@ async function loadEditorBundle(
   roster: Array<Pick<Profile, "id" | "full_name">>;
   strengths: Awaited<ReturnType<typeof getUserStrengths>>;
 } | null> {
-  const admin = createSupabaseAdminClient();
-  const supabase = await createSupabaseServerClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const [{ data: authUser }, strengths, rosterRes] = await Promise.all([
     admin.auth.admin.getUserById(subjectId),

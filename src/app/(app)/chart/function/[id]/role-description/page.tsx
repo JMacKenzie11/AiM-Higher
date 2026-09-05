@@ -30,6 +30,7 @@ import { PublishButton } from "./PublishButton";
 import { RegenerateButton } from "./RegenerateButton";
 import { VersionsList } from "./VersionsList";
 import styles from "./role-description.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Full AiMS Role Description for a function. Ten sections per the
 // AiMS spec — some render from chart data, others from generated
@@ -73,7 +74,7 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
   );
   const readiness = computeReadiness(detail);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const [{ data: company }, { data: valuesRaw }] = await Promise.all([
     supabase
       .from("companies")

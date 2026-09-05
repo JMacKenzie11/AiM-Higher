@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CompanyFoundation, FoundationItem } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Lean context loader for the role-description suggestion service.
 // Fetches only what the prompt needs — company foundation blocks and
@@ -37,7 +38,7 @@ export async function loadFunctionContext(
   company: CompanyContextSnapshot;
   fn: FunctionContextSnapshot;
 } | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: fn } = await supabase
     .from("functions")

@@ -8,6 +8,7 @@ import {
   type Recommendation,
   type RdTarget,
 } from "./recommend";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server actions the Role Description drawer calls. Only the
 // suggestion path lives here — write-backs (Use this / Save) reuse
@@ -34,7 +35,7 @@ export async function suggestForFunctionAction(input: {
 }): Promise<SuggestResult> {
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: fn } = await supabase
     .from("functions")
     .select("company_id")

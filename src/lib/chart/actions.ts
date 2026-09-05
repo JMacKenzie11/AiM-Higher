@@ -26,6 +26,7 @@ import type {
   TargetDirection,
   UpdateFrequency,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Chart write actions. RLS gates access (admin OR the function's
 // leader for measure entries); the checks here surface friendly
@@ -75,7 +76,7 @@ export async function createFunctionAction(
   const decideId = nullableString(formData.get("decide_id"));
   const parentFunctionId = nullableString(formData.get("parent_function_id"));
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("functions")
     .insert({
@@ -113,7 +114,7 @@ export async function renameFunctionAction(
     return { ok: false, message: "Title can't be empty." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("functions")
     .update({ title })
@@ -146,7 +147,7 @@ export async function updateFunctionAction(
   const decideId = nullableString(formData.get("decide_id"));
   const parentFunctionId = nullableString(formData.get("parent_function_id"));
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("functions")
     .update({
@@ -178,7 +179,7 @@ export async function reorderFunctionsAction(
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
   if (updates.length === 0) return { ok: true };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const results = await Promise.all(
     updates.map((u) =>
       supabase
@@ -200,7 +201,7 @@ export async function archiveFunctionAction(
   archived: boolean
 ): Promise<ChartResult<FunctionNode>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("functions")
     .update({ archived })
@@ -229,7 +230,7 @@ export async function createFunctionRoleAction(
     return { ok: false, message: "Missing function or title." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("function_roles")
     .select("sort_order")
@@ -266,7 +267,7 @@ export async function updateFunctionRoleAction(
   const body = nullableString(formData.get("body"));
   if (!id || !title) return { ok: false, message: "Missing title or id." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("function_roles")
     .update({ title, body })
@@ -293,7 +294,7 @@ export async function renameFunctionRoleAction(
   const title = newTitle.trim();
   if (!roleId || !title) return { ok: false, message: "Title can't be empty." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("function_roles")
     .update({ title })
@@ -313,7 +314,7 @@ export async function deleteFunctionRoleAction(
   roleId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Grab function_id first so we can revalidate the detail path even
   // after the row is gone. The is_default block also prevents the
@@ -346,7 +347,7 @@ export async function deleteFunctionAction(
   functionId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("functions")
     .delete()
@@ -365,7 +366,7 @@ export async function setFunctionRoleAction(
   personId: string | null
 ): Promise<ChartResult<FunctionNode>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const patch: Record<string, string | null> = {};
   patch[`${role}_id`] = personId;
   const { data, error } = await supabase
@@ -399,7 +400,7 @@ export async function createOutcomeAction(
   // An outcome is a critical success factor: one row in
   // success_measures, tagged csf. There is no second table to keep in
   // step any more.
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
     .insert({
@@ -430,7 +431,7 @@ export async function updateOutcomeAction(
   if (!title) return { ok: false, message: "Title can't be empty." };
   const description = nullableString(formData.get("description"));
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
     .update(outcomeFieldsToCsf({ title, description }))
@@ -460,7 +461,7 @@ export async function renameOutcomeAction(
     return { ok: false, message: "Title can't be empty." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
     .update(outcomeFieldsToCsf({ title }))
@@ -491,7 +492,7 @@ export async function updateOutcomeDetailAction(
   // blank is a legitimate value here.
   const detail = newDetail.trim() || null;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
     .update(outcomeFieldsToCsf({ description: detail }))
@@ -511,7 +512,7 @@ export async function archiveOutcomeAction(
   archived: boolean
 ): Promise<ChartResult<FunctionOutcome>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
     .update({ archived })
@@ -558,7 +559,7 @@ export async function createMeasureAction(
   // Derive the company_id via outcome → function so we can enforce
   // the performance_tracking gate without the caller knowing which
   // company it is.
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: outcome } = await supabase
     .from("success_measures")
     .select("function_id, functions!inner(company_id)")
@@ -684,7 +685,7 @@ export async function updateMeasureAction(
     String(formData.get("update_frequency") ?? "weekly")
   );
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Resolve company + enforce target when the flag is on. A measure
   // reaches its function directly now, so this is one join rather
@@ -781,7 +782,7 @@ export async function archiveMeasureAction(
   archived: boolean
 ): Promise<ChartResult<SuccessMeasure>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
     .update({ archived })
@@ -805,7 +806,7 @@ export async function upsertMeasureEntryAction(
 ): Promise<ChartResult<SuccessMeasureEntry>> {
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Load the measure and its function so we can (a) authorize and
   // (b) coerce the input based on the measure's value_type. Critical
@@ -933,7 +934,7 @@ export async function createFunctionDecisionRightAction(
     return { ok: false, message: "Missing function or title." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("function_decision_rights")
     .select("sort_order")
@@ -961,7 +962,7 @@ export async function renameFunctionDecisionRightAction(
   const title = newTitle.trim();
   if (!id || !title) return { ok: false, message: "Title can't be empty." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("function_decision_rights")
     .update({ title })
@@ -977,7 +978,7 @@ export async function deleteFunctionDecisionRightAction(
   id: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: row } = await supabase
     .from("function_decision_rights")
@@ -1007,7 +1008,7 @@ export async function createFunctionCompetencyAction(
     return { ok: false, message: "Missing function or title." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("function_competencies")
     .select("sort_order")
@@ -1035,7 +1036,7 @@ export async function renameFunctionCompetencyAction(
   const title = newTitle.trim();
   if (!id || !title) return { ok: false, message: "Title can't be empty." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("function_competencies")
     .update({ title })
@@ -1051,7 +1052,7 @@ export async function deleteFunctionCompetencyAction(
   id: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: row } = await supabase
     .from("function_competencies")

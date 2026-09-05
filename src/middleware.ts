@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import {
   SCOPE_COOKIE_NAME,
   SCOPE_COOKIE_MAX_AGE,
@@ -65,8 +66,14 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const needsPendingCheck = !pendingAllowsPath(path);
+  // One resolution per request, at the very top of the request's
+  // life. Today it's the same answer every time; when hostname
+  // resolution lands, this is the line that changes and everything
+  // downstream keeps working.
+  const instance = getCurrentInstanceConfig();
   const { response, isAuthenticated, isPending, role } = await updateSession(
     request,
+    instance,
     { checkPending: needsPendingCheck }
   );
 

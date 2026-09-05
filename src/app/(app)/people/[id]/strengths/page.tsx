@@ -7,6 +7,7 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
 import type { Profile } from "@/lib/types";
 import styles from "@/app/(app)/strengths/strengths.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Manual strengths for a specific team member. Editable by self,
 // system_admin, or company_admin of the same company.
@@ -17,7 +18,7 @@ export default async function PersonStrengthsPage({ params }: PageProps) {
   const session = await requireProfile();
   const { id } = await params;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: subject } = await supabase
     .from("profiles")

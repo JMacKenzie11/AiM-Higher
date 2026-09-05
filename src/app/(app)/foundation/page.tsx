@@ -23,6 +23,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import type { StrategicFocusArea } from "@/lib/types";
 import styles from "./foundation.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // One-Page Plan — the single-page AiMS one-pager. Full-width single
 // column: sections stack in the AiMS narrative order (identity →
@@ -39,7 +40,7 @@ export default async function OnePagePlanPage() {
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const [data, { data: companyRow }, { data: sfaRows }] = await Promise.all([
     getFoundation(companyId),
     supabase

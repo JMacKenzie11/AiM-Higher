@@ -9,6 +9,7 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { calendarQuarterOf } from "@/lib/quarters/service";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
 import type { Company } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Company management — polished in Phase 8 per Section 8.9.
 
@@ -42,7 +43,7 @@ export async function createCompanyAction(
     return { ok: false, message: "Pick at least one feature." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("companies")
     .insert({ name, timezone, industry })
@@ -142,7 +143,7 @@ export async function setCompanyFeaturesAction(
     return { ok: false, message: "Pick at least one feature." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: existingRows } = await supabase
     .from("company_features")
@@ -207,7 +208,7 @@ export async function setCompanyIndustryAction(
   const cleaned =
     industry !== null && industry.trim().length > 0 ? industry.trim() : null;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("companies")
     .update({ industry: cleaned })
@@ -229,7 +230,7 @@ export async function setCompanyStatusAction(
 ): Promise<CompanyResult> {
   await requireRole(["system_admin"]);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("companies")
     .update({ status })
@@ -269,7 +270,7 @@ export async function deleteCompanyAction(
 ): Promise<CompanyDeleteResult> {
   await requireRole(["system_admin"]);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: current } = await supabase
     .from("companies")
     .select("id, status")
@@ -290,7 +291,7 @@ export async function deleteCompanyAction(
   // the SELECT policy the RETURNING has to satisfy. The auth check
   // (requireRole system_admin + archived-status gate) has already
   // run above, so bypassing RLS here is safe.
-  const adminSupabase = createSupabaseAdminClient();
+  const adminSupabase = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await adminSupabase
     .from("companies")
     .update({ deleted_at: new Date().toISOString() })

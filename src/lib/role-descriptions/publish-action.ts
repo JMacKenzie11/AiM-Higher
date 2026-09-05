@@ -12,6 +12,7 @@ import {
 import { generateRoleDescription } from "./generate";
 import { publishVersion, deletePublishedVersion } from "./versions";
 import type { getChartFunctionDetail } from "@/lib/chart/service";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Publish the current Role Description as an immutable version
 // snapshot. Uses the cached document if fresh; regenerates + saves
@@ -28,7 +29,7 @@ export async function publishRoleDescriptionAction(input: {
 > {
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: fn } = await supabase
     .from("functions")
     .select("company_id")
@@ -96,7 +97,7 @@ export async function deleteRoleDescriptionVersionAction(input: {
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: fn } = await supabase
     .from("functions")
     .select("company_id")

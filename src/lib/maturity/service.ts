@@ -11,6 +11,7 @@ import type {
   DisciplineScore,
   ScorecardSnapshotRow,
 } from "./types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Page-side reader. Combines the always-fresh live computation with
 // the historical snapshots stored by the weekly cron so the /scorecard
@@ -42,7 +43,7 @@ const TRAJECTORY_WINDOW_DAYS = 90;
 // they would each compute every company's scorecard from scratch.
 export const loadCompanyScorecardScores = cache(
   async function loadCompanyScorecardScores(companyId: string) {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
     return computeCompanyScorecard(companyId, supabase);
   }
 );
@@ -63,7 +64,7 @@ export async function loadLatestOverallSnapshots(
   const result = new Map<string, { date: string; score: number | null }>();
   if (companyIds.length === 0) return result;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   // 26 weeks matches loadCompanyScorecard's window. We only need the
   // newest date per company, but the rows are small and one bounded
   // query beats N unbounded ones.
@@ -111,7 +112,7 @@ export const loadCompanyScorecard = cache(async function loadCompanyScorecard(
 ): Promise<CompanyScorecard> {
   // Compute live via the server client — reads only, RLS is scoped
   // to the caller's tenant which is the same tenant we're loading.
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   // Shares the cache with Guide HQ so a request that hits both pays
   // for the live computation once.
   const scorecard = await loadCompanyScorecardScores(companyId);

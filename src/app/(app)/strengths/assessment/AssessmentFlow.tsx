@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useInstanceConfig } from "@/lib/instances/InstanceProvider";
 import { trackClient } from "@/lib/analytics/track-client";
 import ProgressBar from "@/components/strengths/ProgressBar";
 import { LIKERT_LABELS, type Item } from "@/lib/strengths/types";
@@ -27,7 +28,11 @@ export default function AssessmentFlow({
   firstName: string;
 }) {
   const router = useRouter();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const instance = useInstanceConfig();
+  const supabase = useMemo(
+    () => createSupabaseBrowserClient(instance),
+    [instance],
+  );
 
   const cardItems = useMemo(
     () => [...items].sort((a, b) => a.sort_order - b.sort_order),

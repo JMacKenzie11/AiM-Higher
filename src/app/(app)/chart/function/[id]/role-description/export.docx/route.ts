@@ -16,6 +16,7 @@ import {
 } from "@/lib/role-descriptions/generate";
 import { buildRoleDescriptionDocx } from "@/lib/role-descriptions/docx";
 import { trackAfter } from "@/lib/analytics/track";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // GET /chart/function/[id]/role-description/export.docx
 //
@@ -60,7 +61,7 @@ export async function GET(
     );
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: company } = await supabase
     .from("companies")
     .select("name")

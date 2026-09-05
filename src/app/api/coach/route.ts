@@ -18,6 +18,7 @@ import {
   type CoachingConversation,
   type CoachingMessage,
 } from "@/lib/coach/service";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // POST /api/coach — streaming chat endpoint for the coaching feature.
 //
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return new Response("Missing userMessage", { status: 400 });
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: convo } = await supabase
     .from("coaching_conversations")
     .select("*")
@@ -646,7 +647,7 @@ async function generateTitleForConversation(args: {
         .join("")
     ).slice(0, 80);
     if (!label) return;
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
     await supabase
       .from("coaching_conversations")
       .update({ title: label })

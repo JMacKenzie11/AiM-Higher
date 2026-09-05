@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { computeRateFromCounts } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Lightweight person view fetched on-demand by the quick-view drawer
 // on /commitments. Deliberately does less than getPersonScorecard:
@@ -34,7 +35,7 @@ export async function getPersonQuickViewAction(
   profileId: string
 ): Promise<QuickViewResult> {
   await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: profile } = await supabase
     .from("profiles")

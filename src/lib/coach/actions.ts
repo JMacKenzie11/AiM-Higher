@@ -18,6 +18,7 @@ import { findPractice, type Practice } from "@/lib/practices/registry";
 import { practiceRoleGate } from "@/lib/practices/gate";
 import { cleanGeneratedTitle } from "./title";
 import { logCoachTokenUsage } from "./usage";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Coaching-specific server actions. Access checks live here AND in
 // RLS — never trust one alone.
@@ -46,7 +47,7 @@ export async function createConversationAction(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: subject } = await supabase
     .from("profiles")
     .select("id, company_id, reports_to")
@@ -136,7 +137,7 @@ export async function createGeneralConversationAction(): Promise<
     };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const title = defaultTitleForToday();
   const { data, error } = await supabase
     .from("coaching_conversations")
@@ -212,7 +213,7 @@ export async function setConversationAgentAction(
   agentId: string | null
 ): Promise<SetAgentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
@@ -335,7 +336,7 @@ export async function archiveConversationAction(
   conversationId: string
 ): Promise<SimpleResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo, error: readError } = await supabase
     .from("coaching_conversations")
@@ -372,7 +373,7 @@ export async function renameConversationAction(
   const trimmed = title.trim();
   if (!trimmed) return { ok: false, message: "Title can't be empty." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: convo } = await supabase
     .from("coaching_conversations")
     .select("id, created_by, subject_profile_id, mode")
@@ -413,7 +414,7 @@ export async function generateConversationTitleAction(
   conversationId: string
 ): Promise<GenerateTitleResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
@@ -570,7 +571,7 @@ export async function shareConversationAction(
     return { ok: false, message: "Access must be read or write." };
   }
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
@@ -705,7 +706,7 @@ export async function updateShareAccessAction(
     return { ok: false, message: "Access must be read or write." };
   }
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
@@ -739,7 +740,7 @@ export async function unshareConversationAction(
   shareeProfileId: string
 ): Promise<SimpleResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
@@ -779,7 +780,7 @@ export async function listShareCandidatesAction(
   conversationId: string
 ): Promise<{ ok: true; items: ShareCandidate[] } | { ok: false; message: string }> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
@@ -802,7 +803,7 @@ export async function leaveSharedConversationAction(
   conversationId: string
 ): Promise<SimpleResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: share } = await supabase
     .from("coaching_conversation_shares")

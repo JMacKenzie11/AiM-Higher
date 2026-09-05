@@ -9,6 +9,7 @@ import type {
   Quarter,
 } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Guide HQ data loaders. Every function scopes to the caller unless
 // noted; a sysadmin viewing another guide's HQ passes the guide's id
@@ -28,7 +29,7 @@ export type CaseloadCompany = {
 export async function loadCaseload(
   guideId: string
 ): Promise<CaseloadCompany[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("guide_assignments")
     .select("company_id, companies!inner(id, name)")
@@ -57,7 +58,7 @@ export type MyCommitmentRow = CommitmentWithMeta & {
 export async function loadMyCommitments(
   ownerId: string
 ): Promise<MyCommitmentRow[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: commitmentRows } = await supabase
     .from("commitments")
@@ -180,7 +181,7 @@ export async function loadCompanyRollups(
   companyIds: string[]
 ): Promise<CompanyRollup[]> {
   if (companyIds.length === 0) return [];
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const now = Date.now();
   const DAY = 24 * 60 * 60 * 1000;
@@ -332,7 +333,7 @@ export async function loadRecentActivity(
   companyIds: string[]
 ): Promise<RecentActivityItem[]> {
   if (companyIds.length === 0) return [];
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 

@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Subscription-gate helpers. NavBand + module pages call these to
 // decide what's visible for a given company. Feature strings are
@@ -47,7 +48,7 @@ export type ModuleFeature =
 export const getCompanyFeatures = cache(async function getCompanyFeatures(
   companyId: string
 ): Promise<ModuleFeature[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("company_features")
     .select("feature")

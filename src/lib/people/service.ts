@@ -10,6 +10,7 @@ import type {
   Profile,
 } from "@/lib/types";
 import type { KeepRateBar } from "@/components/charts/KeepRateBarChart";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Roster + person-scorecard read models — Section 8.6.
 
@@ -25,7 +26,7 @@ export type PeopleRoster = {
 export async function getPeopleRoster(
   companyId: string
 ): Promise<PeopleRoster> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: profiles } = await supabase
     .from("profiles")
@@ -115,7 +116,7 @@ export type PersonScorecard = {
 export async function getPersonScorecard(
   personId: string
 ): Promise<PersonScorecard | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: profile } = await supabase
     .from("profiles")

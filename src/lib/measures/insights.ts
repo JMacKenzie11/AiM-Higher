@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addDays, thisFriday } from "@/lib/dates";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Generative operational-performance signals for the dashboard.
 // Four appreciative-inquiry lenses:
@@ -59,7 +60,7 @@ export async function getMeasureInsights(
   companyId: string,
   timezone: string
 ): Promise<MeasureInsights> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const weekEnding = thisFriday(timezone);
   const oldest = addDays(weekEnding, -7 * (HISTORY_WEEKS - 1));
 

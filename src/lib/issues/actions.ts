@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { trackAfter } from "@/lib/analytics/track";
 import type { Issue } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server actions for the Issues/Solutions page. Edit rights follow
 // the same pattern as commitments: creator OR company_admin
@@ -70,7 +71,7 @@ export async function createIssueAction(
     return { ok: false, message: "Pick a company scope first." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Land at the bottom of the open list.
   const { data: rankRow } = await supabase
@@ -115,7 +116,7 @@ export async function renameIssueAction(
   newTitle: string
 ): Promise<IssueResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const issue = await loadIssue(supabase, id);
   if (!issue) return { ok: false, message: "Issue not found." };
   if (!canEditIssue(session.profile, issue)) {
@@ -146,7 +147,7 @@ export async function updateIssueDesiredOutcomeAction(
   value: string
 ): Promise<IssueResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const issue = await loadIssue(supabase, id);
   if (!issue) return { ok: false, message: "Issue not found." };
   if (!canEditIssue(session.profile, issue)) {
@@ -176,7 +177,7 @@ export async function updateIssueDesiredOutcomeAction(
 // parent issue closes.
 export async function resolveIssueAction(id: string): Promise<IssueResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const issue = await loadIssue(supabase, id);
   if (!issue) return { ok: false, message: "Issue not found." };
   if (!canEditIssue(session.profile, issue)) {
@@ -226,7 +227,7 @@ export async function deleteIssueAction(
   id: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const issue = await loadIssue(supabase, id);
   if (!issue) return { ok: false, message: "Issue not found." };
   if (!isAdminForCompany(session.profile, issue.company_id)) {
@@ -236,7 +237,7 @@ export async function deleteIssueAction(
     };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error, count } = await admin
     .from("issues")
     .delete({ count: "exact" })
@@ -273,7 +274,7 @@ export async function reorderIssuesAction(
   const session = await requireProfile();
   if (orderedIds.length === 0) return { ok: true };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const first = await loadIssue(supabase, orderedIds[0]!);
   if (!first) return { ok: false, message: "Issue not found." };
   if (!canEditIssue(session.profile, first)) {

@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getConversation } from "@/lib/coach/service";
 import { setScopedCompanyCookie } from "@/lib/admin/scope";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // GET /api/coach/align-scope?conversation=<id>&next=<path>
 //
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   // cookie here would fail the freshness check in getEffectiveCompanyId
   // on the next render and bounce us right back. Send the caller to
   // the picker instead — they'll see there's nowhere valid to go.
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: liveCompany } = await supabase
     .from("companies")
     .select("id")

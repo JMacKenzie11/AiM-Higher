@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server actions for the notifications system. Read-side pulls
 // live in lib/notifications/service.ts; this file is the caller-
@@ -25,7 +26,7 @@ export async function markNotificationReadAction(
   notificationId: string
 ): Promise<NotificationActionResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
@@ -47,7 +48,7 @@ export async function markNotificationReadAction(
 // enumerate ids in the client.
 export async function markAllNotificationsReadAction(): Promise<NotificationActionResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })

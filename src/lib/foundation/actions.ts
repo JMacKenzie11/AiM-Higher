@@ -14,6 +14,7 @@ import type {
   MarketingStrategy,
   MessagingPillar,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Foundation + marketing server actions — Sections 4.6 and 4.7.
 // All writes are admin-only. RLS enforces the same rule.
@@ -43,7 +44,7 @@ export async function upsertFoundationAction(
     vision: nullableString(formData.get("vision")),
   };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("company_foundation")
     .upsert(payload, { onConflict: "company_id" })
@@ -77,7 +78,7 @@ export async function createFoundationItemAction(
   const body = nullableString(formData.get("body"));
   if (!title) return { ok: false, message: "Give this a title." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Compute next sort_order so new items land at the bottom.
   const { data: existing } = await supabase
@@ -117,7 +118,7 @@ export async function updateFoundationItemAction(
   const body = nullableString(formData.get("body"));
   if (!id || !title) return { ok: false, message: "Missing title or id." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("foundation_items")
     .update({ title, body })
@@ -134,7 +135,7 @@ export async function deleteFoundationItemAction(
   itemId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("foundation_items")
     .delete()
@@ -149,7 +150,7 @@ export async function moveFoundationItemAction(
   direction: "up" | "down"
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: item } = await supabase
     .from("foundation_items")
@@ -218,7 +219,7 @@ export async function upsertMarketingAction(
     anchoring_message: nullableString(formData.get("anchoring_message")),
   };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("marketing_strategy")
     .upsert(payload, { onConflict: "company_id" })
@@ -249,7 +250,7 @@ export async function createPillarAction(
   const message = nullableString(formData.get("message"));
   const languageBank = parseLanguageBank(formData.get("language_bank"));
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("messaging_pillars")
     .select("sort_order")
@@ -287,7 +288,7 @@ export async function updatePillarAction(
   const languageBank = parseLanguageBank(formData.get("language_bank"));
   if (!id || !name) return { ok: false, message: "Missing name or id." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("messaging_pillars")
     .update({ name, message, language_bank: languageBank })
@@ -304,7 +305,7 @@ export async function deletePillarAction(
   pillarId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("messaging_pillars")
     .delete()
@@ -356,7 +357,7 @@ export async function createSnippetAction(
   const content = String(formData.get("content") ?? "").trim();
   if (!content) return { ok: false, message: "Write something." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("marketing_snippets")
     .select("sort_order")
@@ -387,7 +388,7 @@ export async function deleteSnippetAction(
   snippetId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("marketing_snippets")
     .delete()

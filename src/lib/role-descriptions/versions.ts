@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { RdDocument, RdUserOverrides } from "./generate";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read/write service for role_description_versions — the frozen
 // snapshots of the RD published at a moment in time. Writes are
@@ -24,7 +25,7 @@ export type PublishedVersion = {
 export async function listPublishedVersions(
   functionId: string
 ): Promise<PublishedVersion[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("role_description_versions")
     .select(
@@ -59,7 +60,7 @@ export async function getPublishedVersion(
   functionId: string,
   versionNumber: number
 ): Promise<PublishedVersion | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("role_description_versions")
     .select(
@@ -115,7 +116,7 @@ export async function publishVersion(input: {
   overrides: RdUserOverrides | null;
   notes: string | null;
 }): Promise<{ ok: true; versionNumber: number } | { ok: false; message: string }> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Compute next version_number = max existing + 1. Not atomic
   // strictly speaking — two admins publishing at the same instant
@@ -147,7 +148,7 @@ export async function deletePublishedVersion(
   functionId: string,
   versionNumber: number
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("role_description_versions")
     .delete()

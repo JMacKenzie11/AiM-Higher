@@ -14,6 +14,7 @@ import type {
   SfaProgressRow,
   StrategicFocusArea,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Data shape rendered on /dashboard (Section 8.2).
 
@@ -86,7 +87,7 @@ export type RecentSuccess = {
 export async function getDashboardData(
   companyId: string
 ): Promise<DashboardData | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // ---- Wave 1: everything that needs only companyId ----------
   // These six have no dependency on each other. Previously they ran

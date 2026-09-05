@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import type { Commitment, Issue, Profile } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Reads for the Issues/Solutions page. Open issues rank first (by
 // the shared company-wide `rank` field); resolved issues surface
@@ -31,7 +32,7 @@ export type IssuesPageData = {
 export async function getIssuesPageData(
   companyId: string
 ): Promise<IssuesPageData> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: issueRows } = await supabase
     .from("issues")
@@ -122,7 +123,7 @@ export async function getIssuesPageData(
 }
 
 export async function getIssueById(id: string): Promise<Issue | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("issues")
     .select("*")

@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CoachingConversation } from "@/lib/coach/service";
 import type { Profile } from "@/lib/types";
 import { createPracticeConversation } from "./create";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server actions for guided practices. Practices are a subtype of
 // general (Ask Aimee) conversations: mode stays 'general' and
@@ -50,7 +51,7 @@ export async function setPracticePartnerAction(
   partnerProfileId: string | null
 ): Promise<SimpleResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo } = await supabase
     .from("coaching_conversations")

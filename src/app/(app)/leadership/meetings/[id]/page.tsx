@@ -34,6 +34,7 @@ import {
 } from "./ExtractedCommitmentsSection";
 import styles from "../../../admin/companies/admin.module.css";
 import processingStyles from "./extracted.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Full meeting analysis + commitments the meeting spawned. Reached
 // from /leadership. Open to every same-company member; RLS on
@@ -48,7 +49,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   const session = await requireProfile();
   const { id } = await params;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: meeting } = await supabase
     .from("meetings")
     .select("id, company_id, meeting_title, file_name, status, error, created_at")

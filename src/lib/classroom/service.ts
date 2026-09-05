@@ -9,13 +9,14 @@ import type {
   LessonWithTrainings,
   TrainingWithContext,
 } from "./types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // RLS-scoped reads. Consumer pages see only published rows for
 // companies with the 'classroom' feature; system_admins see
 // everything (draft included).
 
 export async function listCategories(): Promise<ClassroomCategory[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("classroom_categories")
     .select("*")
@@ -25,7 +26,7 @@ export async function listCategories(): Promise<ClassroomCategory[]> {
 }
 
 export async function listLessons(): Promise<ClassroomLesson[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("classroom_lessons")
     .select("*")
@@ -72,7 +73,7 @@ export async function listCategoriesWithLessons(): Promise<CategoryWithLessons[]
 export async function getLessonBySlug(
   slug: string
 ): Promise<LessonWithTrainings | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: lesson } = await supabase
     .from("classroom_lessons")
     .select("*")
@@ -106,7 +107,7 @@ export async function getLessonBySlug(
 export async function getLessonById(id: string): Promise<
   (ClassroomLesson & { trainings: ClassroomTraining[] }) | null
 > {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: lesson } = await supabase
     .from("classroom_lessons")
     .select("*")
@@ -127,7 +128,7 @@ export async function getLessonById(id: string): Promise<
 export async function getTrainingBySlug(
   slug: string
 ): Promise<TrainingWithContext | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: training } = await supabase
     .from("classroom_trainings")
     .select("*")
@@ -171,7 +172,7 @@ export async function getTrainingBySlug(
 export async function getTrainingById(id: string): Promise<
   (ClassroomTraining & { attachments: ClassroomAttachment[] }) | null
 > {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: training } = await supabase
     .from("classroom_trainings")
     .select("*")

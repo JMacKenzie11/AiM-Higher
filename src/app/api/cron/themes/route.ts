@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Nightly themes-clustering job. Loads the most recent N coaching
 // conversations across the platform, feeds their auto-titles and
@@ -47,7 +48,7 @@ async function handle(req: NextRequest): Promise<Response> {
     return new Response("ANTHROPIC_API_KEY not configured", { status: 500 });
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Sample the most recent conversations with a title (skip the
   // default "Coaching · Aug 10" placeholders since they carry no

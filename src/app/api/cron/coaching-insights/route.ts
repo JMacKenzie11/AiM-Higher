@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Nightly per-conversation analysis job — Pass 2 feed for the
 // Coaching insights card.
@@ -65,7 +66,7 @@ async function handle(req: NextRequest): Promise<Response> {
     return new Response("ANTHROPIC_API_KEY not configured", { status: 500 });
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Pull the analysis-row IDs we already have so the outer query
   // can exclude them. Doing this in-JS keeps the SELECT simple

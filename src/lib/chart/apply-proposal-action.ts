@@ -9,6 +9,7 @@ import {
   parseChartProposal,
   type ChartProposal,
 } from "@/lib/practices/parse-chart-proposal";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server action for the ChartProposalCard's "Apply to Chart" button.
 //
@@ -83,7 +84,7 @@ export async function applyChartProposalAction(
   }
 
   const session = await requireProfile();
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // The chart target is the company the CONVERSATION belongs to,
   // not the caller's current scope cookie. A sysadmin can scope

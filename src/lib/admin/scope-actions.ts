@@ -8,6 +8,7 @@ import {
   clearScopedCompanyCookie,
   setScopedCompanyCookie,
 } from "./scope";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server actions callable from Client Components.
 
@@ -43,7 +44,7 @@ export async function scopeIntoCompanyAction(
   // Refuse to scope into a soft-deleted (or missing) company.
   // companies_hide_deleted RLS makes the SELECT return null when
   // deleted_at is set, so this doubles as an existence check.
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: target } = await supabase
     .from("companies")
     .select("id")

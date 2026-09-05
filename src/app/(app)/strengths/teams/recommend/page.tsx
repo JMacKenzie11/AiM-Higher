@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import type { ResultsProfile } from "@/lib/strengths/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export default async function RecommendRoute() {
   const session = await requireProfile();
@@ -24,7 +25,7 @@ export default async function RecommendRoute() {
     redirect("/admin/companies");
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: companies } = await supabase
     .from("companies")
     .select("id, name")

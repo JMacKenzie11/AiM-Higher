@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Quarter } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Quarter server actions — Section 8.8 + Section 4.2.
 //
@@ -49,7 +50,7 @@ export async function openQuarterAction(
     return { ok: false, message: "End date can't come before start date." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("quarters")
     .insert({
@@ -84,7 +85,7 @@ export async function closeQuarterAction(
 ): Promise<QuarterResult> {
   const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Load and verify the caller has access to the quarter's company.
   const { data: existing } = await supabase
@@ -123,7 +124,7 @@ export async function reopenQuarterAction(
 ): Promise<QuarterResult> {
   const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("quarters")
     .select("*")

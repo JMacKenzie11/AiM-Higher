@@ -1,5 +1,6 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Anthropic API pricing per million tokens (USD). Update when
 // Anthropic changes rates — the dashboard's per-company cost
@@ -97,7 +98,7 @@ export async function logCoachTokenUsage(args: {
 }): Promise<void> {
   try {
     const cost = estimateCostCents(args.model, args.usage);
-    const admin = createSupabaseAdminClient();
+    const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
     await admin.from("coach_token_usage").insert({
       conversation_id: args.conversationId,
       company_id: args.companyId,

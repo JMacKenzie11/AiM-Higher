@@ -8,6 +8,7 @@ import type {
   ScorecardEntry,
   ScorecardMetric,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // /scorecard read model — Section 8.5. The grid is:
 //   sticky first 3 cols   → Area, Metric, Target
@@ -38,7 +39,7 @@ export async function getScorecardData(
   companyId: string,
   callerId: string
 ): Promise<ScorecardData> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: companyRow } = await supabase
     .from("companies")

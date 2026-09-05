@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { JSONContent } from "@tiptap/react";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Sysadmin-only writes for classroom content. RLS enforces the role
 // gate at the database level; requireRole here fails fast with a
@@ -25,7 +26,7 @@ export async function createCategoryAction(
   if (!trimmed) return { ok: false, message: "Give the category a name." };
   const slug = slugify(trimmed);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("classroom_categories")
     .insert({ name: trimmed, slug })
@@ -55,7 +56,7 @@ export async function renameCategoryAction(
     return { ok: false, message: "Keep the category name under 80 characters." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("classroom_categories")
     .update({ name: trimmed, updated_at: new Date().toISOString() })
@@ -85,7 +86,7 @@ export async function createLessonAction(
   if (!title) return { ok: false, message: "Give the lesson a title." };
   const slug = input.slug?.trim() || slugify(title);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Next sort_order within category so new lessons land at the end.
   const { data: last } = await supabase
@@ -126,7 +127,7 @@ export async function updateLessonAction(
   if (!title) return { ok: false, message: "Give the lesson a title." };
   const slug = input.slug?.trim() || slugify(title);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("classroom_lessons")
     .update({
@@ -147,7 +148,7 @@ export async function updateLessonAction(
 
 export async function deleteLessonAction(id: string): Promise<ActionResult> {
   await requireRole(["system_admin"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase.from("classroom_lessons").delete().eq("id", id);
   if (error) return { ok: false, message: "Couldn't delete that lesson." };
   revalidatePath("/admin/classroom");
@@ -160,7 +161,7 @@ export async function moveLessonAction(
   direction: "up" | "down"
 ): Promise<ActionResult> {
   await requireRole(["system_admin"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: current } = await supabase
     .from("classroom_lessons")
     .select("id, sort_order, category_id")
@@ -220,7 +221,7 @@ export async function createTrainingAction(
   if (!title) return { ok: false, message: "Give the section a title." };
   const slug = input.slug?.trim() || slugify(title);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: last } = await supabase
     .from("classroom_trainings")
     .select("sort_order")
@@ -281,7 +282,7 @@ export async function updateTrainingAction(
     }
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("classroom_trainings")
     .update({
@@ -326,7 +327,7 @@ export async function updateTrainingAction(
 
 export async function deleteTrainingAction(id: string): Promise<ActionResult> {
   await requireRole(["system_admin"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("classroom_trainings")
     .select("lesson_id")
@@ -347,7 +348,7 @@ export async function moveTrainingAction(
   direction: "up" | "down"
 ): Promise<ActionResult> {
   await requireRole(["system_admin"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: current } = await supabase
     .from("classroom_trainings")
     .select("id, sort_order, lesson_id")
@@ -402,7 +403,7 @@ export async function uploadAttachmentAction(
     return { ok: false, message: "Attachments cap at 25 MB." };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const safeName = sanitizeFilename(file.name);
   const path = `${trainingId}/${crypto.randomUUID()}-${safeName}`;
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -451,7 +452,7 @@ export async function deleteAttachmentAction(
   id: string
 ): Promise<ActionResult> {
   await requireRole(["system_admin"]);
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: att } = await admin
     .from("classroom_attachments")
     .select("id, storage_path, training_id")
@@ -499,7 +500,7 @@ export async function uploadClassroomImageAction(
     return { ok: false, message: "Images cap at 8 MB." };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const safeName = sanitizeFilename(file.name);
   const path = `${crypto.randomUUID()}-${safeName}`;
   const buffer = Buffer.from(await file.arrayBuffer());

@@ -7,6 +7,7 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { processPendingMeetings } from "@/lib/transcripts/ingest";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Admin/guide-only reanalyze action. Wipes the meeting's downstream
 // artifacts (analysis row + auto-created commitments + issues added
@@ -31,7 +32,7 @@ export async function reanalyzeMeetingAction(
   meetingId: string
 ): Promise<ReanalyzeResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: meeting } = await supabase
     .from("meetings")
@@ -46,7 +47,7 @@ export async function reanalyzeMeetingAction(
     };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Wipe downstream artifacts. Hard delete rather than soft so a
   // reanalyze test doesn't leave zombie rows behind. Counts flow

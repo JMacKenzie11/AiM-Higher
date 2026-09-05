@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserStrength } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Manual strengths + superpowers per user. These feed the coaching
 // context directly — no strengths assessment required. Editable by:
@@ -18,7 +19,7 @@ export type UserStrengthsView = {
 };
 
 export async function getUserStrengths(userId: string): Promise<UserStrengthsView> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("user_strengths")
     .select("*")
@@ -52,7 +53,7 @@ export async function saveUserStrengthsAction(
     if (session.profile.role === "system_admin") {
       // ok
     } else if (session.profile.role === "company_admin") {
-      const supabase = await createSupabaseServerClient();
+      const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
       const { data: target } = await supabase
         .from("profiles")
         .select("company_id")
@@ -75,7 +76,7 @@ export async function saveUserStrengthsAction(
     .map((v) => String(v).trim())
     .filter(Boolean);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Replace-all: delete existing rows, insert the new set.
   const { error: delErr } = await supabase

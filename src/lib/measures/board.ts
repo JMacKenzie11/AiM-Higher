@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addDays, thisFriday } from "@/lib/dates";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read model for the operational Success Tracking board — 13
 // weeks of metric performance across every function in the company.
@@ -67,7 +68,7 @@ export async function getBoardData(
   companyId: string,
   timezone: string
 ): Promise<BoardData> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const currentWeekEnding = thisFriday(timezone);
   const weeks: string[] = [];
   for (let i = WEEKS - 1; i >= 0; i--) {

@@ -10,6 +10,7 @@ import { getPublishedVersion } from "@/lib/role-descriptions/versions";
 import { PageShell } from "@/components/ui/PageShell";
 import { RichText } from "../../RichText";
 import styles from "../../role-description.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read-only view of a published Role Description snapshot. Frozen
 // content — same 10-section shape as the live view page, but no
@@ -78,7 +79,7 @@ export default async function RoleDescriptionVersionPage({
     }
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const [{ data: company }, { data: valuesRaw }] = await Promise.all([
     supabase
       .from("companies")

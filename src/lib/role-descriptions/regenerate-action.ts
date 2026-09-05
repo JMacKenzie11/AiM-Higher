@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { deleteRoleDescriptionCache } from "./cache";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Admin-only escape hatch for the RD cache. Deletes the stored
 // document for a function and revalidates the view page, forcing
@@ -18,7 +19,7 @@ export async function regenerateRoleDescriptionAction(
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: fn } = await supabase
     .from("functions")
     .select("company_id")

@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { anthropic, ANTHROPIC_MODEL } from "@/lib/strengths/anthropic";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { VOICE_RULES } from "@/lib/strengths/voice-rules";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {
     data: { user },
   } = await supabase.auth.getUser();

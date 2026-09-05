@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read-side helpers for the /coach surface. RLS scopes everything to
 // the current admin's created_by; server helpers here just return the
@@ -57,7 +58,7 @@ export async function listConversationsForSubject(
   subjectProfileId: string,
   includeArchived = false
 ): Promise<ConversationWithSnippet[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   let query = supabase
     .from("coaching_conversations")
@@ -114,7 +115,7 @@ export async function listGeneralConversationsForUser(
   companyId: string | null,
   includeArchived = false
 ): Promise<ConversationWithSnippet[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   let query = supabase
     .from("coaching_conversations")
@@ -157,7 +158,7 @@ export async function listGeneralConversationsForUser(
 export async function getConversation(
   conversationId: string
 ): Promise<CoachingConversation | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("coaching_conversations")
     .select("*")
@@ -202,7 +203,7 @@ export async function getAccessForConversation(
   conversationId: string,
   userId: string
 ): Promise<ConversationAccess | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
@@ -239,7 +240,7 @@ export async function getAccessForConversation(
 export async function listSharesForConversation(
   conversationId: string
 ): Promise<ShareeSummary[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: shareRows } = await supabase
     .from("coaching_conversation_shares")
     .select("profile_id, access")
@@ -251,7 +252,7 @@ export async function listSharesForConversation(
   }>;
   if (shares.length === 0) return [];
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profiles } = await admin
     .from("profiles")
     .select("id, full_name, avatar_url")
@@ -294,7 +295,7 @@ export async function listSharedWithMe(
   userId: string,
   companyId: string | null
 ): Promise<SharedInboxRow[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Two-step: pull the share rows for this user (indexed by profile_id),
   // then hydrate conversations. Simpler than a nested embed and keeps
@@ -372,7 +373,7 @@ export type ShareCandidate = {
 export async function listShareCandidatesForConversation(
   conversationId: string
 ): Promise<ShareCandidate[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: convo } = await supabase
     .from("coaching_conversations")
@@ -408,7 +409,7 @@ export async function listShareCandidatesForConversation(
   // caller has already been proven the conversation owner by the
   // shareConversationAction / listShareCandidatesAction gate
   // upstream, so bypassing RLS here is safe.
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const [
     { data: members },
     { data: assignments },
@@ -491,7 +492,7 @@ export async function getMessageSenders(
   profileIds: readonly string[]
 ): Promise<Map<string, { full_name: string; avatar_url: string | null }>> {
   if (profileIds.length === 0) return new Map();
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin
     .from("profiles")
     .select("id, full_name, avatar_url")
@@ -509,7 +510,7 @@ export async function getMessageSenders(
 export async function getMessages(
   conversationId: string
 ): Promise<CoachingMessage[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("coaching_messages")
     .select("*")

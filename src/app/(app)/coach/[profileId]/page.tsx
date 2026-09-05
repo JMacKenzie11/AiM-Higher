@@ -9,6 +9,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import type { Profile } from "@/lib/types";
 import styles from "../coach.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 type PageProps = {
   params: Promise<{ profileId: string }>;
@@ -19,7 +20,7 @@ export default async function CoachListPage({ params }: PageProps) {
   const role = session.profile.role;
 
   const { profileId } = await params;
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: subject } = await supabase
     .from("profiles")
     .select("id, full_name, position, company_id, reports_to")

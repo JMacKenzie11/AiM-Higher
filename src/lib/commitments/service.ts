@@ -18,6 +18,7 @@ import type {
   Profile,
   Quarter,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // --------------------------------------------------------------
 // Shared row shapes for commitments pages.
@@ -63,7 +64,7 @@ export async function getPriorityCommitmentPanelData(
   priorityId: string,
   viewerIsAdmin: boolean
 ): Promise<PriorityCommitmentPanelData | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: priority } = await supabase
     .from("priorities")
@@ -178,7 +179,7 @@ export async function computeQuarterKeepRate(
   companyId: string,
   quarter: Pick<Quarter, "start_date" | "end_date">
 ): Promise<number | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("commitments")
     .select("status")
@@ -281,7 +282,7 @@ export async function getCommitmentsPageData(
   currentUserId: string,
   filters: CommitmentFilters
 ): Promise<CommitmentsPageData> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: company } = await supabase
     .from("companies")

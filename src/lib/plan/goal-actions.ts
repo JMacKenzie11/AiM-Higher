@@ -8,6 +8,7 @@ import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
 import type { AnnualGoal, CascadeStatus } from "@/lib/types";
 import { parseStatus, type PlanResult } from "./_shared";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export async function createGoalAction(
   _prev: PlanResult<AnnualGoal> | undefined,
@@ -30,7 +31,7 @@ export async function createGoalAction(
   const status = parseStatus(String(formData.get("status") ?? "not_started"))
     ?? "not_started";
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("annual_goals")
     .insert({
@@ -79,7 +80,7 @@ export async function updateGoalAction(
   const targetDate = nullableString(formData.get("target_date"));
   const status = parseStatus(String(formData.get("status") ?? ""));
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("annual_goals")
     .update({
@@ -109,7 +110,7 @@ export async function updateGoalStatusAction(
   }
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("annual_goals")
     .select("*")
@@ -144,7 +145,7 @@ export async function archiveGoalAction(
   archived: boolean
 ): Promise<PlanResult<AnnualGoal>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("annual_goals")
     .update({ archived })
@@ -162,7 +163,7 @@ export async function setGoalSfaAction(
   sfaId: string | null
 ): Promise<PlanResult<AnnualGoal>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("annual_goals")
     .update({ sfa_id: sfaId })

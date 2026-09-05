@@ -19,6 +19,7 @@ import { NeedsAttentionSection } from "../../../../hq/NeedsAttentionSection";
 import { YourCompaniesSection } from "../../../../hq/YourCompaniesSection";
 import { RecentActivitySection } from "../../../../hq/RecentActivitySection";
 import styles from "../../../../hq/hq.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Sysadmin oversight view of another guide's Guide HQ. Sourced by
 // guideId instead of the caller's own id, and rendered read-only:
@@ -35,7 +36,7 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
   const session = await requireRole(["system_admin"]);
   const { guideId } = await params;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: guide } = await supabase
     .from("profiles")
     .select("id, full_name, role")

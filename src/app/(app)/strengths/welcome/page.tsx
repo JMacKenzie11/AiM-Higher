@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import StartAssessmentButton from "./StartAssessmentButton";
 import styles from "../strengths.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export default async function WelcomePage() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -19,6 +19,7 @@ import { IndustryForm } from "./IndustryForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -45,7 +46,7 @@ export default async function CompanyDetailPage({
     redirect("/admin/companies");
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const [
     { data: company },
