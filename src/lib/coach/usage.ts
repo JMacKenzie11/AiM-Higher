@@ -98,7 +98,7 @@ export async function logCoachTokenUsage(args: {
 }): Promise<void> {
   try {
     const cost = estimateCostCents(args.model, args.usage);
-    const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+    const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
     await admin.from("coach_token_usage").insert({
       conversation_id: args.conversationId,
       company_id: args.companyId,

@@ -43,7 +43,7 @@ export type PlatformPulse = {
 };
 
 export async function getPlatformPulse(): Promise<PlatformPulse> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const since7 = daysAgo(7);
   const since30 = daysAgo(30);
 
@@ -110,7 +110,7 @@ export type CompanyActivityRow = {
 };
 
 export async function getCompanyActivity(): Promise<CompanyActivityRow[]> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const since7 = daysAgo(7);
   const since30 = daysAgo(30);
 
@@ -313,7 +313,7 @@ export type PracticeAdoptionRow = {
 // at least one follow-up) is qualitatively different from one that
 // ended after the opener.
 export async function getPracticeAdoption(): Promise<PracticeAdoptionRow[]> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const since30 = daysAgo(30);
 
   const { data: convosData } = await admin
@@ -391,7 +391,7 @@ export type ModelCostSummary = {
 };
 
 export async function getModelCostSummary(): Promise<ModelCostSummary> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const since30 = daysAgo(30);
   const since7 = daysAgo(7);
 
@@ -461,7 +461,7 @@ export type SignupStats = {
 };
 
 export async function getSignupStats(): Promise<SignupStats> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const since7 = daysAgo(7);
 
   const [newCompanies, newUsers, deactivated, pending] = await Promise.all([
@@ -505,7 +505,7 @@ export type ThemesSnapshot = {
 };
 
 export async function getLatestThemes(): Promise<ThemesSnapshot> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin
     .from("coach_theme_snapshot")
     .select("themes, source_count, refreshed_at")

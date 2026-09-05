@@ -28,7 +28,7 @@ export type IngestSourceResult = {
 export async function ingestSource(
   source: TranscriptSource
 ): Promise<IngestSourceResult> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const result: IngestSourceResult = {
     sourceId: source.id,
     filesSeen: 0,
@@ -164,7 +164,7 @@ export async function ingestSource(
 export async function processPendingMeetings(
   scope: { companyId?: string; meetingId?: string } = {}
 ): Promise<{ processed: number; recovered: number }> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Self-heal: rescue meetings stuck in "analyzing" longer than a
   // full function-timeout window. Vercel kills serverless at 60s
@@ -270,7 +270,7 @@ export async function processPendingMeetings(
 }
 
 async function loadAllAliases(
-  admin: ReturnType<typeof createSupabaseAdminClient>
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>
 ): Promise<Array<Pick<TranscriptAlias, "company_id" | "alias">>> {
   const { data } = await admin
     .from("transcript_aliases")
@@ -279,7 +279,7 @@ async function loadAllAliases(
 }
 
 async function loadCompanyAliases(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   companyId: string
 ): Promise<Array<Pick<TranscriptAlias, "company_id" | "alias">>> {
   const { data } = await admin
@@ -298,7 +298,7 @@ export async function runSourceCycle(
   ingest: IngestSourceResult;
   analysis: { processed: number; recovered: number };
 }> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: source } = await admin
     .from("transcript_sources")
     .select("*")

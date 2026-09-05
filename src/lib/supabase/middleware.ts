@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { InstanceConfig } from "@/lib/instances/types";
+import {
+  INSTANCE_HEADER,
+  serializeInstance,
+} from "@/lib/instances/request";
 
 // Session refresh on every request. Follows the @supabase/ssr recipe:
 // build a NextResponse, wire cookie get/set to both the request and
@@ -27,7 +31,21 @@ export async function updateSession(
   // that path.
   role: string | null;
 }> {
-  let response = NextResponse.next({ request });
+  // The resolved instance rides down to the render as a request
+  // header. It has to be attached here rather than in the caller,
+  // because every NextResponse.next() below re-derives the request
+  // and only the object passed at construction time is what the
+  // render actually sees.
+  //
+  // Derived fresh each time from request.headers so cookie rotations
+  // applied to request.cookies just above are carried along too.
+  const withInstance = () => {
+    const headers = new Headers(request.headers);
+    headers.set(INSTANCE_HEADER, serializeInstance(instance));
+    return NextResponse.next({ request: { headers } });
+  };
+
+  let response = withInstance();
 
   const supabase = createServerClient(
     instance.supabaseUrl,
@@ -41,7 +59,7 @@ export async function updateSession(
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          response = NextResponse.next({ request });
+          response = withInstance();
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
           }

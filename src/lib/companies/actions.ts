@@ -291,7 +291,7 @@ export async function deleteCompanyAction(
   // the SELECT policy the RETURNING has to satisfy. The auth check
   // (requireRole system_admin + archived-status gate) has already
   // run above, so bypassing RLS here is safe.
-  const adminSupabase = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const adminSupabase = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await adminSupabase
     .from("companies")
     .update({ deleted_at: new Date().toISOString() })

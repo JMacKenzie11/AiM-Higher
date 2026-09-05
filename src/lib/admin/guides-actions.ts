@@ -64,7 +64,7 @@ export async function createGuideAction(
     };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Step 1: auth user. email_confirm=false — verifyOtp will confirm
   // the email when the guide clicks the invite link.
@@ -146,7 +146,7 @@ export async function resendGuideInviteAction(
   const g = await guard();
   if (!g.ok) return g;
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profile } = await admin
     .from("profiles")
     .select("id, role, status")
@@ -203,7 +203,7 @@ export async function assignGuideAction(
     return { ok: false, message: "Pick a guide and a company." };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profile } = await admin
     .from("profiles")
     .select("id, role")
@@ -256,7 +256,7 @@ export async function assignExistingAsGuideAction(
     return { ok: false, message: "Pick at least one company." };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profile } = await admin
     .from("profiles")
     .select("id, role")
@@ -302,7 +302,7 @@ export async function unassignGuideAction(
   const g = await guard();
   if (!g.ok) return g;
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   const { data: profile } = await admin
     .from("profiles")
@@ -345,7 +345,7 @@ export async function deleteGuideAction(
   const g = await guard();
   if (!g.ok) return g;
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin.auth.admin.deleteUser(guideId);
   if (error) {
     reportError("guides.delete.authUser", error, { guideId });

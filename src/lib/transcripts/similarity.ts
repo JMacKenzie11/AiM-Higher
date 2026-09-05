@@ -32,7 +32,7 @@ export async function findSimilarOpenItem(
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const since = new Date(
     Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();

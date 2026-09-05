@@ -1,11 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
 
-import { resolveInstance } from "./resolve";
+import { APEX_SUBDOMAIN, resolveInstance } from "./resolve";
 import type { InstanceConfig } from "./types";
 
 // The registry stand-in. One known instance and one suspended one;
 // everything else is unknown.
 const REGISTRY: Record<string, InstanceConfig> = {
+  "@": {
+    subdomain: "@",
+    displayName: "AiMS Higher",
+    supabaseUrl: "https://apex.supabase.co",
+    supabaseAnonKey: "apex-anon",
+    supabaseServiceKey: "apex-service",
+    status: "active",
+  },
   acme: {
     subdomain: "acme",
     displayName: "Acme",
@@ -191,21 +199,36 @@ describe("resolveInstance", () => {
     expect(lookup).toHaveBeenCalledWith("nobody");
   });
 
-  it("returns null on the apex domain without asking the registry", async () => {
+  it("resolves the apex domain through the registry as \"@\"", async () => {
     const lookup = makeLookup();
 
-    // The apex is the marketing site. No fallback database: it
-    // resolves to nothing rather than to somebody else's data.
-    expect(await resolveInstance("example.com", {}, lookup)).toBeNull();
-    expect(lookup).not.toHaveBeenCalled();
+    // The apex is a row like any other. Still no fallback database:
+    // if nobody wrote the "@" row it resolves to nothing.
+    expect(await resolveInstance("example.com", {}, lookup)).toEqual(
+      REGISTRY[APEX_SUBDOMAIN],
+    );
+    expect(lookup).toHaveBeenCalledWith("@");
   });
 
   it("treats www on the apex as the apex, not an instance named www", async () => {
     const lookup = makeLookup();
 
-    expect(await resolveInstance("www.example.com", {}, lookup)).toBeNull();
-    expect(await resolveInstance("WWW.Example.com:443", {}, lookup)).toBeNull();
-    expect(lookup).not.toHaveBeenCalled();
+    expect(await resolveInstance("www.example.com", {}, lookup)).toEqual(
+      REGISTRY[APEX_SUBDOMAIN],
+    );
+    expect(await resolveInstance("WWW.Example.com:443", {}, lookup)).toEqual(
+      REGISTRY[APEX_SUBDOMAIN],
+    );
+    for (const call of lookup.mock.calls) expect(call[0]).toBe("@");
+  });
+
+  it("returns null on the apex when no @ row exists", async () => {
+    // The row is the whole authorisation. Without it the live domain
+    // resolves to nothing, exactly like any unregistered hostname.
+    const empty = vi.fn(async () => null);
+
+    expect(await resolveInstance("example.com", {}, empty)).toBeNull();
+    expect(empty).toHaveBeenCalledWith("@");
   });
 
   it("ignores a www prefix in front of a real subdomain", async () => {
@@ -233,6 +256,9 @@ describe("resolveInstance", () => {
   it("returns null for a bare host with no domain under it", async () => {
     const lookup = makeLookup();
 
+    // A single label is not a domain, so it gets no apex row. This is
+    // what stops a developer with no LOCAL_INSTANCE_* override from
+    // landing on whatever the "@" row points at, which is production.
     expect(await resolveInstance("localhost:3200", {}, lookup)).toBeNull();
     expect(await resolveInstance("", {}, lookup)).toBeNull();
     expect(lookup).not.toHaveBeenCalled();

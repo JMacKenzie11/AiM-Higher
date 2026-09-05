@@ -403,7 +403,7 @@ export async function uploadAttachmentAction(
     return { ok: false, message: "Attachments cap at 25 MB." };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const safeName = sanitizeFilename(file.name);
   const path = `${trainingId}/${crypto.randomUUID()}-${safeName}`;
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -452,7 +452,7 @@ export async function deleteAttachmentAction(
   id: string
 ): Promise<ActionResult> {
   await requireRole(["system_admin"]);
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: att } = await admin
     .from("classroom_attachments")
     .select("id, storage_path, training_id")
@@ -500,7 +500,7 @@ export async function uploadClassroomImageAction(
     return { ok: false, message: "Images cap at 8 MB." };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const safeName = sanitizeFilename(file.name);
   const path = `${crypto.randomUUID()}-${safeName}`;
   const buffer = Buffer.from(await file.arrayBuffer());

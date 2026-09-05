@@ -246,7 +246,7 @@ export async function insertNotification(input: {
   if (input.recipientId === input.createdBy) {
     return { ok: false, message: "skipped self-notification" };
   }
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data, error } = await admin
     .from("notifications")
     .insert({

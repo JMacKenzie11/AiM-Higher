@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { resolveInstance } from "@/lib/instances/resolve";
+import { lookupInstance } from "@/lib/instances/registry";
+import {
+  isInstanceExemptPath,
+  routeForInstance,
+} from "@/lib/instances/middleware-decision";
+import { hostnameFromHeaders } from "@/lib/instances/request";
 import {
   SCOPE_COOKIE_NAME,
   SCOPE_COOKIE_MAX_AGE,
@@ -11,7 +17,14 @@ import {
   roleCanAutoScope,
 } from "@/lib/admin/scope-request";
 
-// Middleware handles three concerns per request:
+// Middleware handles four concerns per request:
+//   0. Instance resolution (first, for everything except the cron
+//      routes, which are excluded outright). The hostname decides
+//      which database this request belongs to. A hostname that
+//      resolves to nothing is rewritten to /instance-not-found and
+//      never touches Supabase at all — no session refresh, no
+//      routing, no app route reachable. Everything after this point
+//      assumes an instance exists.
 //   1. Supabase session refresh (always).
 //   2. "/" routing — unauthenticated visitors see the marketing
 //      landing page; authenticated visitors go to /dashboard, whose
@@ -47,6 +60,15 @@ function pendingAllowsPath(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  // Scheduled jobs first, before anything else looks at the request.
+  // They are not a visitor's request: no hostname worth resolving, no
+  // session to refresh, no scope to set. They choose their own
+  // instance explicitly and fail loudly if they cannot. See
+  // isInstanceExemptPath.
+  if (isInstanceExemptPath(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   const currentScope = request.cookies.get(SCOPE_COOKIE_NAME)?.value ?? null;
   const targetScope = autoScopeTarget({
     pathname: request.nextUrl.pathname,
@@ -65,15 +87,36 @@ export async function middleware(request: NextRequest) {
   }
 
   const path = request.nextUrl.pathname;
+
+  // One resolution per request, before anything else. resolveInstance
+  // is pure — env and the registry lookup are injected — so the order
+  // here is the whole rule: local override, then preview, then the
+  // registry, then nothing.
+  //
+  // The hostname comes from the request headers, not nextUrl: see
+  // hostnameFromHeaders for why nextUrl.hostname cannot be trusted.
+  const resolved = await resolveInstance(
+    hostnameFromHeaders(request.headers, request.nextUrl.hostname),
+    process.env,
+    lookupInstance
+  );
+  const routing = routeForInstance({ pathname: path, instance: resolved });
+
+  if (routing.action === "rewrite") {
+    // Deliberately before the session refresh. There is no database
+    // to check a session against, so nothing here may touch Supabase.
+    return NextResponse.rewrite(new URL(routing.to, request.url));
+  }
+  if (routing.action === "passthrough") {
+    // Already on the not-found page. Render it without resolving, or
+    // an unknown hostname would rewrite to it forever.
+    return NextResponse.next();
+  }
+
   const needsPendingCheck = !pendingAllowsPath(path);
-  // One resolution per request, at the very top of the request's
-  // life. Today it's the same answer every time; when hostname
-  // resolution lands, this is the line that changes and everything
-  // downstream keeps working.
-  const instance = getCurrentInstanceConfig();
   const { response, isAuthenticated, isPending, role } = await updateSession(
     request,
-    instance,
+    routing.instance,
     { checkPending: needsPendingCheck }
   );
 

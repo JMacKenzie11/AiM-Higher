@@ -237,7 +237,7 @@ export async function deleteIssueAction(
     };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error, count } = await admin
     .from("issues")
     .delete({ count: "exact" })

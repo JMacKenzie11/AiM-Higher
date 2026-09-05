@@ -38,7 +38,7 @@ export default async function EditPersonPage({ params }: PageProps) {
   // Email lives on auth.users. Only sysadmins can call the admin API,
   // but this page is only reachable by admin roles anyway. Use the
   // admin client so a company_admin session can still read the value.
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: authUser } = await admin.auth.admin.getUserById(subject.id);
   const email = authUser?.user?.email ?? "";
 

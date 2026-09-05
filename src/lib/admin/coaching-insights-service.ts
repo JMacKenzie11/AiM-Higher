@@ -107,7 +107,7 @@ export function everythingInsightsFilters(): CoachingInsightsFilters {
 // layer — the admin client bypasses RLS so we filter here too as
 // belt-and-braces).
 export async function listCoachingInsightsCompanies(): Promise<CompanyOption[]> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin
     .from("companies")
     .select("id, name")
@@ -122,7 +122,7 @@ export async function listCoachingInsightsCompanies(): Promise<CompanyOption[]> 
 export async function getCoachingInsightsAdoption(
   filters: CoachingInsightsFilters
 ): Promise<CoachingInsightsAdoption> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Convert endIso (inclusive day) to an exclusive upper bound
   // at start-of-next-day so a filter ending "2026-08-31" catches
@@ -456,7 +456,7 @@ export async function getCoachingInsightsSynthesis(
   // synthesis panes rather than 500 the whole page. Errors are
   // logged so we notice, but never propagated.
   try {
-    const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+    const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
     // The analyses table is keyed by conversation, but the window
     // filter belongs to the conversation's created_at, not to
