@@ -8,6 +8,7 @@ import type {
   MarketingStrategy,
   MessagingPillar,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Full read model for /foundation. Every tab pulls from one shared
 // query so the page renders in a single round-trip.
@@ -33,7 +34,7 @@ export type FoundationData = {
 export async function getFoundation(
   companyId: string
 ): Promise<FoundationData> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const [
     { data: foundationRow },

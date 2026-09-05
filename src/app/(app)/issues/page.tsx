@@ -13,6 +13,7 @@ import { CreateIssueRow } from "./CreateIssueRow";
 import { FilterPills } from "./FilterPills";
 import { ResolvedIssuesList } from "./ResolvedIssuesList";
 import commitmentStyles from "../commitments/commitments.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Issues/Solutions — the Solution Seeking discipline. Name the
 // issue, decide what you want, and commit to the next step. Ranks
@@ -41,7 +42,7 @@ export default async function IssuesPage({ searchParams }: PageProps) {
     source: pickString(sp.source, "all") as IssueFilters["source"],
   };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: company } = await supabase
     .from("companies")
     .select("timezone")

@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Quarter } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read-side helpers for quarters. All calls go through the RLS-scoped
 // server client so we can trust the user only sees their own company.
@@ -12,7 +13,7 @@ export type QuarterWithCounts = Quarter & { priority_count: number };
 export async function getQuartersForCompany(
   companyId: string
 ): Promise<QuarterWithCounts[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: quarters, error } = await supabase
     .from("quarters")
@@ -47,7 +48,7 @@ export async function getQuartersForCompany(
 // used to hit Supabase separately.
 export const getCurrentQuarter = cache(
   async (companyId: string): Promise<Quarter | null> => {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
     const { data } = await supabase
       .from("quarters")
       .select("*")

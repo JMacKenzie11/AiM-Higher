@@ -19,6 +19,7 @@ import type {
   Priority,
   Profile,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Two-call analysis pipeline. Call 1 uses the AiMS meeting-analyzer
 // prompt verbatim (prompts/meeting-analyzer.md) plus a company
@@ -49,7 +50,7 @@ export type AnalysisResult = {
 };
 
 export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult> {
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Load the meeting + confirm it's routed and pending. The pipeline
   // must never analyze an unrouted meeting.

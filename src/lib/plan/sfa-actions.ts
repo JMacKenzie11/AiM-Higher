@@ -8,6 +8,7 @@ import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
 import type { CascadeStatus, StrategicFocusArea } from "@/lib/types";
 import { parseStatus, type PlanResult } from "./_shared";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Strategic Focus Areas. Admin path is full-field; owner path is
 // status-only. Both defend behind RLS from 0005_cascade.sql.
@@ -34,7 +35,7 @@ export async function createSfaAction(
   const status = parseStatus(String(formData.get("status") ?? "not_started"))
     ?? "not_started";
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("strategic_focus_areas")
     .insert({
@@ -75,7 +76,7 @@ export async function updateSfaAction(
   const sponsorId = nullableString(formData.get("sponsor_id"));
   const status = parseStatus(String(formData.get("status") ?? ""));
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("strategic_focus_areas")
     .update({
@@ -104,7 +105,7 @@ export async function updateSfaStatusAction(
   }
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
     .from("strategic_focus_areas")
     .select("*")
@@ -139,7 +140,7 @@ export async function archiveSfaAction(
   archived: boolean
 ): Promise<PlanResult<StrategicFocusArea>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("strategic_focus_areas")
     .update({ archived })

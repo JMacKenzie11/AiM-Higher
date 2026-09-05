@@ -11,6 +11,7 @@ import type {
   SfaProgressRow,
   StrategicFocusArea,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Cascade read model for /plan and the plan detail pages.
 // One query per level (server-side RLS scopes to the caller's company),
@@ -49,7 +50,7 @@ export async function getCascade(
   companyId: string,
   quarterId: string | null
 ): Promise<Cascade> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const [sfaRes, goalRes, priorityRes, profileRes] = await Promise.all([
     supabase
@@ -191,7 +192,7 @@ export async function getCascade(
 // notFound() cleanly.
 
 export async function getSfaDetail(sfaId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: sfa } = await supabase
     .from("strategic_focus_areas")
     .select("*")
@@ -227,7 +228,7 @@ export async function getSfaDetail(sfaId: string) {
 }
 
 export async function getGoalDetail(goalId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: goal } = await supabase
     .from("annual_goals")
     .select("*")
@@ -307,7 +308,7 @@ export type BulkResetImpact = {
 export async function getBulkResetImpact(
   companyId: string
 ): Promise<BulkResetImpact> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const [sfa, goal, priority] = await Promise.all([
     supabase
       .from("strategic_focus_areas")
@@ -333,7 +334,7 @@ export async function getBulkResetImpact(
 }
 
 export async function getPriorityDetail(priorityId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: priority } = await supabase
     .from("priorities")
     .select("*")

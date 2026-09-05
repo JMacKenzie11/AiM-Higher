@@ -6,9 +6,10 @@ import GenerateResultsIfMissing from "./GenerateResultsIfMissing";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ResultsProfile } from "@/lib/strengths/types";
 import styles from "../strengths.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export default async function ResultsPage() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -6,6 +6,7 @@ import {
   loadLatestOverallSnapshots,
 } from "@/lib/maturity/service";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Guide HQ attention queue. Computes, for a caseload of companies,
 // which ones deserve the guide's focus this week and why. Each
@@ -119,7 +120,7 @@ export async function computeAttentionForCompanies(
 ): Promise<CompanyAttention[]> {
   if (companyIds.length === 0) return [];
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const now = Date.now();
   const DAY = 24 * 60 * 60 * 1000;

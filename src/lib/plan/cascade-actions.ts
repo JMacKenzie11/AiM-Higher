@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AnnualGoal, Priority } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Cascade completion. Completing a priority also closes its open
 // commitments as kept (the "priority hit its goal, credit the work"
@@ -20,7 +21,7 @@ export async function completePriorityAction(
   priorityId: string
 ): Promise<CascadeResult> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: priority } = await supabase
     .from("priorities")
@@ -61,7 +62,7 @@ export async function completeGoalAction(
   goalId: string
 ): Promise<CascadeResult> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: goal } = await supabase
     .from("annual_goals")

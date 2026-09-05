@@ -11,6 +11,7 @@ import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type { MeetingListRow } from "@/lib/types";
 import styles from "../admin/companies/admin.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Leadership — the home for meeting-transcript analyses.
 //
@@ -29,7 +30,7 @@ export default async function LeadershipPage() {
   if (!companyId) redirect("/admin/companies");
   const isAdmin = isAdminForCompany(session.profile, companyId);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   // Explicit column list, NOT select("*"). The Meeting row carries
   // transcript_text (the full meeting transcript); selecting it for
   // 100 rows pulled megabytes over the wire and through JSON.parse to

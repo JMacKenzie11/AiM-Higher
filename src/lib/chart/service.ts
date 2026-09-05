@@ -17,6 +17,7 @@ import type {
   SuccessMeasure,
   SuccessMeasureEntry,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read model for /chart. Loads the entire company's functional tree
 // in a small handful of queries and stitches in memory. Every branch
@@ -57,7 +58,7 @@ export type ChartTree = {
 };
 
 export async function getChartTree(companyId: string): Promise<ChartTree> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const [
     { data: functionsRaw },
@@ -238,7 +239,7 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
   >;
   roster: Array<Pick<Profile, "id" | "full_name">>;
 } | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: fn } = await supabase
     .from("functions")

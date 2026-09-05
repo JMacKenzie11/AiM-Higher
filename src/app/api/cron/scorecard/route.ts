@@ -6,6 +6,7 @@ import {
   computeCompanyScorecard,
   writeScorecardSnapshot,
 } from "@/lib/maturity/compute";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Weekly cron for the AiMS Scorecard.
 //
@@ -46,7 +47,7 @@ async function handle(req: NextRequest): Promise<Response> {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   const { data: companies, error: listError } = await admin
     .from("companies")

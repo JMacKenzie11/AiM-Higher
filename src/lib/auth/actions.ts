@@ -10,6 +10,7 @@ import { clearScopedCompanyCookie } from "@/lib/admin/scope";
 import { sendResetEmail } from "@/lib/email";
 import { trackAfter } from "@/lib/analytics/track";
 import type { Profile } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server actions for auth flows. Every UI form here has a matching
 // action; the UI never talks to Supabase directly for these operations.
@@ -30,7 +31,7 @@ export async function signInAction(
     return { ok: false, message: "Enter your email and password to continue." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -61,7 +62,7 @@ export async function signInAction(
 
 // ---- Sign out --------------------------------------------------
 export async function signOutAction(): Promise<never> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   await supabase.auth.signOut();
   redirect("/sign-in");
 }
@@ -85,7 +86,7 @@ export async function requestPasswordResetAction(
     return { ok: false, message: "Enter the email tied to your account." };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data, error } = await admin.auth.admin.generateLink({
     type: "recovery",
     email,
@@ -181,7 +182,7 @@ export async function completeAcceptInviteAction(
     return { ok: false, message: "The two passwords don't match yet." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Step 1: exchange the token. Sets the session cookie for this
   // request; the next call (updateUser) uses it.
@@ -215,7 +216,7 @@ export async function completeAcceptInviteAction(
   // we log so a sysadmin can inspect + flip the row manually. This
   // was the failure mode where Jeff Bouwman signed in but stayed
   // pending on 2026-08-08 — we silently swallowed the update result.
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error: statusErr } = await admin
     .from("profiles")
     .update({ status: "active" })
@@ -271,7 +272,7 @@ export async function completeResetPasswordAction(
     return { ok: false, message: "The two passwords don't match yet." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: otpData, error: otpErr } = await supabase.auth.verifyOtp({
     type: type as EmailOtpType,
     token_hash: tokenHash,
@@ -317,7 +318,7 @@ export async function setNewPasswordAction(
     return { ok: false, message: "The two passwords don't match yet." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase.auth.updateUser({ password });
   if (error || !data.user) {
     const detail = error?.message?.trim();

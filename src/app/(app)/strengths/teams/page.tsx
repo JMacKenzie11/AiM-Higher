@@ -7,6 +7,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { MISSION_LABELS } from "@/lib/strengths/team-labels";
 import type { MissionType } from "@/lib/strengths/team-scoring";
 import styles from "../strengths.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 type TeamRow = {
   id: string;
@@ -37,7 +38,7 @@ export default async function TeamsListPage() {
     redirect("/admin/companies");
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: teams } = await supabase
     .from("strengths_teams")
     .select("id, name, mission_type, status, company_id, created_at")

@@ -6,6 +6,7 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { patchUserOverrides } from "./cache";
 import type { RdUserOverrides } from "./generate";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Save (or clear) any subset of a Role Description's user overrides
 // for a function. Admin-only per the guides-as-company-admins rule.
@@ -23,7 +24,7 @@ export async function saveRoleDescriptionOverrideAction(input: {
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: fn } = await supabase
     .from("functions")
     .select("company_id")

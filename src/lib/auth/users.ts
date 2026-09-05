@@ -12,6 +12,7 @@ import {
 import { sendInviteEmail } from "@/lib/email";
 import { trackAfter } from "@/lib/analytics/track";
 import type { Profile } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Roster actions — replaces the old invitations flow.
 //
@@ -84,7 +85,7 @@ export async function createUserAction(
     return { ok: false, message: "Not your company." };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Step 1: create the auth.users row (no email dispatched).
   // We leave email_confirm=false so a later inviteUserByEmail() will
@@ -192,7 +193,7 @@ export async function updateUserAction(
     };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Fetch the current row so we can scope-check + only touch email
   // when it actually changed (avoids re-sending Supabase's magic-link
@@ -289,7 +290,7 @@ export async function requestFreshInviteAction(
     return { ok: true };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Paginated listUsers is the only email→user lookup the auth
   // admin API surfaces. Fine at our scale (< a few thousand users);
@@ -336,7 +337,7 @@ export async function requestFreshInviteAction(
 export async function sendInviteAction(profileId: string): Promise<UserActionResult> {
   const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, company_id, status")
@@ -366,7 +367,7 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
     };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: userRow, error: userErr } = await admin.auth.admin.getUserById(profileId);
   if (userErr || !userRow?.user?.email) {
     return { ok: false, message: "Couldn't find that user's email." };
@@ -396,7 +397,7 @@ export async function getInviteLinkAction(
 ): Promise<InviteLinkResult> {
   const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, company_id, status")
@@ -421,7 +422,7 @@ export async function getInviteLinkAction(
     };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: userRow, error: userErr } =
     await admin.auth.admin.getUserById(profileId);
   if (userErr || !userRow?.user?.email) {
@@ -485,7 +486,7 @@ export async function dispatchInvite(
   email: string,
   senderProfileId?: string
 ): Promise<UserActionResult> {
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   // Ask Supabase to generate a magic-link OTP for this user. We
   // deliberately don't use the returned action_link (which routes
   // through Supabase's /auth/v1/verify endpoint and, on PKCE-flow
@@ -599,7 +600,7 @@ export async function deleteUserAction(profileId: string): Promise<UserActionRes
     return { ok: false, message: "You can't delete your own account." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, company_id")
@@ -611,7 +612,7 @@ export async function deleteUserAction(profileId: string): Promise<UserActionRes
     return { ok: false, message: "Not your user to delete." };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Migration 0121 rewired every profile-referencing FK to either
   // cascade (personal rows: coaching threads/messages, strengths
@@ -640,7 +641,7 @@ export async function deleteUserAction(profileId: string): Promise<UserActionRes
 // the URL fragment tokens Supabase attaches). The profile row already
 // exists — this just marks them active.
 export async function acceptInviteAction(): Promise<UserActionResult> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -648,7 +649,7 @@ export async function acceptInviteAction(): Promise<UserActionResult> {
     return { ok: false, message: "Sign in first, then accept the invitation." };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profile, error } = await admin
     .from("profiles")
     .select("id, status")

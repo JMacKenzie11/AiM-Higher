@@ -3,6 +3,7 @@ import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Coach tools — factory pattern. Every tool is a closure over the
 // conversation's subject + company, so the model can never supply
@@ -79,7 +80,7 @@ function makeGetStrengthsProfileTool(args: {
       const enabled = await companyHasFeature(args.companyId, "strengths");
       if (!enabled) return { status: "unavailable" as const };
 
-      const supabase = await createSupabaseServerClient();
+      const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
       const { data: assessment } = await supabase
         .from("strengths_assessments")
         .select("id, completed_at")
@@ -148,7 +149,7 @@ function makeSearchClassroomTool(): CoachTool {
       const sanitized = query.replace(/[\%_]/g, "\\$&").slice(0, 120);
       const pattern = `%${sanitized}%`;
 
-      const supabase = await createSupabaseServerClient();
+      const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
       // Lesson matches on title + description; training matches on
       // title. Two round trips keep the SQL simple and readable, and

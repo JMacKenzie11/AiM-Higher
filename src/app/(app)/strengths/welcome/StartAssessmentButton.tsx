@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useInstanceConfig } from "@/lib/instances/InstanceProvider";
 import { trackClient } from "@/lib/analytics/track-client";
 import styles from "../strengths.module.css";
 
@@ -16,6 +17,7 @@ export default function StartAssessmentButton({
   isSystemAdmin: boolean;
 }) {
   const router = useRouter();
+  const instance = useInstanceConfig();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +33,7 @@ export default function StartAssessmentButton({
     }
     setStarting(true);
     setError(null);
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createSupabaseBrowserClient(instance);
     const { error: insertError } = await supabase
       .from("strengths_assessments")
       .insert({ user_id: userId, company_id: companyId, version: 1 });

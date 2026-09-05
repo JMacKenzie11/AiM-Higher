@@ -6,6 +6,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
 import { EditUserForm } from "./EditUserForm";
 import styles from "../../people.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Admin edit surface for a single person. Handles first/last name,
 // email, position, role, reports_to. Self-serve name/position edits
@@ -22,7 +23,7 @@ export default async function EditPersonPage({ params }: PageProps) {
   const isCompanyAdmin = session.profile.role === "company_admin";
   if (!isSystemAdmin && !isCompanyAdmin) redirect(`/people/${id}`);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: subject } = await supabase
     .from("profiles")
     .select("*")
@@ -37,7 +38,7 @@ export default async function EditPersonPage({ params }: PageProps) {
   // Email lives on auth.users. Only sysadmins can call the admin API,
   // but this page is only reachable by admin roles anyway. Use the
   // admin client so a company_admin session can still read the value.
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: authUser } = await admin.auth.admin.getUserById(subject.id);
   const email = authUser?.user?.email ?? "";
 

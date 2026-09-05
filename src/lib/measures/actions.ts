@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { trackAfter } from "@/lib/analytics/track";
 import { scoreMeasureDraft, type MeasureCritique } from "./critique";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Batch weekly-value writer for the /measures batch page and the
 // dashboard "Pending this week" widget. Skips blank rows so a user
@@ -31,7 +32,7 @@ export async function logMeasureEntriesAction(
     return { ok: false, message: "Missing or invalid week." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const rows: Array<{
     measure_id: string;
     week_ending: string;

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read model for the AiMS Guides card on /admin/companies. Aggregates
 // each guide with the companies they're assigned to so the sysadmin
@@ -25,7 +26,7 @@ export type GuideOverviewRow = Pick<
 };
 
 export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // aims_guides always appear (their access is defined by assignments,
   // so even a zero-assignment guide is worth showing so a sysadmin
@@ -117,7 +118,7 @@ export type CaseloadCandidate = Pick<Profile, "id" | "full_name">;
 export async function getSysadminsForCaseloadPicker(): Promise<
   CaseloadCandidate[]
 > {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("profiles")
     .select("id, full_name")

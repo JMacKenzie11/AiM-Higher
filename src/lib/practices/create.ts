@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CoachingConversation } from "@/lib/coach/service";
 import { findPractice } from "./registry";
 import { practiceRoleGate } from "./gate";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Pure creation logic for a practice conversation. Kept in its own
 // module (no "use server" directive) so it's safe to call from both
@@ -48,7 +49,7 @@ export async function createPracticeConversation(
   const gate = practiceRoleGate(practice, session.profile, companyId);
   if (!gate.ok) return gate;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const title = defaultDateLabel();
   const { data, error } = await supabase
     .from("coaching_conversations")

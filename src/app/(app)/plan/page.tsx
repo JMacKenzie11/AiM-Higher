@@ -17,6 +17,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import styles from "./plan.module.css";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Plan workspace — Section 8.3.
 
@@ -44,7 +45,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
     selectedQuarter ? selectedQuarter.id : null
   );
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: people } = await supabase
     .from("profiles")
     .select("id, full_name")

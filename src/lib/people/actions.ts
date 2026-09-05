@@ -5,6 +5,7 @@ import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // People-management actions used by /people (Section 8.6) and /profile.
 // Editing anyone else's profile is admin-only. Self-edit is allowed for
@@ -57,7 +58,7 @@ export async function updateProfileAction(
         : "team_member";
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("profiles")
     .update({ full_name: fullName, position, role: roleToWrite })
@@ -104,7 +105,7 @@ export async function uploadAvatarAction(
     return { ok: false, message: "Photo must be under 2 MB after cropping." };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/webp" ? "webp" : "png";
   const path = `${session.profile.id}/${crypto.randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -156,7 +157,7 @@ export async function removeAvatarAction(): Promise<
   const priorUrl = session.profile.avatar_url;
   if (!priorUrl) return { ok: true };
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("profiles")
     .update({ avatar_url: null })
@@ -189,7 +190,7 @@ export async function setProfileStatusAction(
 ): Promise<ProfileResult> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("profiles")
     .update({ status })

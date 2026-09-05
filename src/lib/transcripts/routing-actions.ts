@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fridayOf } from "@/lib/dates";
 import { trackAfter } from "@/lib/analytics/track";
 import type { Commitment, Issue } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Routing actions for the meeting summary page. Called when the
 // company has automatic_commitment_tracking OFF (the "review
@@ -35,7 +36,7 @@ export async function addExtractedIssueToOpenIssuesAction(
     return { ok: false, message: "Issue title is too long." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: meeting } = await supabase
     .from("meetings")
@@ -121,7 +122,7 @@ export async function addExtractedIssueAsResolvedAction(
     return { ok: false, message: "Issue title is too long." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: meeting } = await supabase
     .from("meetings")
@@ -192,7 +193,7 @@ export async function addExtractedCommitmentAction(input: {
   const description = input.description.trim();
   if (!description) return { ok: false, message: "Description is empty." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: meeting } = await supabase
     .from("meetings")
@@ -293,7 +294,7 @@ export async function convertExtractedCommitmentToIssueAction(
   const title = description.trim().slice(0, 200);
   if (!title) return { ok: false, message: "Description is empty." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: meeting } = await supabase
     .from("meetings")

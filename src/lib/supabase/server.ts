@@ -2,14 +2,19 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./env";
+import type { InstanceConfig } from "@/lib/instances/types";
 
 // Server-component / server-action / route-handler Supabase client.
 // Uses the request's cookies so RLS runs as the signed-in user.
-export async function createSupabaseServerClient() {
+//
+// Takes the instance to connect to rather than reading env vars, so
+// which database a request talks to is a decision made once, at the
+// top, and passed down. Callers pass getCurrentInstanceConfig() while
+// that is still the same answer for every request.
+export async function createSupabaseServerClient(instance: InstanceConfig) {
   const cookieStore = await cookies();
 
-  return createServerClient(SUPABASE_URL(), SUPABASE_ANON_KEY(), {
+  return createServerClient(instance.supabaseUrl, instance.supabaseAnonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

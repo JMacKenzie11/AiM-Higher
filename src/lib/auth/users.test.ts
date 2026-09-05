@@ -131,8 +131,14 @@ vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
 
+// The whole module, not just APP_URL: getCurrentInstanceConfig reads
+// the three Supabase getters to build the InstanceConfig that every
+// client factory now takes.
 vi.mock("@/lib/supabase/env", () => ({
   APP_URL: () => "http://localhost:3200",
+  SUPABASE_URL: () => "https://test.invalid",
+  SUPABASE_ANON_KEY: () => "test-anon-key",
+  SUPABASE_SERVICE_ROLE_KEY: () => "test-service-role-key",
 }));
 
 // ---- Helpers --------------------------------------------------

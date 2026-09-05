@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile, Role } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Cross-company scoping (Section 7 + 8.9).
 //
@@ -151,7 +152,7 @@ async function resolveCompanyIdInternal(
 // SELECT policy, so a soft-deleted company reads back null even
 // for a sysadmin. Returns true iff the row is visible + live.
 async function companyIsLive(companyId: string): Promise<boolean> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("companies")
     .select("id")

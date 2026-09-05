@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ingestSource, processPendingMeetings } from "@/lib/transcripts/ingest";
 import type { TranscriptSource } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Vercel Cron target — configured in vercel.json to run every 15 min.
 // Authenticated with a bearer token so a random public request can't
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: sources } = await admin
     .from("transcript_sources")
     .select("*")

@@ -10,6 +10,7 @@ import { getProvider } from "./provider";
 import { extractTranscript } from "./extract";
 import { contentHash, routeByFilename } from "./route";
 import { analyzeMeeting } from "./analyze";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Runs the full pipeline for a single source: list new files past
 // cursor, download + extract + hash + route + insert each, advance
@@ -27,7 +28,7 @@ export type IngestSourceResult = {
 export async function ingestSource(
   source: TranscriptSource
 ): Promise<IngestSourceResult> {
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const result: IngestSourceResult = {
     sourceId: source.id,
     filesSeen: 0,
@@ -163,7 +164,7 @@ export async function ingestSource(
 export async function processPendingMeetings(
   scope: { companyId?: string; meetingId?: string } = {}
 ): Promise<{ processed: number; recovered: number }> {
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Self-heal: rescue meetings stuck in "analyzing" longer than a
   // full function-timeout window. Vercel kills serverless at 60s
@@ -297,7 +298,7 @@ export async function runSourceCycle(
   ingest: IngestSourceResult;
   analysis: { processed: number; recovered: number };
 }> {
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: source } = await admin
     .from("transcript_sources")
     .select("*")

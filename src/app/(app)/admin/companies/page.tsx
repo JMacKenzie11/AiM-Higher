@@ -15,6 +15,7 @@ import { CreateCompanyForm } from "./CreateCompanyForm";
 import { GuidesPanel } from "./GuidesPanel";
 import { PlatformTranscriptsPanel } from "./PlatformTranscriptsPanel";
 import styles from "./admin.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Companies overview — the fleet view.
 //   system_admin sees every company + management affordances (Create,
@@ -60,7 +61,7 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
       : Promise.resolve([]),
   ]);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   // Unrouted queue is only meaningful for the sysadmin who manages
   // routing across the platform; guides don't need it in their view.
   const unrouted: MeetingListRow[] = [];

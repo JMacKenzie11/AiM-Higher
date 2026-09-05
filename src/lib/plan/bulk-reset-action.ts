@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Start a new planning cycle — archives every active SFA/Goal/Priority
 // for the company and unlinks every OPEN commitment that pointed at
@@ -30,7 +31,7 @@ export async function bulkResetPlanAction(
     return { ok: false, message: "Wrong company scope." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const [sfaRes, goalRes, priorityRes] = await Promise.all([
     supabase

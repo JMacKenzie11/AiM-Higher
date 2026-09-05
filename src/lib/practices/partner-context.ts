@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { computeFollowThroughRate } from "@/lib/utils";
 import type { Commitment, Profile } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Builds the <partner_context> block for a practice session that
 // names a co-worker via partner_profile_id.
@@ -44,7 +45,7 @@ export async function buildPartnerContext(
 ): Promise<string | null> {
   if (input.partnerProfileId === input.callerProfileId) return null;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: partner } = await supabase
     .from("profiles")

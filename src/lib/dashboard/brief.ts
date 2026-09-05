@@ -8,6 +8,7 @@ import { getCurrentQuarter } from "@/lib/quarters/service";
 import { todayInTimezone } from "@/lib/dates";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import type { Commitment, Priority } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Once-a-day AI "Week in review" for the dashboard.
 //
@@ -59,7 +60,7 @@ export async function getOrGenerateDashboardBrief(
   companyId: string,
   currentAdminId: string
 ): Promise<DashboardBrief | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: company } = await supabase
     .from("companies")
@@ -188,7 +189,7 @@ async function buildWeeklySnapshot(
   companyName: string,
   today: string
 ): Promise<string> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const openQuarter = await getCurrentQuarter(companyId);
 
   const weekStart = addDays(today, -6);

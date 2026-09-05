@@ -12,6 +12,7 @@ import { MeasuresManager } from "./MeasuresManager";
 import { BoardView } from "./board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "../admin/companies/admin.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Critical Success Factors — one surface for both authoring the CSF
 // / measure tree and logging weekly values. The chart page defers
@@ -30,7 +31,7 @@ export default async function MeasuresPage() {
 
   const isAdmin = isAdminForCompany(session.profile, companyId);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: company } = await supabase
     .from("companies")
     .select("timezone")

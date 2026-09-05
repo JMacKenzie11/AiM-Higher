@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDashboardData } from "@/lib/dashboard/service";
 import type { CurrentSession } from "@/lib/auth/current-user";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Shared "Set up {Company}" checklist step assembly. Called from
 // both /dashboard (previously) and /scorecard (canonical home per
@@ -42,7 +43,7 @@ export async function computeCompanySetup(
   const data = await getDashboardData(companyId);
   if (!data) return null;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   // 14-day window anchored to UTC-ish ISO — cheap cutoff for
   // "activity is happening now, not a stale ping from six months
   // ago." Used by both the rhythm and issues/solutions steps.

@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadCompanyScorecard } from "@/lib/maturity/service";
 import { computeAttentionForCompanies } from "@/lib/hq/attention";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Session Brief generator. One Anthropic call per invocation; the
 // result is appended as a new row to session_briefs (never
@@ -59,7 +60,7 @@ export async function generateSessionBrief(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // ---- Gather context ----
   const [
@@ -291,7 +292,7 @@ export async function loadRecentBriefs(
   companyId: string,
   limit = 2
 ): Promise<SessionBriefRow[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("session_briefs")
     .select("*")
@@ -313,7 +314,7 @@ export async function loadRecentBriefsForCompanies(
 ): Promise<Map<string, SessionBriefRow[]>> {
   const out = new Map<string, SessionBriefRow[]>();
   if (companyIds.length === 0) return out;
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("session_briefs")
     .select("*")

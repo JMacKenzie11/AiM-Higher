@@ -13,6 +13,7 @@ import { scoreMeasures } from "./scorers/measures";
 import { scoreMeetings } from "./scorers/meetings";
 import { scoreSolutionSeeking } from "./scorers/solution-seeking";
 import { scorePositiveFraming } from "./scorers/positive-framing";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Orchestrates every scorer for a company and returns the current
 // snapshot. Feature-gated disciplines whose feature is OFF get a
@@ -36,7 +37,7 @@ export async function computeCompanyScorecard(
   companyId: string,
   admin?: SupabaseClient
 ): Promise<ComputedScorecard> {
-  const db = admin ?? createSupabaseAdminClient();
+  const db = admin ?? createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Fan out the six scorers in parallel — each is a small read.
   const [foundation, chart, planning, execution, measuresEnabled, meetingsEnabled] =
@@ -132,7 +133,7 @@ export async function writeScorecardSnapshot(
   scorecard: ComputedScorecard,
   admin?: SupabaseClient
 ): Promise<{ ok: true; date: string } | { ok: false; message: string }> {
-  const db = admin ?? createSupabaseAdminClient();
+  const db = admin ?? createSupabaseAdminClient(getCurrentInstanceConfig());
 
   const { data: company } = await db
     .from("companies")

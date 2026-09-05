@@ -1,5 +1,6 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Wraps Anthropic's Admin API cost_report endpoint. Called by the
 // nightly /api/cron/anthropic-cost route to pull real invoiced
@@ -133,7 +134,7 @@ export async function upsertDailyCost(
   rows: FetchedDailyCost[]
 ): Promise<{ inserted: number }> {
   if (rows.length === 0) return { inserted: 0 };
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const payload = rows.map((r) => ({
     bucket_date: r.bucket_date,
     amount_cents: r.amount_cents,
@@ -162,7 +163,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function readAnthropicCostSummary(): Promise<AnthropicCostSummary> {
   const configured = readAnthropicCostConfig() !== null;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const since30 = new Date(Date.now() - 30 * DAY_MS)
     .toISOString()
     .slice(0, 10);

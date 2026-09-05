@@ -4,6 +4,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile, Role } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server-side helpers to look up the current user + profile, and to
 // enforce role checks. The spec (Section 2) requires every authorization
@@ -11,7 +12,7 @@ import type { Profile, Role } from "@/lib/types";
 // the server layer.
 
 export async function getCurrentUser() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -47,7 +48,7 @@ export type CurrentSession = {
 // entry. Nothing else changes — requireSession, requireProfile and
 // requireRole all funnel through here.
 export const getCurrentSession = cache(async function getCurrentSession(): Promise<CurrentSession | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {
     data: { user },
   } = await supabase.auth.getUser();

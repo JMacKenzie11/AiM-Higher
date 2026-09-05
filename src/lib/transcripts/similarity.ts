@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Cheap duplicate-awareness check for extracted commitments and
 // issues on the meeting summary page. Uses pg_trgm's similarity()
@@ -31,7 +32,7 @@ export async function findSimilarOpenItem(
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const since = new Date(
     Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();

@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { getChartFunctionDetail } from "@/lib/chart/service";
 import type { RdDocument, RdUserOverrides } from "./generate";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Persistent cache for the assembled Role Description.
 //
@@ -26,7 +27,7 @@ export type CachedRoleDescription = {
 export async function getCachedRoleDescription(
   functionId: string
 ): Promise<CachedRoleDescription | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("role_description_documents")
     .select("document, user_overrides, generated_at, generated_by")
@@ -51,7 +52,7 @@ export async function saveRoleDescription(input: {
   generatedBy: string | null;
   document: RdDocument;
 }): Promise<void> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   await supabase
     .from("role_description_documents")
     .upsert(
@@ -74,7 +75,7 @@ export async function patchUserOverrides(input: {
   functionId: string;
   patch: RdUserOverrides;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data } = await supabase
     .from("role_description_documents")
     .select("user_overrides")
@@ -222,7 +223,7 @@ function isEmptyOverrides(o: RdUserOverrides): boolean {
 export async function deleteRoleDescriptionCache(
   functionId: string
 ): Promise<void> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   await supabase
     .from("role_description_documents")
     .delete()

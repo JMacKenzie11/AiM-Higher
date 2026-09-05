@@ -5,6 +5,7 @@ import { groupBy } from "@/lib/utils";
 import { computeFollowThrough } from "@/lib/commitments/follow-through";
 import { todayInTimezone } from "@/lib/dates";
 import type { Commitment, Company, Quarter } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read model for the polished /admin/companies overview.
 // Aggregates per-company signal so the system_admin can triage at a glance.
@@ -16,7 +17,7 @@ export type CompanyOverviewRow = Company & {
 };
 
 export async function getCompaniesOverview(): Promise<CompanyOverviewRow[]> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: companies } = await supabase
     .from("companies")

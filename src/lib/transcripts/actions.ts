@@ -20,6 +20,7 @@ import type {
   TranscriptProviderKind,
   TranscriptSourceScope,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export type ActionResult<T = null> =
   | { ok: true; item?: T }
@@ -40,7 +41,7 @@ async function auditTranscriptSourceEvent(args: {
   payload?: Record<string, unknown>;
 }): Promise<void> {
   try {
-    const admin = createSupabaseAdminClient();
+    const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
     const { error } = await admin
       .from("transcript_source_audit_log")
       .insert({
@@ -95,7 +96,7 @@ async function guardForSource(
 > {
   const g = await guard();
   if (!g.ok) return g;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin
     .from("transcript_sources")
     .select("company_id")
@@ -149,7 +150,7 @@ async function guardForMeeting(
 > {
   const g = await guard();
   if (!g.ok) return g;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin
     .from("meetings")
     .select("company_id")
@@ -176,7 +177,7 @@ async function guardForAlias(
 > {
   const g = await guard();
   if (!g.ok) return g;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin
     .from("transcript_aliases")
     .select("company_id")
@@ -232,7 +233,7 @@ export async function connectGoogleFolderAction(
     };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   // Seed the cursor to "now" so the first ingest cycle only picks
   // up files modified after the connection. Without this the initial
   // pass drags in every historical transcript in the folder, which
@@ -288,7 +289,7 @@ export async function connectGoogleFolderAction(
 export async function pauseSourceAction(id: string): Promise<ActionResult> {
   const g = await guardForSource(id);
   if (!g.ok) return g;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("transcript_sources")
     .update({ status: "paused" })
@@ -307,7 +308,7 @@ export async function pauseSourceAction(id: string): Promise<ActionResult> {
 export async function resumeSourceAction(id: string): Promise<ActionResult> {
   const g = await guardForSource(id);
   if (!g.ok) return g;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("transcript_sources")
     .update({ status: "active", last_error: null })
@@ -326,7 +327,7 @@ export async function resumeSourceAction(id: string): Promise<ActionResult> {
 export async function removeSourceAction(id: string): Promise<ActionResult> {
   const g = await guardForSource(id);
   if (!g.ok) return g;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   // Snapshot the source row BEFORE deletion so the audit payload
   // preserves the folder id/name/provider — otherwise a later
   // investigation only sees an actor + timestamp and can't tell
@@ -373,7 +374,7 @@ export async function checkSourceNowAction(
   const g = await guardForSource(id);
   if (!g.ok) return g;
   try {
-    const admin = createSupabaseAdminClient();
+    const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
     const { data: source } = await admin
       .from("transcript_sources")
       .select("*")
@@ -418,7 +419,7 @@ export async function previewDriveListingAction(
 ): Promise<PreviewDriveListingResult> {
   const g = await guardForSource(sourceId);
   if (!g.ok) return g;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: source } = await admin
     .from("transcript_sources")
     .select("*")
@@ -471,7 +472,7 @@ export async function routeMeetingAction(
   if (!companyId) return { ok: false, message: "Pick a company." };
   const dest = guardForCompany(g, companyId);
   if (!dest.ok) return dest;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("meetings")
     .update({
@@ -501,7 +502,7 @@ export async function dismissMeetingAction(
 ): Promise<ActionResult> {
   const g = await guardForMeeting(meetingId);
   if (!g.ok) return g;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("meetings")
     .update({ status: "failed", error: "dismissed" })
@@ -526,7 +527,7 @@ export async function createAliasAction(
   // the alias is being registered for.
   const c = guardForCompany(g, companyId);
   if (!c.ok) return c;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("transcript_aliases")
     .insert({ company_id: companyId, alias });
@@ -543,7 +544,7 @@ export async function createAliasAction(
 export async function deleteAliasAction(aliasId: string): Promise<ActionResult> {
   const g = await guardForAlias(aliasId);
   if (!g.ok) return g;
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("transcript_aliases")
     .delete()

@@ -18,6 +18,7 @@ import type {
   Priority,
 } from "@/lib/types";
 import { fridayOf, todayInTimezone } from "@/lib/dates";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Commitment server actions. Resolution model per migration 0139:
 //
@@ -156,7 +157,7 @@ export async function createCommitmentAction(
   }
   const weekEnding = fridayOf(dueDate);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   let companyId: string | null;
   if (priorityId) {
@@ -295,7 +296,7 @@ export async function markKeptAction(
   options?: { reason?: string | null; resolveAs?: "on_time" | "late" }
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -401,7 +402,7 @@ export async function unmarkKeptAction(
   commitmentId: string
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -443,7 +444,7 @@ export async function markMissedAction(
   reason: string | null
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -530,7 +531,7 @@ export async function unmarkMissedAction(
   commitmentId: string
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -578,7 +579,7 @@ export async function rescheduleCommitmentAction(
     return { ok: false, message: "Pick a new due date." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
   const role = resolverRoleFor(session.profile, commitment);
@@ -647,7 +648,7 @@ export async function parkCommitmentAction(
   commitmentId: string
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -685,7 +686,7 @@ export async function unparkCommitmentAction(
     return { ok: false, message: "Pick a due date to bring it back." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
   if (!canWriteOwnedRow(session.profile, commitment)) {
@@ -720,7 +721,7 @@ export async function stopRepeatingAction(
   commitmentId: string
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -751,7 +752,7 @@ export async function reassignCommitmentAction(
   newOwnerId: string
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -811,7 +812,7 @@ export async function linkPriorityAction(
   priorityId: string | null
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -907,7 +908,7 @@ export async function changeCommitmentLinkAction(
   target: LinkTarget
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -1006,7 +1007,7 @@ export async function setCommitmentClarityAction(
   input: ClarityInput
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
@@ -1046,7 +1047,7 @@ export async function updateCommitmentDescriptionAction(
     return { ok: false, message: "Description can't be empty." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
   if (!canWriteOwnedRow(session.profile, commitment)) {
@@ -1100,7 +1101,7 @@ export async function deleteCommitmentAction(
   commitmentId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };

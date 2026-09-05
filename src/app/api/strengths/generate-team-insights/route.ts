@@ -7,6 +7,7 @@ import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { VOICE_RULES } from "@/lib/strengths/voice-rules";
 import { computeTeamSignals, type TeamMember } from "@/lib/strengths/team-signals";
 import { SUB_STRENGTH_LABELS, type ResultsProfile } from "@/lib/strengths/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -234,7 +235,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("strengths_team_insights")
     .upsert(

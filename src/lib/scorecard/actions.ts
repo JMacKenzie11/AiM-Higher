@@ -11,6 +11,7 @@ import type {
   ScorecardEntry,
   ScorecardMetric,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Functional scorecard server actions — Section 4.8 + Section 5.
 //
@@ -50,7 +51,7 @@ export async function createAreaAction(
 
   const accountableId = nullableString(formData.get("accountable_id"));
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("functional_areas")
     .insert({ company_id: companyId, name, accountable_id: accountableId })
@@ -74,7 +75,7 @@ export async function updateAreaAction(
   const accountableId = nullableString(formData.get("accountable_id"));
   if (!id || !name) return { ok: false, message: "Missing area name or id." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("functional_areas")
     .update({ name, accountable_id: accountableId })
@@ -91,7 +92,7 @@ export async function deleteAreaAction(
   areaId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("functional_areas")
     .delete()
@@ -129,7 +130,7 @@ export async function createMetricAction(
   if (!functionalAreaId) return { ok: false, message: "Pick an area." };
   if (!name) return { ok: false, message: "Give this metric a name." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("scorecard_metrics")
     .insert({
@@ -165,7 +166,7 @@ export async function updateMetricAction(
     : "number";
   if (!id || !name) return { ok: false, message: "Missing metric name or id." };
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("scorecard_metrics")
     .update({ name, target, value_type: valueType })
@@ -183,7 +184,7 @@ export async function archiveMetricAction(
   archived: boolean
 ): Promise<MetricResult> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("scorecard_metrics")
     .update({ archived })
@@ -206,7 +207,7 @@ export async function upsertEntryAction(
 ): Promise<EntryResult> {
   const session = await requireProfile();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Load the metric (and its area) so we can:
   //   a) check company / accountable authorization

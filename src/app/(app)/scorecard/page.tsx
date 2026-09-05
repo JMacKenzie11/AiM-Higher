@@ -17,6 +17,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { Sparkline } from "./Sparkline";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./scorecard.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // AiMS Scorecard — company-wide discipline maturity view.
 //
@@ -41,7 +42,7 @@ export default async function ScorecardPage() {
   const scorecard = await loadCompanyScorecard(companyId);
   const overallTrend = overallTrajectory(scorecard);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: companyRow } = await supabase
     .from("companies")
     .select("name")

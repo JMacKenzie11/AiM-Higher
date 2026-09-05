@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { thisFriday, todayInTimezone } from "@/lib/dates";
 import type { ModuleFeature } from "@/lib/subscriptions/service";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Header notification service. Two sources feed the same
 // NotificationItem[] shape rendered by NotificationBell:
@@ -77,7 +78,7 @@ export async function getHeaderNotifications({
   // company-level data to notify on. Bail early.
   if (!companyId) return [];
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { iso: todayIso } = todayInTimezone(timezone);
   const thisFri = thisFriday(timezone);
   const isFriday = todayIso === thisFri;
@@ -245,7 +246,7 @@ export async function insertNotification(input: {
   if (input.recipientId === input.createdBy) {
     return { ok: false, message: "skipped self-notification" };
   }
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data, error } = await admin
     .from("notifications")
     .insert({

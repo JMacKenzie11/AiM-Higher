@@ -11,9 +11,12 @@ import {
   PostHogProvider,
   type PostHogUser,
 } from "@/lib/analytics/PostHogProvider";
+import { InstanceProvider } from "@/lib/instances/InstanceProvider";
+import { toPublicInstanceConfig } from "@/lib/instances/current";
 import type { Company } from "@/lib/types";
 import type { ModuleFeature } from "@/lib/subscriptions/service";
 import styles from "./layout.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Layout for authenticated routes. Guards on session + profile and
 // renders the gradient nav band. When a system_admin or aims_guide
@@ -54,7 +57,7 @@ export default async function AppLayout({
   const [companyRow, features] = await Promise.all([
     effectiveCompanyId
       ? (async () => {
-          const supabase = await createSupabaseServerClient();
+          const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
           const { data } = await supabase
             .from("companies")
             .select("name, timezone")
@@ -102,7 +105,7 @@ export default async function AppLayout({
     effectiveCompanyId &&
     !features.includes("performance_tracking")
   ) {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
     const { count } = await supabase
       .from("success_measures")
       .select("id, functions!inner(company_id)", {
@@ -153,28 +156,30 @@ export default async function AppLayout({
   };
 
   return (
-    <PostHogProvider user={analyticsUser}>
-      <div
-        className={styles.frame}
-        data-nav-collapsed={initialCollapsed ? "true" : undefined}
-      >
-        <Sidebar
-          userName={session.profile.full_name}
-          userAvatarUrl={session.profile.avatar_url}
-          userRole={session.profile.role}
-          isSystemAdmin={isCrossCompanyRole}
-          contextLabel={contextLabel}
-          showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}
-          scopedCompanyName={scopedCompanyName}
-          features={features}
-          hasChartMeasures={hasChartMeasures}
-          notifications={notifications}
-          initialCollapsed={initialCollapsed}
-          initialCollapsedGroups={initialCollapsedGroups}
-        />
-        <div className={styles.main}>{children}</div>
-        <HelpWidget />
-      </div>
-    </PostHogProvider>
+    <InstanceProvider config={toPublicInstanceConfig(getCurrentInstanceConfig())}>
+      <PostHogProvider user={analyticsUser}>
+        <div
+          className={styles.frame}
+          data-nav-collapsed={initialCollapsed ? "true" : undefined}
+        >
+          <Sidebar
+            userName={session.profile.full_name}
+            userAvatarUrl={session.profile.avatar_url}
+            userRole={session.profile.role}
+            isSystemAdmin={isCrossCompanyRole}
+            contextLabel={contextLabel}
+            showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}
+            scopedCompanyName={scopedCompanyName}
+            features={features}
+            hasChartMeasures={hasChartMeasures}
+            notifications={notifications}
+            initialCollapsed={initialCollapsed}
+            initialCollapsedGroups={initialCollapsedGroups}
+          />
+          <div className={styles.main}>{children}</div>
+          <HelpWidget />
+        </div>
+      </PostHogProvider>
+    </InstanceProvider>
   );
 }

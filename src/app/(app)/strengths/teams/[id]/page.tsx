@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth/current-user";
 import type { ResultsProfile } from "@/lib/strengths/types";
 import type { MissionType } from "@/lib/strengths/team-scoring";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export default async function TeamDetailPage({
   params,
@@ -21,7 +22,7 @@ export default async function TeamDetailPage({
   ) {
     redirect("/");
   }
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: team } = await supabase
     .from("strengths_teams")

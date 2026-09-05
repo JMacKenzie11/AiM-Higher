@@ -5,6 +5,7 @@ import { addDays, thisFriday } from "@/lib/dates";
 import { firstCsfIdByKpi } from "@/lib/measures/csf-as-outcome";
 import type {
   UpdateFrequency, MetricValueType, TargetDirection } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // The read behind /measures.
 //
@@ -86,7 +87,7 @@ export async function getMeasuresTree(
   timezone: string,
   includeAll: boolean
 ): Promise<{ functions: MeasureTreeFunction[]; weekEnding: string }> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const weekEnding = thisFriday(timezone);
 
   // Everyone in the company reads every function. These are the

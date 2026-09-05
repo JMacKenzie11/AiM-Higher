@@ -19,6 +19,7 @@ import type {
   Quarter,
   UserStrength,
 } from "@/lib/types";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Assembles the fresh <company_context>, <person_context>, and
 // <coaching_context> blocks that ride alongside every message send.
@@ -78,7 +79,7 @@ export type CoachContextBlocks = {
 export async function buildCoachContext(
   input: CoachContextInput
 ): Promise<CoachContextBlocks> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Determine whose person_context to load:
   //   about   → the named subject

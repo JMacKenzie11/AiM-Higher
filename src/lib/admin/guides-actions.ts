@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { dispatchInvite } from "@/lib/auth/users";
 import { reportError } from "@/lib/observability/report";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server actions for AiMS Guide management. System-admin only.
 //
@@ -63,7 +64,7 @@ export async function createGuideAction(
     };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Step 1: auth user. email_confirm=false — verifyOtp will confirm
   // the email when the guide clicks the invite link.
@@ -145,7 +146,7 @@ export async function resendGuideInviteAction(
   const g = await guard();
   if (!g.ok) return g;
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profile } = await admin
     .from("profiles")
     .select("id, role, status")
@@ -202,7 +203,7 @@ export async function assignGuideAction(
     return { ok: false, message: "Pick a guide and a company." };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profile } = await admin
     .from("profiles")
     .select("id, role")
@@ -255,7 +256,7 @@ export async function assignExistingAsGuideAction(
     return { ok: false, message: "Pick at least one company." };
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profile } = await admin
     .from("profiles")
     .select("id, role")
@@ -301,7 +302,7 @@ export async function unassignGuideAction(
   const g = await guard();
   if (!g.ok) return g;
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   const { data: profile } = await admin
     .from("profiles")
@@ -344,7 +345,7 @@ export async function deleteGuideAction(
   const g = await guard();
   if (!g.ok) return g;
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin.auth.admin.deleteUser(guideId);
   if (error) {
     reportError("guides.delete.authUser", error, { guideId });

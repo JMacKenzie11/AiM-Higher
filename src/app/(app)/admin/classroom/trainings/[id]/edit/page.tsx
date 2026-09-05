@@ -12,6 +12,7 @@ import { AttachmentsPanel } from "./AttachmentsPanel";
 import { SectionRail } from "./SectionRail";
 import styles from "../../../../companies/admin.module.css";
 import classroomStyles from "../../../../../classroom/classroom.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -21,7 +22,7 @@ export default async function TrainingEditPage({ params }: PageProps) {
   const training = await getTrainingById(id);
   if (!training) notFound();
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const [{ data: lessons }, { data: siblings }] = await Promise.all([
     supabase
       .from("classroom_lessons")

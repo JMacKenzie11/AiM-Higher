@@ -10,6 +10,7 @@ import type {
 } from "@/lib/types";
 import { isDueForWeek } from "@/lib/measures/frequency";
 import { isOffTarget, raiseOffTargetIssue } from "@/lib/measures/off-target";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Saturday cron for companies on `performance_tracking`.
 //
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Companies that opted in.
   const { data: companyRows } = await admin
