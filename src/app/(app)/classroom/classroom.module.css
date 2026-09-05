@@ -186,12 +186,16 @@
   outline-offset: 2px;
 }
 
+/* Solid cobalt, same as the numbered steps on the marketing "how it
+   works" cards (.howStepNumber). The tinted-grey version this
+   started as is what an unreached step looks like on the setup
+   checklist, and nothing here is unreached. */
 .sequenceIndex {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--aims-navy-tint);
-  color: var(--text-heading);
+  background: var(--primary);
+  color: var(--on-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
