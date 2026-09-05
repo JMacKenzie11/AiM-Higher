@@ -51,7 +51,7 @@ export function CascadeMock() {
       <div className={styles.cascadeConnector} aria-hidden="true" />
 
       <div className={styles.cascadeLevel} data-level="commitment">
-        <div className={styles.cascadeLabel}>This week's commitment</div>
+        <div className={styles.cascadeLabel}>This week&apos;s commitment</div>
         <div className={styles.cascadeTitle}>
           Get final lease terms from broker by Thursday
         </div>

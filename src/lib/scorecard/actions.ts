@@ -273,7 +273,7 @@ export async function upsertEntryAction(
     };
   }
 
-  let payload: Partial<ScorecardEntry> = {
+  const payload: Partial<ScorecardEntry> = {
     company_id: metric.company_id,
     metric_id: metricId,
     week_ending: weekEnding,

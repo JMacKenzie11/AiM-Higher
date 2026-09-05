@@ -201,7 +201,7 @@ export function AdminClassroomActions({
         <section className={styles.card}>
           <h2 className={styles.h2}>Uncategorized</h2>
           <p className={styles.subtitleInline}>
-            Lessons without a category live here. Assign one on the lesson's
+            Lessons without a category live here. Assign one on the lesson&apos;s
             edit page to move them.
           </p>
           <LessonList

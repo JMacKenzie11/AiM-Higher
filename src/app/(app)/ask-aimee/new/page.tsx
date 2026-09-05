@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
@@ -119,7 +120,7 @@ function notAvailable(message: string) {
       subtitle={message}
     >
       <p style={{ marginTop: "var(--space-4)" }}>
-        <a href="/ask-aimee">← Back to Ask Aimee</a>
+        <Link href="/ask-aimee">← Back to Ask Aimee</Link>
       </p>
     </PageShell>
   );

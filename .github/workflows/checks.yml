@@ -1,13 +1,18 @@
 name: Checks
 
-# Runs on every PR + every push to main. Three gates:
+# Runs on every PR + every push to main. Four gates:
 #   1. Typecheck — TypeScript across the whole app.
-#   2. Unit tests — vitest.
-#   3. Help coverage — every page.tsx must have a matching doc
+#   2. Lint — ESLint via next lint (see eslint.config.mjs).
+#   3. Unit tests — vitest.
+#   4. Help coverage — every page.tsx must have a matching doc
 #      in docs/help/ (see docs/help/README.md).
 #
 # Any failure blocks the PR. To scaffold missing help docs locally
 # before pushing, run:  npm run check:help -- --write
+#
+# Lint gates on errors only. Warnings still print and are worth
+# clearing, but they don't block: the repo carried 37 of them the day
+# this gate went in, and a gate nobody can turn green gets deleted.
 
 on:
   pull_request:
@@ -36,6 +41,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
 
       - name: Unit tests
         run: npm test

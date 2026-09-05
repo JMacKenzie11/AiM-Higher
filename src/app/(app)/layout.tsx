@@ -37,17 +37,7 @@ export default async function AppLayout({
       ? "AiMS Guide"
       : null;
 
-  let contextLabel: string | undefined;
   let scopedCompanyId: string | null = null;
-  let scopedCompanyName: string | undefined;
-  // Timezone of the effective company — needed by notifications to
-  // compute today / this-Friday in the right zone.
-  let companyTimezone: string | null = null;
-  // Raw company name for the analytics identify call. Cross-company
-  // roles get the scoped company's name; regular users get their own
-  // company's name. Kept separate from contextLabel because the
-  // latter is display-formatted ("System admin · Acme Co").
-  let analyticsCompanyName: string | null = null;
 
   // Resolve the effective company FIRST, then fetch its row and its
   // entitlements together. Those two have no dependency on each
@@ -82,7 +72,16 @@ export default async function AppLayout({
 
   // Branching lives in lib/companies/context-label.ts so it carries
   // test cover — a server component can't be unit-tested here.
-  ({
+  //
+  //   companyTimezone      — the effective company's zone, needed by
+  //                          notifications to compute today /
+  //                          this-Friday in the right one.
+  //   analyticsCompanyName — raw company name for the analytics
+  //                          identify call. Kept separate from
+  //                          contextLabel because the latter is
+  //                          display-formatted ("System admin · Acme
+  //                          Co").
+  const {
     contextLabel,
     scopedCompanyName,
     analyticsCompanyName,
@@ -91,7 +90,7 @@ export default async function AppLayout({
     isCrossCompanyRole,
     roleLabel,
     companyRow: companyRow ?? null,
-  }));
+  });
 
   // Companies exploring metrics before flipping the paid Success
   // Tracking entitlement shouldn't get an invisible nav link. When

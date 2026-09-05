@@ -61,6 +61,12 @@ export default function GlobalError({
           >
             Try again
           </button>
+          {/* A real anchor, not next/link, and deliberately so: a
+              client-side navigation would re-render into the same
+              broken React tree this boundary just caught. A full
+              document load is the recovery, same reasoning as the
+              window.location.reload() above. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/" className={styles.ghostLink}>
             Back to home
           </a>
