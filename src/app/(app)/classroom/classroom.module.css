@@ -110,6 +110,144 @@
   color: var(--text-heading);
 }
 
+/* ---- Phase 1 sequence block ------------------------------------
+   The five Phase 1 trainings support the five setup steps one for
+   one, so this block deliberately mirrors the "Set up {Company}"
+   checklist on /scorecard: numbered badge, title, description, and
+   an action on the right. Kept as its own styles rather than shared
+   with SetupChecklist because that component tracks completion and
+   this one does not — the shape is the same, the meaning isn't. */
+
+.sequenceHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.sequenceTitle {
+  margin: 0;
+  font: var(--text-h2);
+  color: var(--text-heading);
+}
+
+.sequenceMeta {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.sequenceBadge {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt);
+  font: var(--text-caption);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.sequenceList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The whole row is the link, so the click target is the step rather
+   than just the pill on the right. */
+.sequenceStep {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.sequenceStep:hover {
+  border-color: var(--aims-cobalt);
+  background: color-mix(in srgb, var(--aims-cobalt) 3%, var(--surface));
+}
+
+.sequenceStep:focus-visible {
+  outline: 2px solid var(--aims-cobalt);
+  outline-offset: 2px;
+}
+
+.sequenceIndex {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.sequenceBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sequenceStepTitle {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-heading);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.sequenceStep:hover .sequenceStepTitle {
+  color: var(--aims-cobalt);
+}
+
+.sequenceStepDescription {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.sequenceAction {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.sequenceStep:hover .sequenceAction {
+  background: var(--primary-hover);
+}
+
+@media (max-width: 560px) {
+  .sequenceStep {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+  .sequenceAction {
+    display: none;
+  }
+}
+
 .lessonGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
