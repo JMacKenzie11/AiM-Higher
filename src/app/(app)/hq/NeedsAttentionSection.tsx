@@ -29,6 +29,7 @@ export function NeedsAttentionSection({ rows }: { rows: CompanyAttention[] }) {
                   <Link
                     className={styles.attentionNameLink}
                     href={`/admin/companies/${row.companyId}`}
+                    prefetch={false}
                   >
                     {row.companyName}
                   </Link>

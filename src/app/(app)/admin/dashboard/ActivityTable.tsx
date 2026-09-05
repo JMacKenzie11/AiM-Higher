@@ -140,6 +140,7 @@ export function ActivityTable({ rows }: { rows: CompanyActivityRow[] }) {
                 <td>
                   <Link
                     href={`/admin/companies/${r.companyId}`}
+                    prefetch={false}
                     className={styles.activityCompanyLink}
                   >
                     {r.companyName}

@@ -32,6 +32,24 @@ export function companyIdFromPath(pathname: string): string | null {
 // 1` on its own prefetches; browsers send `Purpose: prefetch` or
 // `Sec-Purpose: prefetch` for <link rel=prefetch> / speculation
 // rules. Any of these means "the user did not choose this URL".
+//
+// KNOWN GAP, which is why every <Link> to /admin/companies/[id] now
+// carries prefetch={false}. The `next-router-prefetch` arm does not
+// fire: Next strips that header before middleware sees it, so an
+// app-router prefetch arrives here indistinguishable from a real
+// navigation. Measured by driving the dev server with each header in
+// turn — `purpose` and `sec-purpose` suppress the cookie write,
+// `next-router-prefetch` does not — and confirmed to predate the
+// instance-resolution work by driving the same probes against the
+// commit before it.
+//
+// So the two guards below are not currently both live for the case
+// they were written for. prefetch={false} at the call sites closes it
+// at the source: a link that never prefetches cannot prefetch its way
+// into the wrong tenant, whatever middleware can or cannot see. This
+// arm stays because browser-level prefetch and speculation rules do
+// reach us, and because a future Next version may forward its own
+// header again.
 export function isPrefetchRequest(headers: Headers): boolean {
   if (headers.get("next-router-prefetch") === "1") return true;
   if (headers.get("purpose") === "prefetch") return true;
