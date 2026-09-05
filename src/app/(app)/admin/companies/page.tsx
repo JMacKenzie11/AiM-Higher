@@ -153,6 +153,7 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                       <div className={styles.rowActions}>
                         <Link
                           href={`/admin/companies/${company.id}`}
+                          prefetch={false}
                           className={styles.ghostButton}
                         >
                           Settings

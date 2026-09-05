@@ -168,6 +168,7 @@ export default async function AdminDashboardPage() {
               <li key={c.companyId} className={styles.atRiskRow}>
                 <Link
                   href={`/admin/companies/${c.companyId}`}
+                  prefetch={false}
                   className={styles.atRiskLink}
                 >
                   <span className={styles.atRiskName}>{c.companyName}</span>
@@ -251,6 +252,7 @@ export default async function AdminDashboardPage() {
                   <li key={r.companyId} className={styles.companyBarRow}>
                     <Link
                       href={`/admin/companies/${r.companyId}`}
+                      prefetch={false}
                       className={styles.companyBarName}
                     >
                       {r.companyName}
