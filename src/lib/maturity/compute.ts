@@ -37,7 +37,7 @@ export async function computeCompanyScorecard(
   companyId: string,
   admin?: SupabaseClient
 ): Promise<ComputedScorecard> {
-  const db = admin ?? createSupabaseAdminClient(getCurrentInstanceConfig());
+  const db = admin ?? await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Fan out the six scorers in parallel — each is a small read.
   const [foundation, chart, planning, execution, measuresEnabled, meetingsEnabled] =
@@ -133,7 +133,7 @@ export async function writeScorecardSnapshot(
   scorecard: ComputedScorecard,
   admin?: SupabaseClient
 ): Promise<{ ok: true; date: string } | { ok: false; message: string }> {
-  const db = admin ?? createSupabaseAdminClient(getCurrentInstanceConfig());
+  const db = admin ?? await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   const { data: company } = await db
     .from("companies")

@@ -66,7 +66,7 @@ async function handle(req: NextRequest): Promise<Response> {
     return new Response("ANTHROPIC_API_KEY not configured", { status: 500 });
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Pull the analysis-row IDs we already have so the outer query
   // can exclude them. Doing this in-JS keeps the SELECT simple

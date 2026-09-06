@@ -50,7 +50,7 @@ export type AnalysisResult = {
 };
 
 export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Load the meeting + confirm it's routed and pending. The pipeline
   // must never analyze an unrouted meeting.
@@ -279,7 +279,7 @@ type CompanyContext = {
 };
 
 export async function loadCompanyContext(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   companyId: string
 ): Promise<CompanyContext> {
   const [companyRes, foundationRes, itemsRes, rosterRes, coachesRes] =
@@ -413,7 +413,7 @@ async function loadAnalyzerPrompt(): Promise<string> {
 // outside a user session) can gate the second LLM pass. Mirrors
 // companyHasFeature() but doesn't rely on RLS-scoped reads.
 async function companyHasAutomatedCommitmentTracking(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   companyId: string
 ): Promise<boolean> {
   const { data } = await admin
@@ -426,7 +426,7 @@ async function companyHasAutomatedCommitmentTracking(
 }
 
 async function companyHasFacilitationReview(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   companyId: string
 ): Promise<boolean> {
   const { data } = await admin
@@ -653,7 +653,7 @@ function addIsoDays(iso: string, days: number): string {
 // Commitment creation
 // ============================================================
 async function createCommitmentsFromExtraction(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   meeting: Meeting,
   commitments: ExtractedCommitment[],
   ctx: CompanyContext

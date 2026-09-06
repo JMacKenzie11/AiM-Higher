@@ -19,10 +19,14 @@ import type { InstanceConfig } from "@/lib/instances/types";
 // connection to the next request that landed on the process.
 // Constructing a client is local work — no network — so there is
 // nothing to save here.
-export function createSupabaseAdminClient(
-  instance: InstanceConfig,
-): SupabaseClient {
-  return createClient(instance.supabaseUrl, instance.supabaseServiceKey, {
+//
+// Async because the instance now arrives as a promise (next/headers
+// is async in Next 15), so every call site awaits it.
+export async function createSupabaseAdminClient(
+  instance: InstanceConfig | Promise<InstanceConfig>,
+): Promise<SupabaseClient> {
+  const config = await instance;
+  return createClient(config.supabaseUrl, config.supabaseServiceKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

@@ -84,7 +84,7 @@ export async function applyChartProposalAction(
   }
 
   const session = await requireProfile();
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // The chart target is the company the CONVERSATION belongs to,
   // not the caller's current scope cookie. A sysadmin can scope
@@ -494,7 +494,7 @@ function resolveIntegratorId(
 }
 
 async function reparentFunction(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   id: string,
   newParentId: string
 ): Promise<void> {
@@ -508,7 +508,7 @@ async function reparentFunction(
 }
 
 async function renameFunction(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   id: string,
   title: string
 ): Promise<void> {
@@ -522,7 +522,7 @@ async function renameFunction(
 }
 
 async function insertFunction(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   patch: {
     company_id: string;
     parent_function_id: string | null;
@@ -546,7 +546,7 @@ async function insertFunction(
 // duplicates — the function is fresh, only the trigger-created
 // default row exists).
 async function addResponsibilities(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   functionId: string,
   responsibilities: readonly string[]
 ): Promise<number> {
@@ -571,7 +571,7 @@ async function addResponsibilities(
 // Add only responsibilities that don't already exist on an EXISTING
 // function. Case-insensitive on title. Never deletes or modifies.
 async function mergeResponsibilities(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   fn: ExistingFunction,
   proposed: readonly string[],
   existingRoles: readonly ExistingRole[]

@@ -47,7 +47,7 @@ export async function reanalyzeMeetingAction(
     };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Wipe downstream artifacts. Hard delete rather than soft so a
   // reanalyze test doesn't leave zombie rows behind. Counts flow

@@ -15,8 +15,9 @@
 //      preview database, because preview URLs are generated per
 //      deployment and can never be registered as instances.
 //   3. The registry. Normalize the hostname, take its subdomain, and
-//      ask the injected lookup. The apex domain and www are the
-//      marketing site, not an instance.
+//      ask the injected lookup. The apex domain and www resolve as
+//      the subdomain "@", so they are a registry row like any other
+//      rather than a special case in code.
 //   4. Otherwise null.
 //
 // There is no step 5. An unresolved request must not fall back to a
@@ -37,6 +38,18 @@ export type InstanceLookup = (
 const PREVIEW_SUFFIX = ".vercel.app";
 const WWW_LABEL = "www";
 
+// The subdomain a bare domain resolves as. Borrowed from DNS zone
+// files, where @ has meant "the zone's own name" for forty years.
+//
+// It exists because the apex has to be SOMETHING. The app and the
+// marketing site share a domain today, and www.aims-hq.com carries no
+// subdomain to look up, so without this the live site resolves to no
+// instance and every path on it falls through to /instance-not-found.
+// Making it a registry row rather than a hardcoded default keeps the
+// rule this module is built on: an instance is resolved because
+// somebody wrote a row saying so, never because the code guessed.
+export const APEX_SUBDOMAIN = "@";
+
 // Lowercase, drop any :port, drop a trailing dot (a fully-qualified
 // name is still the same host). Hostnames are case-insensitive, so
 // ACME.Example.com and acme.example.com are one instance.
@@ -49,25 +62,33 @@ export function normalizeHostname(hostname: string): string {
 }
 
 // The subdomain is the first label, and only when there is a domain
-// left underneath it.
+// left underneath it. A bare domain is the apex, and resolves as "@".
 //
 //   acme.example.com        -> "acme"
 //   www.acme.example.com    -> "acme"   (www is decoration)
-//   example.com             -> null     (apex: the marketing site)
-//   www.example.com         -> null     (the same marketing site)
+//   example.com             -> "@"      (the apex row)
+//   www.example.com         -> "@"      (the same apex row)
 //   localhost               -> null
 //
-// The apex and www cases are the ones worth being explicit about. The
-// marketing site and the app share a domain, so a naive "first label"
-// rule would send a visitor to aimhigher.com looking for an instance
-// called "www", and would send the apex itself to a lookup that can
-// only ever miss. Neither names a customer, so neither resolves.
+// Two rules are worth being explicit about.
+//
+// www is decoration, never a subdomain. A naive "first label" rule
+// would send a visitor to www.example.com looking for an instance
+// called "www", so the label is dropped before anything else looks at
+// it. That makes www.acme.example.com the same instance as
+// acme.example.com, and collapses www.example.com back to the apex.
+//
+// A single-label hostname is not a domain and gets no apex row.
+// localhost is the case that matters: a developer with no
+// LOCAL_INSTANCE_* override would otherwise resolve to whatever the
+// apex row points at, which today is production. Falling to null
+// there means they see /instance-not-found and go set their override,
+// rather than quietly editing live data.
 export function extractSubdomain(normalizedHostname: string): string | null {
   const labels = normalizedHostname.split(".").filter(Boolean);
-  // Drop a leading www so www.acme.example.com is the same instance as
-  // acme.example.com, and www.example.com collapses back to the apex.
   if (labels[0] === WWW_LABEL) labels.shift();
-  if (labels.length < 3) return null;
+  if (labels.length < 2) return null;
+  if (labels.length === 2) return APEX_SUBDOMAIN;
   return labels[0];
 }
 

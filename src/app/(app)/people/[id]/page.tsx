@@ -347,7 +347,7 @@ async function loadEditorBundle(
   roster: Array<Pick<Profile, "id" | "full_name">>;
   strengths: Awaited<ReturnType<typeof getUserStrengths>>;
 } | null> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const [{ data: authUser }, strengths, rosterRes] = await Promise.all([

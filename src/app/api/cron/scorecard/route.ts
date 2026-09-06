@@ -47,7 +47,7 @@ async function handle(req: NextRequest): Promise<Response> {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   const { data: companies, error: listError } = await admin
     .from("companies")

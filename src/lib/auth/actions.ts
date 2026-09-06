@@ -86,7 +86,7 @@ export async function requestPasswordResetAction(
     return { ok: false, message: "Enter the email tied to your account." };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data, error } = await admin.auth.admin.generateLink({
     type: "recovery",
     email,
@@ -216,7 +216,7 @@ export async function completeAcceptInviteAction(
   // we log so a sysadmin can inspect + flip the row manually. This
   // was the failure mode where Jeff Bouwman signed in but stayed
   // pending on 2026-08-08 — we silently swallowed the update result.
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error: statusErr } = await admin
     .from("profiles")
     .update({ status: "active" })

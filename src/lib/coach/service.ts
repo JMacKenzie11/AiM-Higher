@@ -252,7 +252,7 @@ export async function listSharesForConversation(
   }>;
   if (shares.length === 0) return [];
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profiles } = await admin
     .from("profiles")
     .select("id, full_name, avatar_url")
@@ -409,7 +409,7 @@ export async function listShareCandidatesForConversation(
   // caller has already been proven the conversation owner by the
   // shareConversationAction / listShareCandidatesAction gate
   // upstream, so bypassing RLS here is safe.
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const [
     { data: members },
     { data: assignments },
@@ -492,7 +492,7 @@ export async function getMessageSenders(
   profileIds: readonly string[]
 ): Promise<Map<string, { full_name: string; avatar_url: string | null }>> {
   if (profileIds.length === 0) return new Map();
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin
     .from("profiles")
     .select("id, full_name, avatar_url")

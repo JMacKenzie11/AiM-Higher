@@ -55,7 +55,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Companies that opted in.
   const { data: companyRows } = await admin
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 export const GET = POST;
 
 async function runForCompany(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   companyId: string,
   timezone: string
 ): Promise<{ createdMissing: number; createdOffTarget: number }> {

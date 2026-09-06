@@ -8,13 +8,18 @@ import type { InstanceConfig } from "@/lib/instances/types";
 // Uses the request's cookies so RLS runs as the signed-in user.
 //
 // Takes the instance to connect to rather than reading env vars, so
-// which database a request talks to is a decision made once, at the
-// top, and passed down. Callers pass getCurrentInstanceConfig() while
-// that is still the same answer for every request.
-export async function createSupabaseServerClient(instance: InstanceConfig) {
-  const cookieStore = await cookies();
+// which database a request talks to is a decision made once, in
+// middleware, and passed down. Callers pass getCurrentInstanceConfig().
+//
+// Accepts the promise that returns, not just the value, so those call
+// sites read as createSupabaseServerClient(getCurrentInstanceConfig())
+// with no await of their own.
+export async function createSupabaseServerClient(
+  instance: InstanceConfig | Promise<InstanceConfig>,
+) {
+  const [cookieStore, config] = await Promise.all([cookies(), instance]);
 
-  return createServerClient(instance.supabaseUrl, instance.supabaseAnonKey, {
+  return createServerClient(config.supabaseUrl, config.supabaseAnonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

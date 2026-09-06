@@ -1,16 +1,18 @@
-// Central place to read Supabase config from process.env.
+// Central place to read app-level config from process.env.
 //
-// NEXT_PUBLIC_* vars have to be referenced STATICALLY for Next.js
-// to inline them into the client bundle at build time. Reading
-// them via a dynamic key (process.env[name]) works on the server
-// but leaves the client with undefined at runtime — which is how
-// the browser Supabase client used to blow up with
-// "Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL"
-// on client components. Each getter now names its env var
-// literally so the inliner sees it.
+// Only NEXT_PUBLIC_APP_URL lives here now. The Supabase URL and keys
+// used to be read here too, and are not any more: which database a
+// request talks to is resolved once in middleware and travels down
+// the request as an InstanceConfig (see src/lib/instances/). Reading
+// them from the environment at the point of use is precisely the
+// thing that made one deployment mean one database.
 //
-// Throwing here surfaces missing env vars at first use instead of
-// producing a mystifying 401 from Supabase.
+// The one remaining reader of NEXT_PUBLIC_SUPABASE_* is the seed
+// scripts, which run outside Next against an explicit --env-file and
+// build their own clients.
+//
+// Throwing here surfaces a missing variable at first use instead of
+// producing a mystifying 401 from somewhere downstream.
 
 function requireValue(name: string, value: string | undefined): string {
   if (!value) {
@@ -21,17 +23,9 @@ function requireValue(name: string, value: string | undefined): string {
   return value;
 }
 
-export const SUPABASE_URL = () =>
-  requireValue("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
-export const SUPABASE_ANON_KEY = () =>
-  requireValue(
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-export const SUPABASE_SERVICE_ROLE_KEY = () =>
-  requireValue(
-    "SUPABASE_SERVICE_ROLE_KEY",
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+// Referenced statically, not via a dynamic key: Next.js only inlines
+// NEXT_PUBLIC_* into the client bundle when it can see the literal
+// name at build time. process.env[name] works on the server and
+// leaves the browser with undefined.
 export const APP_URL = () =>
   requireValue("NEXT_PUBLIC_APP_URL", process.env.NEXT_PUBLIC_APP_URL);

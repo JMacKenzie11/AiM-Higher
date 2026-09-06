@@ -235,7 +235,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("strengths_team_insights")
     .upsert(

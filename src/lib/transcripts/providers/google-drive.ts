@@ -93,7 +93,7 @@ export async function exchangeCodeAndPersist(
   const email = info.data.email;
   if (!email) throw new Error("Google didn't return the connected email.");
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error: upsertError } = await admin
     .from("oauth_credentials")
     .upsert(
@@ -125,7 +125,7 @@ export async function exchangeCodeAndPersist(
 // OAuth2Client with credentials set. google-auth-library refreshes
 // the access token automatically when the SDK detects expiry.
 async function authenticatedClient(companyId: string): Promise<OAuth2Client> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin
     .from("oauth_credentials")
     .select("*")
@@ -231,7 +231,7 @@ async function verifyFolderAccess(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/not found|404/i.test(msg)) {
-      const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+      const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
       const { data } = await admin
         .from("oauth_credentials")
         .select("account_email")
@@ -348,7 +348,7 @@ export const googleDriveProvider: TranscriptProvider = {
 export async function getConnectedGoogleAccount(
   companyId: string
 ): Promise<string | null> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin
     .from("oauth_credentials")
     .select("account_email")

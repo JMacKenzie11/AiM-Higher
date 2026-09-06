@@ -105,7 +105,7 @@ export async function uploadAvatarAction(
     return { ok: false, message: "Photo must be under 2 MB after cropping." };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/webp" ? "webp" : "png";
   const path = `${session.profile.id}/${crypto.randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -157,7 +157,7 @@ export async function removeAvatarAction(): Promise<
   const priorUrl = session.profile.avatar_url;
   if (!priorUrl) return { ok: true };
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { error } = await admin
     .from("profiles")
     .update({ avatar_url: null })

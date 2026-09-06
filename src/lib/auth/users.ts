@@ -85,7 +85,7 @@ export async function createUserAction(
     return { ok: false, message: "Not your company." };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Step 1: create the auth.users row (no email dispatched).
   // We leave email_confirm=false so a later inviteUserByEmail() will
@@ -193,7 +193,7 @@ export async function updateUserAction(
     };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Fetch the current row so we can scope-check + only touch email
   // when it actually changed (avoids re-sending Supabase's magic-link
@@ -290,7 +290,7 @@ export async function requestFreshInviteAction(
     return { ok: true };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Paginated listUsers is the only email→user lookup the auth
   // admin API surfaces. Fine at our scale (< a few thousand users);
@@ -367,7 +367,7 @@ export async function sendInviteAction(profileId: string): Promise<UserActionRes
     };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: userRow, error: userErr } = await admin.auth.admin.getUserById(profileId);
   if (userErr || !userRow?.user?.email) {
     return { ok: false, message: "Couldn't find that user's email." };
@@ -422,7 +422,7 @@ export async function getInviteLinkAction(
     };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: userRow, error: userErr } =
     await admin.auth.admin.getUserById(profileId);
   if (userErr || !userRow?.user?.email) {
@@ -486,7 +486,7 @@ export async function dispatchInvite(
   email: string,
   senderProfileId?: string
 ): Promise<UserActionResult> {
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   // Ask Supabase to generate a magic-link OTP for this user. We
   // deliberately don't use the returned action_link (which routes
   // through Supabase's /auth/v1/verify endpoint and, on PKCE-flow
@@ -576,7 +576,7 @@ export async function dispatchInvite(
 }
 
 async function markInvited(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   profileId: string
 ): Promise<void> {
   const { error: markErr } = await admin
@@ -612,7 +612,7 @@ export async function deleteUserAction(profileId: string): Promise<UserActionRes
     return { ok: false, message: "Not your user to delete." };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Migration 0121 rewired every profile-referencing FK to either
   // cascade (personal rows: coaching threads/messages, strengths
@@ -649,7 +649,7 @@ export async function acceptInviteAction(): Promise<UserActionResult> {
     return { ok: false, message: "Sign in first, then accept the invitation." };
   }
 
-  const admin = createSupabaseAdminClient(getCurrentInstanceConfig());
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: profile, error } = await admin
     .from("profiles")
     .select("id, status")

@@ -156,7 +156,7 @@ export default async function AppLayout({
   };
 
   return (
-    <InstanceProvider config={toPublicInstanceConfig(getCurrentInstanceConfig())}>
+    <InstanceProvider config={toPublicInstanceConfig(await getCurrentInstanceConfig())}>
       <PostHogProvider user={analyticsUser}>
         <div
           className={styles.frame}
