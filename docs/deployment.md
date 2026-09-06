@@ -129,11 +129,39 @@ merging anything that depends on this.
    so rerunning is free.
 3. Confirm the row: `subdomain` `@`, `env_prefix` `PROD`, `status`
    `active`.
-4. Open a preview deployment and sign in. A preview that resolves
-   proves the control-plane variables and the resolver both work.
+4. Open a preview deployment and sign in.
 5. Merge.
 6. Check `www.aims-hq.com` and `aims-hq.com` both load, and that a cron
    route is not returning the not-found page.
 
-Step 4 is the one worth not skipping. It is the only check that
-exercises the registry before production depends on it.
+### What a preview does and does not prove
+
+A green preview proves `PREVIEW_INSTANCE_*` is set and that resolution,
+the middleware header and the app all work end to end. That is worth
+having.
+
+It does **not** exercise the registry. `*.vercel.app` is matched in
+`resolveInstance` before the registry lookup, so a preview never reads
+`CONTROL_PLANE_*` and never reads `PROD_*`. The first request that
+exercises those is the first production request after the merge.
+
+Nor can you force the registry path on a preview from outside. Vercel
+overwrites `x-forwarded-host` at its edge, so a spoofed header is
+discarded and the request still takes the preview branch. Confirmed on
+PR #49: `x-forwarded-host: nobody.example.com` resolved anyway, which it
+must not have done had the header been honoured.
+
+So the production variables have to be verified by looking at them in
+the Vercel dashboard. There is no deployed check that covers them
+first. Verify, then merge, then check step 6 immediately.
+
+### If production comes up empty
+
+The symptom is every path on `www.aims-hq.com` serving the
+"no AiMS Higher instance at this address" page with a 200.
+
+Revert the merge commit and push. Vercel redeploys the previous
+production build, which does not resolve hostnames at all and therefore
+cannot hit this. Then fix the variables and re-merge. Nothing in this
+change writes to a database on a failed resolution, so there is no data
+to clean up.
