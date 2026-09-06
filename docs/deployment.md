@@ -81,11 +81,13 @@ than guessing. See `src/lib/instances/current.ts`.
 
 | Variable | Points at |
 |---|---|
-| `CONTROL_PLANE_SUPABASE_URL` | Same as production |
-| `CONTROL_PLANE_SUPABASE_SERVICE_KEY` | Same as production |
 | `PREVIEW_INSTANCE_SUPABASE_URL` | **The dev database, never production** |
 | `PREVIEW_INSTANCE_SUPABASE_ANON_KEY` | Dev anon key |
 | `PREVIEW_INSTANCE_SUPABASE_SERVICE_KEY` | Dev service-role key |
+
+Preview does not need `CONTROL_PLANE_*`. A `*.vercel.app` hostname is
+matched before the registry lookup, so a preview never reads the
+registry and never needs to reach the control plane.
 
 Preview URLs are generated per deployment, so they can never be
 registered as instances and all share one database. Pointing them at
@@ -114,13 +116,24 @@ none: a partial set throws, naming what is missing.
 Define them **once**. A dotenv file lets a later assignment win, so a
 second copy further down the file silently overrides the first.
 
-## One caution about the Edge runtime
+## The Edge runtime and Sensitive variables
 
 Middleware runs on the Edge runtime, and instance resolution runs in
-middleware. If a variable is marked **Sensitive** in Vercel it may not
-be available at build time, which is when Next inlines what the edge
-bundle can see. Confirm a preview deployment actually resolves before
-merging anything that depends on this.
+middleware, so the question was whether a variable marked **Sensitive**
+in Vercel reaches it. Sensitive variables cannot be read back after
+creation, and Next inlines what an edge bundle can see at build time.
+
+**Answered, on the 2026-09-06 deploy of PR #49.** All five production
+variables are Sensitive, and resolution worked: `www.aims-hq.com`
+resolved through the registry and a session minted against
+`PROD_SUPABASE_URL` was accepted. Sensitive variables do reach edge
+middleware at runtime.
+
+Worth knowing because it is not obvious, and because the code reads
+these dynamically. `resolveInstance` takes `process.env` as an argument
+and `registry.ts` builds names from a row's `env_prefix`, so nothing
+here is a literal `process.env.NAME` the inliner could have seen. It
+relies on the runtime environment being populated, and it is.
 
 ## Order of operations for a deploy
 
@@ -154,6 +167,32 @@ must not have done had the header been honoured.
 So the production variables have to be verified by looking at them in
 the Vercel dashboard. There is no deployed check that covers them
 first. Verify, then merge, then check step 6 immediately.
+
+### The production deployment's own .vercel.app alias
+
+`PREVIEW_INSTANCE_*` is currently scoped to **Production and Preview**,
+not Preview alone. That has a consequence worth knowing about.
+
+A production deployment is reachable both at `www.aims-hq.com` and at
+its Vercel alias, `aims-higher.vercel.app`. The alias ends in
+`.vercel.app`, so it matches the preview branch of `resolveInstance`
+before the registry, and serves the **dev** database.
+
+Measured on 2026-09-06, same deployment, same moment:
+
+| Hostname | Session from prod DB | Session from dev DB |
+|---|---|---|
+| `www.aims-hq.com` | 200 | redirected to sign-in |
+| `aims-higher.vercel.app` | redirected to sign-in | 200 |
+
+Fail-safe in that the alias cannot reach customer data. The hazard runs
+the other way: someone who bookmarks the alias thinking it is
+production is doing admin work against dev and will not be told.
+
+To close it, scope `PREVIEW_INSTANCE_*` to **Preview** only. The alias
+then resolves to nothing and serves `/instance-not-found`, which is
+unambiguous. Nothing else changes: real previews keep their variables,
+and `www.aims-hq.com` never took this branch anyway.
 
 ### If production comes up empty
 
