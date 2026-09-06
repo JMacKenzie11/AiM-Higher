@@ -6,6 +6,12 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // scripts/ runs outside the Next build under
+    // --experimental-strip-types, which resolves ESM imports by their
+    // real filename and so needs the .ts extension written out. Safe
+    // here because noEmit is on: nothing is compiled to JS, so there
+    // is no output whose extensions could be wrong.
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
