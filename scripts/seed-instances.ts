@@ -3,7 +3,7 @@
  *
  * Writes rows into public.instances, the registry that decides which
  * database a hostname belongs to. Idempotent: rerunning updates the
- * matching row in place, keyed by subdomain.
+ * matching row in place, keyed by subdomain. Safe to rerun.
  *
  * A row is the only thing that makes a hostname resolvable. Without
  * one, src/lib/instances/resolve.ts returns null and every path on
@@ -11,12 +11,20 @@
  * the live domain: the apex and www resolve as the subdomain "@", so
  * a deployment with no "@" row serves nothing at all.
  *
- * Env pattern, single or numbered:
+ * The production row is in this file, not in an environment
+ * variable. It is the one row the deployment cannot come up without,
+ * so it belongs where it can be read, reviewed and diffed rather than
+ * in whatever .env the operator happened to be holding. Running this
+ * with no configuration at all writes exactly that row.
+ *
+ * Further rows come from the environment, single or numbered:
  *   SEED_INSTANCE_SUBDOMAIN     / _DISPLAY_NAME / _ENV_PREFIX [/ _STATUS]
  *   SEED_INSTANCE_1_SUBDOMAIN   / …
  *   SEED_INSTANCE_2_SUBDOMAIN   / …
  *
- * Use "@" as the subdomain for the apex and www.
+ * Use "@" as the subdomain for the apex and www. An env row naming a
+ * subdomain the file already defines replaces it, so an operator can
+ * still override the built-in without editing code.
  *
  * ENV_PREFIX names the variables holding that instance's connection
  * details: {PREFIX}_SUPABASE_URL / _ANON_KEY / _SERVICE_KEY. This
@@ -51,22 +59,41 @@ type InstanceSpec = {
   status: "active" | "suspended";
 };
 
+// The production instance.
+//
+// "@" rather than a hostname label because production is served at
+// aims-hq.com and www.aims-hq.com, neither of which carries a
+// subdomain to look up. See APEX_SUBDOMAIN in
+// src/lib/instances/resolve.ts.
+//
+// env_prefix "PROD" points at PROD_SUPABASE_URL / _ANON_KEY /
+// _SERVICE_KEY. The keys are never in the row; see migration 0169.
+const PRODUCTION_ROW: InstanceSpec = {
+  label: "built-in production row",
+  subdomain: "@",
+  displayName: "AiMS Higher",
+  envPrefix: "PROD",
+  status: "active",
+};
+
 function collectInstances(): InstanceSpec[] {
-  const specs: InstanceSpec[] = [];
+  const fromEnv: InstanceSpec[] = [];
 
   const single = readSpec("SEED_INSTANCE");
-  if (single) specs.push(single);
+  if (single) fromEnv.push(single);
   for (let i = 1; i <= 9; i += 1) {
     const numbered = readSpec(`SEED_INSTANCE_${i}`);
-    if (numbered) specs.push(numbered);
+    if (numbered) fromEnv.push(numbered);
   }
 
-  const seen = new Set<string>();
-  return specs.filter((spec) => {
-    if (seen.has(spec.subdomain)) return false;
-    seen.add(spec.subdomain);
-    return true;
-  });
+  // Production first, then the environment. Later wins on a
+  // collision, so an explicit env row overrides the built-in and a
+  // rerun with no configuration still writes production.
+  const bySubdomain = new Map<string, InstanceSpec>();
+  for (const spec of [PRODUCTION_ROW, ...fromEnv]) {
+    bySubdomain.set(spec.subdomain, spec);
+  }
+  return [...bySubdomain.values()];
 }
 
 function readSpec(prefix: string): InstanceSpec | null {
@@ -144,13 +171,8 @@ async function main() {
   const url = required("CONTROL_PLANE_SUPABASE_URL");
   const serviceKey = required("CONTROL_PLANE_SUPABASE_SERVICE_KEY");
 
+  // Never empty: the production row is built in.
   const specs = collectInstances();
-  if (specs.length === 0) {
-    console.error(
-      "ERROR: no instance entries found. Set SEED_INSTANCE_SUBDOMAIN/_DISPLAY_NAME/_ENV_PREFIX (or SEED_INSTANCE_1_*, SEED_INSTANCE_2_*, …)."
-    );
-    process.exit(1);
-  }
   for (const spec of specs) assertConnectable(spec);
 
   const control = createClient(url, serviceKey, {
