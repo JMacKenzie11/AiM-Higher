@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { reasonPhrase, type CompanyAttention } from "@/lib/hq/attention";
 import styles from "./hq.module.css";
+import { ScopeIntoCompanyButton } from "../admin/companies/ScopeIntoCompanyButton";
 
 // Needs-your-attention list. One row per assigned company that meets
 // at least one attention trigger; ranked by severity. Reason phrases
@@ -26,13 +26,12 @@ export function NeedsAttentionSection({ rows }: { rows: CompanyAttention[] }) {
             <li key={row.companyId} className={styles.attentionItem}>
               <div className={styles.attentionHead}>
                 <span className={styles.attentionName}>
-                  <Link
+                  <ScopeIntoCompanyButton
+                    companyId={row.companyId}
                     className={styles.attentionNameLink}
-                    href={`/admin/companies/${row.companyId}`}
-                    prefetch={false}
                   >
                     {row.companyName}
-                  </Link>
+                  </ScopeIntoCompanyButton>
                 </span>
                 <span className={styles.attentionSeverity}>
                   {row.triggers.length} signal

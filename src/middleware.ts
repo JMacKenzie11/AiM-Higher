@@ -7,14 +7,10 @@ import {
   routeForInstance,
 } from "@/lib/instances/middleware-decision";
 import { hostnameFromHeaders } from "@/lib/instances/request";
+import { SCOPE_COOKIE_NAME } from "@/lib/admin/scope";
 import {
-  SCOPE_COOKIE_NAME,
-  SCOPE_COOKIE_MAX_AGE,
-} from "@/lib/admin/scope";
-import {
-  autoScopeTarget,
-  isPrefetchRequest,
-  roleCanAutoScope,
+  SCOPE_PICKER_PATH,
+  needsScopePicker,
 } from "@/lib/admin/scope-request";
 
 // Middleware handles four concerns per request:
@@ -32,12 +28,12 @@ import {
 //      when no company is scoped. Keeping the routing here (not in a
 //      root page.tsx) lets the landing page render statically without
 //      a session fetch.
-//   3. Auto-scope for /admin/companies/[id] — mutate request cookies
-//      so the current render sees the new scope, and set the response
-//      cookie so subsequent clicks keep it. Skipped for prefetch
-//      requests (a Link scrolling into view is not the user choosing
-//      a company) and only persisted for cross-tenant roles. See
-//      scope-request.ts for the incident this guards against.
+//   3. Company URLs for cross-tenant roles — a system_admin or guide
+//      asking for /admin/companies/[id] while scoped elsewhere (or
+//      nowhere) is sent to Guide HQ to pick, rather than being scoped
+//      in. Middleware no longer WRITES the scope cookie at all;
+//      scoping in is a server action behind a button. See
+//      scope-request.ts for the incident that drove that.
 //
 // The cookie-mutation pattern uses NextResponse.next({request}) —
 // mirrors the supabase session refresh helper so both moves compose.
@@ -70,21 +66,11 @@ export async function middleware(request: NextRequest) {
   }
 
   const currentScope = request.cookies.get(SCOPE_COOKIE_NAME)?.value ?? null;
-  const targetScope = autoScopeTarget({
-    pathname: request.nextUrl.pathname,
-    currentScope,
-    isPrefetch: isPrefetchRequest(request.headers),
-  });
-  const shouldSetScope = targetScope !== null;
   // NOTE: /hq deliberately does NOT clear the scope cookie. Preserving
   // it lets Dashboard/Chart/Plan (hidden from the sidebar while on /hq,
   // see Sidebar) still navigate back to the last-scoped company when
   // reached directly. Sidebar.tsx hides company-scoped items based on
   // pathname; the cookie stays put.
-
-  if (shouldSetScope && targetScope) {
-    request.cookies.set(SCOPE_COOKIE_NAME, targetScope);
-  }
 
   const path = request.nextUrl.pathname;
 
@@ -140,19 +126,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(home, request.url));
   }
 
-  // Persist the scope only for roles that use it. The request-cookie
-  // mutation above is inert for company users (the resolver reads
-  // their profile first), so it's fine that it ran before the role
-  // was known; the response cookie is what would survive.
-  if (shouldSetScope && targetScope && roleCanAutoScope(role)) {
-    response.cookies.set({
-      name: SCOPE_COOKIE_NAME,
-      value: targetScope,
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: SCOPE_COOKIE_MAX_AGE,
-    });
+  // A cross-tenant operator asking for a company they are not scoped
+  // into goes to the picker. Nothing is written: the cookie only ever
+  // changes through scopeIntoCompany, behind a button.
+  //
+  // The role check is what keeps company admins and team members out
+  // of this entirely — they resolve their company from their own
+  // profile row and never carry a scope cookie, so their navigation is
+  // untouched.
+  if (needsScopePicker({ pathname: path, currentScope, role })) {
+    return NextResponse.redirect(new URL(SCOPE_PICKER_PATH, request.url));
   }
 
   return response;

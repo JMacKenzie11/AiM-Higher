@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
 import {
   getPlatformPulse,
@@ -23,6 +22,7 @@ import { CoachingInsightsCard } from "./CoachingInsightsCard";
 import { Sparkline } from "./Sparkline";
 import { InfoTip } from "./InfoTip";
 import styles from "./dashboard.module.css";
+import { ScopeIntoCompanyButton } from "../companies/ScopeIntoCompanyButton";
 
 // System-admin cross-company dashboard. Every module is fetched
 // in parallel; each renders within its own card and does not
@@ -166,14 +166,13 @@ export default async function AdminDashboardPage() {
           <ul className={styles.atRiskList}>
             {atRisk.map((c) => (
               <li key={c.companyId} className={styles.atRiskRow}>
-                <Link
-                  href={`/admin/companies/${c.companyId}`}
-                  prefetch={false}
+                <ScopeIntoCompanyButton
+                  companyId={c.companyId}
                   className={styles.atRiskLink}
                 >
                   <span className={styles.atRiskName}>{c.companyName}</span>
                   <span className={styles.atRiskReason}>{c.reason}</span>
-                </Link>
+                </ScopeIntoCompanyButton>
               </li>
             ))}
           </ul>
@@ -250,13 +249,12 @@ export default async function AdminDashboardPage() {
                 .slice(0, 8)
                 .map((r) => (
                   <li key={r.companyId} className={styles.companyBarRow}>
-                    <Link
-                      href={`/admin/companies/${r.companyId}`}
-                      prefetch={false}
+                    <ScopeIntoCompanyButton
+                      companyId={r.companyId}
                       className={styles.companyBarName}
                     >
                       {r.companyName}
-                    </Link>
+                    </ScopeIntoCompanyButton>
                     <div
                       className={styles.companyBarTrack}
                       aria-hidden="true"

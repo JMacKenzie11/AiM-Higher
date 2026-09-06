@@ -1,25 +1,41 @@
-// Pure helpers behind the middleware's URL-driven scope-in. Kept
-// free of "server-only" and next/headers so they run in the edge
+// Pure helpers behind the middleware's handling of company URLs.
+// Kept free of "server-only" and next/headers so they run in the edge
 // runtime AND under vitest.
 //
-// Background: middleware rewrites the aims_scope_company cookie
-// whenever a request lands on /admin/companies/<id>, so that page
-// behaves as if you're inside that company. The original version
-// fired on EVERY request to that path, including Next.js Link
-// prefetches. In production a <Link> prefetches when it scrolls
-// into view or is hovered, each prefetch is a real request through
-// middleware, and the response Set-Cookie switched the operator's
-// scope to whichever company happened to be prefetched last.
-// Landing on /hq (five company links in the viewport) and then
-// clicking Dashboard was enough to end up in the wrong tenant.
+// HISTORY, because the shape of this file only makes sense with it.
 //
-// Two guards now sit in front of the cookie write:
-//   1. The request must be a real navigation, not a prefetch.
-//   2. The caller must be a cross-tenant role. Company users
-//      ignore the cookie anyway (see scope.ts), but we shouldn't
-//      hand them one at all.
+// Middleware used to WRITE the aims_scope_company cookie whenever a
+// request landed on /admin/companies/<id>, so the page behaved as if
+// you were inside that company. Scope-in was a side effect of a GET.
+//
+// That is unsound, and it bit us. A <Link> prefetches when it scrolls
+// into view or is hovered, each prefetch is a real request through
+// middleware, and the response Set-Cookie moved the operator's scope
+// to whichever company was prefetched last. Landing on /hq with five
+// company links in the viewport and then clicking Dashboard was enough
+// to end up in the wrong tenant.
+//
+// The first fix was to detect prefetches by header and skip the write.
+// It did not work: Next strips `next-router-prefetch` before
+// middleware sees it, so an app-router prefetch was indistinguishable
+// from a real navigation. The second fix, prefetch={false} at every
+// call site, did work, but only by remembering to write it on every
+// future link.
+//
+// Scope-in is now an explicit server action (scopeIntoCompany in
+// scope-actions.ts) invoked by a button. No GET writes the cookie, so
+// there is nothing for a prefetch to trigger and nothing to detect. A
+// request cannot change who you are acting as; only a POST you made on
+// purpose can.
+//
+// What is left here is the read-side rule: a cross-tenant operator who
+// asks for a company URL they are not scoped into gets sent to Guide
+// HQ to choose one, rather than being silently scoped in.
 
 const COMPANY_ADMIN_PATH = /^\/admin\/companies\/([0-9a-f-]{36})(?:\/|$)/i;
+
+// Where a cross-tenant operator is sent to pick a company.
+export const SCOPE_PICKER_PATH = "/hq";
 
 // Company id embedded in an /admin/companies/<uuid> path, else null.
 export function companyIdFromPath(pathname: string): string | null {
@@ -27,53 +43,32 @@ export function companyIdFromPath(pathname: string): string | null {
   return match ? match[1] : null;
 }
 
-// True when the request was issued by a prefetcher rather than a
-// user navigation. Next.js's app router sends `Next-Router-Prefetch:
-// 1` on its own prefetches; browsers send `Purpose: prefetch` or
-// `Sec-Purpose: prefetch` for <link rel=prefetch> / speculation
-// rules. Any of these means "the user did not choose this URL".
-//
-// KNOWN GAP, which is why every <Link> to /admin/companies/[id] now
-// carries prefetch={false}. The `next-router-prefetch` arm does not
-// fire: Next strips that header before middleware sees it, so an
-// app-router prefetch arrives here indistinguishable from a real
-// navigation. Measured by driving the dev server with each header in
-// turn — `purpose` and `sec-purpose` suppress the cookie write,
-// `next-router-prefetch` does not — and confirmed to predate the
-// instance-resolution work by driving the same probes against the
-// commit before it.
-//
-// So the two guards below are not currently both live for the case
-// they were written for. prefetch={false} at the call sites closes it
-// at the source: a link that never prefetches cannot prefetch its way
-// into the wrong tenant, whatever middleware can or cannot see. This
-// arm stays because browser-level prefetch and speculation rules do
-// reach us, and because a future Next version may forward its own
-// header again.
-export function isPrefetchRequest(headers: Headers): boolean {
-  if (headers.get("next-router-prefetch") === "1") return true;
-  if (headers.get("purpose") === "prefetch") return true;
-  const secPurpose = headers.get("sec-purpose") ?? "";
-  if (secPurpose.split(";").some((p) => p.trim() === "prefetch")) return true;
-  return false;
-}
-
-// Only cross-tenant roles ever carry a scope cookie.
-export function roleCanAutoScope(role: string | null): boolean {
+// Only cross-tenant roles carry a scope cookie at all. Company admins
+// and team members resolve their company from their own profile row
+// and ignore the cookie entirely (see scope.ts), so none of this
+// applies to them and their navigation must be untouched.
+export function roleUsesCompanyScope(role: string | null): boolean {
   return role === "system_admin" || role === "aims_guide";
 }
 
-// Decide whether this request should rewrite the scope cookie, and
-// to what. Returns the target company id, or null to leave the
-// cookie alone.
-export function autoScopeTarget(args: {
+// Should this request be bounced to the picker instead of rendering?
+//
+// Yes when a cross-tenant operator asks for a specific company's
+// page while scoped somewhere else, or nowhere. The page would
+// otherwise render against whatever their cookie says rather than the
+// company in the URL, which is the confusing half of the old
+// behaviour left over once the cookie write is gone.
+//
+// Deep links keep working for anyone already scoped into that company,
+// which is the case that matters: you scope in, you navigate around,
+// you paste a URL to a colleague who is also scoped in.
+export function needsScopePicker(args: {
   pathname: string;
   currentScope: string | null;
-  isPrefetch: boolean;
-}): string | null {
-  if (args.isPrefetch) return null;
+  role: string | null;
+}): boolean {
+  if (!roleUsesCompanyScope(args.role)) return false;
   const target = companyIdFromPath(args.pathname);
-  if (!target) return null;
-  if (target === args.currentScope) return null;
-  return target;
+  if (!target) return false;
+  return target !== args.currentScope;
 }

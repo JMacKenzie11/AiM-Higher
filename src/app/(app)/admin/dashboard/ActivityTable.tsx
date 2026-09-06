@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import type { CompanyActivityRow } from "@/lib/admin/dashboard-service";
 import styles from "./dashboard.module.css";
+import { ScopeIntoCompanyButton } from "../companies/ScopeIntoCompanyButton";
 
 // Sortable per-company activity table. Rows link to the company
 // admin page (which is scoped for both system_admin and aims_guide),
@@ -138,13 +138,12 @@ export function ActivityTable({ rows }: { rows: CompanyActivityRow[] }) {
             sorted.map((r) => (
               <tr key={r.companyId} className={styles.activityRow}>
                 <td>
-                  <Link
-                    href={`/admin/companies/${r.companyId}`}
-                    prefetch={false}
+                  <ScopeIntoCompanyButton
+                    companyId={r.companyId}
                     className={styles.activityCompanyLink}
                   >
                     {r.companyName}
-                  </Link>
+                  </ScopeIntoCompanyButton>
                 </td>
                 <td className={styles.tdRight}>
                   {r.lastActiveAt ? relativeDay(r.lastActiveAt) : "—"}

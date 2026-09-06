@@ -6,10 +6,7 @@ import {
   INSTANCE_NOT_FOUND_PATH,
 } from "./middleware-decision";
 import { resolveInstance } from "./resolve";
-import {
-  autoScopeTarget,
-  isPrefetchRequest,
-} from "@/lib/admin/scope-request";
+import { needsScopePicker } from "@/lib/admin/scope-request";
 import {
   INSTANCE_HEADER,
   hostnameFromHeaders,
@@ -144,11 +141,12 @@ describe("the instance request header", () => {
 describe("instance resolution alongside the existing middleware rules", () => {
   const COMPANY = "11111111-1111-4111-8111-111111111111";
 
-  it("still refuses to scope in on a prefetch, on a resolved instance", async () => {
+  it("sends an unscoped operator to the picker, on a resolved instance", async () => {
     // Resolution runs before everything else in middleware now, so
     // this pins that it did not disturb the ordering the scope rule
-    // depends on. A Link prefetch must never move the operator, and
-    // that is true whether or not a hostname resolved.
+    // depends on. A company URL resolves its instance and then, for a
+    // cross-tenant role that is not scoped into it, goes to the
+    // picker rather than scoping them in.
     const resolved = await resolveInstance(
       "acme.example.com",
       {},
@@ -156,17 +154,16 @@ describe("instance resolution alongside the existing middleware rules", () => {
     );
     expect(routeForInstance({ pathname: `/admin/companies/${COMPANY}`, instance: resolved }).action).toBe("proceed");
 
-    const prefetch = new Headers({ "next-router-prefetch": "1" });
     expect(
-      autoScopeTarget({
+      needsScopePicker({
         pathname: `/admin/companies/${COMPANY}`,
         currentScope: null,
-        isPrefetch: isPrefetchRequest(prefetch),
+        role: "system_admin",
       }),
-    ).toBeNull();
+    ).toBe(true);
   });
 
-  it("scopes in on a real navigation, on a resolved instance", async () => {
+  it("lets an already-scoped deep link through, on a resolved instance", async () => {
     const resolved = await resolveInstance(
       "acme.example.com",
       {},
@@ -175,12 +172,12 @@ describe("instance resolution alongside the existing middleware rules", () => {
     expect(routeForInstance({ pathname: `/admin/companies/${COMPANY}`, instance: resolved }).action).toBe("proceed");
 
     expect(
-      autoScopeTarget({
+      needsScopePicker({
         pathname: `/admin/companies/${COMPANY}`,
-        currentScope: null,
-        isPrefetch: isPrefetchRequest(new Headers()),
+        currentScope: COMPANY,
+        role: "system_admin",
       }),
-    ).toBe(COMPANY);
+    ).toBe(false);
   });
 });
 

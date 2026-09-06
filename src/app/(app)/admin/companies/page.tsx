@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { getCompaniesOverview } from "@/lib/admin/companies-service";
@@ -16,6 +15,7 @@ import { GuidesPanel } from "./GuidesPanel";
 import { PlatformTranscriptsPanel } from "./PlatformTranscriptsPanel";
 import styles from "./admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { ScopeIntoCompanyButton } from "./ScopeIntoCompanyButton";
 
 // Companies overview — the fleet view.
 //   system_admin sees every company + management affordances (Create,
@@ -151,13 +151,13 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                     </td>
                     <td>
                       <div className={styles.rowActions}>
-                        <Link
-                          href={`/admin/companies/${company.id}`}
-                          prefetch={false}
+                        <ScopeIntoCompanyButton
+                          companyId={company.id}
+                          destination={`/admin/companies/${company.id}`}
                           className={styles.ghostButton}
                         >
                           Settings
-                        </Link>
+                        </ScopeIntoCompanyButton>
                         {isSystemAdmin ? (
                           <CompanyRowActions
                             companyId={company.id}
