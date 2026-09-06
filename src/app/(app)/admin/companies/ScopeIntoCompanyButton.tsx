@@ -41,6 +41,10 @@ export function ScopeIntoCompanyButton({
   return (
     <button
       type="button"
+      // Stable hooks for the Playwright suite. Copy changes, these
+      // don't. See e2e/README or docs/e2e.md.
+      data-testid="scope-into-company"
+      data-company-id={companyId}
       className={className}
       title={title}
       disabled={pending}

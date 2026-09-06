@@ -3,6 +3,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Lets a second dev server run alongside the first with its own
+  // build output. The Playwright suite needs one server with the
+  // LOCAL_INSTANCE_* override on and one with it off, and two `next
+  // dev` processes sharing .next each invalidate the other's compile
+  // until requests start timing out. Unset everywhere else, so
+  // production and ordinary local dev are untouched.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // Skip Next.js's in-build `tsc --noEmit` pass. The typecheck is
   // already a required gate in .github/workflows/checks.yml
   // (blocks the PR + push to main), so re-running it inside the
