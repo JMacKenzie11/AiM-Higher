@@ -455,7 +455,11 @@ export function Sidebar({
         </div>
 
         {contextLabel ? (
-          <div className={styles.contextPill} title={contextLabel}>
+          <div
+            className={styles.contextPill}
+            title={contextLabel}
+            data-testid="context-pill"
+          >
             <span className={styles.contextDot} aria-hidden="true" />
             <span className={styles.contextText}>{contextLabel}</span>
           </div>
@@ -648,6 +652,7 @@ function SidebarUserMenu({
       <button
         type="button"
         className={styles.userButton}
+        data-testid="user-menu-trigger"
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -679,6 +684,7 @@ function SidebarUserMenu({
                 type="submit"
                 className={styles.userMenuItem}
                 role="menuitem"
+                data-testid="exit-company-scope"
               >
                 Exit {scopedCompanyName ?? "company"}
               </button>

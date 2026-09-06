@@ -18,6 +18,15 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  // .next-e2e-unresolved is the second dev server's build output (see
+  // playwright.config.ts). Listed so `next dev` doesn't rewrite and
+  // reformat this file every time the e2e suite runs.
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next-e2e-unresolved/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }

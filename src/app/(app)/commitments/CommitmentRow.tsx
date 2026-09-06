@@ -386,7 +386,7 @@ export function CommitmentRow({
   if (hidePriority) rowClasses.push(styles.rowNoPriority);
 
   return (
-    <li className={rowClasses.join(" ")}>
+    <li className={rowClasses.join(" ")} data-testid="commitment-row">
       <button
         type="button"
         className={buildCircleClass(
