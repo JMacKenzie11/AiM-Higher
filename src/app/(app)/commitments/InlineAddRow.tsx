@@ -200,6 +200,7 @@ export function InlineAddRow({
         <button
           type="submit"
           className={styles.addSubmit}
+          data-testid="commitment-add-submit"
           disabled={pending || !description.trim()}
         >
           {pending ? "Saving…" : "Add"}

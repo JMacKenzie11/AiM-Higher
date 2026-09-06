@@ -25,7 +25,7 @@ export default function InstanceNotFoundPage() {
   return (
     <main className={styles.stage}>
       <div className={styles.card}>
-        <h1 className={styles.h1}>
+        <h1 className={styles.h1} data-testid="instance-not-found">
           There&rsquo;s no AiMS Higher instance at this address
         </h1>
         <span className={styles.rule} aria-hidden="true" />
