@@ -196,6 +196,14 @@
 }
 
 .atRiskLink {
+  /* Reset button chrome: scope-in is a <button>, not an <a>, so a
+     prefetch can never fire it. See ScopeIntoCompanyButton. */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -320,6 +328,14 @@
 }
 
 .companyBarName {
+  /* Reset button chrome: scope-in is a <button>, not an <a>, so a
+     prefetch can never fire it. See ScopeIntoCompanyButton. */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 0;
   color: var(--text-heading);
   text-decoration: none;
   font: var(--text-body);
@@ -615,6 +631,14 @@
 }
 
 .activityCompanyLink {
+  /* Reset button chrome: scope-in is a <button>, not an <a>, so a
+     prefetch can never fire it. See ScopeIntoCompanyButton. */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 0;
   color: var(--text-heading);
   text-decoration: none;
   font-weight: 600;

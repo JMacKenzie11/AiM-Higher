@@ -164,6 +164,14 @@
 }
 
 .attentionNameLink {
+  /* Reset button chrome: scope-in is a <button>, not an <a>, so a
+     prefetch can never fire it. See ScopeIntoCompanyButton. */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 0;
   color: var(--primary);
   text-decoration: none;
 }

@@ -106,172 +106,144 @@ function guideSession(assignments: string[]) {
 }
 
 // ==============================================================
-// scopeIntoCompanyAction
+// scopeIntoCompany
 // ==============================================================
-describe("scopeIntoCompanyAction", () => {
+//
+// This is now the ONLY thing that writes the scope cookie. Middleware
+// used to do it as a side effect of GET /admin/companies/<id>, which
+// meant a Link prefetch could move the operator. So these tests carry
+// more weight than they did: every authorization rule for scope-in
+// lives here and nowhere else.
+//
+// The action returns a destination rather than redirecting. The caller
+// hard-navigates with window.location, which is what defeats Next's
+// Router Cache holding stale RSC payloads keyed by URL — the bug where
+// the sidebar showed the new tenant while the destination page still
+// served the old tenant's rows.
+describe("scopeIntoCompany", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.missingCompanyIds.clear();
-    // Restore the throwing behavior after vi.clearAllMocks() wipes
-    // implementations. Without this, redirect becomes a noop and
-    // captureRedirect's "expected a redirect" assertion trips.
     mocks.redirect.mockImplementation((url: string) => {
       throw { __redirect: true, url };
     });
   });
 
-  it("scopes a system_admin into any company and defaults the redirect to /dashboard", async () => {
+  it("scopes a system_admin into any company, defaulting to the dashboard", async () => {
     mocks.requireRole.mockResolvedValue(sysAdminSession());
-    const { scopeIntoCompanyAction } = await import("./scope-actions");
+    const { scopeIntoCompany } = await import("./scope-actions");
 
-    const target = await captureRedirect(() =>
-      scopeIntoCompanyAction("co_target")
-    );
-
-    expect(target).toBe("/dashboard");
+    expect(await scopeIntoCompany("co_target")).toEqual({
+      ok: true,
+      redirectTo: "/dashboard",
+    });
     expect(mocks.setScopedCompanyCookie).toHaveBeenCalledWith(
       "co_target",
       "system_admin"
     );
+    // The layout gets a revalidation ping so any server render before
+    // the client reload lands sees the fresh cookie.
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/", "layout");
   });
 
-  it("respects an explicit redirectTo argument", async () => {
+  it("respects an explicit destination", async () => {
+    // The companies index passes the settings page, so "Settings"
+    // still lands where it says while scoping in on the way.
     mocks.requireRole.mockResolvedValue(sysAdminSession());
-    const { scopeIntoCompanyAction } = await import("./scope-actions");
+    const { scopeIntoCompany } = await import("./scope-actions");
 
-    const target = await captureRedirect(() =>
-      scopeIntoCompanyAction("co_target", "/plan")
-    );
-
-    expect(target).toBe("/plan");
+    expect(await scopeIntoCompany("co_target", "/admin/companies/co_target"))
+      .toEqual({ ok: true, redirectTo: "/admin/companies/co_target" });
   });
 
-  it("allows an aims_guide to scope into a company they're assigned to", async () => {
+  it("never redirects — the caller navigates", async () => {
+    // If this went back to throwing NEXT_REDIRECT the client would
+    // never reach its window.location call and the Router Cache bug
+    // would return.
+    mocks.requireRole.mockResolvedValue(sysAdminSession());
+    const { scopeIntoCompany } = await import("./scope-actions");
+
+    await scopeIntoCompany("co_target");
+    expect(mocks.redirect).not.toHaveBeenCalled();
+  });
+
+  it("allows an aims_guide into a company they're assigned to", async () => {
     mocks.requireRole.mockResolvedValue(
       guideSession(["co_acme", "co_meridian"])
     );
-    const { scopeIntoCompanyAction } = await import("./scope-actions");
+    const { scopeIntoCompany } = await import("./scope-actions");
 
-    const target = await captureRedirect(() =>
-      scopeIntoCompanyAction("co_meridian")
-    );
-
-    expect(target).toBe("/dashboard");
+    expect(await scopeIntoCompany("co_meridian")).toEqual({
+      ok: true,
+      redirectTo: "/dashboard",
+    });
     expect(mocks.setScopedCompanyCookie).toHaveBeenCalledWith(
       "co_meridian",
       "aims_guide"
     );
   });
 
-  it("bounces an aims_guide who isn't assigned to the target company — no cookie is set", async () => {
-    // This is the security-critical path: a guide MUST NOT be able to
-    // scope into a company that isn't on their assignment list. The
-    // action bounces to /admin/companies BEFORE calling
-    // setScopedCompanyCookie.
+  it("refuses an aims_guide who isn't assigned to the target — no cookie is set", async () => {
+    // The security-critical path. A guide MUST NOT be able to scope
+    // into a company that isn't on their assignment list, and the
+    // refusal has to happen before setScopedCompanyCookie.
     mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
-    const { scopeIntoCompanyAction } = await import("./scope-actions");
+    const { scopeIntoCompany } = await import("./scope-actions");
 
-    const target = await captureRedirect(() =>
-      scopeIntoCompanyAction("co_forbidden")
-    );
+    const result = await scopeIntoCompany("co_forbidden");
 
-    expect(target).toBe("/admin/companies");
+    expect(result.ok).toBe(false);
     expect(mocks.setScopedCompanyCookie).not.toHaveBeenCalled();
   });
 
-  it("bounces an aims_guide with an empty assignments list", async () => {
-    // Edge case: guide row exists but the join table returned nothing.
-    // Same guard as above — no cookie, redirect to picker.
+  it("refuses an aims_guide with an empty assignments list", async () => {
+    // Guide row exists but the join table returned nothing.
     mocks.requireRole.mockResolvedValue(guideSession([]));
-    const { scopeIntoCompanyAction } = await import("./scope-actions");
+    const { scopeIntoCompany } = await import("./scope-actions");
 
-    const target = await captureRedirect(() =>
-      scopeIntoCompanyAction("co_target")
-    );
+    const result = await scopeIntoCompany("co_target");
 
-    expect(target).toBe("/admin/companies");
+    expect(result.ok).toBe(false);
     expect(mocks.setScopedCompanyCookie).not.toHaveBeenCalled();
   });
 
-  it("bounces a sysadmin when the target company is soft-deleted", async () => {
-    // Prevents the "sysadmin scoped into a ghost tenant" bug that
-    // stranded chats on since-deleted companies. RLS hides the row,
-    // the action sees null on the freshness probe, and bounces to
-    // the picker instead of setting a stale cookie.
+  it("refuses a soft-deleted tenant", async () => {
+    // Prevents the "scoped into a ghost tenant" bug that stranded
+    // chats on since-deleted companies. RLS hides the row, the
+    // freshness probe sees null, no cookie is written.
     mocks.requireRole.mockResolvedValue(sysAdminSession());
     mocks.missingCompanyIds.add("co_ghost");
-    const { scopeIntoCompanyAction } = await import("./scope-actions");
+    const { scopeIntoCompany } = await import("./scope-actions");
 
-    const target = await captureRedirect(() =>
-      scopeIntoCompanyAction("co_ghost")
-    );
+    const result = await scopeIntoCompany("co_ghost");
 
-    expect(target).toBe("/admin/companies");
+    expect(result.ok).toBe(false);
     expect(mocks.setScopedCompanyCookie).not.toHaveBeenCalled();
   });
 
-  it("returns a redirect target instead of throwing when redirectTo is null", async () => {
-    // The client (CompanyNameLink) passes null to opt out of the
-    // server-side redirect and do window.location.href instead.
-    // A full browser reload is what defeats Next's Router Cache
-    // holding stale RSC payloads keyed by URL — the bug where the
-    // sidebar showed the new tenant while the destination page
-    // still served the old tenant's rows. If this contract breaks
-    // and the action goes back to throwing NEXT_REDIRECT, the
-    // client would never reach the reload call.
-    mocks.requireRole.mockResolvedValue(sysAdminSession());
-    const { scopeIntoCompanyAction } = await import("./scope-actions");
-
-    const result = await scopeIntoCompanyAction("co_target", null);
-
-    expect(result).toEqual({ ok: true, redirectTo: "/dashboard" });
-    expect(mocks.setScopedCompanyCookie).toHaveBeenCalledWith(
-      "co_target",
-      "system_admin"
-    );
-    expect(mocks.redirect).not.toHaveBeenCalled();
-    // The layout still gets a server-side revalidation ping so any
-    // subsequent server-render (before the client reload lands)
-    // sees the fresh cookie.
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/", "layout");
-  });
-
-  it("still guards a soft-deleted tenant when redirectTo is null", async () => {
-    // The freshness check must run regardless of which return
-    // shape the caller asked for — otherwise a client caller
-    // could pass null and slip a ghost-tenant scope past the
-    // guard.
+  it("runs the freshness check whatever destination was asked for", async () => {
+    // Otherwise a caller could slip a ghost-tenant scope past the
+    // guard by naming a different destination.
     mocks.requireRole.mockResolvedValue(sysAdminSession());
     mocks.missingCompanyIds.add("co_ghost");
-    const { scopeIntoCompanyAction } = await import("./scope-actions");
+    const { scopeIntoCompany } = await import("./scope-actions");
 
-    const target = await captureRedirect(() =>
-      scopeIntoCompanyAction("co_ghost", null)
-    );
+    const result = await scopeIntoCompany("co_ghost", "/plan");
 
-    expect(target).toBe("/admin/companies");
+    expect(result.ok).toBe(false);
     expect(mocks.setScopedCompanyCookie).not.toHaveBeenCalled();
   });
-});
 
-// ==============================================================
-// exitCompanyScopeAction
-// ==============================================================
-describe("exitCompanyScopeAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.redirect.mockImplementation((url: string) => {
-      throw { __redirect: true, url };
-    });
-  });
-
-  it("clears the cookie and redirects to /admin/companies", async () => {
+  it("gates on role before anything else", async () => {
+    // requireRole is the first line: only the two cross-tenant roles
+    // reach the rest of the action at all.
     mocks.requireRole.mockResolvedValue(sysAdminSession());
-    const { exitCompanyScopeAction } = await import("./scope-actions");
+    const { scopeIntoCompany } = await import("./scope-actions");
+    await scopeIntoCompany("co_target");
 
-    const target = await captureRedirect(() => exitCompanyScopeAction());
-
-    expect(target).toBe("/admin/companies");
-    expect(mocks.clearScopedCompanyCookie).toHaveBeenCalledTimes(1);
+    expect(mocks.requireRole).toHaveBeenCalledWith([
+      "system_admin",
+      "aims_guide",
+    ]);
   });
 });

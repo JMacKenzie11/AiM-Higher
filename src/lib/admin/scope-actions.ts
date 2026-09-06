@@ -16,31 +16,41 @@ export type ScopeIntoResult =
   | { ok: true; redirectTo: string }
   | { ok: false; message: string };
 
-// Kept the signature Promise<never> historically because it always
-// redirect()'d. It now returns a result object when redirectTo is
-// null so the client can hard-reload instead of a Next.js
-// client-side navigation. That's the fix for the Router Cache
-// staleness where the sidebar showed the new tenant while a
-// previously-visited page (e.g. /leadership) served cached rows
-// from the old tenant. A full window.location reload guarantees
-// a fresh render of every server component in the tree.
-export async function scopeIntoCompanyAction(
+// Scoping in is an explicit act, and this is the only thing that
+// performs it.
+//
+// It used to also happen as a side effect of GET /admin/companies/<id>
+// in middleware, which meant a Link prefetch could move the operator
+// into a company they never chose. That is gone: no request changes
+// who you are acting as, only this action, reached by a button someone
+// pressed. See scope-request.ts for the full history.
+//
+// Returns a destination rather than calling redirect(). The caller
+// hard-navigates with window.location, and that is deliberate: Next's
+// Router Cache is keyed by URL, not by cookie, so a client-side
+// navigation after a scope switch would serve a previously-visited
+// page (e.g. /leadership) from the old tenant while the sidebar
+// already showed the new one. A full document load flushes the tree so
+// every server component reads the fresh cookie. revalidatePath alone
+// did not prove sufficient here.
+export async function scopeIntoCompany(
   companyId: string,
-  redirectTo: string | null = "/dashboard"
-): Promise<ScopeIntoResult | never> {
+  destination: string = "/dashboard"
+): Promise<ScopeIntoResult> {
   // Both system admins and aims_guides can scope. For a guide the
-  // target company must be one of their assignments; enforcement
-  // relies on their session.profile.guide_company_ids (loaded by
-  // getCurrentSession) so we don't need a fresh DB query here.
+  // target must be one of their assignments; enforcement relies on
+  // session.profile.guide_company_ids (loaded by getCurrentSession)
+  // so we don't need a fresh DB query here.
   const session = await requireRole(["system_admin", "aims_guide"]);
+
   if (session.profile.role === "aims_guide") {
     const assignments = session.profile.guide_company_ids ?? [];
     if (!assignments.includes(companyId)) {
-      // Guide tried to scope into a company they aren't assigned to.
-      // Bounce them back to the picker rather than silently allowing.
-      redirect("/admin/companies");
+      // Not theirs to enter. Say so rather than scoping them in.
+      return { ok: false, message: "That company isn't in your caseload." };
     }
   }
+
   // Refuse to scope into a soft-deleted (or missing) company.
   // companies_hide_deleted RLS makes the SELECT return null when
   // deleted_at is set, so this doubles as an existence check.
@@ -50,15 +60,13 @@ export async function scopeIntoCompanyAction(
     .select("id")
     .eq("id", companyId)
     .maybeSingle<{ id: string }>();
-  if (!target) redirect("/admin/companies");
+  if (!target) {
+    return { ok: false, message: "That company is no longer available." };
+  }
+
   await setScopedCompanyCookie(companyId, session.profile.role);
   revalidatePath("/", "layout");
-  if (redirectTo === null) {
-    // Caller wants to hard-reload on the client — return the
-    // default destination so it knows where to send the user.
-    return { ok: true, redirectTo: "/dashboard" };
-  }
-  redirect(redirectTo);
+  return { ok: true, redirectTo: destination };
 }
 
 export async function exitCompanyScopeAction(): Promise<never> {

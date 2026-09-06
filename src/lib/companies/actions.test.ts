@@ -110,6 +110,7 @@ const mocks = vi.hoisted(() => {
   };
 
   const requireRole = vi.fn();
+  const setScopedCompanyCookie = vi.fn();
   const redirect = vi.fn((url: string) => {
     throw { [REDIRECT_SIGNAL]: true, url };
   });
@@ -133,6 +134,7 @@ const mocks = vi.hoisted(() => {
     serverClient,
     adminClient,
     requireRole,
+    setScopedCompanyCookie,
     redirect,
     revalidatePath,
     calendarQuarterOf,
@@ -145,6 +147,10 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => mocks.adminClient,
+}));
+
+vi.mock("@/lib/admin/scope", () => ({
+  setScopedCompanyCookie: mocks.setScopedCompanyCookie,
 }));
 
 vi.mock("@/lib/auth/current-user", () => ({
@@ -327,6 +333,48 @@ describe("createCompanyAction", () => {
 
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.message).toMatch(/features didn't save/);
+  });
+
+  it("scopes the creator into the new company before redirecting to it", async () => {
+    // Without this the redirect below lands on /hq, not the company.
+    // The creator is a system_admin whose scope cookie points at some
+    // other company or at nothing, because this one did not exist a
+    // moment ago, and middleware sends a cross-tenant role asking for
+    // a company they are not scoped into back to the picker.
+    const { createCompanyAction } = await import("./actions");
+
+    try {
+      await createCompanyAction(
+        undefined,
+        formDataFrom({
+          name: "Acme",
+          features: ["strengths"],
+          redirect_after: "detail",
+        })
+      );
+    } catch {
+      // the redirect throw; the assertion is the cookie write
+    }
+
+    expect(mocks.setScopedCompanyCookie).toHaveBeenCalledWith(
+      "co_new",
+      "system_admin"
+    );
+  });
+
+  it("does NOT scope the creator in when staying on the list", async () => {
+    // The default path returns to /admin/companies. Nothing was
+    // entered, so nothing should move the operator's scope — that is
+    // the whole rule this change exists to hold.
+    const { createCompanyAction } = await import("./actions");
+
+    const res = await createCompanyAction(
+      undefined,
+      formDataFrom({ name: "Acme", features: ["strengths"] })
+    );
+
+    expect(res.ok).toBe(true);
+    expect(mocks.setScopedCompanyCookie).not.toHaveBeenCalled();
   });
 
   it("redirects to the detail page when redirect_after=detail", async () => {
