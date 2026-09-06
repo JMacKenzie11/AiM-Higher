@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { calendarQuarterOf } from "@/lib/quarters/service";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
+import { setScopedCompanyCookie } from "@/lib/admin/scope";
 import type { Company } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
@@ -21,7 +22,7 @@ export async function createCompanyAction(
   _prev: CompanyResult | undefined,
   formData: FormData
 ): Promise<CompanyResult> {
-  await requireRole(["system_admin"]);
+  const session = await requireRole(["system_admin"]);
 
   const name = String(formData.get("name") ?? "").trim();
   const timezone =
@@ -113,6 +114,19 @@ export async function createCompanyAction(
   // Callers can opt into an immediate redirect (Phase 2 minimal admin
   // did this). Section 8.9's polished list wants to stay on the list.
   if (redirectAfter === "detail") {
+    // Scope in before sending them there. The caller is a system_admin
+    // whose scope cookie points at some other company, or at nothing,
+    // because this company did not exist a moment ago — and middleware
+    // now sends a cross-tenant role asking for a company they are not
+    // scoped into back to /hq. Without this the redirect below lands
+    // on Guide HQ instead of the company just created, silently.
+    //
+    // The cookie write belongs here rather than as a middleware
+    // exemption for this URL: creating a company is an explicit act of
+    // entering it, the same category as pressing the scope-in button,
+    // and an exemption would put back "a GET can land you somewhere
+    // you are not scoped". See lib/admin/scope-request.ts.
+    await setScopedCompanyCookie(data.id, session.profile.role);
     redirect(`/admin/companies/${data.id}`);
   }
 
