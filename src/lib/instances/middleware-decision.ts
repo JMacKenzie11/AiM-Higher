@@ -18,12 +18,36 @@ export const INSTANCE_NOT_FOUND_PATH = "/instance-not-found";
 // See the status contract in ./types.ts.
 export const INSTANCE_SUSPENDED_PATH = "/instance-suspended";
 
+// The HTTP status each boundary answers with.
+//
+// These pages used to answer 200, which is a lie told to machines. A
+// 200 tells an uptime monitor the hostname is healthy, tells a
+// crawler there is a real page worth indexing at that address, and
+// tells any automated client to carry on. The friendly body was for
+// humans; the status is the part software reads, and it disagreed
+// with it.
+//
+// 404 for an unknown hostname: there is nothing here and there never
+// was. A crawler should forget it.
+//
+// 503 for a suspended instance: there IS something here and it is
+// temporarily not being served. 503 is the one status that says
+// "come back later" rather than "give up" — a crawler retries rather
+// than deindexing a customer's site over a billing pause, and an
+// uptime monitor reports an outage rather than silent success.
+export const INSTANCE_NOT_FOUND_STATUS = 404;
+export const INSTANCE_SUSPENDED_STATUS = 503;
+
 export type InstanceRouting =
   // Resolved AND servable. Carry this config through the request.
   | { action: "proceed"; instance: InstanceConfig }
   // Unresolved, or resolved but not being served. Show the matching
-  // boundary page instead of anything else.
-  | { action: "rewrite"; to: string }
+  // boundary page, with the status that describes what happened.
+  //
+  // The status travels with the routing decision rather than being
+  // applied in middleware, so the two can never drift: whatever
+  // decides WHICH page also decides what it answers.
+  | { action: "rewrite"; to: string; status: number }
   // Already on one of those boundary pages. Render it without
   // resolving, or the hostname would rewrite to it forever.
   | { action: "passthrough" };
@@ -41,7 +65,13 @@ export function routeForInstance({
   instance: InstanceConfig | null;
 }): InstanceRouting {
   if (BOUNDARY_PATHS.includes(pathname)) return { action: "passthrough" };
-  if (!instance) return { action: "rewrite", to: INSTANCE_NOT_FOUND_PATH };
+  if (!instance) {
+    return {
+      action: "rewrite",
+      to: INSTANCE_NOT_FOUND_PATH,
+      status: INSTANCE_NOT_FOUND_STATUS,
+    };
+  }
   // Resolved, but the registry says do not serve it. Rewriting here
   // means no session is refreshed and the instance's database is
   // never opened on this request: the suspension is enforced before
@@ -52,7 +82,11 @@ export function routeForInstance({
   // one, and the person hitting it deserves the notice, not a login
   // form that fails afterwards.
   if (!isServable(instance.status)) {
-    return { action: "rewrite", to: INSTANCE_SUSPENDED_PATH };
+    return {
+      action: "rewrite",
+      to: INSTANCE_SUSPENDED_PATH,
+      status: INSTANCE_SUSPENDED_STATUS,
+    };
   }
   return { action: "proceed", instance };
 }

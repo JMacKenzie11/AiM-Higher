@@ -226,11 +226,18 @@ for a teardown in progress.
 
 | | `active` | `suspended` |
 |---|---|---|
-| Middleware | serves the app | serves `/instance-suspended` on every path, including `/sign-in` |
+| Middleware | serves the app | serves `/instance-suspended` on every path, including `/sign-in`, with HTTP **503** |
 | Session refresh | yes | no, and the instance's database is never opened |
 | Cron fan-out | included | omitted; its jobs do not run |
 | Migration runner | migrated | skipped, and named in the summary as skipped |
 | Data and keys | untouched | untouched |
+
+503 rather than 404 or 200 is deliberate. 200 would tell an uptime
+monitor a paused instance is healthy. 404 would tell a crawler the
+customer's site no longer exists and should be deindexed, which is a
+lasting consequence for a temporary state. 503 is the only status that
+says "come back later", and it is what a billing pause or a migration
+window actually means.
 
 **Any other value is treated as `suspended`,** and reported to Sentry
 as a warning naming the instance and the value. Migration 0169
@@ -512,29 +519,49 @@ first. Verify, then merge, then check step 6 immediately.
 
 ### The production deployment's own .vercel.app alias
 
-`PREVIEW_INSTANCE_*` is currently scoped to **Production and Preview**,
-not Preview alone. That has a consequence worth knowing about.
-
 A production deployment is reachable both at `www.aims-hq.com` and at
 its Vercel alias, `aims-higher.vercel.app`. The alias ends in
 `.vercel.app`, so it matches the preview branch of `resolveInstance`
-before the registry, and serves the **dev** database.
+before the registry ever gets a say.
 
-Measured on 2026-09-06, same deployment, same moment:
+**The alias serving `/instance-not-found` is the expected, correct
+state**, and it is now a `404`.
+
+That is worth stating as a permanent smoke test rather than a curiosity,
+because the two ways it can go wrong look nothing like each other:
+
+| Hostname | Expected | What another answer means |
+|---|---|---|
+| `www.aims-hq.com` and the other real domains | `200`, the app | A 404 here means the registry lost its `@` row, or the apex stopped resolving |
+| `aims-higher.vercel.app` | `404`, the not-found page | A **200 with the app** means `PREVIEW_INSTANCE_*` has been widened to Production again and the alias is serving a database |
+| any nonsense subdomain | `404`, the not-found page | A 200 means resolution is falling back to a default, which it must never do |
+
+### How it got here
+
+`PREVIEW_INSTANCE_*` was once scoped to **Production and Preview**. On
+that scoping the alias resolved to the **dev** database and served the
+app: fail-safe in that it could not reach customer data, but hazardous
+the other way round, because someone who bookmarked the alias thinking
+it was production would be doing admin work against dev and never be
+told.
+
+Measured on 2026-09-06, same deployment, same moment, under the old
+scoping:
 
 | Hostname | Session from prod DB | Session from dev DB |
 |---|---|---|
 | `www.aims-hq.com` | 200 | redirected to sign-in |
 | `aims-higher.vercel.app` | redirected to sign-in | 200 |
 
-Fail-safe in that the alias cannot reach customer data. The hazard runs
-the other way: someone who bookmarks the alias thinking it is
-production is doing admin work against dev and will not be told.
+The variables are now scoped to **Preview** only, verified against the
+Vercel API on 2026-09-07, so the preview branch finds nothing on a
+production deployment and `resolveInstance` returns null. Real previews
+keep their variables; `www.aims-hq.com` never took this branch anyway.
 
-To close it, scope `PREVIEW_INSTANCE_*` to **Preview** only. The alias
-then resolves to nothing and serves `/instance-not-found`, which is
-unambiguous. Nothing else changes: real previews keep their variables,
-and `www.aims-hq.com` never took this branch anyway.
+The 404 is what makes the smoke test honest. Until 2026-09-07 the alias
+answered `200` while showing "there is no instance here", so a monitor
+watching the alias reported a healthy hostname and a crawler saw a page
+worth keeping. The body was right and the status was wrong.
 
 ### If production comes up empty
 

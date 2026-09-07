@@ -26,7 +26,13 @@ test.describe("a hostname that resolves to no instance", () => {
       "/accept-invite",
     ]) {
       const response = await page.goto(path);
-      expect(response?.status(), `${path} should still be a 200`).toBe(200);
+      // 404, not 200. A 200 tells an uptime monitor the hostname is
+      // healthy and a crawler there is a page worth indexing; the
+      // friendly body is for humans, the status is for software.
+      expect(
+        response?.status(),
+        `${path} should be a 404 on a hostname that is nobody's instance`
+      ).toBe(404);
 
       // The marketing landing and the auth pages have to be
       // unreachable too, not just the app routes.
@@ -40,10 +46,26 @@ test.describe("a hostname that resolves to no instance", () => {
   test("the not-found page itself renders rather than rewriting forever", async ({
     page,
   }) => {
-    await page.goto("/instance-not-found");
+    const response = await page.goto("/instance-not-found");
     await expect(
       page.getByTestId("instance-not-found")
     ).toBeVisible();
+    // Reached directly it is passthrough, not a rewrite, so it is an
+    // ordinary 200. Only the rewrite carries the error status. That
+    // asymmetry is deliberate and worth pinning: if this ever starts
+    // answering 404, the passthrough branch has stopped working and
+    // the page would be rewriting to itself forever.
+    expect(response?.status()).toBe(200);
+  });
+
+  test("the friendly body is unchanged by the status code", async ({ page }) => {
+    // The point of the change was the status only. A 404 that lost
+    // the explanation would be a worse page, not a better one.
+    await page.goto("/sign-in");
+    await expect(page.getByTestId("instance-not-found")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      /no AiMS Higher instance/i
+    );
   });
 
   test("no session cookie is ever set", async ({ page }) => {
