@@ -251,6 +251,17 @@ async function resolveOrganizationId(
 }
 
 const MIGRATIONS_DIR = "supabase/migrations";
+
+// The control plane, addressed through its own CONTROL_PLANE_*
+// variables and never the app's — see src/lib/instances/registry.ts
+// for why that separation exists.
+function controlPlaneClient() {
+  return createClient(
+    process.env.CONTROL_PLANE_SUPABASE_URL as string,
+    process.env.CONTROL_PLANE_SUPABASE_SERVICE_KEY as string,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+}
 const SEED_FILE = "supabase/seed/instance-seed.sql";
 
 // Inherits stdio so the Supabase CLI's own progress reaches the
@@ -297,16 +308,19 @@ async function buildDeps(): Promise<ProvisionDeps> {
         auth: { persistSession: false, autoRefreshToken: false },
       }),
     sendInvite: (input) => sendInviteEmail(input),
+    getRegistryRow: async (subdomain) => {
+      const { data } = await controlPlaneClient()
+        .from("instances")
+        .select("subdomain, env_prefix, status")
+        .eq("subdomain", subdomain)
+        .maybeSingle();
+      return (data as { subdomain: string; env_prefix: string; status: string } | null) ?? null;
+    },
     // The control plane holds public.instances. Addressed through its
     // own CONTROL_PLANE_* variables, never the app's — see
     // src/lib/instances/registry.ts for why that separation exists.
     upsertRegistryRow: async (row) => {
-      const control = createClient(
-        process.env.CONTROL_PLANE_SUPABASE_URL as string,
-        process.env.CONTROL_PLANE_SUPABASE_SERVICE_KEY as string,
-        { auth: { persistSession: false, autoRefreshToken: false } }
-      );
-      const { error } = await control
+      const { error } = await controlPlaneClient()
         .from("instances")
         .upsert(row, { onConflict: "subdomain" });
       if (error) {

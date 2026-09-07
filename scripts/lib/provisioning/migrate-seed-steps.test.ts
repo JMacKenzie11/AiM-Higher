@@ -103,6 +103,7 @@ function makeDeps(opts: {
       getDeployment: vi.fn(async () => ({ readyState: "READY" })),
     },
     httpGet: vi.fn(async () => ({ status: 200, body: "" })),
+    getRegistryRow: vi.fn(async () => null),
     upsertRegistryRow: vi.fn(async () => {}),
     instanceAdminClient: vi.fn(() => ({}) as never),
     sendInvite: vi.fn(async () => ({ ok: false, message: "not configured" })),

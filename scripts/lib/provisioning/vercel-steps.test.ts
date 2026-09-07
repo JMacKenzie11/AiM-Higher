@@ -93,6 +93,7 @@ function makeDeps(opts: {
       status: opts.httpStatus ?? 200,
       body: opts.httpBody ?? "<h1>There's no AiMS Higher instance at this address</h1>",
     })),
+    getRegistryRow: vi.fn(async () => null),
     upsertRegistryRow: vi.fn(async () => {}),
     instanceAdminClient: vi.fn(() => ({}) as never),
     sendInvite: vi.fn(async () => ({ ok: false, message: "not configured" })),

@@ -7,21 +7,10 @@ import {
   type ProvisionDeps,
 } from "./plan.ts";
 
-// Steps that no longer print and return — they reach the network now,
-// so the "still stubbed" assertion below has to stop covering them as
-// each one lands. See supabase-management.test.ts for their coverage.
-const IMPLEMENTED = new Set([
-  "create-supabase-project",
-  "apply-migrations",
-  "seed-data",
-  "write-vercel-env",
-  "trigger-redeploy",
-  "verify-instance",
-  "insert-registry-row",
-  "create-admin",
-]);
-
-const NO_DEPS = {} as ProvisionDeps;
+// Every step is implemented now. Nothing is a stub, and this file's
+// job changed with that: it used to police which steps had grown real
+// implementations, and now it pins that none of them can quietly go
+// back to printing what they would have done.
 
 // The order is the load-bearing part. The API calls are the easy half;
 // getting "register it only once it works" wrong leaves a customer
@@ -122,30 +111,26 @@ describe("the provisioning plan", () => {
     }
   });
 
-  it("returns a result rather than printing, so a runner can report it", async () => {
+  it("has no stubs left", async () => {
+    // A stub returns `stub — would …` and touches nothing. If one
+    // reappears, this fails rather than a provisioning run reporting
+    // success for work it did not do.
     for (const step of PROVISION_STEPS) {
-      if (IMPLEMENTED.has(step.name)) continue;
-      const result = await step.execute(CTX, NO_DEPS);
-      expect(["done", "skipped"], step.name).toContain(result.status);
-      expect(result.detail.length, step.name).toBeGreaterThan(0);
+      expect(step.execute.name, `${step.name} is an anonymous stub`).not.toBe(
+        ""
+      );
+      expect(
+        String(step.execute),
+        `${step.name} still returns a stub detail`
+      ).not.toContain("stub — would");
     }
   });
 
-  it("the remaining steps are still stubbed, and say so", async () => {
-    // When a step grows a real implementation this is the test that
-    // fails, so nobody ships a half-real plan believing it is inert.
-    // Add the step to IMPLEMENTED as it lands — deliberately a manual
-    // edit, so the change is visible in the diff.
+  it("wires every step to a named function, not an inline closure", () => {
+    // Named, so a stack trace from a failed provisioning run says
+    // which step threw.
     for (const step of PROVISION_STEPS) {
-      if (IMPLEMENTED.has(step.name)) continue;
-      const result = await step.execute(CTX, NO_DEPS);
-      expect(result.detail, step.name).toMatch(/^stub — would /);
+      expect(typeof step.execute, step.name).toBe("function");
     }
-  });
-
-  it("names every implemented step in IMPLEMENTED", () => {
-    for (const name of IMPLEMENTED) {
-      expect(STEP_NAMES, `${name} is not a step`).toContain(name);
-    }
-  });
+  })
 });

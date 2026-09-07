@@ -21,6 +21,26 @@ and `docs/deployment.md` for what each variable is.
 | 8 | create-admin | the first company, and a `system_admin` invited to it |
 | 9 | verify-instance | polls until the subdomain serves the sign-in page |
 
+## Who `--admin-email` is
+
+**For a real client instance, `--admin-email` is always one of ours,
+never the client's.**
+
+The account it creates is a `system_admin`, and system_admin is our
+role: it sees across every company on the instance and is not scoped to
+any of them. Handing that to a client hands them a level of access the
+role was never meant to give them, on their own instance, on day one,
+before anyone has looked at it.
+
+The client's own people are invited afterwards, from inside the app,
+into the roles we intend for them — starting with company admin of
+their first company. That invitation is an ordinary one through
+`/people`, not a provisioning concern.
+
+So the flag names whoever on our side is standing up the instance. If
+that person should not have cross-company access to it long-term,
+remove them once the client's own admins are in.
+
 Every step is idempotent: rerunning reports `skipped` for work already
 done. State lives in `.provisioning-state/{subdomain}.json`, which is
 gitignored and holds the database password and the service-role key.

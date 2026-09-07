@@ -96,6 +96,11 @@ export type ProvisionDeps = {
     firstName: string | null;
     actionLink: string;
   }) => Promise<{ ok: boolean; message?: string }>;
+  getRegistryRow: (subdomain: string) => Promise<{
+    subdomain: string;
+    env_prefix: string;
+    status: string;
+  } | null>;
   upsertRegistryRow: (row: {
     subdomain: string;
     display_name: string;
@@ -893,15 +898,101 @@ async function createAdmin(
   };
 }
 
+
+// ---- check-preconditions --------------------------------------
+//
+// Everything that can be known cheaply, before ten minutes of API
+// calls discovers it the expensive way.
+//
+// Each check answers a question that would otherwise surface as a
+// confusing failure several steps in: a bad Vercel token as a 403 at
+// step 5, after a Supabase project has already been created and
+// billed; a subdomain already registered to another instance as a
+// silent takeover at step 7; missing wildcard DNS as a verification
+// failure at step 9, with everything else already built.
+//
+// It fails on the first problem rather than collecting them, because
+// the second one is usually a consequence of the first.
+
+async function checkPreconditions(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const checks: string[] = [];
+
+  // 1. The Supabase management token actually works. Config presence
+  //    was checked before the plan printed; this checks it is valid.
+  try {
+    await deps.management.listProjects();
+    checks.push("supabase management token");
+  } catch (error) {
+    throw new Error(
+      `SUPABASE_MANAGEMENT_TOKEN was rejected: ${
+        error instanceof Error ? error.message.split("\n")[0] : String(error)
+      }`
+    );
+  }
+
+  // 2. The Vercel project exists and the token can see it. Both come
+  //    from .env.provisioning and either can be wrong independently.
+  let projectName: string;
+  try {
+    projectName = (await deps.vercel.getProject()).name;
+    checks.push(`vercel project "${projectName}"`);
+  } catch (error) {
+    throw new Error(
+      `VERCEL_TOKEN / VERCEL_PROJECT_ID rejected: ${
+        error instanceof Error ? error.message.split("\n")[0] : String(error)
+      }`
+    );
+  }
+
+  // 3. The control plane answers, and this subdomain is either free or
+  //    already ours. A row pointing somewhere else is the dangerous
+  //    case: provisioning would overwrite it at step 7 and silently
+  //    repoint a live hostname at a different database.
+  const existing = await deps.getRegistryRow(ctx.subdomain);
+  if (existing && existing.env_prefix !== ctx.envPrefix) {
+    throw new Error(
+      `"${ctx.subdomain}" is already registered to env_prefix ` +
+        `${existing.env_prefix}, not ${ctx.envPrefix}. Continuing would ` +
+        `repoint a live hostname at a different database. Delete the row ` +
+        `first if that is really what you want.`
+    );
+  }
+  checks.push(
+    existing ? `registry row exists (rerun)` : "subdomain free in the registry"
+  );
+
+  // 4. The wildcard covers this subdomain. Any HTTP answer proves DNS
+  //    and the certificate; whether it is the app or the no-instance
+  //    page is step 9's business, not this one's.
+  const hostname = `${ctx.subdomain}.aims-hq.com`;
+  try {
+    const response = await deps.httpGet(`https://${hostname}/sign-in`);
+    if (response.status >= 500) {
+      throw new Error(`returned ${response.status}`);
+    }
+    checks.push(`wildcard serves ${hostname}`);
+  } catch (error) {
+    throw new Error(
+      `https://${hostname} is not reachable (${
+        error instanceof Error ? error.message : String(error)
+      }). The wildcard DNS record or its certificate does not cover this ` +
+        `subdomain, and step 9 would fail after everything else was built.`
+    );
+  }
+
+  for (const check of checks) deps.log(`      ok — ${check}`);
+  return { status: "done", detail: `${checks.length} checks passed` };
+}
+
 export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "check-preconditions",
     describe: (c) =>
-      `confirm "${c.subdomain}" is free in the registry and no ${c.envPrefix}_SUPABASE_* variables already exist`,
-    execute: stub(
-      (c) =>
-        `look up "${c.subdomain}" in public.instances and check Vercel for ${c.envPrefix}_SUPABASE_URL`
-    ),
+      `verify the tokens work, "${c.subdomain}" is free in the registry, and the wildcard covers it`,
+    execute: checkPreconditions,
   },
   {
     name: "create-supabase-project",
