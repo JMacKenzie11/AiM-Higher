@@ -28,11 +28,11 @@
 --     by its own step — deliberately not here. Every project has an
 --     instances table because the migrations create one; only the
 --     control plane's copy is ever read.
---   * Classroom lessons and trainings. Those are authored in the
---     product, not in this repo. A sync pipeline from production is
---     deferred and tracked separately. The category below is
---     structure, not content: without it the Classroom surface has
---     nowhere to put a lesson.
+--   * Classroom, entirely. Categories, lessons and trainings are
+--     authored in the product on the primary instance and delivered
+--     by `npm run sync:content`. This file used to insert a "Phase 1"
+--     category as structure-not-content; that is now removed. See
+--     "One dataset, one owner" below.
 --
 -- WHAT IS ALREADY HANDLED ELSEWHERE
 --
@@ -46,16 +46,39 @@
 --   * A new company's default leadership functions are created when
 --     the company is created (see createCompanyAction), not per
 --     instance.
+--
+-- ONE DATASET, ONE OWNER
+--
+-- Every dataset is owned by exactly one tool: this seed, or
+-- scripts/sync-content.ts. Never both.
+--
+-- Classroom was briefly owned by both, and the overlap was not
+-- harmless. This file inserted its category with no explicit id, so
+-- every instance minted its own UUID for the same logical row. Sync
+-- matches by primary key, so it saw production's category and the
+-- instance's category as different rows and planned an insert plus a
+-- delete — with both holding the unique slug "build-the-team", which
+-- is a constraint violation waiting on the write order. Worse, the
+-- two tools would have fought forever: every `--seed` run would
+-- re-mint a divergent row for the next sync to delete.
+--
+-- The rule is therefore about ownership, not about ordering. Two
+-- tools writing the same table cannot be made safe by running them
+-- in the right sequence, because there is no sequence in which both
+-- are authoritative.
+--
+-- If a dataset belongs here: it is fixed reference data that ships
+-- with the code and is identical on every instance. If it belongs to
+-- sync: it is authored in the product on the primary. Content that
+-- is authored anywhere else belongs to neither and should not be
+-- propagated at all.
 -- =============================================================
 
--- ---- Classroom structure ------------------------------------
--- The phase groupings lessons are filed under. Structure rather
--- than content: the Classroom surface needs somewhere to put a
--- lesson before anyone authors one.
-insert into public.classroom_categories (name, slug, sort_order)
-values
-  ('Phase 1', 'build-the-team', 0)
-on conflict (slug) do update
-  set name = excluded.name,
-      sort_order = excluded.sort_order,
-      updated_at = now();
+-- ---- No statements ------------------------------------------
+--
+-- Deliberately. Everything a new instance needs today arrives
+-- either through a migration (strengths_items, via 0103) or through
+-- content sync (Classroom). This file is kept rather than deleted
+-- because it is where the next piece of genuine reference data goes,
+-- and because the provisioning step that runs it is part of the
+-- proven path.

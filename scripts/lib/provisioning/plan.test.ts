@@ -32,6 +32,7 @@ describe("the provisioning plan", () => {
       "apply-migrations",
       "seed-data",
       "write-vercel-env",
+      "record-fleet-credentials",
       "trigger-redeploy",
       "insert-registry-row",
       "create-admin",

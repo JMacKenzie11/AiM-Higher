@@ -78,3 +78,42 @@ Syncing that content from production into a new instance is a separate
 problem, deferred and tracked separately. Do not solve it by pasting
 lesson rows into this file: they are long, they carry image references,
 and they change through the product rather than through a deploy.
+
+## One dataset, one owner
+
+**Every dataset is owned by exactly one tool: this seed, or
+`scripts/sync-content.ts`. Never both.**
+
+The test for which: reference data that ships with the code and is
+identical on every instance belongs here. Content authored in the
+product on the primary instance belongs to sync. Content authored
+anywhere else belongs to neither and should not be propagated.
+
+Classroom was briefly owned by both, and the overlap was not benign.
+This seed inserted a "Phase 1" category with no explicit id, so every
+instance minted its own UUID for the same logical row. Sync matches by
+primary key, so it read production's category and the instance's
+category as two different rows: one to insert, one to delete. Both
+held the unique slug `build-the-team`, so the write order decided
+whether it violated a constraint.
+
+The deeper problem was not the constraint, it was the loop. Every
+`npm run migrate:instances -- --seed` would have re-minted a divergent
+row for the next `npm run sync:content` to delete, forever, with each
+tool correctly doing its job.
+
+That is why the rule is about ownership rather than ordering. Two
+tools writing the same table cannot be made safe by sequencing them,
+because there is no sequence in which both are authoritative.
+
+### Consequence for provisioning
+
+A newly provisioned instance now has **no Classroom content at all**
+until sync runs. That is the correct state, not a gap:
+
+```bash
+npm run provision -- --subdomain acme --name "Acme" --admin-email ours@aims-institute.com
+npm run sync:content -- --instance acme
+```
+
+See `scripts/README.md` for the sync tool.

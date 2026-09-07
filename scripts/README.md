@@ -14,12 +14,39 @@ and `docs/deployment.md` for what each variable is.
 | 1 | check-preconditions | *(still a stub)* |
 | 2 | create-supabase-project | creates or adopts `aims-higher-{subdomain}` |
 | 3 | apply-migrations | `supabase db push` through the session pooler |
-| 4 | seed-data | `supabase/seed/instance-seed.sql` |
+| 4 | seed-data | `supabase/seed/instance-seed.sql` (no statements today, see below) |
 | 5 | write-vercel-env | `{PREFIX}_SUPABASE_*` on Production |
-| 6 | trigger-redeploy | env vars only take effect on a new deployment |
-| 7 | insert-registry-row | **the switch** — the hostname goes live here |
-| 8 | create-admin | the first company, and a `system_admin` invited to it |
-| 9 | verify-instance | polls until the subdomain serves the sign-in page |
+| 6 | record-fleet-credentials | the same URL + service key into `.env.provisioning` |
+| 7 | trigger-redeploy | env vars only take effect on a new deployment |
+| 8 | insert-registry-row | **the switch** — the hostname goes live here |
+| 9 | create-admin | the first company, and a `system_admin` invited to it |
+| 10 | verify-instance | polls until the subdomain serves the sign-in page |
+
+## Where fleet tools get their keys
+
+**`.env.provisioning` is the single authoritative source of instance
+credentials.** `migrate:instances` and `sync:content` read
+`{PREFIX}_SUPABASE_URL` and `{PREFIX}_SUPABASE_SERVICE_KEY` from it
+and from nowhere else. There is no fallback, by design: a tool that
+guesses which database it is writing to is worse than one that stops.
+
+Step 6 writes those two values at provision time, so the file stays
+current without anyone remembering. It is idempotent by key — a rerun
+reports them already present rather than duplicating them — and it
+prints key names only, never values.
+
+Instances that predate that step need the values added by hand once.
+Production is the example: it was never provisioned by this tool, so
+its `PROD_SUPABASE_SERVICE_KEY` was added manually on 2026-09-07 after
+`sync:content` refused to run without it.
+
+`.provisioning-state/{subdomain}.json` also holds a URL and service
+key, and is **not** a source of fleet credentials. It is a local,
+gitignored artifact of one machine's provisioning run; production has
+no state file at all. Reading credentials from there would mean fleet
+tools work for whoever provisioned an instance and fail for everyone
+else, which is the kind of difference that shows up at the worst
+moment.
 
 ## Who `--admin-email` is
 
@@ -251,6 +278,36 @@ private path (`storage_path`) 404s on the target; a public storage URL
 embedded in a body is worse, because it keeps working while serving
 the primary's storage, so a client instance silently renders another
 instance's files and nothing looks broken. See the storage note below.
+
+## One dataset, one owner
+
+**Every dataset is owned by exactly one tool: the instance seed
+(`supabase/seed/instance-seed.sql`) or this sync. Never both.**
+
+Reference data that ships with the code and is identical on every
+instance belongs to the seed. Content authored in the product on the
+primary belongs to sync.
+
+Classroom was briefly owned by both. The seed inserted its category
+with no explicit id, so each instance minted its own UUID for the same
+logical row, and sync — correctly matching by primary key — planned an
+insert plus a delete of two rows sharing a unique slug. Every `--seed`
+run would have re-minted a divergent row for the next sync to delete,
+with both tools doing exactly what they were told.
+
+Two tools writing the same table cannot be made safe by sequencing
+them, because there is no sequence in which both are authoritative.
+See `supabase/seed/README.md`.
+
+### A new instance has no synced content until sync runs
+
+```bash
+npm run provision -- --subdomain acme --name "Acme" --admin-email ours@aims-institute.com
+npm run sync:content -- --instance acme
+```
+
+That is what `--instance` is for: onboarding one new instance without
+touching the rest of the fleet.
 
 ## Run order: migrate first, sync second
 
