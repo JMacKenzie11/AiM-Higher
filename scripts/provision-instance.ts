@@ -14,9 +14,8 @@
  *     [--dry-run] [--yes]
  *
  * Config comes from .env.provisioning (gitignored — see
- * .env.provisioning.example). .env.local is read as a fallback, so the
- * CONTROL_PLANE_* values already sitting there do not have to be
- * copied into a second file.
+ * .env.provisioning.example) and from nowhere else. All five values
+ * must be in that one file.
  */
 
 import { createInterface } from "node:readline/promises";
@@ -33,15 +32,24 @@ import {
 
 const DEFAULT_REGION = "us-east-1";
 
-// .env.provisioning first so it wins: loadEnvFile does not overwrite a
-// key that is already set.
-for (const file of [".env.provisioning", ".env.local"]) {
-  try {
-    process.loadEnvFile(file);
-  } catch {
-    // Absent is fine. Missing VALUES are reported by name below, which
-    // is the message that actually helps.
-  }
+// One file, and deliberately not .env.local.
+//
+// .env.local's CONTROL_PLANE_* values get repointed at the dev clone
+// during local resolution testing. If provisioning inherited them, a
+// run during or after such a session would write the registry row into
+// the clone instead of production — and a registry row is what makes a
+// customer's hostname resolve, so the failure looks like "the new
+// instance is just dead" with nothing in production to explain it.
+//
+// This tool must never have a question about which database it is
+// writing to. Failing loudly on a missing value beats inheriting a
+// wrong one, so there is no fallback: all five live in
+// .env.provisioning or the run stops.
+try {
+  process.loadEnvFile(".env.provisioning");
+} catch {
+  // Absent is fine here. Missing VALUES are reported by name below,
+  // which is the message that actually helps.
 }
 
 type Args = {
@@ -119,8 +127,10 @@ function buildContext(args: Args): ProvisionContext {
     fail(
       `Missing provisioning configuration:\n` +
         missing.map((n) => `    ${n}`).join("\n") +
-        `\n\n  These live in .env.provisioning. Copy` +
-        ` .env.provisioning.example and fill it in.`
+        `\n\n  All five live in .env.provisioning, and nowhere else —` +
+        ` .env.local is deliberately not read, so a CONTROL_PLANE_*` +
+        ` repointed at the dev clone can never be inherited here.` +
+        `\n  Copy .env.provisioning.example and fill it in.`
     );
   }
 

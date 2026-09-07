@@ -1,0 +1,28 @@
+{
+  // Type-checking for scripts/ only.
+  //
+  // These run outside the Next build under --experimental-strip-types,
+  // which resolves ESM imports by their real filename and so needs the
+  // .ts extension written out — `import { x } from "../src/lib/x.ts"`.
+  // The root config rejects that, and should: it is the app's rule and
+  // the app has no reason to write extensions.
+  //
+  // Kept as its own config rather than loosening the root one, because
+  // a flag that exists for three files in scripts/ should not relax a
+  // check across every file in src/.
+  //
+  // Safe because noEmit is inherited: nothing here is compiled to JS,
+  // so there is no output whose import extensions could be wrong.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    // paths are resolved relative to the config that declares them, so
+    // restate them here for the src/ files these scripts pull in.
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["**/*.ts"],
+  "exclude": []
+}

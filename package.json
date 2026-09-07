@@ -8,7 +8,7 @@
     "build": "NODE_OPTIONS='--max-old-space-size=6144' next build",
     "start": "next start -p 3200",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push:dev": "scripts/db-push.sh dev",
