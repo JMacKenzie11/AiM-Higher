@@ -51,6 +51,7 @@ import {
   validateAdminEmail,
   validateSubdomain,
 } from "./lib/provisioning/validate.ts";
+import { isEntryPoint } from "./lib/entry-point.ts";
 
 const DEFAULT_REGION = "us-east-1";
 
@@ -419,7 +420,11 @@ async function main(): Promise<void> {
   await run(ctx, await buildDeps());
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// Runs only when this file IS the process entry point. Importing
+// it must never execute it. See scripts/lib/entry-point.ts.
+if (isEntryPoint(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

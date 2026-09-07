@@ -16,6 +16,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isEntryPoint } from "./lib/entry-point.ts";
 
 // ---- helpers -----------------------------------------------------
 
@@ -1546,7 +1547,11 @@ function hashKey(s: string): number {
   return h >>> 0;
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// Runs only when this file IS the process entry point. Importing
+// it must never execute it. See scripts/lib/entry-point.ts.
+if (isEntryPoint(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
