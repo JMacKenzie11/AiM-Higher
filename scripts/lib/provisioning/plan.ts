@@ -37,6 +37,13 @@ import {
   pickApiKeys,
   type InstanceState,
 } from "./state.ts";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { createCompany } from "@/lib/companies/create-company";
+import {
+  createPendingUser,
+  generateAcceptLink,
+} from "@/lib/auth/provision-user";
 import {
   DEPLOYMENT_READY,
   DeploymentFailedError,
@@ -75,6 +82,26 @@ export type ProvisionDeps = {
   management: ManagementClient;
   organizationId: string;
   vercel: VercelClient;
+  // Upserts a row into the control plane's public.instances. Injected
+  // rather than a Supabase client, so the step is testable and so
+  // nothing here can reach the control plane for anything else.
+  // The new instance's own admin client. Built from the state file's
+  // URL and service key, so it points at the instance being created
+  // and not at whatever the provisioning machine's env says.
+  instanceAdminClient: (state: InstanceState) => SupabaseClient;
+  // Sends the invitation email. Returns ok:false when Resend is not
+  // configured, which is the normal case from a script.
+  sendInvite: (input: {
+    to: string;
+    firstName: string | null;
+    actionLink: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  upsertRegistryRow: (row: {
+    subdomain: string;
+    display_name: string;
+    env_prefix: string;
+    status: string;
+  }) => Promise<void>;
   // Plain HTTPS GET, for the reachability check. Injected so the
   // verify step can be driven without a network.
   httpGet: (url: string) => Promise<{ status: number; body: string }>;
@@ -617,52 +644,252 @@ async function triggerRedeploy(
 
 // ---- verify-instance ------------------------------------------
 //
-// GROUNDWORK, and the assertion is deliberately inverted from where it
-// ends up.
+// The assertion is now the right way round.
 //
-// Right now insert-registry-row is still a stub, so there is no
-// registry row and the hostname MUST resolve to nothing. Requiring the
-// not-found page proves three things at once: the wildcard DNS and
-// certificate cover this subdomain, the redeploy that just went out
-// did not break the running site, and the instance is correctly not
-// yet reachable.
+// Until insert-registry-row was implemented this required the
+// no-instance page, because that was the correct state. The registry
+// row now exists by the time this runs, so the hostname must serve the
+// app — and this is the only step that checks the thing a customer
+// will actually do.
 //
-// When insert-registry-row lands, this assertion flips: the same URL
-// must then serve a sign-in page. Change it there, in that step's
-// change, so the two move together.
+// It polls, because the registry lookup is cached per process for 60
+// seconds (CACHE_TTL_MS in src/lib/instances/registry.ts) and misses
+// are cached too. A serverless instance that answered before the row
+// landed will keep saying "no instance here" until its entry expires.
+// Waiting that out is the difference between "provisioning failed" and
+// "you were sixteen seconds early".
 
 const NOT_FOUND_MARKER = "no AiMS Higher instance";
+const REGISTRY_CACHE_TTL_MS = 60 * 1000;
 
 async function verifyInstance(
   ctx: ProvisionContext,
   deps: ProvisionDeps
 ): Promise<StepResult> {
-  const url = `https://${ctx.subdomain}.aims-hq.com/sign-in`;
-  deps.log(`      GET ${url}`);
+  const base = `https://${ctx.subdomain}.aims-hq.com`;
+  const url = `${base}/sign-in`;
+  deps.log(`      polling ${url} (up to 60s for the registry cache)…`);
 
-  const response = await deps.httpGet(url);
-  if (response.status !== 200) {
+  const started = deps.now();
+  let lastStatus = 0;
+  let body = "";
+
+  for (;;) {
+    const response = await deps.httpGet(url);
+    lastStatus = response.status;
+    body = response.body;
+    const elapsed = deps.now() - started;
+
+    if (response.status === 200 && !body.includes(NOT_FOUND_MARKER)) {
+      deps.log(`      resolved after ${Math.round(elapsed / 1000)}s`);
+      break;
+    }
+
+    if (elapsed >= REGISTRY_CACHE_TTL_MS + 10_000) {
+      if (body.includes(NOT_FOUND_MARKER)) {
+        throw new Error(
+          `${url} still serves the no-instance page after ` +
+            `${Math.round(elapsed / 1000)}s. The registry row exists, so ` +
+            `either its ${ctx.envPrefix}_SUPABASE_* variables are missing ` +
+            `from Vercel Production, or the deployment reading them ` +
+            `predates the env write.`
+        );
+      }
+      throw new Error(`${url} returned ${lastStatus} after ${Math.round(elapsed / 1000)}s.`);
+    }
+
+    deps.log(`      ${Math.round(elapsed / 1000)}s — not resolved yet`);
+    await deps.sleep(5_000);
+  }
+
+  // Resolving is not the same as working. The sign-in form is the
+  // first thing a real person touches, so check it rendered.
+  const looksLikeSignIn = /type="password"|name="password"/i.test(body);
+  if (!looksLikeSignIn) {
     throw new Error(
-      `${url} returned ${response.status}. The wildcard DNS or the ` +
-        `certificate may not cover this subdomain yet.`
+      `${url} resolved to an instance but did not render a sign-in ` +
+        `form. The hostname is live and the app behind it is not.`
     );
   }
 
-  const isNotFound = response.body.includes(NOT_FOUND_MARKER);
-  if (!isNotFound) {
+  deps.writeState(ctx.subdomain, { verifiedAt: new Date(deps.now()).toISOString() });
+  return { status: "done", detail: `${base} serves the sign-in page` };
+}
+
+
+// ---- insert-registry-row --------------------------------------
+//
+// THE SWITCH. Everything before this builds an instance nobody can
+// reach; this row is what makes the hostname resolve, and from the
+// moment it lands the subdomain serves the app to anyone who visits.
+//
+// That is why it is second-to-last rather than early: a row written
+// before the database is migrated and seeded publishes a broken
+// instance to real traffic, and the failure looks like a customer
+// signing in to something half-built.
+//
+// It is written to the CONTROL PLANE, not to the new instance. Every
+// project has an instances table because the migrations create one;
+// only the control plane's copy is ever read.
+
+async function insertRegistryRow(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const state = deps.readState(ctx.subdomain);
+  if (!state?.projectRef) {
     throw new Error(
-      `${url} served something other than the no-instance page. That ` +
-        `is expected only once insert-registry-row is implemented and ` +
-        `has run — until then a resolvable hostname means a registry ` +
-        `row exists that provisioning did not write.`
+      `No project in .provisioning-state/${ctx.subdomain}.json. ` +
+        "Refusing to publish a hostname with no database behind it."
     );
   }
+  // The variables the row points at have to exist before the row does,
+  // or the instance resolves to null and looks like an unknown host.
+  if (!state.envWrittenAt) {
+    throw new Error(
+      `${ctx.envPrefix}_SUPABASE_* has not been written to Vercel yet. ` +
+        "A registry row naming variables that do not exist resolves to " +
+        "nothing, which is indistinguishable from an unregistered hostname."
+    );
+  }
+
+  await deps.upsertRegistryRow({
+    subdomain: ctx.subdomain,
+    display_name: ctx.displayName,
+    env_prefix: ctx.envPrefix,
+    status: "active",
+  });
+
+  deps.writeState(ctx.subdomain, { registeredAt: new Date(deps.now()).toISOString() });
+  return {
+    status: "done",
+    detail: `"${ctx.subdomain}" → env_prefix ${ctx.envPrefix} (active) — the hostname is live`,
+  };
+}
+
+
+// ---- create-admin ---------------------------------------------
+//
+// The instance's first company and the person who will run it.
+//
+// Both go through the app's own code — createCompany() and
+// createPendingUser()/generateAcceptLink() — rather than a second
+// implementation here. Those were extracted from the server actions
+// for exactly this: a script that reimplemented "what a new company
+// gets" would drift from the app the first time a default changed, and
+// the drift would be invisible until an instance behaved differently
+// from every other one.
+//
+// THE ADMIN IS A system_admin, with no company. Every provisioned
+// instance gets one, deliberately: the instance needs somebody who can
+// see across companies before any company exists. They scope into the
+// first company the same way they would into any other.
+//
+// The invite is the normal flow — a magic link to /accept-invite where
+// they set their own password. No password is generated or printed. If
+// Resend is not configured, which is the usual case from a script, the
+// link is printed once instead and the summary says so, because a link
+// nobody received is worse than one printed to a terminal.
+
+async function createAdmin(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const state = deps.readState(ctx.subdomain);
+  if (!state?.apiUrl || !state.serviceKey) {
+    throw new Error(
+      `.provisioning-state/${ctx.subdomain}.json has no URL or service key. ` +
+        "Run create-supabase-project first."
+    );
+  }
+
+  const admin = deps.instanceAdminClient(state);
+  const instanceUrl = `https://${ctx.subdomain}.aims-hq.com`;
+
+  // ---- The first company --------------------------------------
+  const { data: companies } = await admin
+    .from("companies")
+    .select("id, name")
+    .limit(1);
+
+  let companyId: string;
+  if (companies && companies.length > 0) {
+    companyId = (companies[0] as { id: string }).id;
+    deps.log(`      company already exists (${companyId})`);
+  } else {
+    // Only the name is supplied. Features, chart roots and the opening
+    // quarter are createCompany's decisions — see the boundary note in
+    // lib/companies/create-company.ts.
+    const created = await createCompany(admin, { name: ctx.displayName });
+    if (!created.ok) throw new Error(`Company creation failed: ${created.message}`);
+    companyId = created.company.id;
+    deps.log(`      created company "${ctx.displayName}" (${companyId})`);
+  }
+
+  // ---- The admin ----------------------------------------------
+  const { data: existingProfiles } = await admin
+    .from("profiles")
+    .select("id, role, status")
+    .eq("role", "system_admin")
+    .limit(1);
+
+  if (existingProfiles && existingProfiles.length > 0) {
+    const row = existingProfiles[0] as { id: string; status: string };
+    deps.writeState(ctx.subdomain, {
+      adminEmail: ctx.adminEmail,
+      companyId,
+    });
+    return {
+      status: "skipped",
+      detail: `system_admin already exists (${row.id}, ${row.status})`,
+    };
+  }
+
+  const user = await createPendingUser({
+    admin,
+    email: ctx.adminEmail,
+    fullName: ctx.adminEmail.split("@")[0] ?? ctx.adminEmail,
+    role: "system_admin",
+    // A system_admin belongs to no company; they scope into one.
+    companyId: null,
+  });
+  if (!user.ok) throw new Error(`Admin creation failed: ${user.message}`);
+
+  const link = await generateAcceptLink({
+    admin,
+    // The INSTANCE's URL, not the provisioning machine's. This is the
+    // parameter that made the extraction necessary.
+    appUrl: instanceUrl,
+    email: ctx.adminEmail,
+  });
+  if (!link.ok) throw new Error(`Invite link failed: ${link.message}`);
+
+  const sent = await deps.sendInvite({
+    to: ctx.adminEmail,
+    firstName: null,
+    actionLink: link.link,
+  });
+
+  let method: string;
+  if (sent.ok) {
+    method = "emailed";
+    deps.log(`      invitation emailed to ${ctx.adminEmail}`);
+  } else {
+    method = "link printed";
+    deps.log(`      email not sent (${sent.message ?? "no mailer"}).`);
+    deps.log(`      invitation link, shown once:`);
+    deps.log(`        ${link.link}`);
+  }
+
+  deps.writeState(ctx.subdomain, {
+    adminEmail: ctx.adminEmail,
+    adminInviteMethod: method,
+    companyId,
+  });
 
   return {
     status: "done",
-    detail:
-      "wildcard serves the subdomain, and it correctly resolves to no " +
-      "instance (the registry row is still a later step)",
+    detail: `system_admin ${ctx.adminEmail} created, invitation ${method}`,
   };
 }
 
@@ -729,23 +956,19 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "insert-registry-row",
     describe: (c) =>
-      `register "${c.subdomain}" → env_prefix ${c.envPrefix} (this is what makes the hostname resolve)`,
-    execute: stub(
-      (c) =>
-        `insert { subdomain: "${c.subdomain}", env_prefix: "${c.envPrefix}", status: "active" } into public.instances`
-    ),
+      `register "${c.subdomain}" → env_prefix ${c.envPrefix} in the control plane — the switch that makes the hostname live`,
+    execute: insertRegistryRow,
   },
   {
     name: "create-admin",
-    describe: (c) => `create ${c.adminEmail} as the company_admin and invite them`,
-    execute: stub(
-      (c) => `create ${c.adminEmail} in the new project and send an invitation`
-    ),
+    describe: (c) =>
+      `create the first company "${c.displayName}" and invite ${c.adminEmail} as its system_admin`,
+    execute: createAdmin,
   },
   {
     name: "verify-instance",
     describe: (c) =>
-      `confirm https://${c.subdomain}.aims-hq.com is served and, for now, resolves to no instance`,
+      `poll https://${c.subdomain}.aims-hq.com until it serves the app, then confirm the sign-in page renders`,
     execute: verifyInstance,
   },
 ];

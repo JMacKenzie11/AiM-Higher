@@ -3,6 +3,15 @@ import "server-only";
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Quarter } from "@/lib/types";
+// Imported for local use AND re-exported, so every existing importer
+// keeps working while the implementation lives outside the
+// server-only boundary.
+import {
+  calendarQuarterOf,
+  type CalendarQuarter,
+} from "@/lib/quarters/calendar";
+
+export { calendarQuarterOf, type CalendarQuarter };
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read-side helpers for quarters. All calls go through the RLS-scoped
@@ -62,28 +71,8 @@ export const getCurrentQuarter = cache(
 // Calendar-quarter helpers used by the "Open next quarter" prefill.
 // v1 assumes calendar quarters; the spec doesn't call for fiscal quarters.
 
-export type CalendarQuarter = {
-  label: string;
-  startDate: string; // YYYY-MM-DD
-  endDate: string;
-};
 
-function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
-export function calendarQuarterOf(date: Date): CalendarQuarter {
-  const year = date.getUTCFullYear();
-  const q = Math.floor(date.getUTCMonth() / 3) + 1; // 1-4
-  const startMonth = (q - 1) * 3;
-  const start = new Date(Date.UTC(year, startMonth, 1));
-  const end = new Date(Date.UTC(year, startMonth + 3, 0)); // last day of month
-  return {
-    label: `Q${q} ${year}`,
-    startDate: toISODate(start),
-    endDate: toISODate(end),
-  };
-}
 
 export function nextCalendarQuarter(after: CalendarQuarter): CalendarQuarter {
   const end = new Date(`${after.endDate}T00:00:00Z`);

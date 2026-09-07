@@ -35,6 +35,11 @@ export type InstanceState = {
   envFingerprints?: Record<string, string>;
   envWrittenAt?: string;
   deploymentId?: string;
+  registeredAt?: string;
+  verifiedAt?: string;
+  adminEmail?: string;
+  adminInviteMethod?: string;
+  companyId?: string;
   createdAt?: string;
   updatedAt?: string;
 };

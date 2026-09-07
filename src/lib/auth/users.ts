@@ -10,8 +10,12 @@ import {
   type SessionProfileLike,
 } from "@/lib/auth/permissions";
 import { sendInviteEmail } from "@/lib/email";
+import {
+  createPendingUser,
+  generateAcceptLink,
+} from "@/lib/auth/provision-user";
 import { trackAfter } from "@/lib/analytics/track";
-import type { Profile } from "@/lib/types";
+import type { Profile, Role } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Roster actions — replaces the old invitations flow.
@@ -87,42 +91,20 @@ export async function createUserAction(
 
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
-  // Step 1: create the auth.users row (no email dispatched).
-  // We leave email_confirm=false so a later inviteUserByEmail() will
-  // send the standard Supabase invite email.
-  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+  // Steps 1 and 2 — the auth row and its pending profile, including
+  // the orphan cleanup if the profile insert fails — live in
+  // createPendingUser so provisioning creates an instance's first
+  // admin the same way. See lib/auth/provision-user.ts.
+  const created = await createPendingUser({
+    admin,
     email,
-    email_confirm: false,
-  });
-
-  if (createErr || !created?.user) {
-    const msg = createErr?.message ?? "";
-    if (/already been registered|already exists/i.test(msg)) {
-      return { ok: false, message: "A user with that email already exists." };
-    }
-    return { ok: false, message: "Couldn't create that user." };
-  }
-
-  const userId = created.user.id;
-
-  // Step 2: profile row, status='pending'. Uses admin client so a
-  // company_admin who lacks direct insert privilege on other companies'
-  // profiles can still stage this row within their own company (the
-  // company_id check is enforced above).
-  const { error: profileErr } = await admin.from("profiles").insert({
-    id: userId,
-    company_id: companyId,
-    full_name: fullName,
+    fullName,
+    role: role as Role,
+    companyId,
     position,
-    role,
-    status: "pending",
   });
-
-  if (profileErr) {
-    // Best-effort cleanup — otherwise we'd leak an orphan auth user.
-    await admin.auth.admin.deleteUser(userId);
-    return { ok: false, message: "Couldn't set up that user's profile." };
-  }
+  if (!created.ok) return created;
+  const userId = created.profileId;
 
   // Step 3: optionally fire the invite immediately. We surface any
   // send failure as a warning on the (still-successful) create result
@@ -429,36 +411,16 @@ export async function getInviteLinkAction(
     return { ok: false, message: "Couldn't find that user's email." };
   }
 
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "magiclink",
+  const generated = await generateAcceptLink({
+    admin,
+    appUrl: APP_URL(),
     email: userRow.user.email,
-    options: { redirectTo: `${APP_URL()}/accept-invite` },
   });
-  if (error) {
-    console.warn("generateLink(magiclink) failed for getInviteLink:", {
-      profileId,
-      status: (error as { status?: number }).status,
-      code: (error as { code?: string }).code,
-      message: error.message,
-    });
-    return {
-      ok: false,
-      message: `Couldn't generate a sign-in link: ${error.message}`,
-    };
+  if (!generated.ok) {
+    console.warn("generateAcceptLink failed:", { profileId });
+    return { ok: false, message: generated.message };
   }
-  const hashedToken = (
-    data as { properties?: { hashed_token?: string } }
-  )?.properties?.hashed_token;
-  if (!hashedToken) {
-    return {
-      ok: false,
-      message: "Couldn't generate a sign-in link for this user.",
-    };
-  }
-  const link =
-    `${APP_URL()}/accept-invite` +
-    `?token_hash=${encodeURIComponent(hashedToken)}` +
-    `&type=magiclink`;
+  const link = generated.link;
 
   await markInvited(admin, profileId);
 
@@ -497,52 +459,16 @@ export async function dispatchInvite(
   // that hits /auth/callback with ?token_hash=&type= directly, so
   // verifyOtp handles the exchange server-side. That's the pattern
   // @supabase/ssr is designed around for admin-initiated flows.
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "magiclink",
+  const generated = await generateAcceptLink({
+    admin,
+    appUrl: APP_URL(),
     email,
-    options: {
-      // Still required by Supabase, even though we don't send the
-      // action_link to the user. Point it at the final destination
-      // so if anyone does end up on it, they land in the right place.
-      redirectTo: `${APP_URL()}/accept-invite`,
-    },
   });
-
-  if (error) {
-    console.warn("generateLink(magiclink) failed:", {
-      profileId,
-      email,
-      status: (error as { status?: number }).status,
-      code: (error as { code?: string }).code,
-      message: error.message,
-    });
-    return {
-      ok: false,
-      message: `Couldn't generate a sign-in link: ${error.message}`,
-    };
+  if (!generated.ok) {
+    console.warn("generateAcceptLink failed:", { profileId, email });
+    return { ok: false, message: generated.message };
   }
-
-  const hashedToken = (
-    data as { properties?: { hashed_token?: string } }
-  )?.properties?.hashed_token;
-  if (!hashedToken) {
-    console.warn("generateLink returned no hashed_token", { profileId, email });
-    return {
-      ok: false,
-      message: "Couldn't generate a sign-in link for this user.",
-    };
-  }
-
-  // Link points DIRECTLY at /accept-invite with the token in the
-  // query — no /auth/callback hop. verifyOtp only fires when the
-  // user submits the password form, so link previewers / scanners
-  // (Microsoft SafeLinks, iMessage LinkPresentation, Slack unfurl)
-  // that GET the URL never consume the one-shot token. Matches the
-  // GitHub / Google / modern SaaS pattern: token-as-form-submit.
-  const link =
-    `${APP_URL()}/accept-invite` +
-    `?token_hash=${encodeURIComponent(hashedToken)}` +
-    `&type=magiclink`;
+  const link = generated.link;
 
   const { data: profile } = await admin
     .from("profiles")

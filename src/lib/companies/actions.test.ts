@@ -165,7 +165,7 @@ vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
 
-vi.mock("@/lib/quarters/service", () => ({
+vi.mock("@/lib/quarters/calendar", () => ({
   calendarQuarterOf: mocks.calendarQuarterOf,
 }));
 

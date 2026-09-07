@@ -17,6 +17,8 @@ const IMPLEMENTED = new Set([
   "write-vercel-env",
   "trigger-redeploy",
   "verify-instance",
+  "insert-registry-row",
+  "create-admin",
 ]);
 
 const NO_DEPS = {} as ProvisionDeps;

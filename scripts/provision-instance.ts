@@ -19,6 +19,10 @@
  */
 
 import { spawn } from "node:child_process";
+
+import { createClient } from "@supabase/supabase-js";
+
+import { sendInviteEmail } from "@/lib/email";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -285,6 +289,30 @@ async function buildDeps(): Promise<ProvisionDeps> {
       projectId: process.env.VERCEL_PROJECT_ID as string,
       teamId: process.env.VERCEL_TEAM_ID,
     }),
+    // The new instance's own service-role client. Built from the
+    // state file so it points at the instance being created, never at
+    // whatever the provisioning machine's environment names.
+    instanceAdminClient: (state) =>
+      createClient(state.apiUrl as string, state.serviceKey as string, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      }),
+    sendInvite: (input) => sendInviteEmail(input),
+    // The control plane holds public.instances. Addressed through its
+    // own CONTROL_PLANE_* variables, never the app's — see
+    // src/lib/instances/registry.ts for why that separation exists.
+    upsertRegistryRow: async (row) => {
+      const control = createClient(
+        process.env.CONTROL_PLANE_SUPABASE_URL as string,
+        process.env.CONTROL_PLANE_SUPABASE_SERVICE_KEY as string,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      );
+      const { error } = await control
+        .from("instances")
+        .upsert(row, { onConflict: "subdomain" });
+      if (error) {
+        throw new Error(`Control plane upsert failed: ${error.message}`);
+      }
+    },
     httpGet: async (url) => {
       const response = await fetch(url, { redirect: "follow" });
       return { status: response.status, body: await response.text() };
@@ -335,9 +363,28 @@ async function run(ctx: ProvisionContext, deps: ProvisionDeps): Promise<void> {
       process.exit(1);
     }
   }
+  const final = readStateFile(ctx.subdomain);
   console.log("");
-  console.log(`  Done. https://${ctx.subdomain}.aims-hq.com`);
+  console.log("  Done");
+  console.log("  ────");
+  console.log(`    instance      https://${ctx.subdomain}.aims-hq.com`);
+  console.log(`    company       ${ctx.displayName}`);
+  console.log(`    admin         ${ctx.adminEmail} (system_admin)`);
+  console.log(
+    `    invitation    ${final?.adminInviteMethod ?? "already existed — not re-sent"}`
+  );
+  console.log(`    supabase      ${final?.projectRef ?? "?"} (${ctx.region})`);
+  console.log(`    state file    ${stateFileFor(ctx.subdomain)}`);
   console.log("");
+  if (final?.adminInviteMethod === "link printed") {
+    console.log(
+      "    The invitation link above is shown once. Hand it to the admin;"
+    );
+    console.log(
+      "    they set their own password on it. No password was generated."
+    );
+    console.log("");
+  }
 }
 
 async function main(): Promise<void> {

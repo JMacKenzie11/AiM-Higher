@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
-import { calendarQuarterOf } from "@/lib/quarters/service";
+import { createCompany } from "@/lib/companies/create-company";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
 import { setScopedCompanyCookie } from "@/lib/admin/scope";
 import type { Company } from "@/lib/types";
@@ -25,89 +25,26 @@ export async function createCompanyAction(
   const session = await requireRole(["system_admin"]);
 
   const name = String(formData.get("name") ?? "").trim();
-  const timezone =
-    String(formData.get("timezone") ?? "America/Anchorage").trim();
-  const industryRaw = String(formData.get("industry") ?? "").trim();
-  const industry = industryRaw.length > 0 ? industryRaw : null;
+  const timezone = String(formData.get("timezone") ?? "").trim();
+  const industry = String(formData.get("industry") ?? "").trim();
   const redirectAfter = String(formData.get("redirect_after") ?? "");
-  const features = Array.from(
-    new Set(
-      formData
-        .getAll("features")
-        .map((v) => String(v).trim())
-        .filter((v) => VALID_COMPANY_FEATURES.has(v))
-    )
-  );
+  // The form's feature checkboxes. Passed through raw: createCompany
+  // validates them against the catalogue and refuses an empty set, so
+  // this action does not get to decide what a valid feature is.
+  const features = formData.getAll("features").map((v) => String(v));
 
-  if (!name) return { ok: false, message: "Give the company a name." };
-  if (features.length === 0) {
-    return { ok: false, message: "Pick at least one feature." };
-  }
-
+  // Everything else a new company gets — its chart roots, its opening
+  // quarter — is decided inside createCompany() and deliberately not
+  // expressible here. See the note on the boundary in
+  // lib/companies/create-company.ts.
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data, error } = await supabase
-    .from("companies")
-    .insert({ name, timezone, industry })
-    .select("*")
-    .single<Company>();
-
-  if (error || !data) {
-    return { ok: false, message: "Couldn't create that company." };
-  }
-
-  const { error: featuresError } = await supabase
-    .from("company_features")
-    .insert(features.map((feature) => ({ company_id: data.id, feature })));
-  if (featuresError) {
-    // Company row exists but entitlements didn't land — surface the
-    // failure so the admin can retry from the detail page.
-    return {
-      ok: false,
-      message: "Company created but features didn't save — open it and set them.",
-    };
-  }
-
-  // Seed the two default leadership functions every company starts
-  // with. Visionary is the single top-level box; Integrator reports
-  // to it. Every subsequent function the operator adds must pick a
-  // parent (Visionary, Integrator, or any downstream function).
-  // Failure is non-fatal — the admin can add them manually on the
-  // chart page if the insert bounces.
-  const { data: visionary } = await supabase
-    .from("functions")
-    .insert({
-      company_id: data.id,
-      parent_function_id: null,
-      title: "Visionary",
-      description:
-        "CEO — sets the long-term vision, priorities and cultural tone.",
-      sort_order: 0,
-    })
-    .select("id")
-    .maybeSingle<{ id: string }>();
-  if (visionary?.id) {
-    await supabase.from("functions").insert({
-      company_id: data.id,
-      parent_function_id: visionary.id,
-      title: "Integrator",
-      description:
-        "COO — turns the vision into execution across the leadership team.",
-      sort_order: 0,
-    });
-  }
-
-  // Seed the current calendar quarter so admins can drop actions in
-  // immediately without an "open a quarter first" detour. Best-effort:
-  // if the insert bounces (already exists somehow, RLS quirk) the
-  // admin can still open one manually on /quarters.
-  const currentQuarter = calendarQuarterOf(new Date());
-  await supabase.from("quarters").insert({
-    company_id: data.id,
-    label: currentQuarter.label,
-    start_date: currentQuarter.startDate,
-    end_date: currentQuarter.endDate,
-    status: "open",
+  const result = await createCompany(supabase, {
+    name,
+    timezone,
+    industry,
+    features,
   });
+  if (!result.ok) return result;
 
   revalidatePath("/admin/companies");
 
@@ -120,17 +57,11 @@ export async function createCompanyAction(
     // now sends a cross-tenant role asking for a company they are not
     // scoped into back to /hq. Without this the redirect below lands
     // on Guide HQ instead of the company just created, silently.
-    //
-    // The cookie write belongs here rather than as a middleware
-    // exemption for this URL: creating a company is an explicit act of
-    // entering it, the same category as pressing the scope-in button,
-    // and an exemption would put back "a GET can land you somewhere
-    // you are not scoped". See lib/admin/scope-request.ts.
-    await setScopedCompanyCookie(data.id, session.profile.role);
-    redirect(`/admin/companies/${data.id}`);
+    await setScopedCompanyCookie(result.company.id, session.profile.role);
+    redirect(`/admin/companies/${result.company.id}`);
   }
 
-  return { ok: true, company: data };
+  return { ok: true, company: result.company };
 }
 
 export type CompanyFeaturesResult =

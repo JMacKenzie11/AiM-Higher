@@ -103,6 +103,9 @@ function makeDeps(opts: {
       getDeployment: vi.fn(async () => ({ readyState: "READY" })),
     },
     httpGet: vi.fn(async () => ({ status: 200, body: "" })),
+    upsertRegistryRow: vi.fn(async () => {}),
+    instanceAdminClient: vi.fn(() => ({}) as never),
+    sendInvite: vi.fn(async () => ({ ok: false, message: "not configured" })),
         readState: (s) => stored[s] ?? null,
     writeState: (s, patch) => {
       stored[s] = { ...(stored[s] ?? { subdomain: s }), ...patch };

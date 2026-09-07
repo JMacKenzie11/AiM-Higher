@@ -93,6 +93,9 @@ function makeDeps(opts: {
       status: opts.httpStatus ?? 200,
       body: opts.httpBody ?? "<h1>There's no AiMS Higher instance at this address</h1>",
     })),
+    upsertRegistryRow: vi.fn(async () => {}),
+    instanceAdminClient: vi.fn(() => ({}) as never),
+    sendInvite: vi.fn(async () => ({ ok: false, message: "not configured" })),
     readState: (s: string) => stored[s] ?? null,
     writeState: (s: string, patch: Partial<InstanceState>) => {
       stored[s] = { ...(stored[s] ?? { subdomain: s }), ...patch };
@@ -393,9 +396,11 @@ describe("trigger-redeploy", () => {
   });
 });
 
-describe("verify-instance (groundwork)", () => {
-  it("requires the no-instance page, which is correct until the registry row lands", async () => {
-    const { deps } = makeDeps({});
+describe("verify-instance", () => {
+  const APP_BODY = '<form><input type="password" name="password" /></form>';
+
+  it("passes once the hostname serves a sign-in page", async () => {
+    const { deps } = makeDeps({ httpBody: APP_BODY });
     const result = await VERIFY.execute(CTX, deps);
 
     expect(result.status).toBe("done");
@@ -404,19 +409,53 @@ describe("verify-instance (groundwork)", () => {
     );
   });
 
-  it("fails when the subdomain is not served at all", async () => {
-    const { deps } = makeDeps({ httpStatus: 404 });
+  it("waits out the registry cache rather than failing early", async () => {
+    // The registry caches misses for 60s per process, so a serverless
+    // instance that answered before the row landed keeps saying "no
+    // instance here". Failing on the first poll would report a
+    // provisioning failure for being sixteen seconds early.
+    let call = 0;
+    const { deps } = makeDeps({});
+    deps.httpGet = vi.fn(async () => {
+      call += 1;
+      return call < 3
+        ? { status: 200, body: "no AiMS Higher instance" }
+        : { status: 200, body: APP_BODY };
+    });
+
+    const result = await VERIFY.execute(CTX, deps);
+    expect(result.status).toBe("done");
+    expect(call).toBe(3);
+  });
+
+  it("gives up once the cache TTL has certainly expired", async () => {
+    const { deps } = makeDeps({ httpBody: "no AiMS Higher instance" });
     await expect(VERIFY.execute(CTX, deps)).rejects.toThrow(
-      /wildcard DNS or the certificate/
+      /still serves the no-instance page/
     );
   });
 
-  it("fails when the hostname resolves to an instance it should not have", async () => {
-    // A sign-in page here means a registry row exists that
-    // provisioning did not write.
-    const { deps } = makeDeps({ httpBody: "<form>Password</form>" });
+  it("names the likely cause when it never resolves", async () => {
+    // The row exists by this point, so a persistent no-instance page
+    // means the variables it points at are missing or the running
+    // deployment predates them.
+    const { deps } = makeDeps({ httpBody: "no AiMS Higher instance" });
     await expect(VERIFY.execute(CTX, deps)).rejects.toThrow(
-      /insert-registry-row is implemented/
+      /PROVTEST1_SUPABASE_\* variables are missing|predates the env write/
+    );
+  });
+
+  it("fails when the subdomain is not served at all", async () => {
+    const { deps } = makeDeps({ httpStatus: 404, httpBody: "nope" });
+    await expect(VERIFY.execute(CTX, deps)).rejects.toThrow(/returned 404/);
+  });
+
+  it("refuses an instance that resolves but renders no sign-in form", async () => {
+    // Resolving is not the same as working: the hostname could be live
+    // with the app behind it broken.
+    const { deps } = makeDeps({ httpBody: "<h1>Something else</h1>" });
+    await expect(VERIFY.execute(CTX, deps)).rejects.toThrow(
+      /did not render a sign-in form/
     );
   });
 });

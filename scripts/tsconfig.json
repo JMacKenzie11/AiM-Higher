@@ -20,7 +20,10 @@
     // restate them here for the src/ files these scripts pull in.
     "baseUrl": "..",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      // See scripts/lib/server-only-stub.ts. The app build never sees
+      // this mapping; only scripts/ uses this config.
+      "server-only": ["./scripts/lib/server-only-stub.ts"]
     }
   },
   "include": ["**/*.ts"],
