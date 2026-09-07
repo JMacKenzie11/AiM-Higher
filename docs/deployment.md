@@ -301,6 +301,171 @@ seed writes into tables the migrations create, so seeding an instance
 that is behind would fail on a table that does not exist yet. An
 instance whose migrations were blocked or failed is not seeded at all.
 
+## How we know multi-instance operations work
+
+Run on **2026-09-07** against live infrastructure, deliberately, before
+any client depended on the fleet behaving correctly. Three instances
+were in the registry at the time: `@` (production, the primary),
+`promiseone` (a real client), and `phase4test` (provisioned for this
+exercise and torn down after it).
+
+The purpose was not to test the code — unit tests do that. It was to
+test the LOOP: that a migration authored in this repository reaches
+every registered database through the runner and nothing else, that a
+scheduled job does its work on every instance, that one instance
+failing does not take the others with it, and that suspension is a
+switch rather than a hope. Each of those is a claim about
+infrastructure, and infrastructure claims are not settled by tests.
+
+### What was run, and what it showed
+
+**A probe migration reached every instance.** Migration 0171 created
+`public.phase4_probe`, one table with one row, expand-safe by
+construction because no running code reads it. `--dry-run` reported it
+pending on all three instances with the connection verified on each.
+The real run applied it to all three, exit 0. Confirmed afterwards by
+querying each database's `supabase_migrations.schema_migrations`
+directly rather than trusting the runner's own summary.
+
+**The probe also proved migration 0170 fires fleet-wide.** No RLS
+policy was written for `phase4_probe`, so row level security could
+only be enabled on it by 0170's `ensure_rls` event trigger. It was
+enabled on all three, including production — the instance that was
+missing that trigger entirely until earlier the same day (see E2 in
+`docs/failure-modes.md`). A hand-applied safety net that had drifted
+out of the files was demonstrably back and working everywhere.
+
+**One cron cycle did real work on every instance.**
+
+```
+13:32:10.704  [transcripts] @: checked 5 sources, ingested 0, analyzed 0
+13:32:11.053  [transcripts] phase4test: checked 0 sources, ingested 0, analyzed 0
+13:32:11.379  [transcripts] promiseone: checked 0 sources, ingested 0, analyzed 0
+13:32:11.379  [transcripts] 3 instances: 3 ok, 0 failed
+```
+
+Corroborated independently of the log: all five of production's active
+transcript sources carried a `last_checked_at` at or after 13:32:00Z,
+the newest stamped 13:32:10.605 — a tenth of a second before the `@`
+line was written. Two records, same event.
+
+**A failing instance did not stop the others.** A registry row
+`phase4bogus` was inserted with `env_prefix` `PHASE4BOGUS`, for which
+no environment variables exist. This is the missing-env-vars path: a
+row that is registered and active but resolves to nothing.
+
+```
+13:33:23.612  [transcripts] @: checked 5 sources, ingested 0, analyzed 0
+13:33:23.669  [instances] "phase4bogus" is registered with env_prefix
+              "PHASE4BOGUS" but PHASE4BOGUS_SUPABASE_URL,
+              PHASE4BOGUS_SUPABASE_ANON_KEY,
+              PHASE4BOGUS_SUPABASE_SERVICE_KEY are not set.
+              Refusing to resolve it.
+13:33:23.669  [transcripts] phase4bogus: FAILED: registered with
+              env_prefix "PHASE4BOGUS" but ... are not all set
+13:33:23.927  [transcripts] phase4test: checked 0 sources, ...
+13:33:24.191  [transcripts] promiseone: checked 0 sources, ...
+13:33:24.191  [transcripts] 4 instances: 3 ok, 1 failed
+```
+
+The timestamps are the evidence, not the counts. The failure landed at
+**position 2 of 4**, and positions 3 and 4 ran anyway. A loop that
+aborted on error would have stopped at two lines. Production's five
+sources were all stamped during this same failed run, so the primary
+completed its full ingest pass while another instance was failing.
+
+The run returned 500, which is the point: a partial failure is visibly
+red in Vercel's cron history rather than buried in a 200 body. Removing
+the row returned the next run to `3 instances: 3 ok, 0 failed` with no
+lingering state.
+
+**Suspension took an instance offline and brought it back.**
+`phase4test` was flipped to `suspended` at 13:35:36Z. Within 71 seconds
+its hostname served `/instance-suspended` on `/`, `/sign-in` and
+`/dashboard`, all 200, with no session cookie set on any of them —
+`/dashboard` in particular stopped issuing its 307 to `/sign-in`, which
+is what shows the rewrite lands ahead of the session check rather than
+after it. It stayed suspended for just under four hours. The cron
+omitted it entirely:
+
+```
+17:30:23.751  [transcripts] 2 instances: 2 ok, 0 failed
+```
+
+Flipped back to `active` at 17:32:15Z, it served the app again within
+71 seconds, `/dashboard` back to its 307. Nothing else was touched: no
+key rotated, no variable changed, no redeploy. One column.
+
+**The contract step closed the cycle.** Migration 0172 dropped the
+probe table. Applied through the runner to all three instances, exit 0,
+confirmed absent from each database afterwards. 0171 and 0172 together
+are one complete expand-and-contract cycle, run on production during
+business hours, which is the whole argument for splitting changes that
+way: neither half has a window in which any running deployment can
+observe an inconsistency.
+
+### What this did NOT prove
+
+Stated because a proof document that overstates itself is worse than
+none.
+
+**Only one of the two failure shapes was exercised.** `phase4bogus`
+fails at RESOLUTION, before the job starts — the helper never gets a
+client. A failure INSIDE an instance's work (a valid-looking but wrong
+key, a query error mid-pass) takes a different branch, the generic
+`catch` around the job body. Both produce a red run and a tagged Sentry
+event, and the second is covered by unit tests, but it has not been
+driven live. If a future run wants it, a second bogus row pointing at a
+syntactically valid but wrong Supabase URL is the cheapest way.
+
+**The weekend jobs were not exercised live.** Only `/api/cron/
+transcripts` was run. `scorecard` and `performance` use the same
+`forEachActiveInstance` helper and the same summary machinery, so the
+fan-out is shared, but their per-company bodies did not run against
+multiple instances on this date. The first full-fleet weekend is the
+real test of those.
+
+**`phase4test` and `promiseone` both had zero transcript sources**, so
+their per-instance lines read `checked 0 sources` throughout. That
+proves they were REACHED and returned cleanly. It does not prove the
+ingest pipeline works on a non-primary instance, because there was
+nothing on them to ingest. Production is the only instance where the
+pipeline itself was exercised.
+
+### Things this run taught us
+
+**Author migrations before provisioning, not during.** Migration 0171
+was written while `supabase db push` was already applying 91
+migrations to the new project. The Supabase CLI enumerates the
+migrations directory when it runs, so 0171 could have been swept into
+the provisioning push, which would have left it already applied on the
+instance it was supposed to be pending on. It was not — `phase4test`
+landed on 0170 with 91 applied, and the probe was genuinely pending
+everywhere. That was luck, not design.
+
+**A manual cron trigger makes this exercise cheap.** Vercel's Run
+button on a cron job fires the same authenticated request the scheduler
+does. Waiting for scheduled ticks would have made the failure-injection
+step a half-hour of wall clock; triggering on demand made the whole
+sequence minutes. `CRON_SECRET` is stored `sensitive`, so its value
+cannot be read back from the Vercel API — the dashboard button is the
+only way to trigger a run by hand, and it needs a person.
+
+### Repeating this
+
+Worth re-running after any change to `forEachActiveInstance`, the
+migration runner, or middleware's instance resolution. The sequence:
+provision a disposable instance, add a trivial expand migration, dry
+run, real run, verify from the databases, one cron cycle, insert a
+bogus registry row and trigger the cron, remove it and trigger again,
+suspend and restore, contract migration, tear the instance down per
+`scripts/README.md`.
+
+The disposable instance matters. Every destructive step in that list
+ran against `phase4test` and never against `promiseone`, which is a
+client. A test that has to be careful about which instance it breaks is
+a test that will eventually break the wrong one.
+
 ## Order of operations for a deploy
 
 1. Set the Production and Preview variables above.

@@ -1,0 +1,34 @@
+-- =============================================================
+-- Migration 0172: drop the Phase 4 probe table (CONTRACT step)
+--
+-- The other half of 0171. Together they are one complete
+-- expand-and-contract cycle, run deliberately on live
+-- infrastructure so the procedure is proven rather than assumed.
+--
+-- WHY THE PAIR MATTERS MORE THAN EITHER HALF. Expand-and-contract
+-- exists because the app deploys ONCE for every instance while the
+-- databases migrate ONE AT A TIME. There is always a window where
+-- some instances have the new schema and some have the old, and both
+-- are being served by the same code. A change that is only safe
+-- after every database has caught up cannot be deployed safely at
+-- all; it has to be split into a step that is safe to apply early
+-- and a step that is safe to apply late.
+--
+-- 0171 was the early half: it added an object nothing reads, so no
+-- deployment could care whether it existed yet. This is the late
+-- half: it removes an object nothing reads, so no deployment can
+-- care whether it is gone. Neither half has a window in which the
+-- fleet is inconsistent in a way any running code can observe.
+--
+-- WHAT WOULD HAVE BEEN WRONG. Renaming a column in one migration.
+-- Old code reads the old name, new code reads the new one, and
+-- whichever instance is on the other side of the deploy from its
+-- database is broken until both catch up. The same change split into
+-- add-new / backfill / switch-reads / drop-old is four boring
+-- migrations and no broken window. That is the whole discipline.
+--
+-- See docs/deployment.md, "How we know multi-instance operations
+-- work", for the run this belongs to.
+-- =============================================================
+
+drop table if exists public.phase4_probe;
