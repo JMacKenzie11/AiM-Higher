@@ -116,6 +116,39 @@ none: a partial set throws, naming what is missing.
 Define them **once**. A dotenv file lets a later assignment win, so a
 second copy further down the file silently overrides the first.
 
+## Instance-prefixed variables belong to the provisioning tool
+
+`{PREFIX}_SUPABASE_URL`, `{PREFIX}_SUPABASE_ANON_KEY` and
+`{PREFIX}_SUPABASE_SERVICE_KEY` — `ACME_SUPABASE_URL` and so on — are
+written by `npm run provision` and owned by it.
+
+**Never edit one by hand in the Vercel dashboard.**
+
+Not a style preference. Vercel returns no readable value for any
+environment variable: a `sensitive` one comes back as an empty string,
+and an `encrypted` one comes back as ciphertext, with `?decrypt=true`
+making no difference. So provisioning cannot compare what is there
+against what it wants. It compares a fingerprint of what it last wrote,
+recorded per key in `.provisioning-state/{subdomain}.json`.
+
+That works, and it has one blind spot: a value changed in the dashboard
+still matches the recorded fingerprint, so provisioning sees no drift
+and skips. The variable stays wrong until somebody notices an instance
+behaving oddly, and nothing connects the two.
+
+**If one of these has to change**, do it one of these two ways:
+
+1. Change it through the tool — update the value in the state file and
+   rerun `npm run provision`. Preferred: the fingerprint stays true.
+2. If it has already been edited by hand, delete that key from
+   `envFingerprints` in `.provisioning-state/{subdomain}.json`. The
+   next run finds no fingerprint, rewrites the variable, and records a
+   correct one.
+
+Variables that are not instance-prefixed — `PROD_*`, `CONTROL_PLANE_*`,
+`PREVIEW_INSTANCE_*` — are not touched by provisioning and are yours to
+edit normally.
+
 ## Connecting to a provisioned project
 
 Measured while building `npm run provision`, and durable because the

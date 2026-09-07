@@ -15,6 +15,11 @@ an entry only when the failure mode is:
 - Or a **contract** — a rule that reads obviously right in isolation
   but subtly wrong in aggregate ("late keeps count in Follow-Through").
 
+One section breaks that pattern on purpose: **Engineering practice** at
+the end catalogues failure signatures in how we build rather than in
+what we built. An entry earns a place there only after it has happened
+twice.
+
 Everything else lives in the relevant PR description + test file.
 
 ---
@@ -255,3 +260,55 @@ list and guide-off-caseload cases; `src/lib/practices/
 actions.test.ts` — the "denies a team_member on a role-gated
 practice" and "denies an aims_guide on a company they aren't
 assigned to" cases through the action layer.
+
+---
+
+## Engineering practice
+
+Failure signatures in how we build. These are here because each one has
+now happened twice, in unrelated parts of the system, which is what
+makes it a pattern rather than a bug.
+
+### E1. Trusting an assumed response shape from an external API
+
+**Situation.** Code is written against a mental model of what an
+external API or framework does. Unit tests are written against the same
+mental model, with mocks shaped by the assumption. Everything is green.
+The behaviour is wrong, and nothing says so.
+
+**Rule.** **Any assumption about an external API's response shape must
+be probed against the real API at least once before logic depending on
+it is trusted.** Unit tests asserting the assumed shape do not count as
+evidence — they confirm the assumption, not the reality. One real call,
+with the response printed, is the whole cost.
+
+This applies to browsers and frameworks as much as to REST APIs:
+"which headers arrive at middleware" is a response shape.
+
+**Where it has bitten us.**
+
+*The prefetch guard.* Middleware skipped its scope-cookie write when a
+request carried `next-router-prefetch: 1`. Next strips that header
+before middleware sees it, so the guard never fired, and a `<Link>`
+prefetching on hover moved the operator into a company nobody chose.
+The unit tests passed for weeks: they constructed a `Headers` object
+containing the header and asserted the guard fired, which it does — on
+a request that never exists. Caught only by driving a real dev server
+with each header in turn.
+
+*The Vercel env comparison.* `write-vercel-env` decided whether to
+rewrite a variable by comparing the value Vercel returns against the
+value we want. Vercel returns no readable value for any variable:
+`sensitive` comes back as `""`, and `encrypted` comes back as
+~1100 characters of ciphertext, with `?decrypt=true` making no
+difference. The comparison could never match, so the step would have
+rewritten three production variables on every run while reporting it as
+normal. The unit tests passed, because their mocks returned plaintext.
+Caught by listing the variables through the real API after the first
+live run.
+
+**Pinned by.** Nothing can pin a practice. What is pinned is each
+instance: `e2e/scope-cookie.spec.ts` drives a real browser rather than
+a synthetic `Headers` object, and
+`scripts/lib/provisioning/vercel-steps.test.ts` has a case asserting
+that a ciphertext value is never compared against a plaintext one.
