@@ -87,6 +87,10 @@ function summarize(results: InstanceResult[]): void {
   console.log("  ───────");
   for (const r of results) {
     const name = r.subdomain.padEnd(width);
+    const alias =
+      r.aliases && r.aliases.length > 0
+        ? `  (also ${r.aliases.join(", ")})`
+        : "";
     const prefix = r.envPrefix.padEnd(12);
     if (r.status === "applied") {
       console.log(`    ${name}  ${prefix}applied ${r.applied.length} → ${r.version}`);

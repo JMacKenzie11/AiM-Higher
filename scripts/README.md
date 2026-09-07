@@ -72,6 +72,20 @@ saying so, which is the exact failure this tool exists to prevent. The
 primary instance has no state file — it predates provisioning — so its
 password comes from `PROD_DATABASE_PASSWORD` in `.env.provisioning`.
 
+## There is one way to migrate production
+
+`npm run db:push:prod` is gone, and `scripts/db-push.sh prod` now
+refuses with a pointer here.
+
+It only ever knew about one database. Using it would migrate production
+and leave every other registered instance a release behind, silently —
+the exact failure the runner exists to prevent. Two ways to migrate
+production is one too many when only one of them checks that every
+instance was reached.
+
+`npm run db:push:dev` stays. The dev clone is not an instance: it is
+not in the registry and the runner has no way to reach it.
+
 ## The deploy order rule
 
 **Run `migrate:instances` first. Confirm every instance is green. Only

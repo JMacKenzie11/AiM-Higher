@@ -295,3 +295,67 @@ describe("migrateAllInstances", () => {
     expect(results[0].status).toBe("blocked");
   });
 });
+
+describe("migrateAllInstances: one database, one migration", () => {
+  it("migrates a shared database once and names the other rows", async () => {
+    // "@" and "www" both point at the primary. env_prefix names the
+    // database; the subdomain does not. Without deduplication the same
+    // database is pushed twice in one run — the second is a no-op, but
+    // the run reports two instances where there is one, and a single
+    // cause produces two failure lines.
+    const h = harness({
+      rows: [ROW("@", "PROD"), ROW("www", "PROD")],
+      applied: { prodref: ["0001"] },
+    });
+    const results = await h.run();
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      subdomain: "@",
+      envPrefix: "PROD",
+      status: "applied",
+      aliases: ["www"],
+    });
+    // The push happened once, not twice.
+    expect(h.runCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps distinct databases separate", async () => {
+    const h = harness({
+      rows: [ROW("acme", "ACME"), ROW("beta", "BETA")],
+      applied: { acmeref: [], betaref: [] },
+    });
+    const results = await h.run();
+
+    expect(results).toHaveLength(2);
+    expect(results.every((r) => (r.aliases ?? []).length === 0)).toBe(true);
+    expect(h.runCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports one failure for one database, not one per row", async () => {
+    const h = harness({
+      rows: [ROW("@", "PROD"), ROW("www", "PROD")],
+      applied: { prodref: [] },
+      failOn: "prodref",
+    });
+    const results = await h.run();
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ status: "failed", aliases: ["www"] });
+  });
+
+  it("deduplicates a blocked database too", async () => {
+    // Otherwise one missing password produces two BLOCKED lines and
+    // the count in "N of M need attention" is wrong.
+    const h = harness({
+      rows: [ROW("@", "PROD"), ROW("www", "PROD")],
+      env: { PROD_SUPABASE_URL: ENV.PROD_SUPABASE_URL },
+      state: {},
+    });
+    const results = await h.run();
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ status: "blocked", aliases: ["www"] });
+  });
+});
+

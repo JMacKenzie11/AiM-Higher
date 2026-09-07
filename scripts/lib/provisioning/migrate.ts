@@ -204,6 +204,10 @@ export function resolveTarget(args: {
 export type InstanceResult = {
   subdomain: string;
   envPrefix: string;
+  // Other subdomains in the registry pointing at this same database.
+  // Reported so the output says what was covered, not so they are
+  // migrated again.
+  aliases?: string[];
 } & (
   | { status: "applied"; applied: string[]; version: string | null }
   | { status: "up-to-date"; version: string | null }
@@ -228,6 +232,14 @@ export function isProblem(result: InstanceResult): boolean {
 // alternative leaves the remaining instances in an unknown state,
 // which is worse than a known-bad one: the operator would have to work
 // out where the loop stopped before they could work out what to do.
+//
+// DEDUPLICATED BY env_prefix. Two registry rows can legitimately point
+// at the same database — an apex "@" row and a "www" row are the
+// obvious pair — and env_prefix is what names the database, not the
+// subdomain. Without this, the same database would be migrated twice
+// in one run: the second push is a no-op, but the run would report two
+// instances where there is one, and a failure would be reported twice
+// for a single cause. The extra subdomains are reported as aliases.
 export async function migrateAllInstances(opts: {
   rows: readonly RegistryRow[];
   env: Record<string, string | undefined>;
@@ -241,7 +253,16 @@ export async function migrateAllInstances(opts: {
 }): Promise<InstanceResult[]> {
   const results: InstanceResult[] = [];
 
+  // One entry per distinct env_prefix, in the order the rows arrived,
+  // with the rest recorded as aliases of it.
+  const byPrefix = new Map<string, { row: RegistryRow; aliases: string[] }>();
   for (const row of opts.rows) {
+    const seen = byPrefix.get(row.env_prefix);
+    if (seen) seen.aliases.push(row.subdomain);
+    else byPrefix.set(row.env_prefix, { row, aliases: [] });
+  }
+
+  for (const { row, aliases } of byPrefix.values()) {
     const target = resolveTarget({
       row,
       env: opts.env,
@@ -253,6 +274,7 @@ export async function migrateAllInstances(opts: {
       results.push({
         subdomain: target.subdomain,
         envPrefix: target.envPrefix,
+        aliases,
         status: "blocked",
         reason: target.reason,
       });
@@ -273,6 +295,7 @@ export async function migrateAllInstances(opts: {
         results.push({
           subdomain: target.subdomain,
           envPrefix: target.envPrefix,
+          aliases,
           status: pending.length === 0 ? "up-to-date" : "would-apply",
           ...(pending.length === 0 ? { version } : { pending, version }),
         } as InstanceResult);
@@ -295,6 +318,7 @@ export async function migrateAllInstances(opts: {
         results.push({
           subdomain: target.subdomain,
           envPrefix: target.envPrefix,
+          aliases,
           status: "up-to-date",
           version: outcome.version,
         });
@@ -305,6 +329,7 @@ export async function migrateAllInstances(opts: {
         results.push({
           subdomain: target.subdomain,
           envPrefix: target.envPrefix,
+          aliases,
           status: "applied",
           applied: outcome.applied,
           version: outcome.version,
@@ -317,6 +342,7 @@ export async function migrateAllInstances(opts: {
       results.push({
         subdomain: target.subdomain,
         envPrefix: target.envPrefix,
+        aliases,
         status: "failed",
         reason,
       });
