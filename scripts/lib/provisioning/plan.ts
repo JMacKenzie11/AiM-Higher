@@ -129,6 +129,15 @@ export type ProvisionDeps = {
   // than read from disk here, so the "is anything pending" comparison
   // is testable.
   localMigrations: () => string[];
+  // Appends {PREFIX}_SUPABASE_URL / _SERVICE_KEY to
+  // .env.provisioning, so the fleet tools can reach the new instance
+  // without anyone remembering to add them by hand. Returns which
+  // keys it added and which were already there, so the step is
+  // idempotent and can say so. Injected because it writes a file.
+  recordFleetCredentials: (values: Record<string, string>) => {
+    added: string[];
+    alreadyPresent: string[];
+  };
   // Reads supabase/seed/instance-seed.sql.
   readSeedSql: () => string;
   // Progress, for the steps that take minutes.
@@ -543,6 +552,69 @@ async function writeVercelEnv(
 //
 // Skips when the current production deployment is already newer than
 // the last env write, which is the rerun case and the common one.
+
+// ---- record-fleet-credentials ----------------------------------
+//
+// Writes the new instance's URL and service key into
+// .env.provisioning.
+//
+// .env.provisioning is the ONE authoritative source of fleet
+// credentials. The migration runner, the cron tooling and
+// sync-content all read {PREFIX}_SUPABASE_* from it and fail loudly
+// by name when a value is missing, which is correct behaviour and a
+// terrible onboarding experience if the values only ever arrive by
+// hand.
+//
+// That is not hypothetical: on 2026-09-07 `npm run sync:content`
+// refused to run because PROD_SUPABASE_SERVICE_KEY and both
+// PROMISEONE_* values had never been written there. Two instances is
+// a manageable amount of hand-editing. Five is not, and the failure
+// mode is a tool that works for the operator who provisioned an
+// instance and fails for everyone else.
+//
+// The alternative considered and rejected: have the fleet tools fall
+// back to .provisioning-state/{subdomain}.json, which already holds
+// both values. It was rejected because it guarantees two sources
+// forever — production predates provisioning and has no state file,
+// so the env path could never be removed — and because state files
+// are per-machine artifacts of one provisioning run. Whether a fleet
+// tool worked would depend on who ran provisioning and whether they
+// still had the directory.
+//
+// The loud failure is unchanged. This step removes the most common
+// reason to hit it; it does not soften what happens when a value is
+// genuinely absent.
+async function recordFleetCredentials(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const state = deps.readState(ctx.subdomain);
+  if (!state?.apiUrl || !state.serviceKey) {
+    throw new Error(
+      `.provisioning-state/${ctx.subdomain}.json has no URL or service key. ` +
+        "Run create-supabase-project first."
+    );
+  }
+
+  const { added, alreadyPresent } = deps.recordFleetCredentials({
+    [`${ctx.envPrefix}_SUPABASE_URL`]: state.apiUrl,
+    [`${ctx.envPrefix}_SUPABASE_SERVICE_KEY`]: state.serviceKey,
+  });
+
+  if (added.length === 0) {
+    return {
+      status: "skipped",
+      detail: `${alreadyPresent.length} already in .env.provisioning`,
+    };
+  }
+  // Names only. The values are a service-role key and a URL, and a
+  // secret must never appear in a command's output (see E3 in
+  // docs/failure-modes.md).
+  return {
+    status: "done",
+    detail: `added ${added.join(", ")} to .env.provisioning`,
+  };
+}
 
 async function triggerRedeploy(
   ctx: ProvisionContext,
@@ -977,7 +1049,7 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "seed-data",
     describe: () =>
-      "run supabase/seed/instance-seed.sql — the reference data a new instance cannot start without",
+      "run supabase/seed/instance-seed.sql — reference data that ships with the code (empty today; Classroom moved to sync:content)",
     execute: seedData,
   },
   // DEFERRED VERIFICATION, to be done when this step is implemented.
@@ -1006,6 +1078,12 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
     describe: (c) =>
       `write ${c.envPrefix}_SUPABASE_URL / _ANON_KEY / _SERVICE_KEY to Vercel Production (service key sensitive)`,
     execute: writeVercelEnv,
+  },
+  {
+    name: "record-fleet-credentials",
+    describe: (c) =>
+      `record ${c.envPrefix}_SUPABASE_URL / _SERVICE_KEY in .env.provisioning, the one source fleet tools read`,
+    execute: recordFleetCredentials,
   },
   {
     name: "trigger-redeploy",

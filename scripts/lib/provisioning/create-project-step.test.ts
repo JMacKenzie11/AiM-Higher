@@ -87,6 +87,7 @@ function makeDeps(opts: {
     sendInvite: vi.fn(async () => ({ ok: false, message: "not configured" })),
         runCommand: vi.fn(async () => ({ code: 0, stdout: "", stderr: "" })),
     localMigrations: () => [],
+    recordFleetCredentials: () => ({ added: [], alreadyPresent: [] }),
     readSeedSql: () => "",
     readState: (subdomain) => state[subdomain] ?? null,
     writeState: (subdomain, patch) => {
