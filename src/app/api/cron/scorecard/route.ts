@@ -1,12 +1,11 @@
 import "server-only";
 
 import { NextRequest } from "next/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   computeCompanyScorecard,
   writeScorecardSnapshot,
 } from "@/lib/maturity/compute";
-import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { forEachActiveInstance } from "@/lib/instances/for-each";
 
 // Weekly cron for the AiMS Scorecard.
 //
@@ -22,6 +21,10 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // The /scorecard page ALSO computes live on every load, so a delayed
 // cron never leaves the page stale; the snapshot table only powers
 // the historical trend line.
+//
+// Runs against every active instance. The per-company logic below
+// is untouched: it already took an `admin` client, so fanning out
+// means handing it a different one each time round.
 //
 // Vercel cron entry lives in vercel.json.
 
@@ -47,54 +50,58 @@ async function handle(req: NextRequest): Promise<Response> {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const summary = await forEachActiveInstance({
+    job: "scorecard",
+    run: async ({ admin }) => {
+      const { data: companies, error: listError } = await admin
+        .from("companies")
+        .select("id, name")
+        .eq("status", "active");
+      // Throwing rather than returning: failing to list an
+      // instance's companies means this instance did no work at all,
+      // which is an instance-level failure. A single company failing
+      // below is not, and is still collected the way it always was.
+      if (listError) throw new Error(listError.message);
 
-  const { data: companies, error: listError } = await admin
-    .from("companies")
-    .select("id, name")
-    .eq("status", "active");
-  if (listError) {
-    return Response.json(
-      { ok: false, message: listError.message },
-      { status: 500 }
-    );
-  }
+      const rows = (companies ?? []) as Array<{ id: string; name: string }>;
+      const results: Array<{
+        companyId: string;
+        ok: boolean;
+        error?: string;
+      }> = [];
 
-  const rows = (companies ?? []) as Array<{ id: string; name: string }>;
-  const results: Array<{
-    companyId: string;
-    ok: boolean;
-    error?: string;
-  }> = [];
-
-  // Sequential rather than parallel — each company runs 6 small
-  // reads, but a Promise.all across every tenant could spike
-  // Supabase connection pressure on a large customer base. Serial
-  // is plenty fast at platform sizes we care about.
-  for (const c of rows) {
-    try {
-      const scorecard = await computeCompanyScorecard(c.id, admin);
-      const write = await writeScorecardSnapshot(c.id, scorecard, admin);
-      if (!write.ok) {
-        results.push({ companyId: c.id, ok: false, error: write.message });
-      } else {
-        results.push({ companyId: c.id, ok: true });
+      // Sequential rather than parallel — each company runs 6 small
+      // reads, but a Promise.all across every tenant could spike
+      // Supabase connection pressure on a large customer base. Serial
+      // is plenty fast at platform sizes we care about.
+      for (const c of rows) {
+        try {
+          const scorecard = await computeCompanyScorecard(c.id, admin);
+          const write = await writeScorecardSnapshot(c.id, scorecard, admin);
+          if (!write.ok) {
+            results.push({ companyId: c.id, ok: false, error: write.message });
+          } else {
+            results.push({ companyId: c.id, ok: true });
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          results.push({ companyId: c.id, ok: false, error: message });
+        }
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      results.push({ companyId: c.id, ok: false, error: message });
-    }
-  }
 
-  const okCount = results.filter((r) => r.ok).length;
-  const failCount = results.length - okCount;
-  return Response.json({
-    ok: true,
-    processed: results.length,
-    succeeded: okCount,
-    failed: failCount,
-    // Only surface the first few failures — no need to dump 200
-    // error strings for a rare wholesale outage.
-    failures: results.filter((r) => !r.ok).slice(0, 20),
+      const okCount = results.filter((r) => r.ok).length;
+      return {
+        processed: results.length,
+        succeeded: okCount,
+        failed: results.length - okCount,
+        // Only surface the first few failures — no need to dump 200
+        // error strings for a rare wholesale outage.
+        failures: results.filter((r) => !r.ok).slice(0, 20),
+      };
+    },
+    line: (r) =>
+      `${r.succeeded}/${r.processed} companies snapshotted, ${r.failed} failed`,
   });
+
+  return Response.json(summary, { status: summary.ok ? 200 : 500 });
 }

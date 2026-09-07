@@ -1,7 +1,7 @@
 import "server-only";
 
 import { NextRequest } from "next/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { fridayOf, thisFriday } from "@/lib/dates";
 import type {
   MetricValueType,
@@ -10,7 +10,7 @@ import type {
 } from "@/lib/types";
 import { isDueForWeek } from "@/lib/measures/frequency";
 import { isOffTarget, raiseOffTargetIssue } from "@/lib/measures/off-target";
-import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { forEachActiveInstance } from "@/lib/instances/for-each";
 
 // Saturday cron for companies on `performance_tracking`.
 //
@@ -40,6 +40,10 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // Both kinds are swept. A CSF is a measure now, and one that has been
 // given a target and asked to be tracked deserves the same attention
 // as a KPI.
+//
+// Runs against every active instance. runForCompany below is
+// unchanged; it already took an `admin` client, so fanning out is a
+// matter of which client it is given.
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -55,48 +59,67 @@ export async function POST(req: NextRequest): Promise<Response> {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const summary = await forEachActiveInstance({
+    job: "performance",
+    run: async ({ admin }) => {
+      // Companies that opted in.
+      const { data: companyRows } = await admin
+        .from("company_features")
+        .select("company_id, companies!inner(id, timezone)")
+        .eq("feature", "performance_tracking");
+      type CompanyJoin = {
+        company_id: string;
+        companies:
+          | { id: string; timezone: string }
+          | Array<{ id: string; timezone: string }>;
+      };
+      const companies = ((companyRows ?? []) as CompanyJoin[]).map((r) => {
+        const c = Array.isArray(r.companies) ? r.companies[0] : r.companies;
+        return {
+          id: r.company_id,
+          timezone: c?.timezone ?? "America/Anchorage",
+        };
+      });
 
-  // Companies that opted in.
-  const { data: companyRows } = await admin
-    .from("company_features")
-    .select("company_id, companies!inner(id, timezone)")
-    .eq("feature", "performance_tracking");
-  type CompanyJoin = {
-    company_id: string;
-    companies:
-      | { id: string; timezone: string }
-      | Array<{ id: string; timezone: string }>;
-  };
-  const companies = ((companyRows ?? []) as CompanyJoin[]).map((r) => {
-    const c = Array.isArray(r.companies) ? r.companies[0] : r.companies;
-    return { id: r.company_id, timezone: c?.timezone ?? "America/Anchorage" };
+      let createdMissing = 0;
+      let createdOffTarget = 0;
+      const perCompany: Array<{
+        companyId: string;
+        createdMissing: number;
+        createdOffTarget: number;
+      }> = [];
+
+      for (const company of companies) {
+        const result = await runForCompany(admin, company.id, company.timezone);
+        createdMissing += result.createdMissing;
+        createdOffTarget += result.createdOffTarget;
+        perCompany.push({
+          companyId: company.id,
+          createdMissing: result.createdMissing,
+          createdOffTarget: result.createdOffTarget,
+        });
+      }
+
+      return {
+        companies: companies.length,
+        createdMissing,
+        createdOffTarget,
+        totalCreated: createdMissing + createdOffTarget,
+        perCompany,
+      };
+    },
+    line: (r) =>
+      `${r.companies} companies, ${r.createdMissing} log reminders, ` +
+      `${r.createdOffTarget} off-target issues`,
   });
 
-  let totalCreated = 0;
-  const perCompany: Array<{
-    companyId: string;
-    createdMissing: number;
-    createdOffTarget: number;
-  }> = [];
-
-  for (const company of companies) {
-    const result = await runForCompany(admin, company.id, company.timezone);
-    totalCreated += result.createdMissing + result.createdOffTarget;
-    perCompany.push({
-      companyId: company.id,
-      createdMissing: result.createdMissing,
-      createdOffTarget: result.createdOffTarget,
-    });
-  }
-
-  return Response.json({ totalCreated, perCompany });
+  return Response.json(summary, { status: summary.ok ? 200 : 500 });
 }
 
 export const GET = POST;
 
 async function runForCompany(
-  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
+  admin: SupabaseClient,
   companyId: string,
   timezone: string
 ): Promise<{ createdMissing: number; createdOffTarget: number }> {

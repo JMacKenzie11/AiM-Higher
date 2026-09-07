@@ -174,6 +174,48 @@ async function fetchInstance(
   };
 }
 
+// Every active instance, for work that has to touch all of them
+// rather than the one a request resolved to (the cron fan-out).
+//
+// Returns registry rows, not InstanceConfigs. Connection details
+// still come from lookupInstance() per subdomain, which keeps the
+// env-var resolution and its cache in one place and means a fan-out
+// costs nothing extra on a warm process.
+//
+// This THROWS on a query error rather than returning an empty list.
+// The two must not look alike to a caller: "no instances are active"
+// and "the control plane did not answer" would both be zero rows,
+// and a scheduled job that silently does nothing because the
+// registry was unreachable is a failure nobody sees. The cron helper
+// turns both into a red run, but only because this refuses to
+// flatten one into the other.
+export type ActiveInstanceRow = {
+  subdomain: string;
+  displayName: string;
+  envPrefix: string;
+};
+
+export async function listActiveInstances(): Promise<ActiveInstanceRow[]> {
+  const supabase = getControlPlaneClient();
+  const { data, error } = await supabase
+    .from("instances")
+    .select("subdomain, display_name, env_prefix, status")
+    .eq("status", "active")
+    .order("subdomain");
+
+  if (error) {
+    throw new Error(
+      `[instances] control plane listing of active instances failed: ${error.message}`,
+    );
+  }
+
+  return ((data ?? []) as InstanceRow[]).map((row) => ({
+    subdomain: row.subdomain,
+    displayName: row.display_name,
+    envPrefix: row.env_prefix,
+  }));
+}
+
 // Drops the cache. Exported for tests, and for whatever admin action
 // eventually edits the registry and wants the change to take effect
 // without waiting out the TTL.

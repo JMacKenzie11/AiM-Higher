@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 
 import type { InstanceConfig } from "./types";
 import { INSTANCE_HEADER, parseInstanceHeader } from "./request";
+import { instanceFromContext } from "./context";
 
 // The current request's instance, for every server-side caller.
 //
@@ -17,6 +18,19 @@ import { INSTANCE_HEADER, parseInstanceHeader } from "./request";
 // themselves.
 
 export async function getCurrentInstanceConfig(): Promise<InstanceConfig> {
+  // Background work that has explicitly said which instance it is
+  // running for wins, and is checked first. The fan-out helper opens
+  // that scope around each instance's turn (see context.ts), so the
+  // transcript pipeline's own admin clients land on the right
+  // database without every function in it growing a parameter.
+  //
+  // The two answers cannot disagree today: middleware excludes the
+  // cron routes from resolution outright, so a fanned-out job never
+  // has a header to contradict. If they ever could, the explicit
+  // scope is the more specific statement of intent and should win.
+  const scoped = instanceFromContext();
+  if (scoped) return scoped;
+
   // headers() throws outside a request scope. That is the signal for
   // "nothing resolved this", not an error worth propagating.
   let attached: InstanceConfig | null = null;
@@ -47,11 +61,11 @@ export async function getCurrentInstanceConfig(): Promise<InstanceConfig> {
 // rows into the wrong customer's database is not an error anyone sees
 // until much later. Stopping is the cheaper mistake.
 //
-// TODO (Phase 4): cron fans out. Right now a scheduled job runs once
-// against one database, which is why naming a single prefix here is
-// enough. Once there are several live instances, each job needs to
-// enumerate the registry and run per instance, and this becomes wrong
-// rather than merely narrow.
+// The fanned-out cron jobs no longer reach this fallback: they
+// enumerate the registry and open an instance scope per instance
+// (see for-each.ts), which the check above answers from. What is
+// left below still matters for the jobs that have not been fanned
+// out yet, and for a developer exercising any route locally.
 
 const PROD_PREFIX = "PROD";
 

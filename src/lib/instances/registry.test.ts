@@ -12,7 +12,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const maybeSingle = vi.fn();
-  const eq = vi.fn(() => ({ maybeSingle }));
+  // listActiveInstances ends the chain at .order() instead of
+  // .maybeSingle(); both hang off the same .eq().
+  const order = vi.fn();
+  const eq = vi.fn(() => ({ maybeSingle, order }));
   const select = vi.fn(() => ({ eq }));
   const from = vi.fn(() => ({ select }));
   // Typed params so the assertions below can read call[0] / call[1]
@@ -23,7 +26,7 @@ const mocks = vi.hoisted(() => {
     void options;
     return { from };
   });
-  return { maybeSingle, eq, select, from, createClient };
+  return { maybeSingle, order, eq, select, from, createClient };
 });
 
 vi.mock("@supabase/supabase-js", () => ({
@@ -225,5 +228,55 @@ describe("the lookup cache", () => {
     expect((await lookupInstance("acme"))?.supabaseUrl).toBe(
       "https://acme.supabase.co",
     );
+  });
+});
+
+describe("listActiveInstances", () => {
+  it("returns the active rows as registry rows, not configs", async () => {
+    // Deliberately no env vars for BETA. Listing says which
+    // instances exist; resolving their keys is lookupInstance's job,
+    // so a missing prefix must not make a row disappear here.
+    mocks.order.mockResolvedValue({
+      data: [
+        ACME_ROW,
+        {
+          subdomain: "beta",
+          display_name: "Beta Co",
+          env_prefix: "BETA",
+          status: "active",
+        },
+      ],
+      error: null,
+    });
+    const { listActiveInstances } = await importRegistry();
+
+    expect(await listActiveInstances()).toEqual([
+      { subdomain: "acme", displayName: "Acme Industries", envPrefix: "ACME" },
+      { subdomain: "beta", displayName: "Beta Co", envPrefix: "BETA" },
+    ]);
+    expect(mocks.from).toHaveBeenCalledWith("instances");
+    expect(mocks.eq).toHaveBeenCalledWith("status", "active");
+  });
+
+  it("throws on a query error instead of returning an empty list", async () => {
+    // The distinction the cron fan-out depends on: "nothing is
+    // active" and "the control plane did not answer" must not both
+    // arrive as zero rows.
+    mocks.order.mockResolvedValue({
+      data: null,
+      error: { message: "permission denied for table instances" },
+    });
+    const { listActiveInstances } = await importRegistry();
+
+    await expect(listActiveInstances()).rejects.toThrow(
+      /permission denied for table instances/,
+    );
+  });
+
+  it("returns an empty list when there genuinely are no active rows", async () => {
+    mocks.order.mockResolvedValue({ data: [], error: null });
+    const { listActiveInstances } = await importRegistry();
+
+    expect(await listActiveInstances()).toEqual([]);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { getCurrentInstanceConfig } from "./current";
+import { runWithInstance } from "./context";
 import { INSTANCE_HEADER, serializeInstance } from "./request";
 import type { InstanceConfig } from "./types";
 
@@ -146,6 +147,61 @@ describe("getCurrentInstanceConfig", () => {
   it("throws rather than trusting a malformed header", async () => {
     headerStore.value = "{ not a config }";
 
+    await expect(getCurrentInstanceConfig()).rejects.toThrow(
+      /Refusing to guess a database/,
+    );
+  });
+});
+
+describe("the fan-out scope", () => {
+  // This is the mechanism the cron fan-out rests on. The transcript
+  // pipeline builds its own admin clients from
+  // getCurrentInstanceConfig() in nine places, and none of them were
+  // rewritten to take a client argument. They land on the right
+  // database only because the scope answers here.
+  const BETA: InstanceConfig = {
+    subdomain: "beta",
+    displayName: "Beta Co",
+    supabaseUrl: "https://beta.supabase.co",
+    supabaseAnonKey: "beta-anon",
+    supabaseServiceKey: "beta-service",
+    status: "active",
+  };
+
+  it("answers for work running inside it", async () => {
+    const config = await runWithInstance(BETA, async () => {
+      // An await in between, because the real callers are several
+      // deep in a pipeline rather than synchronous.
+      await Promise.resolve();
+      return getCurrentInstanceConfig();
+    });
+    expect(config).toEqual(BETA);
+  });
+
+  it("wins over an attached header", async () => {
+    // Cannot happen today: middleware excludes the cron routes from
+    // resolution, so a fanned-out job never carries a header. Pinned
+    // anyway, because the explicit scope is the more specific
+    // statement of which database this work is for, and a future
+    // caller that has both should not silently get the other one.
+    headerStore.value = serializeInstance(ACME);
+    const config = await runWithInstance(BETA, () =>
+      getCurrentInstanceConfig(),
+    );
+    expect(config.subdomain).toBe("beta");
+  });
+
+  it("does not leak outside itself", async () => {
+    headerStore.value = serializeInstance(ACME);
+    await runWithInstance(BETA, async () => getCurrentInstanceConfig());
+    expect((await getCurrentInstanceConfig()).subdomain).toBe("acme");
+  });
+
+  it("still throws for a cron route that opened no scope", async () => {
+    // The protection that made the fallback strict in the first
+    // place has to survive the fan-out: no scope and no header and
+    // no variables is still a refusal, not a guess.
+    headerStore.value = null;
     await expect(getCurrentInstanceConfig()).rejects.toThrow(
       /Refusing to guess a database/,
     );
