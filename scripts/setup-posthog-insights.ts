@@ -25,6 +25,8 @@
 // second group type gets added later, revisit the index literals in
 // the account-health insights below.
 
+import { isEntryPoint } from "./lib/entry-point.ts";
+
 type Insight = {
   name: string;
   description: string;
@@ -758,7 +760,11 @@ async function main(): Promise<void> {
   if (failed > 0) process.exit(1);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Runs only when this file IS the process entry point. Importing
+// it must never execute it. See scripts/lib/entry-point.ts.
+if (isEntryPoint(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

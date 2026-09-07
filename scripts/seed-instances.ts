@@ -41,6 +41,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isEntryPoint } from "./lib/entry-point.ts";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -191,7 +192,11 @@ async function main() {
   console.log("Done.");
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// Runs only when this file IS the process entry point. Importing
+// it must never execute it. See scripts/lib/entry-point.ts.
+if (isEntryPoint(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

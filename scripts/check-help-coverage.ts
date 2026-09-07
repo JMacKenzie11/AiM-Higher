@@ -24,6 +24,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isEntryPoint } from "./lib/entry-point.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -162,7 +163,11 @@ async function main() {
   process.exit(1);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(2);
-});
+// Runs only when this file IS the process entry point. Importing
+// it must never execute it. See scripts/lib/entry-point.ts.
+if (isEntryPoint(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(2);
+  });
+}

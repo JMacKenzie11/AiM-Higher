@@ -1,6 +1,7 @@
 name: Checks
 
-# Runs on every PR + every push to main. Four gates:
+# Runs on every push to any branch, and on every PR into main. Four
+# gates:
 #   1. Typecheck — TypeScript across the whole app.
 #   2. Lint — ESLint via next lint (see eslint.config.mjs).
 #   3. Unit tests — vitest.
@@ -13,12 +14,24 @@ name: Checks
 # Lint gates on errors only. Warnings still print and are worth
 # clearing, but they don't block: the repo carried 37 of them the day
 # this gate went in, and a gate nobody can turn green gets deleted.
+#
+# WHY IT RUNS ON EVERY BRANCH. It used to trigger only on pushes to
+# main and PRs into main. On 2026-09-07 twenty-three commits went to
+# feat/provision-cli with no PR, so CI never ran on any of them, and
+# every "gates green" reported during that work meant somebody's
+# laptop. The first time CI saw the code was the merge to main, where
+# it failed immediately on a defect that had been present since the
+# migration runner was written.
+#
+# A gate that only speaks at the end is not a gate, it is a postmortem.
+# The cost of running on every branch is a minute of runner time per
+# push; the cost of not running is finding out on main.
 
 on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: ["**"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
