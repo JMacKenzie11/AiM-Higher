@@ -14,7 +14,15 @@ import path from "node:path";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // scripts/ is included because the provisioning logic lives there:
+    // it is loaded by node's ESM resolver rather than a bundler, so it
+    // writes .ts extensions in its imports, which the app's tsconfig
+    // rightly refuses. See scripts/tsconfig.json.
+    include: [
+      "src/**/*.test.ts",
+      "src/**/*.test.tsx",
+      "scripts/**/*.test.ts",
+    ],
     globals: false,
     setupFiles: ["./vitest.setup.ts"],
   },

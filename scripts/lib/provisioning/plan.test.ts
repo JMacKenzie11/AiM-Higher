@@ -4,7 +4,15 @@ import {
   PROVISION_STEPS,
   STEP_NAMES,
   type ProvisionContext,
-} from "./plan";
+  type ProvisionDeps,
+} from "./plan.ts";
+
+// Steps that no longer print and return — they reach the network now,
+// so the "still stubbed" assertion below has to stop covering them as
+// each one lands. See supabase-management.test.ts for their coverage.
+const IMPLEMENTED = new Set(["create-supabase-project"]);
+
+const NO_DEPS = {} as ProvisionDeps;
 
 // The order is the load-bearing part. The API calls are the easy half;
 // getting "register it only once it works" wrong leaves a customer
@@ -95,29 +103,40 @@ describe("the provisioning plan", () => {
   });
 
   it("is independently executable, step by step", () => {
-    // Each step is a plain object with its own execute. The runner
-    // walks them; nothing shares state through a closure.
+    // Each step is a plain object with its own execute taking the
+    // context and its dependencies. The runner walks them; nothing
+    // shares state through a closure, and nothing reaches the outside
+    // world except through deps.
     for (const step of PROVISION_STEPS) {
       expect(typeof step.execute, step.name).toBe("function");
-      expect(step.execute.length, `${step.name} takes a context`).toBe(1);
+      expect(step.execute.length, `${step.name} takes (ctx, deps)`).toBe(2);
     }
   });
 
   it("returns a result rather than printing, so a runner can report it", async () => {
     for (const step of PROVISION_STEPS) {
-      const result = await step.execute(CTX);
+      if (IMPLEMENTED.has(step.name)) continue;
+      const result = await step.execute(CTX, NO_DEPS);
       expect(["done", "skipped"], step.name).toContain(result.status);
       expect(result.detail.length, step.name).toBeGreaterThan(0);
     }
   });
 
-  it("is still stubbed — every step says so", async () => {
-    // When a step grows a real implementation this test should be the
-    // thing that fails, so nobody ships a half-real plan believing it
-    // is inert.
+  it("the remaining steps are still stubbed, and say so", async () => {
+    // When a step grows a real implementation this is the test that
+    // fails, so nobody ships a half-real plan believing it is inert.
+    // Add the step to IMPLEMENTED as it lands — deliberately a manual
+    // edit, so the change is visible in the diff.
     for (const step of PROVISION_STEPS) {
-      const result = await step.execute(CTX);
+      if (IMPLEMENTED.has(step.name)) continue;
+      const result = await step.execute(CTX, NO_DEPS);
       expect(result.detail, step.name).toMatch(/^stub — would /);
+    }
+  });
+
+  it("names every implemented step in IMPLEMENTED", () => {
+    for (const name of IMPLEMENTED) {
+      expect(STEP_NAMES, `${name} is not a step`).toContain(name);
     }
   });
 });

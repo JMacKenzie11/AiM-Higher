@@ -18,17 +18,30 @@
  * must be in that one file.
  */
 
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { createInterface } from "node:readline/promises";
 
 import {
   PROVISION_STEPS,
   type ProvisionContext,
-} from "../src/lib/provisioning/plan.ts";
+  type ProvisionDeps,
+} from "./lib/provisioning/plan.ts";
+import {
+  STATE_DIR,
+  mergeState,
+  stateFileFor,
+  type InstanceState,
+} from "./lib/provisioning/state.ts";
+import {
+  createManagementClient,
+  ManagementApiError,
+} from "./lib/provisioning/supabase-management.ts";
 import {
   missingConfig,
   validateAdminEmail,
   validateSubdomain,
-} from "../src/lib/provisioning/validate.ts";
+} from "./lib/provisioning/validate.ts";
 
 const DEFAULT_REGION = "us-east-1";
 
@@ -154,6 +167,7 @@ function printPlan(ctx: ProvisionContext): void {
   console.log(`    admin         ${ctx.adminEmail}`);
   console.log(`    region        ${ctx.region}`);
   console.log(`    hostname      https://${ctx.subdomain}.aims-hq.com`);
+  console.log(`    state file    ${STATE_DIR}/${ctx.subdomain}.json`);
   console.log("");
   PROVISION_STEPS.forEach((step, i) => {
     console.log(`    ${String(i + 1).padStart(2)}. ${step.name}`);
@@ -180,16 +194,85 @@ async function confirm(ctx: ProvisionContext): Promise<void> {
   }
 }
 
-async function run(ctx: ProvisionContext): Promise<void> {
+function readStateFile(subdomain: string): InstanceState | null {
+  try {
+    return JSON.parse(readFileSync(stateFileFor(subdomain), "utf8")) as InstanceState;
+  } catch {
+    return null;
+  }
+}
+
+function writeStateFile(
+  subdomain: string,
+  patch: Partial<InstanceState>
+): InstanceState {
+  const file = stateFileFor(subdomain);
+  const merged = mergeState(readStateFile(subdomain), patch, new Date().toISOString());
+  mkdirSync(dirname(file), { recursive: true });
+  // 0600: this file holds a database password and a service-role key.
+  writeFileSync(file, `${JSON.stringify(merged, null, 2)}\n`, { mode: 0o600 });
+  return merged;
+}
+
+// The organization to create projects in.
+//
+// SUPABASE_ORG_ID if set. Otherwise, if the token can see exactly one
+// organization, that one — unambiguous, so asking would be
+// bureaucracy. More than one and it refuses: picking for you is how a
+// customer's project lands in the wrong org's billing.
+async function resolveOrganizationId(
+  management: ReturnType<typeof createManagementClient>
+): Promise<string> {
+  const configured = process.env.SUPABASE_ORG_ID?.trim();
+  if (configured) return configured;
+
+  const orgs = await management.listOrganizations();
+  if (orgs.length === 1) return orgs[0].id;
+  if (orgs.length === 0) {
+    fail(
+      "The Supabase management token can see no organizations. Check " +
+        "SUPABASE_MANAGEMENT_TOKEN in .env.provisioning."
+    );
+  }
+  fail(
+    `The token can see ${orgs.length} organizations, so which one to ` +
+      `create in is ambiguous. Set SUPABASE_ORG_ID in .env.provisioning:\n` +
+      orgs.map((o) => `    ${o.id}  ${o.name}`).join("\n")
+  );
+}
+
+async function buildDeps(): Promise<ProvisionDeps> {
+  const management = createManagementClient({
+    token: process.env.SUPABASE_MANAGEMENT_TOKEN as string,
+  });
+  return {
+    management,
+    organizationId: await resolveOrganizationId(management),
+    readState: readStateFile,
+    writeState: writeStateFile,
+    log: (line) => console.log(line),
+    now: () => Date.now(),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  };
+}
+
+async function run(ctx: ProvisionContext, deps: ProvisionDeps): Promise<void> {
   console.log("  Running");
   console.log("  ───────");
   for (const [i, step] of PROVISION_STEPS.entries()) {
     const label = `    ${String(i + 1).padStart(2)}. ${step.name.padEnd(24)}`;
     try {
-      const result = await step.execute(ctx);
+      const result = await step.execute(ctx, deps);
       console.log(`${label}${result.status.padEnd(8)} ${result.detail}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      // A Management API failure is explained by its body, so print it
+      // rather than just the status line.
+      const message =
+        error instanceof ManagementApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : String(error);
       console.log(`${label}failed   ${message}`);
       console.error(
         `\n  Stopped at "${step.name}". Earlier steps have already run;` +
@@ -219,7 +302,7 @@ async function main(): Promise<void> {
   if (!args.yes) await confirm(ctx);
 
   console.log("");
-  await run(ctx);
+  await run(ctx, await buildDeps());
 }
 
 main().catch((error) => {

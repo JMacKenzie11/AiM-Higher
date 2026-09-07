@@ -10,6 +10,10 @@ build/
 .env
 .env.local
 .env.provisioning
+
+# Provisioning state: database passwords and service-role keys for
+# instances this machine created. Never committed.
+.provisioning-state/
 .env.*.local
 
 # vercel

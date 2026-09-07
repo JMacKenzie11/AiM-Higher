@@ -9,7 +9,7 @@ import {
   missingConfig,
   validateAdminEmail,
   validateSubdomain,
-} from "./validate";
+} from "./validate.ts";
 
 // Provisioning creates a database, rewrites production environment
 // variables and publishes a hostname. Everything here runs before any
