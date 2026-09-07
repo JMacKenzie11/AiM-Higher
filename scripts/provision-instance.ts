@@ -23,7 +23,13 @@ import { spawn } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
 
 import { sendInviteEmail } from "@/lib/email";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname } from "node:path";
 import { createInterface } from "node:readline/promises";
 
@@ -339,6 +345,43 @@ async function buildDeps(): Promise<ProvisionDeps> {
       readdirSync(MIGRATIONS_DIR)
         .filter((f) => f.endsWith(".sql"))
         .sort(),
+    // Appends to .env.provisioning, the one file fleet tools read for
+    // instance credentials. Idempotent by key: a rerun reports the
+    // values as already present rather than duplicating them.
+    //
+    // Appended rather than rewritten. This is the operator's own
+    // config file and it holds every other secret the tooling needs;
+    // rewriting it to normalise formatting would be a good way to
+    // lose a comment or a value nobody had backed up.
+    recordFleetCredentials: (values: Record<string, string>) => {
+      const path = ".env.provisioning";
+      const existing = readFileSync(path, "utf8");
+      const present = new Set(
+        existing
+          .split("\n")
+          .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
+          .map((l) => l.slice(0, l.indexOf("=")).trim())
+      );
+      const added: string[] = [];
+      const alreadyPresent: string[] = [];
+      const lines: string[] = [];
+      for (const [key, value] of Object.entries(values)) {
+        if (present.has(key)) {
+          alreadyPresent.push(key);
+          continue;
+        }
+        lines.push(`${key}=${value}`);
+        added.push(key);
+      }
+      if (lines.length > 0) {
+        appendFileSync(
+          path,
+          `\n# Fleet credentials, written by \`npm run provision\`.\n` +
+            `${lines.join("\n")}\n`
+        );
+      }
+      return { added, alreadyPresent };
+    },
     readSeedSql: () => {
       try {
         return readFileSync(SEED_FILE, "utf8");

@@ -114,6 +114,7 @@ function makeDeps(opts: {
     },
     runCommand,
     localMigrations: () => LOCAL,
+    recordFleetCredentials: () => ({ added: [], alreadyPresent: [] }),
     readSeedSql: () => opts.seedSql ?? "insert into public.x values (1);",
     log: vi.fn(),
     now: () => 0,
