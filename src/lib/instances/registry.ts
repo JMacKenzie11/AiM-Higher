@@ -1,5 +1,6 @@
 import "server-only";
 
+import * as Sentry from "@sentry/nextjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { InstanceConfig, InstanceStatus } from "./types";
@@ -91,12 +92,37 @@ type InstanceRow = {
   status: string;
 };
 
-// The column is text and constrained to two values by the migration.
-// Anything else would mean the constraint was dropped underneath us,
-// and treating an unrecognized status as suspended is the safer of
-// the two mistakes.
-function toStatus(value: string): InstanceStatus {
-  return value === "active" ? "active" : "suspended";
+// The column is text and constrained to two values by migration 0169.
+// Anything else means the constraint was dropped underneath us or
+// something wrote past it, and treating an unrecognized status as
+// suspended is the safer of the two mistakes: an instance wrongly
+// offline is a phone call, an instance wrongly served on the strength
+// of a value we do not understand is a data question.
+//
+// Reported to Sentry rather than only logged. This is a silent
+// condition by nature — the instance stops serving and nothing else
+// changes — so without an event the first signal is a customer
+// asking why their site shows a suspension notice.
+//
+// See the status contract in ./types.ts.
+function toStatus(value: string, subdomain: string): InstanceStatus {
+  if (value === "active") return "active";
+  if (value === "suspended") return "suspended";
+
+  Sentry.captureMessage(
+    `[instances] "${subdomain}" has unrecognized status "${value}"; ` +
+      "treating it as suspended",
+    {
+      level: "warning",
+      tags: { instance: subdomain, instance_status: value },
+    },
+  );
+  console.warn(
+    `[instances] "${subdomain}" has unrecognized status "${value}". ` +
+      "Treating it as suspended. Expected \"active\" or \"suspended\" " +
+      "(migration 0169 constrains this column).",
+  );
+  return "suspended";
 }
 
 export async function lookupInstance(
@@ -170,7 +196,7 @@ async function fetchInstance(
     supabaseUrl: url,
     supabaseAnonKey: anonKey,
     supabaseServiceKey: serviceKey,
-    status: toStatus(row.status),
+    status: toStatus(row.status, row.subdomain),
   };
 }
 
@@ -196,6 +222,11 @@ export type ActiveInstanceRow = {
 };
 
 export async function listActiveInstances(): Promise<ActiveInstanceRow[]> {
+  // Filtered in SQL, so a suspended instance never reaches a caller
+  // at all: its work does not run and it does not appear in a cron
+  // summary. The status re-check in for-each.ts is defence in depth
+  // for a config resolved from the cache mid-suspension, not the
+  // primary gate. See the status contract in ./types.ts.
   const supabase = getControlPlaneClient();
   const { data, error } = await supabase
     .from("instances")

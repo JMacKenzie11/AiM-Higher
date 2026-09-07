@@ -54,10 +54,24 @@ before the project is created, so a crash mid-flight cannot lose it.
 ```bash
 npm run migrate:instances -- --dry-run   # what would be applied, touching nothing
 npm run migrate:instances                # apply
+npm run migrate:instances -- --seed      # apply, then top up reference data
 ```
 
-Reads every `status = 'active'` row from the control plane registry and
-applies pending migrations to each, in sequence.
+Reads the control plane registry and applies pending migrations to
+every `active` instance, in sequence. Instances with any other status
+are skipped and NAMED in the summary as skipped, rather than being
+filtered out of the query and silently missing: before a deploy, an
+instance that vanished from the list is indistinguishable from one
+that was forgotten. See "Instance status" in `docs/deployment.md`.
+
+`--seed` also runs `supabase/seed/instance-seed.sql` against each
+instance, after its migrations. Migrations carry schema; the seed
+carries reference data, and a row added to the seed after an instance
+was provisioned never reaches that instance otherwise. The seed is
+idempotent by construction, so repeating it is safe. Off by default
+because reference data changes far less often than schema. Its result
+prints under the instance in the same summary, and a failed seed exits
+nonzero: "migrated but not seeded" is not a state to deploy on top of.
 
 `--dry-run` **opens a connection** to any instance that has pending
 work, so a credential failure is reported as BLOCKED rather than as a

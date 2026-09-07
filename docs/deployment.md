@@ -212,6 +212,95 @@ and `registry.ts` builds names from a row's `env_prefix`, so nothing
 here is a literal `process.env.NAME` the inliner could have seen. It
 relies on the runtime environment being populated, and it is.
 
+## Instance status: taking an instance offline
+
+`public.instances.status` is the switch that takes an instance on and
+offline. Flipping that one column is the whole procedure. No DNS
+change, no Vercel change, no environment variable touched, nothing
+deleted.
+
+Use it for non-payment, for trouble part-way through a migration, and
+for a teardown in progress.
+
+### What each value means
+
+| | `active` | `suspended` |
+|---|---|---|
+| Middleware | serves the app | serves `/instance-suspended` on every path, including `/sign-in` |
+| Session refresh | yes | no, and the instance's database is never opened |
+| Cron fan-out | included | omitted; its jobs do not run |
+| Migration runner | migrated | skipped, and named in the summary as skipped |
+| Data and keys | untouched | untouched |
+
+**Any other value is treated as `suspended`,** and reported to Sentry
+as a warning naming the instance and the value. Migration 0169
+constrains the column to those two, so a third one means the
+constraint was dropped or something wrote past it. Of the two possible
+mistakes, an instance wrongly offline is a phone call; an instance
+served on the strength of a value we do not understand is a data
+question.
+
+The definition lives in `src/lib/instances/types.ts`. Every consumer
+asks `isServable()` rather than comparing to a string, so there is one
+definition of what counts as active.
+
+### To suspend an instance
+
+```sql
+update public.instances set status = 'suspended' where subdomain = 'acme';
+```
+
+Against the CONTROL PLANE database, which is the production project
+today. Takes effect within one registry cache TTL: 60 seconds
+(`CACHE_TTL_MS` in `src/lib/instances/registry.ts`). Suspension is
+deliberately not instant. If an instance has to be cut off this
+second, that is an infrastructure action, not a registry one.
+
+### To restore it
+
+```sql
+update public.instances set status = 'active' where subdomain = 'acme';
+```
+
+Also within one TTL. Nothing else is needed: no key was rotated, no
+row was deleted, no environment variable changed.
+
+### What suspension does not do
+
+It does not stop anyone who is already signed in from holding a valid
+session token until it expires. It stops every request through
+middleware, which is every page and every API route under the matcher,
+so there is nothing for that token to be used against. It is an access
+switch, not a revocation. If credentials themselves are the problem,
+rotate the instance's keys.
+
+## Delivering reference data to existing instances
+
+Migrations carry schema. The seed carries reference data, and it is
+NOT replayed by a migration, so a row added to
+`supabase/seed/instance-seed.sql` after an instance was provisioned
+never reaches that instance on its own.
+
+```bash
+npm run migrate:instances -- --seed
+```
+
+Migrates each active instance and then runs the seed against it. The
+seed is idempotent by construction: every insert carries an
+`ON CONFLICT`, which is what makes running it against a live instance
+safe. See `supabase/seed/README.md` for the maintenance rule.
+
+Off by default because reference data changes far less often than
+schema does. The seed result prints under each instance in the same
+summary, so a green migration with a failed seed cannot be read as a
+green instance, and a failed seed exits nonzero like any other
+problem.
+
+Order matters and is enforced: migrations first, then the seed. The
+seed writes into tables the migrations create, so seeding an instance
+that is behind would fail on a table that does not exist yet. An
+instance whose migrations were blocked or failed is not seeded at all.
+
 ## Order of operations for a deploy
 
 1. Set the Production and Preview variables above.

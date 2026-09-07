@@ -10,6 +10,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // environment, so the tests assert which env names are read, not
 // just that a config appears.
 
+const sentry = vi.hoisted(() => ({ captureMessage: vi.fn() }));
+
+vi.mock("@sentry/nextjs", () => ({
+  captureMessage: sentry.captureMessage,
+}));
+
 const mocks = vi.hoisted(() => {
   const maybeSingle = vi.fn();
   // listActiveInstances ends the chain at .order() instead of
@@ -278,5 +284,42 @@ describe("listActiveInstances", () => {
     const { listActiveInstances } = await importRegistry();
 
     expect(await listActiveInstances()).toEqual([]);
+  });
+});
+
+describe("an unrecognized status", () => {
+  // Migration 0169 constrains this column to two values, so a third
+  // one means the constraint was dropped or something wrote past it.
+  // Refusing to serve is the recoverable mistake; serving a
+  // customer's data on a value we cannot interpret is not.
+  it("is treated as suspended and reported to Sentry", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    rowFound({ ...ACME_ROW, status: "pending-teardown" });
+    const { lookupInstance } = await importRegistry();
+
+    const config = await lookupInstance("acme");
+
+    expect(config?.status).toBe("suspended");
+    expect(sentry.captureMessage).toHaveBeenCalledTimes(1);
+    const [message, options] = sentry.captureMessage.mock.calls[0];
+    expect(message).toContain("acme");
+    expect(message).toContain("pending-teardown");
+    expect(options).toMatchObject({
+      level: "warning",
+      tags: { instance: "acme", instance_status: "pending-teardown" },
+    });
+    warn.mockRestore();
+  });
+
+  it("does not warn for either recognized value", async () => {
+    rowFound({ ...ACME_ROW, status: "suspended" });
+    const { lookupInstance, clearInstanceCache } = await importRegistry();
+    expect((await lookupInstance("acme"))?.status).toBe("suspended");
+
+    clearInstanceCache();
+    rowFound(ACME_ROW);
+    expect((await lookupInstance("acme"))?.status).toBe("active");
+
+    expect(sentry.captureMessage).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import {
   routeForInstance,
   isInstanceExemptPath,
   INSTANCE_NOT_FOUND_PATH,
+  INSTANCE_SUSPENDED_PATH,
 } from "./middleware-decision";
 import { resolveInstance } from "./resolve";
 import { needsScopePicker } from "@/lib/admin/scope-request";
@@ -283,5 +284,64 @@ describe("isInstanceExemptPath", () => {
     // at the separator or the exemption widens on its own.
     expect(isInstanceExemptPath("/api/crontab")).toBe(false);
     expect(isInstanceExemptPath("/api/cronies/list")).toBe(false);
+  });
+});
+
+// ---- Suspension ------------------------------------------------
+//
+// A suspended instance resolves fine: it is a real registry row
+// pointing at a real database. What changes is that we decline to
+// serve it. See the status contract in ./types.ts.
+
+describe("routeForInstance: suspended instances", () => {
+  const suspended: InstanceConfig = {
+    subdomain: "acme",
+    displayName: "Acme Industries",
+    supabaseUrl: "https://acme.supabase.co",
+    supabaseAnonKey: "acme-anon",
+    supabaseServiceKey: "acme-service",
+    status: "suspended",
+  };
+
+  it("routes a suspended instance to the suspended page", () => {
+    expect(routeForInstance({ pathname: "/dashboard", instance: suspended })).toEqual(
+      { action: "rewrite", to: INSTANCE_SUSPENDED_PATH },
+    );
+  });
+
+  it("suspends every path, including sign-in", () => {
+    // A suspension that still served /sign-in would be a broken app
+    // rather than a paused one: the person would authenticate and
+    // then hit a wall.
+    for (const pathname of ["/", "/sign-in", "/dashboard", "/api/whatever"]) {
+      expect(routeForInstance({ pathname, instance: suspended })).toEqual({
+        action: "rewrite",
+        to: INSTANCE_SUSPENDED_PATH,
+      });
+    }
+  });
+
+  it("renders the suspended page itself rather than rewriting forever", () => {
+    expect(
+      routeForInstance({ pathname: INSTANCE_SUSPENDED_PATH, instance: suspended }),
+    ).toEqual({ action: "passthrough" });
+  });
+
+  it("sends an unresolved hostname to not-found, not to suspended", () => {
+    // The two boundaries mean different things and must not blur: one
+    // says "no such instance", the other says "this instance is not
+    // being served right now".
+    expect(routeForInstance({ pathname: "/dashboard", instance: null })).toEqual({
+      action: "rewrite",
+      to: INSTANCE_NOT_FOUND_PATH,
+    });
+  });
+
+  it("still proceeds for an active instance", () => {
+    const active: InstanceConfig = { ...suspended, status: "active" };
+    expect(routeForInstance({ pathname: "/dashboard", instance: active })).toEqual({
+      action: "proceed",
+      instance: active,
+    });
   });
 });

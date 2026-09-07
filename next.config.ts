@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   // dev` processes sharing .next each invalidate the other's compile
   // until requests start timing out. Unset everywhere else, so
   // production and ordinary local dev are untouched.
+  //
+  // The same collision bites `next build` while a dev server is up:
+  // the build overwrites .next underneath the running server, which
+  // then 404s every client chunk. The page still renders, so it looks
+  // like a hydration bug rather than a missing bundle, and the fix is
+  // to restart the dev server. Set NEXT_DIST_DIR before a build if
+  // you need one running at the same time.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // Skip Next.js's in-build `tsc --noEmit` pass. The typecheck is
   // already a required gate in .github/workflows/checks.yml

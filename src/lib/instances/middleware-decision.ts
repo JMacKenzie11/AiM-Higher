@@ -1,4 +1,4 @@
-import type { InstanceConfig } from "./types";
+import { isServable, type InstanceConfig } from "./types";
 
 // What middleware does with a resolution result.
 //
@@ -11,14 +11,27 @@ import type { InstanceConfig } from "./types";
 // so it cannot depend on a layout that reads one.
 export const INSTANCE_NOT_FOUND_PATH = "/instance-not-found";
 
+// Same constraints as the not-found page, and reached for the
+// opposite reason: this hostname IS a registered instance, we simply
+// are not serving it. Suspension is a registry column, so taking an
+// instance offline is one row update and no infrastructure change.
+// See the status contract in ./types.ts.
+export const INSTANCE_SUSPENDED_PATH = "/instance-suspended";
+
 export type InstanceRouting =
-  // Resolved. Carry this config through the request.
+  // Resolved AND servable. Carry this config through the request.
   | { action: "proceed"; instance: InstanceConfig }
-  // Unresolved. Show the not-found page instead of anything else.
+  // Unresolved, or resolved but not being served. Show the matching
+  // boundary page instead of anything else.
   | { action: "rewrite"; to: string }
-  // Already on the not-found page. Render it without resolving, or
-  // an unknown hostname would rewrite to it forever.
+  // Already on one of those boundary pages. Render it without
+  // resolving, or the hostname would rewrite to it forever.
   | { action: "passthrough" };
+
+const BOUNDARY_PATHS: readonly string[] = [
+  INSTANCE_NOT_FOUND_PATH,
+  INSTANCE_SUSPENDED_PATH,
+];
 
 export function routeForInstance({
   pathname,
@@ -27,8 +40,20 @@ export function routeForInstance({
   pathname: string;
   instance: InstanceConfig | null;
 }): InstanceRouting {
-  if (pathname === INSTANCE_NOT_FOUND_PATH) return { action: "passthrough" };
+  if (BOUNDARY_PATHS.includes(pathname)) return { action: "passthrough" };
   if (!instance) return { action: "rewrite", to: INSTANCE_NOT_FOUND_PATH };
+  // Resolved, but the registry says do not serve it. Rewriting here
+  // means no session is refreshed and the instance's database is
+  // never opened on this request: the suspension is enforced before
+  // anything downstream can assume an instance it can use.
+  //
+  // Every path, including /sign-in. A suspension that still let
+  // people authenticate would be a broken app rather than a paused
+  // one, and the person hitting it deserves the notice, not a login
+  // form that fails afterwards.
+  if (!isServable(instance.status)) {
+    return { action: "rewrite", to: INSTANCE_SUSPENDED_PATH };
+  }
   return { action: "proceed", instance };
 }
 

@@ -10,7 +10,7 @@ import {
   lookupInstance,
   type ActiveInstanceRow,
 } from "./registry";
-import type { InstanceConfig } from "./types";
+import { isServable, type InstanceConfig } from "./types";
 
 // Runs one job against every active instance.
 //
@@ -67,6 +67,11 @@ export type InstanceOutcome<T> = {
   result: T | null;
   error: string | null;
 };
+
+// A suspended instance produces no outcome at all: it is not counted,
+// not reported ok, not reported failed. Distinct from null, which
+// would be an outcome with nothing in it.
+const SKIPPED = Symbol("suspended");
 
 export type InstanceRunSummary<T> = {
   job: string;
@@ -133,7 +138,10 @@ export async function forEachActiveInstance<T>(
   // trying to hit. Ordering also keeps the log readable.
   const outcomes: Array<InstanceOutcome<T>> = [];
   for (const row of targets) {
-    outcomes.push(await runOneInstance(spec, row, log));
+    const outcome = await runOneInstance(spec, row, log);
+    // Suspended instances drop out of the run entirely rather than
+    // being counted as either result. See runOneInstance.
+    if (outcome !== SKIPPED) outcomes.push(outcome);
   }
 
   const succeeded = outcomes.filter((o) => o.ok).length;
@@ -141,6 +149,18 @@ export async function forEachActiveInstance<T>(
   log(
     `[${job}] ${outcomes.length} instances: ${succeeded} ok, ${failed} failed`,
   );
+
+  // Every instance the registry offered was skipped as suspended, so
+  // the run did nothing. Green here would be a lie of the worst kind:
+  // a job that has silently stopped working looks identical to one
+  // with nothing to do. A fleet with no servable instance is a
+  // condition someone should see.
+  if (outcomes.length === 0) {
+    const message =
+      "every active instance was skipped as suspended, so nothing ran";
+    log(`[${job}] ${message}`);
+    return empty(job, lines, message);
+  }
 
   return {
     job,
@@ -158,7 +178,7 @@ async function runOneInstance<T>(
   spec: InstanceJob<T>,
   row: ActiveInstanceRow,
   log: (line: string) => void,
-): Promise<InstanceOutcome<T>> {
+): Promise<InstanceOutcome<T> | typeof SKIPPED> {
   const { job } = spec;
 
   // An isolation scope rather than a plain scope: the tags have to
@@ -189,6 +209,23 @@ async function runOneInstance<T>(
             `${row.envPrefix}_SUPABASE_URL / _ANON_KEY / _SERVICE_KEY ` +
             "are not all set in this deployment",
         );
+      }
+
+      // Defence in depth, not the primary gate. listActiveInstances
+      // filters on status in SQL, so a suspended instance normally
+      // never reaches here at all. It can if a suspension lands
+      // between that query and this lookup, because lookupInstance
+      // answers from a cache with its own TTL — and running a job
+      // against an instance we have just stopped serving is exactly
+      // what suspension is supposed to prevent. Skipped, not failed:
+      // this is the registry being obeyed, not something going wrong.
+      // See the status contract in ./types.ts.
+      if (!isServable(instance.status)) {
+        log(
+          `[${job}] ${row.subdomain}: skipped, the registry says ` +
+            `"${instance.status}"`,
+        );
+        return SKIPPED;
       }
 
       const admin = await createSupabaseAdminClient(instance);

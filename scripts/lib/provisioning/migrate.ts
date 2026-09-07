@@ -104,6 +104,38 @@ export type RegistryRow = {
   status: string;
 };
 
+// Which rows this runner acts on, and which it deliberately passes
+// over.
+//
+// Suspended instances are skipped, and REPORTED as skipped rather
+// than filtered out in the registry query and never mentioned. The
+// operator running this is about to promote a code deploy and needs
+// to know the instance exists and was passed over on purpose; an
+// instance that quietly vanishes from a pre-deploy summary is
+// indistinguishable from one that was forgotten.
+//
+// An unrecognized status is treated as suspended, matching what the
+// app does (see toStatus in src/lib/instances/registry.ts and the
+// status contract in src/lib/instances/types.ts). Migrating a
+// database whose status we cannot interpret is the mistake that
+// cannot be undone.
+export type RowSelection = {
+  migrate: RegistryRow[];
+  skipped: Array<{ subdomain: string; status: string }>;
+};
+
+export function selectMigratableRows(
+  rows: readonly RegistryRow[]
+): RowSelection {
+  const migrate: RegistryRow[] = [];
+  const skipped: Array<{ subdomain: string; status: string }> = [];
+  for (const row of rows) {
+    if (row.status === "active") migrate.push(row);
+    else skipped.push({ subdomain: row.subdomain, status: row.status });
+  }
+  return { migrate, skipped };
+}
+
 export type InstanceTarget =
   | { ok: true; subdomain: string; envPrefix: string; ref: string; password: string }
   | { ok: false; subdomain: string; envPrefix: string; reason: string };
@@ -201,6 +233,16 @@ export function resolveTarget(args: {
 
 // ---- Walking every instance -----------------------------------
 
+// What --seed did on one instance, when it was asked for.
+//
+// Absent when --seed was not passed, which is the common case:
+// migrations run on most deploys and reference data changes rarely.
+export type SeedOutcome =
+  | { status: "seeded"; detail: string }
+  | { status: "would-seed" }
+  | { status: "skipped"; reason: string }
+  | { status: "failed"; reason: string };
+
 export type InstanceResult = {
   subdomain: string;
   envPrefix: string;
@@ -208,6 +250,7 @@ export type InstanceResult = {
   // Reported so the output says what was covered, not so they are
   // migrated again.
   aliases?: string[];
+  seed?: SeedOutcome;
 } & (
   | { status: "applied"; applied: string[]; version: string | null }
   | { status: "up-to-date"; version: string | null }
@@ -217,6 +260,10 @@ export type InstanceResult = {
 );
 
 export function isProblem(result: InstanceResult): boolean {
+  // A failed seed counts. The reference data an instance is missing
+  // is data the running app expects to find, so "migrated but not
+  // seeded" is not a state to promote a deploy on top of.
+  if (result.seed?.status === "failed") return true;
   return result.status === "blocked" || result.status === "failed";
 }
 
@@ -290,6 +337,12 @@ export async function migrateAllInstances(opts: {
   runCommand: RunCommand;
   log: (line: string) => void;
   dryRun?: boolean;
+  // Present only when --seed was passed. Runs the canonical instance
+  // seed against one project and returns a one-line description of
+  // what landed. The seed is idempotent by construction (every insert
+  // carries an ON CONFLICT), which is what makes running it against
+  // an existing instance safe — see supabase/seed/README.md.
+  seedInstance?: (ref: string) => Promise<string>;
 }): Promise<InstanceResult[]> {
   const results: InstanceResult[] = [];
 
@@ -315,6 +368,15 @@ export async function migrateAllInstances(opts: {
         subdomain: target.subdomain,
         envPrefix: target.envPrefix,
         aliases,
+        // There is no reachable database here to seed.
+        ...(opts.seedInstance
+          ? {
+              seed: {
+                status: "skipped" as const,
+                reason: "the instance could not be reached",
+              },
+            }
+          : {}),
         status: "blocked",
         reason: target.reason,
       });
@@ -335,6 +397,18 @@ export async function migrateAllInstances(opts: {
           subdomain: target.subdomain,
           envPrefix: target.envPrefix,
           aliases,
+          // Not seeded. Whatever is wrong with this database is wrong
+          // before the seed gets a say, and writing reference data
+          // into something we just refused to migrate is the last
+          // thing that should happen to it.
+          ...(opts.seedInstance
+            ? {
+                seed: {
+                  status: "skipped" as const,
+                  reason: "migrations were blocked",
+                },
+              }
+            : {}),
           status: "blocked",
           reason: blocked,
         });
@@ -398,6 +472,9 @@ export async function migrateAllInstances(opts: {
           subdomain: target.subdomain,
           envPrefix: target.envPrefix,
           aliases,
+          // --dry-run means nothing is written, and the seed writes.
+          // Reported so a rehearsal still says the seed is coming.
+          ...(opts.seedInstance ? { seed: { status: "would-seed" } } : {}),
           status: pending.length === 0 ? "up-to-date" : "would-apply",
           ...(pending.length === 0 ? { version } : { pending, version }),
         } as InstanceResult);
@@ -437,6 +514,26 @@ export async function migrateAllInstances(opts: {
           version: outcome.version,
         });
       }
+
+      // Seed AFTER migrations, never before. The seed writes rows
+      // into tables the migrations create, so on an instance that is
+      // behind, seeding first would fail on a table that does not
+      // exist yet. Its own failure is recorded on the result and does
+      // not throw: a seed that failed on an instance whose migrations
+      // landed is worth reporting precisely, not collapsing into
+      // "that instance failed".
+      if (opts.seedInstance) {
+        const seeded = results[results.length - 1];
+        try {
+          const detail = await opts.seedInstance(target.ref);
+          opts.log(`  ${target.subdomain}: seeded, ${detail}`);
+          seeded.seed = { status: "seeded", detail };
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          opts.log(`  ${target.subdomain}: SEED FAILED — ${reason.split("\n")[0]}`);
+          seeded.seed = { status: "failed", reason };
+        }
+      }
     } catch (error) {
       const reason =
         error instanceof Error ? error.message : String(error);
@@ -445,6 +542,16 @@ export async function migrateAllInstances(opts: {
         subdomain: target.subdomain,
         envPrefix: target.envPrefix,
         aliases,
+        // Seeding a database whose migrations just failed would write
+        // reference data into a schema in an unknown state.
+        ...(opts.seedInstance
+          ? {
+              seed: {
+                status: "skipped" as const,
+                reason: "migrations failed",
+              },
+            }
+          : {}),
         status: "failed",
         reason,
       });

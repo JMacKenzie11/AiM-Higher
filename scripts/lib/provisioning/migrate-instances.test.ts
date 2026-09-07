@@ -7,6 +7,7 @@ import {
   pendingMigrations,
   refFromSupabaseUrl,
   resolveTarget,
+  selectMigratableRows,
   unbaselinedReason,
   type RegistryRow,
 } from "./migrate.ts";
@@ -40,6 +41,7 @@ function harness(opts: {
   env?: Record<string, string | undefined>;
   shape?: { hasMigrationTable: boolean; publicTables: number };
   dryRun?: boolean;
+  seedInstance?: (ref: string) => Promise<string>;
 }) {
   const lines: string[] = [];
   // Tracks how many times each ref was read, so a dry run can be shown
@@ -85,6 +87,7 @@ function harness(opts: {
           opts.shape ?? { hasMigrationTable: true, publicTables: 66 },
         runCommand: pushThenCatchUp,
         log: (l) => lines.push(l),
+        seedInstance: opts.seedInstance,
       }),
   };
 }
@@ -472,3 +475,124 @@ describe("unbaselinedReason", () => {
   });
 });
 
+describe("selectMigratableRows", () => {
+  // The status filter is a tested function rather than a clause in a
+  // query string, so a suspended instance can be named in the summary
+  // instead of silently missing from it. See the status contract in
+  // src/lib/instances/types.ts.
+  it("migrates active rows and reports suspended ones as skipped", () => {
+    const selection = selectMigratableRows([
+      ROW("acme", "ACME"),
+      { subdomain: "beta", env_prefix: "BETA", status: "suspended" },
+      ROW("gamma", "GAMMA"),
+    ]);
+
+    expect(selection.migrate.map((r) => r.subdomain)).toEqual(["acme", "gamma"]);
+    expect(selection.skipped).toEqual([
+      { subdomain: "beta", status: "suspended" },
+    ]);
+  });
+
+  it("treats an unrecognized status as suspended", () => {
+    // Same choice the app makes. Migrating a database whose status we
+    // cannot interpret is the mistake that cannot be undone.
+    const selection = selectMigratableRows([
+      { subdomain: "beta", env_prefix: "BETA", status: "pending-teardown" },
+    ]);
+
+    expect(selection.migrate).toEqual([]);
+    expect(selection.skipped).toEqual([
+      { subdomain: "beta", status: "pending-teardown" },
+    ]);
+  });
+
+  it("never runs a suspended instance through the migrator", async () => {
+    // The runner selects first, so migrateAllInstances only ever sees
+    // what selection returned. This walks that pair.
+    const { migrate } = selectMigratableRows([
+      ROW("acme", "ACME"),
+      { subdomain: "beta", env_prefix: "BETA", status: "suspended" },
+    ]);
+    const results = await harness({ rows: migrate }).run();
+
+    expect(results.map((r) => r.subdomain)).toEqual(["acme"]);
+  });
+});
+
+describe("--seed", () => {
+  it("runs the seed after migrations, not before", async () => {
+    // Order matters: the seed writes into tables the migrations
+    // create, so seeding an instance that is behind would fail on a
+    // table that does not exist yet.
+    const seedInstance = vi.fn(
+      async () => "1 classroom categories, 0 strengths items"
+    );
+    const h = harness({ rows: [ROW("acme", "ACME")], seedInstance });
+    const results = await h.run();
+
+    // Asserted through the log, which is ordered by construction and
+    // does not require reaching into the push mock.
+    const appliedAt = h.lines.findIndex((l) => l.includes("acme: applied"));
+    const seededAt = h.lines.findIndex((l) => l.includes("acme: seeded"));
+    expect(appliedAt).toBeGreaterThanOrEqual(0);
+    expect(seededAt).toBeGreaterThan(appliedAt);
+    expect(seedInstance).toHaveBeenCalledWith("acmeref");
+    expect(results[0].seed).toEqual({
+      status: "seeded",
+      detail: "1 classroom categories, 0 strengths items",
+    });
+    expect(isProblem(results[0])).toBe(false);
+    expect(h.lines.some((l) => l.includes("acme: seeded, 1 classroom"))).toBe(true);
+  });
+
+  it("does not seed at all when the flag is absent", async () => {
+    const results = await harness({ rows: [ROW("acme", "ACME")] }).run();
+    expect(results[0].seed).toBeUndefined();
+  });
+
+  it("records a seed failure and makes the run a problem", async () => {
+    // The migrations landed; only the reference data did not. That is
+    // worth reporting precisely rather than collapsing into "the
+    // instance failed", but it is still not a state to deploy on.
+    const seedInstance = vi.fn(async () => {
+      throw new Error('relation "public.classroom_categories" does not exist');
+    });
+    const results = await harness({
+      rows: [ROW("acme", "ACME")],
+      seedInstance,
+    }).run();
+
+    expect(results[0].status).not.toBe("failed");
+    expect(results[0].seed).toMatchObject({ status: "failed" });
+    expect(isProblem(results[0])).toBe(true);
+  });
+
+  it("skips the seed on an instance whose migrations were blocked", async () => {
+    const seedInstance = vi.fn(async () => "should not run");
+    const results = await harness({
+      rows: [ROW("acme", "ACME")],
+      // Schema present, no migration history: the unbaselined guard.
+      shape: { hasMigrationTable: false, publicTables: 66 },
+      seedInstance,
+    }).run();
+
+    expect(results[0].status).toBe("blocked");
+    expect(seedInstance).not.toHaveBeenCalled();
+    expect(results[0].seed).toEqual({
+      status: "skipped",
+      reason: "migrations were blocked",
+    });
+  });
+
+  it("only says it would seed on a dry run", async () => {
+    const seedInstance = vi.fn(async () => "should not run");
+    const results = await harness({
+      rows: [ROW("acme", "ACME")],
+      dryRun: true,
+      seedInstance,
+    }).run();
+
+    expect(seedInstance).not.toHaveBeenCalled();
+    expect(results[0].seed).toEqual({ status: "would-seed" });
+  });
+});

@@ -346,3 +346,64 @@ describe("forEachActiveInstance: summary", () => {
     expect(summary.ok).toBe(false);
   });
 });
+
+describe("forEachActiveInstance: suspended instances", () => {
+  it("skips one the registry has suspended, and omits it from the count", async () => {
+    // listActiveInstances filters on status in SQL, so this is the
+    // narrow case where a suspension lands between that query and the
+    // cached config lookup. Skipped rather than failed: the registry
+    // is being obeyed, nothing is going wrong.
+    mocks.listActiveInstances.mockResolvedValue([ACME_ROW, BETA_ROW]);
+    mocks.lookupInstance.mockImplementation(async (subdomain: string) =>
+      subdomain === "acme"
+        ? { ...configFor(ACME_ROW), status: "suspended" }
+        : configFor(BETA_ROW),
+    );
+    const ran: string[] = [];
+
+    const summary = await forEachActiveInstance({
+      job: "transcripts",
+      run: async ({ instance }) => {
+        ran.push(instance.subdomain);
+        return {};
+      },
+      line: () => "done",
+    });
+
+    expect(ran).toEqual(["beta"]);
+    expect(summary.ok).toBe(true);
+    expect(summary.instances).toBe(1);
+    expect(summary.succeeded).toBe(1);
+    expect(summary.failed).toBe(0);
+    // Not an outcome at all, in either direction.
+    expect(summary.outcomes.map((o) => o.subdomain)).toEqual(["beta"]);
+    expect(summary.lines).toContain(
+      '[transcripts] acme: skipped, the registry says "suspended"',
+    );
+    expect(summary.lines).toContain(
+      "[transcripts] 1 instances: 1 ok, 0 failed",
+    );
+    expect(mocks.captureException).not.toHaveBeenCalled();
+  });
+
+  it("goes red when every instance was skipped, rather than green", async () => {
+    // A job that has silently stopped running looks exactly like a
+    // job with nothing to do. This is the difference.
+    mocks.listActiveInstances.mockResolvedValue([ACME_ROW, BETA_ROW]);
+    mocks.lookupInstance.mockImplementation(async (subdomain: string) => ({
+      ...configFor(subdomain === "acme" ? ACME_ROW : BETA_ROW),
+      status: "suspended",
+    }));
+    const run = vi.fn();
+
+    const summary = await forEachActiveInstance({
+      job: "scorecard",
+      run,
+      line: () => "done",
+    });
+
+    expect(run).not.toHaveBeenCalled();
+    expect(summary.ok).toBe(false);
+    expect(summary.error).toContain("skipped as suspended");
+  });
+});

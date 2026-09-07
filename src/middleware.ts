@@ -17,10 +17,13 @@ import {
 //   0. Instance resolution (first, for everything except the cron
 //      routes, which are excluded outright). The hostname decides
 //      which database this request belongs to. A hostname that
-//      resolves to nothing is rewritten to /instance-not-found and
-//      never touches Supabase at all — no session refresh, no
-//      routing, no app route reachable. Everything after this point
-//      assumes an instance exists.
+//      resolves to nothing is rewritten to /instance-not-found, and
+//      one whose registry status is not "active" to
+//      /instance-suspended; neither touches Supabase at all — no
+//      session refresh, no routing, no app route reachable.
+//      Everything after this point assumes an instance that exists
+//      AND is being served. See the status contract in
+//      src/lib/instances/types.ts.
 //   1. Supabase session refresh (always).
 //   2. "/" routing — unauthenticated visitors see the marketing
 //      landing page; authenticated visitors go to /dashboard, whose
@@ -89,13 +92,15 @@ export async function middleware(request: NextRequest) {
   const routing = routeForInstance({ pathname: path, instance: resolved });
 
   if (routing.action === "rewrite") {
-    // Deliberately before the session refresh. There is no database
-    // to check a session against, so nothing here may touch Supabase.
+    // Deliberately before the session refresh, for both boundaries.
+    // An unknown hostname has no database to check a session against;
+    // a suspended one has a database we are choosing not to serve.
+    // Either way nothing past this point may touch Supabase.
     return NextResponse.rewrite(new URL(routing.to, request.url));
   }
   if (routing.action === "passthrough") {
-    // Already on the not-found page. Render it without resolving, or
-    // an unknown hostname would rewrite to it forever.
+    // Already on one of the boundary pages. Render it without
+    // resolving, or the hostname would rewrite to it forever.
     return NextResponse.next();
   }
 

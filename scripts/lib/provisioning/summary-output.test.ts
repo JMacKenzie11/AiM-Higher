@@ -131,3 +131,70 @@ describe("summary output", () => {
     expect(out).not.toContain("postgresql://");
   });
 });
+
+describe("summary output: --seed and suspended instances", () => {
+  it("prints the seed result under the instance it belongs to", () => {
+    const out = joined([
+      R({
+        status: "applied",
+        applied: ["0170_x.sql"],
+        version: "0170",
+        seed: { status: "seeded", detail: "1 classroom categories, 0 strengths items" },
+      }),
+    ]);
+    expect(out).toContain("applied 1 → 0170");
+    expect(out).toContain("seed: 1 classroom categories, 0 strengths items");
+  });
+
+  it("makes a failed seed visible on an otherwise green instance", () => {
+    // The line that matters most: migrations landed, reference data
+    // did not, and reading only the first line would call that green.
+    const out = joined([
+      R({
+        status: "up-to-date",
+        version: "0170",
+        seed: { status: "failed", reason: 'relation "x" does not exist\nmore' },
+      }),
+    ]);
+    expect(out).toContain("up to date at 0170");
+    expect(out).toContain('seed: FAILED — relation "x" does not exist');
+    // Only the first line of a multi-line reason.
+    expect(out).not.toContain("more");
+  });
+
+  it("says a dry run would seed rather than that it did", () => {
+    const out = joined([
+      R({ status: "up-to-date", version: "0170", seed: { status: "would-seed" } }),
+    ]);
+    expect(out).toContain("seed: would run");
+  });
+
+  it("says why a seed was skipped", () => {
+    const out = joined([
+      R({
+        status: "blocked",
+        reason: "no history",
+        seed: { status: "skipped", reason: "migrations were blocked" },
+      }),
+    ]);
+    expect(out).toContain("seed: skipped, migrations were blocked");
+  });
+
+  it("names suspended instances instead of leaving them out", () => {
+    // An instance that quietly vanishes from a pre-deploy summary is
+    // indistinguishable from one that was forgotten.
+    const out = summaryLines(
+      [R({ subdomain: "acme", status: "up-to-date", version: "0170" })],
+      [{ subdomain: "promiseone", status: "suspended" }]
+    ).join("\n");
+
+    expect(out).toContain("acme");
+    expect(out).toContain('promiseone');
+    expect(out).toContain('skipped, registry says "suspended"');
+  });
+
+  it("prints no seed line at all when --seed was not passed", () => {
+    const out = joined([R({ status: "up-to-date", version: "0170" })]);
+    expect(out).not.toContain("seed:");
+  });
+});

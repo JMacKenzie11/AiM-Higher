@@ -6,7 +6,19 @@
  * Usage:
  *   npm run migrate:instances                    # every active instance
  *   npm run migrate:instances -- --dry-run
+ *   npm run migrate:instances -- --seed          # migrate, then top up seed data
  *   npm run migrate:instances -- --db-url "<url>"  # one off-registry database
+ *
+ * --seed also runs supabase/seed/instance-seed.sql against each
+ * instance after its migrations. The seed is idempotent by
+ * construction, so this is safe to repeat; its purpose is delivering
+ * reference data ADDED since an instance was built, which migrations
+ * do not carry. Off by default because reference data changes far
+ * less often than schema does, and a flag you have to type is a flag
+ * you thought about.
+ *
+ * Suspended instances are skipped and reported as skipped. See the
+ * status contract in src/lib/instances/types.ts.
  *
  * --db-url migrates a single database that is not in the registry. The
  * dev clone is the case it exists for: it is disposable tooling rather
@@ -36,6 +48,7 @@ import {
   MIGRATIONS_TABLE,
   isProblem,
   migrateAllInstances,
+  selectMigratableRows,
   type InstanceResult,
   type RegistryRow,
 } from "./lib/provisioning/migrate.ts";
@@ -43,6 +56,7 @@ import { createManagementClient } from "./lib/provisioning/supabase-management.t
 import { stateFileFor, type InstanceState } from "./lib/provisioning/state.ts";
 
 const MIGRATIONS_DIR = "supabase/migrations";
+const SEED_FILE = "supabase/seed/instance-seed.sql";
 
 try {
   process.loadEnvFile(".env.provisioning");
@@ -96,8 +110,15 @@ function runCommand(
 // interpolated, so a database shared by two registry rows reported as
 // one with no indication. Tests over the result objects did not catch
 // that, because the objects were right and the rendering was not.
-export function summaryLines(results: InstanceResult[]): string[] {
-  const width = Math.max(9, ...results.map((r) => r.subdomain.length));
+export function summaryLines(
+  results: InstanceResult[],
+  skipped: Array<{ subdomain: string; status: string }> = []
+): string[] {
+  const width = Math.max(
+    9,
+    ...results.map((r) => r.subdomain.length),
+    ...skipped.map((r) => r.subdomain.length)
+  );
   const lines: string[] = [];
   for (const r of results) {
     const name = r.subdomain.padEnd(width);
@@ -116,33 +137,67 @@ export function summaryLines(results: InstanceResult[]): string[] {
       lines.push(`    ${name}  ${prefix}${r.status.toUpperCase()}${alias}`);
       lines.push(`    ${" ".repeat(width)}  ${" ".repeat(12)}${r.reason.split("\n")[0]}`);
     }
+    // The seed's own line, indented under the instance it belongs
+    // to, so a green migration with a failed seed cannot be read as
+    // a green instance.
+    if (r.seed) {
+      const indent = `    ${" ".repeat(width)}  ${" ".repeat(12)}`;
+      if (r.seed.status === "seeded") {
+        lines.push(`${indent}seed: ${r.seed.detail}`);
+      } else if (r.seed.status === "would-seed") {
+        lines.push(`${indent}seed: would run`);
+      } else if (r.seed.status === "skipped") {
+        lines.push(`${indent}seed: skipped, ${r.seed.reason}`);
+      } else {
+        lines.push(`${indent}seed: FAILED — ${r.seed.reason.split("\n")[0]}`);
+      }
+    }
+  }
+  // Listed, not omitted. An operator reading this before a deploy has
+  // to be able to tell "deliberately offline" from "forgotten".
+  for (const r of skipped) {
+    const name = r.subdomain.padEnd(width);
+    lines.push(`    ${name}  ${"".padEnd(12)}skipped, registry says "${r.status}"`);
   }
   return lines;
 }
 
-function summarize(results: InstanceResult[]): void {
+function summarize(
+  results: InstanceResult[],
+  skipped: Array<{ subdomain: string; status: string }>
+): void {
   console.log("");
   console.log("  Summary");
   console.log("  ───────");
-  for (const line of summaryLines(results)) console.log(line);
+  for (const line of summaryLines(results, skipped)) console.log(line);
   console.log("");
 }
 
-function parseArgs(argv: string[]): { dryRun: boolean; dbUrl: string | null } {
+function parseArgs(argv: string[]): {
+  dryRun: boolean;
+  dbUrl: string | null;
+  seed: boolean;
+} {
   let dryRun = false;
   let dbUrl: string | null = null;
+  let seed = false;
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--dry-run") {
       dryRun = true;
+    } else if (argv[i] === "--seed") {
+      seed = true;
     } else if (argv[i] === "--db-url") {
       dbUrl = argv[i + 1] ?? null;
       if (!dbUrl) fail("--db-url needs a connection string.");
       i += 1;
     } else {
-      fail(`Unknown argument ${argv[i]}. Options: --dry-run, --db-url <url>.`);
+      fail(
+        `Unknown argument ${argv[i]}. ` +
+          `Options: --dry-run, --seed, --db-url <url>.`
+      );
     }
   }
-  return { dryRun, dbUrl };
+  return { dryRun, dbUrl, seed };
 }
 
 // One database, named directly. Used for the dev clone, which has no
@@ -172,7 +227,7 @@ async function migrateOne(dbUrl: string, dryRun: boolean): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const { dryRun, dbUrl } = parseArgs(process.argv.slice(2));
+  const { dryRun, dbUrl, seed } = parseArgs(process.argv.slice(2));
 
   if (dbUrl) {
     // No registry, no control plane, no state files: one database,
@@ -194,16 +249,28 @@ async function main(): Promise<void> {
     process.env.CONTROL_PLANE_SUPABASE_SERVICE_KEY as string,
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
+  // Every row, not just the active ones. The status filter lives in
+  // selectMigratableRows so the rule is a tested function rather than
+  // a clause in a query string, and so suspended instances can be
+  // named in the summary instead of silently missing from it.
   const { data, error } = await control
     .from("instances")
     .select("subdomain, display_name, env_prefix, status")
-    .eq("status", "active")
     .order("subdomain");
   if (error) fail(`Couldn't read the registry: ${error.message}`);
 
-  const rows = (data ?? []) as RegistryRow[];
+  const { migrate: rows, skipped } = selectMigratableRows(
+    (data ?? []) as RegistryRow[]
+  );
   if (rows.length === 0) {
-    console.log("\n  No active instances in the registry. Nothing to do.\n");
+    if (skipped.length > 0) {
+      console.log(
+        `\n  No active instances. ${skipped.length} suspended: ` +
+          `${skipped.map((r) => r.subdomain).join(", ")}.\n`
+      );
+    } else {
+      console.log("\n  No instances in the registry. Nothing to do.\n");
+    }
     return;
   }
 
@@ -221,6 +288,15 @@ async function main(): Promise<void> {
       `against ${localMigrations.length} local migrations`
   );
   console.log(`  Control plane: ${process.env.CONTROL_PLANE_SUPABASE_URL}`);
+  if (skipped.length > 0) {
+    console.log(
+      `  Skipping ${skipped.length} suspended: ` +
+        `${skipped.map((r) => `${r.subdomain} (${r.status})`).join(", ")}`
+    );
+  }
+  if (seed) {
+    console.log(`  --seed: will also run ${SEED_FILE} on each instance`);
+  }
   console.log("");
 
   const results = await migrateAllInstances({
@@ -270,9 +346,40 @@ async function main(): Promise<void> {
     },
     runCommand,
     log: (line) => console.log(line),
+    // Only wired up when asked for. Absent, migrateAllInstances does
+    // not seed and reports no seed outcome at all, which keeps an
+    // ordinary run's summary exactly as it was.
+    seedInstance: seed
+      ? async (ref) => {
+          const sql = readFileSync(SEED_FILE, "utf8").trim();
+          if (sql.length === 0) {
+            throw new Error(
+              `${SEED_FILE} is empty or missing, so --seed has nothing ` +
+                "to deliver. Refusing to report a seed that did not happen."
+            );
+          }
+          await management.runQuery(ref, sql);
+          // Counts, not "ok". They are the only cheap evidence the
+          // seed actually wrote something, and they are what makes a
+          // silently-empty seed file visible.
+          const [counts] = await management.runQuery<{
+            classroom_categories: number;
+            strengths_items: number;
+          }>(
+            ref,
+            `select
+               (select count(*) from public.classroom_categories) as classroom_categories,
+               (select count(*) from public.strengths_items) as strengths_items`
+          );
+          return (
+            `${counts?.classroom_categories ?? 0} classroom categories, ` +
+            `${counts?.strengths_items ?? 0} strengths items`
+          );
+        }
+      : undefined,
   });
 
-  summarize(results);
+  summarize(results, skipped);
 
   const problems = results.filter(isProblem);
   if (problems.length > 0) {
