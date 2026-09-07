@@ -101,13 +101,13 @@ function summarize(results: InstanceResult[]): void {
         : "";
     const prefix = r.envPrefix.padEnd(12);
     if (r.status === "applied") {
-      console.log(`    ${name}  ${prefix}applied ${r.applied.length} → ${r.version}`);
+      console.log(`    ${name}  ${prefix}applied ${r.applied.length} → ${r.version}${alias}`);
     } else if (r.status === "up-to-date") {
-      console.log(`    ${name}  ${prefix}up to date at ${r.version}`);
+      console.log(`    ${name}  ${prefix}up to date at ${r.version}${alias}`);
     } else if (r.status === "would-apply") {
-      console.log(`    ${name}  ${prefix}would apply ${r.pending.length} → ${r.version}`);
+      console.log(`    ${name}  ${prefix}would apply ${r.pending.length} → ${r.version} (connection verified)${alias}`);
     } else {
-      console.log(`    ${name}  ${prefix}${r.status.toUpperCase()}`);
+      console.log(`    ${name}  ${prefix}${r.status.toUpperCase()}${alias}`);
       console.log(`    ${" ".repeat(width)}  ${" ".repeat(12)}${r.reason.split("\n")[0]}`);
     }
   }
