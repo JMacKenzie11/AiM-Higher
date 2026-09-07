@@ -7,7 +7,7 @@
     "dev:fresh": "rm -rf .next && next dev -p 3200",
     "build": "NODE_OPTIONS='--max-old-space-size=6144' next build",
     "start": "next start -p 3200",
-    "lint": "next lint",
+    "lint": "next lint --dir src --dir scripts --dir e2e",
     "typecheck": "tsc --noEmit && tsc --noEmit -p scripts/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",

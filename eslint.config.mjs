@@ -43,4 +43,32 @@ export default [
       ],
     },
   },
+  {
+    // scripts/ escalates unused variables to an ERROR.
+    //
+    // These are operational tools whose output is read during an
+    // incident, and an unused variable there is usually a line that
+    // was computed and then not printed. That is exactly what
+    // happened: the migration runner's summary built an "(also www)"
+    // alias string and never interpolated it, so a database shared by
+    // two registry rows reported as one row with no indication. ESLint
+    // said so — `'alias' is assigned a value but never used` — as a
+    // warning, and the CI gate counts errors, so it sat behind a green
+    // line until someone read the output by eye.
+    //
+    // A warning nobody is forced to clear is a warning nobody clears.
+    // The underscore convention still applies for genuinely
+    // positional arguments.
+    files: ["scripts/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ];

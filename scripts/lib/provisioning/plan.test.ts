@@ -4,7 +4,6 @@ import {
   PROVISION_STEPS,
   STEP_NAMES,
   type ProvisionContext,
-  type ProvisionDeps,
 } from "./plan.ts";
 
 // Every step is implemented now. Nothing is a stub, and this file's

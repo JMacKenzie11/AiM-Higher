@@ -477,7 +477,7 @@ async function upsertCascade(
     status: "on_track",
     sort_order: 0,
   });
-  const goal1b = await insertGoal(admin, companyId, {
+  const _goal1b = await insertGoal(admin, companyId, {
     sfa_id: sfa1,
     title:
       "By June 30, all employees in the field have taken on more planning/org to take load off PMs",
@@ -576,7 +576,7 @@ async function upsertCascade(
     status: "behind",
     sort_order: 1,
   });
-  const goal3c = await insertGoal(admin, companyId, {
+  const _goal3c = await insertGoal(admin, companyId, {
     sfa_id: sfa3,
     title: "Develop and incorporate a skills assessment for inside work",
     owner_id: people.get("dalton")!,

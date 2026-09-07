@@ -88,11 +88,17 @@ function runCommand(
   });
 }
 
-function summarize(results: InstanceResult[]): void {
+// The summary, as an array of lines.
+//
+// Split out from printing so it can be asserted directly. This output
+// is the interface someone reads during an incident, and it has
+// already been wrong once: the alias string was computed and never
+// interpolated, so a database shared by two registry rows reported as
+// one with no indication. Tests over the result objects did not catch
+// that, because the objects were right and the rendering was not.
+export function summaryLines(results: InstanceResult[]): string[] {
   const width = Math.max(9, ...results.map((r) => r.subdomain.length));
-  console.log("");
-  console.log("  Summary");
-  console.log("  ───────");
+  const lines: string[] = [];
   for (const r of results) {
     const name = r.subdomain.padEnd(width);
     const alias =
@@ -101,16 +107,24 @@ function summarize(results: InstanceResult[]): void {
         : "";
     const prefix = r.envPrefix.padEnd(12);
     if (r.status === "applied") {
-      console.log(`    ${name}  ${prefix}applied ${r.applied.length} → ${r.version}${alias}`);
+      lines.push(`    ${name}  ${prefix}applied ${r.applied.length} → ${r.version}${alias}`);
     } else if (r.status === "up-to-date") {
-      console.log(`    ${name}  ${prefix}up to date at ${r.version}${alias}`);
+      lines.push(`    ${name}  ${prefix}up to date at ${r.version}${alias}`);
     } else if (r.status === "would-apply") {
-      console.log(`    ${name}  ${prefix}would apply ${r.pending.length} → ${r.version} (connection verified)${alias}`);
+      lines.push(`    ${name}  ${prefix}would apply ${r.pending.length} → ${r.version} (connection verified)${alias}`);
     } else {
-      console.log(`    ${name}  ${prefix}${r.status.toUpperCase()}${alias}`);
-      console.log(`    ${" ".repeat(width)}  ${" ".repeat(12)}${r.reason.split("\n")[0]}`);
+      lines.push(`    ${name}  ${prefix}${r.status.toUpperCase()}${alias}`);
+      lines.push(`    ${" ".repeat(width)}  ${" ".repeat(12)}${r.reason.split("\n")[0]}`);
     }
   }
+  return lines;
+}
+
+function summarize(results: InstanceResult[]): void {
+  console.log("");
+  console.log("  Summary");
+  console.log("  ───────");
+  for (const line of summaryLines(results)) console.log(line);
   console.log("");
 }
 

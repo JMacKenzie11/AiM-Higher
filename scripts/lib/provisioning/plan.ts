@@ -25,7 +25,6 @@
 import {
   HEALTHY_STATUS,
   ProjectNotHealthyError,
-  migrationConnectionUrl,
   projectNameFor,
   waitForHealthy,
   type ManagementClient,
@@ -146,19 +145,8 @@ export type ProvisionStep = {
   execute: (ctx: ProvisionContext, deps: ProvisionDeps) => Promise<StepResult>;
 };
 
-// Takes deps it does not use, so every step in the list has the same
-// signature whether or not it has been implemented yet. A stub that
-// looked different from a real step would invite a runner that special
-// cases one of them.
-function stub(what: (ctx: ProvisionContext) => string) {
-  return async (
-    ctx: ProvisionContext,
-    _deps: ProvisionDeps
-  ): Promise<StepResult> => ({
-    status: "done",
-    detail: `stub — would ${what(ctx)}`,
-  });
-}
+// Every step is implemented; the stub helper that stood in for the
+// unimplemented ones is gone with the last of them.
 
 // ---- create-supabase-project ----------------------------------
 //
