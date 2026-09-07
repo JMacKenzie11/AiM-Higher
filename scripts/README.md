@@ -175,6 +175,117 @@ running anything.
 Then `npm run migrate:instances -- --dry-run` should report the
 instance up to date, and it is managed like any other from then on.
 
+# Syncing content to every instance
+
+```bash
+npm run sync:content -- --dry-run              # the plan, touching nothing
+npm run sync:content                           # mirror every dataset
+npm run sync:content -- --dataset classroom    # one dataset
+npm run sync:content -- --instance promiseone  # one instance, for onboarding
+```
+
+Mirrors declared datasets from the primary instance (`PROD`) to every
+other active instance in the registry.
+
+## The ownership rule: one way, and the primary wins
+
+**Synced datasets are authored on the primary instance only. An edit
+made on any other instance is overwritten on the next run, without
+warning and without a conflict to resolve.**
+
+This is not a limitation to work around, it is the design. Sync is a
+full mirror: rows are inserted, changed rows are overwritten with the
+source row in full, and rows the primary no longer has are deleted
+from the target. There is no merge, because a merge would need a rule
+for whose version wins and there is only one author.
+
+The consequence worth stating plainly: **do not put a table in a
+dataset if anyone on another instance may legitimately edit it.** This
+tool will discard their work and report it as a successful sync.
+
+Primary keys are preserved, UUIDs included, so a lesson has the same
+id on every instance and cross-references between synced tables
+survive the copy.
+
+## Registering a new dataset
+
+In `scripts/lib/sync/datasets.ts`:
+
+```ts
+export const myDataset: SyncDataset = {
+  name: "my-dataset",
+  description: "what this is",
+  tables: [
+    { table: "parents", primaryKey: ["id"] },
+    { table: "children", primaryKey: ["id"] },
+    { table: "join_table", primaryKey: ["left_id", "right_id"] },
+  ],
+};
+```
+
+Then add it to `DATASETS`.
+
+**Tables are listed in dependency order.** Inserts and updates run in
+that order so a child never lands before its parent; deletes run in
+reverse so a parent is never removed while a child still points at it.
+The order is declared rather than derived from foreign keys, because
+deriving it means getting cycles wrong at runtime, and a wrong answer
+here writes into a live customer database.
+
+`primaryKey` is an array: composite keys are real
+(`classroom_lesson_tags` is keyed by `(lesson_id, tag_id)` with no
+surrogate id). `excludeColumns` drops columns from the sync entirely.
+`created_at` and `updated_at` are copied but never counted as a
+change, otherwise every run would rewrite every row.
+
+### Two things the tool refuses to do
+
+**A table with a `company_id` column.** That is one tenant's data, and
+mirroring it to another instance would put one customer's rows in
+another customer's database. Checked against the live schema rather
+than the dataset declaration, so a `company_id` added by a later
+migration is still caught.
+
+**A row that references Supabase Storage.** Storage is per project. A
+private path (`storage_path`) 404s on the target; a public storage URL
+embedded in a body is worse, because it keeps working while serving
+the primary's storage, so a client instance silently renders another
+instance's files and nothing looks broken. See the storage note below.
+
+## Run order: migrate first, sync second
+
+A dataset's tables are schema. If a release changes their shape, the
+migration has to reach an instance before the content does, or the
+sync writes columns that do not exist yet.
+
+```bash
+npm run migrate:instances     # schema first, every instance
+npm run sync:content          # then the content
+```
+
+This is the same ordering rule as the deploy: the thing that defines
+the shape goes first. A sync that runs against a stale schema fails
+loudly on the column, which is the good case; the bad case is a
+migration that renames a column and a sync that faithfully mirrors the
+old one into a table that no longer wants it.
+
+## The storage caveat
+
+Classroom has two buckets: `classroom-images` (public, for inline
+images in a training body) and `classroom-attachments` (private,
+signed URLs, referenced by `classroom_attachments.storage_path`).
+
+As of 2026-09-07 **no synced row references either bucket**: production
+has 25 trainings and none embeds a storage URL, and
+`classroom_attachments` has zero rows. So sync carries no storage
+references today and the guard has never fired.
+
+That changes the first time someone embeds an image in a lesson or
+attaches a file. At that point the sync will refuse, by design, and
+the decision has to be made rather than discovered: either copy
+storage objects alongside rows (a real feature, not a flag), or keep
+synced content free of instance-local files.
+
 ## The deploy order rule
 
 **Run `migrate:instances` first. Confirm every instance is green. Only
