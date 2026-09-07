@@ -49,6 +49,76 @@ The database password is shown once, at creation, and cannot be
 retrieved from Supabase afterwards. It is written to the state file
 before the project is created, so a crash mid-flight cannot lose it.
 
+# Migrating every instance
+
+```bash
+npm run migrate:instances -- --dry-run   # what would be applied, touching nothing
+npm run migrate:instances                # apply
+```
+
+Reads every `status = 'active'` row from the control plane registry and
+applies pending migrations to each, in sequence. One status line per
+instance, then a summary. Any failure or blockage exits nonzero.
+
+A failure on one instance does not stop the loop. Every instance is
+attempted and every result reported, because stopping early leaves the
+rest in an unknown state — and an operator then has to work out where
+the loop stopped before they can work out what to do.
+
+Passwords come from `.provisioning-state/{subdomain}.json`. An instance
+with no state file is reported **BLOCKED**, never skipped: silently
+skipping is how an instance ends up a release behind with nothing
+saying so, which is the exact failure this tool exists to prevent. The
+primary instance has no state file — it predates provisioning — so its
+password comes from `PROD_DATABASE_PASSWORD` in `.env.provisioning`.
+
+## The deploy order rule
+
+**Run `migrate:instances` first. Confirm every instance is green. Only
+then promote the code deploy.**
+
+This is not a preference, it follows from the architecture. There is
+**one app deployment serving every instance**, and it reads
+`{PREFIX}_SUPABASE_*` at runtime to decide which database a request
+belongs to. But the databases migrate **one at a time**, over minutes.
+
+So between the first instance being migrated and the last, the single
+running app is talking to databases in two different shapes. There is
+no version of this where they change together.
+
+### Expand and contract is therefore mandatory
+
+Every migration must be compatible with **both the app version before
+it and the app version after it**. No exceptions, and not because it is
+tidier — because a migration that only the new code can live with
+breaks every instance that has not been reached yet, and a migration
+that only the old code can live with breaks every instance that has.
+
+In practice that means a change lands across at least two releases:
+
+| | Migration | App |
+|---|---|---|
+| **Expand** | add the new column/table, nullable or defaulted; backfill; keep the old one | writes both, reads the old |
+| *(deploy)* | | reads the new, still writes both |
+| **Contract** | drop the old column/table | stops writing the old |
+
+Things that are never safe in one step: renaming a column, dropping a
+column the running app still selects, adding a `not null` without a
+default, narrowing a type, or changing a check constraint the old code
+can violate. Each becomes an expand and a later contract.
+
+### The ritual
+
+1. `npm run migrate:instances -- --dry-run` — see what will move.
+2. `npm run migrate:instances` — apply. **Every instance green.**
+3. Merge and let the code deploy promote.
+4. Later, once every instance is on the new code, ship the contract
+   migration and repeat.
+
+If step 2 is not all green, stop. Do not promote. An instance that is
+BLOCKED or FAILED is one where the new code is about to meet an old
+database.
+
 ## Tearing an instance down
 
 **Order matters, and it is the reverse of provisioning.** The registry

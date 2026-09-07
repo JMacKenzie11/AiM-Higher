@@ -32,6 +32,10 @@ import {
   type ManagementProject,
 } from "./supabase-management.ts";
 import {
+  MIGRATIONS_TABLE,
+  applyPendingMigrations,
+} from "./migrate.ts";
+import {
   generateDbPassword,
   fingerprint,
   pickApiKeys,
@@ -53,6 +57,9 @@ import {
   type VercelClient,
   type VercelEnvType,
 } from "./vercel.ts";
+
+// Re-exported from its new home so existing importers are unaffected.
+export { migrationVersion } from "./migrate.ts";
 
 export type StepStatus = "done" | "skipped";
 
@@ -289,21 +296,18 @@ async function createSupabaseProject(
 // same command scripts/db-push.sh runs for dev and prod. The only
 // difference is where the connection string comes from.
 //
+// The work itself lives in migrate.ts, shared with
+// scripts/migrate-instances.ts, which walks every registered instance.
+// One implementation on purpose: two would drift, and the way they
+// would drift is a release that reaches some instances and not others
+// with nothing saying which.
+//
 // db push is idempotent by design — it consults the remote
-// supabase_migrations.schema_migrations table and applies only what is
-// missing — so a rerun is safe. This step additionally compares the
-// local and remote sets first, so a no-op rerun reports "skipped"
-// instead of shelling out to say nothing happened.
+// supabase_migrations.schema_migrations table — so a rerun is safe.
+// This step reports "skipped" when the comparison finds nothing
+// pending, rather than shelling out to be told so.
 
-const MIGRATIONS_TABLE = "supabase_migrations.schema_migrations";
-
-// A migration filename is 0169_instances.sql; the version db push
-// records is the numeric prefix.
-export function migrationVersion(filename: string): string {
-  return filename.split("_")[0] ?? filename;
-}
-
-async function appliedVersions(
+async function appliedVersionsFor(
   ref: string,
   deps: ProvisionDeps
 ): Promise<Set<string>> {
@@ -332,66 +336,42 @@ async function applyMigrations(
     );
   }
 
-  const local = deps.localMigrations();
-  const applied = await appliedVersions(state.projectRef, deps);
-  const pending = local.filter((f) => !applied.has(migrationVersion(f)));
-  const latest = local.length > 0 ? migrationVersion(local[local.length - 1]) : null;
-
-  if (pending.length === 0) {
-    if (latest) deps.writeState(ctx.subdomain, { migrationVersion: latest });
-    return {
-      status: "skipped",
-      detail: `already at ${latest ?? "no migrations"} — ${applied.size} applied`,
-    };
-  }
-
-  const pooler = await deps.management.getPoolerConfig(state.projectRef);
-  const poolerHost = pooler[0]?.db_host;
-  if (!poolerHost) {
-    throw new Error(
-      `Project ${state.projectRef} reported no pooler host, so there is no ` +
-        "IPv4-reachable way in. Check the project's database settings."
-    );
-  }
-
-  const dbUrl = migrationConnectionUrl({
-    poolerHost,
+  const outcome = await applyPendingMigrations({
     ref: state.projectRef,
     password: state.dbPassword,
+    // Only looked up when there is something to push.
+    poolerHost: async () => {
+      const pooler = await deps.management.getPoolerConfig(
+        state.projectRef as string
+      );
+      const host = pooler[0]?.db_host;
+      if (!host) {
+        throw new Error(
+          `Project ${state.projectRef} reported no pooler host, so there ` +
+            "is no IPv4-reachable way in. Check the project's database settings."
+        );
+      }
+      return host;
+    },
+    localMigrations: deps.localMigrations(),
+    appliedVersions: () => appliedVersionsFor(state.projectRef as string, deps),
+    runCommand: deps.runCommand,
+    log: (line) => deps.log(`      ${line}`),
   });
 
-  deps.log(`      ${pending.length} pending, pushing via ${poolerHost}…`);
-  const result = await deps.runCommand("supabase", [
-    "db",
-    "push",
-    "--db-url",
-    dbUrl,
-    "--include-all",
-  ]);
-
-  if (result.code !== 0) {
-    // The CLI explains itself in its own output; the connection string
-    // is deliberately not echoed, it carries the password.
-    throw new Error(
-      `supabase db push exited ${result.code}.\n` +
-        `${result.stderr || result.stdout}`.trim()
-    );
+  if (outcome.version) {
+    deps.writeState(ctx.subdomain, { migrationVersion: outcome.version });
   }
 
-  const after = await appliedVersions(state.projectRef, deps);
-  const stillPending = local.filter((f) => !after.has(migrationVersion(f)));
-  if (stillPending.length > 0) {
-    throw new Error(
-      `supabase db push reported success but ${stillPending.length} ` +
-        `migrations are still missing remotely, starting with ` +
-        `${stillPending[0]}.`
-    );
+  if (outcome.status === "up-to-date") {
+    return {
+      status: "skipped",
+      detail: `already at ${outcome.version ?? "no migrations"}`,
+    };
   }
-
-  if (latest) deps.writeState(ctx.subdomain, { migrationVersion: latest });
   return {
     status: "done",
-    detail: `applied ${pending.length} migrations, now at ${latest}`,
+    detail: `applied ${outcome.applied.length} migrations, now at ${outcome.version}`,
   };
 }
 
