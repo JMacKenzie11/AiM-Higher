@@ -29,6 +29,17 @@ export type ManagementApiKey = {
 
 export type Organization = { id: string; name: string };
 
+// One entry per pooler endpoint. db_host is the value that matters:
+// it is the IPv4-reachable hostname, and constructing it from the
+// region string would be a guess.
+export type PoolerConfig = {
+  db_host: string;
+  db_port: number;
+  db_user: string;
+  db_name: string;
+  pool_mode?: string;
+};
+
 // Carries the status and body, because a Management API failure is
 // almost always explained by its body and almost never by its status
 // alone.
@@ -78,6 +89,11 @@ export type ManagementClient = {
     dbPass: string;
   }) => Promise<ManagementProject>;
   getApiKeys: (ref: string) => Promise<ManagementApiKey[]>;
+  getPoolerConfig: (ref: string) => Promise<PoolerConfig[]>;
+  // Runs SQL on the project through the Management API. Used for the
+  // seed and for reading applied migration versions, which saves
+  // needing psql on the machine running this.
+  runQuery: <T>(ref: string, query: string) => Promise<T[]>;
 };
 
 export function createManagementClient(opts: {
@@ -142,7 +158,44 @@ export function createManagementClient(opts: {
         `/v1/projects/${ref}/api-keys?reveal=true`
       );
     },
+
+    getPoolerConfig: (ref) =>
+      request<PoolerConfig[]>("GET", `/v1/projects/${ref}/config/database/pooler`),
+
+    runQuery: <T,>(ref: string, query: string) =>
+      request<T[]>("POST", `/v1/projects/${ref}/database/query`, { query }),
   };
+}
+
+// ---- Connecting for migrations --------------------------------
+
+// The session-mode pooler URL.
+//
+// Not the direct connection (db.{ref}.supabase.co). New projects get
+// no dedicated IPv4 address, so that host resolves to IPv6 only and
+// fails outright from an IPv4-only machine — measured, not assumed:
+// `dial error connect ECONNREFUSED 2600:1f18:…`.
+//
+// Session mode, not transaction mode. The pooler advertises 6543 and
+// transaction pooling, which cannot run the statements migrations use
+// (prepared statements, SET, advisory locks). Session mode on 5432
+// behaves like a direct connection.
+//
+// The password is percent-encoded because the Supabase CLI requires
+// the URL to be. Generated passwords are base64url and need no
+// escaping, but a hand-set one might.
+export const SESSION_POOLER_PORT = 5432;
+
+export function migrationConnectionUrl(opts: {
+  poolerHost: string;
+  ref: string;
+  password: string;
+  port?: number;
+}): string {
+  const user = encodeURIComponent(`postgres.${opts.ref}`);
+  const password = encodeURIComponent(opts.password);
+  const port = opts.port ?? SESSION_POOLER_PORT;
+  return `postgresql://${user}:${password}@${opts.poolerHost}:${port}/postgres`;
 }
 
 // ---- Naming ---------------------------------------------------

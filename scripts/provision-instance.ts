@@ -18,7 +18,8 @@
  * must be in that one file.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createInterface } from "node:readline/promises";
 
@@ -241,6 +242,33 @@ async function resolveOrganizationId(
   );
 }
 
+const MIGRATIONS_DIR = "supabase/migrations";
+const SEED_FILE = "supabase/seed/instance-seed.sql";
+
+// Inherits stdio so the Supabase CLI's own progress reaches the
+// terminal — a 90-migration push in silence looks like a hang — while
+// still capturing the output for the error message.
+function runCommand(
+  command: string,
+  args: string[]
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => {
+      stdout += d;
+      process.stdout.write(d);
+    });
+    child.stderr.on("data", (d) => {
+      stderr += d;
+      process.stderr.write(d);
+    });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
+  });
+}
+
 async function buildDeps(): Promise<ProvisionDeps> {
   const management = createManagementClient({
     token: process.env.SUPABASE_MANAGEMENT_TOKEN as string,
@@ -250,6 +278,18 @@ async function buildDeps(): Promise<ProvisionDeps> {
     organizationId: await resolveOrganizationId(management),
     readState: readStateFile,
     writeState: writeStateFile,
+    runCommand,
+    localMigrations: () =>
+      readdirSync(MIGRATIONS_DIR)
+        .filter((f) => f.endsWith(".sql"))
+        .sort(),
+    readSeedSql: () => {
+      try {
+        return readFileSync(SEED_FILE, "utf8");
+      } catch {
+        return "";
+      }
+    },
     log: (line) => console.log(line),
     now: () => Date.now(),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),

@@ -10,7 +10,11 @@ import {
 // Steps that no longer print and return — they reach the network now,
 // so the "still stubbed" assertion below has to stop covering them as
 // each one lands. See supabase-management.test.ts for their coverage.
-const IMPLEMENTED = new Set(["create-supabase-project"]);
+const IMPLEMENTED = new Set([
+  "create-supabase-project",
+  "apply-migrations",
+  "seed-data",
+]);
 
 const NO_DEPS = {} as ProvisionDeps;
 

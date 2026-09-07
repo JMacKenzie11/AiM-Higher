@@ -25,6 +25,7 @@
 import {
   HEALTHY_STATUS,
   ProjectNotHealthyError,
+  migrationConnectionUrl,
   projectNameFor,
   waitForHealthy,
   type ManagementClient,
@@ -66,6 +67,18 @@ export type ProvisionDeps = {
   // Reads and writes .provisioning-state/{subdomain}.json.
   readState: (subdomain: string) => InstanceState | null;
   writeState: (subdomain: string, patch: Partial<InstanceState>) => InstanceState;
+  // Runs an external command (the Supabase CLI). Injected so the
+  // migration step can be driven in a test without one installed.
+  runCommand: (
+    command: string,
+    args: string[]
+  ) => Promise<{ code: number; stdout: string; stderr: string }>;
+  // The migration files this repo ships, newest last. Injected rather
+  // than read from disk here, so the "is anything pending" comparison
+  // is testable.
+  localMigrations: () => string[];
+  // Reads supabase/seed/instance-seed.sql.
+  readSeedSql: () => string;
   // Progress, for the steps that take minutes.
   log: (line: string) => void;
   now: () => number;
@@ -223,6 +236,173 @@ async function createSupabaseProject(
       };
 }
 
+
+// ---- apply-migrations -----------------------------------------
+//
+// Reuses the mechanism the repo already has: `supabase db push`, the
+// same command scripts/db-push.sh runs for dev and prod. The only
+// difference is where the connection string comes from.
+//
+// db push is idempotent by design — it consults the remote
+// supabase_migrations.schema_migrations table and applies only what is
+// missing — so a rerun is safe. This step additionally compares the
+// local and remote sets first, so a no-op rerun reports "skipped"
+// instead of shelling out to say nothing happened.
+
+const MIGRATIONS_TABLE = "supabase_migrations.schema_migrations";
+
+// A migration filename is 0169_instances.sql; the version db push
+// records is the numeric prefix.
+export function migrationVersion(filename: string): string {
+  return filename.split("_")[0] ?? filename;
+}
+
+async function appliedVersions(
+  ref: string,
+  deps: ProvisionDeps
+): Promise<Set<string>> {
+  try {
+    const rows = await deps.management.runQuery<{ version: string }>(
+      ref,
+      `select version from ${MIGRATIONS_TABLE} order by version`
+    );
+    return new Set(rows.map((r) => String(r.version)));
+  } catch {
+    // The table does not exist until the first push. That is "nothing
+    // applied", not a failure.
+    return new Set();
+  }
+}
+
+async function applyMigrations(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const state = deps.readState(ctx.subdomain);
+  if (!state?.projectRef || !state.dbPassword) {
+    throw new Error(
+      "No project ref or database password in " +
+        `.provisioning-state/${ctx.subdomain}.json. Run create-supabase-project first.`
+    );
+  }
+
+  const local = deps.localMigrations();
+  const applied = await appliedVersions(state.projectRef, deps);
+  const pending = local.filter((f) => !applied.has(migrationVersion(f)));
+  const latest = local.length > 0 ? migrationVersion(local[local.length - 1]) : null;
+
+  if (pending.length === 0) {
+    if (latest) deps.writeState(ctx.subdomain, { migrationVersion: latest });
+    return {
+      status: "skipped",
+      detail: `already at ${latest ?? "no migrations"} — ${applied.size} applied`,
+    };
+  }
+
+  const pooler = await deps.management.getPoolerConfig(state.projectRef);
+  const poolerHost = pooler[0]?.db_host;
+  if (!poolerHost) {
+    throw new Error(
+      `Project ${state.projectRef} reported no pooler host, so there is no ` +
+        "IPv4-reachable way in. Check the project's database settings."
+    );
+  }
+
+  const dbUrl = migrationConnectionUrl({
+    poolerHost,
+    ref: state.projectRef,
+    password: state.dbPassword,
+  });
+
+  deps.log(`      ${pending.length} pending, pushing via ${poolerHost}…`);
+  const result = await deps.runCommand("supabase", [
+    "db",
+    "push",
+    "--db-url",
+    dbUrl,
+    "--include-all",
+  ]);
+
+  if (result.code !== 0) {
+    // The CLI explains itself in its own output; the connection string
+    // is deliberately not echoed, it carries the password.
+    throw new Error(
+      `supabase db push exited ${result.code}.\n` +
+        `${result.stderr || result.stdout}`.trim()
+    );
+  }
+
+  const after = await appliedVersions(state.projectRef, deps);
+  const stillPending = local.filter((f) => !after.has(migrationVersion(f)));
+  if (stillPending.length > 0) {
+    throw new Error(
+      `supabase db push reported success but ${stillPending.length} ` +
+        `migrations are still missing remotely, starting with ` +
+        `${stillPending[0]}.`
+    );
+  }
+
+  if (latest) deps.writeState(ctx.subdomain, { migrationVersion: latest });
+  return {
+    status: "done",
+    detail: `applied ${pending.length} migrations, now at ${latest}`,
+  };
+}
+
+// ---- seed-data ------------------------------------------------
+//
+// Runs supabase/seed/instance-seed.sql through the Management API's
+// SQL endpoint, so no psql is needed on the machine doing the
+// provisioning.
+//
+// The seed is idempotent by construction (every insert carries an ON
+// CONFLICT), which is what lets this run against an existing instance
+// to pick up reference data added since it was built. See
+// supabase/seed/README.md for the maintenance rule.
+
+async function seedData(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const state = deps.readState(ctx.subdomain);
+  if (!state?.projectRef) {
+    throw new Error(
+      `No project ref in .provisioning-state/${ctx.subdomain}.json. ` +
+        "Run create-supabase-project first."
+    );
+  }
+
+  const sql = deps.readSeedSql().trim();
+  if (sql.length === 0) {
+    throw new Error(
+      "supabase/seed/instance-seed.sql is empty or missing. A new " +
+        "instance needs its reference data; refusing to report success."
+    );
+  }
+
+  await deps.management.runQuery(state.projectRef, sql);
+
+  // Report what landed rather than just "ok". The counts are the only
+  // cheap evidence that the seed did anything.
+  const [counts] = await deps.management.runQuery<{
+    classroom_categories: number;
+    strengths_items: number;
+  }>(
+    state.projectRef,
+    `select
+       (select count(*) from public.classroom_categories) as classroom_categories,
+       (select count(*) from public.strengths_items) as strengths_items`
+  );
+
+  deps.writeState(ctx.subdomain, { seededAt: new Date().toISOString() });
+  return {
+    status: "done",
+    detail:
+      `seeded — ${counts?.strengths_items ?? "?"} strengths items, ` +
+      `${counts?.classroom_categories ?? "?"} classroom categories`,
+  };
+}
+
 export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "check-preconditions",
@@ -241,14 +421,37 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
   },
   {
     name: "apply-migrations",
-    describe: () => "apply supabase/migrations to the new project",
-    execute: stub(() => "run every migration in supabase/migrations in order"),
+    describe: () =>
+      "apply supabase/migrations with `supabase db push`, the same command db-push.sh uses",
+    execute: applyMigrations,
   },
   {
     name: "seed-data",
-    describe: () => "seed the reference data a new instance cannot start without",
-    execute: stub(() => "insert the baseline rows a fresh instance needs"),
+    describe: () =>
+      "run supabase/seed/instance-seed.sql — the reference data a new instance cannot start without",
+    execute: seedData,
   },
+  // DEFERRED VERIFICATION, to be done when this step is implemented.
+  //
+  // apply-migrations has never been watched applying migrations from
+  // nothing. The push path was exercised by running the identical
+  // `supabase db push --db-url … --include-all` against provtest1
+  // directly, which applied all 90; by the time the step itself ran
+  // there was nothing pending and it correctly reported "skipped". So
+  // the orchestration around the command — pending detection,
+  // connection string, post-push verification, state write — is
+  // covered by unit tests and not by a real run.
+  //
+  // Rather than create a second project just to close that, fold it
+  // into this step's testing: tear provtest1 down, then run the full
+  // command once against a fresh provtest2. That single run proves the
+  // migration orchestration applying every pending migration from an
+  // empty database, and exercises this step at the same time. Tear
+  // provtest2 down afterwards by the same teardown procedure.
+  //
+  // Prerequisite: that teardown procedure is not written yet. It needs
+  // to exist before provtest1 is deleted, or the second project
+  // becomes another thing left running that nobody remembers.
   {
     name: "write-vercel-env",
     describe: (c) =>

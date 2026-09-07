@@ -116,6 +116,50 @@ none: a partial set throws, naming what is missing.
 Define them **once**. A dotenv file lets a later assignment win, so a
 second copy further down the file silently overrides the first.
 
+## Connecting to a provisioned project
+
+Measured while building `npm run provision`, and durable because the
+next thing that needs a database connection will hit all of it again.
+
+**A new project has no dedicated IPv4 address.** The direct database
+host, `db.{ref}.supabase.co`, resolves to IPv6 only. From an IPv4-only
+machine or CI runner it does not time out, it is refused outright:
+
+```
+dial error (connect ECONNREFUSED 2600:1f18:5e38:3f00:…:5432)
+```
+
+The dashboard still shows that host, and the Supabase CLI still
+defaults toward it, so this reads as a credentials or firewall problem
+and is neither.
+
+**Migrations connect through the session pooler on port 5432.** Not
+6543. The pooler advertises 6543 and `pool_mode: transaction`, and
+transaction pooling cannot run what migrations need — prepared
+statements, `SET`, advisory locks. Session mode on 5432 behaves like a
+direct connection and is IPv4-reachable.
+
+**The pooler host comes from the Management API**, not from the region
+string:
+
+```
+GET /v1/projects/{ref}/config/database/pooler → db_host
+```
+
+`us-east-1` happens to map to `aws-0-us-east-1.pooler.supabase.com`
+today. Deriving the host from the region bakes in a naming scheme that
+is Supabase's to change, and the API already answers the question.
+
+The construction lives in `migrationConnectionUrl()` in
+`scripts/lib/provisioning/supabase-management.ts`, which also
+percent-encodes the password because the CLI requires the URL to be.
+
+> **Phase 4:** the migration runner that applies a release to every
+> instance must reuse `migrationConnectionUrl()` and the same pooler
+> lookup rather than rebuilding a connection string. Two
+> implementations of this will not stay in agreement, and the way they
+> disagree is a migration that silently skips an instance.
+
 ## The Edge runtime and Sensitive variables
 
 Middleware runs on the Edge runtime, and instance resolution runs in

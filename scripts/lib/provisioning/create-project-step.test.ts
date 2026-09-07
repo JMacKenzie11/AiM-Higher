@@ -65,8 +65,15 @@ function makeDeps(opts: {
       getProject,
       createProject,
       getApiKeys,
+      getPoolerConfig: vi.fn(async () => [
+        { db_host: "aws-0-us-east-1.pooler.supabase.com", db_port: 6543, db_user: "postgres.x", db_name: "postgres" },
+      ]),
+      runQuery: vi.fn(async () => []),
     },
     organizationId: "org1",
+    runCommand: vi.fn(async () => ({ code: 0, stdout: "", stderr: "" })),
+    localMigrations: () => [],
+    readSeedSql: () => "",
     readState: (subdomain) => state[subdomain] ?? null,
     writeState: (subdomain, patch) => {
       state[subdomain] = { ...(state[subdomain] ?? { subdomain }), ...patch };

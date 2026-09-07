@@ -24,6 +24,9 @@ export type InstanceState = {
   dbPassword?: string;
   anonKey?: string;
   serviceKey?: string;
+  // The highest migration version applied to this instance.
+  migrationVersion?: string;
+  seededAt?: string;
   createdAt?: string;
   updatedAt?: string;
 };
