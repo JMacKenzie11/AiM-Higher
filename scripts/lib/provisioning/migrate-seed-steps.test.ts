@@ -93,7 +93,17 @@ function makeDeps(opts: {
       runQuery: runQuery as ProvisionDeps["management"]["runQuery"],
     } as unknown as ProvisionDeps["management"],
     organizationId: "org1",
-    readState: (s) => stored[s] ?? null,
+    vercel: {
+      getProject: vi.fn(async () => ({ id: "prj", name: "aims-higher" })),
+      listEnv: vi.fn(async () => []),
+      createEnv: vi.fn(async () => ({})),
+      updateEnv: vi.fn(async () => ({})),
+      latestProductionDeployment: vi.fn(async () => null),
+      redeploy: vi.fn(async () => ({ uid: "dpl_new" })),
+      getDeployment: vi.fn(async () => ({ readyState: "READY" })),
+    },
+    httpGet: vi.fn(async () => ({ status: 200, body: "" })),
+        readState: (s) => stored[s] ?? null,
     writeState: (s, patch) => {
       stored[s] = { ...(stored[s] ?? { subdomain: s }), ...patch };
       return stored[s];

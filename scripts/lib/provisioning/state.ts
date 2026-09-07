@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 // What provisioning knows about an instance it has built, kept on disk
 // under .provisioning-state/{subdomain}.json.
@@ -27,6 +27,14 @@ export type InstanceState = {
   // The highest migration version applied to this instance.
   migrationVersion?: string;
   seededAt?: string;
+  // Fingerprints, by variable name, of what we last wrote to Vercel.
+  // Vercel returns no readable value for any variable — sensitive ones
+  // come back empty and encrypted ones come back as ciphertext — so
+  // this is the only way to know a rerun would be a no-op. It records
+  // what WE wrote, not what is currently there.
+  envFingerprints?: Record<string, string>;
+  envWrittenAt?: string;
+  deploymentId?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -102,4 +110,12 @@ export function pickApiKeys(
     anonKey: byType("publishable") ?? byName("anon"),
     serviceKey: byType("secret") ?? byName("service_role"),
   };
+}
+
+// A short, stable digest. Used to tell whether a value we cannot read
+// back has changed since we wrote it. Truncated because it lands in a
+// state file that a person reads, and 16 hex characters is plenty to
+// distinguish two keys while being no use to anyone who obtains it.
+export function fingerprint(value: string): string {
+  return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }

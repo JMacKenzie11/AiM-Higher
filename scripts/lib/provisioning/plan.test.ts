@@ -14,6 +14,9 @@ const IMPLEMENTED = new Set([
   "create-supabase-project",
   "apply-migrations",
   "seed-data",
+  "write-vercel-env",
+  "trigger-redeploy",
+  "verify-instance",
 ]);
 
 const NO_DEPS = {} as ProvisionDeps;

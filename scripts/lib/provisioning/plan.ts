@@ -33,9 +33,19 @@ import {
 } from "./supabase-management.ts";
 import {
   generateDbPassword,
+  fingerprint,
   pickApiKeys,
   type InstanceState,
 } from "./state.ts";
+import {
+  DEPLOYMENT_READY,
+  DeploymentFailedError,
+  DeploymentTimeoutError,
+  planEnvVar,
+  waitForDeployment,
+  type VercelClient,
+  type VercelEnvType,
+} from "./vercel.ts";
 
 export type StepStatus = "done" | "skipped";
 
@@ -64,6 +74,10 @@ export type ProvisionContext = {
 export type ProvisionDeps = {
   management: ManagementClient;
   organizationId: string;
+  vercel: VercelClient;
+  // Plain HTTPS GET, for the reachability check. Injected so the
+  // verify step can be driven without a network.
+  httpGet: (url: string) => Promise<{ status: number; body: string }>;
   // Reads and writes .provisioning-state/{subdomain}.json.
   readState: (subdomain: string) => InstanceState | null;
   writeState: (subdomain: string, patch: Partial<InstanceState>) => InstanceState;
@@ -403,6 +417,255 @@ async function seedData(
   };
 }
 
+
+// ---- write-vercel-env -----------------------------------------
+//
+// Three variables per instance, on Production only:
+//
+//   {PREFIX}_SUPABASE_URL         encrypted
+//   {PREFIX}_SUPABASE_ANON_KEY    encrypted
+//   {PREFIX}_SUPABASE_SERVICE_KEY sensitive
+//
+// The service key is the only one marked sensitive, because it is the
+// only one that is actually secret. The URL and the publishable key
+// are already in the browser bundle of every page the instance serves.
+//
+// That is not just accuracy for its own sake: a sensitive variable's
+// value is never returned by the API, so marking the readable two
+// sensitive would trade away the ability to compare them and make this
+// step rewrite production config on every run to learn nothing.
+//
+// Values are never logged. Names only.
+
+const ENV_TARGET = ["production"];
+
+type EnvSpec = { key: string; value: string; type: VercelEnvType };
+
+function envSpecsFor(
+  envPrefix: string,
+  state: InstanceState
+): EnvSpec[] {
+  return [
+    { key: `${envPrefix}_SUPABASE_URL`, value: state.apiUrl ?? "", type: "encrypted" },
+    { key: `${envPrefix}_SUPABASE_ANON_KEY`, value: state.anonKey ?? "", type: "encrypted" },
+    {
+      key: `${envPrefix}_SUPABASE_SERVICE_KEY`,
+      value: state.serviceKey ?? "",
+      type: "sensitive",
+    },
+  ];
+}
+
+async function writeVercelEnv(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const state = deps.readState(ctx.subdomain);
+  if (!state?.apiUrl || !state.anonKey || !state.serviceKey) {
+    throw new Error(
+      `.provisioning-state/${ctx.subdomain}.json has no URL or keys. ` +
+        "Run create-supabase-project first."
+    );
+  }
+
+  const specs = envSpecsFor(ctx.envPrefix, state);
+  const existing = await deps.vercel.listEnv();
+  const byKey = new Map(
+    existing
+      .filter((e) => (e.target ?? []).includes("production"))
+      .map((e) => [e.key, e])
+  );
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (const spec of specs) {
+    const plan = planEnvVar({
+      key: spec.key,
+      desiredValue: spec.value,
+      type: spec.type,
+      existing: byKey.get(spec.key),
+      recordedFingerprint: state.envFingerprints?.[spec.key],
+      fingerprintOf: fingerprint,
+    });
+
+    // Names and decisions only. Never the value.
+    deps.log(`      ${plan.key} — ${plan.action} (${plan.reason})`);
+
+    if (plan.action === "create") {
+      await deps.vercel.createEnv({
+        key: spec.key,
+        value: spec.value,
+        type: spec.type,
+        target: ENV_TARGET,
+      });
+      created += 1;
+    } else if (plan.action === "update") {
+      await deps.vercel.updateEnv(plan.existingId as string, {
+        value: spec.value,
+        type: spec.type,
+        target: ENV_TARGET,
+      });
+      updated += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+
+  deps.writeState(ctx.subdomain, {
+    envFingerprints: Object.fromEntries(
+      specs.map((spec) => [spec.key, fingerprint(spec.value)])
+    ),
+    // When the config last changed. trigger-redeploy compares a
+    // deployment's age against this to decide whether it already
+    // carries these variables.
+    envWrittenAt:
+      created + updated > 0
+        ? new Date(deps.now()).toISOString()
+        : state.envWrittenAt,
+  });
+
+  if (created + updated === 0) {
+    return { status: "skipped", detail: `all 3 variables already correct` };
+  }
+  return {
+    status: "done",
+    detail: `${created} created, ${updated} updated, ${skipped} unchanged`,
+  };
+}
+
+// ---- trigger-redeploy -----------------------------------------
+//
+// Environment variables only take effect on a new deployment. The
+// running production build read its variables when it was built; a
+// variable written afterwards is invisible to it.
+//
+// Skips when the current production deployment is already newer than
+// the last env write, which is the rerun case and the common one.
+
+async function triggerRedeploy(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const state = deps.readState(ctx.subdomain);
+  const latest = await deps.vercel.latestProductionDeployment();
+
+  if (!latest) {
+    throw new Error(
+      "The Vercel project has no production deployment to redeploy from."
+    );
+  }
+
+  const latestCreated = latest.created ?? latest.createdAt ?? 0;
+  const envWrittenAt = state?.envWrittenAt
+    ? Date.parse(state.envWrittenAt)
+    : null;
+  const latestId = latest.uid ?? latest.id;
+
+  if (
+    envWrittenAt !== null &&
+    latestCreated > envWrittenAt &&
+    (latest.readyState ?? latest.state) === DEPLOYMENT_READY
+  ) {
+    return {
+      status: "skipped",
+      detail: `production deployment ${latestId} already postdates the env write`,
+    };
+  }
+
+  const project = await deps.vercel.getProject();
+  deps.log(`      redeploying ${project.name} from ${latestId}…`);
+  const deployment = await deps.vercel.redeploy({
+    name: project.name,
+    deploymentId: latestId as string,
+  });
+  const newId = (deployment.uid ?? deployment.id) as string;
+
+  try {
+    await waitForDeployment({
+      id: newId,
+      getState: async () => {
+        const current = await deps.vercel.getDeployment(newId);
+        return current.readyState ?? current.state ?? "UNKNOWN";
+      },
+      now: deps.now,
+      sleep: deps.sleep,
+      onTick: (st, elapsed) =>
+        deps.log(`      ${Math.round(elapsed / 1000)}s — ${st}`),
+    });
+  } catch (error) {
+    if (error instanceof DeploymentFailedError) {
+      throw new Error(
+        `${error.message} Production is still serving the previous ` +
+          `deployment, so nothing is down — but the new variables are ` +
+          `not live. Check the build log in Vercel.`
+      );
+    }
+    if (error instanceof DeploymentTimeoutError) {
+      throw new Error(
+        `${error.message} It may still finish; rerunning picks up from ` +
+          `whatever state it reaches.`
+      );
+    }
+    throw error;
+  }
+
+  deps.writeState(ctx.subdomain, { deploymentId: newId });
+  return { status: "done", detail: `redeployed — ${newId} is READY` };
+}
+
+// ---- verify-instance ------------------------------------------
+//
+// GROUNDWORK, and the assertion is deliberately inverted from where it
+// ends up.
+//
+// Right now insert-registry-row is still a stub, so there is no
+// registry row and the hostname MUST resolve to nothing. Requiring the
+// not-found page proves three things at once: the wildcard DNS and
+// certificate cover this subdomain, the redeploy that just went out
+// did not break the running site, and the instance is correctly not
+// yet reachable.
+//
+// When insert-registry-row lands, this assertion flips: the same URL
+// must then serve a sign-in page. Change it there, in that step's
+// change, so the two move together.
+
+const NOT_FOUND_MARKER = "no AiMS Higher instance";
+
+async function verifyInstance(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const url = `https://${ctx.subdomain}.aims-hq.com/sign-in`;
+  deps.log(`      GET ${url}`);
+
+  const response = await deps.httpGet(url);
+  if (response.status !== 200) {
+    throw new Error(
+      `${url} returned ${response.status}. The wildcard DNS or the ` +
+        `certificate may not cover this subdomain yet.`
+    );
+  }
+
+  const isNotFound = response.body.includes(NOT_FOUND_MARKER);
+  if (!isNotFound) {
+    throw new Error(
+      `${url} served something other than the no-instance page. That ` +
+        `is expected only once insert-registry-row is implemented and ` +
+        `has run — until then a resolvable hostname means a registry ` +
+        `row exists that provisioning did not write.`
+    );
+  }
+
+  return {
+    status: "done",
+    detail:
+      "wildcard serves the subdomain, and it correctly resolves to no " +
+      "instance (the registry row is still a later step)",
+  };
+}
+
 export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "check-preconditions",
@@ -455,18 +718,13 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "write-vercel-env",
     describe: (c) =>
-      `write ${c.envPrefix}_SUPABASE_URL / _ANON_KEY / _SERVICE_KEY to Vercel`,
-    execute: stub(
-      (c) =>
-        `PATCH the Vercel project with ${c.envPrefix}_SUPABASE_URL, ${c.envPrefix}_SUPABASE_ANON_KEY and ${c.envPrefix}_SUPABASE_SERVICE_KEY on Production`
-    ),
+      `write ${c.envPrefix}_SUPABASE_URL / _ANON_KEY / _SERVICE_KEY to Vercel Production (service key sensitive)`,
+    execute: writeVercelEnv,
   },
   {
     name: "trigger-redeploy",
-    describe: () => "redeploy so the running app can read the new variables",
-    execute: stub(
-      () => "trigger a Vercel production deployment and wait for it to finish"
-    ),
+    describe: () => "redeploy production so the new variables take effect",
+    execute: triggerRedeploy,
   },
   {
     name: "insert-registry-row",
@@ -486,11 +744,9 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
   },
   {
     name: "verify-instance",
-    describe: (c) => `confirm ${c.subdomain} resolves and serves a sign-in page`,
-    execute: stub(
-      (c) =>
-        `request https://${c.subdomain}.aims-hq.com/sign-in and assert it is not the no-instance page`
-    ),
+    describe: (c) =>
+      `confirm https://${c.subdomain}.aims-hq.com is served and, for now, resolves to no instance`,
+    execute: verifyInstance,
   },
 ];
 

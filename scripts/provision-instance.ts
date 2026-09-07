@@ -39,6 +39,10 @@ import {
   ManagementApiError,
 } from "./lib/provisioning/supabase-management.ts";
 import {
+  createVercelClient,
+  VercelApiError,
+} from "./lib/provisioning/vercel.ts";
+import {
   missingConfig,
   validateAdminEmail,
   validateSubdomain,
@@ -276,6 +280,15 @@ async function buildDeps(): Promise<ProvisionDeps> {
   return {
     management,
     organizationId: await resolveOrganizationId(management),
+    vercel: createVercelClient({
+      token: process.env.VERCEL_TOKEN as string,
+      projectId: process.env.VERCEL_PROJECT_ID as string,
+      teamId: process.env.VERCEL_TEAM_ID,
+    }),
+    httpGet: async (url) => {
+      const response = await fetch(url, { redirect: "follow" });
+      return { status: response.status, body: await response.text() };
+    },
     readState: readStateFile,
     writeState: writeStateFile,
     runCommand,
@@ -308,7 +321,7 @@ async function run(ctx: ProvisionContext, deps: ProvisionDeps): Promise<void> {
       // A Management API failure is explained by its body, so print it
       // rather than just the status line.
       const message =
-        error instanceof ManagementApiError
+        error instanceof ManagementApiError || error instanceof VercelApiError
           ? error.message
           : error instanceof Error
             ? error.message
