@@ -72,19 +72,28 @@ saying so, which is the exact failure this tool exists to prevent. The
 primary instance has no state file — it predates provisioning — so its
 password comes from `PROD_DATABASE_PASSWORD` in `.env.provisioning`.
 
-## There is one way to migrate production
+## There is one way to migrate anything
 
-`npm run db:push:prod` is gone, and `scripts/db-push.sh prod` now
-refuses with a pointer here.
+`scripts/db-push.sh` is deleted, and with it `db:push:prod` and
+`db:push:dev`. Everything goes through `migrate:instances`.
 
-It only ever knew about one database. Using it would migrate production
-and leave every other registered instance a release behind, silently —
-the exact failure the runner exists to prevent. Two ways to migrate
-production is one too many when only one of them checks that every
-instance was reached.
+It only ever knew about one database. Using it on production would
+migrate production and leave every other registered instance a release
+behind, silently — the exact failure the runner exists to prevent.
 
-`npm run db:push:dev` stays. The dev clone is not an instance: it is
-not in the registry and the runner has no way to reach it.
+### The dev clone: `--db-url`
+
+```bash
+npm run migrate:instances -- --db-url "postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres" [--dry-run]
+```
+
+The clone deliberately has **no registry row**. A registry row is a
+switch that makes a hostname serve customers; the clone is disposable
+tooling and is not one. `--db-url` keeps it on the same code path
+rather than leaving an orphan script behind.
+
+The other cure for dev drift is to refresh the clone from production,
+which replaces its schema wholesale — see `docs/e2e.md`.
 
 ## Adopting a database that predates migration tracking
 

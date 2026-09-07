@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p scripts/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:push:dev": "scripts/db-push.sh dev",
     "seed:admin": "node --env-file=.env.local --experimental-strip-types scripts/seed-admin.ts",
     "seed:instances": "node --env-file=.env.local --experimental-strip-types scripts/seed-instances.ts",
     "seed:e2e": "node --env-file=.env.local --experimental-strip-types scripts/seed-e2e.ts",

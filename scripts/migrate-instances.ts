@@ -4,8 +4,16 @@
  * Applies pending migrations to every active instance in the registry.
  *
  * Usage:
- *   npm run migrate:instances            # apply
+ *   npm run migrate:instances                    # every active instance
  *   npm run migrate:instances -- --dry-run
+ *   npm run migrate:instances -- --db-url "<url>"  # one off-registry database
+ *
+ * --db-url migrates a single database that is not in the registry. The
+ * dev clone is the case it exists for: it is disposable tooling rather
+ * than a live instance, so it has no registry row — registry rows are
+ * switches that make a hostname serve customers, and the clone is not
+ * one. This keeps it on the same code path rather than leaving an
+ * orphan script that writes no migration history.
  *
  * Run this BEFORE promoting a code deploy, not after. See the deploy
  * order rule in scripts/README.md: the app deploys once for every
@@ -106,13 +114,57 @@ function summarize(results: InstanceResult[]): void {
   console.log("");
 }
 
+function parseArgs(argv: string[]): { dryRun: boolean; dbUrl: string | null } {
+  let dryRun = false;
+  let dbUrl: string | null = null;
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === "--dry-run") {
+      dryRun = true;
+    } else if (argv[i] === "--db-url") {
+      dbUrl = argv[i + 1] ?? null;
+      if (!dbUrl) fail("--db-url needs a connection string.");
+      i += 1;
+    } else {
+      fail(`Unknown argument ${argv[i]}. Options: --dry-run, --db-url <url>.`);
+    }
+  }
+  return { dryRun, dbUrl };
+}
+
+// One database, named directly. Used for the dev clone, which has no
+// registry row because it is not a live instance.
+async function migrateOne(dbUrl: string, dryRun: boolean): Promise<void> {
+  const localMigrations = readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+  console.log("");
+  console.log(
+    `  ${dryRun ? "Checking" : "Migrating"} one off-registry database ` +
+      `against ${localMigrations.length} local migrations`
+  );
+  // The URL carries a password, so it is never echoed.
+  console.log("");
+
+  const args = ["db", "push", "--db-url", dbUrl, "--include-all"];
+  if (dryRun) args.push("--dry-run");
+  const result = await runCommand("supabase", args);
+  process.stdout.write(result.stdout);
+  if (result.code !== 0) {
+    console.error(`\n  supabase db push exited ${result.code}.`);
+    console.error(`  ${(result.stderr || result.stdout).trim().split("\n").pop()}\n`);
+    process.exit(1);
+  }
+  console.log(`\n  Done.\n`);
+}
+
 async function main(): Promise<void> {
-  const dryRun = process.argv.includes("--dry-run");
-  const unknown = process.argv
-    .slice(2)
-    .filter((a) => a !== "--dry-run");
-  if (unknown.length > 0) {
-    fail(`Unknown argument ${unknown[0]}. The only option is --dry-run.`);
+  const { dryRun, dbUrl } = parseArgs(process.argv.slice(2));
+
+  if (dbUrl) {
+    // No registry, no control plane, no state files: one database,
+    // named by the caller.
+    await migrateOne(dbUrl, dryRun);
+    return;
   }
 
   const missing = REQUIRED.filter((n) => !process.env[n]?.trim());

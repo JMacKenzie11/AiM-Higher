@@ -312,3 +312,47 @@ instance: `e2e/scope-cookie.spec.ts` drives a real browser rather than
 a synthetic `Headers` object, and
 `scripts/lib/provisioning/vercel-steps.test.ts` has a case asserting
 that a ciphertext value is never compared against a plaintext one.
+
+### E2. Hand-applied SQL against a live database
+
+**Situation.** Something needs changing on a database now — a policy, a
+column, a safety trigger. The SQL editor is right there, the change is
+small and obviously correct, and it works. Nothing is written down.
+
+**Rule.** **No hand-applied SQL against any instance, ever.** Schema
+goes through `supabase/migrations/`. Reference data goes through
+`supabase/seed/instance-seed.sql`. There is no third path.
+
+Not because hand-applied SQL is wrong in the moment — it is usually
+right, which is what makes it tempting — but because it applies to
+**one** database. Every instance provisioned afterwards is born from
+the files and silently lacks it, and nothing ever reports the
+difference. The change becomes invisible the moment the tab is closed.
+
+**The example that settles it.** `rls_auto_enable()` and the
+`ensure_rls` event trigger existed on production and in no migration
+file. They auto-enable row level security on any newly created public
+table: a genuine safety net, applied by hand, almost certainly after a
+security-advisor recommendation. It was right.
+
+But every instance provisioned since was missing it. A new customer's
+database — the one that most needs a backstop against a table shipped
+without RLS — was the one least likely to have it, and the gap was
+invisible until production was diffed against a freshly provisioned
+reference during migration adoption. It is now migration 0170.
+
+The same diff found production missing migrations 0116 and 0168
+entirely, which is the other half of the same failure: a database
+maintained by hand drifts in both directions at once.
+
+**Why the rule is stated rather than assumed.** This drift was found
+because it was bounded — one database, a reference to compare against,
+and a reason to look. The rule exists so it stays bounded. A second
+episode of hand-applied SQL across several instances would not be
+diffable against anything, because there would be no clean reference
+left.
+
+**Pinned by.** Nothing can pin a practice. What exists is the
+verification procedure in `scripts/README.md` — diff against a cleanly
+provisioned instance before stamping migration history — and migration
+0170, which carries the story of where it came from.

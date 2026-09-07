@@ -34,6 +34,13 @@ So, immediately after any refresh:
 npm run seed:e2e
 ```
 
+A refresh is also the blunt cure for dev-clone schema drift: it
+replaces the clone's schema wholesale with production's. The precise
+cure is `npm run migrate:instances -- --db-url "<clone url>"`, which
+applies only what is pending and records the history. Use the refresh
+when the clone's data is stale, the migration run when only its schema
+is behind.
+
 That is the whole checklist. The script is idempotent, safe to rerun,
 and prints what it created. If a spec fails with "E2E_ADMIN_EMAIL is
 not set" or cannot find the composer, this is the first thing to try.
