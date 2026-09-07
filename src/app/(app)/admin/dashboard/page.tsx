@@ -9,6 +9,7 @@ import {
   getLatestThemes,
 } from "@/lib/admin/dashboard-service";
 import { readAnthropicCostSummary } from "@/lib/admin/anthropic-cost";
+import { listSystemAdmins } from "@/lib/admin/system-admins";
 import {
   defaultInsightsFilters,
   getCoachingInsightsAdoption,
@@ -19,6 +20,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { PulseNumber } from "./PulseNumber";
 import { ActivityTable } from "./ActivityTable";
 import { SystemAdminForm } from "./SystemAdminForm";
+import { SystemAdminList } from "./SystemAdminList";
 import { CoachingInsightsCard } from "./CoachingInsightsCard";
 import { Sparkline } from "./Sparkline";
 import { InfoTip } from "./InfoTip";
@@ -35,7 +37,9 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   // Gate: only system_admin. Non-admins get redirected to /.
-  await requireRole(["system_admin"]);
+  // The session is kept now: the system admin list needs to know who
+  // the viewer is so it never offers them a Delete on themselves.
+  const session = await requireRole(["system_admin"]);
 
   const insightsInitialFilters = defaultInsightsFilters();
   const [
@@ -49,6 +53,7 @@ export default async function AdminDashboardPage() {
     insightsCompanies,
     insightsAdoption,
     insightsSynthesis,
+    systemAdmins,
   ] = await Promise.all([
     getPlatformPulse(),
     getCompanyActivity(),
@@ -60,6 +65,7 @@ export default async function AdminDashboardPage() {
     listCoachingInsightsCompanies(),
     getCoachingInsightsAdoption(insightsInitialFilters),
     getCoachingInsightsSynthesis(insightsInitialFilters),
+    listSystemAdmins(),
   ]);
   const atRisk = computeAtRisk(activity);
   // Prefer real invoiced numbers from the Anthropic Admin API when
@@ -415,10 +421,14 @@ export default async function AdminDashboardPage() {
       <section className={styles.card}>
         <div className={styles.cardHeader}>
           <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
-            Add a system admin
-            <InfoTip text="System admins see every company on this instance and belong to none. They receive the same invitation as any other user and set their own password. Company admins are invited from that company's page under Companies instead." />
+            System admins
+            <InfoTip text="System admins see every company on this instance and belong to none, which is why they appear here rather than on any company's People page. They receive the same invitation as any other user and set their own password. Company admins are invited from that company's page under Companies instead." />
           </h2>
         </div>
+        <SystemAdminList
+          admins={systemAdmins}
+          currentProfileId={session.profile.id}
+        />
         <SystemAdminForm />
       </section>
     </PageShell>

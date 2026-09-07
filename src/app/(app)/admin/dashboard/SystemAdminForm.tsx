@@ -40,7 +40,12 @@ export function SystemAdminForm() {
   );
 
   return (
-    <form action={formAction} className={styles.form} ref={formRef}>
+    <form
+      action={formAction}
+      className={styles.form}
+      ref={formRef}
+      data-testid="system-admin-form"
+    >
       <div className={styles.field}>
         <label htmlFor="sysadmin-name" className={styles.label}>
           Full name
@@ -81,8 +86,7 @@ export function SystemAdminForm() {
 
       {warningMessage ? (
         <p role="status" className={styles.warningMessage}>
-          {warningMessage} Use the Resend invite button on their row to try
-          again.
+          {warningMessage} Use Send invite on their row above to try again.
         </p>
       ) : null}
 

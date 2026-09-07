@@ -115,6 +115,16 @@ export function RowActionsMenu({
   const showDeactivate = canToggleStatus && status === "active";
   const showReactivate = canToggleStatus && status === "inactive";
 
+  // Nothing to offer means no control. The caller's own row hits this:
+  // canDelete and canToggleStatus are both false there, and an active
+  // user has no invite actions, so every branch below renders nothing
+  // and the menu opens as an empty box. A three-dot button that does
+  // visibly nothing reads as broken. Checked after the hooks above,
+  // never before, so the hook order stays stable across renders.
+  const hasAnyAction =
+    showInviteActions || showDeactivate || showReactivate || canDelete;
+  if (!hasAnyAction) return null;
+
   return (
     <div ref={wrapRef} className={styles.moreWrap}>
       <button

@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type Locator, type Page } from "@playwright/test";
 
 // Shared helpers. Everything here uses roles, labels or data-testid.
 // Never copy text: the wording of this product changes weekly and a
@@ -65,6 +65,23 @@ export async function openUserMenu(page: Page): Promise<void> {
   await expect(async () => {
     await trigger.click();
     await expect(page.getByRole("menu")).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+}
+
+// Opens a row's overflow menu, retrying the click for the same reason
+// openUserMenu does: the menu is a client component and the click can
+// land before React attaches its handler. Rows rendered by a fresh
+// server-action revalidation are the worst case, because the click
+// follows the re-render by milliseconds.
+//
+// Takes the row rather than the page, so the menu it waits for is that
+// row's and not another row's that happens to be open.
+export async function openRowMenu(row: Locator): Promise<void> {
+  const trigger = row.getByRole("button", { name: /more actions/i });
+  await expect(trigger).toBeVisible({ timeout: 30_000 });
+  await expect(async () => {
+    await trigger.click();
+    await expect(row.getByRole("menu")).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
 }
 

@@ -628,6 +628,10 @@ export async function deleteUserAction(profileId: string): Promise<UserActionRes
 
   if (profile.company_id) revalidatePath(`/admin/companies/${profile.company_id}`);
   revalidatePath(`/people`);
+  // The platform dashboard lists system admins, who appear on no
+  // company roster. Without this a deleted system admin stays on
+  // screen until a hard reload, which reads as the delete failing.
+  revalidatePath("/admin/dashboard");
   return { ok: true };
 }
 

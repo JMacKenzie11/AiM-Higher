@@ -853,6 +853,25 @@ describe("deleteUserAction", () => {
     expect(mocks.deleteUser).not.toHaveBeenCalled();
   });
 
+  it("deletes a company-less system admin and refreshes the dashboard", async () => {
+    // System admins live on no company roster, so the platform
+    // dashboard is the only surface that lists them. If the delete
+    // doesn't revalidate that path the row stays on screen and the
+    // delete reads as having failed.
+    mocks.requireRole.mockResolvedValue(sysAdminSession());
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "sysadmin_2", company_id: null },
+      error: null,
+    });
+    const { deleteUserAction } = await import("./users");
+
+    const res = await deleteUserAction("sysadmin_2");
+
+    expect(res).toEqual({ ok: true });
+    expect(mocks.deleteUser).toHaveBeenCalledWith("sysadmin_2");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/dashboard");
+  });
+
   it("blocks a company_admin from deleting a user in another company", async () => {
     mocks.requireRole.mockResolvedValue(companyAdminSession("co_acme"));
     mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({

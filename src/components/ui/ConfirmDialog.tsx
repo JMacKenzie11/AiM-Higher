@@ -83,6 +83,7 @@ export function ConfirmDialog({
           <button
             ref={cancelRef}
             type="button"
+            data-testid="confirm-cancel"
             className={styles.cancel}
             onClick={onCancel}
             disabled={pending}
@@ -91,6 +92,7 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
+            data-testid="confirm-accept"
             className={
               tone === "danger" ? styles.confirmDanger : styles.confirmPrimary
             }
