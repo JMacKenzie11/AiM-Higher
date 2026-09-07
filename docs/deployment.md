@@ -379,6 +379,17 @@ red in Vercel's cron history rather than buried in a 200 body. Removing
 the row returned the next run to `3 instances: 3 ok, 0 failed` with no
 lingering state.
 
+Sentry received one event for it, carrying the tag `instance =
+phase4bogus`. That tag is the reason `forEachActiveInstance` wraps each
+instance's work in `Sentry.withIsolationScope` rather than a plain
+scope: the tag has to apply to anything captured anywhere inside that
+instance's turn, including from code several awaits deep that has no
+idea the fan-out exists. Without it an error from the Drive provider
+arrives with no way to tell whose Drive it was. Confirmed by reading
+the issue's tag panel, not inferred from the message text — the message
+happens to name the prefix because the error string says so, which is a
+different thing from being filterable by instance.
+
 **Suspension took an instance offline and brought it back.**
 `phase4test` was flipped to `suspended` at 13:35:36Z. Within 71 seconds
 its hostname served `/instance-suspended` on `/`, `/sign-in` and
