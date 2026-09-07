@@ -68,21 +68,64 @@ export async function openUserMenu(page: Page): Promise<void> {
   }).toPass({ timeout: 30_000 });
 }
 
-// Opens a row's overflow menu, retrying the click for the same reason
-// openUserMenu does: the menu is a client component and the click can
-// land before React attaches its handler. Rows rendered by a fresh
-// server-action revalidation are the worst case, because the click
-// follows the re-render by milliseconds.
+// Opens a row's overflow menu and returns it, retrying the click for
+// the same reason openUserMenu does: the menu is a client component
+// and the click can land before React attaches its handler. Rows
+// rendered by a fresh server-action revalidation are the worst case,
+// because the click follows the re-render by milliseconds.
 //
-// Takes the row rather than the page, so the menu it waits for is that
-// row's and not another row's that happens to be open.
-export async function openRowMenu(row: Locator): Promise<void> {
+// The menu is portalled to document.body, so it is looked up on the
+// page rather than inside the row. Only one can be open at a time,
+// which is what makes a page-level lookup unambiguous.
+//
+// Returns the menu so callers select items on it instead of on the
+// row, and ALSO asserts the menu is not clipped. That assertion is
+// the point: a previous version of this helper waited on the row and
+// passed while the menu was cut off by an ancestor's overflow, since
+// toBeVisible() is true for a clipped-but-painted element.
+export async function openRowMenu(row: Locator): Promise<Locator> {
+  const page = row.page();
   const trigger = row.getByRole("button", { name: /more actions/i });
   await expect(trigger).toBeVisible({ timeout: 30_000 });
+  const menu = page.getByRole("menu");
   await expect(async () => {
     await trigger.click();
-    await expect(row.getByRole("menu")).toBeVisible({ timeout: 2_000 });
+    await expect(menu).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
+  await expectMenuNotClipped(menu);
+  return menu;
+}
+
+// Fails if any part of the menu is covered or clipped away.
+//
+// Hit-tests the centre of the LAST item, which is the one an overflow
+// ancestor eats first. document.elementFromPoint reports what is
+// actually painted at that coordinate, so a clipped item resolves to
+// whatever is behind it rather than to the menu. toBeVisible() cannot
+// see this, and did not: it passed on a menu that was visibly cut in
+// half on /admin/dashboard.
+export async function expectMenuNotClipped(menu: Locator): Promise<void> {
+  const items = menu.getByRole("menuitem");
+  const count = await items.count();
+  expect(count, "menu rendered with no items").toBeGreaterThan(0);
+  const last = items.nth(count - 1);
+  const box = await last.boundingBox();
+  expect(box, "last menu item had no layout box").not.toBeNull();
+  const hit = await menu.page().evaluate(
+    ({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      return {
+        insideMenu: Boolean(el?.closest('[role="menu"]')),
+        actual: el ? `${el.tagName.toLowerCase()}.${el.className}` : "nothing",
+      };
+    },
+    { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 }
+  );
+  expect(
+    hit.insideMenu,
+    `the last menu item is clipped or covered: the point where it should ` +
+      `be painted resolves to ${hit.actual}`
+  ).toBe(true);
 }
 
 export async function scopeCookie(page: Page): Promise<string | null> {

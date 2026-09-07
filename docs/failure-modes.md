@@ -18,7 +18,9 @@ an entry only when the failure mode is:
 One section breaks that pattern on purpose: **Engineering practice** at
 the end catalogues failure signatures in how we build rather than in
 what we built. An entry earns a place there only after it has happened
-twice.
+twice — with one exception: an entry that exposes a credential is
+admitted on the first occurrence. Waiting for a second breach to write
+down the rule is not a bar worth holding.
 
 Everything else lives in the relevant PR description + test file.
 
@@ -356,3 +358,61 @@ left.
 verification procedure in `scripts/README.md` — diff against a cleanly
 provisioned instance before stamping migration history — and migration
 0170, which carries the story of where it came from.
+
+### E3. A credential transiting a shell command
+
+**Situation.** A script needs to act as a signed-in user, or to
+authenticate to something, and the credential is put where the shell
+can see it: pasted inline into the command, or printed to stdout so a
+later command in the pipeline can reuse it. It works. The credential is
+now in the session log, permanently, in plaintext.
+
+**Rule.** **A secret must never appear in a shell command's arguments
+or in its output.** Not a password, not a session cookie, not a token,
+not a service key. Read it from a file or an environment variable
+inside the process that needs it, and pass a PATH between commands
+rather than a value. When a value has to persist between steps, write
+it to a file created under `umask 077` and delete it afterwards. For
+anything driving a browser, Playwright's `storageState` already does
+this correctly and is the reference implementation.
+
+Printing an environment variable's NAME is fine and often necessary —
+`echo "PROD_SUPABASE_URL is set"` is a useful diagnostic. Printing its
+value is not.
+
+**Where it has bitten us.** One incident, both directions at once, on
+2026-09-07. A throwaway probe script verified production after
+migration 0168 by signing in as a real system admin and then curling
+several authenticated routes. It carried the production password
+INLINE as a string literal, and it printed the resulting Supabase
+session cookie to stdout so the next command could pass it to
+`curl -H "Cookie: $C"`.
+
+Both halves landed in the session transcript in plaintext: the password
+as part of the command, the session as part of its output. The session
+blob contained a live refresh token, which does not expire on its own
+and can mint access tokens until the session is revoked; the access
+token inside it was still valid for another hour. Fifteen further
+copies of session material accumulated in scratchpad files across two
+sessions, because saved page dumps and cookie jars are just files and
+nobody was thinking of them as secrets.
+
+The remediation was a password rotation and a `delete from
+auth.sessions` for that user. Neither is expensive. Both were entirely
+avoidable, and neither would have been noticed at all if the leak had
+not been spotted and stated at the time — which is the actual reason
+this entry exists. A credential in a log is not self-announcing.
+
+**Why the rule is absolute rather than judged case by case.** The
+tempting version is "don't print PRODUCTION credentials". That fails
+the moment a dev credential turns out to be shared, or a log is pasted
+into an issue, or a transcript is used to reconstruct what happened.
+The value of a secret is not knowable at the moment it is printed. A
+rule with no exception needs no judgement at 2am.
+
+**Pinned by.** Nothing can pin a practice, and no test can see a
+credential in a log. What exists is the alternative: `e2e/fixtures.ts`
+authenticates through Playwright's own storage rather than by moving
+cookies through the shell, and the provisioning tooling reads every
+secret from `.env.provisioning` inside the process that uses it rather
+than passing values on a command line.
