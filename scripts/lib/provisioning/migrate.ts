@@ -346,10 +346,53 @@ export async function migrateAllInstances(opts: {
         const pending = pendingMigrations(opts.localMigrations, applied);
         const version = latestVersion(opts.localMigrations);
         const current = [...applied].sort().pop() ?? "none";
+
+        // A dry run that only reads the migrations table through the
+        // Management API can say "would apply 3" for a database it
+        // cannot actually log into. That is the same mistake as
+        // trusting an exit code over the table: a claim reported as a
+        // fact. So when there is work to do, connect.
+        //
+        // Verified with `db push --dry-run`, which opens the
+        // connection, lists what it would apply, and changes nothing.
+        if (pending.length > 0) {
+          const dbUrl = migrationConnectionUrl({
+            poolerHost: await opts.poolerHostFor(target.ref),
+            ref: target.ref,
+            password: target.password,
+          });
+          const probe = await opts.runCommand("supabase", [
+            "db",
+            "push",
+            "--db-url",
+            dbUrl,
+            "--include-all",
+            "--dry-run",
+          ]);
+          if (probe.code !== 0) {
+            // The connection string carries the password and is never
+            // echoed; the CLI's own last line explains the failure.
+            const detail =
+              (probe.stderr || probe.stdout).trim().split("\n").pop() ?? "";
+            const reason =
+              `cannot connect to ${target.subdomain}'s database, so ` +
+              `"would apply ${pending.length}" cannot be honoured: ${detail}`;
+            opts.log(`  ${target.subdomain}: BLOCKED — ${reason}`);
+            results.push({
+              subdomain: target.subdomain,
+              envPrefix: target.envPrefix,
+              aliases,
+              status: "blocked",
+              reason,
+            });
+            continue;
+          }
+        }
+
         opts.log(
           pending.length === 0
             ? `  ${target.subdomain}: up to date at ${current}`
-            : `  ${target.subdomain}: at ${current}, would apply ${pending.length} → ${version}`
+            : `  ${target.subdomain}: at ${current}, would apply ${pending.length} → ${version} (connection verified)`
         );
         results.push({
           subdomain: target.subdomain,

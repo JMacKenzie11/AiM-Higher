@@ -57,7 +57,15 @@ npm run migrate:instances                # apply
 ```
 
 Reads every `status = 'active'` row from the control plane registry and
-applies pending migrations to each, in sequence. One status line per
+applies pending migrations to each, in sequence.
+
+`--dry-run` **opens a connection** to any instance that has pending
+work, so a credential failure is reported as BLOCKED rather than as a
+confident "would apply 3". Reading the migrations table through the
+Management API alone cannot tell you whether the database can actually
+be logged into, and a plan for a database you cannot reach is a claim
+reported as a fact. Instances with nothing pending are not connected
+to: there is nothing to honour, so nothing to verify. One status line per
 instance, then a summary. Any failure or blockage exits nonzero.
 
 A failure on one instance does not stop the loop. Every instance is

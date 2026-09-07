@@ -285,7 +285,48 @@ describe("migrateAllInstances", () => {
     expect(results[0]).toMatchObject({ status: "would-apply", version: "0169" });
     expect(results[0]).toHaveProperty("pending", ["0002_b.sql", "0169_z.sql"]);
     expect(results[1]).toMatchObject({ status: "up-to-date" });
-    // The only thing that writes.
+
+    // It does shell out now — to verify it can connect — but only ever
+    // with --dry-run, so nothing is applied. And only for the instance
+    // that had pending work.
+    expect(h.runCommand).toHaveBeenCalledTimes(1);
+    for (const [, args] of h.runCommand.mock.calls) {
+      expect(args).toContain("--dry-run");
+    }
+  });
+
+  it("dry-run blocks an instance it cannot connect to, instead of promising a plan", async () => {
+    // The gap this closes: reading the migrations table through the
+    // Management API says "would apply 1" for a database whose
+    // password is wrong. That is a claim reported as a fact — the same
+    // mistake as trusting an exit code over the table.
+    const h = harness({
+      rows: [ROW("acme", "ACME")],
+      applied: { acmeref: ["0001"] },
+      failOn: "acmeref",
+      dryRun: true,
+    });
+    const results = await h.run();
+
+    expect(results[0].status).toBe("blocked");
+    if (results[0].status === "blocked") {
+      expect(results[0].reason).toContain("cannot connect");
+      expect(results[0].reason).toContain("would apply 2");
+      expect(results[0].reason).not.toContain("postgresql://");
+    }
+  });
+
+  it("dry-run does not connect to an instance with nothing pending", async () => {
+    // Nothing to honour, so nothing to verify. Opening a connection
+    // per instance per run to learn nothing is the cost this avoids.
+    const h = harness({
+      rows: [ROW("acme", "ACME")],
+      applied: { acmeref: ["0001", "0002", "0169"] },
+      dryRun: true,
+    });
+    const results = await h.run();
+
+    expect(results[0].status).toBe("up-to-date");
     expect(h.runCommand).not.toHaveBeenCalled();
   });
 
