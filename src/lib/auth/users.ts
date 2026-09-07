@@ -131,6 +131,76 @@ export async function createUserAction(
 // separate from updateProfileAction (which is the leaner
 // self-serve edit on /profile) so email changes — which require
 // the admin client — can't be triggered by a non-admin caller.
+// ---- System admins ---------------------------------------------
+//
+// A system_admin belongs to no company and sees across all of them,
+// so this is deliberately a separate action from createUserAction
+// rather than another option in its role dropdown. That action is
+// reachable by company_admins and guides and is scoped to a company;
+// this one is reachable only by an existing system_admin and takes no
+// company at all. Keeping them apart means the company-scoping rules
+// in canManageProfileIn() can never be the thing standing between a
+// company admin and cross-tenant access.
+//
+// The invitation is the ordinary one: a magic link to /accept-invite
+// where they set their own password. Same flow as every other user,
+// through the same createPendingUser + generateAcceptLink that
+// provisioning uses to create an instance's first admin.
+export async function createSystemAdminAction(
+  _prev: UserActionResult | undefined,
+  formData: FormData
+): Promise<UserActionResult> {
+  const session = await requireRole(["system_admin"]);
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const fullName = String(formData.get("full_name") ?? "").trim();
+  const sendInviteNow = formData.get("send_invite_now") === "on";
+
+  if (!email || !fullName) {
+    return { ok: false, message: "Name and email are required." };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    return { ok: false, message: "That doesn't look like an email address." };
+  }
+
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+
+  const created = await createPendingUser({
+    admin,
+    email,
+    fullName,
+    role: "system_admin",
+    // No company. That is what the role means.
+    companyId: null,
+  });
+  if (!created.ok) return created;
+
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/companies");
+
+  if (!sendInviteNow) {
+    return { ok: true, profileId: created.profileId };
+  }
+
+  const invite = await dispatchInvite(
+    created.profileId,
+    email,
+    session.profile.id
+  );
+  if (!invite.ok) {
+    // The account exists and is usable; only the email failed. Say so
+    // rather than reporting a failure that would send someone looking
+    // for a user who is already there.
+    return {
+      ok: true,
+      profileId: created.profileId,
+      warning: `Created, but the invite email didn't send: ${invite.message}`,
+    };
+  }
+
+  return { ok: true, profileId: created.profileId };
+}
+
 export async function updateUserAction(
   _prev: UserActionResult | undefined,
   formData: FormData

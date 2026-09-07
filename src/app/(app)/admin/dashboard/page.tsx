@@ -18,6 +18,7 @@ import {
 import { PageShell } from "@/components/ui/PageShell";
 import { PulseNumber } from "./PulseNumber";
 import { ActivityTable } from "./ActivityTable";
+import { SystemAdminForm } from "./SystemAdminForm";
 import { CoachingInsightsCard } from "./CoachingInsightsCard";
 import { Sparkline } from "./Sparkline";
 import { InfoTip } from "./InfoTip";
@@ -405,6 +406,21 @@ export default async function AdminDashboardPage() {
         initialAdoption={insightsAdoption}
         initialSynthesis={insightsSynthesis}
       />
+
+      {/* ---- System admins ----
+          Here rather than on a company page because a system_admin
+          belongs to no company. The page is already system_admin-only
+          (requireRole above), so the surface that mints the role is
+          reachable by exactly the people who hold it. */}
+      <section className={styles.card}>
+        <div className={styles.cardHeader}>
+          <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
+            Add a system admin
+            <InfoTip text="System admins see every company on this instance and belong to none. They receive the same invitation as any other user and set their own password. Company admins are invited from that company's page under Companies instead." />
+          </h2>
+        </div>
+        <SystemAdminForm />
+      </section>
     </PageShell>
   );
 }

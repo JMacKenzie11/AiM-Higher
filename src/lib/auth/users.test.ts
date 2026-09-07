@@ -1241,3 +1241,146 @@ describe("sendInviteAction / getInviteLinkAction / deleteUserAction (aims_guide 
     expect(mocks.deleteUser).toHaveBeenCalledWith("profile_1");
   });
 });
+
+// ==============================================================
+// createSystemAdminAction
+// ==============================================================
+//
+// Deliberately a separate action from createUserAction rather than a
+// third option in its role dropdown: that one is reachable by
+// company_admins and guides and is scoped to a company, this one mints
+// the role that sees across all of them.
+describe("createSystemAdminAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.requireRole.mockResolvedValue(sysAdminSession());
+    mocks.createUser.mockResolvedValue({
+      data: { user: { id: "new_sysadmin" } },
+      error: null,
+    });
+    mocks.profilesInsert.mockResolvedValue({ error: null });
+  });
+
+  function form(fields: Record<string, string>): FormData {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+    return fd;
+  }
+
+  it("creates a system_admin with no company", async () => {
+    const { createSystemAdminAction } = await import("./users");
+
+    const res = await createSystemAdminAction(
+      undefined,
+      form({ full_name: "New Admin", email: "new@aims-institute.com" })
+    );
+
+    expect(res.ok).toBe(true);
+    expect(mocks.profilesInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: "system_admin",
+        company_id: null,
+        status: "pending",
+      })
+    );
+  });
+
+  it("only a system_admin can mint one", async () => {
+    // The gate that matters. A company_admin reaching this would be
+    // granting themselves cross-tenant access.
+    const { createSystemAdminAction } = await import("./users");
+    await createSystemAdminAction(
+      undefined,
+      form({ full_name: "X", email: "x@y.co" })
+    );
+    expect(mocks.requireRole).toHaveBeenCalledWith(["system_admin"]);
+  });
+
+  it("stages the account without emailing unless asked", async () => {
+    // Same affordance as the company roster: create now, invite when
+    // the person is ready.
+    const { createSystemAdminAction } = await import("./users");
+    await createSystemAdminAction(
+      undefined,
+      form({ full_name: "New Admin", email: "new@aims-institute.com" })
+    );
+    expect(mocks.generateLink).not.toHaveBeenCalled();
+  });
+
+  it("sends the ordinary invitation when asked", async () => {
+    // The same magic link every other user gets, not a generated
+    // password: they set their own.
+    mocks.generateLink.mockResolvedValue({
+      data: { properties: { hashed_token: "tok" } },
+      error: null,
+    });
+    mocks.sendInviteEmail.mockResolvedValue({ ok: true });
+    const { createSystemAdminAction } = await import("./users");
+
+    const res = await createSystemAdminAction(
+      undefined,
+      form({
+        full_name: "New Admin",
+        email: "new@aims-institute.com",
+        send_invite_now: "on",
+      })
+    );
+
+    expect(res.ok).toBe(true);
+    expect(mocks.sendInviteEmail).toHaveBeenCalled();
+    const link = mocks.sendInviteEmail.mock.calls[0][0].actionLink as string;
+    expect(link).toContain("/accept-invite?token_hash=");
+  });
+
+  it("reports a send failure as a warning, not a failure", async () => {
+    // The account exists and is usable. Reporting failure would send
+    // someone looking for a user who is already there.
+    mocks.generateLink.mockResolvedValue({
+      data: { properties: { hashed_token: "tok" } },
+      error: null,
+    });
+    mocks.sendInviteEmail.mockResolvedValue({ ok: false, message: "Resend down" });
+    const { createSystemAdminAction } = await import("./users");
+
+    const res = await createSystemAdminAction(
+      undefined,
+      form({
+        full_name: "New Admin",
+        email: "new@aims-institute.com",
+        send_invite_now: "on",
+      })
+    );
+
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.warning).toMatch(/didn't send/);
+  });
+
+  it("requires a name and a plausible email", async () => {
+    const { createSystemAdminAction } = await import("./users");
+    for (const fields of [
+      { full_name: "", email: "a@b.co" },
+      { full_name: "A", email: "" },
+      { full_name: "A", email: "not-an-email" },
+      { full_name: "A", email: "a@b" },
+    ]) {
+      const res = await createSystemAdminAction(undefined, form(fields));
+      expect(res.ok, JSON.stringify(fields)).toBe(false);
+    }
+    expect(mocks.createUser).not.toHaveBeenCalled();
+  });
+
+  it("refuses an email that already exists", async () => {
+    mocks.createUser.mockResolvedValue({
+      data: null,
+      error: { message: "A user with this email address has already been registered" },
+    });
+    const { createSystemAdminAction } = await import("./users");
+
+    const res = await createSystemAdminAction(
+      undefined,
+      form({ full_name: "Dupe", email: "existing@aims-institute.com" })
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/already exists/i);
+  });
+});
