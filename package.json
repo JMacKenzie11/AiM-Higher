@@ -15,6 +15,7 @@
     "seed:instances": "node --env-file=.env.local --experimental-strip-types scripts/seed-instances.ts",
     "seed:e2e": "node --env-file=.env.local --experimental-strip-types scripts/seed-e2e.ts",
     "migrate:instances": "tsx --tsconfig scripts/tsconfig.json scripts/migrate-instances.ts",
+    "sync:content": "tsx --tsconfig scripts/tsconfig.json scripts/sync-content.ts",
     "provision": "tsx --tsconfig scripts/tsconfig.json scripts/provision-instance.ts",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
