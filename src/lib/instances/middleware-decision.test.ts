@@ -5,6 +5,8 @@ import {
   isInstanceExemptPath,
   INSTANCE_NOT_FOUND_PATH,
   INSTANCE_SUSPENDED_PATH,
+  INSTANCE_NOT_FOUND_STATUS,
+  INSTANCE_SUSPENDED_STATUS,
 } from "./middleware-decision";
 import { resolveInstance } from "./resolve";
 import { needsScopePicker } from "@/lib/admin/scope-request";
@@ -42,7 +44,11 @@ describe("routeForInstance", () => {
 
   it("rewrites to instance-not-found when it did not", () => {
     expect(routeForInstance({ pathname: "/dashboard", instance: null })).toEqual(
-      { action: "rewrite", to: INSTANCE_NOT_FOUND_PATH },
+      {
+        action: "rewrite",
+        to: INSTANCE_NOT_FOUND_PATH,
+        status: INSTANCE_NOT_FOUND_STATUS,
+      },
     );
   });
 
@@ -244,7 +250,11 @@ describe("hostnameFromHeaders", () => {
 
     expect(
       routeForInstance({ pathname: "/", instance: resolved }),
-    ).toEqual({ action: "rewrite", to: INSTANCE_NOT_FOUND_PATH });
+    ).toEqual({
+      action: "rewrite",
+      to: INSTANCE_NOT_FOUND_PATH,
+      status: INSTANCE_NOT_FOUND_STATUS,
+    });
   });
 });
 
@@ -305,7 +315,11 @@ describe("routeForInstance: suspended instances", () => {
 
   it("routes a suspended instance to the suspended page", () => {
     expect(routeForInstance({ pathname: "/dashboard", instance: suspended })).toEqual(
-      { action: "rewrite", to: INSTANCE_SUSPENDED_PATH },
+      {
+        action: "rewrite",
+        to: INSTANCE_SUSPENDED_PATH,
+        status: INSTANCE_SUSPENDED_STATUS,
+      },
     );
   });
 
@@ -317,6 +331,7 @@ describe("routeForInstance: suspended instances", () => {
       expect(routeForInstance({ pathname, instance: suspended })).toEqual({
         action: "rewrite",
         to: INSTANCE_SUSPENDED_PATH,
+        status: INSTANCE_SUSPENDED_STATUS,
       });
     }
   });
@@ -334,6 +349,7 @@ describe("routeForInstance: suspended instances", () => {
     expect(routeForInstance({ pathname: "/dashboard", instance: null })).toEqual({
       action: "rewrite",
       to: INSTANCE_NOT_FOUND_PATH,
+      status: INSTANCE_NOT_FOUND_STATUS,
     });
   });
 
@@ -343,5 +359,66 @@ describe("routeForInstance: suspended instances", () => {
       action: "proceed",
       instance: active,
     });
+  });
+});
+
+// ---- The statuses these boundaries answer with ------------------
+//
+// A 200 on either page is a lie told to machines: it tells an uptime
+// monitor the hostname is healthy and a crawler there is a page worth
+// indexing. The friendly body is for humans; the status is what
+// software reads.
+
+describe("boundary status codes", () => {
+  const suspended: InstanceConfig = {
+    subdomain: "acme",
+    displayName: "Acme Industries",
+    supabaseUrl: "https://acme.supabase.co",
+    supabaseAnonKey: "acme-anon",
+    supabaseServiceKey: "acme-service",
+    status: "suspended",
+  };
+
+  it("answers 404 for a hostname that resolves to nothing", () => {
+    const routing = routeForInstance({ pathname: "/", instance: null });
+    expect(routing).toMatchObject({ action: "rewrite", status: 404 });
+  });
+
+  it("answers 503 for a suspended instance, not 404", () => {
+    // 503 says "come back later" where 404 says "give up". A crawler
+    // must not deindex a customer's site over a billing pause.
+    const routing = routeForInstance({ pathname: "/", instance: suspended });
+    expect(routing).toMatchObject({ action: "rewrite", status: 503 });
+  });
+
+  it("uses the same status on every path, not just the root", () => {
+    for (const pathname of ["/", "/sign-in", "/dashboard", "/api/anything"]) {
+      expect(routeForInstance({ pathname, instance: null })).toMatchObject({
+        status: 404,
+      });
+      expect(routeForInstance({ pathname, instance: suspended })).toMatchObject({
+        status: 503,
+      });
+    }
+  });
+
+  it("carries no status when it is not rewriting", () => {
+    // proceed and passthrough are served normally; a status here
+    // would mean the boundary logic had leaked into the happy path.
+    const active: InstanceConfig = { ...suspended, status: "active" };
+    expect(routeForInstance({ pathname: "/", instance: active })).not.toHaveProperty("status");
+    expect(
+      routeForInstance({ pathname: INSTANCE_NOT_FOUND_PATH, instance: null })
+    ).not.toHaveProperty("status");
+  });
+
+  it("still bypasses instance resolution for cron paths", () => {
+    // Unchanged by this work and worth pinning next to it: a cron
+    // route never reaches routeForInstance at all, so it can never
+    // be answered 404 or 503 by a hostname decision.
+    expect(isInstanceExemptPath("/api/cron")).toBe(true);
+    expect(isInstanceExemptPath("/api/cron/transcripts")).toBe(true);
+    expect(isInstanceExemptPath("/api/cron/scorecard")).toBe(true);
+    expect(isInstanceExemptPath("/dashboard")).toBe(false);
   });
 });

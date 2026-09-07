@@ -96,7 +96,15 @@ export async function middleware(request: NextRequest) {
     // An unknown hostname has no database to check a session against;
     // a suspended one has a database we are choosing not to serve.
     // Either way nothing past this point may touch Supabase.
-    return NextResponse.rewrite(new URL(routing.to, request.url));
+    // The status is part of the routing decision, not a middleware
+    // detail. NextResponse.rewrite carries it: the boundary page
+    // still renders in full and the response answers 404 or 503
+    // rather than 200. Verified against a running server for both
+    // codes rather than assumed, since a rewrite taking its status
+    // from the destination would have been just as plausible.
+    return NextResponse.rewrite(new URL(routing.to, request.url), {
+      status: routing.status,
+    });
   }
   if (routing.action === "passthrough") {
     // Already on one of the boundary pages. Render it without
