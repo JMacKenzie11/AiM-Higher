@@ -40,7 +40,9 @@
  */
 
 import { spawn } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, realpathSync } from "node:fs";
+import { argv } from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -394,7 +396,35 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// Run ONLY when this file is the process entry point, never on
+// import.
+//
+// scripts/lib/provisioning/summary-output.test.ts imports
+// summaryLines() from here, because the printed summary is the thing
+// worth asserting and it is defined in this file. Without this guard
+// that import EXECUTES THE MIGRATION RUNNER as a side effect.
+//
+// It did. CI went red on the merge to main with "process.exit
+// unexpectedly called with 1", because there is no .env.provisioning
+// on a runner, so main() reached fail() and killed the test process.
+//
+// The red build was the harmless half. Locally .env.provisioning does
+// exist, and what saved us there was an accident: parseArgs() sees
+// vitest's own argv, does not recognise it, and exits before main()
+// reaches the control plane. Invoked with no trailing arguments,
+// parseArgs would have returned defaults and a plain `vitest run`
+// would have migrated every live instance in the registry.
+//
+// A module that performs irreversible work when imported is not safe
+// to import at all, and "no test imports it yet" is not a property
+// anyone can maintain. The guard makes the file inert on import.
+const invokedDirectly =
+  argv[1] !== undefined &&
+  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(argv[1]);
+
+if (invokedDirectly) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
