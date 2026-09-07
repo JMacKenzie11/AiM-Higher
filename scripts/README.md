@@ -98,7 +98,39 @@ and our migrations are not replay-safe: 20 create tables without
 `if not exists`, and 44 contain drops or destructive alters. It would
 fail partway, having already run some of them, over live data.
 
-The fix is to record the history rather than replay it:
+### Verify by diff BEFORE you repair
+
+`migration repair` does not check anything. It stamps a claim: *this
+database is what migrations 0001…N produce.* If the database has
+drifted — and a database that predates tracking usually has — repair
+does not remove the drift. It makes the drift invisible, and every
+later run reports the instance up to date while it is not.
+
+So the order is verification first, repair second:
+
+1. **Provision a throwaway instance from the current migrations.** It
+   is a clean reference schema by construction: born from the files,
+   at the version they produce.
+2. **Diff the un-baselined database against it** — relations, columns
+   with types and nullability and defaults, constraints, indexes, RLS
+   policies including their expressions, functions, triggers.
+3. **Account for every difference.** Each one is either a migration
+   the database never received, in which case apply it, or a
+   deliberate production-only artifact, in which case document it and
+   decide whether it should become a migration.
+4. **Only then repair**, with the versions the database genuinely has.
+
+Two categories of noise are expected and should be labelled rather
+than chased:
+
+- **OID-named NOT NULL constraints.** Postgres names these
+  `2200_17746_10_not_null`, embedding the table OID, which differs
+  between any two databases. Compare check-constraint *definitions*
+  instead of constraint names.
+- **Row counts and generated ids.** Structure is the subject; data is
+  not.
+
+The fix is then to record the history rather than replay it:
 
 ```bash
 supabase migration repair --status applied <version> --db-url "<session pooler url>"
