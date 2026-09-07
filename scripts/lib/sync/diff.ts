@@ -130,21 +130,41 @@ export function isNoOp(diff: TableDiff): boolean {
   );
 }
 
-// Write order. Inserts and updates follow the declared dependency
-// order so a child never lands before its parent; deletes run in
-// reverse so a parent is never removed while a child still points at
-// it. Returned as data rather than performed here, so a dry run and a
-// real run plan identically and only differ in whether anything is
+// Write order.
+//
+// DELETES FIRST, in reverse dependency order, THEN upserts in forward
+// order.
+//
+// Reverse order for deletes so a parent is never removed while a
+// child still points at it; forward order for upserts so a child
+// never lands before its parent. Both of those are obvious.
+//
+// Deletes before upserts is the one that is not, and it was found by
+// a live dry run rather than by reasoning. The classroom seed inserts
+// its category with no explicit id, so every instance minted its own
+// UUID for the same logical row: production has "Phase 1" under one
+// id and promiseone under another, both with the unique slug
+// "build-the-team". Matching by primary key correctly plans an insert
+// plus a delete — and running the insert first violates the slug
+// unique constraint, because for that moment both rows exist.
+//
+// Any full mirror hits this wherever a table has a unique constraint
+// on something other than its primary key. Removing before adding is
+// the only order that cannot collide.
+//
+// Returned as data rather than performed here, so a dry run and a
+// real run plan identically and differ only in whether anything is
 // executed.
 export type WritePlan = {
-  upserts: TableDiff[];
+  // Applied in this order: deletes, then upserts.
   deletes: TableDiff[];
+  upserts: TableDiff[];
 };
 
 export function planWrites(diffs: readonly TableDiff[]): WritePlan {
   return {
-    upserts: diffs.filter((d) => d.inserts.length > 0 || d.updates.length > 0),
     deletes: [...diffs].reverse().filter((d) => d.deletes.length > 0),
+    upserts: diffs.filter((d) => d.inserts.length > 0 || d.updates.length > 0),
   };
 }
 

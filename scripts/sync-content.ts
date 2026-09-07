@@ -240,11 +240,13 @@ async function syncInstance(opts: {
 
     const plan = planWrites(datasetDiffs);
     const specByTable = new Map(dataset.tables.map((t) => [t.table, t]));
-    for (const d of plan.upserts) {
-      await applyDiff(target.client, specByTable.get(d.table)!, d);
-    }
+    // Deletes first. A row being removed can hold a unique value that
+    // a row being inserted also wants; see planWrites.
     for (const d of plan.deletes) {
       await applyDeletes(target.client, specByTable.get(d.table)!, d);
+    }
+    for (const d of plan.upserts) {
+      await applyDiff(target.client, specByTable.get(d.table)!, d);
     }
   }
 

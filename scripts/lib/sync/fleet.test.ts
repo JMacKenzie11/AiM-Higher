@@ -91,6 +91,31 @@ describe("syncFleet: per-instance isolation", () => {
   });
 });
 
+describe("syncFleet: write order", () => {
+  it("applies deletes before upserts", async () => {
+    // Found by a live dry run, not by reasoning. The classroom seed
+    // inserts its category with no explicit id, so production and
+    // promiseone each minted their own UUID for the same logical row,
+    // both holding the unique slug "build-the-team". Matching by
+    // primary key correctly plans an insert plus a delete, and
+    // inserting first violates the slug constraint because for that
+    // moment both rows exist.
+    const t = fakeClient([{ id: "old", name: "same-unique-slug" }]);
+    await syncFleet({
+      targets: [target("alpha", t)],
+      primary: fakeClient([{ id: "new", name: "same-unique-slug" }]),
+      datasets: [DATASET],
+      dryRun: false,
+      log: vi.fn(),
+    });
+
+    const ops = t.writes.map((w) => w.op);
+    expect(ops).toContain("delete");
+    expect(ops).toContain("upsert");
+    expect(ops.indexOf("delete")).toBeLessThan(ops.indexOf("upsert"));
+  });
+});
+
 describe("syncFleet: --dry-run", () => {
   it("plans the same work but writes nothing", async () => {
     const source = fakeClient([{ id: "a", name: "one" }]);
