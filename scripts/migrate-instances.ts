@@ -186,6 +186,22 @@ async function main(): Promise<void> {
         return new Set();
       }
     },
+    databaseShape: async (ref) => {
+      const [row] = await management.runQuery<{
+        has_migration_table: boolean;
+        public_tables: number;
+      }>(
+        ref,
+        `select
+           to_regclass('${MIGRATIONS_TABLE}') is not null as has_migration_table,
+           (select count(*)::int from information_schema.tables
+             where table_schema = 'public') as public_tables`
+      );
+      return {
+        hasMigrationTable: Boolean(row?.has_migration_table),
+        publicTables: Number(row?.public_tables ?? 0),
+      };
+    },
     runCommand,
     log: (line) => console.log(line),
   });

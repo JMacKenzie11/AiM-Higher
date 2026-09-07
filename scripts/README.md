@@ -86,6 +86,32 @@ instance was reached.
 `npm run db:push:dev` stays. The dev clone is not an instance: it is
 not in the registry and the runner has no way to reach it.
 
+## Adopting a database that predates migration tracking
+
+The runner **refuses** an instance whose database has tables but no
+`supabase_migrations.schema_migrations` table, and the refusal is the
+feature.
+
+With no history, every migration reads as pending. A push would then
+try to apply all of them to a database that already has the schema —
+and our migrations are not replay-safe: 20 create tables without
+`if not exists`, and 44 contain drops or destructive alters. It would
+fail partway, having already run some of them, over live data.
+
+The fix is to record the history rather than replay it:
+
+```bash
+supabase migration repair --status applied <version> --db-url "<session pooler url>"
+```
+
+Pass every version the database already has. The versions are the
+numeric prefixes of the files in `supabase/migrations/` — `0001`,
+`0002`, … `0169`. `migration repair` writes the history table without
+running anything.
+
+Then `npm run migrate:instances -- --dry-run` should report the
+instance up to date, and it is managed like any other from then on.
+
 ## The deploy order rule
 
 **Run `migrate:instances` first. Confirm every instance is green. Only

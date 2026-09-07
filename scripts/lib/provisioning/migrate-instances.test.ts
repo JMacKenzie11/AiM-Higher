@@ -7,6 +7,7 @@ import {
   pendingMigrations,
   refFromSupabaseUrl,
   resolveTarget,
+  unbaselinedReason,
   type RegistryRow,
 } from "./migrate.ts";
 import type { InstanceState } from "./state.ts";
@@ -37,6 +38,7 @@ function harness(opts: {
   failOn?: string;
   state?: Record<string, InstanceState>;
   env?: Record<string, string | undefined>;
+  shape?: { hasMigrationTable: boolean; publicTables: number };
   dryRun?: boolean;
 }) {
   const lines: string[] = [];
@@ -79,6 +81,8 @@ function harness(opts: {
         dryRun: opts.dryRun,
         poolerHostFor: async () => "aws-0-us-east-1.pooler.supabase.com",
         appliedVersionsFor,
+        databaseShape: async () =>
+          opts.shape ?? { hasMigrationTable: true, publicTables: 66 },
         runCommand: pushThenCatchUp,
         log: (l) => lines.push(l),
       }),
@@ -194,6 +198,7 @@ describe("migrateAllInstances", () => {
       readState: (s) => STATE[s] ?? null,
       localMigrations: LOCAL,
       poolerHostFor: async () => "host",
+      databaseShape: async () => ({ hasMigrationTable: true, publicTables: 66 }),
       appliedVersionsFor: async (ref) => {
         order.push(`start:${ref}`);
         await new Promise((r) => setTimeout(r, 5));
@@ -356,6 +361,73 @@ describe("migrateAllInstances: one database, one migration", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ status: "blocked", aliases: ["www"] });
+  });
+});
+
+describe("un-baselined databases", () => {
+  it("blocks a database that has the schema but no migration history", async () => {
+    // The dangerous case, and the one production is actually in: no
+    // history means every migration reads as pending, so a push would
+    // replay all of them over live data. 20 of ours create tables
+    // without IF NOT EXISTS and 44 contain drops.
+    const h = harness({
+      rows: [ROW("@", "PROD")],
+      shape: { hasMigrationTable: false, publicTables: 66 },
+    });
+    const results = await h.run();
+
+    expect(results[0].status).toBe("blocked");
+    if (results[0].status === "blocked") {
+      expect(results[0].reason).toContain("no migration history");
+      expect(results[0].reason).toContain("migration repair");
+    }
+    expect(h.runCommand).not.toHaveBeenCalled();
+  });
+
+  it("allows a genuinely empty database through", async () => {
+    // A brand-new project also has no migration table. It has no
+    // tables either, so there is nothing to replay over.
+    const h = harness({
+      rows: [ROW("acme", "ACME")],
+      shape: { hasMigrationTable: false, publicTables: 0 },
+      applied: { acmeref: [] },
+    });
+    const results = await h.run();
+
+    expect(results[0].status).toBe("applied");
+    expect(h.runCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks in dry-run too, rather than reporting a reassuring plan", async () => {
+    // A dry run saying "would apply 90" reads as a plan. It is a
+    // warning, and it must not look like the former.
+    const h = harness({
+      rows: [ROW("@", "PROD")],
+      shape: { hasMigrationTable: false, publicTables: 66 },
+      dryRun: true,
+    });
+    const results = await h.run();
+    expect(results[0].status).toBe("blocked");
+  });
+});
+
+describe("unbaselinedReason", () => {
+  it("is silent when history exists", () => {
+    expect(
+      unbaselinedReason({ hasMigrationTable: true, publicTables: 66 }, "x")
+    ).toBeNull();
+  });
+
+  it("is silent for an empty database", () => {
+    expect(
+      unbaselinedReason({ hasMigrationTable: false, publicTables: 0 }, "x")
+    ).toBeNull();
+  });
+
+  it("fires for schema without history", () => {
+    expect(
+      unbaselinedReason({ hasMigrationTable: false, publicTables: 1 }, "x")
+    ).toContain("no migration history");
   });
 });
 

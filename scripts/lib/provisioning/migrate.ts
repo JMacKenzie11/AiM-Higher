@@ -240,6 +240,44 @@ export function isProblem(result: InstanceResult): boolean {
 // in one run: the second push is a no-op, but the run would report two
 // instances where there is one, and a failure would be reported twice
 // for a single cause. The extra subdomains are reported as aliases.
+// What a database looks like before we touch it.
+export type DatabaseShape = {
+  // Whether supabase_migrations.schema_migrations exists at all.
+  hasMigrationTable: boolean;
+  // Tables in the public schema. Zero means a brand-new project.
+  publicTables: number;
+};
+
+// An un-baselined database: it has the application schema but no
+// migration history, because it was built before this repo tracked
+// migrations through the CLI.
+//
+// This is the most dangerous state the runner can meet, and the one it
+// must never act on. With no history every migration reads as pending,
+// so a push would attempt all of them against a database that already
+// has the schema — 20 of ours create tables without IF NOT EXISTS and
+// 44 contain drops or destructive alters. The first failure would stop
+// it partway, having already run some.
+//
+// So it is blocked, and the fix is to record the history rather than
+// replay it: `supabase migration repair --status applied <version...>`.
+export function unbaselinedReason(
+  shape: DatabaseShape,
+  subdomain: string
+): string | null {
+  if (shape.hasMigrationTable) return null;
+  if (shape.publicTables === 0) return null; // genuinely empty: fine to push
+  return (
+    `"${subdomain}" has ${shape.publicTables} tables but no migration ` +
+    `history, so every migration reads as pending and a push would try ` +
+    `to apply all of them to a database that already has the schema. ` +
+    `This database predates migration tracking. Record its history ` +
+    `instead of replaying it — ` +
+    `\`supabase migration repair --status applied <version...>\` for the ` +
+    `versions it already has — then run this again. See scripts/README.md.`
+  );
+}
+
 export async function migrateAllInstances(opts: {
   rows: readonly RegistryRow[];
   env: Record<string, string | undefined>;
@@ -247,6 +285,8 @@ export async function migrateAllInstances(opts: {
   localMigrations: readonly string[];
   poolerHostFor: (ref: string) => Promise<string>;
   appliedVersionsFor: (ref: string) => Promise<Set<string>>;
+  // Inspected before anything is pushed. See unbaselinedReason.
+  databaseShape: (ref: string) => Promise<DatabaseShape>;
   runCommand: RunCommand;
   log: (line: string) => void;
   dryRun?: boolean;
@@ -282,6 +322,25 @@ export async function migrateAllInstances(opts: {
     }
 
     try {
+      // Before anything else: refuse a database that has the schema
+      // but no history. A push there would replay 90 migrations over
+      // live data.
+      const blocked = unbaselinedReason(
+        await opts.databaseShape(target.ref),
+        target.subdomain
+      );
+      if (blocked) {
+        opts.log(`  ${target.subdomain}: BLOCKED — ${blocked}`);
+        results.push({
+          subdomain: target.subdomain,
+          envPrefix: target.envPrefix,
+          aliases,
+          status: "blocked",
+          reason: blocked,
+        });
+        continue;
+      }
+
       if (opts.dryRun) {
         const applied = await opts.appliedVersionsFor(target.ref);
         const pending = pendingMigrations(opts.localMigrations, applied);
