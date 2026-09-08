@@ -33,6 +33,13 @@ separately in [#61](https://github.com/JMacKenzie11/AiM-Higher/pull/61).
 The 104 affected rows were deleted via
 [#60](https://github.com/JMacKenzie11/AiM-Higher/pull/60).
 
+**Measured since, without being acted on:** F11's planner question,
+which the review deliberately refused to assert without evidence, was
+settled on 2026-09-08. See the addendum at the end of F11 — the
+structural claim is confirmed, the case it named as worst turned out to
+be the cheaper one, and the dominant cost is F8. Recommendation there
+is to act on F8 first and re-measure.
+
 **Everything else stands unfixed**, F5–F14 and 4.2–4.3. F8 in
 particular — RLS helpers evaluated once per row across 266 policy
 references — remains the largest raw database win on the list and the
@@ -754,6 +761,126 @@ are pinned by the replace rule (`0163:54-61` explains the `0::bigint`
 cast), so a restructure that changes a column type needs a
 `DROP ... CASCADE` and takes the rollups with it — which means
 expand-and-contract across the fleet, not one migration.
+
+#### Addendum, 2026-09-08 — measured
+
+F11 above declined to assert the planner's behaviour without evidence.
+Here is the evidence. `EXPLAIN (ANALYZE, BUFFERS, COSTS)` run against
+the **dev clone** (`AiMS IHQ Dev`, never production) at its real
+volume: 12 companies, 16 focus areas, 48 annual goals, 141 priorities,
+464 commitments (408 live). That is production-like — the clone is a
+refresh of it.
+
+**The question was: does the planner materialize the nested views, or
+flatten them? The answer is both, depending on depth.**
+
+**One level flattens.** `priority_progress` filtered to 45 priority ids
+pushes the restriction straight into the base table:
+
+```
+GroupAggregate  (cost=0.29..33.44 rows=45) (actual time=0.065..0.307 rows=45)
+  ->  Merge Left Join
+        ->  Index Scan using priorities_pkey on priorities p
+              Index Cond: (p.id = ANY ('{...45 uuids...}'::uuid[]))
+Execution Time: 0.460 ms
+```
+
+No sequential scan of anything. The review's concern does not apply to
+the single-level view.
+
+**Two and three levels materialize.** `sfa_progress` filtered to one
+company's 3 focus areas, run without RLS:
+
+```
+GroupAggregate  (cost=63.53..63.67 rows=3) (actual time=0.946..0.953 rows=3)
+  ->  ...
+        ->  HashAggregate  Group Key: g_1.id   (actual rows=48)      <- ALL goals
+              ->  ...
+                    ->  HashAggregate  Group Key: p_1.id  (actual rows=141)  <- ALL priorities
+                          ->  Hash Right Join
+                                ->  Seq Scan on commitments c  (actual rows=408)  <- ALL commitments
+                                ->  Seq Scan on priorities p_1  (actual rows=141)
+        ->  Seq Scan on strategic_focus_areas s   (actual rows=3)
+              Filter: (id = ANY ('{3 uuids}'::uuid[]))
+              Rows Removed by Filter: 13
+Execution Time: 1.335 ms
+```
+
+The outer filter is applied — and applied **last**, after the inner
+aggregates have been computed over everything. The clinching comparison
+is the same query with no filter at all:
+
+| query | cost | execution | commitments scanned | priorities scanned |
+|---|---|---|---|---|
+| `sfa_progress` WHERE `sfa_id IN` (3 ids) | 63.53..63.67 | 1.335 ms | 408 | 141 + 138 |
+| `sfa_progress`, unfiltered (16 rows) | 64.19..64.55 | 1.328 ms | 408 | 141 + 138 |
+
+**Asking for one company's three numbers costs the same as asking for
+all sixteen.** F11's hypothesis is confirmed for the nested case.
+
+**But the cost that matters is not the one F11 predicted.** Those plans
+ran as `postgres`, with RLS skipped. Re-run through
+`security_invoker` as real callers, the same three-row query:
+
+| caller | planning | execution |
+|---|---|---|
+| `postgres` (no RLS) | 2.784 ms | **1.335 ms** |
+| `system_admin` (RLS on, every row admitted) | 3.348 ms | **16.679 ms** |
+| company member (RLS on, tenant-filtered) | 12.119 ms | **35.060 ms** |
+
+Two things in that table were not what the review expected.
+
+First, **the system_admin is not the worst case — the ordinary company
+user is**, by 2×. The reason is visible in the plan: for a
+`system_admin` the RLS predicate short-circuits on the first branch
+(`ap.role = 'system_admin'`), while a company member's has to evaluate
+`is_guide_for()` and then compare `company_id`, per row. F11 named the
+system_admin as the degrading case. On today's data it is the cheaper
+one.
+
+Second, and the real finding: **the dominant cost is F8, not the view
+nesting.** The RLS-scoped plan carries six separate `auth_profile()`
+subplans, and their loop counts are the whole story:
+
+```
+SubPlan 1  ->  Function Scan on auth_profile ap    (loops=3)
+SubPlan 2  ->  Function Scan on auth_profile ap_1  (loops=38)
+SubPlan 3  ->  Function Scan on auth_profile ap_2  (loops=48)
+SubPlan 4  ->  Function Scan on auth_profile ap_3  (loops=138)
+SubPlan 5  ->  Function Scan on auth_profile ap_4  (loops=141)
+SubPlan 6  ->  Function Scan on auth_profile ap_5  (loops=270)
+```
+
+**638 executions of `auth_profile()` to return three rows.** That is
+F8, caught in the act, inside F11's query. The jump from 1.3 ms to
+35 ms between the no-RLS and RLS-scoped runs is almost entirely those
+calls — the aggregate nesting is the same work in both.
+
+**Recommendation: do not act on F11 as written. Act on F8 first, then
+re-measure this.** The structural claim is confirmed — nested progress
+views are materialized in full and the filter is applied at the end —
+but at 464 commitments that costs about 1.3 ms, and the surrounding
+35 ms is per-row RLS helper evaluation. Restructuring the views is a
+`DROP ... CASCADE` on a three-view dependency chain plus an
+expand-and-contract across the fleet, and it would leave the term that
+actually dominates untouched. Hoisting `auth_profile()` into a
+statement-level `InitPlan` removes ~638 function calls from this one
+query without touching the views at all. The scale at which F11 becomes
+worth revisiting on its own is roughly **10× current per-tenant volume
+— about 4,000–5,000 live commitments in a single company**, where the
+materialised scan reaches the tens of milliseconds and stops being
+hidden by the RLS overhead above it; a 150-person company on a weekly
+rhythm reaches that in five to seven years, sooner if a larger tenant
+lands. Re-measure then, and re-measure immediately after F8 ships,
+because F8 is what is currently masking it.
+
+*Plans captured 2026-09-08 against `nemhsmrrqfzfudwgwzdo` (AiMS IHQ
+Dev). Reproduce with `EXPLAIN (ANALYZE, BUFFERS, COSTS)` on
+`select * from public.sfa_progress where sfa_id in (...)`, once as
+`postgres` and once inside a transaction with `set local role
+authenticated` and `set local request.jwt.claims`.*
+
+
 
 ---
 
