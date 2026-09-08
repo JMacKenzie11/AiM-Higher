@@ -67,6 +67,10 @@ async function handle(req: NextRequest): Promise<Response> {
       const results: Array<{
         companyId: string;
         ok: boolean;
+        // Feature-gated disciplines that resolved ON for this company.
+        // Present only on a successful compute.
+        gatedEnabled?: number;
+        gatedTotal?: number;
         error?: string;
       }> = [];
 
@@ -81,7 +85,12 @@ async function handle(req: NextRequest): Promise<Response> {
           if (!write.ok) {
             results.push({ companyId: c.id, ok: false, error: write.message });
           } else {
-            results.push({ companyId: c.id, ok: true });
+            results.push({
+              companyId: c.id,
+              ok: true,
+              gatedEnabled: scorecard.gating.enabled,
+              gatedTotal: scorecard.gating.total,
+            });
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -89,18 +98,34 @@ async function handle(req: NextRequest): Promise<Response> {
         }
       }
 
-      const okCount = results.filter((r) => r.ok).length;
+      const ok = results.filter((r) => r.ok);
       return {
         processed: results.length,
-        succeeded: okCount,
-        failed: results.length - okCount,
+        succeeded: ok.length,
+        failed: results.length - ok.length,
+        // Feature-gated disciplines enabled across the companies that
+        // snapshotted. This is in the summary because the alternative
+        // is what already happened: entitlements resolved empty for
+        // every company for three weeks, four disciplines recorded
+        // themselves as "not enabled", and every run still reported a
+        // clean "8/8 companies snapshotted, 0 failed". A 0/N here is
+        // the tell, and it costs one number to have it.
+        gatedEnabled: ok.reduce((n, r) => n + (r.gatedEnabled ?? 0), 0),
+        gatedTotal: ok.reduce((n, r) => n + (r.gatedTotal ?? 0), 0),
+        // Per company too, so a single tenant whose entitlements went
+        // missing is visible and not averaged away by the fleet.
+        perCompany: ok.map((r) => ({
+          companyId: r.companyId,
+          gatedEnabled: r.gatedEnabled ?? 0,
+        })),
         // Only surface the first few failures — no need to dump 200
         // error strings for a rare wholesale outage.
         failures: results.filter((r) => !r.ok).slice(0, 20),
       };
     },
     line: (r) =>
-      `${r.succeeded}/${r.processed} companies snapshotted, ${r.failed} failed`,
+      `${r.succeeded}/${r.processed} companies snapshotted, ${r.failed} failed, ` +
+      `${r.gatedEnabled}/${r.gatedTotal} feature-gated disciplines enabled`,
   });
 
   return Response.json(summary, { status: summary.ok ? 200 : 500 });

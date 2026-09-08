@@ -1,7 +1,10 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { companyHasFeature } from "@/lib/subscriptions/service";
+import {
+  getCompanyFeaturesWith,
+  type ModuleFeature,
+} from "@/lib/subscriptions/service";
 import { todayInTimezone } from "@/lib/dates";
 import { DISCIPLINES, type DisciplineKey } from "./disciplines";
 import type { DisciplineScore } from "./types";
@@ -31,6 +34,17 @@ export type ComputedScorecard = {
     score: number | null;
     disciplinesCounted: number;
   };
+  // How many feature-gated disciplines resolved ON for this company,
+  // out of how many exist. Reported so the weekly cron can put it in
+  // its log line: a run where every company reports 0 of 4 is the
+  // signature of a broken entitlement read, and that state is
+  // otherwise indistinguishable in the snapshot data from a fleet
+  // that genuinely has those modules switched off. It looked like
+  // nothing for three weeks once already.
+  gating: {
+    enabled: number;
+    total: number;
+  };
 };
 
 export async function computeCompanyScorecard(
@@ -40,15 +54,33 @@ export async function computeCompanyScorecard(
   const db = admin ?? await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Fan out the six scorers in parallel — each is a small read.
-  const [foundation, chart, planning, execution, measuresEnabled, meetingsEnabled] =
+  //
+  // Entitlements are read through `db`, the SAME client the scorers
+  // get, and never through the request-scoped getCompanyFeatures().
+  // This function has two callers with different contexts: the
+  // /scorecard page hands it an RLS-scoped session client, and the
+  // weekly cron hands it the instance's service-role client from
+  // forEachActiveInstance. Only the client knows which is which, so
+  // the flag read has to travel with it. Reading entitlements from
+  // ambient request state instead is what silently disabled four
+  // disciplines on every snapshot the cron ever wrote — the cron has
+  // no session, the anon role matches no policy on company_features,
+  // and an empty list reads as "they didn't buy it". See the note on
+  // getCompanyFeaturesWith.
+  //
+  // One read for both flags rather than two calls, since we now go to
+  // the database instead of a per-request memo.
+  const [foundation, chart, planning, execution, features] =
     await Promise.all([
       scoreFoundation(db, companyId),
       scoreChart(db, companyId),
       scorePlanning(db, companyId),
       scoreExecution(db, companyId),
-      companyHasFeature(companyId, "performance_tracking"),
-      companyHasFeature(companyId, "meeting_facilitation_review"),
+      getCompanyFeaturesWith(db, companyId),
     ]);
+
+  const measuresEnabled = features.includes("performance_tracking");
+  const meetingsEnabled = features.includes("meeting_facilitation_review");
 
   const measures: DisciplineScore = measuresEnabled
     ? await scoreMeasures(db, companyId)
@@ -90,6 +122,23 @@ export async function computeCompanyScorecard(
     computedAt: new Date().toISOString(),
     disciplines: all,
     overall: overallFrom(all),
+    gating: gatingFrom(features),
+  };
+}
+
+// Which feature-gated disciplines are switched on for this company.
+// Derived from DISCIPLINES rather than a hardcoded count so adding a
+// gated discipline updates the cron's log line for free — the config
+// is already the one place a new discipline is registered.
+export function gatingFrom(features: readonly ModuleFeature[]): {
+  enabled: number;
+  total: number;
+} {
+  const gated = DISCIPLINES.filter((d) => d.feature);
+  return {
+    enabled: gated.filter((d) => features.includes(d.feature as ModuleFeature))
+      .length,
+    total: gated.length,
   };
 }
 
