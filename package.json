@@ -25,6 +25,7 @@
     "seed:construction": "node --env-file=.env.local --experimental-strip-types scripts/seed-construction.ts",
     "seed:meridian-measures": "node --env-file=.env.local --experimental-strip-types scripts/seed-meridian-measures.ts",
     "check:help": "node --experimental-strip-types scripts/check-help-coverage.ts",
+    "rls:hazards": "tsx --tsconfig scripts/tsconfig.json scripts/rls-harness.ts",
     "posthog:insights": "node --env-file=.env.local --experimental-strip-types scripts/setup-posthog-insights.ts"
   },
   "dependencies": {
