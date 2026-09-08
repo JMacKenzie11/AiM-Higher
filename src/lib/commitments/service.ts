@@ -284,41 +284,78 @@ export async function getCommitmentsPageData(
 ): Promise<CommitmentsPageData> {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("timezone")
-    .eq("id", companyId)
-    .maybeSingle<{ timezone: string }>();
-  const timezone = company?.timezone ?? "America/Anchorage";
-  const { iso: todayIso } = todayInTimezone(timezone);
-  const thisFri = thisFriday(timezone);
-
-  const openQuarter = await getCurrentQuarter(companyId);
-  const quarterCoversThisWeek = Boolean(
-    openQuarter &&
-      openQuarter.start_date <= thisFri &&
-      openQuarter.end_date >= thisFri
-  );
-
-  // Roster for owner filter + display and owner picker in the add row.
-  // Pending users show up alongside active — an admin can pre-assign
-  // commitments to someone who hasn't accepted their invite yet.
-  // System admins (AiMS coaches) are appended so they can be picked
-  // as owners even though they don't belong to the client company.
-  const [rosterRes, coachesRes] = await Promise.all([
+  // ---- Wave 1: everything that needs only companyId ----------
+  // Six reads with no dependency on each other. They used to run in a
+  // line along with everything below, so the page paid eleven
+  // sequential round trips for a graph that is three levels deep.
+  // Ordering is preserved in the destructure, not in time.
+  //
+  // The parking lot belongs here and not with the other two
+  // commitment reads: it has no date window at all (every row with
+  // parked_at set), so unlike them it needs neither the quarter nor
+  // the company's timezone.
+  const [
+    { data: company },
+    openQuarter,
+    rosterRes,
+    coachesRes,
+    { data: fnRows },
+    { data: parkedRows },
+  ] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("timezone")
+      .eq("id", companyId)
+      .maybeSingle<{ timezone: string }>(),
+    getCurrentQuarter(companyId),
+    // Roster for owner filter + display and owner picker in the add
+    // row. Pending users show up alongside active — an admin can
+    // pre-assign commitments to someone who hasn't accepted their
+    // invite yet.
     supabase
       .from("profiles")
       .select("id, full_name, position")
       .eq("company_id", companyId)
       .neq("status", "inactive")
       .order("full_name"),
+    // System admins (AiMS coaches) are appended so they can be picked
+    // as owners even though they don't belong to the client company.
     supabase
       .from("profiles")
       .select("id, full_name, position")
       .eq("role", "system_admin")
       .neq("status", "inactive")
       .order("full_name"),
+    // Non-archived functions from the chart feed the link picker's
+    // Functional Areas group.
+    supabase
+      .from("functions")
+      .select("id, title")
+      .eq("company_id", companyId)
+      .eq("archived", false)
+      .order("title"),
+    // Parking lot: everything with parked_at set, no date window.
+    // Displayed as its own muted section at the bottom of the page.
+    supabase
+      .from("commitments")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .is("issue_id", null)
+      .not("parked_at", "is", null)
+      .order("parked_at", { ascending: false }),
   ]);
+
+  const timezone = company?.timezone ?? "America/Anchorage";
+  const { iso: todayIso } = todayInTimezone(timezone);
+  const thisFri = thisFriday(timezone);
+
+  const quarterCoversThisWeek = Boolean(
+    openQuarter &&
+      openQuarter.start_date <= thisFri &&
+      openQuarter.end_date >= thisFri
+  );
+
   const companyMembers = (rosterRes.data ?? []) as Array<
     Pick<Profile, "id" | "full_name" | "position">
   >;
@@ -331,19 +368,6 @@ export async function getCommitmentsPageData(
   ];
   const rosterById = new Map(roster.map((p) => [p.id, p]));
 
-  // Open-quarter priorities feed the link picker's Priorities group.
-  const priorityOptions: Array<Pick<Priority, "id" | "title">> = openQuarter
-    ? await loadOpenPriorityOptions(supabase, companyId, openQuarter.id)
-    : [];
-
-  // Non-archived functions from the chart feed the link picker's
-  // Functional Areas group.
-  const { data: fnRows } = await supabase
-    .from("functions")
-    .select("id, title")
-    .eq("company_id", companyId)
-    .eq("archived", false)
-    .order("title");
   const functionalAreaOptions = (fnRows ?? []) as Array<{
     id: string;
     title: string;
@@ -367,17 +391,6 @@ export async function getCommitmentsPageData(
   // views; personal surfaces (Guide HQ my commitments, scorecard,
   // coaching context, follow-through math) continue to include them
   // because those loaders don't touch this file.
-  const { data: rawRows } = await supabase
-    .from("commitments")
-    .select("*")
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .is("parked_at", null)
-    .is("issue_id", null)
-    .gte("week_ending", windowStart)
-    .lte("week_ending", windowEnd)
-    .order("due_date", { ascending: true });
-
   // Also pull past-week still-open rows from BEFORE the window so the
   // "Needs attention" bucket never loses a row that fell off the edge.
   // Bounded to a one-year lookback so genuinely abandoned rows (open
@@ -385,27 +398,47 @@ export async function getCommitmentsPageData(
   // this fetch without limit — a stale row from more than 12 months
   // ago is history, not a "needs attention" today.
   const strandedFloor = addDays(windowStart, -365);
-  const { data: strandedRows } = await supabase
-    .from("commitments")
-    .select("*")
-    .eq("company_id", companyId)
-    .eq("status", "open")
-    .is("deleted_at", null)
-    .is("parked_at", null)
-    .is("issue_id", null)
-    .lt("week_ending", windowStart)
-    .gte("week_ending", strandedFloor);
 
-  // Parking lot: everything with parked_at set, no date window.
-  // Displayed as its own muted section at the bottom of the page.
-  const { data: parkedRows } = await supabase
-    .from("commitments")
-    .select("*")
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .is("issue_id", null)
-    .not("parked_at", "is", null)
-    .order("parked_at", { ascending: false });
+  // ---- Wave 2: everything that needed the quarter or the clock ----
+  // The two commitment windows need windowStart, which comes from the
+  // open quarter, and thisFri, which comes from the company's
+  // timezone. The priority options need the quarter's id and the
+  // quarter keep rate needs its date range. None of the four needs
+  // any of the others.
+  const [priorityOptions, { data: rawRows }, { data: strandedRows }, keepRateThisQuarter] =
+    await Promise.all([
+      // Open-quarter priorities feed the link picker's Priorities group.
+      openQuarter
+        ? loadOpenPriorityOptions(supabase, companyId, openQuarter.id)
+        : Promise.resolve([] as Array<Pick<Priority, "id" | "title">>),
+      supabase
+        .from("commitments")
+        .select("*")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .is("parked_at", null)
+        .is("issue_id", null)
+        .gte("week_ending", windowStart)
+        .lte("week_ending", windowEnd)
+        .order("due_date", { ascending: true }),
+      supabase
+        .from("commitments")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("status", "open")
+        .is("deleted_at", null)
+        .is("parked_at", null)
+        .is("issue_id", null)
+        .lt("week_ending", windowStart)
+        .gte("week_ending", strandedFloor),
+      // Deliberately NOT derived from the rows above: it counts
+      // issue-linked commitments, which this page excludes. Same
+      // reason it was a separate query before — only its position
+      // moved.
+      openQuarter
+        ? computeQuarterKeepRate(companyId, openQuarter)
+        : Promise.resolve(null as number | null),
+    ]);
 
   const allRows = [
     ...((rawRows ?? []) as Commitment[]),
@@ -430,25 +463,25 @@ export async function getCommitmentsPageData(
         .filter((id): id is string => Boolean(id))
     )
   );
+  // ---- Wave 3: the two lookups that need the rows ----------------
+  // Independent of each other; both wait only on the ids the rows
+  // above carry.
+  const [{ data: prows }, { data: frows }] = await Promise.all([
+    priorityIds.length > 0
+      ? supabase.from("priorities").select("id, title").in("id", priorityIds)
+      : Promise.resolve({ data: [] as Priority[] }),
+    functionalAreaIds.length > 0
+      ? supabase.from("functions").select("id, title").in("id", functionalAreaIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+  ]);
+
   const priorityMap = new Map<string, Pick<Priority, "id" | "title">>();
-  if (priorityIds.length > 0) {
-    const { data: prows } = await supabase
-      .from("priorities")
-      .select("id, title")
-      .in("id", priorityIds);
-    for (const row of (prows ?? []) as Priority[]) {
-      priorityMap.set(row.id, { id: row.id, title: row.title });
-    }
+  for (const row of (prows ?? []) as Priority[]) {
+    priorityMap.set(row.id, { id: row.id, title: row.title });
   }
   const functionalAreaMap = new Map<string, { id: string; title: string }>();
-  if (functionalAreaIds.length > 0) {
-    const { data: frows } = await supabase
-      .from("functions")
-      .select("id, title")
-      .in("id", functionalAreaIds);
-    for (const row of (frows ?? []) as Array<{ id: string; title: string }>) {
-      functionalAreaMap.set(row.id, row);
-    }
+  for (const row of (frows ?? []) as Array<{ id: string; title: string }>) {
+    functionalAreaMap.set(row.id, row);
   }
 
   const enrich = (c: Commitment): CommitmentWithMeta => ({
@@ -472,9 +505,6 @@ export async function getCommitmentsPageData(
   const needsAttentionRaw = allRows.filter(
     (c) => c.week_ending < thisFri && c.status === "open"
   );
-  const keepRateThisQuarter = openQuarter
-    ? await computeQuarterKeepRate(companyId, openQuarter)
-    : null;
 
   // ---- Filtered slices for display. ----
   const filtered = allRows.filter((c) =>
