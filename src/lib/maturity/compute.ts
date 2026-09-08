@@ -142,10 +142,74 @@ export function gatingFrom(features: readonly ModuleFeature[]): {
   };
 }
 
+// A then-versus-now comparison of two scorecard points, computed over
+// the disciplines BOTH points actually scored.
+//
+// Every overall is a weighted mean over whichever disciplines scored,
+// so two overalls are only comparable when they cover the same set.
+// They routinely do not: a company turns Success Tracking on, a
+// feature-gated tile starts scoring, and yesterday's number was a mean
+// over six weights while today's is over ten. Subtracting them is
+// arithmetic on two different questions.
+//
+// The failure this exists for made that concrete. From 2026-08-13 the
+// weekly cron could not read entitlements, so every stored snapshot is
+// a mean over the four ungated disciplines while every live score is a
+// mean over all the ones enabled. Measured on production on
+// 2026-09-08, four of eight companies showed a false "scorecard
+// dropped" on Guide HQ purely from that mismatch — the highest
+// severity trigger in the attention queue, firing on a subtraction
+// between two different denominators.
+//
+// Restricting to the intersection makes the comparison correct by
+// construction rather than by the history happening to line up. It
+// also degrades honestly: if the two points share nothing, the answer
+// is null, not zero.
+export type OverallComparison = {
+  then: number;
+  now: number;
+  // now - then, one decimal place. Negative means it got worse.
+  delta: number;
+  // How many disciplines the comparison actually covered. Worth
+  // surfacing: "down 0.4 across 4 disciplines" is a different claim
+  // from "down 0.4 across 8".
+  disciplinesCompared: number;
+};
+
+export function compareOverall(
+  then: readonly DisciplineScore[],
+  now: readonly DisciplineScore[]
+): OverallComparison | null {
+  const scoredKeys = (rows: readonly DisciplineScore[]) =>
+    new Set(rows.filter((r) => r.score !== null).map((r) => r.key));
+
+  const thenKeys = scoredKeys(then);
+  const nowKeys = scoredKeys(now);
+  const shared = new Set([...thenKeys].filter((k) => nowKeys.has(k)));
+  if (shared.size === 0) return null;
+
+  const restrict = (rows: readonly DisciplineScore[]) =>
+    rows.filter((r) => shared.has(r.key));
+
+  const before = overallFrom(restrict(then));
+  const after = overallFrom(restrict(now));
+  if (before.score === null || after.score === null) return null;
+
+  return {
+    then: before.score,
+    now: after.score,
+    delta: Math.round((after.score - before.score) * 10) / 10,
+    disciplinesCompared: shared.size,
+  };
+}
+
 // Weighted average across scored disciplines. Null-score disciplines
 // (feature off) are dropped, not zero — the weight is redistributed
 // across the remaining ones automatically because the divisor is the
 // sum of weights ACTUALLY COUNTED.
+//
+// NOTE: this is the right way to score ONE point and the wrong way to
+// compare TWO. Use compareOverall above for anything then-versus-now.
 export function overallFrom(scores: DisciplineScore[]): {
   score: number | null;
   disciplinesCounted: number;

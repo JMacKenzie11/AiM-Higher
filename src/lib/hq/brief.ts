@@ -2,6 +2,7 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { compareOverall } from "@/lib/maturity/compute";
 import { loadCompanyScorecard } from "@/lib/maturity/service";
 import { computeAttentionForCompanies } from "@/lib/hq/attention";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
@@ -157,16 +158,27 @@ export async function generateSessionBrief(
   }
 
   // Scorecard delta: current vs most recent prior snapshot.
+  //
+  // Compared over the disciplines both points scored, not by
+  // subtracting the two headline overalls. A guide reads this line
+  // minutes before a coaching session and quotes the number back to
+  // the leader, so "down 1.1 since Sunday" has to mean a real decline
+  // rather than the stored snapshot covering a different set of
+  // disciplines than today's live score. See compareOverall.
   let scorecardBlock = "No scorecard snapshot available yet.";
   if (scorecard && scorecard.overall.score !== null) {
     const priorSnap =
       scorecard.overallTimeseries[scorecard.overallTimeseries.length - 1];
-    if (priorSnap && priorSnap.score !== null) {
-      const delta = scorecard.overall.score - priorSnap.score;
-      const arrow = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
-      scorecardBlock = `Overall ${scorecard.overall.score}/10 (${arrow} ${Math.abs(
-        Math.round(delta * 10) / 10
-      )} vs ${priorSnap.date} snapshot of ${priorSnap.score}/10).`;
+    const comparison = priorSnap
+      ? compareOverall(priorSnap.scores, scorecard.disciplines)
+      : null;
+    if (priorSnap && comparison) {
+      const arrow =
+        comparison.delta > 0 ? "up" : comparison.delta < 0 ? "down" : "flat";
+      scorecardBlock =
+        `Overall ${comparison.now}/10 (${arrow} ${Math.abs(comparison.delta)} ` +
+        `vs ${priorSnap.date} snapshot of ${comparison.then}/10, ` +
+        `across the ${comparison.disciplinesCompared} disciplines scored on both).`;
     } else {
       scorecardBlock = `Overall ${scorecard.overall.score}/10 (no prior snapshot yet).`;
     }

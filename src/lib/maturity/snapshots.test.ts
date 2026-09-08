@@ -86,8 +86,30 @@ describe("loadLatestOverallSnapshots", () => {
 
     const result = await loadLatestOverallSnapshots(["co_1", "co_2"]);
 
-    expect(result.get("co_1")).toEqual({ date: "2025-12-01", score: 8 });
-    expect(result.get("co_2")).toEqual({ date: "2025-11-01", score: 6 });
+    expect(result.get("co_1")).toMatchObject({ date: "2025-12-01", score: 8 });
+    expect(result.get("co_2")).toMatchObject({ date: "2025-11-01", score: 6 });
+  });
+
+  it("carries the newest date's discipline rows, not just the rolled-up score", () => {
+    // The rolled-up number is for display. A caller comparing this
+    // against a live score needs to know WHICH disciplines went into
+    // it, or it ends up subtracting two weighted means taken over
+    // different sets. See compareOverall.
+    mocks.rowsResult.mockResolvedValue({
+      data: [
+        row("co_1", "2025-12-01", "foundation", 8),
+        row("co_1", "2025-12-01", "measures", null),
+      ],
+    });
+
+    return import("./service").then(async ({ loadLatestOverallSnapshots }) => {
+      const result = await loadLatestOverallSnapshots(["co_1"]);
+
+      expect(result.get("co_1")?.scores).toEqual([
+        { key: "foundation", score: 8, breakdown: {} },
+        { key: "measures", score: null, breakdown: {} },
+      ]);
+    });
   });
 
   it("averages the disciplines on the newest date, ignoring older ones", async () => {

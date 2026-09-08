@@ -125,26 +125,123 @@ describe("trajectoryFor", () => {
   });
 });
 
+// A discipline score, terse enough that a fixture reads as data.
+function d(key: string, score: number | null): DisciplineScore {
+  return { key, score, breakdown: {} } as DisciplineScore;
+}
+
+// An overall-timeseries point. `score` is the rolled-up number the
+// chart draws; `scores` is what a comparison is actually computed
+// from.
+function point(date: string, scores: DisciplineScore[]) {
+  const counted = scores.filter((s) => s.score !== null);
+  return {
+    date,
+    score: counted.length === 0 ? null : 0, // unused by overallTrajectory
+    scores,
+  };
+}
+
 describe("overallTrajectory", () => {
-  it("compares overall live to the oldest overall-timeseries entry inside the window", () => {
+  it("compares live against the oldest timeseries entry inside the window", () => {
     const sc = scorecardFrom({
-      overall: { score: 7, disciplinesCounted: 6 },
+      overall: { score: 7, disciplinesCounted: 2 },
+      disciplines: [d("foundation", 7), d("chart", 7)],
       overallTimeseries: [
-        { date: daysAgoIso(120), score: 2 }, // outside — ignored
-        { date: daysAgoIso(60), score: 5 }, // anchor
-        { date: daysAgoIso(7), score: 6.5 },
+        point(daysAgoIso(120), [d("foundation", 2), d("chart", 2)]), // outside
+        point(daysAgoIso(60), [d("foundation", 5), d("chart", 5)]), // anchor
+        point(daysAgoIso(7), [d("foundation", 6.5), d("chart", 6.5)]),
       ],
     });
 
     const t = overallTrajectory(sc);
     expect(t?.delta).toBe(2);
     expect(t?.priorDate).toBe(daysAgoIso(60));
+    expect(t?.disciplinesCompared).toBe(2);
+  });
+
+  it("ignores a discipline the anchor never scored", () => {
+    // THE PRODUCTION BUG, as a test. From 2026-08-13 the weekly cron
+    // could not read entitlements, so stored snapshots carry the four
+    // ungated disciplines and nothing else, while the live score
+    // covers everything enabled.
+    //
+    // Naive subtraction: live is (8 + 8 + 2) / 3 = 6 against an anchor
+    // of 8, so the arrow reads DOWN 2 and Guide HQ raises its heaviest
+    // trigger — on a company whose foundation and chart have not moved
+    // a point.
+    //
+    // Restricted to what both sides scored, the honest answer is flat.
+    const sc = scorecardFrom({
+      overall: { score: 6, disciplinesCounted: 3 },
+      disciplines: [d("foundation", 8), d("chart", 8), d("measures", 2)],
+      overallTimeseries: [
+        point(daysAgoIso(30), [
+          d("foundation", 8),
+          d("chart", 8),
+          d("measures", null),
+        ]),
+      ],
+    });
+
+    const t = overallTrajectory(sc);
+    expect(t?.delta).toBe(0);
+    expect(t?.disciplinesCompared).toBe(2);
+  });
+
+  it("ignores a discipline the live score no longer has", () => {
+    // The mirror case: a module switched OFF since the snapshot. The
+    // history has it, today does not, and it must not count either way.
+    const sc = scorecardFrom({
+      overall: { score: 8, disciplinesCounted: 2 },
+      disciplines: [d("foundation", 8), d("chart", 8), d("measures", null)],
+      overallTimeseries: [
+        point(daysAgoIso(30), [
+          d("foundation", 8),
+          d("chart", 8),
+          d("measures", 1),
+        ]),
+      ],
+    });
+
+    const t = overallTrajectory(sc);
+    expect(t?.delta).toBe(0);
+    expect(t?.disciplinesCompared).toBe(2);
+  });
+
+  it("still reports a real decline in the disciplines both points share", () => {
+    // The guard must not become "always flat". A genuine drop on
+    // shared disciplines still reads as a drop.
+    const sc = scorecardFrom({
+      overall: { score: 4, disciplinesCounted: 3 },
+      disciplines: [d("foundation", 4), d("chart", 4), d("measures", 9)],
+      overallTimeseries: [
+        point(daysAgoIso(30), [
+          d("foundation", 8),
+          d("chart", 8),
+          d("measures", null),
+        ]),
+      ],
+    });
+
+    expect(overallTrajectory(sc)?.delta).toBe(-4);
+  });
+
+  it("returns null when the two points share no scored discipline", () => {
+    const sc = scorecardFrom({
+      overall: { score: 5, disciplinesCounted: 1 },
+      disciplines: [d("measures", 5)],
+      overallTimeseries: [point(daysAgoIso(30), [d("foundation", 8)])],
+    });
+
+    expect(overallTrajectory(sc)).toBeNull();
   });
 
   it("returns null when overall is null (no scored disciplines at all)", () => {
     const sc = scorecardFrom({
       overall: { score: null, disciplinesCounted: 0 },
-      overallTimeseries: [{ date: daysAgoIso(30), score: 4 }],
+      disciplines: [],
+      overallTimeseries: [point(daysAgoIso(30), [d("foundation", 4)])],
     });
 
     expect(overallTrajectory(sc)).toBeNull();

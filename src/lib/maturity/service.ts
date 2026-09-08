@@ -1,7 +1,11 @@
 import "server-only";
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { computeCompanyScorecard, overallFrom } from "./compute";
+import {
+  compareOverall,
+  computeCompanyScorecard,
+  overallFrom,
+} from "./compute";
 import {
   DISCIPLINE_KEYS,
   type DisciplineKey,
@@ -60,8 +64,16 @@ export const loadCompanyScorecardScores = cache(
 // did when overallTimeseries was empty.
 export async function loadLatestOverallSnapshots(
   companyIds: readonly string[]
-): Promise<Map<string, { date: string; score: number | null }>> {
-  const result = new Map<string, { date: string; score: number | null }>();
+): Promise<
+  Map<
+    string,
+    { date: string; score: number | null; scores: DisciplineScore[] }
+  >
+> {
+  const result = new Map<
+    string,
+    { date: string; score: number | null; scores: DisciplineScore[] }
+  >();
   if (companyIds.length === 0) return result;
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
@@ -101,7 +113,11 @@ export async function loadLatestOverallSnapshots(
       })
     );
     const { score } = overallFrom(scores);
-    result.set(companyId, { date: latestDate, score });
+    // `scores` rides along so a caller comparing this against a live
+    // score can restrict both sides to the disciplines they share.
+    // The rolled-up `score` stays for display; it is not a safe thing
+    // to subtract from.
+    result.set(companyId, { date: latestDate, score, scores });
   }
 
   return result;
@@ -170,7 +186,9 @@ export const loadCompanyScorecard = cache(async function loadCompanyScorecard(
         breakdown: r.breakdown_json,
       }));
       const { score } = overallFrom(scores);
-      return { date, score };
+      // The chart reads `score`; comparisons read `scores`. See the
+      // note on CompanyScorecard.overallTimeseries.
+      return { date, score, scores };
     });
 
   return {
@@ -187,6 +205,12 @@ export const loadCompanyScorecard = cache(async function loadCompanyScorecard(
 // discipline to the score recorded on the oldest snapshot within
 // TRAJECTORY_WINDOW_DAYS. Returns null when there's no prior snapshot
 // to compare against (fresh company).
+//
+// No denominator problem here, and that is worth stating rather than
+// leaving to be rediscovered: both sides are the same single
+// discipline, so there is nothing to take an intersection of. Only the
+// OVERALL is a weighted mean whose membership can change underneath a
+// comparison. See overallTrajectory below.
 export function trajectoryFor(
   discipline: DisciplineKey,
   scorecard: CompanyScorecard
@@ -213,10 +237,26 @@ export function trajectoryFor(
   };
 }
 
-// Overall trajectory: same idea, against overallTimeseries.
-export function overallTrajectory(
-  scorecard: CompanyScorecard
-): { delta: number; priorDate: string } | null {
+// Overall trajectory: same idea against overallTimeseries, but the
+// arithmetic is NOT the same.
+//
+// A per-discipline arrow subtracts two scores for one discipline. This
+// one subtracts two weighted means, and a mean is only comparable to
+// another over the same membership. The anchor is up to 90 days old,
+// which is ample time for a company to buy Success Tracking, for a
+// tile to start scoring, or — as happened from 2026-08-13 — for the
+// stored history to be missing four disciplines the live score has.
+//
+// So both sides are recomputed over the disciplines they share.
+// `delta` is a like-for-like difference; `disciplinesCompared` says
+// how broad the comparison was, because "down 0.4 across 4" and "down
+// 0.4 across 8" are different claims and the UI should be able to say
+// which it is.
+export function overallTrajectory(scorecard: CompanyScorecard): {
+  delta: number;
+  priorDate: string;
+  disciplinesCompared: number;
+} | null {
   if (scorecard.overall.score === null) return null;
   const cutoff = new Date(
     Date.now() - TRAJECTORY_WINDOW_DAYS * 24 * 60 * 60 * 1000
@@ -227,9 +267,14 @@ export function overallTrajectory(
     (row) => row.date >= cutoff && row.score !== null
   );
   if (!anchor || anchor.score === null) return null;
+
+  const comparison = compareOverall(anchor.scores, scorecard.disciplines);
+  if (!comparison) return null;
+
   return {
-    delta: Math.round((scorecard.overall.score - anchor.score) * 10) / 10,
+    delta: comparison.delta,
     priorDate: anchor.date,
+    disciplinesCompared: comparison.disciplinesCompared,
   };
 }
 

@@ -126,6 +126,12 @@ vi.mock("@/lib/maturity/service", () => ({
   loadLatestOverallSnapshots: mocks.loadLatestOverallSnapshots,
 }));
 
+// A discipline score for the fixtures below. The trigger reads these
+// rows, not the rolled-up overall.
+function disc(key: string, score: number | null) {
+  return { key, score, breakdown: {} };
+}
+
 function primeNoTriggers() {
   mocks.companiesResult.mockResolvedValue({
     data: [{ id: "co_1", name: "Acme" }],
@@ -137,14 +143,27 @@ function primeNoTriggers() {
   mocks.meetingsUnroutedResult.mockResolvedValue({ data: [] });
   mocks.aliasesResult.mockResolvedValue({ data: [] });
   mocks.analysesResult.mockResolvedValue({ data: [] });
+  // Both sides carry real discipline rows. The scorecard_dropped
+  // trigger compares them over the disciplines they share, so an
+  // empty array on either side means "nothing comparable" rather than
+  // "no change" — see compareOverall.
   mocks.loadCompanyScorecardScores.mockResolvedValue({
     companyId: "co_1",
     computedAt: "2026-01-01",
-    overall: { score: 7, disciplinesCounted: 4 },
-    disciplines: [],
+    overall: { score: 7, disciplinesCounted: 2 },
+    disciplines: [disc("foundation", 7), disc("chart", 7)],
   });
   mocks.loadLatestOverallSnapshots.mockResolvedValue(
-    new Map([["co_1", { date: "2025-12-01", score: 7 }]])
+    new Map([
+      [
+        "co_1",
+        {
+          date: "2025-12-01",
+          score: 7,
+          scores: [disc("foundation", 7), disc("chart", 7)],
+        },
+      ],
+    ])
   );
 }
 
@@ -164,11 +183,20 @@ describe("computeAttentionForCompanies — per-trigger", () => {
     mocks.loadCompanyScorecardScores.mockResolvedValueOnce({
       companyId: "co_1",
       computedAt: "2026-01-01",
-      overall: { score: 5, disciplinesCounted: 4 },
-      disciplines: [],
+      overall: { score: 5, disciplinesCounted: 2 },
+      disciplines: [disc("foundation", 5), disc("chart", 5)],
     });
     mocks.loadLatestOverallSnapshots.mockResolvedValue(
-      new Map([["co_1", { date: "2025-12-01", score: 8 }]])
+      new Map([
+        [
+          "co_1",
+          {
+            date: "2025-12-01",
+            score: 8,
+            scores: [disc("foundation", 8), disc("chart", 8)],
+          },
+        ],
+      ])
     );
     const { computeAttentionForCompanies } = await import("./attention");
     const rows = await computeAttentionForCompanies(["co_1"]);
@@ -179,6 +207,46 @@ describe("computeAttentionForCompanies — per-trigger", () => {
       to: 5,
       priorDate: "2025-12-01",
     });
+  });
+
+  it("scorecard_dropped does NOT fire on a discipline only the live score has", async () => {
+    // The false alert this trigger was raising in production. The
+    // stored snapshot covers foundation + chart because the cron could
+    // not read entitlements; the live score adds a low `measures`,
+    // which drags the raw overall from 8 down to 6.
+    //
+    // Measured on production 2026-09-08, this shape had four of eight
+    // companies showing the queue's heaviest trigger with nothing
+    // wrong. On the shared disciplines the company is flat.
+    mocks.loadCompanyScorecardScores.mockResolvedValueOnce({
+      companyId: "co_1",
+      computedAt: "2026-01-01",
+      overall: { score: 6, disciplinesCounted: 3 },
+      disciplines: [
+        disc("foundation", 8),
+        disc("chart", 8),
+        disc("measures", 2),
+      ],
+    });
+    mocks.loadLatestOverallSnapshots.mockResolvedValue(
+      new Map([
+        [
+          "co_1",
+          {
+            date: "2025-12-01",
+            score: 8,
+            scores: [
+              disc("foundation", 8),
+              disc("chart", 8),
+              disc("measures", null),
+            ],
+          },
+        ],
+      ])
+    );
+    const { computeAttentionForCompanies } = await import("./attention");
+
+    expect(await computeAttentionForCompanies(["co_1"])).toEqual([]);
   });
 
   it("ftr_low fires when 30d follow-through < threshold", async () => {

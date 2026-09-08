@@ -36,7 +36,18 @@ export type CompanyScorecard = {
   // Keyed by discipline for easy lookup in the client.
   timeseries: Record<DisciplineKey, Array<{ date: string; score: number | null }>>;
   // Overall score history (weighted average per snapshot date).
-  overallTimeseries: Array<{ date: string; score: number | null }>;
+  //
+  // Each point carries the discipline scores it was built from, not
+  // just the rolled-up number. A comparison against a later point has
+  // to know WHICH disciplines a historical overall covered — two
+  // overalls computed over different discipline sets are not
+  // subtractable, and treating them as if they were is what put false
+  // "scorecard dropped" alerts on Guide HQ. See compareOverall.
+  overallTimeseries: Array<{
+    date: string;
+    score: number | null;
+    scores: DisciplineScore[];
+  }>;
 };
 
 // Small utility used by every scorer: clamp to [0, 10] and round to 1dp.
