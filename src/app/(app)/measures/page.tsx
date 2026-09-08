@@ -4,8 +4,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getMeasuresTree } from "@/lib/measures/service";
-import { getBoardData } from "@/lib/measures/board";
+import { getMeasuresPageData } from "@/lib/measures/page-data";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { formatShortDate } from "@/lib/dates";
 import { MeasuresManager } from "./MeasuresManager";
@@ -39,9 +38,12 @@ export default async function MeasuresPage() {
     .maybeSingle<{ timezone: string }>();
   const timezone = company?.timezone ?? "America/Anchorage";
 
-  const [tree, board, trackingEnabled, rdEnabled] = await Promise.all([
-    getMeasuresTree(companyId, session.profile.id, timezone, isAdmin),
-    getBoardData(companyId, timezone),
+  // One pass for both surfaces. The Board and the Manager read the
+  // same functions, critical success factors, links and KPIs; loading
+  // them separately fetched four of five reads twice on every page
+  // load. See getMeasuresPageData.
+  const [{ tree, board }, trackingEnabled, rdEnabled] = await Promise.all([
+    getMeasuresPageData(companyId, session.profile.id, timezone, isAdmin),
     companyHasFeature(companyId, "performance_tracking"),
     companyHasFeature(companyId, "role_descriptions"),
   ]);

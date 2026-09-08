@@ -24,7 +24,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const FROZEN_NOW = new Date("2026-09-02T18:00:00Z"); // a Wednesday
 const THIS_FRIDAY = "2026-09-04";
-const OLDEST = "2026-07-31"; // weekEnding - 35 days
+const OLDEST = "2026-07-31"; // weekEnding - 35 days, the tree's trail
+// weekEnding - 12 weeks: what the shared spine actually fetches, since
+// the Board needs 13 columns and one read now serves both surfaces.
+const BOARD_OLDEST = "2026-06-12";
 
 const mocks = vi.hoisted(() => {
   // Rows keyed by table name. The fake ignores filters and returns
@@ -495,7 +498,13 @@ describe("getMeasuresTree — values and the five-week trail", () => {
     });
   });
 
-  it("requests a five-week window ending this Friday", async () => {
+  it("fetches the board's 13-week window, since both surfaces share one read", async () => {
+    // The entries read used to be five weeks, matching this tree's
+    // trail. It is now the wider of the two windows because the Board
+    // and the Manager share loadMeasuresSpine, and fetching the
+    // narrower one would have meant a second query for a subset of
+    // rows already in memory. The five-week trail is applied in
+    // shaping instead — pinned by the test below.
     seed("success_measure_entries", []);
     const { getMeasuresTree } = await import("./service");
 
@@ -507,8 +516,34 @@ describe("getMeasuresTree — values and the five-week trail", () => {
     const lte = mocks.calls.find(
       (c) => c.table === "success_measure_entries" && c.op === "lte"
     );
-    expect(gte?.args).toEqual(["week_ending", OLDEST]);
+    expect(gte?.args).toEqual(["week_ending", BOARD_OLDEST]);
     expect(lte?.args).toEqual(["week_ending", THIS_FRIDAY]);
+  });
+
+  it("still trails only five weeks, even though 13 were fetched", async () => {
+    // The behaviour the old query guaranteed, now guaranteed by the
+    // shaping. Without this the Manager's recent pills would quietly
+    // grow from five columns to thirteen.
+    seedMeasures([measure("m_1", "Revenue", "o_1")], [["o_1", "m_1"]]);
+    seed("success_measure_entries", [
+      entry("m_1", THIS_FRIDAY, 10),
+      entry("m_1", OLDEST, 20),
+      // One day outside the five-week trail, well inside the 13 weeks
+      // the spine fetched.
+      entry("m_1", "2026-07-30", 30),
+      entry("m_1", BOARD_OLDEST, 40),
+    ]);
+    const { getMeasuresTree } = await import("./service");
+
+    const { functions } = await getMeasuresTree(
+      "co_1",
+      "u_1",
+      "America/Anchorage",
+      true
+    );
+
+    const recent = functions[0].outcomes[0].measures[0].recent;
+    expect(recent.map((r) => r.weekEnding)).toEqual([THIS_FRIDAY, OLDEST]);
   });
 
   it("computes weekEnding in the company's timezone", async () => {

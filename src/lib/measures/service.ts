@@ -1,11 +1,13 @@
 import "server-only";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { addDays, thisFriday } from "@/lib/dates";
-import { firstCsfIdByKpi } from "@/lib/measures/csf-as-outcome";
+import { addDays } from "@/lib/dates";
+import {
+  TREE_TRAIL_DAYS,
+  loadMeasuresSpine,
+  type MeasuresSpine,
+} from "@/lib/measures/spine";
 import type {
   UpdateFrequency, MetricValueType, TargetDirection } from "@/lib/types";
-import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // The read behind /measures.
 //
@@ -81,34 +83,18 @@ export type MeasureTreeFunction = {
   outcomes: MeasureTreeOutcome[];
 };
 
-export async function getMeasuresTree(
-  companyId: string,
+// The /measures Manager tree, shaped from rows already in hand.
+//
+// Pure: every read this used to do lives in loadMeasuresSpine, which
+// the board shares. See getMeasuresTree below for the convenience
+// wrapper, and getMeasuresPageData for the path the page takes.
+export function buildMeasuresTree(
+  spine: MeasuresSpine,
   userId: string,
-  timezone: string,
   includeAll: boolean
-): Promise<{ functions: MeasureTreeFunction[]; weekEnding: string }> {
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const weekEnding = thisFriday(timezone);
-
-  // Everyone in the company reads every function. These are the
-  // company's commitments to itself, and someone who cannot see what
-  // their own function is held to cannot align to it. Writing stays
-  // narrow: `canLog` below decides who gets an input instead of a
-  // read-only value.
-  const functionsQuery = supabase
-    .from("functions")
-    .select("id, title, sort_order, parent_function_id, lead_id, track_id")
-    .eq("company_id", companyId)
-    .eq("archived", false);
-  const { data: functionRows } = await functionsQuery;
-  const functions = (functionRows ?? []) as Array<{
-    id: string;
-    title: string;
-    lead_id: string | null;
-    track_id: string | null;
-    sort_order: number;
-    parent_function_id: string | null;
-  }>;
+): { functions: MeasureTreeFunction[]; weekEnding: string } {
+  const { weekEnding } = spine;
+  const functions = spine.functions;
   if (functions.length === 0) return { functions: [], weekEnding };
   // Everyone gets the whole company now, so the hierarchy can always
   // be reconstructed: Visionary at the top, Integrator second, every
@@ -130,34 +116,12 @@ export async function getMeasuresTree(
           (f) => f.lead_id !== userId && f.track_id !== userId
         ),
       ];
-  const functionIds = orderedFunctions.map((f) => f.id);
 
-  // CSF measures ARE the outcomes now (migration 0166). Same rows,
-  // reached by function + kind instead of through function_outcomes.
-  // The name mapping matters: a CSF's `description` holds what the
-  // outcome called `title`, and its `detail` holds what the outcome
-  // called `description`.
-  const { data: csfRows } = await supabase
-    .from("success_measures")
-    .select(
-      "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order"
-    )
-    .in("function_id", functionIds)
-    .eq("kind", "csf")
-    .eq("archived", false);
-  const outcomes = ((csfRows ?? []) as Array<{
-    id: string;
-    description: string;
-    detail: string | null;
-    target: string | null;
-    value_type: MetricValueType;
-    target_direction: TargetDirection;
-    auto_track: boolean;
-    update_frequency: UpdateFrequency;
-    target_hint: string | null;
-    function_id: string;
-    sort_order: number;
-  }>).map((c) => ({
+  // CSF measures ARE the outcomes now (migration 0166). The name
+  // mapping matters: a CSF's `description` holds what the outcome
+  // called `title`, and its `detail` holds what the outcome called
+  // `description`.
+  const outcomes = spine.csfRows.map((c) => ({
     id: c.id,
     title: c.description,
     description: c.detail,
@@ -172,67 +136,17 @@ export async function getMeasuresTree(
   }));
   const outcomeIds = outcomes.map((o) => o.id);
 
-  // Which KPIs hang off those CSFs. Read as a list per CSF from the
-  // start, even though the authoring UI allows only one CSF per KPI
-  // today — writing this for a single parent would mean rewriting it
-  // the day that rule is widened, which is the whole reason the link
-  // table is many-to-many.
-  const linkRows =
-    outcomeIds.length === 0
-      ? []
-      : (((
-          await supabase
-            .from("csf_kpi_links")
-            .select("csf_id, kpi_id")
-            .in("csf_id", outcomeIds)
-        ).data ?? []) as Array<{ csf_id: string; kpi_id: string }>);
-  const kpiIds = Array.from(new Set(linkRows.map((l) => l.kpi_id)));
+  const linkRows = spine.linkRows;
+  const measureRows = spine.kpiRows;
 
-  const measureRows =
-    kpiIds.length === 0
-      ? []
-      : (((
-          await supabase
-            .from("success_measures")
-            .select(
-              "id, description, target, value_type, target_direction, auto_track, update_frequency, target_hint, sort_order"
-            )
-            .in("id", kpiIds)
-            .eq("archived", false)
-            .order("sort_order")
-        ).data ?? []) as Array<{
-          id: string;
-          description: string;
-          target: string | null;
-          value_type: MetricValueType;
-          target_direction: TargetDirection;
-          auto_track: boolean;
-          update_frequency: UpdateFrequency;
-          target_hint: string | null;
-          sort_order: number;
-        }>);
-
-  const oldest = addDays(weekEnding, -35);
-  // CSF ids ride along: a CSF is measured now, so it has its own
-  // weekly entries and its own recent trail, exactly like a KPI.
-  const measureIds = [...outcomeIds, ...measureRows.map((m) => m.id)];
-  const entryRows =
-    measureIds.length === 0
-      ? []
-      : ((
-          await supabase
-            .from("success_measure_entries")
-            .select("measure_id, week_ending, value_number, value_text")
-            .in("measure_id", measureIds)
-            .gte("week_ending", oldest)
-            .lte("week_ending", weekEnding)
-            .order("week_ending", { ascending: false })
-        ).data ?? []) as Array<{
-          measure_id: string;
-          week_ending: string;
-          value_number: number | null;
-          value_text: string | null;
-        }>;
+  // The spine fetches the board's 13-week window, which is the wider
+  // of the two. The Manager's trail is five weeks, so it narrows here
+  // rather than issuing a second read for a subset of rows already in
+  // memory.
+  const oldest = addDays(weekEnding, -TREE_TRAIL_DAYS);
+  const entryRows = spine.entryRows.filter(
+    (row) => row.week_ending >= oldest && row.week_ending <= weekEnding
+  );
 
   const entriesByMeasure = new Map<
     string,
@@ -332,6 +246,22 @@ export async function getMeasuresTree(
   }));
 
   return { functions: tree, weekEnding };
+}
+
+// Convenience wrapper: load the spine and shape the tree from it.
+//
+// The page does NOT take this path — it uses getMeasuresPageData so
+// the board and the tree share one spine. This exists for a caller
+// that wants the tree alone, and it is what the characterisation
+// tests drive.
+export async function getMeasuresTree(
+  companyId: string,
+  userId: string,
+  timezone: string,
+  includeAll: boolean
+): Promise<{ functions: MeasureTreeFunction[]; weekEnding: string }> {
+  const spine = await loadMeasuresSpine(companyId, timezone);
+  return buildMeasuresTree(spine, userId, includeAll);
 }
 
 // Depth-first pre-order over the function tree, with Visionary
