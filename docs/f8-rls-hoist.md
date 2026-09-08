@@ -164,6 +164,61 @@ denial, not an exception.
 
 ---
 
+## Two rules the cases obey
+
+Both came out of getting this wrong once each, before any policy was
+touched. They are stated here rather than remembered because the next
+person to add a case will not have watched either happen.
+
+### Cases use the real predicate shape, ORs included
+
+**Planner transformations are predicate-sensitive, so a simplified case
+measures a different query than the one in production.**
+
+The worked example is this project's own near-miss. The first draft of
+the InitPlan measurement used a simplified predicate,
+`ap.company_id = t.company_id`, on the reasonable-looking grounds that
+the OR branch was noise around the thing being measured. Postgres saw
+an uncorrelated comparison, turned the `EXISTS` into a hashed
+semi-join, and evaluated `auth_profile()` **once**:
+
+```
+A exists (simplified)   auth_profile loops=1
+    Filter: (ANY (company_id = (hashed SubPlan 2).col1))
+```
+
+Read at face value, that says today's policies already hoist the helper
+and F8 does not exist. The real policies carry
+`ap.role = 'system_admin' OR (ap.company_id IS NOT NULL AND …)`, and
+the OR against a constant is exactly what blocks that transformation:
+
+```
+A exists (real shape)   auth_profile loops=5000
+    Filter: EXISTS(SubPlan 1)
+```
+
+The corrected number agrees with the `loops=141` and `loops=270`
+observed in the F11 production plans, which is how it was caught. A
+simplified case would have retired F8 on evidence about a query nobody
+runs.
+
+So: copy the predicate from `pg_policies`, do not paraphrase it. If a
+case must simplify, it has to say what it dropped and why the planner
+cannot care.
+
+### A case reports both shapes, always
+
+Each case installs the wrong shape and the right shape and prints what
+both did, not just a verdict. **A wrong shape that stops leaking means
+the case has stopped testing anything**, and that is invisible in a
+PASS.
+
+This is not an F8 convention. It is how every case in this harness
+works and how any case added later should work, whatever it is testing.
+See E4 in `docs/failure-modes.md`.
+
+---
+
 ## The static check
 
 `IS NOT DISTINCT FROM` is **forbidden in tenant-scoping policies**.
@@ -180,6 +235,13 @@ it, and the check is what disarms it.
 ---
 
 ## Order of work
+
+**0. Precondition.** Batch 1 does not start until the weekly scorecard
+cron reads clean on 2026-09-13: `8/8 companies snapshotted, 0 failed,
+26/32 feature-gated disciplines enabled`. Anything else reopens the
+entitlement incident, and F8 holds until it is closed. The two changes
+are unrelated in code and would be impossible to tell apart in a
+production symptom.
 
 **1. The harness.** `scripts/rls-harness.ts`, invoked by name, output
 pasted into the PR body like the browser passes. Not CI: it needs
