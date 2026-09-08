@@ -38,6 +38,9 @@ pull requests, not here.*
 
 Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coach tools, AI passes). Set by system_admin on the company settings page. Canonical list lives in `src/lib/companies/features.ts`; the DB column is open-schema (no CHECK constraint) so new modules can ship without a migration.
 
+- **Reading entitlements outside a user session.** `getCompanyFeatures()` reads through the request-scoped, cookie-based client, which resolves to the `anon` role when there is no session — and every policy on `company_features` is `to authenticated`, so a session-less caller gets an **empty list rather than an error** and takes the "feature is off" branch everywhere. Background work (crons, the transcript pipeline, anything inside the instance fan-out) must use `getCompanyFeaturesWith(db, companyId)` and pass its own service-role client. The weekly scorecard cron got this wrong from 2026-08-13 to 2026-09-08 and recorded four feature-gated disciplines as "not enabled" for every company on every snapshot it wrote.
+- **Every change is logged** (migration 0173). `company_features` is current-state and disabling a feature deletes the row, so the table alone cannot answer "was this on in August?". An append-only `company_feature_events` log records every enable and disable, written by a database trigger rather than by the app so no write path — including hand-run SQL and provisioning — can skip it. "Was `<feature>` on for `<company>` on `<date>`?" is the last event at or before that date. The log starts at 0173; anything disabled before then is not recoverable.
+
 | Flag | Turns on |
 | --- | --- |
 | `execution` | Core: commitments, plan cascade, chart, coaching, dashboard |
