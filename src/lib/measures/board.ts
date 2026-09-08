@@ -1,15 +1,16 @@
 import "server-only";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { addDays, thisFriday } from "@/lib/dates";
+import { loadMeasuresSpine, type MeasuresSpine } from "@/lib/measures/spine";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
-import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read model for the operational Success Tracking board — 13
 // weeks of metric performance across every function in the company.
-// Deliberately separate from getMeasuresOwnedBy (which powers the
-// batch entry surface) because the board wants everything, sorted
-// for status-first reading, and doesn't care about ownership.
+// The board wants everything, sorted for status-first reading, and
+// doesn't care about ownership.
+//
+// Shaping only. The rows come from loadMeasuresSpine, shared with the
+// Manager tree, because four of the five reads were identical and the
+// page renders both on the same paint.
 
 export type BoardStatus = "good" | "off" | "unlogged" | "no_target";
 
@@ -62,67 +63,22 @@ export type BoardData = {
   functions: BoardFunction[];
 };
 
-const WEEKS = 13;
+// The Board, shaped from rows already in hand. Pure: see
+// loadMeasuresSpine for the reads and getMeasuresPageData for the
+// path the page takes.
+export function buildBoardData(spine: MeasuresSpine): BoardData {
+  const { weeks, weekEnding: currentWeekEnding } = spine;
 
-export async function getBoardData(
-  companyId: string,
-  timezone: string
-): Promise<BoardData> {
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const currentWeekEnding = thisFriday(timezone);
-  const weeks: string[] = [];
-  for (let i = WEEKS - 1; i >= 0; i--) {
-    weeks.push(addDays(currentWeekEnding, -7 * i));
-  }
-  const oldestWeek = weeks[0];
-
-  const [{ data: functionsRaw }, { data: rosterRaw }] = await Promise.all([
-    supabase
-      .from("functions")
-      .select("id, title, lead_id, parent_function_id, sort_order")
-      .eq("company_id", companyId)
-      .eq("archived", false)
-      .order("sort_order"),
-    supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("company_id", companyId),
-  ]);
-  const functions = (functionsRaw ?? []) as Array<{
-    id: string;
-    title: string;
-    lead_id: string | null;
-    parent_function_id: string | null;
-    sort_order: number;
-  }>;
+  const functions = spine.functions;
   if (functions.length === 0) {
     return { weeks, currentWeekEnding, functions: [] };
   }
-  const roster = (rosterRaw ?? []) as Array<{ id: string; full_name: string }>;
-  const rosterById = new Map(roster.map((r) => [r.id, r.full_name]));
+  const rosterById = new Map(spine.roster.map((r) => [r.id, r.full_name]));
 
-  const functionIds = functions.map((f) => f.id);
   // CSF measures supply the grouping label each metric row shows
   // (migration 0166). A CSF's `description` is what the outcome
   // called `title`.
-  const { data: csfRaw } = await supabase
-    .from("success_measures")
-    .select(
-      "id, description, function_id, target, value_type, target_direction, sort_order"
-    )
-    .in("function_id", functionIds)
-    .eq("kind", "csf")
-    .eq("archived", false)
-    .order("sort_order");
-  const csfRows = (csfRaw ?? []) as Array<{
-    id: string;
-    description: string;
-    function_id: string;
-    target: string | null;
-    value_type: MetricValueType;
-    target_direction: TargetDirection;
-    sort_order: number;
-  }>;
+  const csfRows = spine.csfRows;
   const outcomes = csfRows.map((c) => ({
     id: c.id,
     title: c.description,
@@ -132,18 +88,10 @@ export async function getBoardData(
   const outcomeIds = outcomes.map((o) => o.id);
 
   // Which KPI drives which CSF, so each row can still show the group
-  // it belongs to. Read as a list per KPI and take the first for the
-  // label: the UI allows one CSF per KPI today, but the data model
-  // does not, and a row that drives two should not crash the board.
-  const linkRows =
-    outcomeIds.length === 0
-      ? []
-      : (((
-          await supabase
-            .from("csf_kpi_links")
-            .select("csf_id, kpi_id")
-            .in("csf_id", outcomeIds)
-        ).data ?? []) as Array<{ csf_id: string; kpi_id: string }>);
+  // it belongs to. Take the first link for the label: the UI allows
+  // one CSF per KPI today, but the data model does not, and a row that
+  // drives two should not crash the board.
+  const linkRows = spine.linkRows;
   const csfIdByKpi = new Map<string, string>();
   for (const link of linkRows) {
     if (!csfIdByKpi.has(link.kpi_id)) csfIdByKpi.set(link.kpi_id, link.csf_id);
@@ -180,56 +128,29 @@ export async function getBoardData(
   );
 
   if (outcomeIds.length > 0) {
-    const kpiIds = Array.from(csfIdByKpi.keys());
-    const { data: measuresRaw } = kpiIds.length
-      ? await supabase
-          .from("success_measures")
-          .select(
-            "id, description, target, value_type, target_direction, sort_order"
-          )
-          .in("id", kpiIds)
-          .eq("archived", false)
-          .order("sort_order")
-      : { data: [] };
     measures.push(
-      ...((measuresRaw ?? []) as Array<{
-        id: string;
-        description: string;
-        target: string | null;
-        value_type: MetricValueType;
-        target_direction: TargetDirection;
-        sort_order: number;
-      }>).map((m) => ({
-        ...m,
+      ...spine.kpiRows.map((m) => ({
+        id: m.id,
+        description: m.description,
+        target: m.target,
+        value_type: m.value_type,
+        target_direction: m.target_direction,
+        sort_order: m.sort_order,
         csfId: csfIdByKpi.get(m.id) ?? "",
         kind: "kpi" as const,
       }))
     );
   }
 
-  const measureIds = measures.map((m) => m.id);
   const entriesByMeasureWeek = new Map<
     string,
     { number: number | null; text: string | null }
   >();
-  if (measureIds.length > 0) {
-    const { data: entriesRaw } = await supabase
-      .from("success_measure_entries")
-      .select("measure_id, week_ending, value_number, value_text")
-      .in("measure_id", measureIds)
-      .gte("week_ending", oldestWeek)
-      .lte("week_ending", currentWeekEnding);
-    for (const row of (entriesRaw ?? []) as Array<{
-      measure_id: string;
-      week_ending: string;
-      value_number: number | null;
-      value_text: string | null;
-    }>) {
-      entriesByMeasureWeek.set(`${row.measure_id}|${row.week_ending}`, {
-        number: row.value_number,
-        text: row.value_text,
-      });
-    }
+  for (const row of spine.entryRows) {
+    entriesByMeasureWeek.set(`${row.measure_id}|${row.week_ending}`, {
+      number: row.value_number,
+      text: row.value_text,
+    });
   }
 
   // Depth = number of hops to reach a root ancestor. Used by the
@@ -302,6 +223,20 @@ export async function getBoardData(
   });
 
   return { weeks, currentWeekEnding, functions: boardFunctions };
+}
+
+// Convenience wrapper: load the spine and shape the board from it.
+//
+// The page does NOT take this path — it uses getMeasuresPageData so
+// the board and the tree share one spine. This exists for a caller
+// that wants the board alone, and it is what the characterisation
+// tests drive.
+export async function getBoardData(
+  companyId: string,
+  timezone: string
+): Promise<BoardData> {
+  const spine = await loadMeasuresSpine(companyId, timezone);
+  return buildBoardData(spine);
 }
 
 // Coerce an entry into a plottable number. For number/percent we

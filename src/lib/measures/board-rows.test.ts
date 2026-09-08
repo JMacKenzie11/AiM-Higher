@@ -55,10 +55,17 @@ vi.mock("@/lib/supabase/server", () => ({
   },
 }));
 
+// The board no longer issues its own queries: it shapes rows fetched
+// by loadMeasuresSpine, which selects the SUPERSET both consumers
+// need (the Manager tree's list, of which the board's old list was a
+// strict subset). These constants key the fixtures, so they track the
+// spine's column lists rather than the board's former ones. No
+// projection widened — nothing selected here goes unread by one
+// consumer or the other.
 const CSF_COLS =
-  "id, description, function_id, target, value_type, target_direction, sort_order";
+  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order";
 const KPI_COLS =
-  "id, description, target, value_type, target_direction, sort_order";
+  "id, description, target, value_type, target_direction, auto_track, update_frequency, target_hint, sort_order";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);
