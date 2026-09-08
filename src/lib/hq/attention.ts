@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { compareOverall } from "@/lib/maturity/compute";
 import {
   loadCompanyScorecardScores,
   loadLatestOverallSnapshots,
@@ -292,23 +293,35 @@ export async function computeAttentionForCompanies(
     companyIds.map(async (cid) => {
       try {
         const sc = await loadCompanyScorecardScores(cid);
-        const currentScore = sc.overall.score;
-        if (currentScore === null) return { cid, drop: null };
+        if (sc.overall.score === null) return { cid, drop: null };
         const priorSnap = priorByCompany.get(cid);
         if (!priorSnap || priorSnap.score === null) {
           return { cid, drop: null };
         }
-        if (currentScore < priorSnap.score) {
-          return {
-            cid,
-            drop: {
-              from: priorSnap.score,
-              to: currentScore,
-              priorDate: priorSnap.date,
-            },
-          };
-        }
-        return { cid, drop: null };
+        // Both sides recomputed over the disciplines they share.
+        // Comparing the two rolled-up overalls directly is what this
+        // used to do, and it is a subtraction between two different
+        // weighted means whenever the stored snapshot covers a
+        // different discipline set than today's live score.
+        //
+        // That is not a corner case. Measured on production
+        // 2026-09-08, four of eight companies were showing this
+        // trigger purely because the snapshot half was missing four
+        // feature-gated disciplines. It is the heaviest trigger in the
+        // queue (severity 4) and it was firing on arithmetic.
+        //
+        // The reason line renders `from` and `to`, so both must be the
+        // like-for-like pair, never the headline overall.
+        const comparison = compareOverall(priorSnap.scores, sc.disciplines);
+        if (!comparison || comparison.delta >= 0) return { cid, drop: null };
+        return {
+          cid,
+          drop: {
+            from: comparison.then,
+            to: comparison.now,
+            priorDate: priorSnap.date,
+          },
+        };
       } catch {
         return { cid, drop: null };
       }
