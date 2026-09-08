@@ -495,6 +495,36 @@ a test that will eventually break the wrong one.
 5. Merge.
 6. Check `www.aims-hq.com` and `aims-hq.com` both load, and that a cron
    route is not returning the not-found page.
+7. **If the release carried a migration, catch up the dev clone:**
+   `npm run migrate:instances -- --db-url "<clone session pooler url>"`.
+
+### The dev clone is not migrated by the fleet, and that is deliberate
+
+`migrate:instances` walks the registry, and the clone has no registry
+row — a registry row is the switch that makes a hostname serve
+customers, and the clone is disposable tooling. Giving it one to get it
+migrated would make it look like an instance to every other fleet tool,
+including `sync:content`. So it stays out, and catching it up is step 7
+above rather than something the runner does.
+
+The consequence, stated so nobody has to rediscover it: **after a
+migration lands on the fleet, the clone is behind until somebody runs
+step 7.** Local dev and the Playwright suite both point at the clone, so
+the symptom is a feature that works in production and looks broken on a
+laptop. On 2026-09-08 that was `/admin/companies` rendering every
+Follow-Through rate as an em-dash, because the view in migration 0174
+existed on both instances and not on the clone.
+
+Two things make that survivable. The read logs an error naming the
+consequence rather than failing silently, so the browser console says
+what happened. And `npm run seed:e2e` is only needed after a *refresh*
+from production, not after step 7 — a migration does not wipe the e2e
+fixtures, so catching the clone up costs one command and nothing else.
+
+Refreshing the clone from production is the other cure and a blunter
+one: it replaces the schema wholesale, wipes every fixture, and needs
+`npm run seed:e2e` afterwards. Use it when the clone's DATA is stale.
+Use step 7 when only its SCHEMA is behind. See `docs/e2e.md`.
 
 ### What a preview does and does not prove
 
