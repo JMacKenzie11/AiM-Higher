@@ -1,10 +1,11 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { groupBy } from "@/lib/utils";
-import { computeFollowThrough } from "@/lib/commitments/follow-through";
-import { todayInTimezone } from "@/lib/dates";
-import type { Commitment, Company, Quarter } from "@/lib/types";
+import {
+  summarizeFollowThroughCounts,
+  type FollowThroughCounts,
+} from "@/lib/commitments/follow-through";
+import type { Company, Quarter } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Read model for the polished /admin/companies overview.
@@ -28,13 +29,12 @@ export async function getCompaniesOverview(): Promise<CompanyOverviewRow[]> {
 
   const companyIds = rows.map((c) => c.id);
 
-  // Four flat queries instead of the previous N+1 loop (was ~2 + 2N).
-  // We fetch every company's people count + open-quarter label + every
-  // priority in those open quarters, then every commitment for those
-  // priorities, and stitch the follow-through rate in memory.
+  // Three flat queries, none of which returns more than one row per
+  // company except the roster count.
   const [
     { data: profileRows },
     { data: openQuarterRows },
+    { data: followThroughRows, error: followThroughError },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -46,6 +46,24 @@ export async function getCompaniesOverview(): Promise<CompanyOverviewRow[]> {
       .select("id, company_id, label")
       .in("company_id", companyIds)
       .eq("status", "open"),
+    // Follow-Through, counted in the database.
+    //
+    // This used to select every commitment for every visible company —
+    // no date bound, no limit — and reduce them here to one percentage
+    // each. For a system_admin that is every live commitment on the
+    // instance crossing the wire to produce a handful of integers, and
+    // if a PostgREST row cap were ever configured it would silently
+    // truncate and quietly wrong every rate on the page.
+    //
+    // The view (migration 0174) counts the same four buckets over the
+    // same population, so the number is unchanged; only the place the
+    // counting happens moved. It is security_invoker, so the rows it
+    // groups are still filtered by the caller's own RLS. One row per
+    // company.
+    supabase
+      .from("company_follow_through")
+      .select("company_id, kept_on_time, kept_late, missed, overdue_open")
+      .in("company_id", companyIds),
   ]);
 
   const peopleByCompany = new Map<string, number>();
@@ -63,53 +81,60 @@ export async function getCompaniesOverview(): Promise<CompanyOverviewRow[]> {
     openQuarters.map((q) => [q.company_id, { id: q.id, label: q.label }])
   );
 
-  // Commitments group straight by company now. The priority lookup
-  // that used to sit here existed only to reach priority-linked
-  // commitments, and that filter was the bug: operational work never
-  // counted.
-  const commitmentRowsByCompany = new Map<
-    string,
-    Array<{ status: string; due_date: string | null }>
-  >();
-  // Overdue is judged against the viewer's own day. This list is a
-  // cross-company admin view spanning timezones, so there is no single
-  // company clock to use; UTC keeps every row judged the same way.
-  const { iso: todayIso } = todayInTimezone("UTC");
-  {
-    const { data: commitmentRows } = await supabase
-      .from("commitments")
-      .select("company_id, status, due_date")
-      .in("company_id", companyIds)
-      .is("deleted_at", null)
-      .is("parked_at", null);
-    const commitments = (commitmentRows ?? []) as Array<{
-      company_id: string;
-      status: string;
-      due_date: string | null;
-    }>;
-    // Was filtered to priority-linked commitments only, which is why
-    // B&B Electric read 100% here and 62% on their own dashboard: a
-    // company doing mostly operational work had almost none of it
-    // counted. Now every commitment counts, matching the dashboard.
-    const byCompany = groupBy(commitments, (c) => c.company_id);
-    for (const [companyId, items] of byCompany.entries()) {
-      commitmentRowsByCompany.set(
-        companyId,
-        items.map((item) => ({
-          status: item.status,
-          due_date: item.due_date,
-        }))
-      );
-    }
+  // The view emits nothing for a company with no countable
+  // commitments, which is the same thing the old code expressed as an
+  // empty row list: zero in every bucket, and a null rate rather than
+  // a zero. Null and zero mean very different things here — "no data"
+  // versus "nothing landed on time".
+  //
+  // Population note kept from the previous fix: this was once filtered
+  // to priority-linked commitments only, which is why B&B Electric
+  // read 100% here and 62% on their own dashboard. A company doing
+  // mostly operational work had almost none of it counted. Every
+  // commitment counts, and the view carries that rule now.
+  // Say so when the aggregate read fails. Its failure mode is the
+  // quiet kind: no rows comes back indistinguishable from "no company
+  // has any commitments", and every rate on the page renders as an
+  // em-dash. That is what a missing view looks like before its
+  // migration reaches an instance, and it must not be mistaken for
+  // real data. Non-fatal — the rest of the row is still worth showing.
+  // Same rule as findSimilarOpenItem.
+  if (followThroughError) {
+    console.error(
+      "[companies] follow-through aggregate read failed; every rate on " +
+        `/admin/companies will render empty: ${followThroughError.message}`
+    );
+  }
+
+  const countsByCompany = new Map<string, FollowThroughCounts>();
+  for (const row of (followThroughRows ?? []) as Array<{
+    company_id: string;
+    kept_on_time: number;
+    kept_late: number;
+    missed: number;
+    overdue_open: number;
+  }>) {
+    countsByCompany.set(row.company_id, {
+      keptOnTime: Number(row.kept_on_time),
+      keptLate: Number(row.kept_late),
+      missed: Number(row.missed),
+      overdueOpen: Number(row.overdue_open),
+    });
   }
 
   return rows.map((company) => ({
     ...company,
     peopleCount: peopleByCompany.get(company.id) ?? 0,
     openQuarterLabel: openQuarterByCompany.get(company.id)?.label ?? null,
-    keepRate: computeFollowThrough(
-      commitmentRowsByCompany.get(company.id) ?? [],
-      todayIso
-    ),
+    keepRate: summarizeFollowThroughCounts(
+      countsByCompany.get(company.id) ?? EMPTY_COUNTS
+    ).rate,
   }));
 }
+
+const EMPTY_COUNTS: FollowThroughCounts = {
+  keptOnTime: 0,
+  keptLate: 0,
+  missed: 0,
+  overdueOpen: 0,
+};
