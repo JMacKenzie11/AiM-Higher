@@ -47,6 +47,39 @@ export type FollowThroughSummary = {
   rate: number | null;
 };
 
+// The four buckets, already counted. Some callers count rows in Node;
+// others have the database do it (see the company_follow_through view,
+// migration 0174, which exists so /admin/companies stops shipping
+// every commitment on the instance over the wire to count them here).
+export type FollowThroughCounts = {
+  keptOnTime: number;
+  keptLate: number;
+  missed: number;
+  overdueOpen: number;
+};
+
+// The arithmetic, in one place.
+//
+// summarizeFollowThrough delegates to this, so a caller that arrives
+// with counts and a caller that arrives with rows cannot produce
+// different numbers. That is the entire point of this file: three
+// surfaces once disagreed about the same company on the same day
+// because the rule lived in three places.
+export function summarizeFollowThroughCounts(
+  counts: FollowThroughCounts
+): FollowThroughSummary {
+  const { keptOnTime, keptLate, missed, overdueOpen } = counts;
+  const resolved = keptOnTime + keptLate + missed + overdueOpen;
+  return {
+    keptOnTime,
+    keptLate,
+    missed,
+    overdueOpen,
+    resolved,
+    rate: resolved === 0 ? null : Math.round((keptOnTime / resolved) * 100),
+  };
+}
+
 export function summarizeFollowThrough(
   rows: readonly FollowThroughRow[],
   todayIso: string
@@ -66,15 +99,12 @@ export function summarizeFollowThrough(
     }
   }
 
-  const resolved = keptOnTime + keptLate + missed + overdueOpen;
-  return {
+  return summarizeFollowThroughCounts({
     keptOnTime,
     keptLate,
     missed,
     overdueOpen,
-    resolved,
-    rate: resolved === 0 ? null : Math.round((keptOnTime / resolved) * 100),
-  };
+  });
 }
 
 export function computeFollowThrough(
