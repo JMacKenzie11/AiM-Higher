@@ -416,3 +416,49 @@ authenticates through Playwright's own storage rather than by moving
 cookies through the shell, and the provisioning tooling reads every
 secret from `.env.provisioning` inside the process that uses it rather
 than passing values on a command line.
+
+### E4. A check that was never shown it could fail
+
+**Situation.** A test is written, or a measurement is taken, and it
+returns the expected answer. Everything is green. Nobody establishes
+that the check was capable of returning anything else, so "green"
+carries no information: a test that cannot fail and a test that passes
+look identical from the outside.
+
+**Rule.** **Every check must be shown to go red before its green is
+believed.** For a regression test, that means running it against the
+unfixed code and watching it fail. For a measurement, it means
+measuring a case whose answer is already known to be different. For a
+guard that compares a right shape against a wrong one, it means
+reporting BOTH outcomes, every time, so a wrong shape that quietly
+stops being wrong is visible rather than silently converting the check
+into decoration.
+
+This is E1's sibling and not the same rule. E1 says do not trust an
+assumed response shape; this says do not trust your own instrument.
+
+**Where it has bitten us.**
+
+*The session-less entitlement test.* The weekly scorecard cron resolved
+feature flags through a cookie-scoped client and got an empty list
+instead of an error, recording four disciplines as "not enabled" on
+every snapshot for three weeks. Unit tests were green throughout,
+because they were written against the same mental model as the code.
+The fix's test was therefore run against the pre-fix resolution first
+and watched to fail — 6 of 12 cases, including all four behavioural
+ones — before its passing on the new code was taken to mean anything.
+
+*The simplified predicate.* The measurement deciding F8's hoist shape
+first used a cut-down policy predicate, dropping an `OR` branch as
+noise. Postgres turned the simplified `EXISTS` into a hashed semi-join
+and reported `auth_profile loops=1` — that is, "the problem does not
+exist". The real predicate reports `loops=5000`. The simplification was
+caught only because the number disagreed with production plans already
+in hand; nothing about the measurement itself looked wrong. A
+green-looking instrument had been pointed at a different query.
+
+**Pinned by.** Nothing can pin a practice. What exists is the shape:
+`scripts/rls-harness.ts` reports the wrong shape and the right shape on
+every case and declares a case broken if the wrong one stops leaking,
+and `docs/f8-rls-hoist.md` states the real-predicate rule with the
+near-miss written out.
