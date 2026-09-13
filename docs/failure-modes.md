@@ -499,6 +499,20 @@ the first run, before the migration left the branch. The before, the
 naive hoist and the shipped form are written out under Hazard 2 in
 `docs/f8-rls-hoist.md`.
 
+**And one it did not introduce.** Batch 6e found
+`company_discipline_snapshots` comparing `company_id` against a bare
+scalar subquery over `auth_profile()` — hazard 3's exact shape, sitting
+in the schema since before the series began, one predicate change away
+from a fleet-wide 500 on every read of that table. Nothing in F8 put
+it there; F8 found it by visiting every table.
+
+So the ledger reads: one hazard introduced by the rewrite and caught
+before it left a branch, one hazard already in the schema and found
+because the work was finished rather than stopped when the plans
+looked good enough. Those two lines are the argument for keeping the
+harness, and for finishing a migration series rather than declaring
+the interesting part done.
+
 The conclusion is about what the harness IS. It is not campaign
 tooling for F8 that gets deleted when the batches finish: it is the
 only instrument that can ask a real Postgres whether a policy still
