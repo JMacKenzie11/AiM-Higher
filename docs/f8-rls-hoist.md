@@ -146,6 +146,49 @@ Several policies here already `or` three clauses together.
 user's still-valid token — the caller sees zero rows from **every table
 in the batch**, with no error. Asserted per table, not in aggregate.
 
+**It happened. Batch 6c, `strengths_items`, caught on the first run.**
+
+Nine of the ten strengths tables gate on the ROW's company, which
+cannot be hoisted. `strengths_items` is the shared item bank and gates
+on the CALLER's:
+
+```sql
+-- before: denies a caller with no profile, because auth_profile()
+-- returns no rows and exists is therefore false
+exists (
+  select 1 from auth_profile() ap
+  where ap.company_id is null
+     or company_has_feature(ap.company_id, 'strengths')
+)
+
+-- the naive hoist: ADMITS that same caller, because the scalar helper
+-- returns NULL and `NULL is null` is true
+(select public.auth_company_id()) is null
+or company_has_feature((select public.auth_company_id()), 'strengths')
+
+-- shipped: auth_role() is NULL for a caller with no profile, so
+-- testing it restores exactly the row the exists was asking about
+(select public.auth_role()) is not null
+and (
+  (select public.auth_company_id()) is null
+  or public.company_has_feature((select public.auth_company_id()), 'strengths')
+)
+```
+
+The harness said it in one line, before the migration left the branch:
+
+```
+FAIL  deleted user · strengths_items   a caller with no profile row can read this table
+```
+
+Every earlier batch passed this case because none of them had a
+predicate that asked about the caller's own company rather than the
+row's. The case was written in batch 1 for a hazard nobody had hit,
+stayed green through four batches where it could not have failed, and
+caught a live deny-becomes-allow the first time the shape appeared.
+Nothing reached production: the wrong form existed only on a branch
+and on a dev clone, for the length of one harness run.
+
 ### Hazard 3 — a scalar subquery over a set-returning helper raises
 
 `auth_profile()` is set-returning. A scalar subquery over it returns
