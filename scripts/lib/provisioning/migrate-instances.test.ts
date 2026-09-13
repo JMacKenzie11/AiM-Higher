@@ -7,6 +7,7 @@ import {
   isProblem,
   migrateAllInstances,
   pendingMigrations,
+  refFromConnectionUrl,
   refFromSupabaseUrl,
   resolveDevTarget,
   resolveTarget,
@@ -674,5 +675,70 @@ describe("resolveDevTarget", () => {
       CONTROL_PLANE_SUPABASE_URL: "https://controlref.supabase.co",
     });
     expect(result).toEqual({ ok: true, ref: "devclone", password: "pw" });
+  });
+});
+
+// ---- refFromConnectionUrl --------------------------------------
+//
+// This exists so the single-database path can run the same baseline
+// check the registry path runs. A ref it fails to find is a check
+// that does not happen, so the cases that must return null are as
+// important as the one that must return a ref.
+
+describe("refFromConnectionUrl", () => {
+  it("reads the ref out of a session pooler url", () => {
+    expect(
+      refFromConnectionUrl(
+        "postgresql://postgres.devclone:pw@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
+      )
+    ).toBe("devclone");
+  });
+
+  it("reads it when the password contains a percent-encoded colon", () => {
+    expect(
+      refFromConnectionUrl(
+        "postgresql://postgres.devclone:a%3Ab%2Fc@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
+      )
+    ).toBe("devclone");
+  });
+
+  it("returns null for a direct connection, which has no ref in the user", () => {
+    expect(
+      refFromConnectionUrl("postgresql://postgres:pw@db.host.supabase.co:5432/postgres")
+    ).toBeNull();
+  });
+
+  it("returns null for localhost", () => {
+    expect(
+      refFromConnectionUrl("postgresql://postgres:pw@localhost:5432/postgres")
+    ).toBeNull();
+  });
+});
+
+// The state unbaselinedReason exists to catch, written as the dev
+// clone actually presented it on 2026-09-13: twelve companies of real
+// data, no supabase_migrations schema at all.
+
+describe("unbaselinedReason, on the shape the dev clone actually had", () => {
+  it("refuses a database with schema and no history", () => {
+    const reason = unbaselinedReason(
+      { hasMigrationTable: false, publicTables: 96 },
+      "the dev clone"
+    );
+    expect(reason).not.toBeNull();
+    expect(reason).toContain("no migration");
+    expect(reason).toContain("migration repair");
+  });
+
+  it("allows a genuinely empty project", () => {
+    expect(
+      unbaselinedReason({ hasMigrationTable: false, publicTables: 0 }, "new")
+    ).toBeNull();
+  });
+
+  it("allows a database that has history", () => {
+    expect(
+      unbaselinedReason({ hasMigrationTable: true, publicTables: 96 }, "prod")
+    ).toBeNull();
   });
 });

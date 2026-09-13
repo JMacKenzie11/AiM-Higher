@@ -22,6 +22,11 @@
  * Suspended instances are skipped and reported as skipped. See the
  * status contract in src/lib/instances/types.ts.
  *
+ * Both single-database forms refuse a database that has schema and no
+ * migration history, the same refusal the registry path makes: with no
+ * history every migration reads as pending and a push would replay all
+ * of them over an existing schema. See unbaselinedReason.
+ *
  * --dev is that same single-database path with the connection string
  * built rather than pasted: the clone's ref and password come from
  * DEV_SUPABASE_URL and DEV_DATABASE_PASSWORD in .env.provisioning, and
@@ -58,8 +63,10 @@ import {
   MIGRATIONS_TABLE,
   isProblem,
   migrateAllInstances,
+  refFromConnectionUrl,
   resolveDevTarget,
   selectMigratableRows,
+  unbaselinedReason,
   type InstanceResult,
   type RegistryRow,
 } from "./lib/provisioning/migrate.ts";
@@ -232,6 +239,43 @@ export function parseArgs(argv: string[]): {
   return { dryRun, dbUrl, seed, dev };
 }
 
+// The baseline check, on the single-database path.
+//
+// migrateAllInstances runs this for every instance in the registry and
+// refuses to push to a database that has schema but no migration
+// history. The single-database path skipped it, so `--db-url` and
+// `--dev` were the two ways into this repo's most dangerous state —
+// and `--dev` made it one word. Found by running `migrate:dev
+// --dry-run` against the actual dev clone, which reported all 97
+// migrations pending against a database holding twelve companies.
+//
+// Only the dry run said so. The applying run would have started at
+// 0001.
+async function refuseIfUnbaselined(
+  ref: string,
+  label: string,
+  management: ReturnType<typeof createManagementClient>
+): Promise<void> {
+  const [row] = await management.runQuery<{
+    has_migration_table: boolean;
+    public_tables: number;
+  }>(
+    ref,
+    `select
+       to_regclass('${MIGRATIONS_TABLE}') is not null as has_migration_table,
+       (select count(*)::int from information_schema.tables
+         where table_schema = 'public') as public_tables`
+  );
+  const reason = unbaselinedReason(
+    {
+      hasMigrationTable: Boolean(row?.has_migration_table),
+      publicTables: Number(row?.public_tables ?? 0),
+    },
+    label
+  );
+  if (reason) fail(reason);
+}
+
 // One database, named directly. Used for the dev clone, which has no
 // registry row because it is not a live instance.
 async function migrateOne(dbUrl: string, dryRun: boolean): Promise<void> {
@@ -281,6 +325,7 @@ async function main(): Promise<void> {
           `IPv4-reachable way in.`
       );
     }
+    await refuseIfUnbaselined(target.ref, "the dev clone", management);
     // The ref and the host, never the URL: it carries the password.
     console.log("");
     console.log(`  Dev clone ${target.ref} via ${host}`);
@@ -297,7 +342,34 @@ async function main(): Promise<void> {
 
   if (dbUrl) {
     // No registry, no control plane, no state files: one database,
-    // named by the caller.
+    // named by the caller. The ref is still recoverable from a session
+    // pooler URL (`postgres.<ref>`), and where it is, this path gets
+    // the same baseline check the fleet path gets. Where it is not —
+    // a direct connection string, or localhost — the check is reported
+    // as skipped rather than silently passed.
+    const ref = refFromConnectionUrl(dbUrl);
+    if (ref) {
+      if (!process.env.SUPABASE_MANAGEMENT_TOKEN?.trim()) {
+        fail(
+          "SUPABASE_MANAGEMENT_TOKEN is not set in .env.provisioning. It " +
+            "is how this path checks the target has migration history " +
+            "before pushing to it."
+        );
+      }
+      await refuseIfUnbaselined(
+        ref,
+        `the database at ${ref}`,
+        createManagementClient({
+          token: process.env.SUPABASE_MANAGEMENT_TOKEN as string,
+        })
+      );
+    } else {
+      console.log(
+        "\n  No project ref in that connection string, so the baseline " +
+          "check did not run.\n  If this database has schema and no " +
+          "migration history, stop: see scripts/README.md."
+      );
+    }
     await migrateOne(dbUrl, dryRun);
     return;
   }
