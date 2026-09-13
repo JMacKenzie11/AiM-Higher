@@ -528,7 +528,25 @@ export type Batch = {
   // NULL-company rows visible" against a table holding none is the
   // empty-set mistake in its purest form. So the batch provides the
   // row, created as postgres inside the rolled-back transaction.
+  //
+  // OPTIONAL: where real NULL-company rows already exist, no seed is
+  // needed and none may be possible. profiles.id is foreign-keyed to
+  // auth.users, so a profile cannot be invented — and every
+  // system_admin and aims_guide already has a NULL company. The proof
+  // that the case ran is the system_admin control seeing rows, not
+  // the presence of a seed.
   nullCompanyRows?: Readonly<Record<string, string>>;
+  // Rows a company-less caller is legitimately allowed to see, which
+  // the nullable case must exclude before it counts.
+  //
+  // profiles is the only table this applies to and it is not a
+  // loophole: everyone may read their own profile, so a company-less
+  // guide sees exactly one NULL-company row - theirs - through the
+  // SELF predicate. Hazard 1 is about a caller with no company
+  // matching a row with no company through the TENANT predicate, so
+  // the caller's own row is excluded and everything else must still
+  // be denied.
+  nullCompanyExclude?: Readonly<Record<string, string>>;
   // One row for a table that is empty on the clone, so the
   // deleted-user control has something to see. Self-contained SQL: it
   // runs as postgres before the role switch and gets no $name
@@ -2042,6 +2060,131 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  {
+    n: "6f",
+    tables: ["profiles", "guide_assignments", "company_feature_events"],
+    migration: "0187_f8_batch6f_hoist.sql",
+    // No seed: profiles.id is foreign-keyed to auth.users, so a
+    // profile cannot be invented, and none is needed - every
+    // system_admin and every aims_guide already has a NULL company.
+    nullCompanyExclude: {
+      // Everyone may read their own profile. See the type.
+      profiles: "id <> (select auth.uid())",
+    },
+    indirectScope: {
+      // Keyed (guide_id, company_id): no id column. The fourth table
+      // this session where assuming one would have been wrong, after
+      // company_features, csf_kpi_links and company_foundation.
+      guide_assignments: {
+        key: "(guide_id::text || ':' || company_id::text)",
+        rows:
+          "select (guide_id::text || ':' || company_id::text) as key, company_id " +
+          "from public.guide_assignments",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        with c as (
+          select co.id from public.companies co
+           where exists (select 1 from public.profiles p where p.company_id = co.id
+                          and p.role = 'company_admin' and p.status = 'active')
+             and exists (select 1 from public.profiles p where p.company_id = co.id
+                          and p.role = 'team_member' and p.status = 'active')
+           limit 1
+        )
+        select
+          (select id from c) as company,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = (select id from c) limit 1) as admin,
+          (select id from public.profiles where role = 'team_member'
+             and status = 'active' and company_id = (select id from c) limit 1) as member,
+          (select id from public.profiles where role = 'team_member' and status = 'active'
+             and company_id = (select id from c)
+             and id <> (select id from public.profiles where role = 'team_member'
+                         and status = 'active' and company_id = (select id from c) limit 1)
+           limit 1) as colleague,
+          (select id from public.profiles where company_id is not null
+             and company_id <> (select id from c) limit 1) as outsider;`,
+      probes: [
+        // profiles_update_self: you may edit yourself, and you may not
+        // change what you ARE while doing it.
+        {
+          name: "member edits their own name",
+          caller: "member",
+          sql: "with u as (update public.profiles set full_name = full_name where id = '$member' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "member promotes THEMSELVES to system_admin",
+          caller: "member",
+          sql: "with u as (update public.profiles set role = 'system_admin' where id = '$member' returning id) select count(*)::int as n from u;",
+          expect: "42501",
+        },
+        {
+          name: "member moves THEMSELVES to another company",
+          caller: "member",
+          sql: "with u as (update public.profiles set company_id = null where id = '$member' returning id) select count(*)::int as n from u;",
+          expect: "42501",
+        },
+        {
+          name: "member edits a colleague",
+          caller: "member",
+          sql: "with u as (update public.profiles set full_name = full_name where id = '$colleague' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "admin",
+        },
+        // profiles_update_company_admin: its own company, not itself,
+        // and not into a role it does not hold.
+        {
+          name: "company_admin edits a member of its company",
+          caller: "admin",
+          sql: "with u as (update public.profiles set full_name = full_name where id = '$member' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin promotes a member to system_admin",
+          caller: "admin",
+          sql: "with u as (update public.profiles set role = 'system_admin' where id = '$member' returning id) select count(*)::int as n from u;",
+          expect: "42501",
+        },
+        {
+          name: "company_admin edits someone in another company",
+          caller: "admin",
+          sql: "with u as (update public.profiles set full_name = full_name where id = '$outsider' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          // Deletes a REAL colleague rather than a seeded one:
+          // profiles.id is foreign-keyed to auth.users, so a probe
+          // cannot invent a person. Rolled back with everything else.
+          name: "company_admin deletes a member of its company",
+          caller: "admin",
+          sql: "with d as (delete from public.profiles where id = '$colleague' returning id) select count(*)::int as n from d;",
+          expect: "1",
+        },
+        // guide_assignments: a guide sees their own rows, nobody else's.
+        {
+          name: "team member reads guide assignments",
+          caller: "member",
+          sql: "select count(*)::int as n from public.guide_assignments;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        // The entitlement history decision from 2026-09-13: company
+        // admins stay without read on company_feature_events.
+        {
+          name: "company_admin reads entitlement history",
+          caller: "admin",
+          sql: "select count(*)::int as n from public.company_feature_events;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
@@ -2537,8 +2680,11 @@ async function nullableCompanyChecks(
   );
 
   for (const { table_name: table } of cols) {
+    const exclude = batch.nullCompanyExclude?.[table];
     const count =
-      `select (select count(*) from public.${table} where company_id is null)::int as n;`;
+      `select (select count(*) from public.${table} where company_id is null` +
+      (exclude ? ` and (${exclude})` : "") +
+      `)::int as n;`;
     const seed = batch.nullCompanyRows?.[table];
 
     if (!guide?.id) {
@@ -2553,26 +2699,16 @@ async function nullableCompanyChecks(
       });
       continue;
     }
-    if (!seed) {
-      out.push({
-        name: `nullable company_id · ${table}`,
-        before: "not run",
-        after: "not run",
-        ok: false,
-        detail:
-          `NOT PROVEN: the batch does not say how to create a NULL-company ` +
-          `row for ${table}, so a zero here would be a zero of nothing`,
-      });
-      continue;
-    }
-
-    const [before] = await run<{ n: number }>(asCaller(guide.id, seed, count));
+    const withSeed = [sql, seed].filter(Boolean).join("\n");
+    const [before] = await run<{ n: number }>(
+      asCaller(guide.id, seed ?? "", count)
+    );
     const [after] = await run<{ n: number }>(
-      asCaller(guide.id, [sql, seed].join("\n"), count)
+      asCaller(guide.id, withSeed, count)
     );
     // The control: the row is really there and someone can see it.
     const [control] = await run<{ n: number }>(
-      asCaller(ids.systemAdmin, [sql, seed].join("\n"), count)
+      asCaller(ids.systemAdmin, withSeed, count)
     );
     const proven = control.n > 0;
     const ok = before.n === 0 && after.n === 0 && proven;

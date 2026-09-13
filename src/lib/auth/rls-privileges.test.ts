@@ -75,7 +75,11 @@ describe("profiles_update_self", () => {
     // active and walk back in. Safe to pin because the only writes to
     // a caller's own status come from the invite-acceptance paths,
     // which use the service-role client and bypass this policy.
-    expect(body).toMatch(/role\s*=\s*\(select ap\.role/);
+    // F8 batch 6f hoisted the helper: `(select ap.role from
+    // auth_profile() ap)` became `(select public.auth_role())`. The
+    // rule being pinned is unchanged — you may not edit your own role
+    // — and this assertion follows the spelling rather than relaxing.
+    expect(body).toMatch(/role\s*=\s*\(select public\.auth_role\(\)\)/);
     expect(body).toMatch(/company_id is not distinct from/);
     expect(body).toMatch(/status\s*=\s*\(select public\.auth_profile_status\(\)\)/);
   });
@@ -108,7 +112,9 @@ describe("oauth_credentials read access", () => {
     // the whole row. Every read in the app uses the service-role
     // client, so nothing needed those.
     const body = finalPolicyBody("oauth_credentials_select");
-    expect(body).toMatch(/role\s*=\s*'system_admin'/);
+    // Also 6f: the predicate is now (select public.auth_role()) =
+    // 'system_admin' rather than an exists over auth_profile().
+    expect(body).toMatch(/auth_role\(\)\)\s*=\s*'system_admin'/);
     expect(body).not.toMatch(/company_admin/);
     expect(body).not.toMatch(/is_guide_for/);
   });
