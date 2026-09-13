@@ -823,3 +823,15 @@
   composes: btnDanger from "../../../../components/ui/ui.module.css";
 }
 
+
+/* Recorded timezone changes, under the timezone control. A plain
+   list: this is a short audit trail, not a feature. */
+.historyList {
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-1);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}

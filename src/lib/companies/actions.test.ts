@@ -507,6 +507,96 @@ describe("setCompanyIndustryAction", () => {
 });
 
 // ==============================================================
+// setCompanyTimezoneAction
+//
+// timezone decides what date every bucketed read puts a row on, so
+// two things are worth holding still here: only system_admin may ask,
+// and the value is checked against the list rather than trimmed into
+// shape. The RLS half of the same guarantee is in the harness
+// (timezone lock probes, scripts/rls-harness.ts) — these tests cannot
+// see Postgres, which is exactly how the industry grant shipped
+// broken.
+// ==============================================================
+describe("setCompanyTimezoneAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  it("asks for system_admin and nothing else", async () => {
+    // Pinned deliberately. Adding a role here is the exact shape of
+    // failure mode E5: the action widens, the policy does not, and
+    // the field fails on every save. If this assertion is updated,
+    // the RLS change and its probe belong in the same PR.
+    const { setCompanyTimezoneAction } = await import("./actions");
+
+    await setCompanyTimezoneAction("co_1", "America/Denver");
+
+    expect(mocks.requireRole).toHaveBeenCalledWith(["system_admin"]);
+  });
+
+  it("writes a timezone from the supported list", async () => {
+    const { setCompanyTimezoneAction } = await import("./actions");
+
+    const res = await setCompanyTimezoneAction("co_1", "America/Denver");
+
+    expect(res.ok).toBe(true);
+    expect(mocks.companiesUpdatePatch).toHaveBeenCalledWith({
+      timezone: "America/Denver",
+    });
+  });
+
+  it("refuses an unsupported zone without writing", async () => {
+    const { setCompanyTimezoneAction } = await import("./actions");
+
+    const res = await setCompanyTimezoneAction("co_1", "Europe/London");
+
+    expect(res).toEqual({
+      ok: false,
+      message: "That isn't a timezone we support.",
+    });
+    expect(mocks.companiesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("refuses a value that only needs trimming, rather than trimming it", async () => {
+    // A submitted value that needs cleaning up did not come from the
+    // select. Accepting it would write a string that works here and
+    // is wrong wherever something compares it literally.
+    const { setCompanyTimezoneAction } = await import("./actions");
+
+    const res = await setCompanyTimezoneAction("co_1", " UTC ");
+
+    expect(res.ok).toBe(false);
+    expect(mocks.companiesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("reports a refused write rather than claiming success", async () => {
+    // RLS refuses an UPDATE by matching no rows, so .single() comes
+    // back empty with no error. Checking `error` alone would report
+    // success on a write that never happened.
+    mocks.companiesUpdateSingle.mockResolvedValue({ data: null, error: null });
+    const { setCompanyTimezoneAction } = await import("./actions");
+
+    const res = await setCompanyTimezoneAction("co_1", "UTC");
+
+    expect(res).toEqual({
+      ok: false,
+      message: "Couldn't update the timezone.",
+    });
+  });
+
+  it("drops the layout cache, not just the two admin routes", async () => {
+    // Every bucketed read resolves "today" through this value, so a
+    // cached page is now answering a different question.
+    const { setCompanyTimezoneAction } = await import("./actions");
+
+    await setCompanyTimezoneAction("co_1", "UTC");
+
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+});
+
+// ==============================================================
 // setCompanyStatusAction
 // ==============================================================
 describe("setCompanyStatusAction", () => {

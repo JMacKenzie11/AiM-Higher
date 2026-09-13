@@ -16,10 +16,22 @@ import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-dr
 import styles from "../admin.module.css";
 import { FeaturesForm } from "./FeaturesForm";
 import { IndustryForm } from "./IndustryForm";
+import { TimezoneForm } from "./TimezoneForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+
+// One row of company_settings_events, narrowed to the timezone
+// changes this page renders. `actor` is null for a service-role write
+// (provisioning, a migration), which honestly means "not a user
+// action" rather than "unknown user".
+type TimezoneChange = {
+  old_value: string | null;
+  new_value: string | null;
+  occurred_at: string;
+  actor: { full_name: string } | null;
+};
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -97,6 +109,28 @@ export default async function CompanyDetailPage({
     isSystemAdmin || isCompanyAdmin
       ? await getBulkResetImpact(company.id)
       : { sfaCount: 0, goalCount: 0, priorityCount: 0 };
+  // The last few times this company's clock moved, and who moved it.
+  //
+  // The record exists so a scorecard that reads differently this week
+  // than last can be explained (migration 0189). An explanation only
+  // reachable by writing SQL does not explain anything to the person
+  // who noticed, so it renders here, next to the control that causes
+  // it. system_admin only: they are the only role that can make the
+  // change, and the only role the SELECT policy admits.
+  const timezoneHistory = isSystemAdmin
+    ? (
+        (
+          await supabase
+            .from("company_settings_events")
+            .select("old_value, new_value, occurred_at, actor:profiles!actor_id(full_name)")
+            .eq("company_id", id)
+            .eq("field", "timezone")
+            .order("occurred_at", { ascending: false })
+            .limit(3)
+        ).data ?? []
+      ) as unknown as TimezoneChange[]
+    : [];
+
   const hasResettable =
     resetImpact.sfaCount +
       resetImpact.goalCount +
@@ -161,6 +195,35 @@ export default async function CompanyDetailPage({
               companyId={company.id}
               initial={company.industry}
             />
+          </section>
+        ) : null}
+
+        {/* Timezone — system-admin only. Changing it re-dates every
+            bucketed read in the app, so it does not sit with the
+            roles that administer a single tenant. 0176's column guard
+            enforces that below the app. */}
+        {isSystemAdmin ? (
+          <section className={styles.card} aria-labelledby="timezone-heading">
+            <h2 id="timezone-heading" className={styles.h2}>
+              Timezone
+            </h2>
+            <TimezoneForm companyId={company.id} initial={company.timezone} />
+            {timezoneHistory.length > 0 ? (
+              <ul className={styles.historyList}>
+                {timezoneHistory.map((change) => (
+                  <li key={change.occurred_at} className={styles.subtitleInline}>
+                    {change.old_value ?? "unset"} to{" "}
+                    {change.new_value ?? "unset"} on{" "}
+                    {new Date(change.occurred_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    {change.actor ? `, by ${change.actor.full_name}` : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
         ) : null}
 

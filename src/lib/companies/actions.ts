@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createCompany } from "@/lib/companies/create-company";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
+import { isValidCompanyTimezone } from "@/lib/companies/timezones";
 import { setScopedCompanyCookie } from "@/lib/admin/scope";
 import type { Company } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -166,6 +167,61 @@ export async function setCompanyIndustryAction(
 
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${companyId}`);
+  return { ok: true, company: data };
+}
+
+// Move a company's clock. system_admin only, and the narrowness is
+// the point rather than an oversight.
+//
+// timezone decides what date a row falls on for every bucketed read
+// in the app: the weekly scorecard, the discipline snapshots, the
+// follow-through window. Changing it does not migrate anything — it
+// re-asks the question, and yesterday's numbers answer differently.
+// That is a decision about a tenant's reporting history, not a
+// preference, so it sits with the role that owns the tenant.
+//
+// A company_admin and an aims_guide are refused here AND at the
+// boundary: 0176's column guard raises on any column but `industry`
+// for those two roles, so this check being removed by accident would
+// still not open the column. Both halves are exercised by the
+// timezone probe in scripts/rls-harness.ts.
+//
+// Every change lands in company_settings_events via the trigger in
+// 0189. Nothing in this action writes that record, on purpose: a log
+// the caller maintains is a log that is correct until a caller
+// forgets.
+export async function setCompanyTimezoneAction(
+  companyId: string,
+  timezone: string
+): Promise<CompanyResult> {
+  await requireRole(["system_admin"]);
+
+  // Checked against the list rather than trimmed into shape. A value
+  // that needs cleaning did not come from the select, and a timezone
+  // Postgres quietly accepts but the app does not recognise is the
+  // failure this guard exists for.
+  if (!isValidCompanyTimezone(timezone)) {
+    return { ok: false, message: "That isn't a timezone we support." };
+  }
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase
+    .from("companies")
+    .update({ timezone })
+    .eq("id", companyId)
+    .select("*")
+    .single<Company>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't update the timezone." };
+  }
+
+  revalidatePath("/admin/companies");
+  revalidatePath(`/admin/companies/${companyId}`);
+  // Every bucketed read in the app resolves "today" through this
+  // value, so the answer on a cached page is now the answer to a
+  // different question. Drop the whole layout rather than the two
+  // admin routes.
+  revalidatePath("/", "layout");
   return { ok: true, company: data };
 }
 
