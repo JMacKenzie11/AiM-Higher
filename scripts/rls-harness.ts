@@ -2185,6 +2185,125 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  {
+    n: "us",
+    tables: ["user_strengths"],
+    migration: "0188_user_strengths_hoist.sql",
+    // The judge cannot settle this one, and says so rather than being
+    // widened until it agrees.
+    //
+    // afterPlanIsHoisted asks for auth_profile to be absent from the
+    // plan or evaluated once. This predicate's third branch does a
+    // per-row lookup into profiles, so the helper is evaluated a
+    // CONSTANT number of times - 13 - rather than zero. On the
+    // clone's four-row table 13 > 4 and the rule fires. The property
+    // that matters is that the count does not grow with the table,
+    // and that needs two scales to see:
+    //
+    //   before   4 rows -> loops=4      5000 rows -> loops=5000
+    //   after    4 rows -> loops=13     5000 rows -> loops=13
+    //
+    // 92.6 ms to 2.8 ms at 5000 rows for a company member. A
+    // system_admin short-circuits on the first branch and auth_profile
+    // leaves their plan entirely, which the judge does accept.
+    judgesHoist: false,
+    indirectScope: {
+      user_strengths: {
+        key: "id",
+        rows:
+          "select u.id as key, p.company_id from public.user_strengths u " +
+          "join public.profiles p on p.id = u.user_id",
+      },
+    },
+    isolationSeed: {
+      user_strengths:
+        "insert into public.user_strengths (user_id, kind, label) " +
+        "select p.id, 'strength', 'probe strength' from public.profiles p " +
+        " where p.company_id is not null " +
+        "   and p.company_id not in (select p2.company_id from public.user_strengths u " +
+        "        join public.profiles p2 on p2.id = u.user_id where p2.company_id is not null) " +
+        " order by p.company_id, p.id limit 1;",
+    },
+    writeProbes: {
+      fixtures: `
+        with c as (
+          select co.id from public.companies co
+           where exists (select 1 from public.profiles p where p.company_id = co.id
+                          and p.role = 'company_admin' and p.status = 'active')
+             and exists (select 1 from public.profiles p where p.company_id = co.id
+                          and p.role = 'team_member' and p.status = 'active')
+           limit 1
+        )
+        select
+          (select id from c) as company,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = (select id from c) limit 1) as admin,
+          (select id from public.profiles where role = 'team_member'
+             and status = 'active' and company_id = (select id from c) limit 1) as member,
+          (select id from public.profiles where role = 'team_member' and status = 'active'
+             and company_id = (select id from c)
+             and id <> (select id from public.profiles where role = 'team_member'
+                         and status = 'active' and company_id = (select id from c) limit 1)
+           limit 1) as colleague,
+          (select id from public.profiles where role = 'company_admin' and status = 'active'
+             and company_id is not null and company_id <> (select id from c) limit 1) as other_admin;`,
+      probes: [
+        // The subject's own row: the branch that must survive for a
+        // person to manage their own strengths.
+        {
+          name: "subject adds a strength to themselves",
+          caller: "member",
+          sql: "with i as (insert into public.user_strengths (user_id, kind, label) values ('$member', 'strength', 'probe') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          // SELECT admits any colleague; INSERT does not. A plain
+          // team member may not write a colleague's strengths.
+          name: "team member adds a strength to a COLLEAGUE",
+          caller: "member",
+          sql: "with i as (insert into public.user_strengths (user_id, kind, label) values ('$colleague', 'strength', 'probe') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          name: "company_admin adds a strength to a member of its company",
+          caller: "admin",
+          sql: "with i as (insert into public.user_strengths (user_id, kind, label) values ('$member', 'strength', 'probe') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "company_admin of ANOTHER company adds one",
+          caller: "other_admin",
+          sql: "with i as (insert into public.user_strengths (user_id, kind, label) values ('$member', 'strength', 'probe') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          // SELECT is wider than the write policies: a colleague can
+          // READ what they cannot write. Both halves stated.
+          name: "team member READS a colleague's strengths",
+          caller: "member",
+          setup:
+            "insert into public.user_strengths (id, user_id, kind, label) " +
+            "values ('12121212-1212-4121-8121-121212121212', '$colleague', 'strength', 'probe');",
+          sql: "select count(*)::int as n from public.user_strengths where id = '12121212-1212-4121-8121-121212121212';",
+          expect: "1",
+        },
+        {
+          name: "team member reads a strength in ANOTHER company",
+          caller: "member",
+          setup:
+            "insert into public.user_strengths (id, user_id, kind, label) " +
+            "select '13131313-1313-4131-8131-131313131313', p.id, 'strength', 'probe' " +
+            "from public.profiles p where p.company_id is not null " +
+            "  and p.company_id <> '$company' limit 1;",
+          sql: "select count(*)::int as n from public.user_strengths where id = '13131313-1313-4131-8131-131313131313';",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
