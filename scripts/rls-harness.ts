@@ -1925,6 +1925,123 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  {
+    n: "6e",
+    tables: [
+      "issues",
+      "dashboard_ai_briefs",
+      "company_discipline_snapshots",
+      "coaching_conversations",
+      "coach_token_usage",
+    ],
+    migration: "0186_f8_batch6e_hoist.sql",
+    // coach_token_usage carries a nullable company_id: platform-level
+    // spend that belongs to no tenant. None exist on the clone.
+    nullCompanyRows: {
+      coach_token_usage:
+        "insert into public.coach_token_usage (company_id, purpose, model) " +
+        "values (null, 'other', 'claude-probe');",
+    },
+    indirectScope: {
+      // Platform telemetry: no company_id, system_admin only.
+      coach_token_usage: {
+        key: "id",
+        rows: "select id as key, null::uuid as company_id from public.coach_token_usage",
+      },
+      coaching_conversations: {
+        key: "id",
+        rows: "select id as key, company_id from public.coaching_conversations",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        with c as (
+          select co.id from public.companies co
+           where exists (select 1 from public.profiles p
+                          where p.company_id = co.id and p.role = 'company_admin'
+                            and p.status = 'active')
+             and exists (select 1 from public.profiles p
+                          where p.company_id = co.id and p.role = 'team_member'
+                            and p.status = 'active')
+           limit 1
+        )
+        select
+          (select id from c) as company,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = (select id from c) limit 1) as admin,
+          (select id from public.profiles where role = 'team_member'
+             and status = 'active' and company_id = (select id from c) limit 1) as member,
+          (select id from public.profiles where role = 'team_member' and status = 'active'
+             and company_id is not null and company_id <> (select id from c) limit 1) as outsider,
+          (select id from public.issues where company_id = (select id from c) limit 1) as own_issue,
+          (select id from public.issues where company_id <> (select id from c) limit 1) as foreign_issue;`,
+      probes: [
+        {
+          name: "team member raises an issue in their own company",
+          caller: "member",
+          sql: "with i as (insert into public.issues (company_id, title, created_by) values ('$company', 'probe issue', '$member') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "team member raises an issue in ANOTHER company",
+          caller: "outsider",
+          sql: "with i as (insert into public.issues (company_id, title, created_by) values ('$company', 'probe issue', '$outsider') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          // issues_update_creator: the raiser may edit their own, and
+          // issues_update_admin covers the company's admin. A member
+          // who raised nothing is covered by neither.
+          name: "team member edits an issue they did not raise",
+          caller: "member",
+          setup:
+            "insert into public.issues (id, company_id, title, created_by) " +
+            "select 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', '$company', 'probe issue', p.id " +
+            "from public.profiles p where p.company_id = '$company' and p.id <> '$member' limit 1;",
+          sql: "with u as (update public.issues set title = 'edited' where id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "admin",
+        },
+        {
+          name: "company_admin edits any issue in its company",
+          caller: "admin",
+          sql: "with u as (update public.issues set title = title where id = '$own_issue' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin edits another company's issue",
+          caller: "admin",
+          sql: "with u as (update public.issues set title = title where id = '$foreign_issue' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        // dashboard_ai_briefs admits admins only, by an explicit role
+        // list rather than the usual shape.
+        {
+          name: "company_admin writes a brief for its own company",
+          caller: "admin",
+          sql: "with i as (insert into public.dashboard_ai_briefs (company_id, brief_date, content) values ('$company', current_date, 'probe brief') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "team member writes a brief for their own company",
+          caller: "member",
+          sql: "with i as (insert into public.dashboard_ai_briefs (company_id, brief_date, content) values ('$company', current_date, 'probe brief') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        // Platform telemetry: nobody below system_admin reads it.
+        {
+          name: "company_admin reads coach token usage",
+          caller: "admin",
+          sql: "select count(*)::int as n from public.coach_token_usage;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
