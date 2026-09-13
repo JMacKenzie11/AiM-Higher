@@ -524,9 +524,11 @@ existed on both instances and not on the clone.
 
 Two things make that survivable. The read logs an error naming the
 consequence rather than failing silently, so the browser console says
-what happened. And `npm run seed:e2e` is only needed after a *refresh*
-from production, not after step 7 — a migration does not wipe the e2e
-fixtures, so catching the clone up costs one command and nothing else.
+what happened. And `npm run scrub:dev` + `npm run seed:e2e` are only
+needed after a *refresh* from production, not after step 7 — a
+migration neither wipes the e2e fixtures nor copies fresh OAuth
+credentials in, so catching the clone up costs one command and nothing
+else. After a refresh, both. See docs/e2e.md.
 
 Refreshing the clone from production is the other cure and a blunter
 one: it replaces the schema wholesale, wipes every fixture, and needs

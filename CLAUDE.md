@@ -51,6 +51,17 @@ waits for it, or stacks on it.
 that runs against provisioned instances, and any merge into shared structure
 the rest of the app hangs off, is his call and his timing.
 
+## Migrations
+
+**A migration reaches a database only through `migrate:instances`,
+`migrate:dev`, the provisioning CLI, or the RLS harness's rolled-back
+application.** Never raw SQL, never a direct `supabase db push`, and
+dev counts as a live database. If you need an unlanded migration
+present to develop against, that is `rls:hazards -- --pending
+<file>.sql`, which applies it inside a transaction and rolls it back.
+Anything else leaves a database whose state no file describes. Failure
+mode E2.
+
 ## Permissions
 
 **A role widening ships with its RLS change and a harness probe in the same
