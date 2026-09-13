@@ -496,7 +496,14 @@ a test that will eventually break the wrong one.
 6. Check `www.aims-hq.com` and `aims-hq.com` both load, and that a cron
    route is not returning the not-found page.
 7. **If the release carried a migration, catch up the dev clone:**
-   `npm run migrate:instances -- --db-url "<clone session pooler url>"`.
+   `npm run migrate:dev`. It builds the connection string from
+   `DEV_SUPABASE_URL` and `DEV_DATABASE_PASSWORD` in `.env.provisioning`
+   and the pooler host from the Management API, and refuses to run if
+   that ref is also production or the control plane. `npm run
+   migrate:dev -- --dry-run` first if you want to see what it would
+   apply. The older `npm run migrate:instances -- --db-url "<clone
+   session pooler url>"` still works and is the same code path, with
+   the string pasted instead of built.
 
 ### The dev clone is not migrated by the fleet, and that is deliberate
 

@@ -8,6 +8,8 @@
  *   npm run migrate:instances -- --dry-run
  *   npm run migrate:instances -- --seed          # migrate, then top up seed data
  *   npm run migrate:instances -- --db-url "<url>"  # one off-registry database
+ *   npm run migrate:dev                          # the dev clone
+ *   npm run migrate:dev -- --dry-run
  *
  * --seed also runs supabase/seed/instance-seed.sql against each
  * instance after its migrations. The seed is idempotent by
@@ -19,6 +21,14 @@
  *
  * Suspended instances are skipped and reported as skipped. See the
  * status contract in src/lib/instances/types.ts.
+ *
+ * --dev is that same single-database path with the connection string
+ * built rather than pasted: the clone's ref and password come from
+ * DEV_SUPABASE_URL and DEV_DATABASE_PASSWORD in .env.provisioning, and
+ * the pooler host from the Management API. It refuses any ref that is
+ * also production or the control plane, because a one-word command
+ * that can reach production is worse than the pasted connection string
+ * it replaces.
  *
  * --db-url migrates a single database that is not in the registry. The
  * dev clone is the case it exists for: it is disposable tooling rather
@@ -48,11 +58,15 @@ import {
   MIGRATIONS_TABLE,
   isProblem,
   migrateAllInstances,
+  resolveDevTarget,
   selectMigratableRows,
   type InstanceResult,
   type RegistryRow,
 } from "./lib/provisioning/migrate.ts";
-import { createManagementClient } from "./lib/provisioning/supabase-management.ts";
+import {
+  createManagementClient,
+  migrationConnectionUrl,
+} from "./lib/provisioning/supabase-management.ts";
 import { stateFileFor, type InstanceState } from "./lib/provisioning/state.ts";
 import { isEntryPoint } from "./lib/entry-point.ts";
 
@@ -174,19 +188,23 @@ function summarize(
   console.log("");
 }
 
-function parseArgs(argv: string[]): {
+export function parseArgs(argv: string[]): {
   dryRun: boolean;
   dbUrl: string | null;
   seed: boolean;
+  dev: boolean;
 } {
   let dryRun = false;
   let dbUrl: string | null = null;
   let seed = false;
+  let dev = false;
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--dry-run") {
       dryRun = true;
     } else if (argv[i] === "--seed") {
       seed = true;
+    } else if (argv[i] === "--dev") {
+      dev = true;
     } else if (argv[i] === "--db-url") {
       dbUrl = argv[i + 1] ?? null;
       if (!dbUrl) fail("--db-url needs a connection string.");
@@ -194,11 +212,24 @@ function parseArgs(argv: string[]): {
     } else {
       fail(
         `Unknown argument ${argv[i]}. ` +
-          `Options: --dry-run, --seed, --db-url <url>.`
+          `Options: --dry-run, --seed, --dev, --db-url <url>.`
       );
     }
   }
-  return { dryRun, dbUrl, seed };
+  // Both name one database and they would name different ones.
+  if (dev && dbUrl) {
+    fail("--dev and --db-url both name a database. Pass one.");
+  }
+  // --seed walks the registry; the single-database path never reaches
+  // it. Refused rather than ignored, so nobody reads a silent no-op as
+  // seed data delivered.
+  if (dev && seed) {
+    fail(
+      "--seed applies to the registry path, not --dev. Run the seed " +
+        "against the clone directly if that is what you want."
+    );
+  }
+  return { dryRun, dbUrl, seed, dev };
 }
 
 // One database, named directly. Used for the dev clone, which has no
@@ -228,7 +259,41 @@ async function migrateOne(dbUrl: string, dryRun: boolean): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const { dryRun, dbUrl, seed } = parseArgs(process.argv.slice(2));
+  const { dryRun, dbUrl, seed, dev } = parseArgs(process.argv.slice(2));
+
+  if (dev) {
+    const target = resolveDevTarget(process.env);
+    if (!target.ok) fail(target.reason);
+    if (!process.env.SUPABASE_MANAGEMENT_TOKEN?.trim()) {
+      fail(
+        "SUPABASE_MANAGEMENT_TOKEN is not set in .env.provisioning. It " +
+          "is how the pooler host is looked up."
+      );
+    }
+    const management = createManagementClient({
+      token: process.env.SUPABASE_MANAGEMENT_TOKEN as string,
+    });
+    const pooler = await management.getPoolerConfig(target.ref);
+    const host = pooler[0]?.db_host;
+    if (!host) {
+      fail(
+        `Project ${target.ref} reported no pooler host, so there is no ` +
+          `IPv4-reachable way in.`
+      );
+    }
+    // The ref and the host, never the URL: it carries the password.
+    console.log("");
+    console.log(`  Dev clone ${target.ref} via ${host}`);
+    await migrateOne(
+      migrationConnectionUrl({
+        poolerHost: host as string,
+        ref: target.ref,
+        password: target.password,
+      }),
+      dryRun
+    );
+    return;
+  }
 
   if (dbUrl) {
     // No registry, no control plane, no state files: one database,

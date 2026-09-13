@@ -1,11 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 
 import {
+  DEV_PASSWORD_VAR,
+  DEV_URL_VAR,
   PRIMARY_PASSWORD_VAR,
   isProblem,
   migrateAllInstances,
   pendingMigrations,
   refFromSupabaseUrl,
+  resolveDevTarget,
   resolveTarget,
   selectMigratableRows,
   unbaselinedReason,
@@ -594,5 +597,82 @@ describe("--seed", () => {
 
     expect(seedInstance).not.toHaveBeenCalled();
     expect(results[0].seed).toEqual({ status: "would-seed" });
+  });
+});
+
+// ---- resolveDevTarget ------------------------------------------
+//
+// The refusal cases are the reason this function exists, so they are
+// tested first and by name. A green "resolves the clone" on its own
+// would prove only that the happy path works, which is not the risk.
+
+describe("resolveDevTarget", () => {
+  const DEV = "https://devclone.supabase.co";
+
+  it("refuses a ref that is also production", () => {
+    const result = resolveDevTarget({
+      [DEV_URL_VAR]: DEV,
+      [DEV_PASSWORD_VAR]: "pw",
+      PROD_SUPABASE_URL: DEV,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.reason).toContain("also production");
+  });
+
+  it("refuses a ref that is also the control plane", () => {
+    const result = resolveDevTarget({
+      [DEV_URL_VAR]: DEV,
+      [DEV_PASSWORD_VAR]: "pw",
+      CONTROL_PLANE_SUPABASE_URL: DEV,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.reason).toContain(
+      "also the control plane"
+    );
+  });
+
+  it("refuses before asking for a password, so a shared ref is caught even unconfigured", () => {
+    const result = resolveDevTarget({
+      [DEV_URL_VAR]: DEV,
+      PROD_SUPABASE_URL: DEV,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.reason).toContain("Refusing to run");
+  });
+
+  it("reports a missing URL by name", () => {
+    const result = resolveDevTarget({ [DEV_PASSWORD_VAR]: "pw" });
+    expect(result.ok === false && result.reason).toContain(DEV_URL_VAR);
+  });
+
+  it("reports a URL that is not a Supabase project URL", () => {
+    const result = resolveDevTarget({
+      [DEV_URL_VAR]: "postgresql://localhost:5432/postgres",
+      [DEV_PASSWORD_VAR]: "pw",
+    });
+    expect(result.ok === false && result.reason).toContain(DEV_URL_VAR);
+  });
+
+  it("reports a missing password by name", () => {
+    const result = resolveDevTarget({ [DEV_URL_VAR]: DEV });
+    expect(result.ok === false && result.reason).toContain(DEV_PASSWORD_VAR);
+  });
+
+  it("treats whitespace as unset", () => {
+    const result = resolveDevTarget({
+      [DEV_URL_VAR]: DEV,
+      [DEV_PASSWORD_VAR]: "   ",
+    });
+    expect(result.ok === false && result.reason).toContain(DEV_PASSWORD_VAR);
+  });
+
+  it("resolves the clone when prod and the control plane are elsewhere", () => {
+    const result = resolveDevTarget({
+      [DEV_URL_VAR]: DEV,
+      [DEV_PASSWORD_VAR]: "pw",
+      PROD_SUPABASE_URL: "https://prodref.supabase.co",
+      CONTROL_PLANE_SUPABASE_URL: "https://controlref.supabase.co",
+    });
+    expect(result).toEqual({ ok: true, ref: "devclone", password: "pw" });
   });
 });
