@@ -231,6 +231,75 @@ export function resolveTarget(args: {
   };
 }
 
+// ---- The dev clone --------------------------------------------
+
+// The clone has no registry row and no state file, so it is resolved
+// from the environment like the primary instance is, and from
+// .env.provisioning for the same reason everything else here is: the
+// CONTROL_PLANE_* and LOCAL_INSTANCE_* variables in .env.local get
+// repointed during local testing, and inheriting those would migrate
+// whatever the app happened to be pointed at.
+export const DEV_URL_VAR = "DEV_SUPABASE_URL";
+export const DEV_PASSWORD_VAR = "DEV_DATABASE_PASSWORD";
+
+export type DevTarget =
+  | { ok: true; ref: string; password: string }
+  | { ok: false; reason: string };
+
+// Refuses any ref that is also production or the control plane.
+//
+// The refusal is the point of this function. `migrate:dev` exists so
+// the clone catch-up is one word instead of a pasted connection
+// string, and a one-word command that can reach production is worse
+// than the pasted string it replaces. DEV_SUPABASE_URL is a second
+// name for a database that LOCAL_INSTANCE_SUPABASE_URL also names, so
+// the day somebody repoints one and not the other, this is what
+// stands between that and a migration applied to the wrong database.
+export function resolveDevTarget(
+  env: Record<string, string | undefined>
+): DevTarget {
+  const url = env[DEV_URL_VAR]?.trim();
+  const ref = url ? refFromSupabaseUrl(url) : null;
+  if (!ref) {
+    return {
+      ok: false,
+      reason:
+        `${DEV_URL_VAR} is not set in .env.provisioning, or is not a ` +
+        `Supabase project URL. See .env.provisioning.example.`,
+    };
+  }
+
+  for (const [name, otherUrl] of [
+    ["production", env.PROD_SUPABASE_URL],
+    ["the control plane", env.CONTROL_PLANE_SUPABASE_URL],
+  ] as const) {
+    const otherRef = otherUrl ? refFromSupabaseUrl(otherUrl) : null;
+    if (otherRef && otherRef === ref) {
+      return {
+        ok: false,
+        reason:
+          `${DEV_URL_VAR} resolves to ${ref}, which is also ${name}. ` +
+          `Refusing to run: this command exists for the dev clone and ` +
+          `must not be able to reach anything else.`,
+      };
+    }
+  }
+
+  const password = env[DEV_PASSWORD_VAR]?.trim();
+  if (!password) {
+    return {
+      ok: false,
+      reason:
+        `${DEV_PASSWORD_VAR} is not set in .env.provisioning. It is the ` +
+        `clone's database password, under Project Settings → Database. ` +
+        `Supabase never shows a password twice, so if nobody has it, ` +
+        `reset it there and write it back.`,
+    };
+  }
+
+  return { ok: true, ref, password };
+}
+
 // ---- Walking every instance -----------------------------------
 
 // What --seed did on one instance, when it was asked for.

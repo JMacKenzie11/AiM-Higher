@@ -15,6 +15,7 @@
     "seed:instances": "node --env-file=.env.local --experimental-strip-types scripts/seed-instances.ts",
     "seed:e2e": "node --env-file=.env.local --experimental-strip-types scripts/seed-e2e.ts",
     "migrate:instances": "tsx --tsconfig scripts/tsconfig.json scripts/migrate-instances.ts",
+    "migrate:dev": "tsx --tsconfig scripts/tsconfig.json scripts/migrate-instances.ts --dev",
     "sync:content": "tsx --tsconfig scripts/tsconfig.json scripts/sync-content.ts",
     "repair:scorecard-snapshots": "tsx --tsconfig scripts/tsconfig.json scripts/repair-scorecard-gated-snapshots.ts",
     "provision": "tsx --tsconfig scripts/tsconfig.json scripts/provision-instance.ts",
