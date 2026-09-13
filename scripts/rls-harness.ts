@@ -534,6 +534,16 @@ export type Batch = {
   // runs as postgres before the role switch and gets no $name
   // substitution, so it selects whatever parents it needs inline.
   seedRows?: Readonly<Record<string, string>>;
+  // One row in a company that has none, so the isolation case has
+  // another tenant to be denied.
+  //
+  // Some tables are sparse: marketing_strategy holds a single row on
+  // the clone, so "no company other than the caller's has any row"
+  // is true and the check correctly refuses to call that a tenant
+  // boundary. The SQL must be deterministic — it is evaluated once to
+  // choose the other company and again inside the measurement — so it
+  // picks by `order by co.id limit 1` rather than arbitrarily.
+  isolationSeed?: Readonly<Record<string, string>>;
   // Whether the after-plan must show the helper hoisted.
   //
   // True for an F8 batch: that is its entire claim. False for a
@@ -1551,6 +1561,140 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  {
+    n: "6b",
+    tables: [
+      "company_foundation",
+      "foundation_items",
+      "marketing_strategy",
+      "marketing_snippets",
+      "messaging_pillars",
+      "scorecard_metrics",
+      "scorecard_entries",
+    ],
+    migration: "0183_f8_batch6b_hoist.sql",
+    // Both tables hold rows for exactly one company on the clone, so
+    // isolation had nothing to deny until it was given something.
+    isolationSeed: {
+      marketing_strategy:
+        "insert into public.marketing_strategy (company_id) " +
+        "select co.id from public.companies co " +
+        " where not exists (select 1 from public.marketing_strategy t where t.company_id = co.id) " +
+        " order by co.id limit 1;",
+      messaging_pillars:
+        "insert into public.messaging_pillars (company_id, name) " +
+        "select co.id, 'probe pillar' from public.companies co " +
+        " where not exists (select 1 from public.messaging_pillars t where t.company_id = co.id) " +
+        " order by co.id limit 1;",
+    },
+    writeProbes: {
+      // Anchored on a functional area whose accountable person is a
+      // PLAIN TEAM MEMBER.
+      //
+      // Half the accountable people on this clone are company_admins,
+      // and the first version of this fixture picked one — so the
+      // probes that were supposed to isolate the accountable branch
+      // were passing through the admin branch instead, and reported a
+      // delete as permitted that the accountable branch does not
+      // permit. Same trap as batch 3's owner probes.
+      fixtures: `
+        with a as (
+          select fa.id as area_id, fa.company_id, fa.accountable_id
+            from public.functional_areas fa
+            join public.profiles p on p.id = fa.accountable_id
+           where p.role = 'team_member' and p.status = 'active'
+             and exists (select 1 from public.scorecard_metrics m
+                          where m.functional_area_id = fa.id)
+           limit 1
+        ), c as (select company_id from a)
+        select
+          (select company_id from c) as company,
+          (select accountable_id from a) as accountable,
+          (select m.id from public.scorecard_metrics m
+            where m.functional_area_id = (select area_id from a) limit 1) as owned_metric,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = (select company_id from c) limit 1) as admin,
+
+          (select id from public.scorecard_metrics
+            where company_id <> (select company_id from c) limit 1) as foreign_metric,
+          (select company_id from public.company_foundation
+            where company_id = (select company_id from c) limit 1) as foundation,
+          (select company_id from public.company_foundation
+            where company_id <> (select company_id from c) limit 1) as foreign_foundation;`,
+      probes: [
+        {
+          name: "company_admin edits its own company's foundation",
+          caller: "admin",
+          sql: "with u as (update public.company_foundation set updated_at = updated_at where company_id = '$foundation' returning company_id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin edits another company's foundation",
+          caller: "admin",
+          sql: "with u as (update public.company_foundation set updated_at = updated_at where company_id = '$foreign_foundation' returning company_id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        // The accountable branch: the person who owns a functional
+        // area may record its numbers without admin rights anywhere.
+        {
+          name: "accountable person records an entry on their area's metric",
+          caller: "accountable",
+          sql: "with i as (insert into public.scorecard_entries (company_id, metric_id, week_ending, value_number) values ('$company', '$owned_metric', current_date, 1) returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          // Same caller, a metric on an area they do not own. The one
+          // variable is accountability.
+          // Self-provisioned: every functional area in these
+          // companies has an accountable person, so a metric nobody
+          // owns has to be made rather than found.
+          name: "accountable person records an entry on a metric they do not own",
+          caller: "accountable",
+          setup:
+            "insert into public.functional_areas (id, company_id, name) values " +
+            "('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '$company', 'probe area'); " +
+            "insert into public.scorecard_metrics (id, company_id, functional_area_id, name) values " +
+            "('cccccccc-cccc-4ccc-8ccc-cccccccccccc', '$company', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'probe metric');",
+          sql: "with i as (insert into public.scorecard_entries (company_id, metric_id, week_ending, value_number) values ('$company', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', current_date, 1) returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          name: "accountable person records an entry for another company",
+          caller: "accountable",
+          sql: "with i as (insert into public.scorecard_entries (company_id, metric_id, week_ending, value_number) values ('$company', '$foreign_metric', current_date, 1) returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          // Recording is not removing: the delete policy carries no
+          // accountable branch, so the same person is refused here.
+          name: "accountable person deletes an entry on their own metric",
+          caller: "accountable",
+          setup:
+            "insert into public.scorecard_entries (id, company_id, metric_id, week_ending, value_number) " +
+            "values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '$company', '$owned_metric', current_date, 1);",
+          sql: "with d as (delete from public.scorecard_entries where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' returning id) select count(*)::int as n from d;",
+          expect: "0",
+          provenBy: "admin",
+        },
+        {
+          name: "company_admin edits a scorecard metric in its company",
+          caller: "admin",
+          sql: "with u as (update public.scorecard_metrics set updated_at = updated_at where id = '$owned_metric' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin edits another company's scorecard metric",
+          caller: "admin",
+          sql: "with u as (update public.scorecard_metrics set updated_at = updated_at where id = '$foreign_metric' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
@@ -1947,8 +2091,16 @@ async function isolationChecks(
       });
       continue;
     }
+    // A sparse table gets its second tenant made rather than found.
+    // The seed runs inside a rolled-back transaction for the pick and
+    // again inside the measurement; being deterministic is what makes
+    // those the same company.
+    const isoSeed = batch.isolationSeed?.[table] ?? "";
+    const pickSql = otherCompanySql(batch, table, callerCompany);
     const [pick] = await run<{ other: string | null; n: number }>(
-      otherCompanySql(batch, table, callerCompany)
+      isoSeed
+        ? ["begin;", sql, isoSeed, pickSql, "rollback;"].join("\n")
+        : pickSql
     );
     if (!pick?.other) {
       out.push({
@@ -1969,10 +2121,10 @@ async function isolationChecks(
       pick.other
     );
     const [before] = await run<{ own: number; other_: number }>(
-      asCaller(caller, setup, counts)
+      asCaller(caller, [isoSeed, setup].filter(Boolean).join("\n"), counts)
     );
     const [after] = await run<{ own: number; other_: number }>(
-      asCaller(caller, [sql, setup].filter(Boolean).join("\n"), counts)
+      asCaller(caller, [sql, isoSeed, setup].filter(Boolean).join("\n"), counts)
     );
     const ok = after.other_ === 0 && after.own > 0 && before.other_ === 0;
     out.push({
