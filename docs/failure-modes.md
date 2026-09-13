@@ -434,6 +434,12 @@ reporting BOTH outcomes, every time, so a wrong shape that quietly
 stops being wrong is visible rather than silently converting the check
 into decoration.
 
+**The zero case, stated separately because it hides.** A check whose
+pass condition is "0 rows" must also show that a nonzero was available
+to it. A zero from a working boundary and a zero from an empty set are
+the same zero, and only one of them is evidence. So: a control beside
+every zero, in the same run, isolation included.
+
 This is E1's sibling and not the same rule. E1 says do not trust an
 assumed response shape; this says do not trust your own instrument.
 
@@ -457,11 +463,24 @@ caught only because the number disagreed with production plans already
 in hand; nothing about the measurement itself looked wrong. A
 green-looking instrument had been pointed at a different query.
 
+*The isolation check that passed against an empty set.* The harness's
+tenant-boundary acceptance asserted that a member of company A sees N
+of A and 0 of B. It never established that B had rows in the table.
+For `commitment_occurrences` in F8 batch 2, B had none, so the zero was
+arithmetic and the check would have passed with every policy on the
+table dropped. It had already passed twice, on a batch that shipped to
+production. The fix picks an "other company" that has rows in the
+table under test, reports how many were denied, and calls a table
+where no such company exists NOT PROVEN. Batch 1 was re-measured
+through the corrected check before batch 2 opened: its zeros were
+real, denying 1, 7 and 3 existing rows.
+
 **Pinned by.** Nothing can pin a practice. What exists is the shape:
 `scripts/rls-harness.ts` reports the wrong shape and the right shape on
-every case and declares a case broken if the wrong one stops leaking,
-and `docs/f8-rls-hoist.md` states the real-predicate rule with the
-near-miss written out.
+every case, declares a case broken if the wrong one stops leaking, and
+names the size of the set each zero was measured against;
+`docs/f8-rls-hoist.md` states all three rules with the near-misses
+written out.
 
 ### E5. A role widening that never reached the database
 

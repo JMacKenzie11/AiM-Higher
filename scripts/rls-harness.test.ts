@@ -1,21 +1,24 @@
 import { describe, it, expect } from "vitest";
 import {
-  projectRef,
-  summaryLines,
-  parseArgs,
-  planFacts,
-  afterPlanIsHoisted,
-  notDistinctOffenders,
-  notDistinctMatches,
-  canaryPresent,
-  batchSummaryLines,
-  grantSummaryLines,
-  describeOutcome,
-  findBatch,
   BATCHES,
   NOT_DISTINCT_ALLOWLIST,
-  type CaseResult,
+  afterPlanIsHoisted,
+  batchSummaryLines,
+  canaryPresent,
+  companyOfRowSql,
+  describeOutcome,
+  findBatch,
+  grantSummaryLines,
+  isolationSql,
+  notDistinctMatches,
+  notDistinctOffenders,
+  otherCompanySql,
+  parseArgs,
+  planFacts,
+  projectRef,
+  summaryLines,
   type BatchCheck,
+  type CaseResult,
   type GrantProbe,
   type PolicyRow,
 } from "./rls-harness.ts";
@@ -384,5 +387,143 @@ describe("grantSummaryLines", () => {
   it("counts passes and failures", () => {
     const out = grantSummaryLines([probe, { ...probe, ok: false }]).join("\n");
     expect(out).toContain("2 probes: 1 pass, 1 fail");
+  });
+});
+
+// ---- Isolation scope -------------------------------------------
+//
+// Batch 2 brought the first table with no company_id of its own, and
+// with it two bugs worth pinning: a helper that assumed every table
+// has an `id` (company_features does not, and it is already
+// deployed), and an isolation check that read "0 rows of company B"
+// as a denial when company B had no rows at all.
+
+const DIRECT = { n: "d", tables: ["commitments"], migration: "m.sql" };
+const COMPANIES = { n: "c", tables: ["companies"], migration: "m.sql" };
+const FEATURES = { n: "f", tables: ["company_features"], migration: "m.sql" };
+const INDIRECT = {
+  n: "i",
+  tables: ["commitment_occurrences"],
+  migration: "m.sql",
+  indirectScope: {
+    commitment_occurrences:
+      "select o.id, c.company_id from public.commitment_occurrences o " +
+      "join public.commitments c on c.id = o.commitment_id",
+  },
+};
+
+describe("companyOfRowSql", () => {
+  it("treats a company as its own company", () => {
+    expect(companyOfRowSql(COMPANIES, "companies")).toBe(
+      "select id as company_id from public.companies"
+    );
+  });
+
+  it("names the column for an ordinary table", () => {
+    expect(companyOfRowSql(DIRECT, "commitments")).toBe(
+      "select company_id from public.commitments"
+    );
+  });
+
+  // The regression: company_features has no id column, and a helper
+  // that selected one broke the batch that is already in production.
+  it("does not require an id column", () => {
+    for (const sql of [
+      companyOfRowSql(FEATURES, "company_features"),
+      companyOfRowSql(COMPANIES, "companies"),
+      companyOfRowSql(INDIRECT, "commitment_occurrences"),
+    ]) {
+      expect(sql).not.toMatch(/select\s+id\s*,/);
+    }
+  });
+
+  it("traverses to the parent for a table with no company of its own", () => {
+    expect(companyOfRowSql(INDIRECT, "commitment_occurrences")).toContain(
+      "join public.commitments c on c.id = o.commitment_id"
+    );
+  });
+});
+
+describe("otherCompanySql", () => {
+  it("excludes the caller's own company", () => {
+    expect(otherCompanySql(DIRECT, "commitments", "A")).toContain(
+      "company_id <> 'A'"
+    );
+  });
+
+  it("ignores rows with no company, which cannot belong to another tenant", () => {
+    expect(otherCompanySql(DIRECT, "commitments", "A")).toContain(
+      "company_id is not null"
+    );
+  });
+
+  it("returns the count too, so the check can refuse to read an empty set as a denial", () => {
+    expect(otherCompanySql(DIRECT, "commitments", "A")).toContain("count(*)::int as n");
+  });
+
+  it("picks the company with the most rows, so the denial is measured against the largest set available", () => {
+    expect(otherCompanySql(DIRECT, "commitments", "A")).toContain(
+      "order by count(*) desc limit 1"
+    );
+  });
+});
+
+describe("isolationSql", () => {
+  it("keys companies by id", () => {
+    const { setup, assertion } = isolationSql(COMPANIES, "companies", "A", "B");
+    expect(setup).toBe("");
+    expect(assertion).toContain("where id = 'A'");
+    expect(assertion).toContain("where id = 'B'");
+  });
+
+  it("keys an ordinary table by company_id, with no setup", () => {
+    const { setup, assertion } = isolationSql(DIRECT, "commitments", "A", "B");
+    expect(setup).toBe("");
+    expect(assertion).toContain("where company_id = 'A'");
+    expect(assertion).toContain("where company_id = 'B'");
+  });
+
+  it("materialises both scope sets for an indirect table", () => {
+    const { setup } = isolationSql(INDIRECT, "commitment_occurrences", "A", "B");
+    expect(setup).toContain("create temp table _scope_own");
+    expect(setup).toContain("create temp table _scope_other");
+    expect(setup).toContain("where company_id = 'A'");
+    expect(setup).toContain("where company_id = 'B'");
+  });
+
+  it("grants the scope sets to authenticated, or the caller cannot read them", () => {
+    const { setup } = isolationSql(INDIRECT, "commitment_occurrences", "A", "B");
+    expect(setup).toContain(
+      "grant select on _scope_own, _scope_other to authenticated"
+    );
+  });
+
+  it("counts the caller's visible rows within each set, not the set itself", () => {
+    const { assertion } = isolationSql(INDIRECT, "commitment_occurrences", "A", "B");
+    expect(assertion).toContain(
+      "from public.commitment_occurrences where id in (select id from _scope_own)"
+    );
+  });
+
+  it("reports both halves, whichever path, so a zero is never read alone", () => {
+    for (const batch of [DIRECT, INDIRECT]) {
+      const { assertion } = isolationSql(batch, batch.tables[0], "A", "B");
+      expect(assertion).toContain("as own");
+      expect(assertion).toContain("as other_");
+    }
+  });
+});
+
+describe("BATCHES", () => {
+  it("registers batch 2 against the migration that carries it", () => {
+    const b = findBatch("2");
+    expect(b?.tables).toEqual(["commitments", "commitment_occurrences"]);
+    expect(b?.migration).toBe("0177_f8_batch2_hoist.sql");
+  });
+
+  it("declares the traversal for the table with no company_id", () => {
+    expect(findBatch("2")?.indirectScope?.commitment_occurrences).toContain(
+      "join public.commitments"
+    );
   });
 });
