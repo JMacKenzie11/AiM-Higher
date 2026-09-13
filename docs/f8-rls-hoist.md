@@ -164,11 +164,12 @@ denial, not an exception.
 
 ---
 
-## Two rules the cases obey
+## Three rules the cases obey
 
-Both came out of getting this wrong once each, before any policy was
-touched. They are stated here rather than remembered because the next
-person to add a case will not have watched either happen.
+Each came out of getting it wrong once, and the third came out of
+getting it wrong in a check that had already passed twice. They are
+stated here rather than remembered because the next person to add a
+case will not have watched any of them happen.
 
 ### Cases use the real predicate shape, ORs included
 
@@ -218,6 +219,37 @@ works and how any case added later should work, whatever it is testing.
 See E4 in `docs/failure-modes.md`.
 
 ---
+
+### A pass that is a zero must show the zero could have been nonzero
+
+**A check whose pass condition is "0 rows" has to demonstrate, in the
+same run, that a nonzero was available.** Otherwise it passes against
+an empty set, which is indistinguishable from passing against a
+working boundary, and it would go on passing with every policy on the
+table dropped.
+
+The deleted-user case obeyed this from the start: it reports what an
+ordinary member sees through the same policies and calls itself NOT
+PROVEN if that control is also zero. The isolation acceptance did not.
+It asserted "the caller sees N of company A and 0 of company B" and
+took that for a tenant boundary, without ever establishing that
+company B had rows in the table at all.
+
+Batch 2 is where that came due. `commitment_occurrences` has no
+`company_id`, so the arbitrary "other company" the check picked held
+zero occurrences, and the zero it reported was arithmetic rather than
+enforcement. Both spellings of the query returned it. So would a
+table with no RLS.
+
+The implementation: the other company is chosen per table as one that
+actually has rows there, `otherCompanySql` returns how many, and the
+result line reports what was denied — `own 4, other 0 (of 7 that
+exist)`. A table where no other company has any row is reported NOT
+PROVEN rather than passed.
+
+Applied backwards to batch 1 before batch 2 opened, since batch 1 had
+already shipped through the weaker check: its three tables deny 1, 7
+and 3 existing rows respectively. Those zeros were real.
 
 ## The static check
 

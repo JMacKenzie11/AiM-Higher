@@ -44,6 +44,14 @@
  * leaks and the right one denies. If a case reports both green, the
  * case itself is broken.
  *
+ * A ZERO IS NOT A PASS UNTIL A NONZERO WAS AVAILABLE. Every check
+ * here whose pass condition is "0 rows" reports, in the same run, the
+ * set that zero was measured against: the deleted-user case names what
+ * an ordinary member sees, the isolation case names how many rows the
+ * other company actually has. A zero from a working boundary and a
+ * zero from an empty table are the same zero. Only one is evidence,
+ * and the check cannot tell them apart without the control.
+ *
  * It refuses to run against production or the control plane. The
  * target is read from LOCAL_INSTANCE_SUPABASE_URL and checked against
  * PROD_SUPABASE_URL and CONTROL_PLANE_SUPABASE_URL by project ref.
@@ -496,6 +504,16 @@ export type Batch = {
   // it, so a before/after pair costs the clone nothing and needs no
   // deploy to produce.
   migration: string;
+  // Tables that carry no company_id of their own and reach company
+  // scope through a parent row. The value is a SELECT yielding
+  // (id, company_id) for every row of the table.
+  //
+  // It is evaluated as postgres, BEFORE the role switch. Doing it
+  // inline as the caller would measure the wrong thing: the traversal
+  // reads the PARENT table, whose own policy would filter it, so
+  // "sees 0 of company B" could be produced by the parent's policy
+  // rather than by the one under test.
+  indirectScope?: Readonly<Record<string, string>>;
 };
 
 export const BATCHES: readonly Batch[] = [
@@ -504,7 +522,82 @@ export const BATCHES: readonly Batch[] = [
     tables: ["companies", "company_features", "quarters"],
     migration: "0175_f8_batch1_hoist.sql",
   },
+  {
+    n: "2",
+    tables: ["commitments", "commitment_occurrences"],
+    migration: "0177_f8_batch2_hoist.sql",
+    indirectScope: {
+      commitment_occurrences:
+        "select o.id, c.company_id from public.commitment_occurrences o " +
+        "join public.commitments c on c.id = o.commitment_id",
+    },
+  },
 ];
+
+// The company each row of a table belongs to, one row per row.
+//
+// No id column is assumed: company_features has none, and a helper
+// that quietly requires one would take the batch that is already
+// deployed with it.
+export function companyOfRowSql(batch: Batch, table: string): string {
+  const custom = batch.indirectScope?.[table];
+  if (custom) return `select company_id from (${custom}) t`;
+  if (table === "companies") return "select id as company_id from public.companies";
+  return `select company_id from public.${table}`;
+}
+
+// The other company has to HAVE rows, or "sees 0 of B" is not a
+// denial.
+//
+// This is the deleted-user check's control, applied to isolation. The
+// first version asserted own > 0 and other = 0 and called that a
+// tenant boundary. On batch 2 the arbitrary "other company" held zero
+// commitment_occurrences, so that half passed against an empty set
+// and would have passed with every policy on the table dropped.
+// Measured, not reasoned: the traversal returned other = 0 whichever
+// way it was written, because there was nothing there to return.
+export function otherCompanySql(batch: Batch, table: string, own: string): string {
+  return (
+    `select company_id as other, count(*)::int as n ` +
+    `from (${companyOfRowSql(batch, table)}) t ` +
+    `where company_id is not null and company_id <> '${own}' ` +
+    `group by company_id order by count(*) desc limit 1;`
+  );
+}
+
+// Direct tables name their column. A table with no company of its own
+// has both scope sets materialised as postgres first, granted to the
+// caller, and counted under the caller's policies — the traversal
+// must not run as the caller, or the parent's policy would be doing
+// the filtering the child's policy is supposed to be doing.
+//
+// Both halves are always reported, whichever path.
+export function isolationSql(
+  batch: Batch,
+  table: string,
+  own: string,
+  other: string
+): { setup: string; assertion: string } {
+  const traversal = batch.indirectScope?.[table];
+  if (!traversal) {
+    const col = table === "companies" ? "id" : "company_id";
+    return {
+      setup: "",
+      assertion:
+        `select (select count(*) from public.${table} where ${col} = '${own}')::int as own, ` +
+        `(select count(*) from public.${table} where ${col} = '${other}')::int as other_;`,
+    };
+  }
+  return {
+    setup:
+      `create temp table _scope_own as select id from (${traversal}) t where company_id = '${own}';\n` +
+      `create temp table _scope_other as select id from (${traversal}) t where company_id = '${other}';\n` +
+      "grant select on _scope_own, _scope_other to authenticated;",
+    assertion:
+      `select (select count(*) from public.${table} where id in (select id from _scope_own))::int as own, ` +
+      `(select count(*) from public.${table} where id in (select id from _scope_other))::int as other_;`,
+  };
+}
 
 export function findBatch(n: string): Batch | null {
   return BATCHES.find((b) => b.n === n) ?? null;
@@ -723,26 +816,43 @@ async function isolationChecks(
   const sql = migrationSql(batch);
   const out: BatchCheck[] = [];
   for (const table of batch.tables) {
-    // companies is keyed by id; everything else in this batch carries
-    // a company_id.
-    const col = table === "companies" ? "id" : "company_id";
-    const counts =
-      `select (select count(*) from public.${table} where ${col} = '${ids.memberCompany}')::int as own, ` +
-      `(select count(*) from public.${table} where ${col} = '${ids.otherCompany}')::int as other_;`;
+    // Chosen per table rather than once, because "another company"
+    // is only useful if it has rows in THIS table.
+    const [pick] = await run<{ other: string | null; n: number }>(
+      otherCompanySql(batch, table, ids.memberCompany)
+    );
+    if (!pick?.other) {
+      out.push({
+        name: `isolation · ${table}`,
+        before: "not run",
+        after: "not run",
+        ok: false,
+        detail:
+          "NOT PROVEN: no company other than the caller's has any row in " +
+          "this table, so there is nothing a denial could be denying",
+      });
+      continue;
+    }
+    const { setup, assertion: counts } = isolationSql(
+      batch,
+      table,
+      ids.memberCompany,
+      pick.other
+    );
     const [before] = await run<{ own: number; other_: number }>(
-      asCaller(ids.member, "", counts)
+      asCaller(ids.member, setup, counts)
     );
     const [after] = await run<{ own: number; other_: number }>(
-      asCaller(ids.member, sql, counts)
+      asCaller(ids.member, [sql, setup].filter(Boolean).join("\n"), counts)
     );
     const ok = after.other_ === 0 && after.own > 0 && before.other_ === 0;
     out.push({
       name: `isolation · ${table}`,
       before: `own ${before.own}, other ${before.other_}`,
-      after: `own ${after.own}, other ${after.other_}`,
+      after: `own ${after.own}, other ${after.other_} (of ${pick.n} that exist)`,
       ok,
       detail: ok
-        ? "reads its own company, denied the other"
+        ? `reads its own company, denied the other's ${pick.n}`
         : after.own === 0
           ? "NOT PROVEN: the caller sees none of its OWN company either, so the denial is not evidence"
           : "a member of one company can read another company's rows",
