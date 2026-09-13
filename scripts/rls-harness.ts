@@ -505,15 +505,21 @@ export type Batch = {
   // deploy to produce.
   migration: string;
   // Tables that carry no company_id of their own and reach company
-  // scope through a parent row. The value is a SELECT yielding
-  // (id, company_id) for every row of the table.
+  // scope through a parent row.
   //
-  // It is evaluated as postgres, BEFORE the role switch. Doing it
+  // `rows` is a SELECT yielding (key, company_id) for every row of the
+  // table; `key` is the expression that produces the same key from the
+  // table itself. A key rather than an id because two tables in this
+  // schema have no id column — company_features and csf_kpi_links,
+  // which is keyed (csf_id, kpi_id) — and a helper that assumes one
+  // breaks on whichever batch meets them.
+  //
+  // `rows` is evaluated as postgres, BEFORE the role switch. Doing it
   // inline as the caller would measure the wrong thing: the traversal
   // reads the PARENT table, whose own policy would filter it, so
   // "sees 0 of company B" could be produced by the parent's policy
   // rather than by the one under test.
-  indirectScope?: Readonly<Record<string, string>>;
+  indirectScope?: Readonly<Record<string, { key: string; rows: string }>>;
   // Write probes for the policies this batch rewrites.
   //
   // Read plans and isolation counts say nothing about who may WRITE.
@@ -569,9 +575,12 @@ export const BATCHES: readonly Batch[] = [
     tables: ["commitments", "commitment_occurrences"],
     migration: "0177_f8_batch2_hoist.sql",
     indirectScope: {
-      commitment_occurrences:
-        "select o.id, c.company_id from public.commitment_occurrences o " +
-        "join public.commitments c on c.id = o.commitment_id",
+      commitment_occurrences: {
+        key: "id",
+        rows:
+          "select o.id as key, c.company_id from public.commitment_occurrences o " +
+          "join public.commitments c on c.id = o.commitment_id",
+      },
     },
     writeProbes: {
       // One member who owns both an open and a resolved commitment,
@@ -917,6 +926,184 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  {
+    n: "4",
+    tables: [
+      "functions",
+      "success_measures",
+      "success_measure_entries",
+      "csf_kpi_links",
+    ],
+    migration: "0179_f8_batch4_hoist.sql",
+    indirectScope: {
+      success_measures: {
+        key: "id",
+        rows:
+          "select m.id as key, f.company_id from public.success_measures m " +
+          "join public.functions f on f.id = m.function_id",
+      },
+      success_measure_entries: {
+        key: "id",
+        rows:
+          "select e.id as key, f.company_id from public.success_measure_entries e " +
+          "join public.success_measures m on m.id = e.measure_id " +
+          "join public.functions f on f.id = m.function_id",
+      },
+      // No id column: keyed (csf_id, kpi_id).
+      csf_kpi_links: {
+        key: "(csf_id::text || ':' || kpi_id::text)",
+        rows:
+          "select (l.csf_id::text || ':' || l.kpi_id::text) as key, f.company_id " +
+          "from public.csf_kpi_links l " +
+          "join public.success_measures m on m.id = l.csf_id " +
+          "join public.functions f on f.id = m.function_id",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        with c as (
+          select co.id
+            from public.companies co
+           order by (
+             (exists (select 1 from public.profiles a
+                       where a.role = 'company_admin' and a.status = 'active'
+                         and a.company_id = co.id))::int
+             + (exists (select 1 from public.profiles g2
+                         join public.guide_assignments ga on ga.guide_id = g2.id
+                        where g2.role = 'aims_guide' and g2.status = 'active'
+                          and ga.company_id = co.id))::int
+             + (exists (select 1 from public.profiles p
+                         where p.role = 'team_member' and p.status = 'active'
+                           and p.company_id = co.id))::int
+             + ((select count(*) from public.functions f2 where f2.company_id = co.id) >= 1)::int
+           ) desc
+           limit 1
+        )
+        select
+          (select id from c) as company,
+          (select id from public.profiles where role = 'team_member'
+             and status = 'active' and company_id = (select id from c) limit 1) as member,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = (select id from c) limit 1) as admin,
+          (select p.id from public.profiles p
+             join public.guide_assignments ga on ga.guide_id = p.id
+            where p.role = 'aims_guide' and p.status = 'active'
+              and ga.company_id = (select id from c) limit 1) as guide,
+          (select id from public.functions where company_id = (select id from c) limit 1) as company_function,
+          (select id from public.functions where company_id <> (select id from c) limit 1) as foreign_function,
+          (select m.id from public.success_measures m
+             join public.functions f on f.id = m.function_id
+            where f.company_id = (select id from c) limit 1) as company_measure,
+          (select m.id from public.success_measures m
+             join public.functions f on f.id = m.function_id
+            where f.company_id <> (select id from c) limit 1) as foreign_measure;`,
+      probes: [
+        // ---- functions, the one table with its own company_id ----
+        {
+          name: "company_admin edits a function in its company",
+          caller: "admin",
+          sql: "with u as (update public.functions set title = title where id = '$company_function' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin edits another company's function",
+          caller: "admin",
+          sql: "with u as (update public.functions set title = title where id = '$foreign_function' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "team member edits a function in their own company",
+          caller: "member",
+          sql: "with u as (update public.functions set title = title where id = '$company_function' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "aims_guide edits a function in an assigned company",
+          caller: "guide",
+          sql: "with u as (update public.functions set title = title where id = '$company_function' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        // ---- success_measures, scoped through functions ----
+        {
+          name: "company_admin edits a measure in its company",
+          caller: "admin",
+          sql: "with u as (update public.success_measures set description = description where id = '$company_measure' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin edits another company's measure",
+          caller: "admin",
+          sql: "with u as (update public.success_measures set description = description where id = '$foreign_measure' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "team member edits a measure in their own company",
+          caller: "member",
+          sql: "with u as (update public.success_measures set description = description where id = '$company_measure' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        // ---- the lead and track branch, this batch's owner rule ----
+        //
+        // Self-provisioned per the batch 3 decision: the probe builds
+        // a function it leads and a measure under it, then writes an
+        // entry as an ordinary team member with no admin rights
+        // anywhere. Hunting a live lead would make the rule's coverage
+        // depend on who happens to lead something this week.
+        {
+          name: "function LEAD records an entry on its measure",
+          caller: "member",
+          setup:
+            "insert into public.functions (id, company_id, title, lead_id) values " +
+            "('22222222-2222-4222-8222-222222222222', '$company', 'probe fn', '$member'); " +
+            "insert into public.success_measures (id, function_id, description, kind) values " +
+            "('33333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 'probe measure', 'kpi');",
+          sql: "with i as (insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('33333333-3333-4333-8333-333333333333', current_date, 1) returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "function TRACK owner records an entry on its measure",
+          caller: "member",
+          setup:
+            "insert into public.functions (id, company_id, title, track_id) values " +
+            "('22222222-2222-4222-8222-222222222222', '$company', 'probe fn', '$member'); " +
+            "insert into public.success_measures (id, function_id, description, kind) values " +
+            "('33333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 'probe measure', 'kpi');",
+          sql: "with i as (insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('33333333-3333-4333-8333-333333333333', current_date, 1) returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          // Same member, same company, same shape of function — the
+          // only difference is that they neither lead nor track it.
+          name: "team member records an entry on a function they neither lead nor track",
+          caller: "member",
+          setup:
+            "insert into public.functions (id, company_id, title) values " +
+            "('22222222-2222-4222-8222-222222222222', '$company', 'probe fn'); " +
+            "insert into public.success_measures (id, function_id, description, kind) values " +
+            "('33333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 'probe measure', 'kpi');",
+          sql: "with i as (insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('33333333-3333-4333-8333-333333333333', current_date, 1) returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          name: "company_admin records an entry without leading anything",
+          caller: "admin",
+          setup:
+            "insert into public.functions (id, company_id, title) values " +
+            "('22222222-2222-4222-8222-222222222222', '$company', 'probe fn'); " +
+            "insert into public.success_measures (id, function_id, description, kind) values " +
+            "('33333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 'probe measure', 'kpi');",
+          sql: "with i as (insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('33333333-3333-4333-8333-333333333333', current_date, 1) returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
@@ -926,9 +1113,29 @@ export const BATCHES: readonly Batch[] = [
 // deployed with it.
 export function companyOfRowSql(batch: Batch, table: string): string {
   const custom = batch.indirectScope?.[table];
-  if (custom) return `select company_id from (${custom}) t`;
+  if (custom) return `select company_id from (${custom.rows}) t`;
   if (table === "companies") return "select id as company_id from public.companies";
   return `select company_id from public.${table}`;
+}
+
+// A control caller whose company actually has rows in THIS table.
+//
+// loadIdentities picks one member for the whole run, which is fine
+// until a batch reaches a table that member's company has nothing in.
+// Batch 4 did: success_measure_entries and csf_kpi_links both reported
+// NOT PROVEN because the control saw zero, which is the harness
+// working — a control that sees nothing controls nothing — and also a
+// check that cannot run. So the control is chosen per table, the same
+// way the other company is.
+export function memberForTableSql(batch: Batch, table: string): string {
+  return (
+    `select p.id as member, p.company_id as company ` +
+    `from public.profiles p ` +
+    `where p.role = 'team_member' and p.status = 'active' ` +
+    `and p.company_id is not null ` +
+    `and p.company_id in (select company_id from (${companyOfRowSql(batch, table)}) t) ` +
+    `limit 1;`
+  );
 }
 
 // The other company has to HAVE rows, or "sees 0 of B" is not a
@@ -975,12 +1182,12 @@ export function isolationSql(
   }
   return {
     setup:
-      `create temp table _scope_own as select id from (${traversal}) t where company_id = '${own}';\n` +
-      `create temp table _scope_other as select id from (${traversal}) t where company_id = '${other}';\n` +
+      `create temp table _scope_own as select key from (${traversal.rows}) t where company_id = '${own}';\n` +
+      `create temp table _scope_other as select key from (${traversal.rows}) t where company_id = '${other}';\n` +
       "grant select on _scope_own, _scope_other to authenticated;",
     assertion:
-      `select (select count(*) from public.${table} where id in (select id from _scope_own))::int as own, ` +
-      `(select count(*) from public.${table} where id in (select id from _scope_other))::int as other_;`,
+      `select (select count(*) from public.${table} where ${traversal.key} in (select key from _scope_own))::int as own, ` +
+      `(select count(*) from public.${table} where ${traversal.key} in (select key from _scope_other))::int as other_;`,
   };
 }
 
@@ -1164,9 +1371,15 @@ async function deletedUserChecks(
   const out: BatchCheck[] = [];
   for (const table of batch.tables) {
     const count = "select (select count(*) from public." + table + ")::int as n;";
+    // A control whose company has rows here, not whichever member the
+    // run happened to load.
+    const [pick] = await run<{ member: string | null }>(
+      memberForTableSql(batch, table)
+    );
+    const controlCaller = pick?.member ?? ids.member;
     const [before] = await run<{ n: number }>(asCaller(ids.nobody, "", count));
     const [after] = await run<{ n: number }>(asCaller(ids.nobody, sql, count));
-    const [control] = await run<{ n: number }>(asCaller(ids.member, sql, count));
+    const [control] = await run<{ n: number }>(asCaller(controlCaller, sql, count));
     const proven = control.n > 0;
     const ok = before.n === 0 && after.n === 0 && proven;
     out.push({
@@ -1203,8 +1416,13 @@ async function isolationChecks(
   for (const table of batch.tables) {
     // Chosen per table rather than once, because "another company"
     // is only useful if it has rows in THIS table.
+    const [who] = await run<{ member: string | null; company: string | null }>(
+      memberForTableSql(batch, table)
+    );
+    const caller = who?.member ?? ids.member;
+    const callerCompany = who?.company ?? ids.memberCompany;
     const [pick] = await run<{ other: string | null; n: number }>(
-      otherCompanySql(batch, table, ids.memberCompany)
+      otherCompanySql(batch, table, callerCompany)
     );
     if (!pick?.other) {
       out.push({
@@ -1221,14 +1439,14 @@ async function isolationChecks(
     const { setup, assertion: counts } = isolationSql(
       batch,
       table,
-      ids.memberCompany,
+      callerCompany,
       pick.other
     );
     const [before] = await run<{ own: number; other_: number }>(
-      asCaller(ids.member, setup, counts)
+      asCaller(caller, setup, counts)
     );
     const [after] = await run<{ own: number; other_: number }>(
-      asCaller(ids.member, [sql, setup].filter(Boolean).join("\n"), counts)
+      asCaller(caller, [sql, setup].filter(Boolean).join("\n"), counts)
     );
     const ok = after.other_ === 0 && after.own > 0 && before.other_ === 0;
     out.push({
