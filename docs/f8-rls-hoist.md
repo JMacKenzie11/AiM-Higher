@@ -302,7 +302,21 @@ first:
 | 3 | `strategic_focus_areas`, `annual_goals`, `priorities` |
 | 4 | `functions`, `success_measures`, `success_measure_entries`, `csf_kpi_links` |
 | 5 | `meetings`, `meeting_analyses`, `transcript_*` — the nullable-`company_id` group |
-| 6 | `coaching_*`, `issues`, `notifications`, everything remaining |
+| 6a | `function_roles`, `function_competencies`, `function_decision_rights`, `functional_areas`, `role_description_*` |
+| 6b | `company_foundation`, `foundation_items`, `marketing_*`, `messaging_pillars`, `scorecard_*` |
+| 6c | `strengths_*`, `user_strengths` |
+| 6d | `classroom_*` |
+| 6e | `coaching_*`, `coach_*`, `dashboard_ai_briefs`, `session_briefs`, `anthropic_daily_cost`, `company_discipline_snapshots`, `issues` |
+| 6f | `profiles`, `guide_assignments`, `oauth_credentials`, `company_feature_events` |
+
+Batch 6 was one row until it was measured: "everything remaining" is 42
+tables and 115 policies, four times the largest batch shipped and against
+the sizing rule above. It ships as 6a through 6f at 11-28 policies each,
+the sizes batches 1-5 used. `profiles` goes last and with the smallest
+company: it is the table `auth_profile()` itself reads, and it holds the
+schema's only remaining `IS NOT DISTINCT FROM`, allowlisted by the static
+check. `notifications` appears in the original line and needs nothing — it
+has no `auth_profile()` policies at all.
 
 Per batch, in the PR body:
 
