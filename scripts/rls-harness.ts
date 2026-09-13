@@ -57,7 +57,7 @@
  * PROD_SUPABASE_URL and CONTROL_PLANE_SUPABASE_URL by project ref.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 import { createManagementClient } from "./lib/provisioning/supabase-management.ts";
 import { isEntryPoint } from "./lib/entry-point.ts";
@@ -116,6 +116,32 @@ export type CaseResult = {
   ok: boolean;
   detail: string;
 };
+
+// How far the clone lags the repo.
+//
+// A batch report is evidence, and evidence from a stale instrument is
+// worth less than no evidence, because it looks the same. On
+// 2026-09-13 the clone sat at 0180 while the fleet reached 0188:
+// batches 6a through 6f were each measured against a clone missing
+// every migration since. Their before/after pairs happened to stand,
+// because batches touch disjoint tables and 0175's helpers were
+// already there — a property of the ordering, not of the instrument,
+// and not one to rely on twice.
+export function cloneLag(opts: {
+  cloneHead: string | null;
+  localMigrations: readonly string[];
+}): { behind: string[]; newest: string | null } {
+  const versions = opts.localMigrations
+    .map((f) => f.slice(0, 4))
+    .filter((v) => /^\d{4}$/.test(v))
+    .sort();
+  const newest = versions.length > 0 ? versions[versions.length - 1] : null;
+  if (!opts.cloneHead) return { behind: versions, newest };
+  return {
+    behind: versions.filter((v) => v > (opts.cloneHead as string)),
+    newest,
+  };
+}
 
 export function summaryLines(results: CaseResult[]): string[] {
   const lines = [""];
@@ -3302,6 +3328,27 @@ async function main(): Promise<void> {
   console.log(`  RLS hazard harness against ${target} (dev clone)`);
   console.log("  Every case runs inside a transaction that is rolled back.");
 
+  // Where the clone stands, on every invocation.
+  const localMigrations = readdirSync("supabase/migrations")
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+  let cloneHead: string | null = null;
+  try {
+    const [row] = await run<{ head: string | null }>(
+      "select max(version) as head from supabase_migrations.schema_migrations;"
+    );
+    cloneHead = row?.head ?? null;
+  } catch {
+    // No migration history at all. migrate:dev refuses to push to a
+    // database in that state, so say so and let it.
+    cloneHead = null;
+  }
+  const lag = cloneLag({ cloneHead, localMigrations });
+  console.log(
+    `  Clone at ${cloneHead ?? "no migration history"}, repo at ${lag.newest ?? "none"}` +
+      (lag.behind.length > 0 ? ` — BEHIND by ${lag.behind.length}` : " — current")
+  );
+
   const ids = await loadIdentities(run);
   const cases = [
     ["hazard-1", hazard1],
@@ -3335,6 +3382,19 @@ async function main(): Promise<void> {
   console.log(grantSummaryLines(probes).join("\n"));
 
   let batchOk = true;
+  if (batch && lag.behind.length > 0) {
+    fail(
+      `The clone is behind by ${lag.behind.length} migration(s): ` +
+        `${lag.behind.slice(0, 5).join(", ")}${lag.behind.length > 5 ? ", …" : ""}.\n\n` +
+        "  A batch report measured here would be a before/after pair taken\n" +
+        "  against policies that are not the ones in production. It might\n" +
+        "  still be right - batches touch disjoint tables - but it would be\n" +
+        "  right by accident, and it would read exactly like a report that\n" +
+        "  is wrong.\n\n" +
+        "  Catch the clone up first: npm run migrate:dev\n" +
+        "  (deploy ritual step 7, docs/deployment.md)"
+    );
+  }
   if (batch) {
     const b = findBatch(batch) as Batch;
     console.log(

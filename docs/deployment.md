@@ -496,7 +496,8 @@ a test that will eventually break the wrong one.
 6. Check `www.aims-hq.com` and `aims-hq.com` both load, and that a cron
    route is not returning the not-found page.
 7. **If the release carried a migration, catch up the dev clone:**
-   `npm run migrate:dev`. It builds the connection string from
+   `npm run migrate:dev`. **This step is the deployer's, it is not
+   optional, and skipping it is silent.** It builds the connection string from
    `DEV_SUPABASE_URL` and `DEV_DATABASE_PASSWORD` in `.env.provisioning`
    and the pooler host from the Management API, and refuses to run if
    that ref is also production or the control plane. `npm run
@@ -504,6 +505,24 @@ a test that will eventually break the wrong one.
    apply. The older `npm run migrate:instances -- --db-url "<clone
    session pooler url>"` still works and is the same code path, with
    the string pasted instead of built.
+
+   **What goes wrong when it is skipped.** On 2026-09-13 it was
+   skipped seven times in a row: the fleet reached 0188 while the
+   clone sat at 0180, which is the state F8 batches 6a through 6f were
+   each measured in. Their before/after pairs happened to stand,
+   because batches touch disjoint tables and 0175's helpers were
+   already present — a property of the batch ordering, not of the
+   instrument. One batch depending on an earlier one's work would have
+   produced a report that was wrong and looked exactly like a report
+   that was right.
+
+   **It is now enforced rather than remembered.** `npm run rls:hazards`
+   prints the clone's head against the newest local migration on every
+   invocation, and a `--batch` run refuses outright when the clone is
+   behind, naming the missing versions and pointing back at this step.
+   A batch report is evidence; evidence from a stale instrument is
+   worth less than none, because it is indistinguishable from the real
+   thing.
 
 ### The dev clone is not migrated by the fleet, and that is deliberate
 
