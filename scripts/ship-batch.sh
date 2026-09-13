@@ -68,4 +68,3 @@ printf '  typecheck and tests green on the rebased tree\n'
 # lease is what makes that safe rather than merely convenient.
 git push --force-with-lease -u origin "$branch"
 printf '\n  pushed %s. Open the PR by hand, with the harness output in the body.\n\n' "$branch"
-// scratch
