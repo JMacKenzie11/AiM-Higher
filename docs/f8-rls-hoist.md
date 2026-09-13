@@ -207,6 +207,33 @@ denial, not an exception.
 
 ---
 
+**It was already there. Batch 6e, `company_discipline_snapshots`.**
+
+The case was written in batch 1 against a shape nobody had seen in
+this schema. Batch 6e reached the table and found one:
+
+```sql
+-- before: a BARE scalar subquery over the set-returning helper
+company_id = (select auth_profile.company_id from auth_profile())
+
+-- after
+(select public.auth_company_id()) = company_id
+```
+
+It works, and it works only while `auth_profile()` returns at most one
+row. The day its `WHERE` gains a branch that can match twice — a
+second profile row for one `auth.uid()`, which nothing in the schema
+forbids — every read of that table raises `more than one row returned
+by a subquery used as an expression`. That is a 500 on the scorecard
+trend, on every instance, at once, from a change nobody would connect
+to it. `auth_company_id()` returns `uuid` and cannot return two rows
+whatever happens inside it.
+
+Nothing introduced this. It predates the series, and the series found
+it by visiting every table in the schema, which is the other reason to
+finish the batches rather than stopping when the plans look good
+enough.
+
 ## Three rules the cases obey
 
 Each came out of getting it wrong once, and the third came out of
