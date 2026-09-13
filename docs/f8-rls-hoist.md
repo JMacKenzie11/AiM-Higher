@@ -238,10 +238,18 @@ it, and the check is what disarms it.
 
 **0. Precondition.** Batch 1 does not start until the weekly scorecard
 cron reads clean on 2026-09-13: `8/8 companies snapshotted, 0 failed,
-26/32 feature-gated disciplines enabled`. Anything else reopens the
+18/32 feature-gated disciplines enabled`. Anything else reopens the
 entitlement incident, and F8 holds until it is closed. The two changes
 are unrelated in code and would be impossible to tell apart in a
 production symptom.
+
+This line first said `26/32`, a number taken by counting gated flags
+straight off `company_features` without joining `companies` for status,
+so two archived test companies holding both flags were counted as four
+disciplines each: the numerator of a prediction has to be built from
+the same active set the code will actually iterate, or a correct run
+looks like a regression and reopens a closed incident. Met on
+2026-09-13: `18/32` on `@` and `0/4` on `promiseone`.
 
 **1. The harness.** `scripts/rls-harness.ts`, invoked by name, output
 pasted into the PR body like the browser passes. Not CI: it needs
