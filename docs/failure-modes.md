@@ -577,3 +577,56 @@ commit message claims, and the `aims_guide` scope check added to
 `bulkResetPlanAction` — is queued behind F8 so the policies are born in
 form D. The app guards hold in the meantime. They are still only
 guards.
+
+### E6. A structural argument standing in for a measurement
+
+**Situation.** A claim about how this system behaves is reasoned out
+from how it is built. The reasoning is sound, it survives review, and
+it is used to decide something. The command that would have settled it
+takes one invocation and nobody runs it, because the argument already
+feels like knowing.
+
+**Rule.** **When a claim about this system can be settled by running
+something, run it before the claim decides anything.** A structural
+argument explains *why* a thing behaves as it does. It is not evidence
+*that* it does. The two are easy to confuse precisely when the argument
+is good.
+
+This is E1's other sibling. E1 says do not trust an assumed shape from
+an external API. E4 says do not trust your own instrument's green until
+you have seen it red. E6 says do not trust your own correct-sounding
+account of your own code.
+
+**Where it has bitten us.**
+
+*The guard that guarded the wrong thing.* `migrate:dev` shipped with a
+refusal for the case its author reasoned about — a dev URL that is also
+production — and no check for the case that was actually true of the
+machine it shipped on: a clone with a full schema and no migration
+history, where `db push` replays from 0001. The PR argued at length
+that a one-word command must not be able to reach production. It was
+right about that and it had built a one-word command that could replay
+97 migrations, 20 of which create tables without `IF NOT EXISTS`, over
+twelve companies of data. One `--dry-run` printed all 97 filenames and
+ended the argument.
+
+*The clone that was "two migrations behind".* Everyone held that
+belief, it was written in a deploy doc, and it was the premise of a
+catch-up plan. The probe found no `supabase_migrations` schema at all,
+and separately found 0175 and 0176 present while 0173 and 0174 were
+absent — a state no supported path produces. The belief was close
+enough to true to survive any amount of discussion and wrong in the way
+that mattered.
+
+**The counter-example, because the rule is not "never reason".** The
+weekly scorecard cron runs as `service_role`, which carries
+`rolbypassrls`, so no policy is evaluated for it and an RLS rewrite
+cannot change its behaviour. That argument is correct and it was still
+not treated as evidence: the next Sunday summary is read against a
+known number anyway. Reasoning chooses what to measure. It does not
+replace the measurement.
+
+**Pinned by.** Nothing can pin a practice. What exists is the shape of
+the deploy ritual: every applying command has a `--dry-run` beside it,
+the applying half is gated on a person, and the dry run is treated as
+the thing that decides rather than as a formality before the real run.
