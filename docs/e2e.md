@@ -31,8 +31,24 @@ weeks later nobody remembers why.
 So, immediately after any refresh:
 
 ```bash
-npm run seed:e2e
+npm run scrub:dev      # delete the OAuth credentials the copy brought with it
+npm run seed:e2e       # recreate the fixtures the copy destroyed
 ```
+
+**The scrub is not optional and it goes first.** A clone of production
+carries `oauth_credentials`, one row per company that has connected
+Google Drive, each holding a refresh token that does not expire on its
+own. After a refresh those are live client credentials sitting in the
+database whose entire purpose is that people experiment against it.
+`scrub:dev` deletes them, refuses to run anywhere that resolves to the
+same project as production, the control plane or
+`NEXT_PUBLIC_SUPABASE_URL`, and reads the table back afterwards rather
+than trusting the delete. `npm run scrub:dev -- --dry-run` prints what
+it would remove, by provider, never the tokens themselves.
+
+Transcript sources are left alone: they carry folder ids, not secrets,
+and a source with no credential simply fails to ingest, which is
+correct on dev.
 
 A refresh is also the blunt cure for dev-clone schema drift: it
 replaces the clone's schema wholesale with production's. The precise
