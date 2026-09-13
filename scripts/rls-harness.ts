@@ -544,6 +544,12 @@ export type WriteProbe = {
   // What both the before and the after run must return. "42501" for
   // a WITH CHECK violation, which raises rather than matching zero.
   expect: string;
+  // SQL run as postgres, before the role switch, in the same
+  // transaction as the probe and rolled back with it. For probes whose
+  // subject should not depend on what the clone happens to contain:
+  // create the row, then act on it as the caller. $name substitution
+  // applies here too.
+  setup?: string;
   // Required when expect is "0": a caller the same statement must
   // succeed as, in the same transaction shape. Without it a zero
   // could be a missing row, a wrong column, or a fixture that never
@@ -700,6 +706,213 @@ export const BATCHES: readonly Batch[] = [
           caller: "guide",
           sql: "with u as (update public.commitment_occurrences set status = status where id = '$company_occurrence' returning id) select count(*)::int as n from u;",
           expect: "1",
+        },
+      ],
+    },
+  },
+  {
+    n: "3",
+    tables: ["strategic_focus_areas", "annual_goals", "priorities"],
+    migration: "0178_f8_batch3_hoist.sql",
+    writeProbes: {
+      // A member who sponsors an SFA and owns a goal and a priority,
+      // plus the rows around them. The owner column is sponsor_id on
+      // SFAs and owner_id on the other two, which is why the probes
+      // name rows rather than columns.
+      // Anchored on a COMPANY, not on a person.
+      //
+      // The first version picked whichever profile owned the most
+      // rows and allowed company_admin in the pool. It picked an
+      // admin, and every WITH CHECK probe then passed the
+      // reassignment it was written to forbid — correctly, because a
+      // company_admin goes through _update_admin, which permits any
+      // update in its own company. The owner rule only binds someone
+      // whose ONLY route is _update_owner. So: a plain team_member,
+      // in a company that also has an admin and a guide to run the
+      // other probes as.
+      fixtures: `
+        with c as (
+          select co.id
+            from public.companies co
+           order by (
+             (exists (select 1 from public.profiles p
+                       where p.role = 'team_member' and p.status = 'active'
+                         and p.company_id = co.id
+                         and (exists (select 1 from public.strategic_focus_areas s where s.sponsor_id = p.id)
+                           or exists (select 1 from public.annual_goals g where g.owner_id = p.id)
+                           or exists (select 1 from public.priorities pr where pr.owner_id = p.id))))::int
+             + (exists (select 1 from public.profiles a
+                         where a.role = 'company_admin' and a.status = 'active'
+                           and a.company_id = co.id))::int
+             + (exists (select 1 from public.profiles g2
+                         join public.guide_assignments ga on ga.guide_id = g2.id
+                        where g2.role = 'aims_guide' and g2.status = 'active'
+                          and ga.company_id = co.id))::int
+             + ((select count(*) from public.strategic_focus_areas s2
+                  where s2.company_id = co.id) >= 2)::int
+             + ((select count(*) from public.priorities p2
+                  where p2.company_id = co.id) >= 1)::int
+           ) desc
+           limit 1
+        ), m as (
+          select p.id
+            from public.profiles p, c
+           where p.role = 'team_member' and p.status = 'active'
+             and p.company_id = c.id
+           order by (
+             (exists (select 1 from public.strategic_focus_areas s where s.sponsor_id = p.id))::int
+             + (exists (select 1 from public.annual_goals g where g.owner_id = p.id))::int
+             + (exists (select 1 from public.priorities pr where pr.owner_id = p.id))::int
+           ) desc
+           limit 1
+        )
+        select
+          (select id from m) as member,
+          (select id from c) as member_company,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = (select id from c) limit 1) as admin,
+          (select p.id from public.profiles p
+             join public.guide_assignments ga on ga.guide_id = p.id
+            where p.role = 'aims_guide' and p.status = 'active'
+              and ga.company_id = (select id from c) limit 1) as guide,
+          (select id from public.profiles where company_id = (select id from c)
+             and id <> (select id from m) limit 1) as colleague,
+          (select id from public.strategic_focus_areas
+            where sponsor_id = (select id from m) limit 1) as own_sfa,
+          (select id from public.strategic_focus_areas
+            where company_id = (select id from c)
+              and (sponsor_id is null or sponsor_id <> (select id from m))
+            limit 1) as other_sfa,
+          (select id from public.strategic_focus_areas
+            where company_id = (select id from c) limit 1) as company_sfa,
+          (select id from public.strategic_focus_areas
+            where company_id <> (select id from c) limit 1) as foreign_sfa,
+          (select id from public.annual_goals
+            where owner_id = (select id from m) limit 1) as own_goal,
+          (select id from public.annual_goals
+            where company_id <> (select id from c) limit 1) as foreign_goal,
+          (select id from public.priorities
+            where owner_id = (select id from m) limit 1) as own_priority,
+          (select id from public.priorities
+            where company_id = (select id from c) limit 1) as company_priority,
+          (select id from public.priorities
+            where company_id <> (select id from c) limit 1) as foreign_priority;`,
+      probes: [
+        // ---- the USING / WITH CHECK pair, stated as two probes ----
+        //
+        // USING says which rows the owner may touch. WITH CHECK says
+        // what the row may become. They differ on purpose, and a
+        // symmetric rewrite would drop the difference while every
+        // read plan stayed identical.
+        // These two create their subject rather than hunting for one.
+        // No team member in the chosen company happened to sponsor an
+        // SFA, and a probe that reports NOT PROVEN because of what the
+        // clone contains is a probe that stops testing the rule the
+        // day the data shifts. The row is created as postgres inside
+        // the same transaction and rolled back with it.
+        {
+          name: "sponsor edits own SFA (USING)",
+          caller: "member",
+          setup:
+            "insert into public.strategic_focus_areas (id, company_id, title, sponsor_id) " +
+            "values ('11111111-1111-4111-8111-111111111111', '$member_company', 'probe sfa', '$member');",
+          sql: "with u as (update public.strategic_focus_areas set title = 'probe edit' where id = '11111111-1111-4111-8111-111111111111' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "sponsor hands own SFA to a colleague (WITH CHECK)",
+          caller: "member",
+          setup:
+            "insert into public.strategic_focus_areas (id, company_id, title, sponsor_id) " +
+            "values ('11111111-1111-4111-8111-111111111111', '$member_company', 'probe sfa', '$member');",
+          sql: "with u as (update public.strategic_focus_areas set sponsor_id = '$colleague' where id = '11111111-1111-4111-8111-111111111111' returning id) select count(*)::int as n from u;",
+          expect: "42501",
+        },
+        {
+          name: "sponsor edits an SFA they do not sponsor",
+          caller: "member",
+          sql: "with u as (update public.strategic_focus_areas set title = title where id = '$other_sfa' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "sponsor edits another company's SFA",
+          caller: "member",
+          sql: "with u as (update public.strategic_focus_areas set title = title where id = '$foreign_sfa' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "owner edits own goal (USING)",
+          caller: "member",
+          sql: "with u as (update public.annual_goals set title = title where id = '$own_goal' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "owner hands own goal to a colleague (WITH CHECK)",
+          caller: "member",
+          sql: "with u as (update public.annual_goals set owner_id = '$colleague' where id = '$own_goal' returning id) select count(*)::int as n from u;",
+          expect: "42501",
+        },
+        {
+          name: "owner edits another company's goal",
+          caller: "member",
+          sql: "with u as (update public.annual_goals set title = title where id = '$foreign_goal' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "owner edits own priority (USING)",
+          caller: "member",
+          sql: "with u as (update public.priorities set title = title where id = '$own_priority' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "owner hands own priority to a colleague (WITH CHECK)",
+          caller: "member",
+          sql: "with u as (update public.priorities set owner_id = '$colleague' where id = '$own_priority' returning id) select count(*)::int as n from u;",
+          expect: "42501",
+        },
+        {
+          name: "owner edits another company's priority",
+          caller: "member",
+          sql: "with u as (update public.priorities set title = title where id = '$foreign_priority' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "company_admin edits any priority in its company",
+          caller: "admin",
+          sql: "with u as (update public.priorities set title = title where id = '$company_priority' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin edits another company's priority",
+          caller: "admin",
+          sql: "with u as (update public.priorities set title = title where id = '$foreign_priority' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "company_admin deletes an SFA in its company",
+          caller: "admin",
+          sql: "with d as (delete from public.strategic_focus_areas where id = '$company_sfa' returning id) select count(*)::int as n from d;",
+          expect: "1",
+        },
+        {
+          name: "aims_guide edits a priority in an assigned company",
+          caller: "guide",
+          sql: "with u as (update public.priorities set title = title where id = '$company_priority' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "aims_guide edits another company's priority",
+          caller: "guide",
+          sql: "with u as (update public.priorities set title = title where id = '$foreign_priority' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
         },
       ],
     },
@@ -1176,10 +1389,21 @@ async function writeProbeChecks(
       });
       continue;
     }
-    const before = await runAs(caller as string, "", statement);
-    const after = await runAs(caller as string, sql, statement);
+    const { sql: setup } = probe.setup
+      ? fillProbe(probe.setup, fixtures ?? {})
+      : { sql: "" };
+    const before = await runAs(caller as string, setup, statement);
+    const after = await runAs(
+      caller as string,
+      [sql, setup].filter(Boolean).join("\n"),
+      statement
+    );
     const control = probe.provenBy
-      ? await runAs(fixtures?.[probe.provenBy] as string, sql, statement)
+      ? await runAs(
+          fixtures?.[probe.provenBy] as string,
+          [sql, setup].filter(Boolean).join("\n"),
+          statement
+        )
       : undefined;
     const { ok, detail } = probeVerdict({
       before,
@@ -1479,7 +1703,13 @@ async function main(): Promise<void> {
         return await mgmt.runQuery(target, sql);
       } catch (error) {
         const status = (error as { status?: number }).status;
-        if (status !== 429 || attempt >= 6) throw error;
+        // A 429 is a pause. So is a dropped connection: the query
+        // never reached a database, so there is no answer to report,
+        // and failing the batch on one would make the harness a
+        // measure of the network.
+        const transient =
+          status === 429 || /fetch failed|ETIMEDOUT|ECONNRESET/i.test(String(error));
+        if (!transient || attempt >= 6) throw error;
         // Exponential, capped. The limit is a sustained-rate cap, so
         // a few seconds is not enough once a day's runs have spent
         // the budget.
