@@ -4,9 +4,18 @@
  * Runs RLS behaviour tests against a real Postgres, as a real caller.
  *
  * Usage:
- *   npm run rls:hazards            # every case
+ *   npm run rls:hazards            # every case, plus the static check
  *   npm run rls:hazards -- --case hazard-1
- *   npm run rls:hazards -- --explain   # also print the InitPlan measurement
+ *   npm run rls:hazards -- --explain     # also the InitPlan measurement
+ *   npm run rls:hazards -- --batch 1     # a batch's acceptance + EXPLAIN pair
+ *
+ * --batch is what an F8 batch PR pastes into its body: the deleted-user
+ * test against every table in the batch, the isolation acceptance, the
+ * nullable-company_id case where it applies, and a before/after EXPLAIN
+ * for three caller classes. The batch's migration is applied inside
+ * each transaction and rolled back with it, so the pair is measured on
+ * the real policies without the clone being modified or the change
+ * being deployed anywhere first.
  *
  * WHY THIS EXISTS. `npm test` runs in Node with no database, which is
  * why src/lib/auth/rls-privileges.test.ts reads migration text instead
@@ -38,6 +47,8 @@
  * target is read from LOCAL_INSTANCE_SUPABASE_URL and checked against
  * PROD_SUPABASE_URL and CONTROL_PLANE_SUPABASE_URL by project ref.
  */
+
+import { readFileSync } from "node:fs";
 
 import { createManagementClient } from "./lib/provisioning/supabase-management.ts";
 import { isEntryPoint } from "./lib/entry-point.ts";
@@ -124,6 +135,7 @@ type Runner = <T>(sql: string) => Promise<T[]>;
 // surface than the thing it tests.
 type Identities = {
   noCompany: string; // a profile whose company_id IS NULL
+  systemAdmin: string; // a profile whose role is system_admin
   member: string; // an ordinary member of some company
   memberCompany: string;
   otherCompany: string; // a different company, for the isolation case
@@ -133,6 +145,7 @@ type Identities = {
 async function loadIdentities(run: Runner): Promise<Identities> {
   const [row] = await run<{
     no_company: string | null;
+    system_admin: string | null;
     member: string | null;
     member_company: string | null;
     other_company: string | null;
@@ -140,6 +153,8 @@ async function loadIdentities(run: Runner): Promise<Identities> {
     select
       (select id from public.profiles
         where company_id is null and status = 'active' limit 1) as no_company,
+      (select id from public.profiles
+        where role = 'system_admin' and status = 'active' limit 1) as system_admin,
       (select id from public.profiles
         where company_id is not null and status = 'active'
           and role = 'team_member' limit 1) as member,
@@ -151,15 +166,23 @@ async function loadIdentities(run: Runner): Promise<Identities> {
                         where company_id is not null and status='active'
                           and role='team_member' limit 1) limit 1) as other_company`);
 
-  if (!row?.no_company || !row?.member || !row?.member_company || !row?.other_company) {
+  if (
+    !row?.no_company ||
+    !row?.system_admin ||
+    !row?.member ||
+    !row?.member_company ||
+    !row?.other_company
+  ) {
     fail(
       "The clone does not carry the identities these cases need: a profile " +
-        "with a NULL company_id, an active team_member, and a second " +
-        "company. Run `npm run seed:e2e`, or refresh the clone."
+        "with a NULL company_id, an active system_admin, an active " +
+        "team_member, and a second company. Run `npm run seed:e2e`, or " +
+        "refresh the clone."
     );
   }
   return {
     noCompany: row.no_company,
+    systemAdmin: row.system_admin,
     member: row.member,
     memberCompany: row.member_company,
     otherCompany: row.other_company,
@@ -383,23 +406,449 @@ create policy p on _rls_m for select to authenticated using (${predicate});`,
     );
     const rows = await run<Record<string, string>>(sql);
     const text = rows.map((r) => Object.values(r)[0]).filter(Boolean).join("\n");
-    const initplan = /InitPlan/.test(text);
-    const loops = text.match(/auth_profile[^\n]*loops=(\d+)/)?.[1] ?? "not in plan";
-    const ms = text.match(/Execution Time: ([\d.]+) ms/)?.[1] ?? "?";
+    const f = planFacts(text);
     out.push(
-      `  ${label.padEnd(32)} InitPlan=${initplan ? "yes" : "no "}  ` +
-        `auth_profile loops=${String(loops).padEnd(11)} ${ms} ms`
+      `  ${label.padEnd(32)} InitPlan=${f.initPlan ? "yes" : "no "}  ` +
+        `auth_profile loops=${String(f.loops).padEnd(11)} ${f.ms} ms`
     );
-    const filter = text.split("\n").find((l) => /Filter:/.test(l));
-    if (filter) out.push(`      ${filter.trim().slice(0, 120)}`);
+    if (f.filter) out.push(`      ${f.filter.slice(0, 120)}`);
   }
   out.push("");
   return out;
 }
 
-export function parseArgs(argv: string[]): { only: string | null; explain: boolean } {
+// ---- Reading a plan --------------------------------------------
+//
+// One parser, used by both the InitPlan measurement and the batch
+// EXPLAIN pair, so the two cannot disagree about what they saw.
+export type PlanFacts = {
+  initPlan: boolean;
+  // "not in plan" when the helper is inside a wrapper function, which
+  // is the hoisted shape. A number means it was evaluated that many
+  // times.
+  loops: string;
+  ms: string;
+  filter: string | null;
+  subPlans: number;
+};
+
+export function planFacts(text: string): PlanFacts {
+  return {
+    initPlan: /InitPlan/.test(text),
+    loops: text.match(/auth_profile[^\n]*loops=(\d+)/)?.[1] ?? "not in plan",
+    ms: text.match(/Execution Time: ([\d.]+) ms/)?.[1] ?? "?",
+    filter: text.split("\n").find((l) => /Filter:/.test(l))?.trim() ?? null,
+    subPlans: (text.match(/SubPlan \d+/g) ?? []).length,
+  };
+}
+
+// The stop condition from docs/f8-rls-hoist.md, as a function rather
+// than a habit: the after-plan has to show an InitPlan, and the helper
+// must not be evaluated per row. "not in plan" is the hoisted wrapper
+// form (auth_profile is inside auth_role/auth_company_id, so it does
+// not appear); "1" is the inline scalar form. Anything else means the
+// batch does not promote.
+export function afterPlanIsHoisted(after: PlanFacts): boolean {
+  return after.initPlan && (after.loops === "not in plan" || after.loops === "1");
+}
+
+// ---- Batches ---------------------------------------------------
+//
+// One entry per F8 batch, added as each batch's PR is written. The
+// table list is the batch's whole surface: acceptance runs against
+// every table in it and the EXPLAIN pair is measured on each one.
+// The grouping and its order are in docs/f8-rls-hoist.md.
+export type Batch = {
+  n: string;
+  tables: readonly string[];
+  // The migration the "after" side is measured with. It is applied
+  // inside the same transaction as the assertion and rolled back with
+  // it, so a before/after pair costs the clone nothing and needs no
+  // deploy to produce.
+  migration: string;
+};
+
+export const BATCHES: readonly Batch[] = [
+  {
+    n: "1",
+    tables: ["companies", "company_features", "quarters"],
+    migration: "0175_f8_batch1_hoist.sql",
+  },
+];
+
+export function findBatch(n: string): Batch | null {
+  return BATCHES.find((b) => b.n === n) ?? null;
+}
+
+// ---- The static check ------------------------------------------
+//
+// IS NOT DISTINCT FROM is forbidden in tenant-scoping policies. It
+// turns deny into allow exactly where it matters: a caller with no
+// company (every system_admin, every aims_guide) compared against a
+// row with no company (an unrouted meeting) matches, and `=` does
+// not. Hazard 1 demonstrates it.
+//
+// Enforced over LIVE policy text rather than migration text, because
+// the two disagree: policies are dropped and recreated, and the file
+// that last mentioned a policy is not necessarily the one that
+// defines it now.
+//
+// Migration 0164 is a loaded precedent. Someone looking for house
+// style finds a legitimate use of the idiom and copies it into a
+// tenant comparison, where it is a hole. This check is what disarms
+// that, which is why the allowlist names the one policy rather than
+// the idiom being merely discouraged.
+export const NOT_DISTINCT_ALLOWLIST: readonly string[] = [
+  // A self-update that pins the caller's own company_id to the value
+  // it already holds. For a system_admin both sides are legitimately
+  // NULL, and `=` would make the row unwritable. Not a tenant
+  // comparison: it compares the caller to themselves. See 0164.
+  //
+  // It is also this check's CANARY. It is the one policy known to use
+  // the idiom, so if the matcher stops finding it, the matcher is
+  // broken rather than the schema being clean. See canaryPresent
+  // below.
+  "profiles.profiles_update_self",
+];
+
+export type PolicyRow = {
+  tablename: string;
+  policyname: string;
+  qual: string | null;
+  with_check: string | null;
+};
+
+// MATCHES THE DEPARSED SPELLING, NOT THE ONE PEOPLE TYPE.
+//
+// Postgres does not store policy text. It stores a parse tree and
+// renders it back, and `a is not distinct from b` comes out of
+// pg_policies as `NOT (a IS DISTINCT FROM b)`. A matcher looking for
+// the source spelling finds nothing on a live database, including the
+// one policy known to use it, and reports a clean pass.
+//
+// That is not hypothetical: the first version of this check did
+// exactly that and went green against a schema that contains the
+// idiom. It was caught by the canary below, which is why the canary
+// is part of the check and not a comment asking someone to be careful.
+//
+// So the matcher covers both spellings: `IS DISTINCT FROM` as
+// deparsed, and `IS NOT DISTINCT FROM` as typed, since policy text
+// also reaches this check from migration files during review. It
+// catches the bare form too, which is equally wrong in a tenant
+// predicate: `company_id IS DISTINCT FROM <caller>` admits every row
+// belonging to somebody else.
+const DISTINCT_FROM = /is\s+(?:not\s+)?distinct\s+from/i;
+
+export function notDistinctMatches(rows: readonly PolicyRow[]): string[] {
+  return rows
+    .filter((r) => DISTINCT_FROM.test(`${r.qual ?? ""} ${r.with_check ?? ""}`))
+    .map((r) => `${r.tablename}.${r.policyname}`);
+}
+
+export function notDistinctOffenders(rows: readonly PolicyRow[]): string[] {
+  return notDistinctMatches(rows).filter(
+    (name) => !NOT_DISTINCT_ALLOWLIST.includes(name)
+  );
+}
+
+// True when at least one allowlisted policy was actually matched. A
+// check that matches nothing at all cannot tell a clean schema from a
+// broken matcher, and the allowlist is the only place we know the
+// idiom is present on purpose.
+export function canaryPresent(matches: readonly string[]): boolean {
+  return NOT_DISTINCT_ALLOWLIST.some((name) => matches.includes(name));
+}
+
+async function staticCheck(run: Runner): Promise<BatchCheck> {
+  const rows = await run<PolicyRow>(`
+    select tablename, policyname, qual, with_check
+      from pg_policies where schemaname = 'public'
+     order by tablename, policyname;`);
+  const matches = notDistinctMatches(rows);
+  const offenders = notDistinctOffenders(rows);
+  const canary = canaryPresent(matches);
+  const ok = offenders.length === 0 && canary;
+  return {
+    name: "static IS DISTINCT FROM",
+    before: `${rows.length} live policies, ${matches.length} use the idiom`,
+    after: !canary
+      ? "CHECK IS BROKEN: matched no allowlisted policy"
+      : offenders.length === 0
+        ? `all ${matches.length} allowlisted (${matches.join(", ")})`
+        : `NOT allowlisted: ${offenders.join(", ")}`,
+    ok,
+    detail: !canary
+      ? "the one policy known to use the idiom was not matched, so a clean result proves nothing"
+      : offenders.length === 0
+        ? "no tenant-scoping policy compares with IS DISTINCT FROM"
+        : "a policy outside the allowlist compares with IS DISTINCT FROM",
+  };
+}
+
+// ---- Batch acceptance ------------------------------------------
+//
+// Everything below runs against the REAL tables in the batch, as real
+// callers, with the batch's migration applied inside the transaction
+// and rolled back after. The before/after pair is the point: a check
+// that only ever sees the rewritten policies cannot tell you whether
+// it would have caught the old ones failing.
+export type BatchCheck = {
+  name: string;
+  before: string;
+  after: string;
+  ok: boolean;
+  detail: string;
+};
+
+export function batchSummaryLines(
+  checks: readonly BatchCheck[],
+  label: string
+): string[] {
+  const lines = ["", `  ${label}`, ""];
+  for (const c of checks) {
+    lines.push(
+      `  ${(c.ok ? "PASS" : "FAIL").padEnd(6)}${c.name.padEnd(38)}${c.detail}`
+    );
+    lines.push(`  ${"".padEnd(6)}${"".padEnd(38)}before: ${c.before}`);
+    lines.push(`  ${"".padEnd(6)}${"".padEnd(38)}after:  ${c.after}`);
+  }
+  const failed = checks.filter((c) => !c.ok).length;
+  lines.push("");
+  lines.push(
+    `  ${checks.length} check${checks.length === 1 ? "" : "s"}: ` +
+      `${checks.length - failed} pass, ${failed} fail`
+  );
+  lines.push("");
+  return lines;
+}
+
+function migrationSql(batch: Batch): string {
+  return readFileSync(`supabase/migrations/${batch.migration}`, "utf8");
+}
+
+// As the connection's own role, with no JWT. postgres owns these
+// tables and bypasses RLS, so its plan carries no policy filter at
+// all — that is the baseline the other two are read against, not a
+// tenant check.
+function asPostgres(setup: string, assertion: string): string {
+  return ["begin;", setup, assertion, "rollback;"].join("\n");
+}
+
+// A deleted user's still-valid JWT: a `sub` that matches no profiles
+// row. auth_profile() returns zero rows, so the exists form is false
+// and the hoisted form is NULL. Both deny, and the point of asserting
+// it per table is that NULL only stays a denial while nothing
+// composes it with a coalesce, a negation, or a NULL branch beside a
+// non-NULL one.
+//
+// The control matters as much as the assertion. Zero rows for a
+// deleted user proves nothing on its own: a table the caller could
+// never read, or a table with no rows, returns zero too. So every
+// table reports what an ordinary member of a real company sees
+// through the same policies, and the check fails as NOT PROVEN if
+// that control is also zero.
+async function deletedUserChecks(
+  run: Runner,
+  ids: Identities,
+  batch: Batch
+): Promise<BatchCheck[]> {
+  const sql = migrationSql(batch);
+  const out: BatchCheck[] = [];
+  for (const table of batch.tables) {
+    const count = "select (select count(*) from public." + table + ")::int as n;";
+    const [before] = await run<{ n: number }>(asCaller(ids.nobody, "", count));
+    const [after] = await run<{ n: number }>(asCaller(ids.nobody, sql, count));
+    const [control] = await run<{ n: number }>(asCaller(ids.member, sql, count));
+    const proven = control.n > 0;
+    const ok = before.n === 0 && after.n === 0 && proven;
+    out.push({
+      name: `deleted user · ${table}`,
+      before: `${before.n} row(s)`,
+      after: `${after.n} row(s), control member sees ${control.n}`,
+      ok,
+      detail: ok
+        ? "denied before and after, and the control caller can read the table"
+        : !proven
+          ? "NOT PROVEN: the control caller also sees 0 rows, so this zero is not evidence"
+          : "a caller with no profile row can read this table",
+    });
+  }
+  return out;
+}
+
+// Isolation acceptance, per batch rather than once at the end: a
+// member of company A cannot read company B's rows through the
+// rewritten policies, asserted with a real JWT against the real
+// table.
+//
+// Both halves are reported. "Sees 0 of B" is only meaningful beside
+// "sees N of A" through the same policy in the same transaction: a
+// policy that denies everything satisfies the first and is a broken
+// tenant boundary, not a working one.
+async function isolationChecks(
+  run: Runner,
+  ids: Identities,
+  batch: Batch
+): Promise<BatchCheck[]> {
+  const sql = migrationSql(batch);
+  const out: BatchCheck[] = [];
+  for (const table of batch.tables) {
+    // companies is keyed by id; everything else in this batch carries
+    // a company_id.
+    const col = table === "companies" ? "id" : "company_id";
+    const counts =
+      `select (select count(*) from public.${table} where ${col} = '${ids.memberCompany}')::int as own, ` +
+      `(select count(*) from public.${table} where ${col} = '${ids.otherCompany}')::int as other_;`;
+    const [before] = await run<{ own: number; other_: number }>(
+      asCaller(ids.member, "", counts)
+    );
+    const [after] = await run<{ own: number; other_: number }>(
+      asCaller(ids.member, sql, counts)
+    );
+    const ok = after.other_ === 0 && after.own > 0 && before.other_ === 0;
+    out.push({
+      name: `isolation · ${table}`,
+      before: `own ${before.own}, other ${before.other_}`,
+      after: `own ${after.own}, other ${after.other_}`,
+      ok,
+      detail: ok
+        ? "reads its own company, denied the other"
+        : after.own === 0
+          ? "NOT PROVEN: the caller sees none of its OWN company either, so the denial is not evidence"
+          : "a member of one company can read another company's rows",
+    });
+  }
+  return out;
+}
+
+// Hazard 1 applies only where a company_id can be NULL on BOTH sides.
+// Reported rather than skipped: a batch with no nullable column has
+// to say so, because "the case did not run" and "the case passed"
+// look identical in a summary that omits it.
+async function nullableCompanyChecks(
+  run: Runner,
+  ids: Identities,
+  batch: Batch
+): Promise<BatchCheck[]> {
+  const cols = await run<{ table_name: string; column_name: string }>(`
+    select table_name, column_name
+      from information_schema.columns
+     where table_schema = 'public'
+       and table_name in (${batch.tables.map((t) => `'${t}'`).join(",")})
+       and column_name = 'company_id'
+       and is_nullable = 'YES'
+     order by table_name;`);
+
+  if (cols.length === 0) {
+    return [
+      {
+        name: "nullable company_id",
+        before: `${batch.tables.length} tables in the batch`,
+        after: "0 carry a nullable company_id",
+        ok: true,
+        detail:
+          "the case does not apply to this batch: no NULL-to-NULL pair can exist",
+      },
+    ];
+  }
+
+  const sql = migrationSql(batch);
+  const out: BatchCheck[] = [];
+  for (const { table_name: table } of cols) {
+    const count =
+      `select (select count(*) from public.${table} where company_id is null)::int as n;`;
+    const [before] = await run<{ n: number }>(asCaller(ids.noCompany, "", count));
+    const [after] = await run<{ n: number }>(asCaller(ids.noCompany, sql, count));
+    const ok = before.n === 0 && after.n === 0;
+    out.push({
+      name: `nullable company_id · ${table}`,
+      before: `${before.n} NULL-company row(s) visible`,
+      after: `${after.n} NULL-company row(s) visible`,
+      ok,
+      detail: ok
+        ? "a caller with no company reads no NULL-company row"
+        : "a caller with no company can read NULL-company rows",
+    });
+  }
+  return out;
+}
+
+// ---- The batch EXPLAIN pair ------------------------------------
+//
+// Three caller classes, before and after, per table. The same three
+// F11 measured, for the same reason: the cost is not uniform across
+// callers. A system_admin's predicate short-circuits on its first
+// branch and a company member's does not, which is why the people
+// paying for the un-hoisted form are clients rather than staff.
+//
+// These tables are small on the clone (tens of rows), so the timings
+// here are not the magnitude evidence — the 5000-row measurement
+// under --explain is. What these show is the SHAPE: a per-row SubPlan
+// before, an InitPlan after, on the real policies.
+async function batchExplain(
+  run: Runner,
+  ids: Identities,
+  batch: Batch
+): Promise<{ lines: string[]; ok: boolean }> {
+  const sql = migrationSql(batch);
+  const callers: Array<[string, string | null]> = [
+    ["postgres", null],
+    ["system_admin", ids.systemAdmin],
+    ["company member", ids.member],
+  ];
+
+  const lines: string[] = [];
+  let ok = true;
+
+  for (const table of batch.tables) {
+    const [{ n: rows }] = await run<{ n: number }>(
+      `select count(*)::int as n from public.${table};`
+    );
+    lines.push(`  ${table} (${rows} rows)`);
+    const explain = `explain (analyze, costs off) select count(*) from public.${table};`;
+
+    for (const [label, sub] of callers) {
+      const read = async (setup: string): Promise<PlanFacts> => {
+        const stmt =
+          sub === null ? asPostgres(setup, explain) : asCaller(sub, setup, explain);
+        const plan = await run<Record<string, string>>(stmt);
+        return planFacts(
+          plan.map((r) => Object.values(r)[0]).filter(Boolean).join("\n")
+        );
+      };
+      const before = await read("");
+      const after = await read(sql);
+
+      // postgres bypasses RLS, so neither plan carries a policy
+      // filter and the stop condition does not apply to it. It is
+      // here as the no-policy baseline.
+      const judged = sub !== null;
+      const pass = !judged || afterPlanIsHoisted(after);
+      if (!pass) ok = false;
+
+      const fmt = (f: PlanFacts) =>
+        `InitPlan=${f.initPlan ? "yes" : "no "}  auth_profile loops=${String(f.loops).padEnd(11)} ` +
+        `SubPlans=${f.subPlans}  ${f.ms} ms`;
+      lines.push(`    ${label.padEnd(15)} before  ${fmt(before)}`);
+      lines.push(
+        `    ${"".padEnd(15)} after   ${fmt(after)}${judged ? (pass ? "" : "   <-- STOP CONDITION") : "   (RLS bypassed)"}`
+      );
+      if (before.filter) lines.push(`        before filter: ${before.filter.slice(0, 118)}`);
+      if (after.filter) lines.push(`        after  filter: ${after.filter.slice(0, 118)}`);
+    }
+    lines.push("");
+  }
+  return { lines, ok };
+}
+
+export function parseArgs(argv: string[]): {
+  only: string | null;
+  explain: boolean;
+  batch: string | null;
+} {
   let only: string | null = null;
   let explain = false;
+  let batch: string | null = null;
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--case") {
       only = argv[i + 1] ?? null;
@@ -407,15 +856,27 @@ export function parseArgs(argv: string[]): { only: string | null; explain: boole
       if (!only) fail("--case needs a name.");
     } else if (argv[i] === "--explain") {
       explain = true;
+    } else if (argv[i] === "--batch") {
+      batch = argv[i + 1] ?? null;
+      i += 1;
+      if (!batch) fail("--batch needs a number.");
+      if (!findBatch(batch)) {
+        fail(
+          `No batch "${batch}". Known: ${BATCHES.map((b) => b.n).join(", ")}. ` +
+            `A batch is added to BATCHES in this file when its PR is written.`
+        );
+      }
     } else {
-      fail(`Unknown option "${argv[i]}". Options: --case <name>, --explain.`);
+      fail(
+        `Unknown option "${argv[i]}". Options: --case <name>, --explain, --batch <n>.`
+      );
     }
   }
-  return { only, explain };
+  return { only, explain, batch };
 }
 
 async function main(): Promise<void> {
-  const { only, explain } = parseArgs(process.argv.slice(2));
+  const { only, explain, batch } = parseArgs(process.argv.slice(2));
   const target = resolveTarget(process.env);
   const token = process.env.SUPABASE_MANAGEMENT_TOKEN;
   if (!token) {
@@ -447,13 +908,48 @@ async function main(): Promise<void> {
 
   console.log(summaryLines(results).join("\n"));
 
+  // The static check runs on every invocation, not only under
+  // --batch. It costs one query, it is the thing standing between a
+  // later batch and the idiom in hazard 1, and a check you have to
+  // remember to ask for is not enforcement.
+  const staticResult = await staticCheck(run);
+  console.log(batchSummaryLines([staticResult], "Static check over live policy text").join("\n"));
+
+  let batchOk = true;
+  if (batch) {
+    const b = findBatch(batch) as Batch;
+    console.log(
+      `  Batch ${b.n}: ${b.tables.join(", ")}\n` +
+        `  Measured with supabase/migrations/${b.migration} applied inside each\n` +
+        `  transaction and rolled back with it. The clone is not modified.`
+    );
+
+    const checks = [
+      ...(await deletedUserChecks(run, ids, b)),
+      ...(await isolationChecks(run, ids, b)),
+      ...(await nullableCompanyChecks(run, ids, b)),
+    ];
+    console.log(batchSummaryLines(checks, `Batch ${b.n} acceptance`).join("\n"));
+
+    console.log(`  Batch ${b.n} EXPLAIN, three caller classes, before and after`);
+    console.log("");
+    const { lines, ok } = await batchExplain(run, ids, b);
+    console.log(lines.join("\n"));
+    batchOk = ok && checks.every((c) => c.ok);
+    console.log(
+      batchOk
+        ? `  Batch ${b.n}: acceptance green, every judged after-plan hoisted.\n`
+        : `  Batch ${b.n}: STOP. Do not promote and do not start the next batch.\n`
+    );
+  }
+
   if (explain) {
     console.log("  InitPlan measurement — which shape evaluates the helper once");
     console.log((await initPlanMeasurement(run, ids)).join("\n"));
     console.log("");
   }
 
-  if (results.some((r) => !r.ok)) process.exit(1);
+  if (results.some((r) => !r.ok) || !staticResult.ok || !batchOk) process.exit(1);
 }
 
 // Runs only when this file IS the process entry point. Importing it
