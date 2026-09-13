@@ -7,6 +7,7 @@ import {
   canaryPresent,
   companyOfRowSql,
   describeOutcome,
+  fillProbe,
   findBatch,
   grantSummaryLines,
   isolationSql,
@@ -15,6 +16,7 @@ import {
   otherCompanySql,
   parseArgs,
   planFacts,
+  probeVerdict,
   projectRef,
   summaryLines,
   type BatchCheck,
@@ -525,5 +527,78 @@ describe("BATCHES", () => {
     expect(findBatch("2")?.indirectScope?.commitment_occurrences).toContain(
       "join public.commitments"
     );
+  });
+});
+
+// ---- Write probes ----------------------------------------------
+//
+// Both of these exist because of mistakes made while writing the
+// probes by hand: a column that did not exist, and a fixture row
+// owned by a different member. Each produced a confident `0 row(s)`
+// that would have read as enforcement.
+
+describe("fillProbe", () => {
+  it("substitutes every placeholder", () => {
+    const { sql, missing } = fillProbe("delete where id = '$own_open'", {
+      own_open: "abc",
+    });
+    expect(sql).toBe("delete where id = 'abc'");
+    expect(missing).toEqual([]);
+  });
+
+  it("names a placeholder the fixtures could not fill", () => {
+    const { missing } = fillProbe("id = '$own_occurrence'", {
+      own_occurrence: null,
+    });
+    expect(missing).toEqual(["own_occurrence"]);
+  });
+
+  it("treats an absent key as missing, not as empty", () => {
+    expect(fillProbe("id = '$nope'", {}).missing).toEqual(["nope"]);
+  });
+
+  it("reports every missing placeholder, not just the first", () => {
+    const { missing } = fillProbe("'$a' and '$b'", { a: null, b: null });
+    expect(missing).toEqual(["a", "b"]);
+  });
+});
+
+describe("probeVerdict", () => {
+  it("passes when before and after match the expectation", () => {
+    expect(probeVerdict({ before: "1", after: "1", expect: "1" }).ok).toBe(true);
+  });
+
+  it("fails loudly when before and after disagree", () => {
+    const v = probeVerdict({ before: "1", after: "0", expect: "1" });
+    expect(v.ok).toBe(false);
+    expect(v.detail).toContain("SEMANTICS MOVED");
+  });
+
+  it("fails when both agree on the wrong answer", () => {
+    const v = probeVerdict({ before: "0", after: "0", expect: "1" });
+    expect(v.ok).toBe(false);
+    expect(v.detail).toContain("expected 1");
+  });
+
+  // The empty-set rule, on the write side.
+  it("refuses a zero the control caller also got", () => {
+    const v = probeVerdict({ before: "0", after: "0", expect: "0", control: "0" });
+    expect(v.ok).toBe(false);
+    expect(v.detail).toContain("NOT PROVEN");
+  });
+
+  it("accepts a zero the control caller did not get", () => {
+    const v = probeVerdict({ before: "0", after: "0", expect: "0", control: "1" });
+    expect(v.ok).toBe(true);
+    expect(v.detail).toContain("control caller got 1");
+  });
+
+  it("compares an error code like any other answer", () => {
+    expect(
+      probeVerdict({ before: "42501", after: "42501", expect: "42501" }).ok
+    ).toBe(true);
+    expect(
+      probeVerdict({ before: "42501", after: "0", expect: "42501" }).ok
+    ).toBe(false);
   });
 });

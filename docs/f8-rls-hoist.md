@@ -314,7 +314,16 @@ Per batch, in the PR body:
   batch that has one.
 - **Isolation acceptance**: a member of company A cannot read company
   B, asserted through the harness with real JWTs. **Per batch, not once
-  at the end.**
+  at the end.** The other company must have rows in the table, and the
+  report says how many were denied.
+- **Write probes, before and after, as each role the rewritten
+  policies govern.** From batch 3 onward, and retrofitted to batch 2.
+  Read plans and isolation counts say nothing about who may write, and
+  a browser pass as an admin exercises the admin policy rather than
+  the owner one. Each probe states what it expects; a probe expecting
+  zero names a control caller the same statement must succeed as, or
+  the zero is reported NOT PROVEN. A probe whose fixture row is
+  missing is NOT PROVEN too, never a pass.
 
 **3. The static check** ships with batch 1, so no later batch can
 introduce the forbidden idiom.
