@@ -1695,6 +1695,150 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  {
+    n: "6c",
+    tables: [
+      "strengths_assessments",
+      "strengths_items",
+      "strengths_responses",
+      "strengths_results",
+      "strengths_teams",
+      "strengths_team_members",
+    ],
+    migration: "0184_f8_batch6c_hoist.sql",
+    // strengths_assessments allows a NULL company: a personal
+    // assessment taken outside any company. None exist on the clone,
+    // so hazard 1's case has to be given one.
+    nullCompanyRows: {
+      strengths_assessments:
+        "insert into public.strengths_assessments (id, user_id, company_id) " +
+        "select '22222222-3333-4444-8555-666666666666', p.id, null " +
+        "from public.profiles p where p.company_id is not null limit 1;",
+    },
+    // No strengths team has ever been created on the clone, so both
+    // team tables are empty and their controls could see nothing.
+    seedRows: {
+      strengths_teams:
+        "insert into public.strengths_teams (id, company_id, name, mission_type) " +
+        "select '11111111-2222-4333-8444-555555555555', co.id, 'probe team', 'general' " +
+        "from public.companies co order by co.id limit 1;",
+      strengths_team_members:
+        "insert into public.strengths_teams (id, company_id, name, mission_type) " +
+        "select '11111111-2222-4333-8444-555555555555', co.id, 'probe team', 'general' " +
+        "from public.companies co order by co.id limit 1; " +
+        "insert into public.strengths_team_members (team_id, profile_id) " +
+        "select '11111111-2222-4333-8444-555555555555', p.id from public.profiles p " +
+        "where p.company_id = (select co.id from public.companies co order by co.id limit 1) limit 1;",
+    },
+    indirectScope: {
+      strengths_responses: {
+        key: "id",
+        rows:
+          "select r.id as key, a.company_id from public.strengths_responses r " +
+          "join public.strengths_assessments a on a.id = r.assessment_id",
+      },
+      strengths_results: {
+        key: "id",
+        rows:
+          "select r.id as key, a.company_id from public.strengths_results r " +
+          "join public.strengths_assessments a on a.id = r.assessment_id",
+      },
+      strengths_team_members: {
+        key: "id",
+        rows:
+          "select m.id as key, t.company_id from public.strengths_team_members m " +
+          "join public.strengths_teams t on t.id = m.team_id",
+      },
+      // The shared item bank: every caller sees the same rows and no
+      // row belongs to a company at all.
+      strengths_items: {
+        key: "id",
+        rows: "select id as key, null::uuid as company_id from public.strengths_items",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        with a as (
+          select sa.id, sa.user_id, sa.company_id
+            from public.strengths_assessments sa
+            join public.profiles p on p.id = sa.user_id
+           where sa.company_id is not null and p.role = 'team_member'
+             and p.status = 'active'
+           limit 1
+        )
+        select
+          (select company_id from a) as company,
+          (select id from a) as own_assessment,
+          (select user_id from a) as subject,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = (select company_id from a) limit 1) as admin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id <> (select company_id from a) limit 1) as other_admin,
+          (select id from public.profiles where role = 'team_member' and status = 'active'
+             and company_id = (select company_id from a)
+             and id <> (select user_id from a) limit 1) as colleague,
+          (select sa.id from public.strengths_assessments sa
+            where sa.company_id is not null
+              and sa.company_id <> (select company_id from a) limit 1) as foreign_assessment;`,
+      probes: [
+        // The owner rule: your own assessment is yours.
+        {
+          name: "subject updates their own assessment",
+          caller: "subject",
+          sql: "with u as (update public.strengths_assessments set status = status where id = '$own_assessment' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "a colleague updates someone else's assessment",
+          caller: "colleague",
+          sql: "with u as (update public.strengths_assessments set status = status where id = '$own_assessment' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "subject",
+        },
+        {
+          // The update policy is owner-only: even the company's admin
+          // is refused, which is why the control is the subject.
+          name: "company_admin updates a member's assessment",
+          caller: "admin",
+          sql: "with u as (update public.strengths_assessments set status = status where id = '$own_assessment' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "subject",
+        },
+        {
+          // Self-provisioned: the subject's existing assessment already
+          // has an answer for every item, so a fresh one is made
+          // rather than hunting an unanswered slot.
+          name: "subject records a response on their own assessment",
+          caller: "subject",
+          setup:
+            "insert into public.strengths_assessments (id, user_id, company_id, version) " +
+            "values ('33333333-4444-4555-8666-777777777777', '$subject', '$company', 99);",
+          sql: "with i as (insert into public.strengths_responses (assessment_id, item_id, value) select '33333333-4444-4555-8666-777777777777', id, 3 from public.strengths_items limit 1 returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "a colleague records a response on someone else's assessment",
+          caller: "colleague",
+          sql: "with i as (insert into public.strengths_responses (assessment_id, item_id, value) select '$own_assessment', i.id, 3 from public.strengths_items i where not exists (select 1 from public.strengths_responses r where r.assessment_id = '$own_assessment' and r.item_id = i.id) limit 1 returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          name: "company_admin creates a strengths team in its company",
+          caller: "admin",
+          sql: "with i as (insert into public.strengths_teams (company_id, name, mission_type) values ('$company', 'probe team', 'general') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "company_admin creates a strengths team in ANOTHER company",
+          caller: "other_admin",
+          sql: "with i as (insert into public.strengths_teams (company_id, name, mission_type) values ('$company', 'probe team', 'general') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
