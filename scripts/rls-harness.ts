@@ -514,6 +514,42 @@ export type Batch = {
   // "sees 0 of company B" could be produced by the parent's policy
   // rather than by the one under test.
   indirectScope?: Readonly<Record<string, string>>;
+  // Write probes for the policies this batch rewrites.
+  //
+  // Read plans and isolation counts say nothing about who may WRITE.
+  // Batch 2 rewrote eight write policies and measured none of them:
+  // the browser pass that was supposed to cover it ran as an admin,
+  // whose DELETE goes through a policy with no status clause, so the
+  // owner rule it was meant to exercise was never touched. E5.
+  writeProbes?: WriteProbes;
+};
+
+// One row of named ids, fetched as postgres before any probe runs.
+// Every probe names the columns it needs and is reported NOT PROVEN
+// if any of them came back null — a probe against a missing row
+// returns 0 and reads exactly like a denial.
+export type WriteProbes = {
+  fixtures: string;
+  probes: readonly WriteProbe[];
+};
+
+export type WriteProbe = {
+  name: string;
+  // Fixture column holding the profile id this runs as.
+  caller: string;
+  // SQL returning one column `n`. $name is replaced from the fixture
+  // row; the statement is expected to be a data-modifying CTE so the
+  // count is rows actually affected.
+  sql: string;
+  // What both the before and the after run must return. "42501" for
+  // a WITH CHECK violation, which raises rather than matching zero.
+  expect: string;
+  // Required when expect is "0": a caller the same statement must
+  // succeed as, in the same transaction shape. Without it a zero
+  // could be a missing row, a wrong column, or a fixture that never
+  // existed — all of which look like enforcement. The empty-set rule,
+  // on the write side.
+  provenBy?: string;
 };
 
 export const BATCHES: readonly Batch[] = [
@@ -530,6 +566,142 @@ export const BATCHES: readonly Batch[] = [
       commitment_occurrences:
         "select o.id, c.company_id from public.commitment_occurrences o " +
         "join public.commitments c on c.id = o.commitment_id",
+    },
+    writeProbes: {
+      // One member who owns both an open and a resolved commitment,
+      // and the rows around them. Chosen in SQL rather than by id so
+      // the case survives a clone refresh.
+      fixtures: `
+        select
+          m.id as member,
+          m.company_id as member_company,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = m.company_id limit 1) as admin,
+          (select p.id from public.profiles p
+             join public.guide_assignments ga on ga.guide_id = p.id
+            where p.role = 'aims_guide' and p.status = 'active'
+              and ga.company_id = m.company_id limit 1) as guide,
+          (select id from public.commitments where owner_id = m.id
+             and status = 'open' limit 1) as own_open,
+          (select id from public.commitments where owner_id = m.id
+             and status <> 'open' limit 1) as own_resolved,
+          (select id from public.commitments where company_id = m.company_id
+             and owner_id is not null and owner_id <> m.id limit 1) as others,
+          (select c.id from public.commitments c
+            where c.company_id <> m.company_id limit 1) as other_company_row,
+          (select o.id from public.commitment_occurrences o
+             join public.commitments c on c.id = o.commitment_id
+            where c.owner_id = m.id limit 1) as own_occurrence,
+          (select o.id from public.commitment_occurrences o
+             join public.commitments c on c.id = o.commitment_id
+            where c.company_id = m.company_id limit 1) as company_occurrence,
+          (select o.id from public.commitment_occurrences o
+             join public.commitments c on c.id = o.commitment_id
+            where c.company_id <> m.company_id limit 1) as other_company_occurrence
+        from (
+          select p.id, p.company_id from public.profiles p
+           where p.role = 'team_member' and p.status = 'active'
+             and p.company_id is not null
+             and exists (select 1 from public.commitments c
+                          where c.owner_id = p.id and c.status = 'open')
+             and exists (select 1 from public.commitments c
+                          where c.owner_id = p.id and c.status <> 'open')
+           -- Prefer one who also owns an occurrence. Ordering rather
+           -- than requiring: on a clone with none, the owner probe
+           -- should report NOT PROVEN rather than the whole batch
+           -- finding no member at all.
+           order by (exists (select 1 from public.commitment_occurrences o
+                              join public.commitments c2 on c2.id = o.commitment_id
+                             where c2.owner_id = p.id)) desc
+           limit 1
+        ) m;`,
+      probes: [
+        // --- commitments, as the owner ---
+        {
+          name: "member deletes own OPEN commitment",
+          caller: "member",
+          sql: "with d as (delete from public.commitments where id = '$own_open' returning id) select count(*)::int as n from d;",
+          expect: "1",
+        },
+        {
+          // Failure mode 7, at the database rather than in the UI.
+          // The admin delete policy carries no status clause, so an
+          // admin session cannot show this one.
+          name: "member deletes own RESOLVED commitment",
+          caller: "member",
+          sql: "with d as (delete from public.commitments where id = '$own_resolved' returning id) select count(*)::int as n from d;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "member deletes someone else's commitment",
+          caller: "member",
+          sql: "with d as (delete from public.commitments where id = '$others' returning id) select count(*)::int as n from d;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "member updates own commitment",
+          caller: "member",
+          sql: "with u as (update public.commitments set description = description where id = '$own_open' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "member updates someone else's commitment",
+          caller: "member",
+          sql: "with u as (update public.commitments set description = description where id = '$others' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        // --- commitments, admin and guide ---
+        {
+          name: "company_admin updates a commitment in its company",
+          caller: "admin",
+          sql: "with u as (update public.commitments set description = description where id = '$others' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin updates another company's commitment",
+          caller: "admin",
+          sql: "with u as (update public.commitments set description = description where id = '$other_company_row' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "aims_guide updates a commitment in an assigned company",
+          caller: "guide",
+          sql: "with u as (update public.commitments set description = description where id = '$others' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        // --- commitment_occurrences, the table nothing wrote to ---
+        {
+          name: "member updates an occurrence of own commitment",
+          caller: "member",
+          sql: "with u as (update public.commitment_occurrences set status = status where id = '$own_occurrence' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "member updates another company's occurrence",
+          caller: "member",
+          sql: "with u as (update public.commitment_occurrences set status = status where id = '$other_company_occurrence' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "company_admin updates an occurrence in its company",
+          caller: "admin",
+          sql: "with u as (update public.commitment_occurrences set status = status where id = '$company_occurrence' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "aims_guide updates an occurrence in an assigned company",
+          caller: "guide",
+          sql: "with u as (update public.commitment_occurrences set status = status where id = '$company_occurrence' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+      ],
     },
   },
 ];
@@ -730,10 +902,10 @@ export function batchSummaryLines(
   const lines = ["", `  ${label}`, ""];
   for (const c of checks) {
     lines.push(
-      `  ${(c.ok ? "PASS" : "FAIL").padEnd(6)}${c.name.padEnd(38)}${c.detail}`
+      `  ${(c.ok ? "PASS" : "FAIL").padEnd(6)}${c.name.padEnd(64)}${c.detail}`
     );
-    lines.push(`  ${"".padEnd(6)}${"".padEnd(38)}before: ${c.before}`);
-    lines.push(`  ${"".padEnd(6)}${"".padEnd(38)}after:  ${c.after}`);
+    lines.push(`  ${"".padEnd(6)}${"".padEnd(64)}before: ${c.before}`);
+    lines.push(`  ${"".padEnd(6)}${"".padEnd(64)}after:  ${c.after}`);
   }
   const failed = checks.filter((c) => !c.ok).length;
   lines.push("");
@@ -908,6 +1080,119 @@ async function nullableCompanyChecks(
       detail: ok
         ? "a caller with no company reads no NULL-company row"
         : "a caller with no company can read NULL-company rows",
+    });
+  }
+  return out;
+}
+
+// ---- Write probes ----------------------------------------------
+
+// Substitution is deliberately strict: an unresolved $name is a
+// programming error that would otherwise reach Postgres as literal
+// text and come back as a confusing syntax error.
+export function fillProbe(
+  sql: string,
+  fixtures: Record<string, string | null>
+): { sql: string; missing: string[] } {
+  const missing: string[] = [];
+  const filled = sql.replace(/\$([a-z_]+)/g, (_m, name: string) => {
+    const value = fixtures[name];
+    if (!value) {
+      missing.push(name);
+      return "";
+    }
+    return value;
+  });
+  return { sql: filled, missing };
+}
+
+export function probeVerdict(opts: {
+  before: string;
+  after: string;
+  expect: string;
+  control?: string;
+}): { ok: boolean; detail: string } {
+  const { before, after, expect, control } = opts;
+  if (before !== after) {
+    return { ok: false, detail: "SEMANTICS MOVED: before and after disagree" };
+  }
+  if (after !== expect) {
+    return { ok: false, detail: `expected ${expect}, got ${after}` };
+  }
+  // A zero has to be a zero OF something. Without the control it is
+  // indistinguishable from a missing row or a mistyped column, both of
+  // which have already happened while writing these.
+  if (expect === "0" && control !== undefined && control === "0") {
+    return {
+      ok: false,
+      detail:
+        "NOT PROVEN: the control caller also got 0, so this zero is not a denial",
+    };
+  }
+  return {
+    ok: true,
+    detail: control !== undefined ? `denied; control caller got ${control}` : "as expected",
+  };
+}
+
+async function writeProbeChecks(
+  run: Runner,
+  batch: Batch
+): Promise<BatchCheck[]> {
+  const spec = batch.writeProbes;
+  if (!spec) return [];
+  const sql = migrationSql(batch);
+  const [fixtures] = await run<Record<string, string | null>>(spec.fixtures);
+  const out: BatchCheck[] = [];
+
+  const runAs = async (
+    callerId: string,
+    setup: string,
+    statement: string
+  ): Promise<string> => {
+    try {
+      const rows = await run<{ n: number }>(asCaller(callerId, setup, statement));
+      return String(rows?.[0]?.n ?? 0);
+    } catch (error) {
+      const text = String((error as Error).message ?? error);
+      const code = text.match(/ERROR:\s+(\d+)/);
+      return code ? code[1] : "ERROR";
+    }
+  };
+
+  for (const probe of spec.probes) {
+    const caller = fixtures?.[probe.caller] ?? null;
+    const { sql: statement, missing } = fillProbe(probe.sql, fixtures ?? {});
+    const absent = [...missing, ...(caller ? [] : [probe.caller])];
+    if (absent.length > 0) {
+      out.push({
+        name: `write · ${probe.name}`,
+        before: "not run",
+        after: "not run",
+        ok: false,
+        detail:
+          `NOT PROVEN: this clone has no ${absent.join(", ")}. A probe ` +
+          "against a missing row returns 0 and reads like a denial.",
+      });
+      continue;
+    }
+    const before = await runAs(caller as string, "", statement);
+    const after = await runAs(caller as string, sql, statement);
+    const control = probe.provenBy
+      ? await runAs(fixtures?.[probe.provenBy] as string, sql, statement)
+      : undefined;
+    const { ok, detail } = probeVerdict({
+      before,
+      after,
+      expect: probe.expect,
+      control,
+    });
+    out.push({
+      name: `write · ${probe.name}`,
+      before,
+      after: control !== undefined ? `${after} (control ${control})` : after,
+      ok,
+      detail,
     });
   }
   return out;
@@ -1182,7 +1467,28 @@ async function main(): Promise<void> {
   }
 
   const mgmt = createManagementClient({ token });
-  const run: Runner = (sql) => mgmt.runQuery(target, sql);
+
+  // The Management API rate-limits, and the write probes roughly
+  // doubled the query count per batch. A 429 is a pause, not a
+  // result: retrying it is the difference between a harness that
+  // reports on the policies and one that reports on how fast it was
+  // asked. Only 429 is retried — every other failure is an answer.
+  const run: Runner = async (sql) => {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await mgmt.runQuery(target, sql);
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+        if (status !== 429 || attempt >= 6) throw error;
+        // Exponential, capped. The limit is a sustained-rate cap, so
+        // a few seconds is not enough once a day's runs have spent
+        // the budget.
+        const waitMs = Math.min(5000 * 2 ** attempt, 60000);
+        console.log(`  (rate limited, waiting ${waitMs / 1000}s)`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+    }
+  };
 
   // --pending applies a migration that is written but not yet
   // deployed inside every probe transaction, so a PR can show its
@@ -1246,6 +1552,7 @@ async function main(): Promise<void> {
       ...(await deletedUserChecks(run, ids, b)),
       ...(await isolationChecks(run, ids, b)),
       ...(await nullableCompanyChecks(run, ids, b)),
+      ...(await writeProbeChecks(run, b)),
     ];
     console.log(batchSummaryLines(checks, `Batch ${b.n} acceptance`).join("\n"));
 

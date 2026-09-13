@@ -463,6 +463,17 @@ caught only because the number disagreed with production plans already
 in hand; nothing about the measurement itself looked wrong. A
 green-looking instrument had been pointed at a different query.
 
+*The write policies nobody wrote through.* F8 batch 2 rewrote eight
+write policies on `commitments` and `commitment_occurrences` and
+measured only reads: deleted-user counts, isolation counts, and
+`select count(*)` plans. The browser pass meant to cover it ran as a
+scoped-in admin, whose DELETE goes through `commitments_delete_admin`,
+which carries no `status` clause — so the owner rule it was supposed
+to exercise, failure mode 7, was checked by nothing at all. The
+database-level enforcement was confirmed only when write probes were
+run as a member: the resolved commitment is refused, the open one is
+not. Nothing had moved, but nothing had established that either.
+
 *The isolation check that passed against an empty set.* The harness's
 tenant-boundary acceptance asserted that a member of company A sees N
 of A and 0 of B. It never established that B had rows in the table.
@@ -496,7 +507,10 @@ matching zero rows, not by raising, so the action takes its ordinary
 **Rule.** **App guards are courtesy. RLS is the boundary.** A role
 widening in a server action ships with its matching RLS change in the
 same PR, and every granted write gets a probe in
-`scripts/rls-harness.ts` that exercises it AS THAT ROLE. A probe
+`scripts/rls-harness.ts` that exercises it AS THAT ROLE. **A rewritten
+write policy is covered by the same rule**: the batch that rewrites it
+probes it as each role it governs, before and after, in that batch.
+A read plan says nothing about who may write. A probe
 asserts both halves: the write the role is supposed to make, which must
 actually change a row, and a write the same role must still be refused.
 The second is what makes the first mean anything, because "the update
