@@ -520,6 +520,60 @@ restricting that role to one column takes the others away from
 the rows plus a `BEFORE UPDATE` trigger for the columns, scoped to the
 roles the policy newly admits.
 
+*The transcript sources, with the symptom inverted.* The same commit
+widened `transcriptSourcesAllowed` to admit `company_admin`, and those
+controls work. The database refuses every write behind them. Probed
+against the real policies, with a source seeded inside the transaction
+so the control is not an empty table: pause/resume updates 0 rows as a
+company admin and 1 as a system admin, remove deletes 0 and 1, and
+connect-folder raises `42501 new row violates row-level security
+policy`. `transcript_sources_update`, `_insert` and `_delete` admit
+`system_admin` and carry a `_guide` mirror; the only `company_admin`
+branch anywhere on that table is on SELECT.
+
+They work because every database call in
+`src/lib/transcripts/actions.ts` goes through `createSupabaseAdminClient`,
+the service-role client, which the file constructs in fourteen places
+and which does not consult RLS at all. The
+disagreement is real, the feature is fine, and `guardForSource` and
+`guardForCompany` are the entire boundary. The same commit says of the
+routing and alias actions that "RLS on meetings backstops that if
+anyone hits the action directly" — those four actions use the same
+service-role client, so there is no backstop to be had.
+
+This is the harder half of the failure mode to see. A control nobody
+can use eventually gets reported by somebody. A control that works,
+guarded only by application code, reports nothing ever.
+
+**The disagreement has two disguises.** Industry was findable because
+`setCompanyIndustryAction` ends in `.select("*").single()`, and
+`.single()` errors on the empty result an RLS refusal produces. Almost
+nothing else on this pattern does. `bulkResetPlanAction` issues four
+`.update().eq()` calls and checks only `error`, which RLS never sets: a
+refusal matches zero rows, and zero rows is a successful update of
+nothing. That path is in fact correct — probed on the clone, a company
+admin archives exactly what a system admin does, 3 SFAs, 9 goals, 14
+priorities and 8 open commitments, while a company admin from another
+company gets zero — but had it been wrong it would have returned
+`ok: true` with four zero counts and archived nothing. The same action
+scope-checks `company_admin` and not `aims_guide`, so an unassigned
+guide already takes that branch today: RLS denies it 0 of 14 priorities
+and the caller is told the reset succeeded.
+
+Quiet failure and false success are one bug in different clothes. Only
+a probe tells them apart, which is why the rule asks for one per
+granted write rather than for a test of the action.
+
 **Pinned by.** `scripts/rls-harness.ts` grant probes, which run on
 every invocation rather than behind a flag, and fail loudly when a
 granted write stops working or starts working too widely.
+
+Nothing pins the transcripts path, because there is nothing there to
+pin: its writes never reach a policy, so no probe can exercise one.
+Bringing those actions back inside RLS — real policies for
+`company_admin` and guides, the service-role client retired from those
+fourteen call sites, the routing and alias actions given the backstop their
+commit message claims, and the `aims_guide` scope check added to
+`bulkResetPlanAction` — is queued behind F8 so the policies are born in
+form D. The app guards hold in the meantime. They are still only
+guards.
