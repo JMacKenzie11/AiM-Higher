@@ -408,9 +408,12 @@ const INDIRECT = {
   tables: ["commitment_occurrences"],
   migration: "m.sql",
   indirectScope: {
-    commitment_occurrences:
-      "select o.id, c.company_id from public.commitment_occurrences o " +
-      "join public.commitments c on c.id = o.commitment_id",
+    commitment_occurrences: {
+      key: "id",
+      rows:
+        "select o.id as key, c.company_id from public.commitment_occurrences o " +
+        "join public.commitments c on c.id = o.commitment_id",
+    },
   },
 };
 
@@ -443,6 +446,37 @@ describe("companyOfRowSql", () => {
     expect(companyOfRowSql(INDIRECT, "commitment_occurrences")).toContain(
       "join public.commitments c on c.id = o.commitment_id"
     );
+  });
+});
+
+// csf_kpi_links is keyed (csf_id, kpi_id) and company_features has no
+// id either. A traversal that assumed one broke batch 1 once already.
+describe("a table with no id column", () => {
+  const COMPOSITE = {
+    n: "k",
+    tables: ["csf_kpi_links"],
+    migration: "m.sql",
+    indirectScope: {
+      csf_kpi_links: {
+        key: "(csf_id::text || ':' || kpi_id::text)",
+        rows:
+          "select (l.csf_id::text || ':' || l.kpi_id::text) as key, f.company_id " +
+          "from public.csf_kpi_links l " +
+          "join public.success_measures m on m.id = l.csf_id " +
+          "join public.functions f on f.id = m.function_id",
+      },
+    },
+  };
+
+  it("keys the scope sets by the composite expression", () => {
+    const { setup, assertion } = isolationSql(COMPOSITE, "csf_kpi_links", "A", "B");
+    expect(setup).toContain("select key from (select (l.csf_id::text");
+    expect(assertion).toContain("(csf_id::text || ':' || kpi_id::text) in (select key from _scope_own)");
+  });
+
+  it("never selects a bare id", () => {
+    const { setup, assertion } = isolationSql(COMPOSITE, "csf_kpi_links", "A", "B");
+    expect(setup + assertion).not.toMatch(/select\s+id\b/);
   });
 });
 
@@ -503,7 +537,7 @@ describe("isolationSql", () => {
   it("counts the caller's visible rows within each set, not the set itself", () => {
     const { assertion } = isolationSql(INDIRECT, "commitment_occurrences", "A", "B");
     expect(assertion).toContain(
-      "from public.commitment_occurrences where id in (select id from _scope_own)"
+      "from public.commitment_occurrences where id in (select key from _scope_own)"
     );
   });
 
@@ -524,7 +558,7 @@ describe("BATCHES", () => {
   });
 
   it("declares the traversal for the table with no company_id", () => {
-    expect(findBatch("2")?.indirectScope?.commitment_occurrences).toContain(
+    expect(findBatch("2")?.indirectScope?.commitment_occurrences?.rows).toContain(
       "join public.commitments"
     );
   });
