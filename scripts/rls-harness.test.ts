@@ -5,6 +5,7 @@ import {
   afterPlanIsHoisted,
   batchSummaryLines,
   canaryPresent,
+  cloneLag,
   companyOfRowSql,
   describeOutcome,
   fillProbe,
@@ -634,5 +635,58 @@ describe("probeVerdict", () => {
     expect(
       probeVerdict({ before: "42501", after: "0", expect: "42501" }).ok
     ).toBe(false);
+  });
+});
+
+// ---- cloneLag ---------------------------------------------------
+//
+// The clone sat eight migrations behind the fleet for a whole
+// afternoon and nothing said so. These pin the arithmetic; the gate
+// that uses it is in main().
+
+describe("cloneLag", () => {
+  const LOCAL = ["0179_a.sql", "0180_b.sql", "0181_c.sql", "0182_d.sql"];
+
+  it("reports nothing behind when the clone matches the newest", () => {
+    const lag = cloneLag({ cloneHead: "0182", localMigrations: LOCAL });
+    expect(lag.behind).toEqual([]);
+    expect(lag.newest).toBe("0182");
+  });
+
+  it("names every migration the clone is missing", () => {
+    expect(cloneLag({ cloneHead: "0180", localMigrations: LOCAL }).behind).toEqual([
+      "0181",
+      "0182",
+    ]);
+  });
+
+  it("treats a clone with no migration history as behind everything", () => {
+    expect(cloneLag({ cloneHead: null, localMigrations: LOCAL }).behind).toEqual([
+      "0179",
+      "0180",
+      "0181",
+      "0182",
+    ]);
+  });
+
+  it("is not confused by a clone ahead of the repo", () => {
+    // A refreshed clone can carry migrations this checkout does not
+    // have yet. That is not staleness and must not read as it.
+    expect(cloneLag({ cloneHead: "0190", localMigrations: LOCAL }).behind).toEqual([]);
+  });
+
+  it("ignores files that are not versioned migrations", () => {
+    const lag = cloneLag({
+      cloneHead: "0180",
+      localMigrations: ["README.md", "notes.sql", "0181_c.sql"],
+    });
+    expect(lag.behind).toEqual(["0181"]);
+    expect(lag.newest).toBe("0181");
+  });
+
+  it("compares as strings in a zero-padded scheme, so 0099 precedes 0100", () => {
+    expect(
+      cloneLag({ cloneHead: "0099", localMigrations: ["0099_a.sql", "0100_b.sql"] }).behind
+    ).toEqual(["0100"]);
   });
 });
