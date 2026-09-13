@@ -520,6 +520,15 @@ export type Batch = {
   // "sees 0 of company B" could be produced by the parent's policy
   // rather than by the one under test.
   indirectScope?: Readonly<Record<string, { key: string; rows: string }>>;
+  // How to create one row with a NULL company_id, per table.
+  //
+  // Hazard 1's case is a caller with no company against a row with no
+  // company. On the clone there may be no such row — every meeting
+  // routed, every source company-scoped — and a check reporting "0
+  // NULL-company rows visible" against a table holding none is the
+  // empty-set mistake in its purest form. So the batch provides the
+  // row, created as postgres inside the rolled-back transaction.
+  nullCompanyRows?: Readonly<Record<string, string>>;
   // Write probes for the policies this batch rewrites.
   //
   // Read plans and isolation counts say nothing about who may WRITE.
@@ -1104,6 +1113,106 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  {
+    n: "5",
+    tables: [
+      "meetings",
+      "meeting_analyses",
+      "transcript_sources",
+      "transcript_aliases",
+      "transcript_source_audit_log",
+    ],
+    migration: "0180_f8_batch5_hoist.sql",
+    indirectScope: {
+      meeting_analyses: {
+        key: "id",
+        rows:
+          "select a.id as key, m.company_id from public.meeting_analyses a " +
+          "join public.meetings m on m.id = a.meeting_id",
+      },
+    },
+    nullCompanyRows: {
+      meetings:
+        "insert into public.meetings (id, company_id, provider_file_id, file_name, content_hash, transcript_text, status) " +
+        "values ('44444444-4444-4444-8444-444444444444', null, '_probe_file', 'probe.txt', '_probe_hash', 'probe transcript', 'pending');",
+      transcript_sources:
+        "insert into public.transcript_sources (id, company_id, scope, provider, folder_id, folder_name) " +
+        "values ('55555555-5555-4555-8555-555555555555', null, 'shared', 'google_drive', '_probe_shared', 'probe shared');",
+      transcript_source_audit_log:
+        "insert into public.transcript_sources (id, company_id, scope, provider, folder_id, folder_name) " +
+        "values ('55555555-5555-4555-8555-555555555555', null, 'shared', 'google_drive', '_probe_shared', 'probe shared'); " +
+        "insert into public.transcript_source_audit_log (source_id, company_id, event_type) " +
+        "values ('55555555-5555-4555-8555-555555555555', null, 'created');",
+    },
+    writeProbes: {
+      fixtures: `
+        select
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' limit 1) as admin,
+          (select company_id from public.profiles where role = 'company_admin'
+             and status = 'active' limit 1) as admin_company,
+          (select id from public.profiles where role = 'team_member'
+             and status = 'active' and company_id is not null limit 1) as member,
+          (select id from public.transcript_sources limit 1) as a_source,
+          (select id from public.meetings where company_id is not null limit 1) as a_meeting;`,
+      probes: [
+        // transcript_sources writes are system_admin only. This is E5's
+        // second specimen measured as policy rather than described as
+        // prose: the app grants these actions to company_admins through
+        // a service-role client, and the database refuses every one of
+        // them. The PR after this one changes that. These probes record
+        // what is true beforehand, so the change has a before.
+        {
+          name: "company_admin pauses a transcript source",
+          caller: "admin",
+          sql: "with u as (update public.transcript_sources set status = status where id = '$a_source' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "company_admin removes a transcript source",
+          caller: "admin",
+          sql: "with d as (delete from public.transcript_sources where id = '$a_source' returning id) select count(*)::int as n from d;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "company_admin connects a folder",
+          caller: "admin",
+          sql: "with i as (insert into public.transcript_sources (company_id, scope, provider, folder_id, folder_name) values ('$admin_company', 'company', 'google_drive', '_probe_connect', 'probe') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          name: "system_admin connects a folder",
+          caller: "sysadmin",
+          sql: "with i as (insert into public.transcript_sources (company_id, scope, provider, folder_id, folder_name) values ('$admin_company', 'company', 'google_drive', '_probe_connect', 'probe') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "system_admin routes a meeting",
+          caller: "sysadmin",
+          sql: "with u as (update public.meetings set company_id = company_id where id = '$a_meeting' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin routes a meeting",
+          caller: "admin",
+          sql: "with u as (update public.meetings set company_id = company_id where id = '$a_meeting' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "team member routes a meeting",
+          caller: "member",
+          sql: "with u as (update public.meetings set company_id = company_id where id = '$a_meeting' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
@@ -1116,6 +1225,39 @@ export function companyOfRowSql(batch: Batch, table: string): string {
   if (custom) return `select company_id from (${custom.rows}) t`;
   if (table === "companies") return "select id as company_id from public.companies";
   return `select company_id from public.${table}`;
+}
+
+// Candidate control callers, company-scoped ones first.
+//
+// A control has to be someone the table's READ policy actually
+// admits. transcript_sources does not admit a plain team_member at
+// all and the audit log admits nobody but system_admin, so the
+// member-shaped control that worked for four batches reports zero on
+// them — correctly, and uselessly. These are tried in order and the
+// first that can actually see rows is used, which is stated in the
+// result so nobody reads "control sees 4" as "a member sees 4".
+export function controlCandidatesSql(batch: Batch, table: string): string {
+  const rows = companyOfRowSql(batch, table);
+  // Explicitly a few of each role rather than one ordered list with a
+  // limit. The first version took the first twelve by rank and never
+  // reached the system_admin, because the companies holding
+  // transcript_sources have more than twelve team members between
+  // them — so a table only a system_admin can read reported its
+  // control as unable to read it.
+  return (
+    `with c as (select distinct company_id from (${rows}) t where company_id is not null) ` +
+    `(select p.id, p.role, p.company_id, 1 as rank from public.profiles p ` +
+    ` where p.status = 'active' and p.role = 'team_member' ` +
+    `   and p.company_id in (select company_id from c) limit 4) ` +
+    `union all ` +
+    `(select p.id, p.role, p.company_id, 2 as rank from public.profiles p ` +
+    ` where p.status = 'active' and p.role = 'company_admin' ` +
+    `   and p.company_id in (select company_id from c) limit 4) ` +
+    `union all ` +
+    `(select p.id, p.role, p.company_id, 3 as rank from public.profiles p ` +
+    ` where p.status = 'active' and p.role = 'system_admin' limit 1) ` +
+    `order by rank;`
+  );
 }
 
 // A control caller whose company actually has rows in THIS table.
@@ -1371,21 +1513,36 @@ async function deletedUserChecks(
   const out: BatchCheck[] = [];
   for (const table of batch.tables) {
     const count = "select (select count(*) from public." + table + ")::int as n;";
-    // A control whose company has rows here, not whichever member the
-    // run happened to load.
-    const [pick] = await run<{ member: string | null }>(
-      memberForTableSql(batch, table)
+    // A control the table's read policy actually admits, tried
+    // company-scoped first.
+    const candidates = await run<{ id: string; role: string }>(
+      controlCandidatesSql(batch, table)
     );
-    const controlCaller = pick?.member ?? ids.member;
-    const [before] = await run<{ n: number }>(asCaller(ids.nobody, "", count));
-    const [after] = await run<{ n: number }>(asCaller(ids.nobody, sql, count));
-    const [control] = await run<{ n: number }>(asCaller(controlCaller, sql, count));
+    // If the batch knows how to make a row here, use it: a table that
+    // happens to be empty on this clone would otherwise report every
+    // caller as unable to read it, which proves nothing either way.
+    const seed = batch.nullCompanyRows?.[table] ?? "";
+    const withSeed = [sql, seed].filter(Boolean).join("\n");
+    let control = { n: 0 };
+    let controlRole = "none";
+    for (const candidate of candidates) {
+      const [seen] = await run<{ n: number }>(
+        asCaller(candidate.id, withSeed, count)
+      );
+      if (seen.n > 0) {
+        control = seen;
+        controlRole = candidate.role;
+        break;
+      }
+    }
+    const [before] = await run<{ n: number }>(asCaller(ids.nobody, seed, count));
+    const [after] = await run<{ n: number }>(asCaller(ids.nobody, withSeed, count));
     const proven = control.n > 0;
     const ok = before.n === 0 && after.n === 0 && proven;
     out.push({
       name: `deleted user · ${table}`,
       before: `${before.n} row(s)`,
-      after: `${after.n} row(s), control member sees ${control.n}`,
+      after: `${after.n} row(s), control ${controlRole} sees ${control.n}`,
       ok,
       detail: ok
         ? "denied before and after, and the control caller can read the table"
@@ -1416,11 +1573,41 @@ async function isolationChecks(
   for (const table of batch.tables) {
     // Chosen per table rather than once, because "another company"
     // is only useful if it has rows in THIS table.
-    const [who] = await run<{ member: string | null; company: string | null }>(
-      memberForTableSql(batch, table)
-    );
-    const caller = who?.member ?? ids.member;
-    const callerCompany = who?.company ?? ids.memberCompany;
+    // Isolation needs a COMPANY-SCOPED reader: "sees 0 of B" means
+    // nothing said by a system_admin, who is admitted to everything.
+    // Where no such role may read the table at all — the audit log is
+    // system_admin only — tenant isolation is not the mechanism
+    // protecting it, and the case says so instead of failing.
+    const candidates = (
+      await run<{ id: string; role: string; company_id: string | null }>(
+        controlCandidatesSql(batch, table)
+      )
+    ).filter((c) => c.role !== "system_admin" && c.company_id);
+    let caller: string | null = null;
+    let callerCompany: string | null = null;
+    let callerRole = "none";
+    for (const candidate of candidates) {
+      const probe = `select (select count(*) from public.${table})::int as n;`;
+      const [seen] = await run<{ n: number }>(asCaller(candidate.id, sql, probe));
+      if (seen.n > 0) {
+        caller = candidate.id;
+        callerCompany = candidate.company_id;
+        callerRole = candidate.role;
+        break;
+      }
+    }
+    if (!caller || !callerCompany) {
+      out.push({
+        name: `isolation · ${table}`,
+        before: "does not apply",
+        after: "does not apply",
+        ok: true,
+        detail:
+          "no company-scoped role may read this table, so tenant isolation " +
+          "is not what protects it — see the deleted-user and nullable cases",
+      });
+      continue;
+    }
     const [pick] = await run<{ other: string | null; n: number }>(
       otherCompanySql(batch, table, callerCompany)
     );
@@ -1455,7 +1642,7 @@ async function isolationChecks(
       after: `own ${after.own}, other ${after.other_} (of ${pick.n} that exist)`,
       ok,
       detail: ok
-        ? `reads its own company, denied the other's ${pick.n}`
+        ? `${callerRole} reads its own company, denied the other's ${pick.n}`
         : after.own === 0
           ? "NOT PROVEN: the caller sees none of its OWN company either, so the denial is not evidence"
           : "a member of one company can read another company's rows",
@@ -1497,20 +1684,70 @@ async function nullableCompanyChecks(
 
   const sql = migrationSql(batch);
   const out: BatchCheck[] = [];
+
+  // The caller must have no company AND no privilege. ids.noCompany is
+  // whichever company-less profile the run found first, and on this
+  // fleet that is a system_admin — who is SUPPOSED to see an unrouted
+  // meeting, so asserting zero of them would be asserting a bug. An
+  // aims_guide is the honest caller: no company, and admitted to a row
+  // only through is_guide_for(company_id), which is false when that
+  // company_id is NULL.
+  const [guide] = await run<{ id: string | null }>(
+    `select id from public.profiles
+      where role = 'aims_guide' and status = 'active'
+        and company_id is null limit 1;`
+  );
+
   for (const { table_name: table } of cols) {
     const count =
       `select (select count(*) from public.${table} where company_id is null)::int as n;`;
-    const [before] = await run<{ n: number }>(asCaller(ids.noCompany, "", count));
-    const [after] = await run<{ n: number }>(asCaller(ids.noCompany, sql, count));
-    const ok = before.n === 0 && after.n === 0;
+    const seed = batch.nullCompanyRows?.[table];
+
+    if (!guide?.id) {
+      out.push({
+        name: `nullable company_id · ${table}`,
+        before: "not run",
+        after: "not run",
+        ok: false,
+        detail:
+          "NOT PROVEN: this clone has no company-less aims_guide, and a " +
+          "system_admin is admitted to these rows on purpose",
+      });
+      continue;
+    }
+    if (!seed) {
+      out.push({
+        name: `nullable company_id · ${table}`,
+        before: "not run",
+        after: "not run",
+        ok: false,
+        detail:
+          `NOT PROVEN: the batch does not say how to create a NULL-company ` +
+          `row for ${table}, so a zero here would be a zero of nothing`,
+      });
+      continue;
+    }
+
+    const [before] = await run<{ n: number }>(asCaller(guide.id, seed, count));
+    const [after] = await run<{ n: number }>(
+      asCaller(guide.id, [sql, seed].join("\n"), count)
+    );
+    // The control: the row is really there and someone can see it.
+    const [control] = await run<{ n: number }>(
+      asCaller(ids.systemAdmin, [sql, seed].join("\n"), count)
+    );
+    const proven = control.n > 0;
+    const ok = before.n === 0 && after.n === 0 && proven;
     out.push({
       name: `nullable company_id · ${table}`,
       before: `${before.n} NULL-company row(s) visible`,
-      after: `${after.n} NULL-company row(s) visible`,
+      after: `${after.n} visible, system_admin sees ${control.n}`,
       ok,
       detail: ok
-        ? "a caller with no company reads no NULL-company row"
-        : "a caller with no company can read NULL-company rows",
+        ? "a company-less guide reads no NULL-company row, and the row is really there"
+        : !proven
+          ? "NOT PROVEN: the system_admin control sees none either, so the seed did not land"
+          : "a caller with no company can read NULL-company rows",
     });
   }
   return out;
