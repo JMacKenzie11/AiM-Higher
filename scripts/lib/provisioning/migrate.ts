@@ -231,6 +231,17 @@ export function resolveTarget(args: {
   };
 }
 
+// The project ref inside a session-pooler connection string.
+//
+// The pooler user is `postgres.<ref>`, which is the only place a ref
+// appears in a URL somebody pasted. Extracting it is what lets the
+// single-database path run the same baseline check the fleet path
+// runs, instead of trusting the caller to have checked.
+export function refFromConnectionUrl(url: string): string | null {
+  const match = url.match(/\/\/postgres\.([a-z0-9]+):/i);
+  return match ? match[1] : null;
+}
+
 // ---- The dev clone --------------------------------------------
 
 // The clone has no registry row and no state file, so it is resolved
