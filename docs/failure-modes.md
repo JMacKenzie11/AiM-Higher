@@ -486,12 +486,33 @@ where no such company exists NOT PROVEN. Batch 1 was re-measured
 through the corrected check before batch 2 opened: its zeros were
 real, denying 1, 7 and 3 existing rows.
 
+**The case that earned the whole apparatus.** F8's deleted-user case
+was written in batch 1, against a hazard nobody had hit, and passed
+for four batches in which it could not have failed — the classic
+profile of a check somebody eventually deletes as noise. In batch 6c
+it caught a live deny-becomes-allow on its first exposure to the
+shape: a hoisted `strengths_items` policy that would have let a caller
+with no profile row read the entire item bank, because
+`auth_profile()` returning no rows makes `exists` false while the
+scalar helper returns NULL and `NULL is null` is true. One line, on
+the first run, before the migration left the branch. The before, the
+naive hoist and the shipped form are written out under Hazard 2 in
+`docs/f8-rls-hoist.md`.
+
+The conclusion is about what the harness IS. It is not campaign
+tooling for F8 that gets deleted when the batches finish: it is the
+only instrument that can ask a real Postgres whether a policy still
+denies, and the value of a case is not knowable while it is green.
+Four batches of "this passed again" bought one catch that would
+otherwise have been a production incident found by a customer, or not
+found at all.
+
 **Pinned by.** Nothing can pin a practice. What exists is the shape:
 `scripts/rls-harness.ts` reports the wrong shape and the right shape on
 every case, declares a case broken if the wrong one stops leaking, and
 names the size of the set each zero was measured against;
 `docs/f8-rls-hoist.md` states all three rules with the near-misses
-written out.
+written out and Hazard 2's worked example in full.
 
 ### E5. A role widening that never reached the database
 
