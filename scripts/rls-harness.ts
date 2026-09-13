@@ -1839,6 +1839,92 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  {
+    n: "6d",
+    tables: [
+      "classroom_categories",
+      "classroom_tags",
+      "classroom_lessons",
+      "classroom_trainings",
+    ],
+    migration: "0185_f8_batch6d_hoist.sql",
+    // No classroom tag has ever been created on the clone.
+    seedRows: {
+      classroom_tags:
+        "insert into public.classroom_tags (name, slug) values ('probe tag', 'probe-tag');",
+    },
+    // Platform content: no table here has a company_id, so every row
+    // belongs to everyone entitled to see it and to nobody in
+    // particular. Tenant isolation is not the mechanism; entitlement
+    // is, and the write probes are where that gets tested.
+    indirectScope: {
+      classroom_categories: { key: "id", rows: "select id as key, null::uuid as company_id from public.classroom_categories" },
+      classroom_tags: { key: "id", rows: "select id as key, null::uuid as company_id from public.classroom_tags" },
+      classroom_lessons: { key: "id", rows: "select id as key, null::uuid as company_id from public.classroom_lessons" },
+      classroom_trainings: { key: "id", rows: "select id as key, null::uuid as company_id from public.classroom_trainings" },
+    },
+    writeProbes: {
+      fixtures: `
+        select
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select p.id from public.profiles p
+             join public.company_features f on f.company_id = p.company_id
+            where p.role = 'company_admin' and p.status = 'active'
+              and f.feature = 'classroom' and f.enabled_at is not null limit 1) as entitled_admin,
+          (select p.id from public.profiles p
+             join public.company_features f on f.company_id = p.company_id
+            where p.role = 'team_member' and p.status = 'active'
+              and f.feature = 'classroom' and f.enabled_at is not null limit 1) as entitled_member,
+          (select p.id from public.profiles p
+            where p.role = 'team_member' and p.status = 'active'
+              and p.company_id is not null
+              and not exists (select 1 from public.company_features f
+                               where f.company_id = p.company_id
+                                 and f.feature = 'classroom'
+                                 and f.enabled_at is not null) limit 1) as unentitled_member,
+          (select id from public.classroom_lessons where published limit 1) as published_lesson;`,
+      probes: [
+        // Writes are platform-level: nobody but a system_admin, however
+        // entitled their company is.
+        {
+          name: "system_admin creates a classroom category",
+          caller: "sysadmin",
+          sql: "with i as (insert into public.classroom_categories (name, slug) values ('probe category', 'probe-category') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "entitled company_admin creates a classroom category",
+          caller: "entitled_admin",
+          sql: "with i as (insert into public.classroom_categories (name, slug) values ('probe category', 'probe-category') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          name: "entitled company_admin edits a published lesson",
+          caller: "entitled_admin",
+          sql: "with u as (update public.classroom_lessons set updated_at = updated_at where id = '$published_lesson' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        // The entitlement gate, which is what this group's reads turn
+        // on. An unpublished lesson is invisible to everyone but a
+        // system_admin, so the published one is the fair comparison.
+        {
+          name: "entitled member can see a published lesson",
+          caller: "entitled_member",
+          sql: "select count(*)::int as n from public.classroom_lessons where id = '$published_lesson';",
+          expect: "1",
+        },
+        {
+          name: "UNENTITLED member cannot see the same published lesson",
+          caller: "unentitled_member",
+          sql: "select count(*)::int as n from public.classroom_lessons where id = '$published_lesson';",
+          expect: "0",
+          provenBy: "entitled_member",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
