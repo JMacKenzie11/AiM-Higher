@@ -462,3 +462,64 @@ green-looking instrument had been pointed at a different query.
 every case and declares a case broken if the wrong one stops leaking,
 and `docs/f8-rls-hoist.md` states the real-predicate rule with the
 near-miss written out.
+
+### E5. A role widening that never reached the database
+
+**Situation.** A server action's `requireRole` list is widened to admit
+another role. The UI starts rendering the control for that role. The
+RLS policy on the table is not touched, because the change looked like
+an application-layer decision and the policy lives in a different
+directory, a different language, and a different deploy step. The two
+now disagree, and the disagreement is silent: RLS refuses an UPDATE by
+matching zero rows, not by raising, so the action takes its ordinary
+"couldn't save" branch and reports a generic failure.
+
+**Rule.** **App guards are courtesy. RLS is the boundary.** A role
+widening in a server action ships with its matching RLS change in the
+same PR, and every granted write gets a probe in
+`scripts/rls-harness.ts` that exercises it AS THAT ROLE. A probe
+asserts both halves: the write the role is supposed to make, which must
+actually change a row, and a write the same role must still be refused.
+The second is what makes the first mean anything, because "the update
+succeeded" is equally true of a correct narrow grant and of a policy
+that admits everything.
+
+The probe is required because nothing else can see this. Unit tests do
+not run Postgres — `src/lib/auth/rls-privileges.test.ts` reads
+migration text for exactly that reason — so a permission that exists in
+TypeScript and not in the database is green everywhere except in front
+of a user.
+
+**Where it has bitten us.**
+
+*The industry field.* Commit `5f43059`, "Company admins: open Industry,
+Transcripts, Planning-cycle actions", widened
+`setCompanyIndustryAction` from `system_admin` to also admit
+`company_admin` and `aims_guide`. It changed four TypeScript files and
+no migration. `companies_update` had admitted `system_admin` and nobody
+else since `0004_rls.sql:56`. For the entire life of the feature the
+field rendered for company admins, accepted typing, and failed on every
+save with "Couldn't update the industry." — `.select("*").single()`
+returning empty after RLS refused the write. It was found by an
+unrelated audit of write paths, not by a user report, which is its own
+evidence about how visible this failure is: a control nobody could use
+produced no complaints.
+
+Fixed in `0176_company_industry_grant.sql`. The probe that now stands
+over it was run against the live schema first and watched to fail — `0
+rows (refused by RLS)` for both roles — before the migration was
+applied inside the transaction and it turned green. Per E4.
+
+**A grant on one column needs more than a policy.** RLS decides which
+ROWS a statement may touch and has no column dimension, and `WITH
+CHECK` cannot compare the new row against the old one. Column-level
+`GRANT`s do not close the gap either: privileges attach to the Postgres
+role, and every signed-in user of this app is `authenticated`, so
+restricting that role to one column takes the others away from
+`system_admin` at the same time. The shape that works is a policy for
+the rows plus a `BEFORE UPDATE` trigger for the columns, scoped to the
+roles the policy newly admits.
+
+**Pinned by.** `scripts/rls-harness.ts` grant probes, which run on
+every invocation rather than behind a flag, and fail loudly when a
+granted write stops working or starts working too widely.

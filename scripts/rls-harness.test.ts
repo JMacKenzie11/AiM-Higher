@@ -9,11 +9,14 @@ import {
   notDistinctMatches,
   canaryPresent,
   batchSummaryLines,
+  grantSummaryLines,
+  describeOutcome,
   findBatch,
   BATCHES,
   NOT_DISTINCT_ALLOWLIST,
   type CaseResult,
   type BatchCheck,
+  type GrantProbe,
   type PolicyRow,
 } from "./rls-harness.ts";
 
@@ -40,7 +43,12 @@ describe("projectRef", () => {
 
 describe("parseArgs", () => {
   it("runs every case and skips the measurement by default", () => {
-    expect(parseArgs([])).toEqual({ only: null, explain: false, batch: null });
+    expect(parseArgs([])).toEqual({
+      only: null,
+      explain: false,
+      batch: null,
+      pending: null,
+    });
   });
 
   it("reads --case and --explain", () => {
@@ -48,6 +56,7 @@ describe("parseArgs", () => {
       only: "hazard-1",
       explain: true,
       batch: null,
+      pending: null,
     });
   });
 
@@ -56,6 +65,16 @@ describe("parseArgs", () => {
       only: null,
       explain: false,
       batch: "1",
+      pending: null,
+    });
+  });
+
+  it("reads --pending", () => {
+    expect(parseArgs(["--pending", "0176_company_industry_grant.sql"])).toEqual({
+      only: null,
+      explain: false,
+      batch: null,
+      pending: "0176_company_industry_grant.sql",
     });
   });
 
@@ -307,5 +326,63 @@ describe("summaryLines", () => {
   it("counts passes and failures", () => {
     const out = summaryLines([pass, { ...pass, ok: false }]).join("\n");
     expect(out).toContain("2 cases: 1 pass, 1 fail");
+  });
+});
+
+describe("describeOutcome", () => {
+  // The three ways a write ends have to stay distinguishable. RLS
+  // refuses an UPDATE by matching no rows; the column guard refuses
+  // one by raising; success writes rows. A probe that collapsed the
+  // first two would call a broken grant "correctly scoped".
+  it("reads a successful write", () => {
+    expect(describeOutcome([{ id: "x" }])).toBe("1 row(s) written");
+  });
+
+  it("reads an RLS denial, which is zero rows and no error", () => {
+    expect(describeOutcome([])).toBe("0 rows (refused by RLS)");
+  });
+
+  it("reads the column guard's raise as its own outcome", () => {
+    expect(
+      describeOutcome(null, new Error('Only industry may be changed on a company by a company_admin'))
+    ).toBe("refused by the column guard");
+  });
+
+  it("reads an RLS insert violation", () => {
+    expect(
+      describeOutcome(null, new Error("new row violates row-level security policy"))
+    ).toBe("refused by RLS");
+  });
+
+  it("keeps an unexpected error visible rather than calling it a denial", () => {
+    // An error the probe does not recognise must not be reported as a
+    // refusal: a typo'd column name would otherwise read as "the
+    // grant is correctly scoped".
+    expect(describeOutcome(null, new Error('column "industy" does not exist'))).toMatch(
+      /^ERROR: /
+    );
+  });
+});
+
+describe("grantSummaryLines", () => {
+  const probe: GrantProbe = {
+    name: "industry grant · company_admin",
+    granted: "industry on own company: 1 row(s) written",
+    withheld: "status on own company: refused by the column guard",
+    ok: true,
+    detail: "can set industry where entitled, and nothing else",
+  };
+
+  it("shows both halves of every grant, not just the success", () => {
+    // "The update succeeded" is equally true of a correct narrow
+    // grant and of a policy that admits everything.
+    const out = grantSummaryLines([probe]).join("\n");
+    expect(out).toContain("granted:  industry on own company: 1 row(s) written");
+    expect(out).toContain("withheld: status on own company: refused by the column guard");
+  });
+
+  it("counts passes and failures", () => {
+    const out = grantSummaryLines([probe, { ...probe, ok: false }]).join("\n");
+    expect(out).toContain("2 probes: 1 pass, 1 fail");
   });
 });

@@ -8,6 +8,7 @@
  *   npm run rls:hazards -- --case hazard-1
  *   npm run rls:hazards -- --explain     # also the InitPlan measurement
  *   npm run rls:hazards -- --batch 1     # a batch's acceptance + EXPLAIN pair
+ *   npm run rls:hazards -- --pending 0176_x.sql   # probe an undeployed grant
  *
  * --batch is what an F8 batch PR pastes into its body: the deleted-user
  * test against every table in the batch, the isolation acceptance, the
@@ -140,12 +141,20 @@ type Identities = {
   memberCompany: string;
   otherCompany: string; // a different company, for the isolation case
   nobody: string; // a uuid with no profile row at all
+  companyAdmin: string; // an active company_admin
+  companyAdminCompany: string; // the company they administer
+  guide: string; // an active aims_guide with at least one assignment
+  guideCompany: string; // a company assigned to that guide
 };
 
 async function loadIdentities(run: Runner): Promise<Identities> {
   const [row] = await run<{
     no_company: string | null;
     system_admin: string | null;
+    company_admin: string | null;
+    company_admin_company: string | null;
+    guide: string | null;
+    guide_company: string | null;
     member: string | null;
     member_company: string | null;
     other_company: string | null;
@@ -155,6 +164,18 @@ async function loadIdentities(run: Runner): Promise<Identities> {
         where company_id is null and status = 'active' limit 1) as no_company,
       (select id from public.profiles
         where role = 'system_admin' and status = 'active' limit 1) as system_admin,
+      (select id from public.profiles
+        where role = 'company_admin' and status = 'active'
+          and company_id is not null limit 1) as company_admin,
+      (select company_id from public.profiles
+        where role = 'company_admin' and status = 'active'
+          and company_id is not null limit 1) as company_admin_company,
+      (select ga.guide_id from public.guide_assignments ga
+         join public.profiles p on p.id = ga.guide_id
+        where p.role = 'aims_guide' and p.status = 'active' limit 1) as guide,
+      (select ga.company_id from public.guide_assignments ga
+         join public.profiles p on p.id = ga.guide_id
+        where p.role = 'aims_guide' and p.status = 'active' limit 1) as guide_company,
       (select id from public.profiles
         where company_id is not null and status = 'active'
           and role = 'team_member' limit 1) as member,
@@ -169,6 +190,10 @@ async function loadIdentities(run: Runner): Promise<Identities> {
   if (
     !row?.no_company ||
     !row?.system_admin ||
+    !row?.company_admin ||
+    !row?.company_admin_company ||
+    !row?.guide ||
+    !row?.guide_company ||
     !row?.member ||
     !row?.member_company ||
     !row?.other_company
@@ -176,13 +201,18 @@ async function loadIdentities(run: Runner): Promise<Identities> {
     fail(
       "The clone does not carry the identities these cases need: a profile " +
         "with a NULL company_id, an active system_admin, an active " +
-        "team_member, and a second company. Run `npm run seed:e2e`, or " +
-        "refresh the clone."
+        "company_admin, an active aims_guide holding at least one " +
+        "assignment, an active team_member, and a second company. Run " +
+        "`npm run seed:e2e`, or refresh the clone."
     );
   }
   return {
     noCompany: row.no_company,
     systemAdmin: row.system_admin,
+    companyAdmin: row.company_admin,
+    companyAdminCompany: row.company_admin_company,
+    guide: row.guide,
+    guideCompany: row.guide_company,
     member: row.member,
     memberCompany: row.member_company,
     otherCompany: row.other_company,
@@ -841,14 +871,156 @@ async function batchExplain(
   return { lines, ok };
 }
 
+// ---- Grant probes ----------------------------------------------
+//
+// THE RULE THIS ENFORCES (docs/failure-modes.md E5): a role widening
+// in a server action must ship with its matching RLS change, and
+// every granted write gets a probe here, exercised AS THAT ROLE.
+//
+// App guards are courtesy. RLS is the boundary. The industry field is
+// the worked example: setCompanyIndustryAction admitted company_admin
+// and aims_guide from commit 5f43059 onward, companies_update admitted
+// neither, and for the whole life of the feature the field rendered,
+// accepted typing, and failed on every save. Unit tests could not see
+// it — they do not run Postgres — and nothing else looked.
+//
+// A probe asserts BOTH halves of a grant, always:
+//
+//   granted  — the write the role is supposed to be able to make,
+//              which must actually change a row
+//   withheld — a write the SAME role must still be refused
+//
+// The second is what makes the first mean something. "The update
+// succeeded" is equally true of a correct narrow grant and of a
+// policy that admits everything, and those two are the same line in a
+// summary that reports only the success.
+export type GrantProbe = {
+  name: string;
+  granted: string;
+  withheld: string;
+  ok: boolean;
+  detail: string;
+};
+
+export function grantSummaryLines(probes: readonly GrantProbe[]): string[] {
+  const lines = ["", "  Grant probes — every granted write, exercised as that role", ""];
+  for (const p of probes) {
+    lines.push(
+      `  ${(p.ok ? "PASS" : "FAIL").padEnd(6)}${p.name.padEnd(38)}${p.detail}`
+    );
+    lines.push(`  ${"".padEnd(6)}${"".padEnd(38)}granted:  ${p.granted}`);
+    lines.push(`  ${"".padEnd(6)}${"".padEnd(38)}withheld: ${p.withheld}`);
+  }
+  const failed = probes.filter((p) => !p.ok).length;
+  lines.push("");
+  lines.push(
+    `  ${probes.length} probe${probes.length === 1 ? "" : "s"}: ` +
+      `${probes.length - failed} pass, ${failed} fail`
+  );
+  lines.push("");
+  return lines;
+}
+
+// A statement's outcome, flattened so a denial and a raise are
+// distinguishable in one string. RLS refuses an UPDATE by matching no
+// rows, and the column guard refuses one by raising, and a probe has
+// to be able to tell those apart from each other and from success.
+export type WriteOutcome = string;
+
+export function describeOutcome(rows: unknown[] | null, error?: unknown): WriteOutcome {
+  if (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (/insufficient_privilege|Only industry may be changed/i.test(msg)) {
+      return "refused by the column guard";
+    }
+    if (/row-level security/i.test(msg)) return "refused by RLS";
+    return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 70)}`;
+  }
+  const n = (rows ?? []).length;
+  return n === 0 ? "0 rows (refused by RLS)" : `${n} row(s) written`;
+}
+
+async function grantProbes(
+  run: Runner,
+  ids: Identities,
+  pending: string
+): Promise<GrantProbe[]> {
+  const attempt = async (sub: string, stmt: string): Promise<WriteOutcome> => {
+    try {
+      const rows = await run<Record<string, unknown>>(asCaller(sub, pending, stmt));
+      return describeOutcome(rows);
+    } catch (err) {
+      return describeOutcome(null, err);
+    }
+  };
+
+  const setIndustry = (company: string) =>
+    `update public.companies set industry = 'harness probe' where id = '${company}' returning id;`;
+  const setStatus = (company: string) =>
+    `update public.companies set status = 'archived' where id = '${company}' returning id;`;
+
+  const probes: GrantProbe[] = [];
+
+  // The two roles the grant is for, each against a company they hold.
+  for (const [label, sub, own] of [
+    ["company_admin", ids.companyAdmin, ids.companyAdminCompany],
+    ["aims_guide", ids.guide, ids.guideCompany],
+  ] as const) {
+    const granted = await attempt(sub, setIndustry(own));
+    // Same role, same row, a column they were not granted. This is
+    // the half that proves the grant is a column grant and not a
+    // company admin who can archive their own tenant.
+    const otherColumn = await attempt(sub, setStatus(own));
+    // Same role, same column, a company that is not theirs. The
+    // tenant boundary has to survive the widening.
+    const otherCompany = await attempt(sub, setIndustry(ids.otherCompany));
+
+    const ok =
+      granted.includes("row(s) written") &&
+      otherColumn === "refused by the column guard" &&
+      otherCompany.startsWith("0 rows");
+
+    probes.push({
+      name: `industry grant · ${label}`,
+      granted: `industry on own company: ${granted}`,
+      withheld: `status on own company: ${otherColumn} | industry on another company: ${otherCompany}`,
+      ok,
+      detail: ok
+        ? "can set industry where entitled, and nothing else"
+        : !granted.includes("row(s) written")
+          ? "THE GRANT DOES NOT WORK: the role cannot make the write the action offers it"
+          : "the grant is wider than intended",
+    });
+  }
+
+  // The control. The column guard is scoped by role, and the way that
+  // goes wrong is by applying to everyone — which would take `status`
+  // away from system_admin and break archiving fleet-wide. A probe
+  // that only watched the two granted roles would not see it.
+  const sysStatus = await attempt(ids.systemAdmin, setStatus(ids.otherCompany));
+  probes.push({
+    name: "column guard · system_admin",
+    granted: `status on any company: ${sysStatus}`,
+    withheld: "nothing — system_admin is deliberately unconstrained here",
+    ok: sysStatus.includes("row(s) written"),
+    detail: sysStatus.includes("row(s) written")
+      ? "the column guard does not apply to system_admin"
+      : "THE COLUMN GUARD IS TOO WIDE: it is constraining system_admin too",
+  });
+
+  return probes;
+}
+
 export function parseArgs(argv: string[]): {
   only: string | null;
   explain: boolean;
   batch: string | null;
+  pending: string | null;
 } {
   let only: string | null = null;
   let explain = false;
   let batch: string | null = null;
+  let pending: string | null = null;
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--case") {
       only = argv[i + 1] ?? null;
@@ -866,17 +1038,30 @@ export function parseArgs(argv: string[]): {
             `A batch is added to BATCHES in this file when its PR is written.`
         );
       }
+    } else if (argv[i] === "--pending") {
+      pending = argv[i + 1] ?? null;
+      i += 1;
+      if (!pending) fail("--pending needs a migration filename.");
+      // Comma-separated and applied in the order given. A migration
+      // usually depends on the one before it — 0176's policies call
+      // helpers 0175 creates — and a clone that is behind the fleet
+      // has neither, so probing an undeployed grant means applying
+      // the whole pending run, not just its last file.
+      if (pending.split(",").some((f) => !f.trim().endsWith(".sql"))) {
+        fail("--pending takes .sql filenames, comma-separated, in apply order.");
+      }
     } else {
       fail(
-        `Unknown option "${argv[i]}". Options: --case <name>, --explain, --batch <n>.`
+        `Unknown option "${argv[i]}". Options: --case <name>, --explain, ` +
+          `--batch <n>, --pending <migration.sql>.`
       );
     }
   }
-  return { only, explain, batch };
+  return { only, explain, batch, pending };
 }
 
 async function main(): Promise<void> {
-  const { only, explain, batch } = parseArgs(process.argv.slice(2));
+  const { only, explain, batch, pending } = parseArgs(process.argv.slice(2));
   const target = resolveTarget(process.env);
   const token = process.env.SUPABASE_MANAGEMENT_TOKEN;
   if (!token) {
@@ -888,6 +1073,19 @@ async function main(): Promise<void> {
 
   const mgmt = createManagementClient({ token });
   const run: Runner = (sql) => mgmt.runQuery(target, sql);
+
+  // --pending applies a migration that is written but not yet
+  // deployed inside every probe transaction, so a PR can show its
+  // grant working before the migration lands anywhere. Without it the
+  // probes read the live schema, which is what makes them a standing
+  // guard: they go red if a policy is reverted, and red on a clone
+  // that is behind the fleet.
+  const pendingSql = pending
+    ? pending
+        .split(",")
+        .map((f) => readFileSync(`supabase/migrations/${f.trim()}`, "utf8"))
+        .join("\n")
+    : "";
 
   console.log("");
   console.log(`  RLS hazard harness against ${target} (dev clone)`);
@@ -914,6 +1112,16 @@ async function main(): Promise<void> {
   // remember to ask for is not enforcement.
   const staticResult = await staticCheck(run);
   console.log(batchSummaryLines([staticResult], "Static check over live policy text").join("\n"));
+
+  // Grant probes run on every invocation for the same reason the
+  // static check does: a guard you have to remember to ask for is not
+  // a guard. See E5 in docs/failure-modes.md.
+  if (pending) {
+    console.log(`  Grant probes measured with supabase/migrations/${pending} applied`);
+    console.log("  inside each transaction and rolled back with it.");
+  }
+  const probes = await grantProbes(run, ids, pendingSql);
+  console.log(grantSummaryLines(probes).join("\n"));
 
   let batchOk = true;
   if (batch) {
@@ -949,7 +1157,14 @@ async function main(): Promise<void> {
     console.log("");
   }
 
-  if (results.some((r) => !r.ok) || !staticResult.ok || !batchOk) process.exit(1);
+  if (
+    results.some((r) => !r.ok) ||
+    !staticResult.ok ||
+    probes.some((p) => !p.ok) ||
+    !batchOk
+  ) {
+    process.exit(1);
+  }
 }
 
 // Runs only when this file IS the process entry point. Importing it
