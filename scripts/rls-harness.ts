@@ -529,6 +529,11 @@ export type Batch = {
   // empty-set mistake in its purest form. So the batch provides the
   // row, created as postgres inside the rolled-back transaction.
   nullCompanyRows?: Readonly<Record<string, string>>;
+  // One row for a table that is empty on the clone, so the
+  // deleted-user control has something to see. Self-contained SQL: it
+  // runs as postgres before the role switch and gets no $name
+  // substitution, so it selects whatever parents it needs inline.
+  seedRows?: Readonly<Record<string, string>>;
   // Whether the after-plan must show the helper hoisted.
   //
   // True for an F8 batch: that is its entire claim. False for a
@@ -583,11 +588,20 @@ export type WriteProbe = {
   // create the row, then act on it as the caller. $name substitution
   // applies here too.
   setup?: string;
-  // Required when expect is "0": a caller the same statement must
-  // succeed as, in the same transaction shape. Without it a zero
-  // could be a missing row, a wrong column, or a fixture that never
-  // existed — all of which look like enforcement. The empty-set rule,
-  // on the write side.
+  // Required when expect is "0" AND some caller is supposed to
+  // succeed. Without it a zero could be a missing row, a wrong
+  // column, or a fixture that never existed — all of which look like
+  // enforcement. The empty-set rule, on the write side.
+  //
+  // Omit it only where no caller can succeed. Establish that by
+  // probing every role, not by finding two that are refused: the
+  // `is_default = false` guard on function_roles looked like such a
+  // rule until an aims_guide was tried, and guides turn out to edit
+  // default roles that a system_admin cannot. Two zeros are not a
+  // proof that a third caller would also get zero. Where the
+  // exception genuinely holds, the row's existence is the thing that
+  // needed proving, and a probe whose fixture came back null already
+  // reports NOT PROVEN before it runs.
   provenBy?: string;
 };
 
@@ -1376,6 +1390,167 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  {
+    n: "6a",
+    tables: [
+      "function_roles",
+      "function_competencies",
+      "function_decision_rights",
+      "functional_areas",
+      "role_description_documents",
+      "role_description_versions",
+    ],
+    migration: "0182_f8_batch6a_hoist.sql",
+    // Empty on the clone: no role description has ever been
+    // published there, so without this the deleted-user control sees
+    // zero and the check cannot run.
+    seedRows: {
+      role_description_versions:
+        "insert into public.role_description_versions " +
+        "(function_id, version_number, snapshot_document) " +
+        "select id, 1, '{}'::jsonb from public.functions limit 1;",
+    },
+    indirectScope: {
+      function_roles: {
+        key: "id",
+        rows:
+          "select t.id as key, f.company_id from public.function_roles t " +
+          "join public.functions f on f.id = t.function_id",
+      },
+      function_competencies: {
+        key: "id",
+        rows:
+          "select t.id as key, f.company_id from public.function_competencies t " +
+          "join public.functions f on f.id = t.function_id",
+      },
+      function_decision_rights: {
+        key: "id",
+        rows:
+          "select t.id as key, f.company_id from public.function_decision_rights t " +
+          "join public.functions f on f.id = t.function_id",
+      },
+      role_description_documents: {
+        key: "id",
+        rows:
+          "select t.id as key, f.company_id from public.role_description_documents t " +
+          "join public.functions f on f.id = t.function_id",
+      },
+      role_description_versions: {
+        key: "id",
+        rows:
+          "select t.id as key, f.company_id from public.role_description_versions t " +
+          "join public.functions f on f.id = t.function_id",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        with c as (
+          select co.id from public.companies co
+           where exists (select 1 from public.profiles a
+                          where a.role = 'company_admin' and a.status = 'active'
+                            and a.company_id = co.id)
+             and exists (select 1 from public.functions f where f.company_id = co.id)
+           limit 1
+        )
+        select
+          (select id from c) as company,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = (select id from c) limit 1) as admin,
+          (select id from public.profiles where role = 'team_member'
+             and status = 'active' and company_id = (select id from c) limit 1) as member,
+          (select id from public.functions where company_id = (select id from c) limit 1) as fn,
+          (select id from public.functions where company_id <> (select id from c) limit 1) as foreign_fn,
+          (select id from public.functional_areas where company_id = (select id from c) limit 1) as area,
+          (select id from public.functional_areas where company_id <> (select id from c) limit 1) as foreign_area,
+          (select r.id from public.function_roles r join public.functions f on f.id = r.function_id
+            where f.company_id = (select id from c) and r.is_default limit 1) as default_role,
+          (select r.id from public.function_roles r join public.functions f on f.id = r.function_id
+            where f.company_id = (select id from c) and not r.is_default limit 1) as normal_role,
+          (select p.id from public.profiles p
+             join public.guide_assignments ga on ga.guide_id = p.id
+            where p.role = 'aims_guide' and p.status = 'active' limit 1) as guide,
+          (select r.id from public.function_roles r
+             join public.functions f on f.id = r.function_id
+             join public.guide_assignments ga on ga.company_id = f.company_id
+             join public.profiles p on p.id = ga.guide_id
+            where p.role = 'aims_guide' and p.status = 'active'
+              and r.is_default limit 1) as guide_default_role;`,
+      probes: [
+        {
+          name: "company_admin adds a role to a function in its company",
+          caller: "admin",
+          sql: "with i as (insert into public.function_roles (function_id, title) values ('$fn', 'probe role') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "company_admin adds a role to another company's function",
+          caller: "admin",
+          sql: "with i as (insert into public.function_roles (function_id, title) values ('$foreign_fn', 'probe role') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          name: "team member adds a role to a function in their own company",
+          caller: "member",
+          sql: "with i as (insert into public.function_roles (function_id, title) values ('$fn', 'probe role') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        // The is_default guard: nobody edits a default role, admin or
+        // not. It sits outside the tenant predicate and this batch
+        // must not disturb it.
+        {
+          // No provenBy, but NOT because the rule admits nobody —
+          // see the guide probe below, which is the control this one
+          // needs and the reason the first version of this comment
+          // was wrong. A system_admin is refused here too, so neither
+          // admin role can serve as the control; the guide can, and
+          // the fixture lookup proves the row exists.
+          name: "company_admin edits a DEFAULT role on its own function",
+          caller: "admin",
+          sql: "with u as (update public.function_roles set title = 'edited' where id = '$default_role' returning id) select count(*)::int as n from u;",
+          expect: "0",
+        },
+        {
+          name: "company_admin edits a NON-default role on its own function",
+          caller: "admin",
+          setup:
+            "insert into public.function_roles (id, function_id, title, is_default) " +
+            "select '99999999-9999-4999-8999-999999999999', id, 'probe normal', false " +
+            "from public.functions where id = '$fn';",
+          sql: "with u as (update public.function_roles set title = 'edited' where id = '99999999-9999-4999-8999-999999999999' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        // RECORDED, NOT FIXED. The _guide mirrors carry no
+        // is_default clause, so a guide edits and deletes default
+        // roles that a system_admin cannot touch. That asymmetry is
+        // live on the fleet today and 0182 preserves it exactly,
+        // because this batch moves how a predicate is evaluated and
+        // never who is admitted. Changing it is a semantic decision
+        // and belongs in its own PR with its own measured before —
+        // which this probe is.
+        {
+          name: "aims_guide edits a DEFAULT role in an assigned company",
+          caller: "guide",
+          sql: "with u as (update public.function_roles set title = 'probe edit' where id = '$guide_default_role' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin edits a functional area in its company",
+          caller: "admin",
+          sql: "with u as (update public.functional_areas set name = name where id = '$area' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin edits another company's functional area",
+          caller: "admin",
+          sql: "with u as (update public.functional_areas set name = name where id = '$foreign_area' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
@@ -1684,7 +1859,8 @@ async function deletedUserChecks(
     // If the batch knows how to make a row here, use it: a table that
     // happens to be empty on this clone would otherwise report every
     // caller as unable to read it, which proves nothing either way.
-    const seed = batch.nullCompanyRows?.[table] ?? "";
+    const seed =
+      batch.seedRows?.[table] ?? batch.nullCompanyRows?.[table] ?? "";
     const withSeed = [sql, seed].filter(Boolean).join("\n");
     let control = { n: 0 };
     let controlRole = "none";
