@@ -529,6 +529,14 @@ export type Batch = {
   // empty-set mistake in its purest form. So the batch provides the
   // row, created as postgres inside the rolled-back transaction.
   nullCompanyRows?: Readonly<Record<string, string>>;
+  // Whether the after-plan must show the helper hoisted.
+  //
+  // True for an F8 batch: that is its entire claim. False for a
+  // migration that adds or widens a policy without rewriting one,
+  // where the plans are still worth reporting — a grant should not
+  // change the shape of anything — but "not hoisted" is the honest
+  // answer rather than a stop condition.
+  judgesHoist?: boolean;
   // Write probes for the policies this batch rewrites.
   //
   // Read plans and isolation counts say nothing about who may WRITE.
@@ -556,9 +564,19 @@ export type WriteProbe = {
   // row; the statement is expected to be a data-modifying CTE so the
   // count is rows actually affected.
   sql: string;
-  // What both the before and the after run must return. "42501" for
-  // a WITH CHECK violation, which raises rather than matching zero.
+  // What the after run must return. "42501" for a WITH CHECK
+  // violation, which raises rather than matching zero.
   expect: string;
+  // What the BEFORE run must return, when the migration is meant to
+  // change this answer.
+  //
+  // Absent, before and after must agree: that is the whole claim of a
+  // behaviour-preserving batch, and a disagreement is reported as
+  // SEMANTICS MOVED. Present, the probe asserts the move itself —
+  // this answer was that, and is now this. A migration that widens a
+  // grant has to be able to say so, and to be held to the exact
+  // before it measured rather than to "something changed".
+  expectBefore?: string;
   // SQL run as postgres, before the role switch, in the same
   // transaction as the probe and rolled back with it. For probes whose
   // subject should not depend on what the clone happens to contain:
@@ -1213,6 +1231,151 @@ export const BATCHES: readonly Batch[] = [
       ],
     },
   },
+  // Not an F8 batch: migration 0181 changes who is admitted, which no
+  // batch does. It reuses the same machinery because the question is
+  // identical — what can each role actually write — and because F8
+  // batch 5 measured the before.
+  {
+    n: "grants",
+    tables: ["transcript_sources", "transcript_aliases", "meetings"],
+    migration: "0181_transcript_admin_grants.sql",
+    // 0181 adds policies, it does not rewrite any. The plans are
+    // reported because a grant should not change the shape of
+    // anything, and not judged because "hoisted" is not its claim.
+    judgesHoist: false,
+    nullCompanyRows: {
+      meetings:
+        "insert into public.meetings (id, company_id, provider_file_id, file_name, content_hash, transcript_text, status) " +
+        "values ('44444444-4444-4444-8444-444444444444', null, '_probe_file', 'probe.txt', '_probe_hash', 'probe transcript', 'pending');",
+      transcript_sources:
+        "insert into public.transcript_sources (id, company_id, scope, provider, folder_id, folder_name) " +
+        "values ('55555555-5555-4555-8555-555555555555', null, 'shared', 'google_drive', '_probe_shared', 'probe shared');",
+    },
+    writeProbes: {
+      fixtures: `
+        with c as (
+          select co.id from public.companies co
+           where exists (select 1 from public.profiles a
+                          where a.role = 'company_admin' and a.status = 'active'
+                            and a.company_id = co.id)
+           order by (select count(*) from public.transcript_sources s
+                      where s.company_id = co.id) desc
+           limit 1
+        )
+        select
+          (select id from c) as company,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = (select id from c) limit 1) as admin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id <> (select id from c) limit 1) as other_admin,
+          (select id from public.profiles where role = 'team_member'
+             and status = 'active' and company_id = (select id from c) limit 1) as member;`,
+      probes: [
+        // The three F8 batch 5 measured as 0, 0 and 42501.
+        {
+          name: "company_admin pauses a source in its company",
+          expectBefore: "0",
+          caller: "admin",
+          setup:
+            "insert into public.transcript_sources (id, company_id, scope, provider, folder_id, folder_name) " +
+            "values ('66666666-6666-4666-8666-666666666666', '$company', 'company', 'google_drive', '_probe_own', 'probe own');",
+          sql: "with u as (update public.transcript_sources set status = 'paused' where id = '66666666-6666-4666-8666-666666666666' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin removes a source in its company",
+          expectBefore: "0",
+          caller: "admin",
+          setup:
+            "insert into public.transcript_sources (id, company_id, scope, provider, folder_id, folder_name) " +
+            "values ('66666666-6666-4666-8666-666666666666', '$company', 'company', 'google_drive', '_probe_own', 'probe own');",
+          sql: "with d as (delete from public.transcript_sources where id = '66666666-6666-4666-8666-666666666666' returning id) select count(*)::int as n from d;",
+          expect: "1",
+        },
+        {
+          name: "company_admin connects a folder for its company",
+          expectBefore: "42501",
+          caller: "admin",
+          sql: "with i as (insert into public.transcript_sources (company_id, scope, provider, folder_id, folder_name) values ('$company', 'company', 'google_drive', '_probe_connect', 'probe') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        // And the boundaries that must not move.
+        {
+          name: "company_admin touches ANOTHER company's source",
+          caller: "other_admin",
+          setup:
+            "insert into public.transcript_sources (id, company_id, scope, provider, folder_id, folder_name) " +
+            "values ('66666666-6666-4666-8666-666666666666', '$company', 'company', 'google_drive', '_probe_own', 'probe own');",
+          sql: "with u as (update public.transcript_sources set status = 'paused' where id = '66666666-6666-4666-8666-666666666666' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "company_admin connects a folder for ANOTHER company",
+          caller: "other_admin",
+          sql: "with i as (insert into public.transcript_sources (company_id, scope, provider, folder_id, folder_name) values ('$company', 'company', 'google_drive', '_probe_connect', 'probe') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        {
+          name: "company_admin touches a SHARED-scope source",
+          caller: "admin",
+          setup:
+            "insert into public.transcript_sources (id, company_id, scope, provider, folder_id, folder_name) " +
+            "values ('55555555-5555-4555-8555-555555555555', null, 'shared', 'google_drive', '_probe_shared', 'probe shared');",
+          sql: "with u as (update public.transcript_sources set status = 'paused' where id = '55555555-5555-4555-8555-555555555555' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        {
+          name: "team member pauses a source in their own company",
+          caller: "member",
+          setup:
+            "insert into public.transcript_sources (id, company_id, scope, provider, folder_id, folder_name) " +
+            "values ('66666666-6666-4666-8666-666666666666', '$company', 'company', 'google_drive', '_probe_own', 'probe own');",
+          sql: "with u as (update public.transcript_sources set status = 'paused' where id = '66666666-6666-4666-8666-666666666666' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+        // Aliases, same grant.
+        {
+          name: "company_admin registers an alias for its company",
+          expectBefore: "42501",
+          caller: "admin",
+          sql: "with i as (insert into public.transcript_aliases (company_id, alias) values ('$company', '_probe_alias') returning id) select count(*)::int as n from i;",
+          expect: "1",
+        },
+        {
+          name: "company_admin registers an alias for ANOTHER company",
+          caller: "other_admin",
+          sql: "with i as (insert into public.transcript_aliases (company_id, alias) values ('$company', '_probe_alias') returning id) select count(*)::int as n from i;",
+          expect: "42501",
+        },
+        // Meeting routing: own company yes, unrouted no.
+        {
+          name: "company_admin re-routes a meeting already in its company",
+          expectBefore: "0",
+          caller: "admin",
+          setup:
+            "insert into public.meetings (id, company_id, provider_file_id, file_name, content_hash, transcript_text, status) " +
+            "values ('77777777-7777-4777-8777-777777777777', '$company', '_probe_m', 'm.txt', '_h', 't', 'pending');",
+          sql: "with u as (update public.meetings set status = 'pending' where id = '77777777-7777-4777-8777-777777777777' returning id) select count(*)::int as n from u;",
+          expect: "1",
+        },
+        {
+          name: "company_admin claims an UNROUTED meeting",
+          caller: "admin",
+          setup:
+            "insert into public.meetings (id, company_id, provider_file_id, file_name, content_hash, transcript_text, status) " +
+            "values ('44444444-4444-4444-8444-444444444444', null, '_probe_file', 'probe.txt', '_probe_hash', 'probe transcript', 'pending');",
+          sql: "with u as (update public.meetings set company_id = '$company' where id = '44444444-4444-4444-8444-444444444444' returning id) select count(*)::int as n from u;",
+          expect: "0",
+          provenBy: "sysadmin",
+        },
+      ],
+    },
+  },
 ];
 
 // The company each row of a table belongs to, one row per row.
@@ -1778,9 +1941,25 @@ export function probeVerdict(opts: {
   before: string;
   after: string;
   expect: string;
+  expectBefore?: string;
   control?: string;
 }): { ok: boolean; detail: string } {
-  const { before, after, expect, control } = opts;
+  const { before, after, expect, expectBefore, control } = opts;
+  if (expectBefore !== undefined) {
+    if (before !== expectBefore) {
+      return {
+        ok: false,
+        detail: `expected the before to be ${expectBefore}, got ${before}`,
+      };
+    }
+    if (after !== expect) {
+      return { ok: false, detail: `expected ${expect} after, got ${after}` };
+    }
+    return {
+      ok: true,
+      detail: `moved ${expectBefore} → ${after}, as this migration intends`,
+    };
+  }
   if (before !== after) {
     return { ok: false, detail: "SEMANTICS MOVED: before and after disagree" };
   }
@@ -1864,6 +2043,7 @@ async function writeProbeChecks(
       before,
       after,
       expect: probe.expect,
+      expectBefore: probe.expectBefore,
       control,
     });
     out.push({
@@ -1926,7 +2106,7 @@ async function batchExplain(
       // postgres bypasses RLS, so neither plan carries a policy
       // filter and the stop condition does not apply to it. It is
       // here as the no-policy baseline.
-      const judged = sub !== null;
+      const judged = sub !== null && batch.judgesHoist !== false;
       const pass = !judged || afterPlanIsHoisted(after);
       if (!pass) ok = false;
 

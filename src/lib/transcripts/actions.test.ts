@@ -37,9 +37,9 @@ const mocks = vi.hoisted(() => {
         },
         update: (patch: unknown) => {
           sourcesUpdatePatch(patch);
-          return { eq: sourcesUpdateEq };
+          return { eq: () => ({ select: sourcesUpdateEq }) };
         },
-        delete: () => ({ eq: () => sourcesDeleteEq() }),
+        delete: () => ({ eq: () => ({ select: sourcesDeleteEq }) }),
       };
     }
     if (table === "meetings") {
@@ -50,7 +50,7 @@ const mocks = vi.hoisted(() => {
         update: (patch: unknown) => {
           meetingsUpdatePatch(patch);
           return {
-            eq: meetingsUpdateEq,
+            eq: () => ({ select: meetingsUpdateEq }),
           };
         },
       };
@@ -61,13 +61,16 @@ const mocks = vi.hoisted(() => {
           eq: () => ({ maybeSingle: aliasesSelectMaybeSingle }),
         }),
         insert: aliasesInsert,
-        delete: () => ({ eq: () => aliasesDeleteEq() }),
+        delete: () => ({ eq: () => ({ select: aliasesDeleteEq }) }),
       };
     }
     throw new Error(`Unexpected table in test: ${table}`);
   };
 
-  const admin = { from: fromBuilder };
+  const adminFrom = vi.fn(fromBuilder);
+  const dbFrom = vi.fn(fromBuilder);
+  const admin = { from: adminFrom };
+  const db = { from: dbFrom };
   const requireProfile = vi.fn();
   const transcriptSourcesAllowed = vi.fn();
   const isAdminForCompany = vi.fn();
@@ -91,6 +94,9 @@ const mocks = vi.hoisted(() => {
     aliasesInsert,
     aliasesDeleteEq,
     admin,
+    db,
+    adminFrom,
+    dbFrom,
     requireProfile,
     transcriptSourcesAllowed,
     isAdminForCompany,
@@ -104,6 +110,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => mocks.admin,
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: () => mocks.db,
 }));
 
 vi.mock("@/lib/auth/current-user", () => ({
@@ -152,21 +162,21 @@ function primeHappyPath() {
     data: { id: "src_1", company_id: "co_acme" },
     error: null,
   });
-  mocks.sourcesUpdateEq.mockResolvedValue({ error: null });
-  mocks.sourcesDeleteEq.mockResolvedValue({ error: null });
+  mocks.sourcesUpdateEq.mockResolvedValue({ data: [{ id: "src_1" }], error: null });
+  mocks.sourcesDeleteEq.mockResolvedValue({ data: [{ id: "src_1" }], error: null });
   // Default meeting is unrouted (company_id null): the happy-path
   // caller is a system_admin, who may route those.
   mocks.meetingsSelectMaybeSingle.mockResolvedValue({
     data: { company_id: null },
     error: null,
   });
-  mocks.meetingsUpdateEq.mockResolvedValue({ error: null });
+  mocks.meetingsUpdateEq.mockResolvedValue({ data: [{ id: "mtg_1" }], error: null });
   mocks.aliasesSelectMaybeSingle.mockResolvedValue({
     data: { company_id: "co_acme" },
     error: null,
   });
   mocks.aliasesInsert.mockResolvedValue({ error: null });
-  mocks.aliasesDeleteEq.mockResolvedValue({ error: null });
+  mocks.aliasesDeleteEq.mockResolvedValue({ data: [{ id: "alias_1" }], error: null });
 }
 
 // The real isAdminForCompany rule for a company_admin: their own
@@ -711,5 +721,67 @@ describe("routeMeetingAction + dismissMeetingAction (tenant boundary)", () => {
       status: "failed",
       error: "dismissed",
     });
+  });
+});
+
+// ---- Which client, and what a refusal looks like ----------------
+//
+// The point of migration 0181 is that these writes stop bypassing
+// RLS. That is a claim about WHICH CLIENT issues the statement, so it
+// is asserted directly rather than inferred from the statement's
+// shape — every test above would pass equally well against the
+// service-role client, which is how this went unnoticed for a month.
+
+describe("RLS is the boundary, not the guard", () => {
+  it("pauses through the caller's client, so a policy decides", async () => {
+    mocks.requireProfile.mockResolvedValue({
+      profile: { id: "admin_1", role: "company_admin", company_id: "co_1" },
+    });
+    mocks.transcriptSourcesAllowed.mockReturnValue(true);
+    mocks.isAdminForCompany.mockReturnValue(true);
+    mocks.sourcesSelectMaybeSingle.mockResolvedValue({
+      data: { id: "src_1", company_id: "co_1" },
+    });
+
+    const { pauseSourceAction } = await import("./actions");
+    const result = await pauseSourceAction("src_1");
+
+    expect(result.ok).toBe(true);
+    expect(mocks.dbFrom).toHaveBeenCalledWith("transcript_sources");
+  });
+
+  it("still writes the audit row through the service role, so an actor cannot forge or suppress it", async () => {
+    mocks.requireProfile.mockResolvedValue({
+      profile: { id: "admin_1", role: "company_admin", company_id: "co_1" },
+    });
+    mocks.transcriptSourcesAllowed.mockReturnValue(true);
+    mocks.isAdminForCompany.mockReturnValue(true);
+    mocks.sourcesSelectMaybeSingle.mockResolvedValue({
+      data: { id: "src_1", company_id: "co_1" },
+    });
+
+    const { pauseSourceAction } = await import("./actions");
+    await pauseSourceAction("src_1");
+
+    expect(mocks.adminFrom).toHaveBeenCalledWith("transcript_source_audit_log");
+  });
+
+  // The disguise from E5: RLS refuses by matching zero rows and sets
+  // no error at all. Checking `error` alone would call this a success.
+  it("reports a refused write as a failure, not a silent success", async () => {
+    mocks.requireProfile.mockResolvedValue({
+      profile: { id: "admin_1", role: "company_admin", company_id: "co_1" },
+    });
+    mocks.transcriptSourcesAllowed.mockReturnValue(true);
+    mocks.isAdminForCompany.mockReturnValue(true);
+    mocks.sourcesSelectMaybeSingle.mockResolvedValue({
+      data: { id: "src_1", company_id: "co_1" },
+    });
+    mocks.sourcesUpdateEq.mockResolvedValue({ data: [], error: null });
+
+    const { pauseSourceAction } = await import("./actions");
+    const result = await pauseSourceAction("src_1");
+
+    expect(result.ok).toBe(false);
   });
 });
