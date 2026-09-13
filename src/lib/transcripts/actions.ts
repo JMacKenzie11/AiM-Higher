@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth/current-user";
 import {
   isAdminForCompany,
@@ -33,6 +34,12 @@ export type ActionResult<T = null> =
 // Fire-and-forget; a failed audit write must never block the
 // user-visible action from succeeding. The console.warn fallback
 // keeps at least one signal alive if the insert errors.
+// The caller's own client. Reads and writes through this one are
+// filtered by RLS as that person, which is the point.
+async function db() {
+  return createSupabaseServerClient(getCurrentInstanceConfig());
+}
+
 async function auditTranscriptSourceEvent(args: {
   eventType: "created" | "removed" | "paused" | "resumed";
   sourceId: string;
@@ -189,6 +196,26 @@ async function guardForAlias(
   return { ok: true, profileId: g.profileId, companyId: data.company_id };
 }
 
+// WHICH CLIENT, AND WHY
+//
+// Every write a person performs goes through `db()`, the caller's own
+// session client, so RLS decides. Migration 0181 admits company_admin
+// to exactly what the guards below already allow, and the _guide
+// mirrors were there all along. The guards stay: they produce the
+// message ("Not your company") that a silent zero cannot, and they
+// refuse before a statement is sent.
+//
+// The service-role client survives in three places, each deliberate:
+//
+//   - the audit log insert. There is no INSERT policy on
+//     transcript_source_audit_log for any role, on purpose, so an
+//     actor cannot forge or suppress the record of what they did.
+//   - the guard lookups. A guard must be able to SEE the row it is
+//     refusing, or "not yours" degrades into "not found" and a
+//     cross-tenant id becomes indistinguishable from a typo.
+//   - the ingest pipeline. It runs from a cron with no session at
+//     all; see forEachActiveInstance.
+//
 // ---- Connect a folder (Google Drive only in v1) ----
 export async function connectGoogleFolderAction(
   formData: FormData
@@ -233,13 +260,13 @@ export async function connectGoogleFolderAction(
     };
   }
 
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const supabase = await db();
   // Seed the cursor to "now" so the first ingest cycle only picks
   // up files modified after the connection. Without this the initial
   // pass drags in every historical transcript in the folder, which
   // is almost never what the operator wants when onboarding.
   const initialCursor = new Date().toISOString();
-  const { data, error } = await admin
+  const { data, error } = await supabase
     .from("transcript_sources")
     .insert({
       company_id: companyId,
@@ -289,12 +316,15 @@ export async function connectGoogleFolderAction(
 export async function pauseSourceAction(id: string): Promise<ActionResult> {
   const g = await guardForSource(id);
   if (!g.ok) return g;
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const { error } = await admin
+  const supabase = await db();
+  const { data: paused, error } = await supabase
     .from("transcript_sources")
     .update({ status: "paused" })
-    .eq("id", id);
-  if (error) return { ok: false, message: "Couldn't pause." };
+    .eq("id", id)
+    .select("id");
+  if (error || (paused?.length ?? 0) === 0) {
+    return { ok: false, message: "Couldn't pause." };
+  }
   await auditTranscriptSourceEvent({
     eventType: "paused",
     sourceId: id,
@@ -308,12 +338,15 @@ export async function pauseSourceAction(id: string): Promise<ActionResult> {
 export async function resumeSourceAction(id: string): Promise<ActionResult> {
   const g = await guardForSource(id);
   if (!g.ok) return g;
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const { error } = await admin
+  const supabase = await db();
+  const { data: resumed, error } = await supabase
     .from("transcript_sources")
     .update({ status: "active", last_error: null })
-    .eq("id", id);
-  if (error) return { ok: false, message: "Couldn't resume." };
+    .eq("id", id)
+    .select("id");
+  if (error || (resumed?.length ?? 0) === 0) {
+    return { ok: false, message: "Couldn't resume." };
+  }
   await auditTranscriptSourceEvent({
     eventType: "resumed",
     sourceId: id,
@@ -346,8 +379,15 @@ export async function removeSourceAction(id: string): Promise<ActionResult> {
   // Meeting history survives (migration 0158 switched the FK to
   // ON DELETE SET NULL); the audit row below is the source of
   // truth for who removed what and when.
-  const { error } = await admin.from("transcript_sources").delete().eq("id", id);
-  if (error) return { ok: false, message: "Couldn't remove." };
+  const supabase = await db();
+  const { data: removed, error } = await supabase
+    .from("transcript_sources")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error || (removed?.length ?? 0) === 0) {
+    return { ok: false, message: "Couldn't remove." };
+  }
   await auditTranscriptSourceEvent({
     eventType: "removed",
     sourceId: id,
@@ -472,16 +512,20 @@ export async function routeMeetingAction(
   if (!companyId) return { ok: false, message: "Pick a company." };
   const dest = guardForCompany(g, companyId);
   if (!dest.ok) return dest;
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const { error } = await admin
+  const supabase = await db();
+  const { data: routed, error } = await supabase
     .from("meetings")
     .update({
       company_id: companyId,
       status: "pending",
       routed_by_alias: "(manual)",
     })
-    .eq("id", meetingId);
+    .eq("id", meetingId)
+    .select("id");
   if (error) return { ok: false, message: error.message };
+  if ((routed?.length ?? 0) === 0) {
+    return { ok: false, message: "Not your meeting to route." };
+  }
 
   if (analyzeNow) {
     try {
@@ -527,8 +571,8 @@ export async function createAliasAction(
   // the alias is being registered for.
   const c = guardForCompany(g, companyId);
   if (!c.ok) return c;
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const { error } = await admin
+  const supabase = await db();
+  const { error } = await supabase
     .from("transcript_aliases")
     .insert({ company_id: companyId, alias });
   if (error) {
@@ -544,12 +588,16 @@ export async function createAliasAction(
 export async function deleteAliasAction(aliasId: string): Promise<ActionResult> {
   const g = await guardForAlias(aliasId);
   if (!g.ok) return g;
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const { error } = await admin
+  const supabase = await db();
+  const { data: deleted, error } = await supabase
     .from("transcript_aliases")
     .delete()
-    .eq("id", aliasId);
+    .eq("id", aliasId)
+    .select("id");
   if (error) return { ok: false, message: error.message };
+  if ((deleted?.length ?? 0) === 0) {
+    return { ok: false, message: "Not your alias to delete." };
+  }
   revalidatePath("/admin/companies");
   return { ok: true };
 }
