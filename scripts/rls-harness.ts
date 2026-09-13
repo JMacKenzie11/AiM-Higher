@@ -3218,6 +3218,148 @@ async function grantProbes(
       : "THE COLUMN GUARD IS TOO WIDE: it is constraining system_admin too",
   });
 
+  // ---- Timezone: the edit path, the lock, and the record --------
+  //
+  // companies.timezone decides what date a row falls on for every
+  // bucketed read in the app, so setCompanyTimezoneAction admits
+  // system_admin and nobody else, and migration 0189 records each
+  // change in company_settings_events.
+  //
+  // Three things have to be true, and the app can only be trusted on
+  // the first of them. It is the other two that this probes:
+  //
+  //   the edit works        — a system_admin can actually move it
+  //   the lock holds        — the roles 0176 admitted to `industry`
+  //                           still cannot reach this column
+  //   the record is written — and carries WHO, not just WHAT
+  //
+  // A log that records the change but not the actor answers half the
+  // question it exists for, and it fails silently: the row is there,
+  // the column is null, and nothing looks wrong until somebody needs
+  // the name. actor_id comes from auth.uid() inside a SECURITY
+  // DEFINER trigger, which is exactly the kind of thing that is right
+  // in the migration and null in practice.
+
+  // Read as postgres, outside the probe transaction, so the probe can
+  // name both sides of the change it is about to make. Picking the
+  // target in SQL would work too; naming it here is what lets the
+  // event assertion be exact rather than "something was logged".
+  const [tzRow] = await run<{ tz: string | null }>(
+    `select timezone as tz from public.companies where id = '${ids.otherCompany}';`
+  );
+  const tzBefore = tzRow?.tz ?? null;
+  const tzAfter = tzBefore === "UTC" ? "America/Denver" : "UTC";
+
+  if (!tzBefore) {
+    probes.push({
+      name: "timezone edit · system_admin",
+      granted: "not attempted",
+      withheld: "not attempted",
+      ok: false,
+      detail: "NOT PROVEN: the probe company has no timezone to move",
+    });
+  } else {
+    // Two statements in one rolled-back transaction. They cannot be
+    // one: the trigger is AFTER UPDATE, so its rows do not exist
+    // until the update statement has finished, and a data-modifying
+    // CTE would count zero every time and call it enforcement.
+    const move = `
+      update public.companies set timezone = '${tzAfter}'
+       where id = '${ids.otherCompany}';
+      select
+        (select count(*)::int from public.companies
+          where id = '${ids.otherCompany}' and timezone = '${tzAfter}') as updated,
+        (select count(*)::int from public.company_settings_events
+          where company_id = '${ids.otherCompany}' and field = 'timezone'
+            and old_value = '${tzBefore}' and new_value = '${tzAfter}'
+            and actor_id = '${ids.systemAdmin}') as logged;`;
+
+    let updated = -1;
+    let logged = -1;
+    let moveError = "";
+    try {
+      const rows = await run<{ updated: number; logged: number }>(
+        asCaller(ids.systemAdmin, pending, move)
+      );
+      updated = Number(rows?.[0]?.updated ?? -1);
+      logged = Number(rows?.[0]?.logged ?? -1);
+    } catch (err) {
+      moveError = describeOutcome(null, err);
+    }
+
+    // The same role, writing the log by hand. An append-only table
+    // whose reader can also forge entries is not evidence of
+    // anything, and system_admin is the strongest caller the app
+    // has: if the table holds against them it holds against
+    // everyone.
+    const forged = await attempt(
+      ids.systemAdmin,
+      `insert into public.company_settings_events
+         (company_id, field, old_value, new_value)
+       values ('${ids.otherCompany}', 'timezone', 'forged', 'forged')
+       returning id;`
+    );
+
+    const ok =
+      moveError === "" &&
+      updated === 1 &&
+      logged === 1 &&
+      (forged === "refused by RLS" || forged.startsWith("0 rows"));
+
+    probes.push({
+      name: "timezone edit · system_admin",
+      granted:
+        moveError !== ""
+          ? `timezone ${tzBefore} to ${tzAfter}: ${moveError}`
+          : `timezone ${tzBefore} to ${tzAfter}: ${updated} row(s) written, ` +
+            `${logged} event(s) logged with the actor`,
+      withheld: `hand-written event insert: ${forged}`,
+      ok,
+      detail: ok
+        ? "moves the clock, leaves a record naming who moved it, and cannot forge one"
+        : updated !== 1
+          ? "THE EDIT DOES NOT WORK: system_admin cannot set the column the action offers"
+          : logged !== 1
+            ? "THE RECORD IS NOT WRITTEN as specified: no event with this old value, new value and actor"
+            : "THE LOG IS WRITEABLE BY HAND: the append-only guarantee does not hold",
+    });
+  }
+
+  // The lock. 0176 widened companies_update to admit these two roles
+  // and relies on the column guard to keep the widening to
+  // `industry`. Timezone is the column where that mattering is
+  // easiest to state: a company admin who could move their own clock
+  // could re-date their own scorecard history.
+  //
+  // Each carries its own control. A refusal measured without one is
+  // indistinguishable from a caller who could not write anything at
+  // all, which is the empty-set mistake on the write side.
+  for (const [label, sub, own] of [
+    ["company_admin", ids.companyAdmin, ids.companyAdminCompany],
+    ["aims_guide", ids.guide, ids.guideCompany],
+  ] as const) {
+    const blocked = await attempt(
+      sub,
+      `update public.companies set timezone = 'UTC' where id = '${own}' returning id;`
+    );
+    const control = await attempt(sub, setIndustry(own));
+    const ok =
+      blocked === "refused by the column guard" &&
+      control.includes("row(s) written");
+
+    probes.push({
+      name: `timezone lock · ${label}`,
+      granted: `control, industry on the same row: ${control}`,
+      withheld: `timezone on own company: ${blocked}`,
+      ok,
+      detail: ok
+        ? "cannot move the clock on a company it otherwise administers"
+        : !control.includes("row(s) written")
+          ? "NOT PROVEN: the control could not write either, so the refusal proves nothing"
+          : "THE LOCK IS OPEN: this role can re-date its own reporting history",
+    });
+  }
+
   return probes;
 }
 

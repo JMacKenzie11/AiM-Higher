@@ -7,6 +7,7 @@ import {
 } from "@/lib/companies/actions";
 import { COMPANY_FEATURES } from "@/lib/companies/features";
 import styles from "./admin.module.css";
+import { COMPANY_TIMEZONES } from "@/lib/companies/timezones";
 
 const INITIAL: CompanyResult = { ok: false, message: "" };
 
@@ -59,18 +60,11 @@ export function CreateCompanyForm() {
           className={styles.select}
           disabled={pending}
         >
-          {/* ASSUMPTION: v1 offers common US business timezones. If a
-              client needs another, edit the row directly in Supabase for
-              now; a full IANA picker can land in Phase 9 polish. */}
-          <option value="America/Anchorage">America/Anchorage — Alaska</option>
-          <option value="America/Los_Angeles">America/Los_Angeles — Pacific</option>
-          <option value="America/Denver">America/Denver — Mountain</option>
-          <option value="America/Phoenix">America/Phoenix — Arizona (no DST)</option>
-          <option value="America/Chicago">America/Chicago — Central</option>
-          <option value="America/New_York">America/New_York — Eastern</option>
-          <option value="America/Halifax">America/Halifax — Atlantic</option>
-          <option value="Pacific/Honolulu">Pacific/Honolulu — Hawaii</option>
-          <option value="UTC">UTC</option>
+          {COMPANY_TIMEZONES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
         </select>
       </div>
 
