@@ -51,6 +51,14 @@ waits for it, or stacks on it.
 that runs against provisioned instances, and any merge into shared structure
 the rest of the app hangs off, is his call and his timing.
 
+**Fleet migrations and any write to a live database are executed by Jason,
+or on his explicit per-run instruction. Never inferred from prior
+approval.** Not from an identical command approved an hour ago, not from a
+clean dry run, not from a settled pattern. The rule holds hardest where
+running it looks obviously fine, because obviously-fine is where this
+project's incidents have lived, and a rule that relaxes on convenience is a
+convention rather than a rule.
+
 ## Migrations
 
 **A migration reaches a database only through `migrate:instances`,
