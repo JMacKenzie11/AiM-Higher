@@ -91,6 +91,14 @@ export default async function PeoplePage() {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
+  // Inviting people into company roles is item 3 of portfolio_admin's
+  // closed list (migration 0192), so the Add a person card is theirs.
+  // The ROSTER controls above are not: `isAdmin` stays false for the
+  // role, so no Edit, no Delete, no role change. They can staff a
+  // company and cannot then rewrite the people in it — which is what
+  // profiles_insert_portfolio says in SQL, with no UPDATE or DELETE
+  // policy beside it.
+  const canInvite = isAdmin || session.profile.role === "portfolio_admin";
   // A manager reaches the Coach affordance for their direct reports,
   // matching the coaching_conversations insert policy (migration
   // 0021). Only bother rendering the Actions column for managers who
@@ -196,7 +204,7 @@ export default async function PeoplePage() {
           )}
         </section>
 
-      {isAdmin ? (
+      {canInvite ? (
         <section className={styles.card} aria-labelledby="add-person">
           <h2 id="add-person" className={styles.h2}>
             Add a person

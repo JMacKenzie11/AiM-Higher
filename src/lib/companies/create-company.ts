@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { calendarQuarterOf } from "@/lib/quarters/calendar";
 import {
   COMPANY_FEATURES,
   VALID_COMPANY_FEATURES,
@@ -106,49 +105,39 @@ export async function createCompany(
     };
   }
 
-  // ---- Chart roots --------------------------------------------
-  // Visionary at the top, Integrator beneath it. Without these the
-  // functional org chart has no root and cannot be opened at all.
-  // maybeSingle on the Visionary, and a plain insert for the
-  // Integrator: it needs the parent id, nothing needs the child's.
-  const { data: visionary } = await db
-    .from("functions")
-    .insert({
-      company_id: company.id,
-      parent_function_id: null,
-      title: "Visionary",
-      description:
-        "Owner/founder — sets direction, culture, and the long-term bet.",
-      sort_order: 0,
-    })
-    .select("id")
-    .maybeSingle<{ id: string }>();
-
-  if (visionary?.id) {
-    await db.from("functions").insert({
-      company_id: company.id,
-      parent_function_id: visionary.id,
-      title: "Integrator",
-      description:
-        "COO — turns the vision into execution across the leadership team.",
-      sort_order: 0,
+  // ---- Chart roots and opening quarter ------------------------
+  //
+  // Seeded by a SECURITY DEFINER database function rather than by two
+  // inserts from here, and the reason is a permissions one rather
+  // than a tidiness one.
+  //
+  // `functions` and `quarters` are CONTENT tables. portfolio_admin
+  // may create a company and may never write content, and those two
+  // sentences are only compatible if creating a company does not
+  // require content INSERT rights. Doing the seeding under the
+  // caller's identity would have forced a portfolio_admin write
+  // policy onto two content tables to make the button work — a grant
+  // that then sits there for every other purpose, which is exactly
+  // what the closed list in 0192 exists to prevent.
+  //
+  // seed_company_roots decides for itself who may call it
+  // (system_admin, portfolio_admin, or the service role, which is
+  // provisioning and the seed scripts) and refuses a company that
+  // already has functions. Every caller reaches it the same way; no
+  // branch on role here.
+  //
+  // Best-effort, as the quarter seed always was: a company with no
+  // chart roots is recoverable by hand, and failing the whole create
+  // would leave a company row behind anyway.
+  const { error: seedError } = await db.rpc("seed_company_roots", {
+    p_company_id: company.id,
+  });
+  if (seedError) {
+    console.error("createCompany: seed_company_roots failed", {
+      companyId: company.id,
+      supabaseError: seedError,
     });
   }
-
-  // ---- Opening quarter ----------------------------------------
-  // Seeded so an admin can drop actions in immediately rather than
-  // hitting an "open a quarter first" detour. Best-effort by design:
-  // if it bounces, one can be opened by hand on /quarters.
-  const quarter = calendarQuarterOf(new Date());
-  await db
-    .from("quarters")
-    .insert({
-      company_id: company.id,
-      label: quarter.label,
-      start_date: quarter.startDate,
-      end_date: quarter.endDate,
-      status: "open",
-    });
 
   return { ok: true, company, features };
 }

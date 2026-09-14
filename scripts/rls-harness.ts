@@ -127,18 +127,36 @@ export type CaseResult = {
 // because batches touch disjoint tables and 0175's helpers were
 // already there — a property of the ordering, not of the instrument,
 // and not one to rely on twice.
+// `pending` is subtracted, and that is not a loophole.
+//
+// A batch's own migrations are unlanded by definition — that is what
+// a batch IS — and --pending applies them inside every probe
+// transaction. Counting them as lag would make the gate refuse the
+// exact run it was built to protect, and a gate that blocks the
+// normal path gets removed rather than fixed.
+//
+// What it still catches is the thing it was built for: a migration
+// that is neither deployed to the clone nor being applied by this
+// run. On 2026-09-13 there were eight of those.
 export function cloneLag(opts: {
   cloneHead: string | null;
   localMigrations: readonly string[];
+  pending?: readonly string[];
 }): { behind: string[]; newest: string | null } {
+  const versionOf = (f: string) => f.trim().slice(0, 4);
   const versions = opts.localMigrations
-    .map((f) => f.slice(0, 4))
+    .map(versionOf)
     .filter((v) => /^\d{4}$/.test(v))
     .sort();
+  const applied = new Set((opts.pending ?? []).map(versionOf));
   const newest = versions.length > 0 ? versions[versions.length - 1] : null;
-  if (!opts.cloneHead) return { behind: versions, newest };
+  if (!opts.cloneHead) {
+    return { behind: versions.filter((v) => !applied.has(v)), newest };
+  }
   return {
-    behind: versions.filter((v) => v > (opts.cloneHead as string)),
+    behind: versions.filter(
+      (v) => v > (opts.cloneHead as string) && !applied.has(v)
+    ),
     newest,
   };
 }
@@ -664,6 +682,44 @@ export const BATCHES: readonly Batch[] = [
     n: "1",
     tables: ["companies", "company_features", "quarters"],
     migration: "0175_f8_batch1_hoist.sql",
+  },
+  {
+    // Not an F8 hoist. A new role with a new read surface, measured
+    // the same way because the question is the same one: what does
+    // each caller see, and what does the plan cost to decide it.
+    //
+    // Five tables chosen to cover every shape 0191 has: a direct
+    // NOT NULL company_id (commitments, priorities), a direct
+    // NULLABLE one where an unrouted row must stay invisible
+    // (meetings), the table where the caller's own row is the
+    // carve-out (profiles), and the container itself (companies).
+    n: "portfolio",
+    tables: ["commitments", "priorities", "meetings", "profiles", "companies"],
+    migration:
+      "0190_portfolio_admin_role.sql," +
+      "0191_portfolio_admin_reads.sql," +
+      "0192_portfolio_admin_container_writes.sql",
+    // These policies add a grant; they do not rewrite an existing one,
+    // so "the helper is hoisted after" is not this batch's claim. The
+    // plans are still reported: a permissive policy added beside
+    // another should not change what the existing callers cost.
+    judgesHoist: false,
+    // The clone holds no unrouted meeting, so the nullable check
+    // would measure an empty table and call the zero a denial.
+    // Same row batch 5 seeds, for the same reason.
+    nullCompanyRows: {
+      meetings:
+        "insert into public.meetings (id, company_id, provider_file_id, file_name, content_hash, transcript_text, status) " +
+        "values ('44444444-4444-4444-8444-444444444444', null, '_probe_file', 'probe.txt', '_probe_hash', 'probe transcript', 'pending');",
+    },
+    nullCompanyExclude: {
+      // Everyone may read their own profile, so a company-less caller
+      // sees exactly one company-less row: theirs. Batch 6f's
+      // carve-out, needed here for the same reason and not because
+      // anything in 0191 widened it — profiles_select_portfolio
+      // carries `company_id is not null`.
+      profiles: "id <> (select auth.uid())",
+    },
   },
   {
     n: "2",
@@ -1265,10 +1321,28 @@ export const BATCHES: readonly Batch[] = [
           provenBy: "sysadmin",
         },
         {
+          // WENT STALE, AND THE STALENESS IS THE INTERESTING PART.
+          //
+          // This expected 42501 and was right when batch 5 shipped:
+          // migration 0180 landed while transcript_sources admitted
+          // only system_admin to INSERT. Migration 0181, the very
+          // next one, created transcript_sources_insert_company_admin
+          // on purpose — that was the whole point of the transcript
+          // grants PR — and this line was not updated with it.
+          //
+          // So a standing probe has been asserting the pre-0181
+          // answer ever since, and nothing noticed, because batch 5's
+          // report had already been accepted and nobody re-ran it.
+          // It surfaced when the portfolio_admin work re-ran every
+          // batch as a regression, which is the argument for doing
+          // that rather than trusting the reports on file.
+          //
+          // Before and after agreed at 1 throughout, so the schema is
+          // right and it is this expectation that was wrong.
           name: "company_admin connects a folder",
           caller: "admin",
           sql: "with i as (insert into public.transcript_sources (company_id, scope, provider, folder_id, folder_name) values ('$admin_company', 'company', 'google_drive', '_probe_connect', 'probe') returning id) select count(*)::int as n from i;",
-          expect: "42501",
+          expect: "1",
         },
         {
           name: "system_admin connects a folder",
@@ -2490,6 +2564,9 @@ export type PolicyRow = {
   policyname: string;
   qual: string | null;
   with_check: string | null;
+  // Present on the live query; optional so the pure matchers above can
+  // still be unit-tested with hand-made rows that have no command.
+  cmd?: string;
 };
 
 // MATCHES THE DEPARSED SPELLING, NOT THE ONE PEOPLE TYPE.
@@ -2531,6 +2608,149 @@ export function notDistinctOffenders(rows: readonly PolicyRow[]): string[] {
 // idiom is present on purpose.
 export function canaryPresent(matches: readonly string[]): boolean {
   return NOT_DISTINCT_ALLOWLIST.some((name) => matches.includes(name));
+}
+
+// ---- Where portfolio_admin may WRITE ---------------------------
+//
+// THE RULE. portfolio_admin has instance-wide READ (0191, forty-nine
+// policies) and a closed list of administrative writes on the
+// CONTAINER (0192). The list is closed, which means the interesting
+// question is not "does the grant work" but "has anything been added
+// to it since". A write policy naming this role on any other table is
+// a content grant, and a content grant is the one thing this role is
+// defined by not having.
+//
+// Why a static check rather than a probe. A probe answers "can this
+// role write to commitments TODAY", which is a question about the
+// tables somebody thought to probe. This answers "does a write policy
+// anywhere in the schema name this role", which is a question about
+// the schema. The F8 series is full of tables nobody thought to
+// check; sixty-four of them carry RLS.
+export const PORTFOLIO_WRITE_ALLOWLIST: readonly string[] = [
+  // Item 1: create a company. Item 2, half of it: settings, within
+  // the column allowlist enforced by companies_restrict_admin_columns.
+  "companies",
+  // Item 2, the other half: feature flags, insert and delete.
+  "company_features",
+  // Item 3: invite users into company-scoped roles. INSERT only, and
+  // the policy carries the role ceiling in SQL.
+  "profiles",
+  // Not one of the three. The role's own audit trail, which it writes
+  // and cannot read, update or delete. Allowlisted because the
+  // accountability layer would otherwise be the thing this check
+  // fails on, and a check that fails on its own safeguard gets
+  // switched off.
+  "portfolio_admin_events",
+];
+
+// Matches the helper AND the bare string. A policy could name the role
+// either way — `(select public.is_portfolio_admin())` is the idiom
+// 0190 established, but `auth_role() = 'portfolio_admin'` would work
+// just as well and would be just as much of a grant. A matcher that
+// only knew the idiom would be blind to the spelling somebody reaches
+// for when they are in a hurry, which is exactly when this goes wrong.
+const PORTFOLIO_MENTION = /is_portfolio_admin|'portfolio_admin'/i;
+
+export function portfolioWritePolicies(rows: readonly PolicyRow[]): string[] {
+  return rows
+    .filter((r) => (r.cmd ?? "SELECT").toUpperCase() !== "SELECT")
+    .filter((r) => PORTFOLIO_MENTION.test(`${r.qual ?? ""} ${r.with_check ?? ""}`))
+    .map((r) => `${r.tablename}.${r.policyname}`);
+}
+
+export function portfolioWriteOffenders(rows: readonly PolicyRow[]): string[] {
+  return portfolioWritePolicies(rows).filter(
+    (name) => !PORTFOLIO_WRITE_ALLOWLIST.includes(name.split(".")[0])
+  );
+}
+
+// The deliberately wrong policy this check is proved against.
+//
+// Written onto a content table inside the probe transaction and rolled
+// back with it. If the matcher does not report it, the matcher is
+// broken and a clean live result means nothing — the same reasoning as
+// the IS DISTINCT FROM canary, except that here the canary cannot be
+// an existing policy, because the whole claim is that no such policy
+// exists.
+// SPELLED AS A BARE ROLE COMPARISON, not with the helper.
+//
+// Two reasons, and the second was found the hard way. The helper only
+// exists once 0190 is applied, so a canary written with it CRASHES
+// the whole harness on any schema where the role has not landed —
+// which is every run that is not this batch, including the F8
+// regression runs this migration has to pass. A check that takes the
+// instrument down when the feature is absent is worse than no check.
+//
+// And it is the better canary regardless: the bare spelling is the
+// one somebody reaches for in a hurry, so proving the matcher catches
+// THAT proves the harder half.
+const PORTFOLIO_CANARY_POLICY = `
+create policy zz_portfolio_canary on public.commitments
+for update to authenticated
+using ((select public.auth_role()) = 'portfolio_admin')
+with check ((select public.auth_role()) = 'portfolio_admin');`;
+
+async function portfolioAllowlistCheck(
+  run: Runner,
+  pending: string
+): Promise<BatchCheck> {
+  const POLICY_QUERY = `
+    select tablename, policyname, cmd, qual, with_check
+      from pg_policies where schemaname = 'public'
+     order by tablename, policyname;`;
+
+  // Live, with the batch's migrations applied and rolled back so the
+  // check reads the schema the PR is asking for.
+  const live = await run<PolicyRow>(
+    ["begin;", pending, POLICY_QUERY, "rollback;"].join("\n")
+  );
+  const granted = portfolioWritePolicies(live);
+  const offenders = portfolioWriteOffenders(live);
+
+  // The same measurement with one content-table write policy added.
+  const canaryRows = await run<PolicyRow>(
+    ["begin;", pending, PORTFOLIO_CANARY_POLICY, POLICY_QUERY, "rollback;"].join("\n")
+  );
+  const caught = portfolioWriteOffenders(canaryRows).includes(
+    "commitments.zz_portfolio_canary"
+  );
+
+  // On a schema where the role has not landed yet there is nothing to
+  // police, and saying so is the honest answer. The canary still has
+  // to fire — the matcher is what is being vouched for, and it works
+  // whether or not the role exists.
+  if (granted.length === 0) {
+    return {
+      name: "static portfolio_admin write allowlist",
+      before: "0 write policies name the role",
+      after: caught
+        ? "not applicable: portfolio_admin is not on this schema (matcher verified)"
+        : "CHECK IS BROKEN: a deliberately wrong policy was NOT caught",
+      ok: caught,
+      detail: caught
+        ? "nothing to police here, and the matcher still catches a planted grant"
+        : "the matcher missed a planted content grant",
+    };
+  }
+
+  const ok = offenders.length === 0 && caught;
+  return {
+    name: "static portfolio_admin write allowlist",
+    before:
+      `${granted.length} write policies name the role` +
+      (granted.length > 0 ? ` (${granted.join(", ")})` : ""),
+    after: !caught
+      ? "CHECK IS BROKEN: a deliberately wrong policy on commitments was NOT caught"
+      : offenders.length === 0
+        ? `all on allowlisted tables (${PORTFOLIO_WRITE_ALLOWLIST.join(", ")})`
+        : `OUTSIDE THE ALLOWLIST: ${offenders.join(", ")}`,
+    ok,
+    detail: !caught
+      ? "the matcher missed a planted content grant, so it cannot vouch for the real ones"
+      : offenders.length === 0
+        ? "portfolio_admin can write only the container, and a planted content grant is caught"
+        : "portfolio_admin has a write policy on a table outside the closed list",
+  };
 }
 
 async function staticCheck(run: Runner): Promise<BatchCheck> {
@@ -2596,8 +2816,19 @@ export function batchSummaryLines(
   return lines;
 }
 
+// One file, or several separated by commas.
+//
+// Every F8 batch was a single migration. The portfolio_admin batch is
+// three — role, reads, writes — because the read surface is fifty
+// policies of mechanical shape and the write surface is six that each
+// need reading carefully, and a reviewer should not have to find the
+// second inside the first. They land together and are measured
+// together, which is what makes them one batch.
 function migrationSql(batch: Batch): string {
-  return readFileSync(`supabase/migrations/${batch.migration}`, "utf8");
+  return batch.migration
+    .split(",")
+    .map((f) => readFileSync(`supabase/migrations/${f.trim()}`, "utf8"))
+    .join("\n");
 }
 
 // As the connection's own role, with no JWT. postgres owns these
@@ -3116,10 +3347,10 @@ export function grantSummaryLines(probes: readonly GrantProbe[]): string[] {
   const lines = ["", "  Grant probes — every granted write, exercised as that role", ""];
   for (const p of probes) {
     lines.push(
-      `  ${(p.ok ? "PASS" : "FAIL").padEnd(6)}${p.name.padEnd(38)}${p.detail}`
+      `  ${(p.ok ? "PASS" : "FAIL").padEnd(6)}${p.name.padEnd(46)}${p.detail}`
     );
-    lines.push(`  ${"".padEnd(6)}${"".padEnd(38)}granted:  ${p.granted}`);
-    lines.push(`  ${"".padEnd(6)}${"".padEnd(38)}withheld: ${p.withheld}`);
+    lines.push(`  ${"".padEnd(6)}${"".padEnd(46)}granted:  ${p.granted}`);
+    lines.push(`  ${"".padEnd(6)}${"".padEnd(46)}withheld: ${p.withheld}`);
   }
   const failed = probes.filter((p) => !p.ok).length;
   lines.push("");
@@ -3140,7 +3371,16 @@ export type WriteOutcome = string;
 export function describeOutcome(rows: unknown[] | null, error?: unknown): WriteOutcome {
   if (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (/insufficient_privilege|Only industry may be changed/i.test(msg)) {
+    // Both of the column guard's messages, not one. 0192 added a
+    // second branch to companies_restrict_admin_columns with its own
+    // wording, and a matcher that knew only the first reported it as
+    // an unexplained ERROR — which reads as a broken probe rather than
+    // as the guard working. Found by the portfolio delete probe.
+    if (
+      /insufficient_privilege|Only industry may be changed|may change only name, timezone/i.test(
+        msg
+      )
+    ) {
       return "refused by the column guard";
     }
     if (/row-level security/i.test(msg)) return "refused by RLS";
@@ -3363,6 +3603,553 @@ async function grantProbes(
   return probes;
 }
 
+// ---- portfolio_admin ------------------------------------------
+//
+// A role with instance-wide read and a closed list of three
+// administrative writes needs its evidence in one place, because the
+// claim is a SHAPE rather than a list of permissions: wide read,
+// narrow write, and nothing in between. Every probe below runs as a
+// real portfolio_admin JWT against real tables inside a transaction
+// that is rolled back.
+//
+// SELF-PROVISIONED FIXTURE, and it has to be. There is no
+// portfolio_admin on the clone and there should not be one: a role
+// this wide, sitting permanently in a database so people can test
+// against it, is how a test fixture becomes a production account. So
+// the probe makes one — auth.users row and profile — acts as it, and
+// rolls the whole thing back. Nothing survives the transaction.
+//
+// Fixed uuids rather than generated ones so the assertions can name
+// the caller. They are syntactically valid and belong to nobody.
+const PA_UUID = "aaaaaaaa-0000-4000-8000-000000000001";
+const PA_EMAIL = "harness-portfolio-admin@example.invalid";
+
+// Four invitee slots, pre-created as auth users so the INVITE probe
+// can insert profiles for them as the caller.
+//
+// profiles.id is foreign-keyed to auth.users, and a caller acting as
+// `authenticated` cannot write auth.users — so an invite probe that
+// generated its own uuids failed on the foreign key and reported
+// "the role cannot invite a company admin", which was true of the
+// probe and not of the role. The auth rows are made as postgres
+// alongside the actor; only the profiles insert is the measurement.
+const INVITEE_UUIDS = [
+  "aaaaaaaa-0000-4000-8000-000000000011",
+  "aaaaaaaa-0000-4000-8000-000000000012",
+  "aaaaaaaa-0000-4000-8000-000000000013",
+  "aaaaaaaa-0000-4000-8000-000000000014",
+] as const;
+
+function authUser(id: string, email: string): string {
+  return `
+insert into auth.users
+  (id, instance_id, aud, role, email, encrypted_password,
+   email_confirmed_at, created_at, updated_at)
+values
+  ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+   'authenticated', '${email}', '', now(), now(), now());`;
+}
+
+function portfolioFixture(): string {
+  return [
+    authUser(PA_UUID, PA_EMAIL),
+    `insert into public.profiles (id, company_id, full_name, role, status)
+values ('${PA_UUID}', null, 'Harness Portfolio Admin', 'portfolio_admin', 'active');`,
+    ...INVITEE_UUIDS.map((id, i) =>
+      authUser(id, `harness-invitee-${i}@example.invalid`)
+    ),
+  ].join("\n");
+}
+
+export type PortfolioFixtures = {
+  company_a: string | null;
+  company_b: string | null;
+  admin_a: string | null;
+  sysadmin: string | null;
+  feature_a: string | null;
+  spare_feature: string | null;
+};
+
+async function portfolioProbes(
+  run: Runner,
+  ids: Identities,
+  pending: string
+): Promise<GrantProbe[]> {
+  const probes: GrantProbe[] = [];
+
+  // Two companies that actually hold content, chosen in SQL so the
+  // case survives a clone refresh. "Reads company A and company B" is
+  // only a claim about instance-wide reach if A and B are different
+  // tenants and both have something to read.
+  const [fx] = await run<PortfolioFixtures>(`
+    with ranked as (
+      select company_id, count(*)::int as n
+        from public.commitments
+       where company_id is not null
+       group by company_id
+       order by count(*) desc
+       limit 2
+    )
+    select
+      (select company_id from ranked offset 0 limit 1) as company_a,
+      (select company_id from ranked offset 1 limit 1) as company_b,
+      (select p.id from public.profiles p
+        where p.role = 'company_admin' and p.status = 'active'
+          and p.company_id = (select company_id from ranked offset 0 limit 1)
+        limit 1) as admin_a,
+      (select id from public.profiles
+        where role = 'system_admin' and status = 'active' limit 1) as sysadmin,
+      (select feature from public.company_features
+        where company_id = (select company_id from ranked offset 0 limit 1)
+        limit 1) as feature_a,
+      (select f.feature from (values ('classroom'),('strengths'),('role_descriptions')) f(feature)
+        where not exists (
+          select 1 from public.company_features cf
+           where cf.company_id = (select company_id from ranked offset 0 limit 1)
+             and cf.feature = f.feature)
+        limit 1) as spare_feature;`);
+
+  const missing = Object.entries(fx ?? {})
+    .filter(([, v]) => v === null || v === undefined)
+    .map(([k]) => k);
+  if (!fx || missing.length > 0) {
+    probes.push({
+      name: "portfolio_admin fixtures",
+      granted: "not attempted",
+      withheld: "not attempted",
+      ok: false,
+      detail: `NOT PROVEN: the clone could not supply ${missing.join(", ")}`,
+    });
+    return probes;
+  }
+
+  const A = fx.company_a as string;
+  const B = fx.company_b as string;
+
+  // Every probe shares the same setup: the batch's migrations, then
+  // the fixture, all as postgres before the role switch.
+  const setup = `${pending}\n${portfolioFixture()}`;
+
+  // On a schema without 0190 the role is not in profiles_role_check,
+  // so the fixture itself bounces. Say that once, rather than running
+  // eight probes that all fail for the same reason and read like
+  // eight findings. This is what every F8 regression run sees.
+  try {
+    await run(asCaller(PA_UUID, setup, "select 1 as ok;"));
+  } catch {
+    return [
+      {
+        name: "portfolio_admin probes",
+        granted: "not attempted",
+        withheld: "not attempted",
+        ok: true,
+        detail:
+          "not applicable: portfolio_admin is not on this schema " +
+          "(run with --pending 0190_portfolio_admin_role.sql)",
+      },
+    ];
+  }
+  const attempt = async (sql: string, sub: string = PA_UUID): Promise<WriteOutcome> => {
+    try {
+      return describeOutcome(await run<Record<string, unknown>>(asCaller(sub, setup, sql)));
+    } catch (err) {
+      return describeOutcome(null, err);
+    }
+  };
+
+  const numbers = async (
+    sql: string,
+    sub: string = PA_UUID
+  ): Promise<Record<string, number> | string> => {
+    try {
+      const rows = await run<Record<string, number>>(asCaller(sub, setup, sql));
+      return rows?.[0] ?? {};
+    } catch (err) {
+      return describeOutcome(null, err);
+    }
+  };
+
+  // ---- 1. Instance-wide read, with the denied set beside it ----
+  //
+  // Two tenants, nonzero on both, is the claim. The third number is
+  // what makes it mean something: a role that could see everything
+  // would also see the rows that belong to no tenant, and this one
+  // must not. Measured in the same statement so all three describe
+  // one caller at one moment.
+  const reads = await numbers(`
+    select
+      (select count(*)::int from public.commitments where company_id = '${A}') as a_commitments,
+      (select count(*)::int from public.commitments where company_id = '${B}') as b_commitments,
+      (select count(*)::int from public.priorities where company_id = '${B}') as b_priorities,
+      (select count(*)::int from public.companies) as companies_seen,
+      (select count(*)::int from public.coaching_conversations) as coaching_denied,
+      (select count(*)::int from public.profiles
+        where company_id is null and id <> (select auth.uid())) as companyless_denied,
+      (select count(*)::int from public.profiles
+        where company_id is null and id = (select auth.uid())) as own_row;`);
+  if (typeof reads === "string") {
+    probes.push({
+      name: "portfolio read · two tenants",
+      granted: `reads: ${reads}`,
+      withheld: "not reached",
+      ok: false,
+      detail: "THE READ FAILED OUTRIGHT",
+    });
+  } else {
+    const ok =
+      reads.a_commitments > 0 &&
+      reads.b_commitments > 0 &&
+      reads.b_priorities > 0 &&
+      reads.companies_seen > 1 &&
+      reads.coaching_denied === 0 &&
+      reads.companyless_denied === 0 &&
+      // The self-row carve-out, the same shape batch 6f established.
+      // Everyone may read their own profile through profiles_select's
+      // `auth.uid() = id` branch, so a company-less caller sees
+      // exactly one company-less row: theirs. Hazard 1 is about a
+      // caller with no company matching OTHER rows with no company
+      // through the tenant predicate, so the own row is excluded and
+      // its presence is asserted rather than ignored — a zero here
+      // would mean the caller cannot see themselves, which is a
+      // different bug wearing the same number.
+      reads.own_row === 1;
+    probes.push({
+      name: "portfolio read · two tenants",
+      granted:
+        `company A commitments: ${reads.a_commitments} | company B commitments: ` +
+        `${reads.b_commitments} | company B priorities: ${reads.b_priorities} | ` +
+        `companies visible: ${reads.companies_seen}`,
+      withheld:
+        `private coaching conversations: ${reads.coaching_denied} | ` +
+        `other company-less profiles: ${reads.companyless_denied} ` +
+        `(own row visible: ${reads.own_row})`,
+      ok,
+      detail: ok
+        ? "reads content across tenants, and not the two sets the role is denied"
+        : reads.coaching_denied > 0 || reads.companyless_denied > 0
+          ? "THE READ IS TOO WIDE: it reaches a set 0191 deliberately omits"
+          : "NOT PROVEN: a tenant the role should read came back empty",
+    });
+  }
+
+  // ---- 2. Unrouted meetings: hazard 1's exact shape ------------
+  //
+  // A caller with no company, a row with no company. The row is
+  // SEEDED rather than looked for: a clone with no unrouted meeting
+  // would report zero and that zero would prove nothing. The control
+  // is a system_admin in the same transaction seeing the same row,
+  // which is what turns the portfolio_admin's zero into a denial
+  // rather than an empty table.
+  const seedUnrouted = `
+insert into public.meetings
+  (company_id, provider_file_id, file_name, content_hash, transcript_text, status)
+values (null, 'harness-unrouted', 'harness-unrouted.txt',
+        'harness-unrouted-hash', 'unrouted probe', 'unrouted');`;
+  const unroutedSetup = `${setup}\n${seedUnrouted}`;
+  const countUnrouted =
+    "select count(*)::int as n from public.meetings where company_id is null;";
+  let paUnrouted = "error";
+  let sysUnrouted = "error";
+  try {
+    const r = await run<{ n: number }>(
+      asCaller(PA_UUID, unroutedSetup, countUnrouted)
+    );
+    paUnrouted = String(r?.[0]?.n ?? "?");
+  } catch (err) {
+    paUnrouted = describeOutcome(null, err);
+  }
+  try {
+    const r = await run<{ n: number }>(
+      asCaller(fx.sysadmin as string, unroutedSetup, countUnrouted)
+    );
+    sysUnrouted = String(r?.[0]?.n ?? "?");
+  } catch (err) {
+    sysUnrouted = describeOutcome(null, err);
+  }
+  const unroutedOk = paUnrouted === "0" && Number(sysUnrouted) > 0;
+  probes.push({
+    name: "portfolio read · unrouted meetings",
+    granted: `control, system_admin sees the seeded unrouted row: ${sysUnrouted}`,
+    withheld: `portfolio_admin sees unrouted meetings: ${paUnrouted}`,
+    ok: unroutedOk,
+    detail: unroutedOk
+      ? "a row belonging to no tenant is not in this role's instance"
+      : Number(sysUnrouted) <= 0
+        ? "NOT PROVEN: the control could not see the seeded row either"
+        : "HAZARD 1: the role sees rows that belong to no company",
+  });
+
+  // ---- 3. No content writes, with a control that succeeds -----
+  //
+  // Two shapes, because RLS refuses them differently: an UPDATE with
+  // no matching row returns zero, an INSERT that fails WITH CHECK
+  // raises 42501. A probe that only tried one would call the other a
+  // pass by never meeting it.
+  const updateCommitment =
+    `update public.commitments set description = description ` +
+    `where company_id = '${A}' returning id;`;
+  const paUpdate = await attempt(updateCommitment);
+  const controlUpdate = await attempt(updateCommitment, fx.admin_a as string);
+  const paInsert = await attempt(
+    `insert into public.priorities (company_id, title, status) ` +
+      `values ('${A}', 'harness probe', 'open') returning id;`
+  );
+  const contentOk =
+    paUpdate.startsWith("0 rows") &&
+    controlUpdate.includes("row(s) written") &&
+    !paInsert.includes("row(s) written");
+  probes.push({
+    name: "portfolio write · content refused",
+    granted: `control, company_admin updates the same rows: ${controlUpdate}`,
+    withheld: `update commitments: ${paUpdate} | insert priority: ${paInsert}`,
+    ok: contentOk,
+    detail: contentOk
+      ? "reads the content and cannot write it, on a table where another caller can"
+      : !controlUpdate.includes("row(s) written")
+        ? "NOT PROVEN: the control could not write either, so the refusal proves nothing"
+        : "THE ROLE CAN WRITE CONTENT",
+  });
+
+  // ---- 4. Create a company, roots and all ---------------------
+  //
+  // Creating a company is only useful if the company is usable
+  // afterwards, and that means chart roots and an opening quarter —
+  // rows in `functions` and `quarters`, which are content tables this
+  // role has no write policy on. seed_company_roots is what makes
+  // both sentences true at once, so the probe asserts the seeded rows
+  // rather than just the company row.
+  // Three statements in one rolled-back transaction, not one CTE.
+  // seed_company_roots writes rows; a data-modifying function called
+  // from a CTE is not guaranteed to run, and the first version of
+  // this probe reported "chart roots seeded: 0" for that reason —
+  // which read as a broken grant and was a broken probe.
+  const created = await numbers(`
+    insert into public.companies (name, timezone)
+    values ('Harness Portfolio Co', 'UTC');
+    select public.seed_company_roots(
+      (select id from public.companies where name = 'Harness Portfolio Co'));
+    select
+      (select count(*)::int from public.companies
+        where name = 'Harness Portfolio Co') as company_rows,
+      (select count(*)::int from public.functions where company_id =
+        (select id from public.companies where name = 'Harness Portfolio Co'))
+        as functions_seeded,
+      (select count(*)::int from public.quarters where company_id =
+        (select id from public.companies where name = 'Harness Portfolio Co'))
+        as quarters_seeded;`);
+  if (typeof created === "string") {
+    probes.push({
+      name: "portfolio write · create a company",
+      granted: `create: ${created}`,
+      withheld: "not reached",
+      ok: false,
+      detail: "THE GRANT DOES NOT WORK: the role cannot create a company",
+    });
+  } else {
+    // All three, not just the company row. A company with no chart
+    // roots cannot open its org chart, so "created a company" that
+    // stops at the companies table is a grant that produces a broken
+    // tenant — and it is exactly what would happen if
+    // seed_company_roots refused this caller.
+    const ok =
+      created.company_rows === 1 &&
+      created.functions_seeded === 2 &&
+      created.quarters_seeded === 1;
+    probes.push({
+      name: "portfolio write · create a company",
+      granted:
+        `companies inserted: ${created.company_rows} | chart roots seeded: ` +
+        `${created.functions_seeded} | opening quarter: ${created.quarters_seeded}`,
+      withheld: "direct writes to functions and quarters, proved above",
+      ok,
+      detail: ok
+        ? "creates a usable company without holding a write policy on either content table"
+        : "THE GRANT DOES NOT WORK: the role cannot create a company",
+    });
+  }
+
+  // ---- 5. Feature flags ---------------------------------------
+  const featureOn = await attempt(
+    `insert into public.company_features (company_id, feature) ` +
+      `values ('${A}', '${fx.spare_feature}') returning company_id;`
+  );
+  const featureOff = await attempt(
+    `delete from public.company_features where company_id = '${A}' ` +
+      `and feature = '${fx.feature_a}' returning company_id;`
+  );
+  // The withheld half for this one is the entitlement HISTORY: the
+  // role may read it (0190) and must not be able to edit it, or
+  // "who turned this off" becomes editable by whoever turned it off.
+  const historyRead = await numbers(
+    `select count(*)::int as n from public.company_feature_events where company_id = '${A}';`
+  );
+  const historyForge = await attempt(
+    `insert into public.company_feature_events (company_id, feature, action) ` +
+      `values ('${A}', 'forged', 'enabled') returning id;`
+  );
+  const featureOk =
+    featureOn.includes("row(s) written") &&
+    featureOff.includes("row(s) written") &&
+    typeof historyRead !== "string" &&
+    historyRead.n > 0 &&
+    !historyForge.includes("row(s) written");
+  probes.push({
+    name: "portfolio write · feature flags",
+    granted:
+      `enable: ${featureOn} | disable: ${featureOff} | entitlement history read: ` +
+      `${typeof historyRead === "string" ? historyRead : historyRead.n} events`,
+    withheld: `hand-written entitlement event: ${historyForge}`,
+    ok: featureOk,
+    detail: featureOk
+      ? "manages packaging, reads the history of it, cannot rewrite that history"
+      : "the feature grant or the entitlement-history boundary is wrong",
+  });
+
+  // ---- 6. Invite into company roles, and the ceiling ----------
+  //
+  // THE CEILING IS THE POINT. A role that can staff a company and
+  // also mint another of itself has no ceiling at all — the first
+  // portfolio_admin would be the last decision anybody made about who
+  // holds the role. Both forbidden roles are tried, not one: they
+  // fail through the same clause, but a clause can be edited to name
+  // only one of them.
+  const invite = (slot: number, role: string, company: string | null) =>
+    `insert into public.profiles (id, company_id, full_name, role, status) ` +
+    `values ('${INVITEE_UUIDS[slot]}', ` +
+    `${company === null ? "null" : `'${company}'`}, ` +
+    `'Harness Invitee ${slot}', '${role}', 'pending') returning id;`;
+
+  const invited = await attempt(invite(0, "company_admin", A));
+  const invitedMember = await attempt(invite(1, "team_member", A));
+  // Both forbidden roles, each tried twice over: once with a company
+  // (the policy's role clause refuses it) and the platform shape they
+  // would actually want, with no company at all (the company_id
+  // clause refuses that). A ceiling with one door checked is a
+  // ceiling with one door.
+  const mintedPortfolio = await attempt(invite(2, "portfolio_admin", A));
+  const mintedSysadmin = await attempt(invite(3, "system_admin", A));
+  const mintedCompanyless = await attempt(invite(2, "portfolio_admin", null));
+  const inviteOk =
+    invited.includes("row(s) written") &&
+    invitedMember.includes("row(s) written") &&
+    !mintedPortfolio.includes("row(s) written") &&
+    !mintedSysadmin.includes("row(s) written") &&
+    !mintedCompanyless.includes("row(s) written");
+  probes.push({
+    name: "portfolio write · invite, and the ceiling",
+    granted: `company_admin: ${invited} | team_member: ${invitedMember}`,
+    withheld:
+      `portfolio_admin in a company: ${mintedPortfolio} | system_admin: ` +
+      `${mintedSysadmin} | portfolio_admin with no company: ${mintedCompanyless}`,
+    ok: inviteOk,
+    detail: inviteOk
+      ? "staffs a company and cannot mint a platform role"
+      : !invited.includes("row(s) written")
+        ? "THE GRANT DOES NOT WORK: the role cannot invite a company admin"
+        : "ESCALATION: the role can mint a platform role",
+  });
+
+  // ---- 7. Archive yes, delete no ------------------------------
+  //
+  // Three refusals against one grant, because "cannot delete" has
+  // three doors: the DELETE statement, the soft-delete column, and
+  // the settings columns that are not on the allowlist. The column
+  // guard answers the last two by raising; RLS answers the first with
+  // a zero.
+  const archived = await attempt(
+    `update public.companies set status = 'archived' where id = '${A}' returning id;`
+  );
+  const softDeleted = await attempt(
+    `update public.companies set deleted_at = now() where id = '${A}' returning id;`
+  );
+  const hardDeleted = await attempt(
+    `delete from public.companies where id = '${A}' returning id;`
+  );
+  const settingsOk = await attempt(
+    `update public.companies set timezone = 'UTC', industry = 'Harness' ` +
+      `where id = '${A}' returning id;`
+  );
+  const archiveOk =
+    archived.includes("row(s) written") &&
+    settingsOk.includes("row(s) written") &&
+    softDeleted === "refused by the column guard" &&
+    hardDeleted.startsWith("0 rows");
+  probes.push({
+    name: "portfolio write · archive yes, delete no",
+    granted: `archive: ${archived} | settings: ${settingsOk}`,
+    withheld: `set deleted_at: ${softDeleted} | DELETE: ${hardDeleted}`,
+    ok: archiveOk,
+    detail: archiveOk
+      ? "archives and edits settings; cannot soft-delete and cannot delete"
+      : !archived.includes("row(s) written")
+        ? "THE GRANT DOES NOT WORK: the role cannot archive"
+        : "THE ROLE CAN REMOVE A COMPANY",
+  });
+
+  // ---- 8. The accountability layer ----------------------------
+  //
+  // The table that stands in for the grant table this role does not
+  // have. It has to be writable by the actor (the action layer writes
+  // it), unforgeable against anybody else, and invisible to the
+  // subject — a log whose subject can enumerate it is a log whose
+  // subject knows what was recorded.
+  // NO `returning id`, and that omission is a finding rather than a
+  // style choice. Postgres applies the SELECT policy to an INSERT's
+  // RETURNING clause, and this table has no SELECT policy for this
+  // role — by design. So `insert ... returning` is refused with the
+  // same 42501 a WITH CHECK violation gives, and the first version of
+  // this probe read that as "the actor cannot write its own event".
+  // The row lands; it is the reading back that does not.
+  //
+  // The app is unaffected: recordPortfolioEvent calls .insert()
+  // without .select(), which sends no RETURNING.
+  //
+  // So the write is made as the caller and counted afterwards as
+  // postgres, in the same transaction, which rolls back with it.
+  const audit = await numbers(`
+    insert into public.portfolio_admin_events (actor_id, action, company_id)
+    values ('${PA_UUID}', 'scoped_in', '${A}');
+    select count(*)::int as own_read from public.portfolio_admin_events;
+    set local role postgres;
+    select
+      (select count(*)::int from public.portfolio_admin_events
+        where actor_id = '${PA_UUID}') as landed,
+      (select count(*)::int from public.portfolio_admin_events
+        where actor_id = '${PA_UUID}' and action = 'scoped_in') as landed_scoped;`);
+  // The read-back as the caller, measured on its own so the count
+  // above cannot be confused with it.
+  const readOwn = await numbers(
+    "select count(*)::int as n from public.portfolio_admin_events;"
+  );
+  const forgedEvent = await attempt(
+    `insert into public.portfolio_admin_events (actor_id, action, company_id) ` +
+      `values ('${fx.sysadmin}', 'scoped_in', '${A}');`
+  );
+  const landed = typeof audit === "string" ? -1 : audit.landed;
+  const ownEvent = landed === 1 ? "1 row(s) written" : `landed: ${landed}`;
+  const auditOk =
+    landed === 1 &&
+    !forgedEvent.includes("row(s) written") &&
+    forgedEvent !== "0 rows (refused by RLS)" &&
+    typeof readOwn !== "string" &&
+    readOwn.n === 0;
+  probes.push({
+    name: "portfolio audit · write own, read none",
+    granted: `own scope-in event: ${ownEvent}`,
+    withheld:
+      `event naming somebody else: ${forgedEvent} | own events read back: ` +
+      `${typeof readOwn === "string" ? readOwn : readOwn.n}`,
+    ok: auditOk,
+    detail: auditOk
+      ? "records itself, cannot record anybody else, and cannot read the record"
+      : !ownEvent.includes("row(s) written")
+        ? "THE AUDIT LAYER DOES NOT WORK: the actor cannot write its own event"
+        : "the audit layer is forgeable or readable by its subject",
+  });
+
+  return probes;
+}
+
 export function parseArgs(argv: string[]): {
   only: string | null;
   explain: boolean;
@@ -3485,10 +4272,14 @@ async function main(): Promise<void> {
     // database in that state, so say so and let it.
     cloneHead = null;
   }
-  const lag = cloneLag({ cloneHead, localMigrations });
+  const pendingVersions = pending ? pending.split(",") : [];
+  const lag = cloneLag({ cloneHead, localMigrations, pending: pendingVersions });
   console.log(
     `  Clone at ${cloneHead ?? "no migration history"}, repo at ${lag.newest ?? "none"}` +
-      (lag.behind.length > 0 ? ` — BEHIND by ${lag.behind.length}` : " — current")
+      (lag.behind.length > 0 ? ` — BEHIND by ${lag.behind.length}` : " — current") +
+      (pendingVersions.length > 0
+        ? ` (${pendingVersions.length} applied per-transaction by --pending)`
+        : "")
   );
 
   const ids = await loadIdentities(run);
@@ -3511,7 +4302,13 @@ async function main(): Promise<void> {
   // later batch and the idiom in hazard 1, and a check you have to
   // remember to ask for is not enforcement.
   const staticResult = await staticCheck(run);
-  console.log(batchSummaryLines([staticResult], "Static check over live policy text").join("\n"));
+  const portfolioResult = await portfolioAllowlistCheck(run, pendingSql);
+  console.log(
+    batchSummaryLines(
+      [staticResult, portfolioResult],
+      "Static checks over live policy text"
+    ).join("\n")
+  );
 
   // Grant probes run on every invocation for the same reason the
   // static check does: a guard you have to remember to ask for is not
@@ -3521,7 +4318,8 @@ async function main(): Promise<void> {
     console.log("  inside each transaction and rolled back with it.");
   }
   const probes = await grantProbes(run, ids, pendingSql);
-  console.log(grantSummaryLines(probes).join("\n"));
+  const portfolio = await portfolioProbes(run, ids, pendingSql);
+  console.log(grantSummaryLines([...probes, ...portfolio]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

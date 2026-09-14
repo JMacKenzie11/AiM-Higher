@@ -35,6 +35,7 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
     "system_admin",
     "aims_guide",
     "company_admin",
+    "portfolio_admin",
   ]);
   // Company admins don't have a list view — they only ever manage
   // their own company. Send them straight to that company's settings
@@ -51,6 +52,15 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
     redirect(`/admin/companies/${session.profile.company_id}`);
   }
   const isSystemAdmin = session.profile.role === "system_admin";
+  // The portfolio owner sees the same list a system admin does, and
+  // reaches every company on it. What they see is decided by RLS:
+  // companies_select_portfolio (0191) admits every row, and
+  // getCompaniesOverview reads through the caller's own client, so no
+  // branch is needed here to widen it. The branches BELOW are about
+  // platform administration (guide caseloads, the unrouted-meeting
+  // queue, creating companies) and stay system_admin's, with the one
+  // exception noted on the create form.
+  const isPortfolioAdmin = session.profile.role === "portfolio_admin";
 
   const [companies, flash, guides, sysadminCandidates] = await Promise.all([
     getCompaniesOverview(),
@@ -83,14 +93,20 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
       <section className={styles.hero} aria-label="Companies summary">
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>
-            {isSystemAdmin ? "System admin" : "AiMS Guide"}
+            {isSystemAdmin
+              ? "System admin"
+              : isPortfolioAdmin
+                ? "Portfolio admin"
+                : "AiMS Guide"}
           </p>
           <h1 className={styles.h1}>Companies</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
             {isSystemAdmin
               ? "Every company on the AiMS HQ Platform. Click a name to jump into its dashboard."
-              : "The companies you coach. Click a name to jump into its dashboard."}
+              : isPortfolioAdmin
+                ? "Every company in your portfolio. Click a name to jump into its dashboard. You can read everything and change nothing inside a company; settings, features and people are yours."
+                : "The companies you coach. Click a name to jump into its dashboard."}
           </p>
         </div>
       </section>
@@ -173,7 +189,14 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
           )}
         </section>
 
-        {isSystemAdmin ? (
+        {/* Creating a company is item 1 of portfolio_admin's closed
+            list, so this card is theirs as well as the system
+            admin's. Archiving (CompanyRowActions above) is also
+            theirs, but it lives in the same component as Delete,
+            which is not — so that one stays system-admin-only here
+            and a portfolio_admin archives from the company's own
+            settings page. RLS refuses their delete either way. */}
+        {isSystemAdmin || isPortfolioAdmin ? (
           <section className={styles.card} aria-labelledby="create-company">
             <h2 id="create-company" className={styles.h2}>
               Create a new company

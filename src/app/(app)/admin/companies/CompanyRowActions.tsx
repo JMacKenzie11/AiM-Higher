@@ -20,9 +20,21 @@ import styles from "./admin.module.css";
 export function CompanyRowActions({
   companyId,
   status,
+  canDelete = true,
 }: {
   companyId: string;
   status: "active" | "archived";
+  // Archive and Delete are a pair here, and portfolio_admin holds
+  // exactly one of them (migration 0192). Defaults to true so the
+  // existing system-admin call sites are unchanged; the company
+  // settings page passes false for a portfolio_admin.
+  //
+  // Courtesy only. deleteCompanyAction is system_admin-only,
+  // companies_delete admits system_admin alone, and `deleted_at` is
+  // absent from the column allowlist — three refusals behind this
+  // prop, which exists so the role is not offered a button that
+  // would fail.
+  canDelete?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +81,7 @@ export function CompanyRowActions({
             ? "Archive"
             : "Reactivate"}
       </button>
-      {status === "archived" ? (
+      {status === "archived" && canDelete ? (
         <button
           type="button"
           className={styles.dangerGhost}

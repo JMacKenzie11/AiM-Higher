@@ -9,6 +9,7 @@ import {
   setScopedCompanyCookie,
 } from "./scope";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { recordPortfolioEvent } from "@/lib/portfolio/audit";
 
 // Server actions callable from Client Components.
 
@@ -41,7 +42,11 @@ export async function scopeIntoCompany(
   // target must be one of their assignments; enforcement relies on
   // session.profile.guide_company_ids (loaded by getCurrentSession)
   // so we don't need a fresh DB query here.
-  const session = await requireRole(["system_admin", "aims_guide"]);
+  const session = await requireRole([
+    "system_admin",
+    "aims_guide",
+    "portfolio_admin",
+  ]);
 
   if (session.profile.role === "aims_guide") {
     const assignments = session.profile.guide_company_ids ?? [];
@@ -65,12 +70,25 @@ export async function scopeIntoCompany(
   }
 
   await setScopedCompanyCookie(companyId, session.profile.role);
+
+  // A portfolio_admin entering a company is the event with no row
+  // anywhere else. A guide entering one is already answerable through
+  // guide_assignments; this role has no such table by design, so the
+  // scope-in itself is what gets recorded. No-op for every other
+  // role — recordPortfolioEvent returns immediately.
+  await recordPortfolioEvent({
+    profile: session.profile,
+    action: "scoped_in",
+    companyId,
+    detail: { destination },
+  });
+
   revalidatePath("/", "layout");
   return { ok: true, redirectTo: destination };
 }
 
 export async function exitCompanyScopeAction(): Promise<never> {
-  await requireRole(["system_admin", "aims_guide"]);
+  await requireRole(["system_admin", "aims_guide", "portfolio_admin"]);
   await clearScopedCompanyCookie();
   revalidatePath("/", "layout");
   redirect("/admin/companies");

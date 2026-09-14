@@ -9,7 +9,7 @@ import {
   getLatestThemes,
 } from "@/lib/admin/dashboard-service";
 import { readAnthropicCostSummary } from "@/lib/admin/anthropic-cost";
-import { listSystemAdmins } from "@/lib/admin/system-admins";
+import { listSystemAdmins, listPortfolioAdmins } from "@/lib/admin/system-admins";
 import {
   defaultInsightsFilters,
   getCoachingInsightsAdoption,
@@ -54,6 +54,7 @@ export default async function AdminDashboardPage() {
     insightsAdoption,
     insightsSynthesis,
     systemAdmins,
+    portfolioAdmins,
   ] = await Promise.all([
     getPlatformPulse(),
     getCompanyActivity(),
@@ -66,6 +67,7 @@ export default async function AdminDashboardPage() {
     getCoachingInsightsAdoption(insightsInitialFilters),
     getCoachingInsightsSynthesis(insightsInitialFilters),
     listSystemAdmins(),
+    listPortfolioAdmins(),
   ]);
   const atRisk = computeAtRisk(activity);
   // Prefer real invoiced numbers from the Anthropic Admin API when
@@ -430,6 +432,27 @@ export default async function AdminDashboardPage() {
           currentProfileId={session.profile.id}
         />
         <SystemAdminForm />
+      </section>
+
+      {/* Portfolio admins. Its own card rather than a role option on
+          the one above: the two roles are not variants of each other.
+          A system_admin runs the platform; a portfolio_admin runs the
+          portfolio of companies ON it, with instance-wide read and a
+          closed list of three administrative writes (migrations
+          0190-0192). Minting one is system_admin-only, which is what
+          stops a portfolio_admin making another. */}
+      <section className={styles.card}>
+        <div className={styles.cardHeader}>
+          <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
+            Portfolio admins
+            <InfoTip text="Portfolio admins read every company on this instance and belong to none. They can create companies, set company settings and features, archive a company, and invite people into company roles. They cannot change anything a company produces, cannot delete a company, and cannot create another portfolio admin or a system admin. Every scope-in and every administrative action is recorded." />
+          </h2>
+        </div>
+        <SystemAdminList
+          admins={portfolioAdmins}
+          currentProfileId={session.profile.id}
+        />
+        <SystemAdminForm variant="portfolio_admin" />
       </section>
     </PageShell>
   );

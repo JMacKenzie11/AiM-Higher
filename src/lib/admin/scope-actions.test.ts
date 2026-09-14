@@ -235,8 +235,12 @@ describe("scopeIntoCompany", () => {
   });
 
   it("gates on role before anything else", async () => {
-    // requireRole is the first line: only the two cross-tenant roles
-    // reach the rest of the action at all.
+    // requireRole is the first line: only the three cross-tenant roles
+    // reach the rest of the action at all. portfolio_admin joined the
+    // list in migration 0190 — their scope is the whole instance, so
+    // unlike a guide there is no assignment check below for them to
+    // fail, which makes this line the only thing standing between the
+    // role and a company.
     mocks.requireRole.mockResolvedValue(sysAdminSession());
     const { scopeIntoCompany } = await import("./scope-actions");
     await scopeIntoCompany("co_target");
@@ -244,6 +248,7 @@ describe("scopeIntoCompany", () => {
     expect(mocks.requireRole).toHaveBeenCalledWith([
       "system_admin",
       "aims_guide",
+      "portfolio_admin",
     ]);
   });
 });

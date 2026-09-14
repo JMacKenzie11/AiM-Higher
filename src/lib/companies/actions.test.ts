@@ -90,7 +90,11 @@ const mocks = vi.hoisted(() => {
     throw new Error(`Unexpected table in test: ${table}`);
   };
 
-  const serverClient = { from: fromBuilder };
+  // createCompany reaches seed_company_roots through .rpc(); the fake
+  // client needs it or the call throws before the assertion.
+  const rpc = vi.fn(async () => ({ data: null, error: null }));
+
+  const serverClient = { from: fromBuilder, rpc };
 
   // Admin client: separate fake. deleteCompanyAction uses this to
   // bypass RLS for the soft-delete UPDATE. Only companies.update is
@@ -131,6 +135,7 @@ const mocks = vi.hoisted(() => {
     functionsInsertPlain,
     functionsInsertPatches,
     quartersInsertPlain,
+    rpc,
     serverClient,
     adminClient,
     requireRole,
@@ -286,10 +291,24 @@ describe("createCompanyAction", () => {
     expect(rows.map((r) => r.feature).sort()).toEqual(["classroom", "strengths"]);
   });
 
-  it("seeds the Visionary + Integrator functions and the current calendar quarter", async () => {
+  it("seeds the chart roots and opening quarter through seed_company_roots", async () => {
     // Removing these seeds would leave a new company unable to drop
     // actions or open the chart until the admin manually created the
     // root functions and opened a quarter.
+    //
+    // They moved from two inserts here into a SECURITY DEFINER
+    // database function in migration 0192, and the reason is a
+    // permissions one: `functions` and `quarters` are content tables,
+    // portfolio_admin may create a company and may never write
+    // content, and doing the seeding under the caller's identity
+    // would have forced a content write policy onto both tables to
+    // make the button work.
+    //
+    // What this test can still see is that the seeding is ASKED FOR.
+    // That it happens is proved in scripts/rls-harness.ts, which
+    // creates a company as a real portfolio_admin and counts two
+    // functions and one quarter afterwards — there is no Postgres
+    // here, which is precisely how the industry grant shipped broken.
     const { createCompanyAction } = await import("./actions");
 
     await createCompanyAction(
@@ -297,24 +316,12 @@ describe("createCompanyAction", () => {
       formDataFrom({ name: "Acme", features: ["strengths"] })
     );
 
-    expect(mocks.functionsInsertPatches).toHaveLength(2);
-    const [visionary, integrator] = mocks.functionsInsertPatches as Array<{
-      title: string;
-      parent_function_id: string | null;
-    }>;
-    expect(visionary.title).toBe("Visionary");
-    expect(visionary.parent_function_id).toBeNull();
-    expect(integrator.title).toBe("Integrator");
-    expect(integrator.parent_function_id).toBe("fn_visionary");
-    // Quarter seed.
-    expect(mocks.quartersInsertPlain).toHaveBeenCalledWith(
-      expect.objectContaining({
-        label: "2026 Q3",
-        start_date: "2026-07-01",
-        end_date: "2026-09-30",
-        status: "open",
-      })
-    );
+    expect(mocks.rpc).toHaveBeenCalledWith("seed_company_roots", {
+      p_company_id: "co_new",
+    });
+    // And not by hand any more, from either side.
+    expect(mocks.functionsInsertPatches).toHaveLength(0);
+    expect(mocks.quartersInsertPlain).not.toHaveBeenCalled();
   });
 
   it("returns a partial-success message when the company row saved but features didn't", async () => {
@@ -523,16 +530,26 @@ describe("setCompanyTimezoneAction", () => {
     primeHappyPath();
   });
 
-  it("asks for system_admin and nothing else", async () => {
+  it("asks for system_admin and portfolio_admin, and nothing else", async () => {
     // Pinned deliberately. Adding a role here is the exact shape of
     // failure mode E5: the action widens, the policy does not, and
-    // the field fails on every save. If this assertion is updated,
-    // the RLS change and its probe belong in the same PR.
+    // the field fails on every save.
+    //
+    // It has been updated once, and the rule was followed. When
+    // portfolio_admin was added (migrations 0190-0192) the RLS came
+    // with it — `timezone` is in the column allowlist on
+    // companies_restrict_admin_columns — and so did the probe, which
+    // sets the timezone as a real portfolio_admin JWT and checks the
+    // event that records it. Company admins and guides are still
+    // refused, by the same guard, and that refusal is probed too.
     const { setCompanyTimezoneAction } = await import("./actions");
 
     await setCompanyTimezoneAction("co_1", "America/Denver");
 
-    expect(mocks.requireRole).toHaveBeenCalledWith(["system_admin"]);
+    expect(mocks.requireRole).toHaveBeenCalledWith([
+      "system_admin",
+      "portfolio_admin",
+    ]);
   });
 
   it("writes a timezone from the supported list", async () => {

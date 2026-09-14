@@ -17,6 +17,7 @@ import {
 import { trackAfter } from "@/lib/analytics/track";
 import type { Profile, Role } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { recordPortfolioEvent } from "@/lib/portfolio/audit";
 
 // Roster actions — replaces the old invitations flow.
 //
@@ -49,7 +50,18 @@ function canManageProfileIn(
   targetCompanyId: string | null
 ): boolean {
   if (profile.role === "system_admin") return true;
+  // The null check comes BEFORE the portfolio_admin branch, and the
+  // order is the whole guard. A company-less profile is a platform
+  // role — a system_admin, a guide, another portfolio_admin — and
+  // "instance-wide" must not be read as "including the people who run
+  // the instance". profiles_insert_portfolio (0192) says the same
+  // thing in SQL with `company_id is not null`.
   if (targetCompanyId === null) return false;
+  // Item 3 of the closed list: staff any company on the instance.
+  // Which ROLES may be minted is a separate question, answered in
+  // createUserAction and again in the policy; this only answers
+  // "which company".
+  if (profile.role === "portfolio_admin") return true;
   return isAdminForCompany(profile, targetCompanyId);
 }
 
@@ -58,7 +70,12 @@ export async function createUserAction(
   _prev: UserActionResult | undefined,
   formData: FormData
 ): Promise<UserActionResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole([
+    "system_admin",
+    "company_admin",
+    "aims_guide",
+    "portfolio_admin",
+  ]);
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "").trim();
@@ -70,13 +87,26 @@ export async function createUserAction(
   if (!email || !fullName) {
     return { ok: false, message: "Name and email are required." };
   }
+  // THE ROLE CEILING. This action can mint a company_admin and a
+  // team_member and nothing else, for any caller — so a
+  // portfolio_admin cannot create another portfolio_admin or a
+  // system_admin through it, and neither can anybody else.
+  //
+  // It is not the only thing saying so, and that is deliberate.
+  // profiles_insert_portfolio (0192) carries the same clause in SQL,
+  // so the ceiling survives this check being edited, and the harness
+  // probes the SQL half as a real portfolio_admin JWT rather than
+  // trusting this line. The platform roles are minted by
+  // createSystemAdminAction and createPortfolioAdminAction, both
+  // system_admin only, both taking no company at all.
   if (role !== "company_admin" && role !== "team_member") {
     return { ok: false, message: "Choose a valid role." };
   }
 
-  // company_admin always creates in their own company; sysadmins
-  // and guides name the company in the form (guides have no
-  // company_id of their own, so the form value is the only source).
+  // company_admin always creates in their own company; sysadmins,
+  // guides and portfolio admins name the company in the form (none of
+  // them has a company_id of their own, so the form value is the only
+  // source).
   const companyId =
     session.profile.role === "company_admin"
       ? (session.profile.company_id ?? "")
@@ -120,6 +150,13 @@ export async function createUserAction(
     }
   }
 
+  await recordPortfolioEvent({
+    profile: session.profile,
+    action: "user_invited",
+    companyId,
+    detail: { email, role, invite_sent: sendInviteNow },
+  });
+
   revalidatePath(`/admin/companies/${companyId}`);
   revalidatePath(`/people`);
   return { ok: true, profileId: userId, warning };
@@ -150,6 +187,36 @@ export async function createSystemAdminAction(
   _prev: UserActionResult | undefined,
   formData: FormData
 ): Promise<UserActionResult> {
+  return createPlatformUser("system_admin", formData);
+}
+
+// The portfolio owner. Same shape, same invitation, same absence of a
+// company — and, critically, the same caller: SYSTEM_ADMIN ONLY.
+//
+// This is the action that would have to be widened for a
+// portfolio_admin to make another one, and it is not. The other three
+// places that would also have to give way are createUserAction's role
+// ceiling, updateUserAction's grant guard, and
+// profiles_insert_portfolio's `role in (...)` clause in 0192. The
+// harness probes the last of those as a real portfolio_admin JWT,
+// because it is the only one of the four that an app-layer mistake
+// cannot reach past.
+export async function createPortfolioAdminAction(
+  _prev: UserActionResult | undefined,
+  formData: FormData
+): Promise<UserActionResult> {
+  return createPlatformUser("portfolio_admin", formData);
+}
+
+// Shared body for the two company-less roles.
+//
+// One function rather than two near-copies: the pair differ by a
+// single string, and the copy that drifts is the one that quietly
+// stops revalidating a path or stops reporting a failed invite.
+async function createPlatformUser(
+  role: "system_admin" | "portfolio_admin",
+  formData: FormData
+): Promise<UserActionResult> {
   const session = await requireRole(["system_admin"]);
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -169,8 +236,10 @@ export async function createSystemAdminAction(
     admin,
     email,
     fullName,
-    role: "system_admin",
-    // No company. That is what the role means.
+    role,
+    // No company. That is what both roles mean, and what every
+    // `auth_company_id() = company_id` predicate in the schema
+    // depends on being true of them.
     companyId: null,
   });
   if (!created.ok) return created;
@@ -201,6 +270,12 @@ export async function createSystemAdminAction(
   return { ok: true, profileId: created.profileId };
 }
 
+// Editing an existing user is NOT on portfolio_admin's closed list,
+// and its absence here is a decision rather than an omission. That
+// role may staff a company; it may not then rewrite the people in it.
+// There is no profiles UPDATE or DELETE policy for the role either
+// (0192), so this is the app agreeing with the database rather than
+// the app being the only thing in the way.
 export async function updateUserAction(
   _prev: UserActionResult | undefined,
   formData: FormData
@@ -228,13 +303,16 @@ export async function updateUserAction(
     role !== "system_admin" &&
     role !== "company_admin" &&
     role !== "team_member" &&
-    role !== "aims_guide"
+    role !== "aims_guide" &&
+    role !== "portfolio_admin"
   ) {
     return { ok: false, message: "Choose a valid role." };
   }
   if (
     session.profile.role !== "system_admin" &&
-    (role === "system_admin" || role === "aims_guide")
+    (role === "system_admin" ||
+      role === "aims_guide" ||
+      role === "portfolio_admin")
   ) {
     return {
       ok: false,

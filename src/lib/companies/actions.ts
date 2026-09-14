@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/current-user";
-import { isAdminForCompany } from "@/lib/auth/permissions";
+import { canViewCompany } from "@/lib/auth/permissions";
+import { recordPortfolioEvent } from "@/lib/portfolio/audit";
 import { createCompany } from "@/lib/companies/create-company";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
 import { isValidCompanyTimezone } from "@/lib/companies/timezones";
@@ -23,7 +24,11 @@ export async function createCompanyAction(
   _prev: CompanyResult | undefined,
   formData: FormData
 ): Promise<CompanyResult> {
-  const session = await requireRole(["system_admin"]);
+  // Creating a company is item 1 of portfolio_admin's closed list.
+  // The matching RLS is companies_insert_portfolio (0192); the chart
+  // roots and opening quarter are seeded by seed_company_roots, which
+  // is why this grant needs no content write policy anywhere.
+  const session = await requireRole(["system_admin", "portfolio_admin"]);
 
   const name = String(formData.get("name") ?? "").trim();
   const timezone = String(formData.get("timezone") ?? "").trim();
@@ -46,6 +51,13 @@ export async function createCompanyAction(
     features,
   });
   if (!result.ok) return result;
+
+  await recordPortfolioEvent({
+    profile: session.profile,
+    action: "company_created",
+    companyId: result.company.id,
+    detail: { name: result.company.name, features },
+  });
 
   revalidatePath("/admin/companies");
 
@@ -80,7 +92,12 @@ export async function setCompanyFeaturesAction(
   companyId: string,
   features: string[]
 ): Promise<CompanyFeaturesResult> {
-  await requireRole(["system_admin"]);
+  // Item 2: feature flags. company_features_insert_portfolio and
+  // company_features_delete_portfolio (0192) are the boundary. The
+  // 0173 trigger writes company_feature_events for both halves, so a
+  // portfolio_admin toggling a feature leaves the same entitlement
+  // history a system_admin does, with nothing here arranging it.
+  const session = await requireRole(["system_admin", "portfolio_admin"]);
 
   const cleaned = Array.from(
     new Set(features.map((f) => f.trim()).filter((f) => VALID_COMPANY_FEATURES.has(f)))
@@ -123,6 +140,25 @@ export async function setCompanyFeaturesAction(
     }
   }
 
+  // One event per flag that actually moved, not one per save. "They
+  // pressed save" is not the question anybody asks of this table.
+  for (const feature of toAdd) {
+    await recordPortfolioEvent({
+      profile: session.profile,
+      action: "feature_enabled",
+      companyId,
+      detail: { feature },
+    });
+  }
+  for (const feature of toRemove) {
+    await recordPortfolioEvent({
+      profile: session.profile,
+      action: "feature_disabled",
+      companyId,
+      detail: { feature },
+    });
+  }
+
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${companyId}`);
   // Toggling a feature must also invalidate the app layout, otherwise
@@ -146,8 +182,15 @@ export async function setCompanyIndustryAction(
     "system_admin",
     "company_admin",
     "aims_guide",
+    "portfolio_admin",
   ]);
-  if (!isAdminForCompany(session.profile, companyId)) {
+  // canViewCompany rather than isAdminForCompany: the latter answers
+  // "may this caller write content here", which a portfolio_admin may
+  // not, and industry is a container setting rather than content.
+  // 0192's column allowlist is what holds the line — it lets this
+  // role change name, timezone, industry and status, and raises on
+  // anything else including deleted_at.
+  if (!canViewCompany(session.profile, companyId)) {
     return { ok: false, message: "Not your company to edit." };
   }
 
@@ -164,6 +207,13 @@ export async function setCompanyIndustryAction(
   if (error || !data) {
     return { ok: false, message: "Couldn't update the industry." };
   }
+
+  await recordPortfolioEvent({
+    profile: session.profile,
+    action: "company_settings_changed",
+    companyId,
+    detail: { field: "industry", value: cleaned },
+  });
 
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${companyId}`);
@@ -194,7 +244,14 @@ export async function setCompanyTimezoneAction(
   companyId: string,
   timezone: string
 ): Promise<CompanyResult> {
-  await requireRole(["system_admin"]);
+  // portfolio_admin joins system_admin here, and the reason is the
+  // same one that kept company admins out: moving a clock re-dates a
+  // tenant's reporting history, so it belongs to whoever owns the
+  // reporting. A portfolio_admin does; a company admin does not.
+  // `timezone` is in 0192's column allowlist and the change is
+  // recorded twice over — company_settings_events by trigger, and
+  // portfolio_admin_events below.
+  const session = await requireRole(["system_admin", "portfolio_admin"]);
 
   // Checked against the list rather than trimmed into shape. A value
   // that needs cleaning did not come from the select, and a timezone
@@ -215,6 +272,13 @@ export async function setCompanyTimezoneAction(
     return { ok: false, message: "Couldn't update the timezone." };
   }
 
+  await recordPortfolioEvent({
+    profile: session.profile,
+    action: "company_settings_changed",
+    companyId,
+    detail: { field: "timezone", value: timezone },
+  });
+
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${companyId}`);
   // Every bucketed read in the app resolves "today" through this
@@ -225,11 +289,18 @@ export async function setCompanyTimezoneAction(
   return { ok: true, company: data };
 }
 
+// Archive yes, delete no.
+//
+// This is the half of the pair a portfolio_admin gets. The other half
+// is deleteCompanyAction below, which stays system_admin only — and
+// not only here: `deleted_at` is absent from 0192's column allowlist,
+// so this role cannot reach it even if this action were widened by
+// mistake.
 export async function setCompanyStatusAction(
   companyId: string,
   status: "active" | "archived"
 ): Promise<CompanyResult> {
-  await requireRole(["system_admin"]);
+  const session = await requireRole(["system_admin", "portfolio_admin"]);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
@@ -241,6 +312,13 @@ export async function setCompanyStatusAction(
   if (error || !data) {
     return { ok: false, message: "Couldn't update that company." };
   }
+
+  await recordPortfolioEvent({
+    profile: session.profile,
+    action: status === "archived" ? "company_archived" : "company_unarchived",
+    companyId,
+    detail: { status },
+  });
 
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${companyId}`);

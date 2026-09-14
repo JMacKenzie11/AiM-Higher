@@ -6,6 +6,7 @@ import {
   type ProfileResult,
 } from "@/lib/people/actions";
 import styles from "./profile.module.css";
+import type { Role } from "@/lib/types";
 
 const INITIAL: ProfileResult = { ok: false, message: "" };
 
@@ -22,7 +23,9 @@ export function ProfileDetailsForm({
   id: string;
   fullName: string;
   position: string;
-  role: "system_admin" | "company_admin" | "team_member" | "aims_guide";
+  // The shared Role union, not a copy of it. The copy fell out of
+  // date the day portfolio_admin was added.
+  role: Role;
 }) {
   const [state, formAction, pending] = useActionState<ProfileResult, FormData>(
     updateProfileAction,

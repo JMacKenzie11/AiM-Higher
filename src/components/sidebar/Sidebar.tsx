@@ -10,6 +10,7 @@ import { exitCompanyScopeAction } from "@/lib/admin/scope-actions";
 import { NotificationBell } from "@/components/nav-band/NotificationBell";
 import type { NotificationItem } from "@/lib/notifications/service";
 import styles from "./Sidebar.module.css";
+import type { Role } from "@/lib/types";
 
 // Left-rail primary navigation. Replaces the top NavBand: one click
 // to any surface, groups become section headers instead of dropdowns
@@ -30,7 +31,10 @@ type Feature =
   | "strengths"
   | "performance_tracking"
   | "classroom";
-type NavRole = "system_admin" | "company_admin" | "team_member" | "aims_guide";
+// The shared Role union rather than a fourth copy of it. Every copy
+// of this list in the codebase had to be found by the typechecker
+// when portfolio_admin landed; this one now cannot drift again.
+type NavRole = Role;
 
 type NavLink = {
   kind: "link";
@@ -57,10 +61,17 @@ type NavItem =
       items: readonly NavLink[];
     };
 
+// Roles that see the admin-shaped navigation while scoped into a
+// company. portfolio_admin is here because they administer the
+// container: they need the company settings surface to reach features
+// and the roster. What they can DO once there is decided by RLS and
+// by isAdminForCompany, which does not admit them, so every content
+// write button on those pages renders read-only.
 const ADMIN_ROLES: readonly NavRole[] = [
   "system_admin",
   "company_admin",
   "aims_guide",
+  "portfolio_admin",
 ];
 
 // Company-scoped items. Week in Review sits second in Workspace

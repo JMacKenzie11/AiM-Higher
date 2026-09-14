@@ -45,9 +45,18 @@ export function EditUserForm({
     { value: "team_member", label: "Team member" },
     { value: "company_admin", label: "Company admin" },
   ];
+  // The three company-less roles, offered only to a system_admin.
+  //
+  // This is the courtesy half. updateUserAction refuses the same
+  // three for any other caller, and no RLS policy anywhere lets a
+  // non-system_admin write them — profiles_insert_portfolio (0192)
+  // and profiles_insert_guide both carry `role in
+  // ('company_admin','team_member')`. A dropdown is a hint about what
+  // will work, never the reason it does.
   if (canGrantAdmin) {
     roleOptions.push({ value: "system_admin", label: "System admin" });
     roleOptions.push({ value: "aims_guide", label: "AiMS guide" });
+    roleOptions.push({ value: "portfolio_admin", label: "Portfolio admin" });
   }
 
   const firstName = subject.first_name ?? subject.full_name.split(" ")[0] ?? "";

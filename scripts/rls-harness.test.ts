@@ -24,6 +24,8 @@ import {
   type CaseResult,
   type GrantProbe,
   type PolicyRow,
+  portfolioWriteOffenders,
+  portfolioWritePolicies,
 } from "./rls-harness.ts";
 
 // The pure halves of the RLS harness. The cases themselves need a real
@@ -688,5 +690,133 @@ describe("cloneLag", () => {
     expect(
       cloneLag({ cloneHead: "0099", localMigrations: ["0099_a.sql", "0100_b.sql"] }).behind
     ).toEqual(["0100"]);
+  });
+});
+
+// ---- portfolio_admin write allowlist ---------------------------
+//
+// The closed list, as a matcher. These are the cases the live check
+// cannot exercise: a policy spelled the other way, a SELECT policy
+// that must NOT count, and an offender on a table nobody probed.
+describe("portfolioWriteOffenders", () => {
+  const row = (
+    tablename: string,
+    policyname: string,
+    cmd: string,
+    body: string
+  ): PolicyRow => ({
+    tablename,
+    policyname,
+    cmd,
+    qual: body,
+    with_check: null,
+  });
+
+  const HELPER = "(select public.is_portfolio_admin())";
+  const LITERAL = "(select auth_role()) = 'portfolio_admin'";
+
+  it("accepts the four allowlisted tables", () => {
+    const rows = [
+      row("companies", "companies_insert_portfolio", "INSERT", HELPER),
+      row("company_features", "cf_insert_portfolio", "INSERT", HELPER),
+      row("profiles", "profiles_insert_portfolio", "INSERT", HELPER),
+      row("portfolio_admin_events", "pae_insert", "INSERT", HELPER),
+    ];
+    expect(portfolioWriteOffenders(rows)).toEqual([]);
+    expect(portfolioWritePolicies(rows)).toHaveLength(4);
+  });
+
+  it("catches a content grant written with the helper", () => {
+    const rows = [row("commitments", "c_update_portfolio", "UPDATE", HELPER)];
+    expect(portfolioWriteOffenders(rows)).toEqual([
+      "commitments.c_update_portfolio",
+    ]);
+  });
+
+  it("catches a content grant written as a bare role comparison", () => {
+    // The spelling somebody reaches for when they are in a hurry. A
+    // matcher that only knew the helper would call this clean.
+    const rows = [row("issues", "i_insert_portfolio", "INSERT", LITERAL)];
+    expect(portfolioWriteOffenders(rows)).toEqual(["issues.i_insert_portfolio"]);
+  });
+
+  it("ignores SELECT policies, which are the point of the role", () => {
+    // 0191 is forty-nine of these. If they counted, the check would
+    // fail on the read grant it exists alongside.
+    const rows = [row("commitments", "c_select_portfolio", "SELECT", HELPER)];
+    expect(portfolioWritePolicies(rows)).toEqual([]);
+    expect(portfolioWriteOffenders(rows)).toEqual([]);
+  });
+
+  it("ignores write policies that do not name the role at all", () => {
+    const rows = [
+      row("commitments", "c_update", "UPDATE", "(select auth_role()) = 'system_admin'"),
+    ];
+    expect(portfolioWritePolicies(rows)).toEqual([]);
+  });
+
+  it("reads the role out of with_check as well as qual", () => {
+    // An INSERT policy has no USING clause at all, so a matcher that
+    // only read `qual` would be blind to every insert grant — which
+    // is most of this role's write surface.
+    const rows: PolicyRow[] = [
+      {
+        tablename: "priorities",
+        policyname: "p_insert_portfolio",
+        cmd: "INSERT",
+        qual: null,
+        with_check: HELPER,
+      },
+    ];
+    expect(portfolioWriteOffenders(rows)).toEqual([
+      "priorities.p_insert_portfolio",
+    ]);
+  });
+
+  it("treats a row with no cmd as a SELECT rather than guessing", () => {
+    // The pure matchers are also fed hand-made rows with no command.
+    // Defaulting to SELECT means such a row can never be reported as
+    // an offender on the strength of a field that was not supplied.
+    const rows: PolicyRow[] = [
+      {
+        tablename: "commitments",
+        policyname: "mystery",
+        qual: HELPER,
+        with_check: null,
+      },
+    ];
+    expect(portfolioWritePolicies(rows)).toEqual([]);
+  });
+});
+
+describe("cloneLag with --pending", () => {
+  it("does not count a migration this run applies per-transaction", () => {
+    // A batch's own migrations are unlanded by definition. Counting
+    // them would make the gate refuse the run it exists to protect.
+    const lag = cloneLag({
+      cloneHead: "0189",
+      localMigrations: ["0189_x.sql", "0190_y.sql", "0191_z.sql"],
+      pending: ["0190_y.sql", "0191_z.sql"],
+    });
+    expect(lag.behind).toEqual([]);
+    expect(lag.newest).toBe("0191");
+  });
+
+  it("still catches one that is neither deployed nor pending", () => {
+    const lag = cloneLag({
+      cloneHead: "0189",
+      localMigrations: ["0190_y.sql", "0191_z.sql", "0192_w.sql"],
+      pending: ["0190_y.sql"],
+    });
+    expect(lag.behind).toEqual(["0191", "0192"]);
+  });
+
+  it("tolerates whitespace around a comma-separated pending list", () => {
+    const lag = cloneLag({
+      cloneHead: "0189",
+      localMigrations: ["0190_y.sql"],
+      pending: [" 0190_y.sql "],
+    });
+    expect(lag.behind).toEqual([]);
   });
 });
