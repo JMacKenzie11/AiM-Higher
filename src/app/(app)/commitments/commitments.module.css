@@ -1513,3 +1513,38 @@ a.fromMeetingChip:hover {
   composes: btnGhost from "../../../components/ui/ui.module.css";
 }
 
+
+/* The From issue pill, in the PRIORITY column.
+ *
+ * It sits where the link chip would, because for an issue-linked
+ * commitment the issue IS the link — and an issue is not a priority,
+ * so the chip's usual "label myself with whatever I'm linked to"
+ * behaviour put the issue's title under a header reading PRIORITY.
+ *
+ * It used to sit under the commitment description, where it made that
+ * cell taller than the others and pushed the whole row out of
+ * alignment. Moving it here fixes that as a side effect of being more
+ * accurate about what the column means.
+ *
+ * Styled as the muted, unlinked-looking chip rather than the amber
+ * priority one: this cell is reporting an absence of priority, and
+ * should not draw the eye as though it were reporting one. */
+.fromIssuePill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.fromIssuePill:hover {
+  border-color: var(--aims-cobalt);
+  color: var(--aims-cobalt);
+}

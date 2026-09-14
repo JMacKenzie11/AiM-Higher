@@ -629,20 +629,6 @@ export function CommitmentRow({
                 </span>
               )
             ) : null}
-            {/* From issue. Same chip, same placement, same shape as
-                From meeting below it. Everyone gets the link — unlike
-                a meeting analysis, the issues page is company-wide
-                and a team member can already read it. There is no
-                issue detail page, so it anchors the row. */}
-            {commitment.issue ? (
-              <Link
-                href={`/issues#issue-${commitment.issue.id}`}
-                className={styles.fromMeetingChip}
-                title={`From the issue "${commitment.issue.title}" — click to open it`}
-              >
-                From issue
-              </Link>
-            ) : null}
             {commitment.source_meeting_id ? (
               isAdmin ? (
                 <Link
@@ -724,6 +710,29 @@ export function CommitmentRow({
 
       {hidePriority ? (
         <span aria-hidden />
+      ) : commitment.issue ? (
+        /* AN ISSUE COMMITMENT HAS NO PRIORITY. An issue is not a
+           priority and is not attached to one, so the link chip's
+           usual behaviour — label itself with whatever the
+           commitment is linked to — put the issue's title under a
+           header that reads PRIORITY, claiming something untrue.
+           
+           The From issue pill lives here instead of under the
+           description, which is both more honest and what fixes the
+           alignment: a pill below the textbox stretched the
+           commitment cell and pushed it out of line with the rest of
+           the row.
+           
+           No picker for these rows. Moving a commitment off its
+           issue is an action that belongs in the issue's own
+           context, not in a column claiming to be about priorities. */
+        <Link
+          href={`/issues#issue-${commitment.issue.id}`}
+          className={styles.fromIssuePill}
+          title={`From the issue "${commitment.issue.title}" — click to open it`}
+        >
+          From issue
+        </Link>
       ) : (
         <CommitmentLinkChip
           commitment={commitment}

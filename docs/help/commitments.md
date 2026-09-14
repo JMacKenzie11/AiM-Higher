@@ -115,9 +115,11 @@ stated in the meeting, the extracted commitment defaults to
 **meeting date + 7 days**. Auto-creation depends on the
 *Automated Commitment Tracking* company feature.
 
-**What does the *From issue* tag mean?** That commitment was made
-against an issue on Issues/Solutions. Click the tag to open that
-issue and see the whole thread of commitments on it. These used to
+**What does the *From issue* pill in the Priority column mean?**
+That commitment was made against an issue on Issues/Solutions, and
+has no priority — an issue is not a priority, and is not attached to
+one. Click the pill to open that issue and see the whole thread of
+commitments on it. These used to
 be hidden from this page and are not any more: they always counted
 toward follow-through and the scorecard, so leaving them off the
 list you actually read meant being measured on work you could not
