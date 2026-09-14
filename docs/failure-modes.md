@@ -746,3 +746,46 @@ handle a null either way. Shown failing against the unfixed
 run produced a false positive on a query whose filter was present but
 pushed out of the match window by a comment, which is why it strips
 comments before measuring.
+
+### E8. The absence of a policy read as the absence of a privilege
+
+**Situation.** A table is locked down by writing exactly the policies
+it should have and no others. The reasoning is that RLS decides who
+may do what, so a verb with no policy is a verb nobody can perform.
+The verb is in fact grantable separately, the platform has already
+granted it, and the policy-shaped hole hides a privilege-shaped one.
+
+**Specimen.** `coach_memories` (0194) is append-only: no UPDATE policy
+exists, deliberately, and the migration said so at length. Supabase
+ships `alter default privileges in schema public grant all on tables
+to anon, authenticated, service_role`, so the table arrived with
+UPDATE already granted to `authenticated`. The migration's `revoke
+all` named `public`, `anon` and `service_role` — and not the one role
+that actually had a session. An UPDATE therefore ran, RLS filtered
+every row because no policy admitted any, and it reported **0 rows
+affected**: indistinguishable from a refusal, and one policy away from
+being a rewrite.
+
+Caught because the probe demanded a **statement-level refusal**
+(`42501`) rather than an empty result. A probe asserting "0 rows" would
+have passed on the broken migration and gone on passing.
+
+**Rule.** **On a table whose protection is the point, assert the
+PRIVILEGE, not the policy.** `has_table_privilege` answers the
+question a policy count cannot: policies decide which rows a verb
+touches, grants decide whether the verb runs at all, and only the
+second one is still true when someone adds a permissive policy later.
+Revoke from every role by name — the pseudo-role `public` is not a
+superset of `authenticated` — then grant back exactly the verbs
+intended.
+
+**Corollary for zeroes.** An empty result and a refusal look alike and
+are not alike. Where the claim is "nobody can", the probe should be
+able to tell which one it got; where it cannot, it is measuring the
+data rather than the wall.
+
+**Pinned by.** The permanent `coach_memories access wall` check in
+`scripts/rls-harness.ts`, which asserts `authenticated` holds neither
+UPDATE nor INSERT and `service_role` holds no SELECT, alongside the
+policy-text assertions — plus the batch probes expecting `42501` from
+both the subject and a system_admin.

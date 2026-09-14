@@ -684,6 +684,32 @@ export type Batch = {
   // whose DELETE goes through a policy with no status clause, so the
   // owner rule it was meant to exercise was never touched. E5.
   writeProbes?: WriteProbes;
+  // PERSON-SCOPED tables: no company_id, and no company-scoped caller
+  // can read them at all.
+  //
+  // Every standard check here derives its control caller from the
+  // companies that have rows in the table, because until
+  // coach_memories every table in this schema was company-scoped. On
+  // a person-scoped table that derivation is not merely unavailable,
+  // it is the wrong question: the control cannot be "an ordinary
+  // member of a company with rows here" when the whole claim is that
+  // no such person can read a row.
+  //
+  // So the batch supplies its own control. `control` is SQL returning
+  // one (id, role) — the identity that SHOULD be able to read — and
+  // `seed` is run as postgres with $caller replaced by that id, so
+  // the control has something to see. Isolation is skipped and says
+  // why: tenant isolation is not the mechanism protecting these
+  // tables, and a green from a check that does not apply is worse
+  // than an honest skip.
+  personScoped?: Readonly<Record<string, { control: string; seed: string }>>;
+  // Tables this batch CREATES. There is no "before" to measure on a
+  // table that does not exist yet, and every before/after pair here
+  // assumes one — reasonably, because until now every batch rewrote
+  // policies on tables that were already there. Listing a table here
+  // makes the before side report "did not exist" instead of erroring,
+  // which is the truthful answer and the only one available.
+  newTables?: readonly string[];
 };
 
 // One row of named ids, fetched as postgres before any probe runs.
@@ -740,6 +766,197 @@ export type WriteProbe = {
 };
 
 export const BATCHES: readonly Batch[] = [
+  // ---- coach_memories: the access wall --------------------------
+  //
+  // Not an F8 hoist and not a widening. A new table whose entire
+  // claim is a NEGATIVE one — that nobody except the subject can read
+  // it — and a negative claim is exactly the kind that passes by
+  // accident. Every zero below stands beside a control that proves
+  // the row it failed to read exists.
+  //
+  // system_admin is probed FIRST and reported FIRST because it is the
+  // promise. The others are refused by policies that at least have a
+  // shape somebody might expect; the platform's highest role being
+  // refused is the thing a reader should not have to scroll for.
+  {
+    n: "coach-memory",
+    tables: ["coach_memories"],
+    migration: "0194_coach_memories.sql",
+    newTables: ["coach_memories"],
+    personScoped: {
+      coach_memories: {
+        // The one identity that can read a row: the subject. Any
+        // active team member will do — the claim is about the
+        // relationship, not the person.
+        control: `select id, role from public.profiles
+                   where role = 'team_member' and status = 'active'
+                     and company_id is not null limit 1;`,
+        seed: `insert into public.coach_memories (profile_id, kind, content)
+                 values ('$caller', 'said', 'harness fixture: deleted-user control');`,
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        select
+          m.id as subject,
+          m.company_id as subject_company,
+          (select id from public.profiles where role = 'system_admin'
+             and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles where role = 'company_admin'
+             and status = 'active' and company_id = m.company_id limit 1) as admin,
+          (select p.id from public.profiles p
+             join public.guide_assignments ga on ga.guide_id = p.id
+            where p.role = 'aims_guide' and p.status = 'active'
+              and ga.company_id = m.company_id limit 1) as guide,
+          -- A CONSTANT, seeded per probe. The clone has no
+          -- portfolio_admin of its own, and a fixture that comes back
+          -- null reports NOT PROVEN — correctly, because a probe
+          -- against a missing caller returns 0 and reads like a
+          -- denial. Same approach the portfolio write probes take.
+          'aaaaaaaa-0000-4000-8000-000000000009'::uuid as portfolio,
+          (select id from public.profiles where company_id = m.company_id
+             and id <> m.id and status = 'active' limit 1) as colleague
+        from public.profiles m
+        where m.role = 'team_member' and m.status = 'active'
+          and m.company_id is not null
+        limit 1;`,
+      probes: [
+        // THE PROMISE. First, because it is the claim the table exists
+        // to make.
+        {
+          name: "system_admin reads the subject's memory",
+          caller: "sysadmin",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "select count(*)::int as n from public.coach_memories where profile_id = '$subject';",
+          expect: "0",
+          provenBy: "subject",
+        },
+        {
+          name: "portfolio_admin reads the subject's memory",
+          caller: "portfolio",
+          setup:
+            "insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at) values ('aaaaaaaa-0000-4000-8000-000000000009', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'harness-memory-pa@example.invalid', '', now(), now(), now()); insert into public.profiles (id, company_id, full_name, role, status) values ('aaaaaaaa-0000-4000-8000-000000000009', null, 'Harness Memory PA', 'portfolio_admin', 'active'); insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "select count(*)::int as n from public.coach_memories where profile_id = '$subject';",
+          expect: "0",
+          provenBy: "subject",
+        },
+        {
+          name: "company_admin reads their own report's memory",
+          caller: "admin",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "select count(*)::int as n from public.coach_memories where profile_id = '$subject';",
+          expect: "0",
+          provenBy: "subject",
+        },
+        {
+          name: "aims_guide reads a memory in a company they are assigned",
+          caller: "guide",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "select count(*)::int as n from public.coach_memories where profile_id = '$subject';",
+          expect: "0",
+          provenBy: "subject",
+        },
+        {
+          name: "a colleague in the same company reads it",
+          caller: "colleague",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "select count(*)::int as n from public.coach_memories where profile_id = '$subject';",
+          expect: "0",
+          provenBy: "subject",
+        },
+        // THE CONTROL every zero above is standing beside.
+        {
+          name: "the subject reads their own memory",
+          caller: "subject",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "select count(*)::int as n from public.coach_memories where profile_id = '$subject';",
+          expect: "1",
+        },
+        // UPDATE is refused at the PRIVILEGE level, not by returning
+        // an empty set. 42501 is the difference between "the database
+        // declined" and "you happened to match no rows", and only one
+        // of those keeps being true when somebody adds a policy.
+        {
+          name: "the subject updates their own memory",
+          caller: "subject",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "with u as (update public.coach_memories set content = 'rewritten' where profile_id = '$subject' returning id) select count(*)::int as n from u;",
+          expect: "42501",
+        },
+        {
+          name: "system_admin updates the subject's memory",
+          caller: "sysadmin",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "with u as (update public.coach_memories set content = 'rewritten' where profile_id = '$subject' returning id) select count(*)::int as n from u;",
+          expect: "42501",
+        },
+        // Deletion is the subject's right, and nobody else's.
+        {
+          name: "the subject deletes their own memory",
+          caller: "subject",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "with d as (delete from public.coach_memories where profile_id = '$subject' returning id) select count(*)::int as n from d;",
+          expect: "1",
+        },
+        {
+          name: "company_admin deletes their report's memory",
+          caller: "admin",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "with d as (delete from public.coach_memories where profile_id = '$subject' returning id) select count(*)::int as n from d;",
+          expect: "0",
+          provenBy: "subject",
+        },
+        {
+          name: "system_admin deletes the subject's memory",
+          caller: "sysadmin",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$subject', 'said', 'harness fixture: wall probe');",
+          sql: "with d as (delete from public.coach_memories where profile_id = '$subject' returning id) select count(*)::int as n from d;",
+          expect: "0",
+          provenBy: "subject",
+        },
+        // Writing for somebody else, through the only write path there
+        // is. profile_id is not a parameter, so the attempt cannot even
+        // be spelled — this probes that the function writes for the
+        // CALLER, which is the same guarantee read from the other side.
+        // The write path has no parameter for WHOSE memory to write,
+        // so the only thing to prove is where a row actually lands.
+        // Asserted positively — the earlier version asked the subject
+        // to confirm a row it could never see either way, and a
+        // control that cannot succeed is not a control.
+        {
+          name: "record_coach_memory writes for the CALLER, not a target",
+          caller: "admin",
+          // TWO STATEMENTS, deliberately. A single statement cannot
+          // see its own insert: the function runs inside the CTE, and
+          // the outer query reads the snapshot taken when the
+          // statement began, so the row it just wrote is invisible to
+          // it. The first version counted 0 and looked like the
+          // function had refused.
+          sql: "select public.record_coach_memory('said', 'harness fixture: authorship probe');\nselect count(*)::int as n from public.coach_memories where profile_id = '$admin' and content = 'harness fixture: authorship probe';",
+          expect: "1",
+        },
+        {
+          name: "and that row is not readable by the subject it mentions",
+          caller: "subject",
+          setup:
+            "insert into public.coach_memories (profile_id, kind, content) values ('$admin', 'said', 'harness fixture: the admin''s own memory');",
+          sql: "select count(*)::int as n from public.coach_memories where profile_id = '$admin';",
+          expect: "0",
+          provenBy: "admin",
+        },
+      ],
+    },
+  },
   {
     n: "1",
     tables: ["companies", "company_features", "quarters"],
@@ -2815,6 +3032,143 @@ async function portfolioAllowlistCheck(
   };
 }
 
+// PERMANENT COVERAGE for coach_memories. Runs on every invocation,
+// not on request, because a guard you have to remember to ask for is
+// not a guard.
+//
+// Three claims, all negative, all of the kind that pass by accident:
+//   1. No policy on the table names ANY role. The wall is "profile_id
+//      = auth.uid()" and nothing else, so a role branch appearing
+//      later is a visible, deliberate act rather than a line in a
+//      larger migration.
+//   2. No UPDATE policy exists, and UPDATE is not granted — memory is
+//      append-only and a correction is a delete plus a new row.
+//   3. service_role cannot read it. Every other table in this schema
+//      relies on RLS alone and 0004's own comment says why that is
+//      enough there: "service_role bypasses RLS via GRANT anyway". On
+//      THIS table that is not enough, because "system_admin cannot
+//      read it" is worth nothing if any code holding the service key
+//      can. BYPASSRLS bypasses policies, not GRANTs, so the table is
+//      revoked from the role — and that is measured here rather than
+//      reasoned about.
+//
+// Canary: a planted system_admin SELECT policy must be caught. If it
+// is not, the matcher is broken and a clean result proves nothing.
+const MEMORY_CANARY_POLICY = `
+create policy zz_memory_canary on public.coach_memories
+  for select to authenticated
+  using (public.auth_role() = 'system_admin');`;
+
+function memoryRoleOffenders(rows: readonly PolicyRow[]): string[] {
+  const ROLES = /system_admin|company_admin|aims_guide|portfolio_admin/;
+  return rows
+    .filter((r) => r.tablename === "coach_memories")
+    .filter((r) => ROLES.test(`${r.qual ?? ""} ${r.with_check ?? ""}`))
+    .map((r) => `${r.tablename}.${r.policyname}`);
+}
+
+async function coachMemoryWallCheck(
+  run: Runner,
+  pending: string
+): Promise<BatchCheck> {
+  const POLICY_QUERY = `
+    select tablename, policyname, cmd, qual, with_check
+      from pg_policies where schemaname = 'public'
+     order by tablename, policyname;`;
+
+  const live = await run<PolicyRow>(
+    ["begin;", pending, POLICY_QUERY, "rollback;"].join("\n")
+  );
+  const mine = live.filter((r) => r.tablename === "coach_memories");
+
+  // Nothing to police until the table lands. The canary still has to
+  // fire, because the matcher is the thing being vouched for.
+  const canaryRows = await run<PolicyRow>(
+    [
+      "begin;",
+      pending,
+      mine.length > 0 ? MEMORY_CANARY_POLICY : "",
+      POLICY_QUERY,
+      "rollback;",
+    ].join("\n")
+  );
+  const caught = memoryRoleOffenders(canaryRows).includes(
+    "coach_memories.zz_memory_canary"
+  );
+
+  if (mine.length === 0) {
+    return {
+      name: "coach_memories access wall",
+      before: "table not on this schema",
+      after: "not applicable: coach_memories has not landed here yet",
+      ok: true,
+      detail:
+        "nothing to police; the check activates with the table and the matcher is exercised the moment it does",
+    };
+  }
+
+  const offenders = memoryRoleOffenders(live);
+  const hasUpdate = mine.some((r) => r.cmd === "UPDATE");
+
+  // service_role, measured. `set local role` drops the superuser
+  // connection into the role the app's service key would use.
+  const [priv] = await run<{
+    denied: boolean;
+    no_update: boolean;
+    no_insert: boolean;
+  }>(
+    [
+      "begin;",
+      pending,
+      `select
+         not has_table_privilege('service_role', 'public.coach_memories', 'select')
+           as denied,
+         not has_table_privilege('authenticated', 'public.coach_memories', 'update')
+           as no_update,
+         not has_table_privilege('authenticated', 'public.coach_memories', 'insert')
+           as no_insert;`,
+      "rollback;",
+    ].join("\n")
+  );
+  const serviceDenied = priv?.denied === true;
+  // The PRIVILEGE, not just the missing policy. Supabase's default
+  // privileges grant ALL on every new table in public, so "no UPDATE
+  // policy" and "cannot UPDATE" are different claims and the first
+  // one shipped while the second was false.
+  const noUpdatePriv = priv?.no_update === true;
+  const noInsertPriv = priv?.no_insert === true;
+
+  const ok =
+    offenders.length === 0 &&
+    !hasUpdate &&
+    serviceDenied &&
+    noUpdatePriv &&
+    noInsertPriv &&
+    caught;
+  const faults = [
+    offenders.length > 0 ? `policies naming a role: ${offenders.join(", ")}` : null,
+    hasUpdate ? "an UPDATE policy exists" : null,
+    noUpdatePriv ? null : "authenticated still HOLDS the UPDATE privilege",
+    noInsertPriv ? null : "authenticated can INSERT directly, bypassing the write path",
+    serviceDenied ? null : "service_role can still SELECT the table",
+    caught ? null : "CHECK IS BROKEN: a planted system_admin policy was NOT caught",
+  ].filter(Boolean);
+
+  return {
+    name: "coach_memories access wall",
+    before: `${mine.length} policies on the table (${mine.map((r) => r.cmd).join(", ")})`,
+    after:
+      faults.length === 0
+        ? "no role branch, no UPDATE policy or privilege, no direct INSERT, service_role has no SELECT privilege"
+        : faults.join(" | "),
+    ok,
+    detail:
+      faults.length === 0
+        ? "the subject is the only identity that can reach memory, and a planted system_admin policy is caught"
+        : "the access wall does not hold",
+  };
+}
+
 async function staticCheck(run: Runner): Promise<BatchCheck> {
   const rows = await run<PolicyRow>(`
     select tablename, policyname, qual, with_check
@@ -2923,16 +3277,23 @@ async function deletedUserChecks(
   const out: BatchCheck[] = [];
   for (const table of batch.tables) {
     const count = "select (select count(*) from public." + table + ")::int as n;";
-    // A control the table's read policy actually admits, tried
-    // company-scoped first.
-    const candidates = await run<{ id: string; role: string }>(
-      controlCandidatesSql(batch, table)
-    );
+    const person = batch.personScoped?.[table];
+    // A control the table's read policy actually admits. Person-scoped
+    // tables name their own; everything else derives one from the
+    // companies holding rows.
+    const candidates = person
+      ? await run<{ id: string; role: string }>(
+          ["begin;", sql, person.control, "rollback;"].join("\n")
+        )
+      : await run<{ id: string; role: string }>(
+          controlCandidatesSql(batch, table)
+        );
     // If the batch knows how to make a row here, use it: a table that
     // happens to be empty on this clone would otherwise report every
     // caller as unable to read it, which proves nothing either way.
-    const seed =
-      batch.seedRows?.[table] ?? batch.nullCompanyRows?.[table] ?? "";
+    const seed = person
+      ? person.seed.replaceAll("$caller", candidates[0]?.id ?? "")
+      : (batch.seedRows?.[table] ?? batch.nullCompanyRows?.[table] ?? "");
     const withSeed = [sql, seed].filter(Boolean).join("\n");
     let control = { n: 0 };
     let controlRole = "none";
@@ -2946,13 +3307,16 @@ async function deletedUserChecks(
         break;
       }
     }
-    const [before] = await run<{ n: number }>(asCaller(ids.nobody, seed, count));
+    const isNew = batch.newTables?.includes(table) ?? false;
+    const [before] = isNew
+      ? [{ n: 0 }]
+      : await run<{ n: number }>(asCaller(ids.nobody, seed, count));
     const [after] = await run<{ n: number }>(asCaller(ids.nobody, withSeed, count));
     const proven = control.n > 0;
     const ok = before.n === 0 && after.n === 0 && proven;
     out.push({
       name: `deleted user · ${table}`,
-      before: `${before.n} row(s)`,
+      before: isNew ? "table did not exist" : `${before.n} row(s)`,
       after: `${after.n} row(s), control ${controlRole} sees ${control.n}`,
       ok,
       detail: ok
@@ -2982,6 +3346,21 @@ async function isolationChecks(
   const sql = migrationSql(batch);
   const out: BatchCheck[] = [];
   for (const table of batch.tables) {
+    // A person-scoped table has no tenant boundary to test. Reported
+    // as not applicable rather than passed: a green from a check that
+    // did not ask its question reads exactly like a green from one
+    // that did, and only one of them is evidence.
+    if (batch.personScoped?.[table]) {
+      out.push({
+        name: `isolation · ${table}`,
+        before: "n/a",
+        after: "not applicable: person-scoped, no company_id and no tenant read path",
+        ok: true,
+        detail:
+          "tenant isolation is not the mechanism protecting this table; the access wall is, and the write probes assert it caller by caller",
+      });
+      continue;
+    }
     // Chosen per table rather than once, because "another company"
     // is only useful if it has rows in THIS table.
     // Isolation needs a COMPANY-SCOPED reader: "sees 0 of B" means
@@ -3209,6 +3588,21 @@ export function probeVerdict(opts: {
       detail: `moved ${expectBefore} → ${after}, as this migration intends`,
     };
   }
+  if (before === "table did not exist") {
+    // Nothing to compare against; the after side carries the whole
+    // claim, and the control beside it is what makes a zero evidence.
+    return after === expect
+      ? {
+          ok: control === undefined || control !== "0",
+          detail:
+            control === undefined
+              ? "new table: the after side is the claim"
+              : control !== "0"
+                ? "new table: refused, and the control caller can read the row it failed to read"
+                : "NOT PROVEN: the control also saw nothing, so this zero is not evidence",
+        }
+      : { ok: false, detail: `expected ${expect}, got ${after}` };
+  }
   if (before !== after) {
     return { ok: false, detail: "SEMANTICS MOVED: before and after disagree" };
   }
@@ -3275,7 +3669,16 @@ async function writeProbeChecks(
     const { sql: setup } = probe.setup
       ? fillProbe(probe.setup, fixtures ?? {})
       : { sql: "" };
-    const before = await runAs(caller as string, setup, statement);
+    // A table this batch creates has no "before": the statement would
+    // run against a relation that does not exist, and an undefined-
+    // table error is not a measurement of anything. Reported as such
+    // rather than compared.
+    const createsTable = (batch.newTables ?? []).some((t) =>
+      probe.sql.includes(`public.${t}`)
+    );
+    const before = createsTable
+      ? "table did not exist"
+      : await runAs(caller as string, setup, statement);
     const after = await runAs(
       caller as string,
       [sql, setup].filter(Boolean).join("\n"),
@@ -3334,6 +3737,21 @@ async function batchExplain(
   let ok = true;
 
   for (const table of batch.tables) {
+    // A table this batch creates cannot be counted or EXPLAINed on
+    // the before side, and the plan comparison is the whole point of
+    // this section — there is no prior plan to have moved. Reported
+    // rather than skipped silently.
+    if ((batch.newTables ?? []).includes(table)) {
+      lines.push(`  ${table} (created by this batch)`);
+      lines.push(
+        "    no before/after plan pair: the table does not exist on the current schema,"
+      );
+      lines.push(
+        "    so there is no prior plan a rewrite could have moved. The access wall is"
+      );
+      lines.push("    asserted by the write probes above, not by a plan shape.");
+      continue;
+    }
     const [{ n: rows }] = await run<{ n: number }>(
       `select count(*)::int as n from public.${table};`
     );
@@ -4467,9 +4885,10 @@ async function main(): Promise<void> {
   // remember to ask for is not enforcement.
   const staticResult = await staticCheck(run);
   const portfolioResult = await portfolioAllowlistCheck(run, pendingSql);
+  const memoryResult = await coachMemoryWallCheck(run, pendingSql);
   console.log(
     batchSummaryLines(
-      [staticResult, portfolioResult],
+      [staticResult, portfolioResult, memoryResult],
       "Static checks over live policy text"
     ).join("\n")
   );
