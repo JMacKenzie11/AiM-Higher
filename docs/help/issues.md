@@ -14,22 +14,22 @@ decide what you want, and commit to the next step that moves it
 forward. The commitment lives here **and** on the owner's
 Commitments list and scorecard.
 
-**An issue usually takes more than one go.** Each row shows the
-commitment currently in flight, with a small link beneath it that
-opens the thread:
+**An issue usually takes more than one go.** Every commitment on an
+issue is listed the same way — what was committed to, who owns it,
+when it's due — with an empty line at the bottom ready for the next
+one. Type into that line to add another; there's no separate form
+and no button to find first.
 
-- **+ add commitment** when there is no history yet. Opens the
-  thread so you can add another commitment **alongside** the one
-  already in flight — an issue can have more than one at a time.
-- **N done** once earlier commitments have been finished. Opens
-  the same thread, oldest first, with the finished ones collapsed
-  to a line each and the add form at the end.
+**Tick the circle to close a commitment** without leaving this page.
 
-**If more than one commitment is open, you see them all.** The most
-recent sits in the Commitment column and the others are listed
-underneath with their own owner and due date. There is nothing to
-click to reveal them and no way to fold them away — finished work
-can be tucked out of sight, live work cannot.
+**Finished ones tuck away behind an "N done" link** so a long-running
+issue stays readable. Open it to see them, each on its own line with
+who did it and when.
+
+**If more than one commitment is open, you see them all.** They are
+ordinary lines in the same list — nothing is hidden behind a control,
+and there is no way to fold live work away. Only finished work tucks
+out of sight.
 
 **When everything on an issue has been finished, the row asks
 "Did this solve it?"** and gives you two answers: *Resolve issue*,

@@ -105,8 +105,10 @@ export function IssuesBoard({
           {error}
         </p>
       ) : null}
+      {/* Eight cells, matching .issueRow. The clarity spacer that used
+          to lead this row went with the clarity column, which moved
+          onto the individual commitment lines. */}
       <div className={styles.columnHeader} role="row" aria-hidden="true">
-        <span aria-hidden />
         <span aria-hidden />
         <span>Issue</span>
         <span>What we want</span>

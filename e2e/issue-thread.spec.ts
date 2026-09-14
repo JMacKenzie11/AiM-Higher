@@ -52,10 +52,13 @@ test.describe("issue commitment thread", () => {
     });
     await expect(row.getByText(/needs review/i)).toBeVisible();
     // The history marker, now that there is history.
-    await expect(row.getByRole("button", { name: /1 done/i })).toBeVisible();
+    await expect(
+      row.getByRole("button", { name: /show 1 finished commitment/i })
+    ).toBeVisible();
 
     // ---- Answer "not yet": add the next commitment ---------
-    await row.getByRole("button", { name: /add next commitment/i }).click();
+    // No "add next" button any more: the add line is already there,
+    // at the end of the thread, whatever state the issue is in.
     await row.getByPlaceholder(/commitment/i).first().fill("Second attempt");
     await row.getByRole("button", { name: /add|save/i }).first().click();
     await expect(row.getByText("Second attempt")).toBeVisible({
@@ -74,7 +77,9 @@ test.describe("issue commitment thread", () => {
     await expect(row.getByText(/did this solve it\?/i)).toBeVisible({
       timeout: 30_000,
     });
-    await expect(row.getByRole("button", { name: /2 done/i })).toBeVisible();
+    await expect(
+      row.getByRole("button", { name: /show 2 finished commitments/i })
+    ).toBeVisible();
 
     await row.getByRole("button", { name: /^resolve issue$/i }).click();
 
@@ -110,12 +115,9 @@ test.describe("issue commitment thread", () => {
       timeout: 30_000,
     });
 
-    // With one open and none done the affordance reads "+ add
-    // commitment" rather than a done count.
-    const opener = row.getByRole("button", { name: /add another commitment/i });
-    await expect(opener).toBeVisible();
-    await opener.click();
-
+    // No opener to click: the add line is always the last line of the
+    // thread, so a second commitment is typed in the same place the
+    // first was.
     await row.getByPlaceholder(/commitment/i).last().fill("Second, alongside");
     await row.getByRole("button", { name: /add|save/i }).last().click();
 
@@ -138,10 +140,10 @@ test.describe("issue commitment thread", () => {
     });
     await expect(reloaded.getByText("Second, alongside")).toBeVisible();
 
-    // Nothing to click to reveal them: while more than one is open
-    // there is no collapse control at all.
+    // Both are ordinary lines in the same list; neither is hidden
+    // behind a control.
     await expect(
-      reloaded.getByRole("button", { name: /add another commitment/i })
+      reloaded.getByRole("button", { name: /finished commitment/i })
     ).toHaveCount(0);
   });
 
@@ -163,11 +165,13 @@ test.describe("issue commitment thread", () => {
     // with no commitment at all also gets no thread opener — the row
     // already carries an inline add form, and two would be one too
     // many.
-    await expect(row.getByRole("button", { name: /\d+ done/i })).toHaveCount(0);
+    await expect(
+      row.getByRole("button", { name: /finished commitment/i })
+    ).toHaveCount(0);
     await expect(row.getByText(/needs review/i)).toHaveCount(0);
     await expect(row.getByText(/did this solve it\?/i)).toHaveCount(0);
-    await expect(
-      row.getByRole("button", { name: /add another commitment/i })
-    ).toHaveCount(0);
+    // The add line is always present — that is the point of the
+    // uniform model — so the assertion is that nothing EXTRA appears.
+    await expect(row.getByPlaceholder(/commitment/i)).toHaveCount(1);
   });
 });
