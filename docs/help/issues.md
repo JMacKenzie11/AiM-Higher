@@ -6,17 +6,42 @@ title: Issues/Solutions
 
 The Solution Seeking discipline in one list. Name the issue,
 decide what you want, and commit to the next step that moves it
-forward. Each row is one issue with (optionally) one open
-commitment attached — the commitment lives here **and** on the
-owner's Commitments list and scorecard.
+forward. The commitment lives here **and** on the owner's
+Commitments list and scorecard.
+
+**An issue usually takes more than one go.** Each row shows the
+commitment currently in flight. When earlier ones have already
+been finished, a small **N done** link appears next to it — open
+it to see the whole thread, oldest first, with the finished ones
+collapsed to a line each.
+
+**When everything on an issue has been finished, the row asks
+"Did this solve it?"** and gives you two answers: *Resolve issue*,
+or *Add next commitment*. Nothing happens on its own — the issue
+is not closed for you, and no follow-up is invented. Until you
+answer, the row carries a quiet **needs review** badge so it is
+easy to find. Issues nobody has started yet never show it; the
+badge only appears once something has actually been finished.
+
+## Resolving, and what it does not do
+
+Resolving an issue takes it off the open list. **Open commitments
+on it stay live** and remain yours to resolve as normal — that is
+deliberate, and unchanged.
+
+**There is no way to reopen a resolved issue.** If the answer to
+"did this solve it?" turns out to be no after you have already
+resolved it, raise a new issue. That is today's answer and it may
+change.
 
 ## What you can do here
 
 ::: role team_member
 As a team member, you can:
 
-- **Add your own commitment** to an issue that has none — type in
-  the *Commitment* cell. The row auto-saves when you tab out of
+- **Add your own commitment** to an issue that has none, or the
+  next one after the previous was finished — type in the
+  *Commitment* cell. The row auto-saves when you tab out of
   the form (or press Cmd/Ctrl+Enter); there's no submit button.
 - **Edit the commitment description, owner, and due date** on any
   issue you own or that a commitment of yours is on. Fields are

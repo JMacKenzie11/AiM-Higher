@@ -58,10 +58,33 @@ async function loadCommitment(
   return data ?? null;
 }
 
-function revalidateCommitmentSurfaces(priorityId: string | null): void {
+// Every surface a commitment mutation can change.
+//
+// `issueId` is the second argument and it was missing entirely.
+// Create, relink and delete each revalidated /issues by hand; the
+// other TEN mutations did not — mark kept, unmark kept, mark missed,
+// unmark missed, reschedule, park, unpark, reassign, clarity and
+// description. Every one of them changes something the issue card
+// renders, so resolving an issue-linked commitment left the Issues
+// page showing it as still open until something else happened to
+// invalidate the route.
+//
+// That mattered little when the card showed one commitment and no
+// history. It matters now: completing the last open commitment is
+// what raises the "did this solve it?" prompt, and a stale page is a
+// prompt that never appears.
+//
+// Taking the id here rather than revalidating /issues unconditionally
+// keeps the cost on the rows that have an issue. Most commitments do
+// not.
+function revalidateCommitmentSurfaces(
+  priorityId: string | null,
+  issueId?: string | null
+): void {
   revalidatePath("/commitments");
   revalidatePath("/dashboard");
   if (priorityId) revalidatePath(`/plan/priority/${priorityId}`);
+  if (issueId) revalidatePath("/issues");
 }
 
 async function getCompanyTimezone(
@@ -347,7 +370,7 @@ export async function markKeptAction(
       reason: trimmedReason,
     });
     if (!rolled.ok) return rolled;
-    revalidateCommitmentSurfaces(commitment.priority_id);
+    revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
     trackAfter(
       session.profile.id,
       "commitment.marked_kept",
@@ -379,7 +402,7 @@ export async function markKeptAction(
     return { ok: false, message: "Couldn't mark that kept." };
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   trackAfter(
     session.profile.id,
     "commitment.marked_kept",
@@ -432,7 +455,7 @@ export async function unmarkKeptAction(
     return { ok: false, message: "Couldn't revert that commitment." };
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   return { ok: true, commitment: data };
 }
 
@@ -484,7 +507,7 @@ export async function markMissedAction(
       reason: trimmedReason,
     });
     if (!rolled.ok) return rolled;
-    revalidateCommitmentSurfaces(commitment.priority_id);
+    revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
     trackAfter(
       session.profile.id,
       "commitment.marked_missed",
@@ -512,7 +535,7 @@ export async function markMissedAction(
     .single<Commitment>();
   if (error || !data) return { ok: false, message: "Couldn't close that." };
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   trackAfter(
     session.profile.id,
     "commitment.marked_missed",
@@ -561,7 +584,7 @@ export async function unmarkMissedAction(
     return { ok: false, message: "Couldn't reopen that commitment." };
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   return { ok: true, commitment: data };
 }
 
@@ -622,7 +645,7 @@ export async function rescheduleCommitmentAction(
     return { ok: false, message: "Couldn't reschedule that commitment." };
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   const daysMoved = Math.round(
     (Date.parse(trimmedDate) - Date.parse(commitment.due_date)) /
       (24 * 60 * 60 * 1000)
@@ -672,7 +695,7 @@ export async function parkCommitmentAction(
     return { ok: false, message: "Couldn't park that commitment." };
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   return { ok: true, commitment: data };
 }
 
@@ -710,7 +733,7 @@ export async function unparkCommitmentAction(
     return { ok: false, message: "Couldn't bring that back." };
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   return { ok: true, commitment: data };
 }
 
@@ -742,7 +765,7 @@ export async function stopRepeatingAction(
     return { ok: false, message: "Couldn't stop the cycle." };
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   return { ok: true, commitment: data };
 }
 
@@ -802,7 +825,7 @@ export async function reassignCommitmentAction(
     return { ok: false, message: "Couldn't reassign that commitment." };
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   return { ok: true, commitment: data };
 }
 
@@ -1032,7 +1055,7 @@ export async function setCommitmentClarityAction(
     return { ok: false, message: "Couldn't update clarity." };
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   return { ok: true, commitment: data };
 }
 
@@ -1088,7 +1111,7 @@ export async function updateCommitmentDescriptionAction(
     );
   }
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   return { ok: true, commitment: finalRow };
 }
 
@@ -1126,7 +1149,7 @@ export async function deleteCommitmentAction(
     .eq("id", commitmentId);
   if (error) return { ok: false, message: "Couldn't delete that commitment." };
 
-  revalidateCommitmentSurfaces(commitment.priority_id);
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
   // Issue-linked commitments also live on the /issues row — revalidate
   // so the delete drops the row back to the "add commitment" state
   // (and the clarity chip disappears with it).

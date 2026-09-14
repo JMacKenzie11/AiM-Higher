@@ -591,6 +591,72 @@ describe("deleteCommitmentAction (soft)", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/issues");
   });
 
+  // ---- Every mutation revalidates /issues ---------------------
+  //
+  // THE BUG. Create, relink and delete each revalidated /issues by
+  // hand. The other ten mutations did not — mark kept, unmark kept,
+  // mark missed, unmark missed, reschedule, park, unpark, reassign,
+  // clarity, description — and every one of them changes something
+  // the issue card renders.
+  //
+  // It mattered little when the card showed one commitment and no
+  // history. It matters now: completing the last open commitment is
+  // what raises the "did this solve it?" prompt, so a stale page is
+  // a prompt that never appears.
+  //
+  // The fix is in the shared revalidateCommitmentSurfaces helper, so
+  // these test the helper through its callers rather than the
+  // callers one at a time.
+
+  it("revalidates /issues when marking an issue-linked commitment kept", async () => {
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ issue_id: "issue_abc" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ issue_id: "issue_abc", status: "kept_on_time" }),
+      error: null,
+    });
+
+    await markKeptAction("c_1");
+
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/issues");
+  });
+
+  it("does not revalidate /issues when marking an unlinked one kept", async () => {
+    // The cost stays on the rows that have an issue. Most do not.
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ issue_id: null }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ status: "kept_on_time" }),
+      error: null,
+    });
+
+    await markKeptAction("c_1");
+
+    const paths = mocks.revalidatePath.mock.calls.map((c) => c[0] as string);
+    expect(paths).not.toContain("/issues");
+  });
+
+  it("revalidates /issues when rescheduling an issue-linked commitment", async () => {
+    // A second mutation through the same helper, so the test is
+    // about the helper rather than about markKept specifically.
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ issue_id: "issue_abc" }),
+    });
+    mocks.commitmentsUpdateSingle.mockResolvedValueOnce({
+      data: baseCommitment({ issue_id: "issue_abc", due_date: "2026-08-28" }),
+      error: null,
+    });
+
+    // Owners must give a reason; admins are exempt. Supplied so the
+    // action reaches the revalidation rather than bailing at the
+    // guard, which is what this test is actually about.
+    await rescheduleCommitmentAction("c_1", "2026-08-28", "slipped a week");
+
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/issues");
+  });
+
   it("does NOT revalidate /issues when the commitment has no issue_id", async () => {
     // Companion to the test above: a priority-linked or unlinked
     // commitment shouldn't stomp the /issues route cache.
