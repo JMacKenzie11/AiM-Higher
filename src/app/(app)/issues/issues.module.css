@@ -730,8 +730,22 @@
   white-space: nowrap;
 }
 
+/* IssueCommitmentAddInline renders the row's three cells
+   (commitment, owner, due date) as a fragment — it was built for the
+   row grid. Inside the thread it needs its own row, or the three
+   would stack vertically down the flex column. */
 .threadAdd {
-  display: contents;
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(120px, 0.8fr) minmax(110px, 0.6fr);
+  gap: var(--space-3);
+  align-items: start;
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .threadAdd {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---- The review moment ---------------------------------------- */

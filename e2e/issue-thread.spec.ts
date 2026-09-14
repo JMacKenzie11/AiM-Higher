@@ -84,6 +84,48 @@ test.describe("issue commitment thread", () => {
     ).toHaveCount(0, { timeout: 30_000 });
   });
 
+  test("a second commitment can be added while the first is still open", async ({
+    page,
+  }) => {
+    // THE GAP THIS SPEC MISSED THE FIRST TIME. The original walk only
+    // added a second commitment through the review prompt, which
+    // appears once everything has landed — so "add another while one
+    // is open" was never exercised, and it was not possible.
+    await signIn(page, users.admin());
+    await page.goto("/admin/companies");
+    await page.getByTestId("scope-into-company").first().click();
+    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
+    await page.goto("/issues");
+
+    const title = ISSUE_TITLE();
+    await page.getByLabel(/issue/i).first().fill(title);
+    await page.getByRole("button", { name: /add issue/i }).click();
+    const row = page.getByRole("article").filter({ hasText: title });
+    await expect(row).toBeVisible({ timeout: 30_000 });
+
+    // First commitment, left OPEN.
+    await row.getByPlaceholder(/commitment/i).first().fill("First, still open");
+    await row.getByRole("button", { name: /add|save/i }).first().click();
+    await expect(row.getByText("First, still open")).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // With one open and none done the affordance reads "+ add
+    // commitment" rather than a done count.
+    const opener = row.getByRole("button", { name: /add another commitment/i });
+    await expect(opener).toBeVisible();
+    await opener.click();
+
+    await row.getByPlaceholder(/commitment/i).last().fill("Second, alongside");
+    await row.getByRole("button", { name: /add|save/i }).last().click();
+
+    // Both are on the issue, and neither displaced the other.
+    await expect(row.getByText("First, still open")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(row.getByText("Second, alongside")).toBeVisible();
+  });
+
   test("an issue with no history looks exactly as it did", async ({ page }) => {
     // The common case must not gain a marker, a badge or a toggle.
     await signIn(page, users.admin());
@@ -98,8 +140,15 @@ test.describe("issue commitment thread", () => {
     const row = page.getByRole("article").filter({ hasText: title });
     await expect(row).toBeVisible({ timeout: 30_000 });
 
+    // No done-count marker, no badge, no prompt. A brand-new issue
+    // with no commitment at all also gets no thread opener — the row
+    // already carries an inline add form, and two would be one too
+    // many.
     await expect(row.getByRole("button", { name: /\d+ done/i })).toHaveCount(0);
     await expect(row.getByText(/needs review/i)).toHaveCount(0);
     await expect(row.getByText(/did this solve it\?/i)).toHaveCount(0);
+    await expect(
+      row.getByRole("button", { name: /add another commitment/i })
+    ).toHaveCount(0);
   });
 });

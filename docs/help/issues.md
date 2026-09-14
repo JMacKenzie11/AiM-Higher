@@ -15,10 +15,15 @@ forward. The commitment lives here **and** on the owner's
 Commitments list and scorecard.
 
 **An issue usually takes more than one go.** Each row shows the
-commitment currently in flight. When earlier ones have already
-been finished, a small **N done** link appears next to it — open
-it to see the whole thread, oldest first, with the finished ones
-collapsed to a line each.
+commitment currently in flight, with a small link beneath it that
+opens the thread:
+
+- **+ add commitment** when there is no history yet. Opens the
+  thread so you can add another commitment **alongside** the one
+  already in flight — an issue can have more than one at a time.
+- **N done** once earlier commitments have been finished. Opens
+  the same thread, oldest first, with the finished ones collapsed
+  to a line each and the add form at the end.
 
 **When everything on an issue has been finished, the row asks
 "Did this solve it?"** and gives you two answers: *Resolve issue*,
