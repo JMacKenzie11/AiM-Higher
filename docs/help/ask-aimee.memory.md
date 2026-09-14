@@ -1,8 +1,8 @@
 ---
-title: What Aimee remembers
+title: Memory
 ---
 
-# What Aimee remembers
+# Memory
 
 After a conversation with Aimee ends, she notes down the few things
 worth still knowing next time: what you said you'd do, a decision and

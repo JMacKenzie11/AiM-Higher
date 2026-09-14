@@ -131,12 +131,12 @@ const APP_ITEMS: readonly NavItem[] = [
       // button — too quiet for the page that answers "what does it
       // know about me, and can I delete it". A person should not have
       // to already know it exists to find it.
-      // "Memory" rather than "What Aimee remembers": short enough to
-      // sit beside Ask Aimee and Classroom without wrapping, and a
-      // container name rather than a description of today's contents,
-      // so more can be added under it without the label going stale.
-      // The page keeps the longer title — there it is the heading, and
-      // a heading can afford to be a sentence.
+      // "Memory": a container name rather than a description of
+      // today's contents, so more can be added under it without the
+      // label going stale. The page carries the same name — it was
+      // briefly "What Aimee remembers" there, which meant the nav item
+      // and the page it opened had different names and the help had to
+      // explain the relationship.
       {
         kind: "link",
         label: "Memory",
