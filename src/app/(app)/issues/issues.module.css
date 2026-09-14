@@ -32,14 +32,14 @@
 /* ---- Column header row --------------------------------------- */
 .columnHeader {
   display: grid;
-  /* clarity | drag | issue | what we want | commitment
-     | assigned to | due date | delete | resolve. Clarity sits
-     leftmost so the pill is the first thing a reader sees per
-     row; when the issue has no commitment yet the clarity cell
-     renders empty. Delete (trash icon) is admin/guide-only and
-     lives left of Resolve so the two admin affordances cluster. */
+  /* drag | issue | what we want | commitment | assigned to
+     | due date | delete | resolve.
+     The clarity column left the ROW when an issue gained more than
+     one commitment: clarity belongs to a commitment, so the dot
+     moved onto each commitment line inside the commitments region.
+     Delete (trash icon) is admin/guide-only and lives left of
+     Resolve so the two admin affordances cluster. */
   grid-template-columns:
-    20px
     20px
     minmax(0, 1.8fr)
     minmax(0, 1.5fr)
@@ -89,14 +89,14 @@
      sticky header. */
   scroll-margin-top: 96px;
   display: grid;
-  /* clarity | drag | issue | what we want | commitment
-     | assigned to | due date | delete | resolve. Clarity sits
-     leftmost so the pill is the first thing a reader sees per
-     row; when the issue has no commitment yet the clarity cell
-     renders empty. Delete (trash icon) is admin/guide-only and
-     lives left of Resolve so the two admin affordances cluster. */
+  /* drag | issue | what we want | commitment | assigned to
+     | due date | delete | resolve.
+     The clarity column left the ROW when an issue gained more than
+     one commitment: clarity belongs to a commitment, so the dot
+     moved onto each commitment line inside the commitments region.
+     Delete (trash icon) is admin/guide-only and lives left of
+     Resolve so the two admin affordances cluster. */
   grid-template-columns:
-    20px
     20px
     minmax(0, 1.8fr)
     minmax(0, 1.5fr)
@@ -289,15 +289,6 @@
   outline: none;
 }
 
-/* Column: Clarity dot (matches /commitments — its own narrow
-   column so the description column stays visually aligned with
-   the COMMITMENT header). */
-.cellClarity {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 2px;
-}
 
 /* Columns: Commitment / Owner / Due. Font + weight aligned with
    /commitments' row so the two pages read as siblings — body font,
@@ -682,79 +673,16 @@
   color: var(--aims-cobalt);
 }
 
-/* Spans the whole row beneath the cells. grid-column: 1/-1 keeps the
-   row's column template untouched, which is what makes a collapsed
-   card identical to what it was. */
-.thread {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-  padding: var(--space-3) 0 var(--space-2) var(--space-6);
-  border-top: 1px solid var(--border);
-}
 
-.threadLine {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  margin: 0;
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-}
 
-.threadCheck {
-  color: var(--aims-success);
-  font-weight: 700;
-}
 
-.threadOpenDot {
-  color: var(--text-faint);
-}
 
-/* Truncated: a finished commitment is context, and a wrapped
-   paragraph of it would outweigh the live one above. */
-.threadText {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
-.threadDate {
-  color: var(--text-faint);
-  font: var(--text-caption);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
 
-/* IssueCommitmentAddInline renders the row's three cells
-   (commitment, owner, due date) as a fragment — it was built for the
-   row grid. Inside the thread it needs its own row, or the three
-   would stack vertically down the flex column. */
-.threadAdd {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(120px, 0.8fr) minmax(110px, 0.6fr);
-  gap: var(--space-3);
-  align-items: start;
-  margin-top: var(--space-2);
-}
 
-@media (max-width: 768px) {
-  .threadAdd {
-    grid-template-columns: 1fr;
-  }
-}
 
 /* ---- The review moment ---------------------------------------- */
 
-.reviewPrompt {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
 
 .reviewAsk {
   margin: 0;
@@ -763,11 +691,6 @@
   color: var(--text-heading);
 }
 
-.reviewActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
 
 .reviewResolve {
   composes: btnPrimary from "../../../components/ui/ui.module.css";
@@ -775,17 +698,7 @@
   font: var(--text-button-sm);
 }
 
-.reviewAddNext {
-  composes: btnGhost from "../../../components/ui/ui.module.css";
-  padding: 2px var(--space-3);
-  font: var(--text-button-sm);
-}
 
-.reviewError {
-  margin: 0;
-  font: var(--text-caption);
-  color: var(--aims-danger);
-}
 
 /* Quiet by design. It marks a question waiting for an answer, not a
    problem — the attention queue is a different surface with a
@@ -803,15 +716,159 @@
   vertical-align: middle;
 }
 
-/* A still-open commitment in the thread. Darker than a finished line
-   and carrying its owner and date, because it is live work somebody
-   is accountable for this week rather than history. */
-.threadLineOpen {
-  color: var(--text);
+
+
+/* ---- The commitments region ----------------------------------
+ *
+ * Spans the three commitment columns and lays its lines out on
+ * SUBGRID, so every commitment — open, finished, or the add form —
+ * aligns to the COMMITMENT / ASSIGNED TO / DUE DATE headers no matter
+ * how many there are.
+ *
+ * That alignment is the whole point of the restructure. The previous
+ * version gave one commitment the row's three cells and rendered the
+ * rest as second-class lines underneath, which is the asymmetry that
+ * produced three separate defects in a day. */
+.commitments {
+  grid-column: 4 / 7;
+  display: grid;
+  grid-template-columns: subgrid;
+  row-gap: var(--space-2);
+  align-content: start;
 }
 
-.threadOwner {
-  color: var(--text-muted);
+/* Each line renders exactly three children into the three columns. */
+.commitmentCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.commitmentLead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.commitmentLead > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Close a commitment from the issue itself. Circular, quiet until
+   hovered — the same shape as the add control at the end of the
+   thread, because they are the two ends of one commitment's life. */
+.closeCommitment {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+}
+
+.closeCommitment:hover:not(:disabled) {
+  border-color: var(--aims-success);
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+}
+
+.closeCommitment:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.commitmentError {
+  margin: 0;
   font: var(--text-caption);
+  color: var(--aims-danger);
+}
+
+.commitmentEmpty {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+/* Finished: same three columns, muted, read-only. */
+.commitmentDone {
+  color: var(--text-muted);
+}
+
+.doneCheck {
+  flex: none;
+  color: var(--aims-success);
+  font-weight: 700;
+  margin-right: var(--space-2);
+}
+
+.doneText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The review question spans all three columns: it is about the ISSUE,
+   not about any one commitment. Wedging it into the commitment column
+   is what made the previous version look cluttered. */
+.reviewLine {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.reviewAsk {
+  font: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.reviewOr {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+/* The add line. Laid out like an open commitment line so the empty
+   slot at the bottom of the thread reads as the next one, not as a
+   form appended to a list. */
+.addLine {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.addLine > textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.addCircle {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border);
+  border-radius: 50%;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1;
 }
