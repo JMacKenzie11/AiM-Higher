@@ -6,42 +6,50 @@ import { deleteIssueAction } from "@/lib/issues/actions";
 import { resolvedCommitmentCell } from "@/lib/issues/resolved-row";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { IssueWithCommitments } from "@/lib/issues/service";
-import type { Profile } from "@/lib/types";
+import type { Priority, Profile } from "@/lib/types";
+import { CommitmentRow } from "../commitments/CommitmentRow";
+import { CommitmentSubHeader } from "./IssueCard";
+import { splitThread } from "@/lib/issues/thread";
 import styles from "./issues.module.css";
 
-// Read-only mirror of the Open issues table (Issue / What we want /
-// Commitment / Assigned to / Due date). Admins additionally get a
-// trash icon to hard-delete resolved issues — used for clearing
-// test/junk rows out of history. Non-admins see only the history.
-// The parent /issues page wraps this in the commitment-style
-// .group + .groupHeader chrome with a count.
+// The Open issues list, in past tense. It shares that list's grid and
+// its commitment lines rather than approximating them: same columns,
+// same `CommitmentRow`, so flipping between the two sections is not
+// also learning a second layout.
+//
+// It used to show ONE representative commitment in a cell of its own
+// — the newest linked row — which meant an issue that took four goes
+// showed the fourth and silently dropped the other three. The whole
+// point of the thread is that an issue takes more than one attempt,
+// so the history is the interesting part and it was the part being
+// hidden.
+//
+// Admins additionally get a trash icon to hard-delete resolved issues,
+// used for clearing test/junk rows out of history. The parent /issues
+// page wraps this in the commitment-style .group + .groupHeader chrome
+// with a count.
 
 export function ResolvedIssuesList({
   items,
   roster,
+  priorityOptions,
+  todayIso,
+  currentUserId,
   isAdmin,
 }: {
   items: IssueWithCommitments[];
   roster: Array<Pick<Profile, "id" | "full_name">>;
+  priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  todayIso: string;
+  currentUserId: string;
   isAdmin: boolean;
 }) {
   return (
     <div className={styles.resolvedTable}>
-      <div
-        className={
-          isAdmin
-            ? styles.resolvedColumnHeaderWithDelete
-            : styles.resolvedColumnHeader
-        }
-        role="row"
-        aria-hidden="true"
-      >
-        <span>Issue</span>
-        <span>What we want</span>
-        <span>Commitment</span>
-        <span>Assigned to</span>
-        <span>Due date</span>
-        {isAdmin ? <span aria-hidden /> : null}
+      {/* Same header as the open list, same placement classes. */}
+      <div className={styles.resolvedColumnHeader} role="row" aria-hidden="true">
+        <span className={styles.headIssue}>Issue</span>
+        <span className={styles.headWant}>What we want</span>
       </div>
       <ul className={styles.issueList}>
         {items.map((issue) => (
@@ -49,6 +57,9 @@ export function ResolvedIssuesList({
             key={issue.id}
             issue={issue}
             roster={roster}
+            priorityOptions={priorityOptions}
+            todayIso={todayIso}
+            currentUserId={currentUserId}
             isAdmin={isAdmin}
           />
         ))}
@@ -60,38 +71,56 @@ export function ResolvedIssuesList({
 function ResolvedRow({
   issue,
   roster,
+  priorityOptions,
+  todayIso,
+  currentUserId,
   isAdmin,
 }: {
   issue: IssueWithCommitments;
   roster: Array<Pick<Profile, "id" | "full_name">>;
+  priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  todayIso: string;
+  currentUserId: string;
   isAdmin: boolean;
 }) {
-  // Pick the newest linked commitment (any status) as the row's
-  // representative — the last action taken against this issue. If
-  // no commitment ever landed on the issue, the last three cells
-  // render an em-dash. Nothing to interact with either way.
-  const last = [...issue.commitments]
-    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))[0] ?? null;
+  // Same ordering the open card uses when its history is expanded:
+  // finished first, then anything still live. A resolved issue CAN
+  // carry open commitments — six did at the time the thread model
+  // landed, and they are grandfathered, not reinterpreted.
+  const thread = splitThread(issue.commitments);
+  const lines = [
+    ...thread.completed,
+    ...(thread.active ? [thread.active] : []),
+    ...thread.otherOpen,
+  ];
+
   // Rule lives in lib/issues/resolved-row.ts so it can be tested —
-  // there's no DOM test tooling in this project.
+  // there's no DOM test tooling in this project. It answers what to
+  // show when NO commitment carries text: the meeting-summary
+  // shortcut closes an issue without ever creating one, and a bare
+  // em-dash there reads as missing data rather than as a fact.
+  const anyText = issue.commitments
+    .map((c) => c.description)
+    .find((d) => d?.trim());
   const commitmentCell = resolvedCommitmentCell({
-    commitmentDescription: last?.description,
+    commitmentDescription: anyText,
     resolvedInMeeting: issue.resolved_in_meeting,
   });
-  const ownerName = last?.owner_id
-    ? roster.find((p) => p.id === last.owner_id)?.full_name ?? null
-    : null;
+
+  const canEditCommitment = (ownerId: string | null): boolean =>
+    isAdmin || (ownerId !== null && ownerId === currentUserId);
 
   return (
     <li className={styles.issueListItem}>
-      <article
-        className={
-          isAdmin ? styles.resolvedRowWithDelete : styles.resolvedRow
-        }
-      >
+      <article className={styles.resolvedRow}>
+        {/* No drag handle: resolved issues carry no ordering. The
+            placeholder keeps the column, so the two lists line up. */}
+        <span aria-hidden className={styles.dragHandlePlaceholder} />
+
         <div className={styles.cellIssue}>
           <span className={styles.issueTitle}>{issue.title}</span>
         </div>
+
         <div className={styles.cellWant}>
           {issue.desired_outcome ? (
             <span className={styles.wantText}>{issue.desired_outcome}</span>
@@ -99,43 +128,60 @@ function ResolvedRow({
             <span className={styles.wantMuted}>—</span>
           )}
         </div>
-        <div className={styles.cellCommitment}>
-          {commitmentCell.kind === "commitment" ? (
-            commitmentCell.text
-          ) : commitmentCell.kind === "in-meeting" ? (
-            // Closed by the meeting-summary shortcut, so no commitment
-            // was ever created. Say that rather than showing a dash
-            // that reads as missing data.
-            <span className={styles.cellResolvedInMeeting}>
-              Resolved in meeting
-            </span>
-          ) : (
-            <span className={styles.cellMuted}>—</span>
-          )}
-        </div>
-        <div className={styles.cellOwner}>
-          {ownerName ?? <span className={styles.cellMuted}>—</span>}
-        </div>
-        <div className={styles.cellDue}>
-          {last?.due_date ? (
-            last.due_date
-          ) : issue.resolved_at ? (
-            // Fallback: an issue with no commitment (e.g. one
-            // created via "Resolved in meeting") still deserves a
-            // date in the Due column — use resolved_at so the
-            // reader sees WHEN the issue closed rather than a
-            // silent em-dash. Reads as "due/closed on YYYY-MM-DD".
-            issue.resolved_at.slice(0, 10)
-          ) : (
-            <span className={styles.cellMuted}>—</span>
-          )}
-        </div>
+
         {isAdmin ? (
           <DeleteResolvedIssueButton
             issueId={issue.id}
             issueTitle={issue.title}
           />
-        ) : null}
+        ) : (
+          <span aria-hidden className={styles.deletePlaceholder} />
+        )}
+
+        {/* Nothing to resolve — it already is. The placeholder holds
+            the column so this row stays aligned with the open ones. */}
+        <span aria-hidden className={styles.resolvePlaceholder} />
+
+        {/* Every commitment, not a representative one. No "N done"
+            collapse either: on an open issue that exists so finished
+            work cannot bury live work, and here there is no live work
+            to bury. */}
+        <div className={styles.commitments}>
+          {commitmentCell.kind === "commitment" ? (
+            <>
+              <CommitmentSubHeader />
+              <ul className={styles.commitmentList}>
+                {lines.map((c) => (
+                  <CommitmentRow
+                    key={c.id}
+                    commitment={c}
+                    priorityOptions={priorityOptions}
+                    roster={roster}
+                    todayIso={todayIso}
+                    canResolve={canEditCommitment(c.owner_id)}
+                    canReassign={canEditCommitment(c.owner_id)}
+                    canLink={false}
+                    hidePriority
+                    currentUserId={currentUserId}
+                    isAdmin={isAdmin}
+                  />
+                ))}
+              </ul>
+            </>
+          ) : commitmentCell.kind === "in-meeting" ? (
+            <p className={styles.resolvedNote}>
+              <span className={styles.cellResolvedInMeeting}>
+                Resolved in meeting
+              </span>{" "}
+              — the team talked it through and closed it without
+              raising a commitment.
+            </p>
+          ) : (
+            <p className={styles.resolvedNote}>
+              No commitment was ever raised on this issue.
+            </p>
+          )}
+        </div>
       </article>
     </li>
   );

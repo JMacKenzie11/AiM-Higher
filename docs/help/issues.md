@@ -17,8 +17,10 @@ Commitments list and scorecard.
 **An issue usually takes more than one go.** Every commitment on an
 issue is listed the same way: what was committed to, who owns it,
 when it's due, with an empty line at the bottom ready for the next
-one. It's marked with a blue plus. Click the plus or type straight
-into the line to add another; there's no separate form to open.
+one. It's marked with a blue plus. Type straight into the line, or
+click the plus: on an empty line it puts the cursor in the field, and
+once you've written something it saves. There's no separate form to
+open and no submit button to hunt for.
 
 **Commitments sit underneath the issue, not beside it.** The top
 line is the issue itself: what it is, what you want, and the
@@ -80,16 +82,17 @@ As a team member, you can:
   three-state check as your Commitments page (Timeline agreed?
   Definition of done observable?).
 - **See resolved history** — the *Resolved issues* section at the
-  bottom is read-only and mirrors the open table (Issue / What we
-  want / Commitment / Assigned to / Due date). A row whose
-  *Commitment* column reads **Resolved in meeting** was closed via
-  that shortcut on the meeting summary — the team talked the issue
-  through in the meeting and no follow-up work was needed, so it
-  landed straight in the resolved list with no *What we want* and
-  no *Assigned to*. The *Due date* on those rows shows the date the
-  button was clicked. A row showing a plain dash in *Commitment*
-  was resolved some other way without a commitment ever being
-  attached; the two used to look identical.
+  bottom is the open list in past tense. Same layout, same
+  commitment lines underneath each issue, so nothing new to learn.
+  It shows **every** commitment the issue took, not just the last
+  one: an issue that took four goes shows all four, which is the
+  interesting part of a resolved issue.
+- **Some resolved issues have no commitments at all.** Instead of
+  the commitment list they carry a line saying so. **Resolved in
+  meeting** means it was closed with that shortcut on the meeting
+  summary: the team talked it through and no follow-up work was
+  needed, so it went straight to resolved. Anything else that
+  closed without a commitment says that plainly instead.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -182,11 +185,10 @@ decides what to do with each one. Two shortcuts per row:
   *Assigned to*. Use it when the team already talked the issue
   through in the meeting and there's no follow-up work needed.
   Post-click the row flips to a *Resolved in meeting* chip, marked
-  with a check in a circle. On `/issues` that row's *Due date*
-  shows the date the button was clicked, and its *Commitment*
-  column reads *Resolved in meeting* — so when you scan the
-  resolved list later, you can tell at a glance which rows were
-  closed in the room rather than worked.
+  with a check in a circle. In the *Resolved issues* list that
+  issue carries a *Resolved in meeting* line where its commitments
+  would be, so when you scan back later you can tell at a glance
+  which ones were closed in the room rather than worked.
 
 First click wins between the two shortcuts — a second click on
 the other button is a no-op, and the label persists across
