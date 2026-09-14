@@ -82,16 +82,32 @@ architecture. The spec describes what IS. A PR that leaves it describing
 what WAS is incomplete, and the next person to read it is misled by a
 document that looks current.
 
-**`docs/help/*.md`** — anything a user would notice: a new surface, a
-moved control, changed wording, a role gaining or losing a capability.
-These are served in-app by the `?` widget (`src/lib/help/loader.ts`),
-matched to the route and filtered by the `roles:` frontmatter, so a
-stale one is read by the person it is wrong for. `npm run check:help`
-proves a route HAS a doc; nothing proves the doc is TRUE, which is what
-this rule is for. Two more places carry user-facing copy and are easy to
-forget: `src/lib/email.ts` (invite and reset emails, read outside the
-app where nobody can check them against the UI) and the `InfoTip` /
-`TermTooltip` strings sitting next to the controls they describe.
+**`docs/help/*.md`** — **only what a user does in the application.** A
+new surface, a moved control, changed wording, a role gaining or losing
+a capability they would try to use. These are served in-app by the `?`
+widget (`src/lib/help/loader.ts`), matched to the route and filtered by
+the `roles:` frontmatter, so a stale one is read by the person it is
+wrong for, standing on the page it is wrong about.
+
+**Nothing about how it works underneath belongs here.** RLS policies,
+migrations, query plans, the harness, instance resolution, tooling: a
+user has no use for any of it and cannot act on it. That material goes
+to the product spec, or to the operational docs, or nowhere. A help
+page that explains the implementation is worse than one that says
+nothing, because it costs the reader time to discover it was not for
+them.
+
+The test is not "did this change touch something users can reach". It
+is "would a user, on that page, do something differently because of
+it". Most permissions work fails that test and still belongs in the
+spec; a renamed button passes it.
+
+`npm run check:help` proves a route HAS a doc; nothing proves the doc
+is TRUE, which is what this rule is for. Two more places carry the same
+kind of copy and are easy to forget: `src/lib/email.ts` (invite and
+reset emails, read outside the app where nobody can check them against
+the UI) and the `InfoTip` / `TermTooltip` strings beside the controls
+they describe.
 
 **`docs/deployment.md`, `docs/failure-modes.md`, `docs/e2e.md`** —
 rituals, tooling, recovery procedures, fixtures. Largely habit already;

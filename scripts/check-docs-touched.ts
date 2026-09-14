@@ -12,6 +12,13 @@
  * check CAN do is refuse to let the question go unasked, which is the
  * whole of this file: it makes somebody write one line either way.
  *
+ * IT DOES NOT SAY WHICH DOC. It cannot: a migration and a renamed
+ * button both touch src/ and want completely different destinations —
+ * the spec for one, the in-app help for the other. The failure message
+ * puts the spec first for that reason, because most source changes are
+ * about how something works rather than about what a user does, and
+ * help is the wrong home for how something works.
+ *
  * Deliberately crude, and deliberately easy to satisfy dishonestly. A
  * gate that can be defeated by typing four words is not security; it
  * is a prompt at the moment the author still remembers what they
@@ -100,11 +107,16 @@ export function decide(opts: {
       source.slice(0, 10).map((f) => `    ${f}`).join("\n") +
       (source.length > 10 ? `\n    … and ${source.length - 10} more` : "") +
       "\n\n" +
-      "  Update the documentation this change affects, in THIS pull request:\n\n" +
-      "    docs/product-spec.md   behaviour, roles, permissions, data model\n" +
-      "    docs/help/*.md         anything a user would notice\n" +
+      "  Update the documentation this change affects, in THIS pull request.\n" +
+      "  Most changes want the first one:\n\n" +
+      "    docs/product-spec.md   behaviour, roles, permissions, data model,\n" +
+      "                           architecture. Where implementation goes.\n" +
       "    docs/deployment.md     rituals, tooling, recovery\n" +
-      "    docs/failure-modes.md  an incident and the rule it produced\n\n" +
+      "    docs/failure-modes.md  an incident and the rule it produced\n" +
+      "    docs/help/*.md         ONLY what a user does in the app: a new\n" +
+      "                           surface, a moved control, changed wording.\n" +
+      "                           Not RLS, migrations, plans or tooling —\n" +
+      "                           a user cannot act on any of it.\n\n" +
       "  Or, if this genuinely changes nothing anybody reads about, add a\n" +
       "  line to the PR description saying which kind of nothing:\n\n" +
       "    Docs-exempt: pure refactor, no behaviour change\n" +
