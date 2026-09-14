@@ -346,7 +346,7 @@ export async function listMyMemoriesAction(): Promise<MemoryListRow[]> {
 // Delete ALL of the caller's own memory.
 //
 // Not a test affordance and not a broad hammer: "you can see and
-// delete everything she remembers" is the promise part 3 publishes,
+// delete any of it" is the promise part 3 publishes,
 // and this is that. RLS bounds it to the caller absolutely — the
 // DELETE policy admits `profile_id = auth.uid()` and nothing else, so
 // there is no argument, header or bug that reaches another person's

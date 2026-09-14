@@ -266,7 +266,7 @@ async function main() {
     role: "system_admin",
     companyId: null,
   });
-  await upsertUser(admin, {
+  const memberId = await upsertUser(admin, {
     email: memberEmail,
     password: memberPassword,
     fullName: "E2E Team Member",
@@ -274,7 +274,7 @@ async function main() {
     companyId,
   });
 
-  await upsertUser(admin, {
+  const portfolioId = await upsertUser(admin, {
     email: portfolioEmail,
     password: portfolioPassword,
     fullName: "E2E Portfolio Admin",
@@ -295,6 +295,34 @@ async function main() {
     );
   if (assignmentError) throw assignmentError;
   console.log(`  guide assignment → ${adminEmail} covers "${COMPANY_NAME}"`);
+
+  // ---- Clear what the specs LEAVE BEHIND -------------------------
+  //
+  // Not fixtures this script creates — fixtures the suite produces by
+  // running. The coach specs hold real conversations to test the
+  // memory loop, and until now nothing ever cleared them: forty-odd
+  // threads had accumulated on the fixture member's account in a
+  // single day of work.
+  //
+  // This is the same gap, one object along, as the one that left rows
+  // in coach_memories: cleanup that covers what a spec was told to
+  // create and not what it produces. Conversations cascade to their
+  // messages; coach_memories is cleared by the specs themselves in
+  // afterEach and does not depend on this.
+  //
+  // Only the fixture users' own rows. Everything here runs after
+  // assertNotProduction, which refuses any target resolving to
+  // production, the control plane, or NEXT_PUBLIC_SUPABASE_URL.
+  const fixtureIds = [adminId, memberId, portfolioId].filter(Boolean);
+  const { data: cleared, error: clearError } = await admin
+    .from("coaching_conversations")
+    .delete()
+    .in("created_by", fixtureIds)
+    .select("id");
+  if (clearError) throw clearError;
+  console.log(
+    `  cleared ${(cleared ?? []).length} coaching conversation(s) left by earlier test runs`
+  );
 
   console.log("Done.");
 }

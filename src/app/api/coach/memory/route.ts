@@ -26,7 +26,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // `{ all: true }` is the promise part 3 publishes — delete
-  // everything she remembers about you. Bounded to the caller by RLS,
+  // everything Aimee remembers about you. Bounded to the caller by RLS,
   // not by this branch.
   if (body.all === true) {
     const all = await deleteAllMyMemoriesAction();
