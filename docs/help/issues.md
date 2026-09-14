@@ -17,17 +17,25 @@ Commitments list and scorecard.
 **An issue usually takes more than one go.** Every commitment on an
 issue is listed the same way: what was committed to, who owns it,
 when it's due, with an empty line at the bottom ready for the next
-one. It's marked with a blue plus. Type straight into the line, or
-click the plus: on an empty line it puts the cursor in the field, and
-once you've written something it saves. There's no separate form to
-open and no submit button to hunt for.
+one. Type into it and press **Add**, the same button you use on your
+Commitments page.
 
-**Commitments sit underneath the issue, not beside it.** The top
-line is the issue itself: what it is, what you want, and the
-*Resolve* button that closes the **issue**. Everything below it is a
-commitment, with its own controls. They used to share one line,
-which put the issue's *Resolve* next to a commitment's controls and
-made it easy to press the wrong one.
+**Adding uses a button; changing uses no button.** Once a commitment
+exists, click any field and edit it in place: it saves when you click
+away. There's nothing to press and nothing to confirm, which is how
+your Commitments page has always worked.
+
+**Commitments sit underneath the issue, not beside it.** The top line
+is the issue itself: what it is and what you want. Everything below
+it is a commitment. They used to share one line, which put the
+issue's controls next to a commitment's and made it easy to press the
+wrong one.
+
+**The issue has the same round check a commitment has**, at the far
+left of its line, with the trash can beside it. Resolving an issue
+and resolving a commitment look and feel the same; the issue's check
+just asks you to confirm rather than opening a menu, because an issue
+can't be parked or rescheduled.
 
 **A commitment behaves exactly as it does on your Commitments
 page.** Same circle on the left, and it opens a menu rather than
@@ -99,8 +107,8 @@ As a team member, you can:
 As an admin or guide, you can also:
 
 - **Add, rename, and resolve any issue.** Click the title to
-  rename; use *Resolve* on the right to close the loop.
-- **Delete an issue** — trash icon left of *Resolve*. Hard
+  rename; tick the round check at the far left to close the loop.
+- **Delete an issue** — trash icon beside that check. Hard
   delete; the confirm dialog spells out that it can't be undone.
   Any commitments linked to the issue stay live and just lose the
   linkage, so no owner loses their next-step work.

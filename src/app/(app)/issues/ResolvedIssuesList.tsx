@@ -113,6 +113,20 @@ function ResolvedRow({
   return (
     <li className={styles.issueListItem}>
       <article className={styles.resolvedRow}>
+        {/* A kept commitment shows a filled check; so does a
+            resolved issue. Static, not a button — there is no
+            reopen, so an affordance here would promise one. */}
+        <span aria-hidden className={styles.issueResolvedMark}>✓</span>
+
+        {isAdmin ? (
+          <DeleteResolvedIssueButton
+            issueId={issue.id}
+            issueTitle={issue.title}
+          />
+        ) : (
+          <span aria-hidden className={styles.deletePlaceholder} />
+        )}
+
         {/* No drag handle: resolved issues carry no ordering. The
             placeholder keeps the column, so the two lists line up. */}
         <span aria-hidden className={styles.dragHandlePlaceholder} />
@@ -128,19 +142,6 @@ function ResolvedRow({
             <span className={styles.wantMuted}>—</span>
           )}
         </div>
-
-        {isAdmin ? (
-          <DeleteResolvedIssueButton
-            issueId={issue.id}
-            issueTitle={issue.title}
-          />
-        ) : (
-          <span aria-hidden className={styles.deletePlaceholder} />
-        )}
-
-        {/* Nothing to resolve — it already is. The placeholder holds
-            the column so this row stays aligned with the open ones. */}
-        <span aria-hidden className={styles.resolvePlaceholder} />
 
         {/* Every commitment, not a representative one. No "N done"
             collapse either: on an open issue that exists so finished
