@@ -10,8 +10,8 @@ and renders the one matching the current route + user role.
 matching help doc in this folder.** CI enforces the pairing:
 
 ```bash
-pnpm run check:help    # or npm run check:help — fails on missing
-pnpm run check:help --write   # scaffolds skeletons for every missing doc
+npm run check:help    # or npm run check:help — fails on missing
+npm run check:help --write   # scaffolds skeletons for every missing doc
 ```
 
 The `--write` variant creates a valid frontmatter + TODO body for

@@ -3458,6 +3458,107 @@ async function grantProbes(
       : "THE COLUMN GUARD IS TOO WIDE: it is constraining system_admin too",
   });
 
+  // ---- The baseline function role, and who may touch it --------
+  //
+  // function_roles holds one row per function flagged is_default,
+  // carrying "Lead, Track, Decide". 0107 states it is immutable and
+  // that RLS is what makes it so.
+  //
+  // It was true of system_admin and company_admin and false of
+  // aims_guide: the guide mirrors in 0111 copied the tenant predicate
+  // and dropped the is_default clause, so a guide could edit and
+  // delete the baseline row a SYSTEM ADMIN cannot. Migration 0193
+  // closes it.
+  //
+  // THIS IS THE CASE THE PROBE RULE WAS WRITTEN FOR. A guard that
+  // refuses two roles looks like a guard that refuses everybody, and
+  // the only way to find out is to try the third. Two zeros are not a
+  // proof that a third caller would also get zero.
+  const [frFixture] = await run<{
+    guide: string | null;
+    sysadmin: string | null;
+    default_role: string | null;
+    editable_role: string | null;
+  }>(`
+    select
+      p.id as guide,
+      (select id from public.profiles
+        where role = 'system_admin' and status = 'active' limit 1) as sysadmin,
+      (select fr.id from public.function_roles fr
+         join public.functions f on f.id = fr.function_id
+        where f.company_id = ga.company_id and fr.is_default limit 1) as default_role,
+      (select fr.id from public.function_roles fr
+         join public.functions f on f.id = fr.function_id
+        where f.company_id = ga.company_id and not fr.is_default limit 1) as editable_role
+    from public.profiles p
+    join public.guide_assignments ga on ga.guide_id = p.id
+    where p.role = 'aims_guide' and p.status = 'active'
+      and exists (
+        select 1 from public.function_roles fr
+          join public.functions f on f.id = fr.function_id
+         where f.company_id = ga.company_id and fr.is_default)
+    limit 1;`);
+
+  if (!frFixture?.guide || !frFixture.default_role || !frFixture.sysadmin) {
+    probes.push({
+      name: "default role lock · aims_guide",
+      granted: "not attempted",
+      withheld: "not attempted",
+      ok: false,
+      detail: "NOT PROVEN: the clone has no guide with a default role to try",
+    });
+  } else {
+    const renameDefault = (id: string) =>
+      `update public.function_roles set title = 'harness probe' ` +
+      `where id = '${id}' returning id;`;
+    const deleteDefault = (id: string) =>
+      `delete from public.function_roles where id = '${id}' returning id;`;
+
+    const guideEdits = await attempt(
+      frFixture.guide,
+      renameDefault(frFixture.default_role)
+    );
+    const guideDeletes = await attempt(
+      frFixture.guide,
+      deleteDefault(frFixture.default_role)
+    );
+    // The control, and it is the half that makes the zeros mean
+    // something: the same guide, the same table, a row they SHOULD be
+    // able to edit. Without it "0 rows" is indistinguishable from a
+    // guide who cannot write function_roles at all.
+    const guideControl = frFixture.editable_role
+      ? await attempt(frFixture.guide, renameDefault(frFixture.editable_role))
+      : "no non-default role on this company to control with";
+    // And the system_admin, who has always been refused here. If this
+    // stops being refused, the fix went too wide.
+    const sysDefault = await attempt(
+      frFixture.sysadmin,
+      renameDefault(frFixture.default_role)
+    );
+
+    const ok =
+      guideEdits.startsWith("0 rows") &&
+      guideDeletes.startsWith("0 rows") &&
+      guideControl.includes("row(s) written") &&
+      sysDefault.startsWith("0 rows");
+
+    probes.push({
+      name: "default role lock · aims_guide",
+      granted: `control, guide renames a NON-default role: ${guideControl}`,
+      withheld:
+        `guide renames the default: ${guideEdits} | guide deletes it: ` +
+        `${guideDeletes} | system_admin renames it: ${sysDefault}`,
+      ok,
+      detail: ok
+        ? "the baseline row is immutable for the guide too, and the guide can still edit the others"
+        : !guideControl.includes("row(s) written")
+          ? "NOT PROVEN: the control could not write either, so the refusals prove nothing"
+          : sysDefault.includes("row(s) written")
+            ? "THE LOCK IS GONE FOR SYSTEM_ADMIN TOO: the fix went wider than the hole"
+            : "THE GUIDE CAN EDIT OR DELETE THE BASELINE ROLE",
+    });
+  }
+
   // ---- Timezone: the edit path, the lock, and the record --------
   //
   // companies.timezone decides what date a row falls on for every
