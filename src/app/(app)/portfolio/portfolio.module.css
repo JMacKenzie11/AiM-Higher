@@ -43,56 +43,137 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
+/* The company card.
+ *
+ * Sand ground rather than white-on-white, so each card reads as an
+ * object on the surface beneath it rather than as a region of it —
+ * the same figure/ground the dashboard uses for its stat strip. The
+ * chartreuse rule under the company name is the brand's underline
+ * motif, which is how a heading is marked everywhere else in the
+ * product. */
 .companyCard {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   padding: var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  background: var(--aims-sand);
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
+}
+
+/* The whole card lifts, because the whole card is one destination.
+ * :focus-within so a keyboard caller gets the same signal as a
+ * mouse one — the link inside is what actually takes focus. */
+.companyCard:hover,
+.companyCard:focus-within {
+  border-color: var(--aims-cobalt);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .companyCard,
+  .companyCard:hover,
+  .companyCard:focus-within {
+    transition: none;
+    transform: none;
+  }
 }
 
 .companyName {
   margin: 0;
+  padding-bottom: var(--space-3);
   font: var(--text-h3);
+  color: var(--text-heading);
+  border-bottom: 2px solid var(--aims-chartreuse);
+}
+
+/* CompanyNameLink is a shared control and hard-sets its own 15px/600,
+   which is right in the fleet table it was built for and wrong for a
+   card heading. The container sets the type scale for the link it
+   owns rather than the component growing a size prop for one caller —
+   it is used in three places and only this one is a heading. */
+.companyName button {
+  font: inherit;
+  color: var(--aims-navy);
+}
+
+.companyName button:hover:not(:disabled) {
+  color: var(--aims-cobalt);
+}
+
+/* ---- One metric ---------------------------------------------- */
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Uppercase, tracked, bold: the metric-label treatment from the
+   dashboard hero stats and the plan chips. It was muted body text,
+   which made the labels read as captions for the numbers rather than
+   as the names of three separate things. */
+.metricLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  font: var(--text-subhead);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
   color: var(--text-heading);
 }
 
-/* Three label/value pairs about one subject is a definition list,
-   not a table. */
-.metrics {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-2) var(--space-4);
-  margin: 0;
-  align-items: baseline;
-}
-
-.metricLabel {
-  margin: 0;
-  color: var(--text-muted);
-  font: var(--text-body-sm);
-}
-
-.metricValue {
-  margin: 0;
-  font: var(--text-body);
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-/* The denominator that travels with the scorecard number. Muted and
-   smaller: context for the value beside it, not a value of its own. */
-.metricQualifier {
-  display: block;
-  color: var(--text-faint);
+/* The quarter, or the week's end date. Sits on the label line at the
+   right, where it qualifies the label rather than the value. */
+.metricLabelTag {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
   font: var(--text-caption);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* The anchor stat. One large number per card so a grid of them can be
+   read straight down the column. */
+.metricStat {
+  margin: 0;
+  font: var(--text-stat);
+  font-size: clamp(32px, 4vw, 40px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--aims-navy);
+}
+
+.metricStatSuffix {
+  margin-left: 2px;
+  font: var(--text-body);
+  color: var(--text-muted);
+  letter-spacing: normal;
+}
+
+/* Always its own full-width line. The first version put these in the
+   label column, where "week ending 2026-09-18" wrapped to two lines
+   and ran into the value beside it. */
+.metricNote {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 

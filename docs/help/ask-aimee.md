@@ -140,6 +140,16 @@ narrowly scoped:
 
 ## Common questions
 
+**I opened a chat from another company and my sidebar didn't
+change. Is that right?** Yes, and it changed on purpose. Opening a
+conversation used to switch you into its company for the next eight
+hours, so the next thing you clicked took you somewhere you hadn't
+chosen. Now the conversation reads correctly against its own
+company and your scope stays where you put it. To actually move,
+pick the company from Guide HQ or the Companies list.
+
+
+
 **Who can see my Ask Aimee conversations?** Only you, unless you
 explicitly share a thread with someone from your company. Admins,
 your manager, and AiMS Guides can't see your conversations by

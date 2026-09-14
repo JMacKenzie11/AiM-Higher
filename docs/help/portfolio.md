@@ -19,15 +19,18 @@ and change nothing that a company produces.
   company measured across four is not ranked against one measured
   across eight. The card tells you which is which rather than
   leaving you to assume.
-- **Priorities** — how many of this quarter's priorities are on
-  track or complete, as a percentage and as a count. A dash means
-  no quarter is open, or the open one has no priorities yet.
-  Zero means there are priorities and none of them are on track;
-  those are different answers and the card shows them differently.
-- **This week** — the share of this week's commitments kept on
-  time. The week ends Friday **in that company's own timezone**,
-  not yours, so this matches what the company sees on its own
-  dashboard.
+- **Priorities** — a bar showing how many of this quarter's
+  priorities are on track or complete, with the count underneath
+  and the quarter named on the label. An empty bar with a dash
+  means no quarter is open, or the open one has no priorities yet;
+  a bar at 0% means there are priorities and none are on track.
+  Those are different answers and the card shows them differently.
+- **This week** — a bar showing the share of this week's
+  commitments kept on time, with the count underneath and the
+  week's end date on the label. The week ends Friday **in that
+  company's own timezone**, not yours, so this matches what the
+  company sees on its own dashboard. "Nothing due this week" is
+  not the same as 0%.
 
 Click a company's name to scope into it.
 

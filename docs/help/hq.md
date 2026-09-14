@@ -48,6 +48,19 @@ company's Week in Review, Functional Org Chart, Goals & Priorities,
 and so on. Come back to Guide HQ (or hit *Exit* in the user menu)
 to drop back to your caseload view.
 
+**Clicking a company is the only thing that moves you.** Nothing
+else does it as a side effect — not opening a page, not a link
+being prefetched, and no longer opening a coaching conversation
+that belongs to another company. Reading a chat used to switch
+you into its tenant for the next eight hours, so the Dashboard
+link afterwards took you somewhere you had not asked to go. It
+doesn't any more: the chat reads correctly and your scope stays
+where you put it.
+
+**Signing in always starts you unscoped**, and a scope is tied to
+you personally — a shared browser cannot hand your scope to
+whoever signs in next.
+
 ## Common questions
 
 **Why does Guide HQ hide the company sidebar links?** Guide HQ
