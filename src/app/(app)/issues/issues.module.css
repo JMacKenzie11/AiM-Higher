@@ -663,21 +663,6 @@
  * the history behind it, and it is absent entirely when there is none.
  * Tokens only — no new visual vocabulary. */
 
-/* Not composing btnGhost: every property it brings is overridden
-   below, and a compose that survives none of itself is a lie about
-   where the styling comes from. */
-.threadToggle {
-  margin-top: var(--space-1);
-  padding: 0;
-  border: none;
-  background: none;
-  font: var(--text-caption);
-  color: var(--text-muted);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
 .threadToggle:hover {
   color: var(--aims-cobalt);
 }
@@ -691,40 +676,6 @@
 
 
 /* ---- The review moment ---------------------------------------- */
-
-
-.reviewAsk {
-  margin: 0;
-  font: var(--text-body-sm);
-  font-weight: 600;
-  color: var(--text-heading);
-}
-
-
-/* Was composing btnPrimary and then re-specifying padding and font
-   by hand, which is the small-button variant spelled out. Use it. */
-.reviewResolve {
-  composes: btnPrimary btnSm from "../../../components/ui/ui.module.css";
-}
-
-
-
-/* Quiet by design. It marks a question waiting for an answer, not a
-   problem — the attention queue is a different surface with a
-   different tone. */
-.needsReviewBadge {
-  display: inline-block;
-  margin-left: var(--space-2);
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--aims-sky-tint);
-  color: var(--text-muted);
-  font: var(--text-caption);
-  font-weight: 600;
-  white-space: nowrap;
-  vertical-align: middle;
-}
-
 
 
 /* ---- The commitments region ----------------------------------
@@ -814,28 +765,10 @@
   font: var(--text-body-sm);
 }
 
-/* The review question spans all three columns: it is about the ISSUE,
-   not about any one commitment. Wedging it into the commitment column
-   is what made the previous version look cluttered. */
-.reviewLine {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-  border-top: 1px solid var(--border);
-}
-
 .reviewAsk {
   font: var(--text-body-sm);
   font-weight: 600;
   color: var(--text-heading);
-}
-
-.reviewOr {
-  font: var(--text-caption);
-  color: var(--text-muted);
 }
 
 /* The add line. Laid out like an open commitment line so the empty

@@ -52,33 +52,27 @@ undo chip for thirty seconds after you resolve one. Same reason
 prompts. If you have learned it in one place you have learned it in
 both.
 
-**Finished ones tuck away behind an "N done" link** so a long-running
-issue stays readable. Open it to see them, each on its own line with
-who did it and when.
+**You see every commitment on the issue**, finished ones first and
+live ones after, each on its own line with who owns it and when it's
+due. Nothing is hidden behind a control.
 
-**If more than one commitment is open, you see them all.** They are
-ordinary lines in the same list — nothing is hidden behind a control,
-and there is no way to fold live work away. Only finished work tucks
-out of sight.
-
-**When everything on an issue has been finished, the row asks
-"Did this solve it?"** and gives you two answers: *Resolve issue*,
-or *Add next commitment*. Nothing happens on its own — the issue
-is not closed for you, and no follow-up is invented. Until you
-answer, the row carries a quiet **needs review** badge so it is
-easy to find. Issues nobody has started yet never show it; the
-badge only appears once something has actually been finished.
+**When the last one is done, resolve the issue if it solved it.**
+Tick the round check on the issue's own line. Nothing happens on its
+own: the issue isn't closed for you and no follow-up is invented. If
+it didn't solve it, add another commitment and carry on.
 
 ## Resolving, and what it does not do
 
-Resolving an issue takes it off the open list. **Open commitments
-on it stay live** and remain yours to resolve as normal — that is
-deliberate, and unchanged.
+Resolving an issue takes it off the open list and **closes the
+commitments on it**, marking them kept. The confirm box tells you how
+many before you commit to it. Parked commitments and repeating weekly
+ones are left alone.
 
-**There is no way to reopen a resolved issue.** If the answer to
-"did this solve it?" turns out to be no after you have already
-resolved it, raise a new issue. That is today's answer and it may
-change.
+**There is no way to reopen a resolved issue.** If it turns out not
+to have solved the problem after you have already resolved it, raise
+a new issue. That is today's answer and it may change. You can reopen
+an individual commitment from your Commitments page; the issue stays
+resolved.
 
 ## What you can do here
 

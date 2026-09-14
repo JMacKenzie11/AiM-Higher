@@ -23,7 +23,7 @@ import {
 import type { IssueWithCommitments } from "@/lib/issues/service";
 import type { Priority, Profile } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { splitThread, needsReview } from "@/lib/issues/thread";
+import { splitThread } from "@/lib/issues/thread";
 import { CommitmentRow } from "../commitments/CommitmentRow";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import styles from "./issues.module.css";
@@ -80,9 +80,6 @@ export function IssueCard({
   // but this card no longer treats one of them differently from the
   // others — that distinction was the bug, not the feature.
   const thread = splitThread(issue.commitments);
-  const doneCount = thread.completed.length;
-  const awaitingReview = needsReview(issue, thread);
-  const [expanded, setExpanded] = useState(false);
 
   // EVERY COMMITMENT ON AN ISSUE IS THE SAME KIND OF THING.
   //
@@ -98,22 +95,18 @@ export function IssueCard({
   // a `CommitmentRow` — the same component /commitments renders — in
   // a list UNDER the issue, with the add form as the last line.
   //
-  // Finished ones stay collapsed behind "N done" — the one place the
-  // uniform rule bends, deliberately, because an issue with eight
-  // finished commitments would otherwise bury the live ones.
+  // NOTHING IS HIDDEN. Finished commitments used to collapse behind
+  // an "N done" toggle so they could not bury the live ones; on a
+  // real issue there are two or three of them, and a control that
+  // hides two rows costs more attention than the rows do.
   const canEditCommitment = (c: CommitmentWithMeta): boolean =>
     isAdmin || (c.owner_id !== null && c.owner_id === currentUserId);
 
   const openCommitments = thread.active
     ? [thread.active, ...thread.otherOpen]
     : thread.otherOpen;
-  // Finished first (history above), then live. Collapsed unless the
-  // "N done" toggle is open, which is the one place the uniform rule
-  // still bends: eight finished commitments would bury the live ones.
-  const commitmentLines =
-    doneCount > 0 && expanded
-      ? [...thread.completed, ...openCommitments]
-      : openCommitments;
+  // Finished first, so the line reads as history then live work.
+  const commitmentLines = [...thread.completed, ...openCommitments];
 
   return (
     // Anchored so /commitments can link straight to this row. There
@@ -172,11 +165,6 @@ export function IssueCard({
 
       <div className={styles.cellIssue}>
         <IssueTitleEditor issue={issue} canEdit={canEdit} />
-        {/* Derived state, not a status value: unresolved, nothing
-            open, at least one thing finished. */}
-        {awaitingReview ? (
-          <span className={styles.needsReviewBadge}>needs review</span>
-        ) : null}
       </div>
 
       <div className={styles.cellWant}>
@@ -220,12 +208,6 @@ export function IssueCard({
           ))}
         </ul>
 
-        {/* The review moment, as one quiet line at the end of the
-            thread rather than a block inside a narrow cell. */}
-        {awaitingReview && canEdit ? (
-          <ReviewPromptLine issueId={issue.id} />
-        ) : null}
-
         {canEdit ? (
           <IssueCommitmentAddInline
             issueId={issue.id}
@@ -238,17 +220,6 @@ export function IssueCard({
           <p className={styles.commitmentEmpty}>No commitment yet.</p>
         ) : null}
 
-        {doneCount > 0 ? (
-          <button
-            type="button"
-            className={styles.threadToggle}
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            aria-label={`${expanded ? "Hide" : "Show"} ${doneCount} finished commitment${doneCount === 1 ? "" : "s"}`}
-          >
-            {expanded ? "hide finished" : `${doneCount} done`}
-          </button>
-        ) : null}
       </div>
 
     </article>
@@ -832,43 +803,6 @@ function IssueCommitmentAddInline({
 
 
 
-
-// The review moment. One line spanning the region, because it is a
-// question about the ISSUE rather than about a commitment — and
-// because wedging a question and two buttons into the commitment
-// column is what made the first version look cluttered.
-function ReviewPromptLine({ issueId }: { issueId: string }) {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  function resolve() {
-    setError(null);
-    startTransition(async () => {
-      const result = await resolveIssueAction(issueId);
-      if (!result.ok) setError(result.message);
-    });
-  }
-
-  return (
-    <div className={styles.reviewLine}>
-      <span className={styles.reviewAsk}>Did this solve it?</span>
-      <button
-        type="button"
-        className={styles.reviewResolve}
-        onClick={resolve}
-        disabled={pending}
-      >
-        {pending ? "Resolving…" : "Resolve issue"}
-      </button>
-      <span className={styles.reviewOr}>or add another commitment below</span>
-      {error ? (
-        <span role="alert" className={styles.commitmentError}>
-          {error}
-        </span>
-      ) : null}
-    </div>
-  );
-}
 
 // ---- Inline editors for a commitment ----------------------------
 // Click-to-edit description / owner / due date so an issue-linked

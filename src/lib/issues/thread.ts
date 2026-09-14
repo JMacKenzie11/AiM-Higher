@@ -14,9 +14,14 @@
 // regex and testing it by calling it.
 //
 // NO NEW STATUS VALUE, AND NO SCHEMA CHANGE. Everything below is
-// derived from rows that already exist. "Needs review" in particular
-// is a question the data answers, not a column: an issue nobody has
-// resolved, with nothing open on it, and at least one thing finished.
+// derived from rows that already exist.
+//
+// This once also derived a `needsReview` flag — unresolved, nothing
+// open, at least one thing finished — which drove a "needs review"
+// pill and a "Did this solve it? / Resolve issue" prompt. Both are
+// gone: somebody who has just closed the last commitment on an issue
+// can resolve the issue with the control already sitting on its row,
+// and being told to is not worth a pill and a banner.
 
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 
@@ -69,35 +74,4 @@ export function splitThread(
     active: open[0] ?? null,
     otherOpen: open.slice(1),
   };
-}
-
-// THE REVIEW MOMENT.
-//
-// Every commitment on this issue has landed and nobody has said
-// whether the issue itself is settled. That is a question for a human,
-// and the product's answer is to ask it rather than to guess: nothing
-// auto-resolves, nothing auto-creates the next commitment.
-//
-// All three clauses are load-bearing:
-//
-//   unresolved        a resolved issue has had its answer
-//   nothing open      work still in flight is not a review moment
-//   something done    an issue nobody has started is not "reviewed
-//                     and awaiting a decision", it is untouched, and
-//                     badging it would put a prompt on every empty
-//                     issue on the page
-//
-// The third clause is also what grandfathers the existing data.
-// Measured on production 2026-09-14 before this was written: of 27
-// issues, 6 were resolved while carrying open commitments and ZERO
-// resolved issues had a completed one, so nothing that exists today
-// satisfies this. No `resolved_at` cutoff is needed, and adding one
-// would be dead code guarding against a population of zero.
-export function needsReview(
-  issue: { status: string },
-  thread: IssueThread
-): boolean {
-  if (issue.status === "resolved") return false;
-  if (thread.active !== null || thread.otherOpen.length > 0) return false;
-  return thread.completed.length > 0;
 }
