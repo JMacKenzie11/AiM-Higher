@@ -98,11 +98,11 @@ As a team member, you can:
   three-state check as your Commitments page (Timeline agreed?
   Definition of done observable?).
 - **See resolved history** — the *Resolved issues* section at the
-  bottom is the open list in past tense. Same layout, same
-  commitment lines underneath each issue, so nothing new to learn.
-  It shows **every** commitment the issue took, not just the last
-  one: an issue that took four goes shows all four, which is the
-  interesting part of a resolved issue.
+  bottom lists the issues themselves, one line each. Click the
+  little arrow beside an issue to open up the commitments it took
+  to get there: **every** one, not just the last, so an issue that
+  took four goes shows all four. They stay closed until you ask,
+  which keeps the archive readable.
 - **Some resolved issues have no commitments at all.** Instead of
   the commitment list they carry a line saying so. **Resolved in
   meeting** means it was closed with that shortcut on the meeting

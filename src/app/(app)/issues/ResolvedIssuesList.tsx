@@ -110,9 +110,28 @@ function ResolvedRow({
   const canEditCommitment = (ownerId: string | null): boolean =>
     isAdmin || (ownerId !== null && ownerId === currentUserId);
 
+  // COLLAPSED BY DEFAULT. A resolved issue's commitments are the
+  // record of how it got solved, which is worth keeping and worth
+  // reading occasionally — not worth rendering in full for every
+  // issue in the archive. Expanded, the list was several stacked
+  // blocks of equal weight with no way to tell where one issue ended
+  // and the next began.
+  const [expanded, setExpanded] = useState(false);
+  const hasThread = commitmentCell.kind === "commitment";
+
   return (
     <li className={styles.issueListItem}>
       <article className={styles.resolvedRow}>
+        {/* DOM ORDER IS COLUMN ORDER. Every cell here is placed at
+            an explicit grid-column, and auto-flow only moves
+            forward: an item whose column sits behind the cursor
+            starts a NEW ROW and drags everything after it along.
+            Emitted check-delete-placeholder, that is what put this
+            list's title and outcome on a second line. */}
+        {/* No drag handle: resolved issues carry no ordering. The
+            placeholder keeps the column, so the two lists line up. */}
+        <span aria-hidden className={styles.dragHandlePlaceholder} />
+
         {/* A kept commitment shows a filled check; so does a
             resolved issue. Static, not a button — there is no
             reopen, so an affordance here would promise one. */}
@@ -127,9 +146,29 @@ function ResolvedRow({
           <span aria-hidden className={styles.deletePlaceholder} />
         )}
 
-        {/* No drag handle: resolved issues carry no ordering. The
-            placeholder keeps the column, so the two lists line up. */}
-        <span aria-hidden className={styles.dragHandlePlaceholder} />
+        {/* The disclosure. A CHEVRON, not a plus: on this page a
+            filled circle holding a plus is the Add control on the
+            commitment line, and giving the same glyph a second
+            meaning two rows away is how the first one stopped being
+            readable. Column 4, immediately left of what it opens. */}
+        {hasThread ? (
+          <button
+            type="button"
+            className={styles.threadDisclosure}
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-label={`${expanded ? "Hide" : "Show"} ${lines.length} commitment${
+              lines.length === 1 ? "" : "s"
+            } on "${issue.title}"`}
+            title={`${expanded ? "Hide" : "Show"} ${lines.length} commitment${
+              lines.length === 1 ? "" : "s"
+            }`}
+          >
+            <span aria-hidden>{expanded ? "▾" : "▸"}</span>
+          </button>
+        ) : (
+          <span aria-hidden className={styles.threadDisclosurePlaceholder} />
+        )}
 
         <div className={styles.cellIssue}>
           <span className={styles.issueTitle}>{issue.title}</span>
@@ -143,10 +182,7 @@ function ResolvedRow({
           )}
         </div>
 
-        {/* Every commitment, not a representative one. No "N done"
-            collapse either: on an open issue that exists so finished
-            work cannot bury live work, and here there is no live work
-            to bury. */}
+        {expanded || !hasThread ? (
         <div className={styles.commitments}>
           {commitmentCell.kind === "commitment" ? (
             <>
@@ -183,6 +219,7 @@ function ResolvedRow({
             </p>
           )}
         </div>
+        ) : null}
       </article>
     </li>
   );

@@ -897,3 +897,44 @@
   grid-column: 7;
 }
 
+/* The resolved list's disclosure, in column 4 — the empty slot
+   between the issue's controls and its title, which is where a
+   disclosure belongs: immediately left of what it opens. */
+.threadDisclosure {
+  grid-column: 4;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.threadDisclosure:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+}
+
+.threadDisclosure:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+/* Holds the column on an issue that never carried a commitment, so
+   its title still starts where every other title does. */
+.threadDisclosurePlaceholder {
+  grid-column: 4;
+  display: inline-block;
+  width: 28px;
+  height: 1px;
+}
+
