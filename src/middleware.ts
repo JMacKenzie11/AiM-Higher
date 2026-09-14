@@ -7,7 +7,10 @@ import {
   routeForInstance,
 } from "@/lib/instances/middleware-decision";
 import { hostnameFromHeaders } from "@/lib/instances/request";
-import { SCOPE_COOKIE_NAME } from "@/lib/admin/scope";
+import {
+  SCOPE_COOKIE_NAME,
+  scopedCompanyIdForProfile,
+} from "@/lib/admin/scope";
 import {
   scopePickerPathFor,
   needsScopePicker,
@@ -68,7 +71,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const currentScope = request.cookies.get(SCOPE_COOKIE_NAME)?.value ?? null;
   // NOTE: /hq deliberately does NOT clear the scope cookie. Preserving
   // it lets Dashboard/Chart/Plan (hidden from the sidebar while on /hq,
   // see Sidebar) still navigate back to the last-scoped company when
@@ -113,11 +115,30 @@ export async function middleware(request: NextRequest) {
   }
 
   const needsPendingCheck = !pendingAllowsPath(path);
-  const { response, isAuthenticated, isPending, role } = await updateSession(
-    request,
-    routing.instance,
-    { checkPending: needsPendingCheck }
+  const { response, isAuthenticated, isPending, role, profileId } =
+    await updateSession(request, routing.instance, {
+      checkPending: needsPendingCheck,
+    });
+
+  // Read through the same helper the app uses, NOT the raw cookie.
+  //
+  // THE BUG THIS FIXES. #102 bound the scope cookie to the profile it
+  // was issued for, so its value became `<profileId>:<companyId>`.
+  // getScopedCompanyId was updated; this line was not, and went on
+  // comparing the whole bound value against a bare company id from
+  // the URL. They can never be equal, so needsScopePicker returned
+  // true every time and EVERY cross-tenant caller was bounced to the
+  // picker on every /admin/companies/<id> visit — including straight
+  // after pressing Settings, which had just scoped them into that
+  // exact company.
+  //
+  // Reported from the browser on promiseone: "click Settings, it
+  // scopes me in and then takes me to /hq".
+  const currentScope = scopedCompanyIdForProfile(
+    request.cookies.get(SCOPE_COOKIE_NAME)?.value,
+    profileId ?? ""
   );
+
 
   // Pending users have a session (from the invite OTP exchange) but
   // haven't set a password. They must not be allowed anywhere except

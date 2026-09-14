@@ -30,6 +30,10 @@ export async function updateSession(
   // that route based on role should ensure checkPending is true for
   // that path.
   role: string | null;
+  // The signed-in profile's id, when there is one. Middleware needs it
+  // to read the scope cookie, which is bound to the profile it was
+  // issued for (`<profileId>:<companyId>`) — see lib/admin/scope.ts.
+  profileId: string | null;
 }> {
   // The resolved instance rides down to the render as a request
   // header. It has to be attached here rather than in the caller,
@@ -92,5 +96,11 @@ export async function updateSession(
     role = profile?.role ?? null;
   }
 
-  return { response, isAuthenticated, isPending, role };
+  return {
+    response,
+    isAuthenticated,
+    isPending,
+    role,
+    profileId: data.user?.id ?? null,
+  };
 }

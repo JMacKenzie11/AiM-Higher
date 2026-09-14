@@ -97,6 +97,61 @@ describe("who may write the scope cookie", () => {
   });
 });
 
+// ---- And who READS it ------------------------------------------
+//
+// The writers guard above did not save me from the reverse mistake.
+// #102 changed the cookie's VALUE to `<profileId>:<companyId>` and
+// updated getScopedCompanyId; middleware.ts kept reading
+// `cookies.get(...).value` raw and comparing the whole bound string
+// against a bare company id from the URL. They can never be equal, so
+// every cross-tenant caller was bounced to the scope picker on every
+// company page — including immediately after pressing Settings, which
+// had just scoped them into that exact company.
+//
+// A format is a contract between writers AND readers. This is the
+// half that was missing.
+describe("who may read the scope cookie", () => {
+  const readers = files
+    .filter((f) => {
+      if (f.endsWith(path.join("lib", "admin", "scope.ts"))) return false;
+      const src = stripComments(readFileSync(f, "utf8"));
+      return src.includes("SCOPE_COOKIE_NAME");
+    })
+    .map((f) => path.relative(SRC, f));
+
+  it("finds the readers at all, so a clean pass means something", () => {
+    expect(readers.length).toBeGreaterThan(0);
+  });
+
+  it("never pulls the raw value out of the cookie jar", () => {
+    // The only correct way to turn this cookie into a company id is
+    // scopedCompanyIdForProfile, which checks the binding. Anything
+    // reaching for `.value` is reading a string that has a profile id
+    // welded to the front of it.
+    // Reading the raw value is fine — it is the INPUT to the helper.
+    // What must never happen is using it AS a company id. So every
+    // occurrence has to sit inside a scopedCompanyIdForProfile call.
+    //
+    // Two earlier versions of this check were wrong in opposite
+    // directions, which is worth leaving on the record. The first
+    // excused any file that merely imported the helper, and passed
+    // happily while middleware.ts read the cookie raw two lines below
+    // a leftover import. The second banned the raw read outright and
+    // flagged the CORRECT code, because feeding the raw value to the
+    // helper is exactly how it is meant to be used.
+    const RAW = /get\(\s*SCOPE_COOKIE_NAME\s*\)\s*(?:\?\.)?\s*value/g;
+    const raw = readers.filter((rel) => {
+      const src = stripComments(readFileSync(path.join(SRC, rel), "utf8"));
+      for (const m of src.matchAll(RAW)) {
+        const before = src.slice(Math.max(0, m.index - 120), m.index);
+        if (!before.includes("scopedCompanyIdForProfile(")) return true;
+      }
+      return false;
+    });
+    expect(raw).toEqual([]);
+  });
+});
+
 describe("the align-scope route is gone", () => {
   it("has no file", () => {
     const found = files.filter((f) => f.includes("align-scope"));
