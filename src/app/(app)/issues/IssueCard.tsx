@@ -554,7 +554,13 @@ function ResolveIssueButton({
         title="Resolve this issue?"
         message={
           openCount > 0
-            ? `It moves off the open list, and ${openCount === 1 ? "the commitment" : `all ${openCount} commitments`} still open on it will be marked kept. That counts toward follow-through, so only resolve if the work actually landed.`
+            ? `It moves off the open list, and ${
+                openCount === 1
+                  ? "the commitment"
+                  : openCount === 2
+                    ? "both commitments"
+                    : `all ${openCount} commitments`
+              } still open on it will be marked kept.`
             : "It moves off the open list."
         }
         confirmLabel="Resolve"
