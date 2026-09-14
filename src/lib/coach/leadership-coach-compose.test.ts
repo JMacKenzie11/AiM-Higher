@@ -31,8 +31,17 @@ import path from "node:path";
 // rule and its worked examples. A deliberate edit to the coaching
 // spine, which is exactly the kind of change this guard is here to
 // make somebody say out loud.
+//
+// Changed again 2026-09-14, and saying it out loud: the spine gained a
+// terminal state and turns gained a length ceiling. A real conversation
+// reached step 7, the leader said "I'll go try that test", and the coach
+// produced four more turns averaging 243 words against replies averaging
+// 9. Nothing was violating the spine. The spine had simply finished and
+// nothing said to stop, while "one sharp question per turn" plus "never
+// ask a question without a hypothesis alongside it" made the shortest
+// legal turn a hypothesis and a question. The seven steps are untouched.
 const LEADERSHIP_COACH_BASE_SHA =
-  "229be6ec14fc8ecd6c347ccccc44d4ed8fe2b334d8367ba52cc0c70372ec2787";
+  "153a940f72d95f56e7d0126e6223a5efc9611c0d295148aec61ab99e06286989";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {
