@@ -316,7 +316,15 @@
   border-bottom: none;
 }
 
-.rowResolved {
+/* Dims the CELLS, not the row.
+   `opacity` below 1 creates a stacking context, so dimming the row
+   itself trapped the resolve menu's `z-index: 20` inside it: the
+   menu painted UNDER the following row and inherited the row's 60%
+   opacity, which is exactly the "translucent and behind the text"
+   report. Moving the dim down one level leaves the row without a
+   stacking context, so the menu's z-index competes at list level
+   again, and excludes the menu from the fade. */
+.rowResolved > *:not(.resolveMenu) {
   opacity: 0.6;
 }
 
