@@ -698,3 +698,51 @@ replace the measurement.
 the deploy ritual: every applying command has a `--dry-run` beside it,
 the applying half is gated on a person, and the dry run is treated as
 the thing that decides rather than as a formality before the real run.
+
+### E7. A protection that lives only in RLS
+
+**Situation.** A rule about which rows exist is implemented once, in
+the database, as an RLS policy — deliberately, and for a good reason:
+one policy beats sweeping dozens of query sites, and it cannot be
+forgotten at a new call site the way a `where` clause can. The
+migration says so in its own comment. Then the same table is read by
+something holding the service-role key, which bypasses RLS by design,
+and the rule silently does not apply there.
+
+**Specimen.** Migration 0148 hid soft-deleted companies behind a
+restrictive policy, `companies_hide_deleted`, reasoning in its header
+that "we don't have to sweep dozens of query sites app-wide — the row
+simply disappears everywhere". True of every caller holding a user's
+session. False of `src/lib/admin/dashboard-service.ts`, where all four
+`companies` reads run as service role: deleted tenants were listed on
+the platform dashboard for a year, including in *Needs attention*,
+which reported a company nobody could reach as having no coach
+conversations on record. Two other service-role readers had been fixed
+by hand along the way — `coaching-insights-service.ts` filters
+`deleted_at` in all three of its reads — which is the tell: somebody
+had already met this and patched the instance rather than the class.
+
+**Rule.** **A row-visibility rule enforced in RLS covers the caller's
+client and nothing else. Every service-role read of that table
+restates it, and a source guard proves they all do.** The service role
+exists to bypass RLS; that is not a loophole to be closed but the
+reason it is used, so the obligation moves to the caller. The guard
+has to read the source, because the offending file is always the next
+one somebody writes and it will look exactly as correct as the four
+that shipped the bug.
+
+**Not a rule.** Restating the filter on the caller's client too.
+Demanding a redundant `is("deleted_at", null)` where RLS is already
+doing the work teaches people the policy cannot be trusted, and a
+codebase that half-trusts its own policies ends up with the filter
+everywhere except the one place it was load-bearing.
+
+**Pinned by.** `src/lib/admin/companies-deleted.test.ts`, which walks
+`src/`, selects files that obtain a service-role client, and fails on
+any `from("companies")` read without the filter. Lookups pinned to a
+single id are exempt: the caller already holds the id and has to
+handle a null either way. Shown failing against the unfixed
+`dashboard-service.ts` before its green was believed — and its first
+run produced a false positive on a query whose filter was present but
+pushed out of the match window by a comment, which is why it strips
+comments before measuring.

@@ -1,3 +1,20 @@
+// EVERY READ OF `companies` HERE FILTERS `deleted_at`, and it has to.
+//
+// Migration 0148 hides soft-deleted companies with a RESTRICTIVE RLS
+// policy, chosen so that "we don't have to sweep dozens of query
+// sites app-wide — the row simply disappears everywhere". That is
+// true of the caller's client and false of this one: every query in
+// this file runs as SERVICE ROLE, which bypasses RLS by design, so
+// the protection 0148 relies on is not present here.
+//
+// Deleted companies were consequently listed on the platform
+// dashboard — including in Needs attention, where a tenant nobody
+// can reach was reported as having no coach conversations on record.
+//
+// `scripts/`-style source guard: src/lib/admin/companies-deleted.test.ts
+// fails if a service-role read of `companies` appears anywhere
+// without this filter.
+
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { PRACTICES } from "@/lib/practices/registry";
@@ -52,6 +69,7 @@ export async function getPlatformPulse(): Promise<PlatformPulse> {
       admin
         .from("companies")
         .select("id", { count: "exact", head: true })
+        .is("deleted_at", null)
         .gte("created_at", since7),
       admin
         .from("coaching_messages")
@@ -119,7 +137,7 @@ export async function getCompanyActivity(): Promise<CompanyActivityRow[]> {
   // counts. Parallelising keeps the wall time to whichever query is
   // slowest.
   const [companiesRes, msgs30, convos30, costs30, commits30] = await Promise.all([
-    admin.from("companies").select("id, name"),
+    admin.from("companies").select("id, name").is("deleted_at", null),
     admin
       .from("coaching_messages")
       .select("created_by, created_at, coaching_conversations!inner(company_id)")
@@ -400,7 +418,7 @@ export async function getModelCostSummary(): Promise<ModelCostSummary> {
       .from("coach_token_usage")
       .select("company_id, cost_usd_cents, created_at")
       .gte("created_at", since30),
-    admin.from("companies").select("id, name"),
+    admin.from("companies").select("id, name").is("deleted_at", null),
   ]);
   const rows = (rowsRes.data ?? []) as Array<{
     company_id: string | null;
@@ -468,6 +486,7 @@ export async function getSignupStats(): Promise<SignupStats> {
     admin
       .from("companies")
       .select("id", { count: "exact", head: true })
+      .is("deleted_at", null)
       .gte("created_at", since7),
     admin
       .from("profiles")
