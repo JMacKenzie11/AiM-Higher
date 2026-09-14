@@ -12,14 +12,8 @@ import {
 } from "react";
 import {
   createCommitmentAction,
-  deleteCommitmentAction,
-  markKeptAction,
-  reassignCommitmentAction,
-  rescheduleCommitmentAction,
-  updateCommitmentDescriptionAction,
   type CommitmentResult,
 } from "@/lib/commitments/actions";
-import type { Commitment } from "@/lib/types";
 import {
   deleteIssueAction,
   renameIssueAction,
@@ -29,14 +23,9 @@ import {
 import type { IssueWithCommitments } from "@/lib/issues/service";
 import type { Priority, Profile } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import {
-  ClarityChip,
-  ClarityEditor,
-  clarityState,
-} from "../commitments/ClarityStrip";
 import { splitThread, needsReview } from "@/lib/issues/thread";
+import { CommitmentRow } from "../commitments/CommitmentRow";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
-import { formatShortDate } from "@/lib/dates";
 import styles from "./issues.module.css";
 
 // One issue = one row. Five columns match the /commitments visual
@@ -56,15 +45,16 @@ import styles from "./issues.module.css";
 // page but are always present on personal surfaces where the owner
 // interacts with them.
 
-// _priority + _fnArea props are unused for now; kept in the signature
-// so future work (chip-in-place, click-to-edit link) doesn't have to
-// re-thread them from the page loader.
+// `priorityOptions` is threaded straight through to CommitmentRow.
+// It renders no priority here (hidePriority), but the component
+// takes the list unconditionally, and the page loader already has it.
 
 const CREATE_INITIAL: CommitmentResult = { ok: false, message: "" };
 
 export function IssueCard({
   issue,
   roster,
+  priorityOptions,
   todayIso,
   currentUserId,
   isAdmin,
@@ -93,7 +83,6 @@ export function IssueCard({
   const doneCount = thread.completed.length;
   const awaitingReview = needsReview(issue, thread);
   const [expanded, setExpanded] = useState(false);
-  const [showClarityFor, setShowClarityFor] = useState<string | null>(null);
 
   // EVERY COMMITMENT ON AN ISSUE IS THE SAME KIND OF THING.
   //
@@ -105,24 +94,26 @@ export function IssueCard({
   // a second commitment displacing the first, and a review prompt
   // wedged into a cell too narrow for it.
   //
-  // So there is no "active" commitment any more. Open commitments are
-  // lines, the add form is the last line, and they all use the same
-  // three columns via `subgrid` so the COMMITMENT / ASSIGNED TO /
-  // DUE DATE headers still describe every one of them.
+  // So there is no "active" commitment any more. Every commitment is
+  // a `CommitmentRow` — the same component /commitments renders — in
+  // a list UNDER the issue, with the add form as the last line.
   //
   // Finished ones stay collapsed behind "N done" — the one place the
   // uniform rule bends, deliberately, because an issue with eight
   // finished commitments would otherwise bury the live ones.
-  const ownerNameFor = (c: CommitmentWithMeta): string | null =>
-    c.owner_id
-      ? roster.find((p) => p.id === c.owner_id)?.full_name ?? "Unknown"
-      : null;
   const canEditCommitment = (c: CommitmentWithMeta): boolean =>
     isAdmin || (c.owner_id !== null && c.owner_id === currentUserId);
 
   const openCommitments = thread.active
     ? [thread.active, ...thread.otherOpen]
     : thread.otherOpen;
+  // Finished first (history above), then live. Collapsed unless the
+  // "N done" toggle is open, which is the one place the uniform rule
+  // still bends: eight finished commitments would bury the live ones.
+  const commitmentLines =
+    doneCount > 0 && expanded
+      ? [...thread.completed, ...openCommitments]
+      : openCommitments;
 
   return (
     // Anchored so /commitments can link straight to this row. There
@@ -163,34 +154,42 @@ export function IssueCard({
         <DesiredOutcomeEditor issue={issue} canEdit={canEdit} />
       </div>
 
-      {/* The commitments region: spans the three commitment columns
-          and lays its lines out on `subgrid`, so every line aligns to
-          the same headers no matter how many there are. */}
-      <div className={styles.commitments}>
-        {doneCount > 0 && expanded
-          ? thread.completed.map((done) => (
-              <DoneCommitmentLine
-                key={done.id}
-                commitment={done}
-                ownerName={ownerNameFor(done)}
-              />
-            ))
-          : null}
+      {/* The commitments region spans the FULL row and therefore
+          auto-places on its own grid line, underneath the issue. It
+          used to sit at `grid-column: 4 / 7`, level with the issue
+          title, which put a commitment-level control inches from the
+          issue-level Resolve button and made it genuinely unclear
+          which one you were about to press.
 
-        {openCommitments.map((c) => (
-          <OpenCommitmentLine
-            key={c.id}
-            commitment={c}
-            roster={roster}
-            ownerName={ownerNameFor(c)}
-            canEdit={canEditCommitment(c)}
-            isAdmin={isAdmin}
-            showClarity={showClarityFor === c.id}
-            onToggleClarity={() =>
-              setShowClarityFor((prev) => (prev === c.id ? null : c.id))
-            }
-          />
-        ))}
+          Every line here is a real `CommitmentRow` — the same
+          component /commitments, Guide HQ and the priority pages
+          render. Acting on a commitment is therefore identical
+          wherever you meet it: the circle opens a menu and never
+          resolves on click, reschedule and reason open as full-width
+          strips, and the undo chip is the same 30-second chip. */}
+      <div className={styles.commitments}>
+        {commitmentLines.length > 0 ? <CommitmentSubHeader /> : null}
+
+        <ul className={styles.commitmentList}>
+          {commitmentLines.map((c) => (
+            <CommitmentRow
+              key={c.id}
+              commitment={c}
+              priorityOptions={priorityOptions}
+              roster={roster}
+              todayIso={todayIso}
+              canResolve={canEditCommitment(c)}
+              canReassign={canEditCommitment(c)}
+              // No link picker: an issue-linked commitment has no
+              // priority, and moving it off its issue belongs in the
+              // issue's own context, not in a chip menu.
+              canLink={false}
+              hidePriority
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
+            />
+          ))}
+        </ul>
 
         {/* The review moment, as one quiet line at the end of the
             thread rather than a block inside a narrow cell. */}
@@ -235,6 +234,26 @@ export function IssueCard({
         <span aria-hidden className={styles.resolvePlaceholder} />
       )}
     </article>
+  );
+}
+
+// Labels the commitment columns inside one issue. Borrows the
+// /commitments row grid (via `composes`) so the labels sit over the
+// actual columns rather than over a copy of them that can drift.
+// The leading spacers are resolve circle, delete and clarity; the
+// sixth is the hidden priority placeholder `hidePriority` keeps.
+function CommitmentSubHeader() {
+  return (
+    <div className={styles.commitmentSubHeader} role="row" aria-hidden="true">
+      <span aria-hidden />
+      <span aria-hidden />
+      <span aria-hidden />
+      <span>Commitment</span>
+      <span>Assigned to</span>
+      <span aria-hidden />
+      <span>Due date</span>
+      <span>Status</span>
+    </div>
   );
 }
 
@@ -643,6 +662,7 @@ function IssueCommitmentAddInline({
   // has settled on the NEW focus target — if it's still inside this
   // form, we're just tabbing between fields and shouldn't submit.
   const formId = `add-cmt-${issueId}`;
+  const inputId = `${formId}-description`;
   function maybeAutoSubmit() {
     setTimeout(() => {
       const active = document.activeElement;
@@ -658,23 +678,35 @@ function IssueCommitmentAddInline({
 
   return (
     <>
+      {/* ONE grid row on the same eight columns a CommitmentRow
+          uses, so the plus sits in the resolve-circle column and the
+          field, owner and date land under the headers above them.
+          The owner and date controls live inside the form now; they
+          used to be siblings placed by subgrid, which the region no
+          longer is. */}
       <form
         id={formId}
         ref={formRef}
         action={formAction}
-        className={`${styles.cellCommitment} ${styles.addLine}`}
+        className={styles.addLine}
       >
         <input type="hidden" name="issue_id" value={issueId} />
         <input type="hidden" name="owner_id" value={ownerId} />
         <input type="hidden" name="due_date" value={dueDate} />
-        {/* The other end of a commitment's life. Same circle as the
-            close control on an open line, so the thread reads as one
-            list of like things with an empty slot at the bottom
-            rather than a form bolted underneath it. */}
-        <span aria-hidden className={styles.addCircle}>
-          +
-        </span>
+
+        {/* A LABEL, not a decorative span. Filled and coloured, it
+            reads as a button, and a thing that looks like a button
+            has to do something when clicked. As a label it focuses
+            the textarea natively and adds no extra tab stop. */}
+        <label htmlFor={inputId} className={styles.addCircle}>
+          <span aria-hidden>+</span>
+          <span className={styles.srOnly}>Add a commitment</span>
+        </label>
+        <span aria-hidden />
+        <span aria-hidden />
+
         <textarea
+          id={inputId}
           ref={inputRef}
           name="description"
           value={description}
@@ -696,16 +728,9 @@ function IssueCommitmentAddInline({
           disabled={pending}
           aria-label="New commitment"
         />
-        {errorMessage ? (
-          <p role="alert" className={styles.rowError}>
-            {errorMessage}
-          </p>
-        ) : null}
-      </form>
-      <div className={styles.cellOwner}>
+
         {isAdmin ? (
           <select
-            form={formId}
             value={ownerId}
             onChange={(e) => setOwnerId(e.target.value)}
             onBlur={maybeAutoSubmit}
@@ -720,12 +745,14 @@ function IssueCommitmentAddInline({
             ))}
           </select>
         ) : (
-          roster.find((p) => p.id === currentUserId)?.full_name ?? "You"
+          <span>
+            {roster.find((p) => p.id === currentUserId)?.full_name ?? "You"}
+          </span>
         )}
-      </div>
-      <div className={styles.cellDue}>
+
+        <span aria-hidden />
+
         <input
-          form={formId}
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
@@ -734,7 +761,15 @@ function IssueCommitmentAddInline({
           disabled={pending}
           aria-label="Due date"
         />
-      </div>
+
+        <span aria-hidden />
+
+        {errorMessage ? (
+          <p role="alert" className={styles.addLineError}>
+            {errorMessage}
+          </p>
+        ) : null}
+      </form>
     </>
   );
 }
@@ -745,132 +780,8 @@ function IssueCommitmentAddInline({
 
 
 
-// ---- One commitment, one line -----------------------------------
-//
-// Each of these renders exactly three children, which land in the
-// three subgrid columns of the commitments region: description,
-// owner, due date. `display: contents` on the wrapper is what lets a
-// component own a row of the parent grid.
-
-// A commitment still in flight. Editable, and closable from here —
-// there was previously no way to resolve an issue commitment on this
-// page at all, which sent people to /commitments to finish work they
-// were looking straight at.
-function OpenCommitmentLine({
-  commitment,
-  roster,
-  ownerName,
-  canEdit,
-  isAdmin,
-  showClarity,
-  onToggleClarity,
-}: {
-  commitment: CommitmentWithMeta;
-  roster: Array<Pick<Profile, "id" | "full_name">>;
-  ownerName: string | null;
-  canEdit: boolean;
-  isAdmin: boolean;
-  showClarity: boolean;
-  onToggleClarity: () => void;
-}) {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  function close() {
-    setError(null);
-    startTransition(async () => {
-      const result = await markKeptAction(commitment.id);
-      if (!result.ok) setError(result.message);
-    });
-  }
-
-  return (
-    <>
-      <div className={styles.commitmentCell}>
-        <div className={styles.commitmentLead}>
-          <button
-            type="button"
-            className={styles.closeCommitment}
-            onClick={close}
-            disabled={pending || !canEdit}
-            aria-label={`Mark "${commitment.description}" as done`}
-            title={canEdit ? "Mark as done" : "Not yours to resolve"}
-          >
-            ✓
-          </button>
-          <ClarityChip
-            state={clarityState(commitment)}
-            onClick={canEdit ? onToggleClarity : undefined}
-          />
-          <CommitmentDescriptionEditor
-            commitment={commitment}
-            canEdit={canEdit}
-          />
-        </div>
-        {error ? (
-          <p role="alert" className={styles.commitmentError}>
-            {error}
-          </p>
-        ) : null}
-        {showClarity && canEdit ? (
-          <ClarityEditor
-            commitment={commitment}
-            onCancel={onToggleClarity}
-            onSaved={onToggleClarity}
-            onError={setError}
-          />
-        ) : null}
-      </div>
-      <div className={styles.cellOwner}>
-        <OwnerAssignmentEditor
-          commitment={commitment}
-          roster={roster}
-          canEdit={canEdit}
-          currentOwnerName={ownerName}
-        />
-      </div>
-      <div className={styles.cellDue}>
-        <DueDateEditor
-          commitment={commitment}
-          canEdit={canEdit}
-          isAdmin={isAdmin}
-        />
-      </div>
-    </>
-  );
-}
-
-// A finished one. Same three columns, read-only: this is history, and
-// the place to reopen or reschedule a commitment is the surface where
-// it is still live.
-function DoneCommitmentLine({
-  commitment,
-  ownerName,
-}: {
-  commitment: CommitmentWithMeta;
-  ownerName: string | null;
-}) {
-  const landed = commitment.completed_at ?? commitment.due_date;
-  return (
-    <>
-      <div className={`${styles.commitmentCell} ${styles.commitmentDone}`}>
-        <span aria-hidden className={styles.doneCheck}>
-          ✓
-        </span>
-        <span className={styles.doneText}>{commitment.description}</span>
-      </div>
-      <div className={`${styles.cellOwner} ${styles.commitmentDone}`}>
-        {ownerName ?? "—"}
-      </div>
-      <div className={`${styles.cellDue} ${styles.commitmentDone}`}>
-        {landed ? formatShortDate(landed.slice(0, 10)) : "—"}
-      </div>
-    </>
-  );
-}
-
-// The review moment. One line spanning all three columns, because it
-// is a question about the ISSUE rather than about a commitment — and
+// The review moment. One line spanning the region, because it is a
+// question about the ISSUE rather than about a commitment — and
 // because wedging a question and two buttons into the commitment
 // column is what made the first version look cluttered.
 function ReviewPromptLine({ issueId }: { issueId: string }) {
@@ -912,293 +823,3 @@ function ReviewPromptLine({ issueId }: { issueId: string }) {
 // three fields stay editable for as long as the issue is on the
 // open list; Resolve moves the issue off this page and the row
 // stops rendering entirely.
-
-function CommitmentDescriptionEditor({
-  commitment,
-  canEdit,
-}: {
-  commitment: Commitment;
-  canEdit: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(commitment.description);
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  useAutoResize(inputRef, editing, draft);
-
-  useEffect(() => {
-    setDraft(commitment.description);
-  }, [commitment.description]);
-
-  function commit() {
-    if (pending) return;
-    const next = draft.trim();
-    // Empty text = delete the whole commitment. The row falls back
-    // to the "add commitment" state and the clarity chip disappears
-    // (no commitment to score). Matches the blur-to-save rhythm of
-    // every other field on the row.
-    if (!next) {
-      setError(null);
-      startTransition(async () => {
-        const result = await deleteCommitmentAction(commitment.id);
-        if (!result.ok) {
-          setError(result.message);
-          setDraft(commitment.description);
-        } else {
-          setEditing(false);
-        }
-      });
-      return;
-    }
-    if (next === commitment.description) {
-      setDraft(commitment.description);
-      setEditing(false);
-      setError(null);
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await updateCommitmentDescriptionAction(
-        commitment.id,
-        next
-      );
-      if (!result.ok) setError(result.message);
-      else setEditing(false);
-    });
-  }
-
-  if (!canEdit) {
-    return <span>{commitment.description}</span>;
-  }
-  if (editing) {
-    return (
-      <>
-        <textarea
-          ref={inputRef}
-          className={styles.wantInput}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          rows={1}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              commit();
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              setDraft(commitment.description);
-              setEditing(false);
-              setError(null);
-            }
-          }}
-          autoFocus
-          disabled={pending}
-          aria-label="Edit commitment"
-        />
-        {error ? (
-          <p role="alert" className={styles.rowError}>
-            {error}
-          </p>
-        ) : null}
-      </>
-    );
-  }
-  return (
-    <button
-      type="button"
-      className={styles.wantEditable}
-      onClick={() => setEditing(true)}
-      title="Click to edit — Cmd/Ctrl+Enter saves, Esc cancels"
-      tabIndex={0}
-    >
-      {commitment.description}
-    </button>
-  );
-}
-
-function OwnerAssignmentEditor({
-  commitment,
-  roster,
-  canEdit,
-  currentOwnerName,
-}: {
-  commitment: Commitment;
-  roster: Array<Pick<Profile, "id" | "full_name">>;
-  canEdit: boolean;
-  currentOwnerName: string | null;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  function change(newOwnerId: string) {
-    if (pending || newOwnerId === commitment.owner_id) {
-      setEditing(false);
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await reassignCommitmentAction(commitment.id, newOwnerId);
-      if (!result.ok) setError(result.message);
-      setEditing(false);
-    });
-  }
-
-  if (!canEdit) {
-    return <span>{currentOwnerName ?? "Unassigned"}</span>;
-  }
-  if (editing) {
-    return (
-      <>
-        <select
-          className={styles.commitmentAddSelect}
-          defaultValue={commitment.owner_id ?? ""}
-          onChange={(e) => change(e.target.value)}
-          onBlur={() => setEditing(false)}
-          autoFocus
-          disabled={pending}
-          aria-label="Reassign owner"
-        >
-          {roster.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.full_name}
-            </option>
-          ))}
-        </select>
-        {error ? (
-          <p role="alert" className={styles.rowError}>
-            {error}
-          </p>
-        ) : null}
-      </>
-    );
-  }
-  return (
-    <button
-      type="button"
-      className={styles.wantEditable}
-      onClick={() => setEditing(true)}
-      title="Click to reassign"
-      tabIndex={0}
-    >
-      {currentOwnerName ?? "Unassigned"}
-    </button>
-  );
-}
-
-function DueDateEditor({
-  commitment,
-  canEdit,
-  isAdmin,
-}: {
-  commitment: Commitment;
-  canEdit: boolean;
-  isAdmin: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draftDate, setDraftDate] = useState(commitment.due_date);
-  const [reason, setReason] = useState("");
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDraftDate(commitment.due_date);
-  }, [commitment.due_date]);
-
-  function save() {
-    if (pending) return;
-    if (draftDate === commitment.due_date && !reason.trim()) {
-      setEditing(false);
-      setError(null);
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await rescheduleCommitmentAction(
-        commitment.id,
-        draftDate,
-        reason.trim() || null
-      );
-      if (!result.ok) setError(result.message);
-      else {
-        setReason("");
-        setEditing(false);
-      }
-    });
-  }
-
-  if (!canEdit) {
-    return <span>{commitment.due_date}</span>;
-  }
-  if (editing) {
-    return (
-      <>
-        <input
-          type="date"
-          value={draftDate}
-          onChange={(e) => setDraftDate(e.target.value)}
-          className={styles.commitmentAddDate}
-          autoFocus
-          disabled={pending}
-          aria-label="Reschedule due date"
-        />
-        {/* Reason is required for team members per the reschedule
-            server action; admins/guides are exempt. Show the field
-            always for non-admins so the save doesn't ping-pong
-            through a server error. */}
-        {!isAdmin ? (
-          <input
-            type="text"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Why the change?"
-            className={styles.commitmentAddInput}
-            disabled={pending}
-            aria-label="Reason for reschedule"
-            style={{ marginTop: 4 }}
-          />
-        ) : null}
-        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-          <button
-            type="button"
-            onClick={save}
-            disabled={pending}
-            className={styles.resolveButton}
-          >
-            {pending ? "Saving…" : "Save"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setDraftDate(commitment.due_date);
-              setReason("");
-              setEditing(false);
-              setError(null);
-            }}
-            disabled={pending}
-            className={styles.resolveButton}
-          >
-            Cancel
-          </button>
-        </div>
-        {error ? (
-          <p role="alert" className={styles.rowError}>
-            {error}
-          </p>
-        ) : null}
-      </>
-    );
-  }
-  return (
-    <button
-      type="button"
-      className={styles.wantEditable}
-      onClick={() => setEditing(true)}
-      title="Click to reschedule"
-      tabIndex={0}
-    >
-      {commitment.due_date}
-    </button>
-  );
-}

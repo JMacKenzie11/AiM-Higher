@@ -15,12 +15,24 @@ forward. The commitment lives here **and** on the owner's
 Commitments list and scorecard.
 
 **An issue usually takes more than one go.** Every commitment on an
-issue is listed the same way — what was committed to, who owns it,
-when it's due — with an empty line at the bottom ready for the next
-one. Type into that line to add another; there's no separate form
-and no button to find first.
+issue is listed the same way: what was committed to, who owns it,
+when it's due, with an empty line at the bottom ready for the next
+one. It's marked with a blue plus. Click the plus or type straight
+into the line to add another; there's no separate form to open.
 
-**Tick the circle to close a commitment** without leaving this page.
+**Commitments sit underneath the issue, not beside it.** The top
+line is the issue itself: what it is, what you want, and the
+*Resolve* button that closes the **issue**. Everything below it is a
+commitment, with its own controls. They used to share one line,
+which put the issue's *Resolve* next to a commitment's controls and
+made it easy to press the wrong one.
+
+**A commitment behaves exactly as it does on your Commitments
+page.** Same circle on the left, and it opens a menu rather than
+resolving on the spot: *Mark kept*, *Reschedule*, *Park*. Same
+undo chip for thirty seconds after you resolve one. Same reason
+prompts. If you have learned it in one place you have learned it in
+both.
 
 **Finished ones tuck away behind an "N done" link** so a long-running
 issue stays readable. Open it to see them, each on its own line with
@@ -61,13 +73,12 @@ As a team member, you can:
   the form (or press Cmd/Ctrl+Enter); there's no submit button.
 - **Edit the commitment description, owner, and due date** on any
   issue you own or that a commitment of yours is on. Fields are
-  click-to-edit inline and save on blur. Clearing the description
-  entirely deletes the commitment (the row falls back to the
-  add-commitment state). Rescheduling asks you for a one-line
-  reason so patterns stay visible over time.
-- **Toggle the clarity dot** on your own commitment — same
-  three-state check as `/commitments` (Timeline agreed? Definition
-  of done observable?).
+  click-to-edit inline and save on blur. Rescheduling opens a strip
+  across the full width and asks for a one-line reason, so patterns
+  stay visible over time.
+- **Toggle the clarity dot** on your own commitment: the same
+  three-state check as your Commitments page (Timeline agreed?
+  Definition of done observable?).
 - **See resolved history** — the *Resolved issues* section at the
   bottom is read-only and mirrors the open table (Issue / What we
   want / Commitment / Assigned to / Due date). A row whose
