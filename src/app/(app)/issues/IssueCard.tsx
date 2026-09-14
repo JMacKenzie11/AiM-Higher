@@ -94,7 +94,11 @@ export function IssueCard({
   // background. Otherwise collapsed, so the common case looks
   // exactly as it did before any of this existed.
   const [expanded, setExpanded] = useState(awaitingReview);
-  const [adding, setAdding] = useState(false);
+  // The row already offers an inline add form when nothing is open
+  // and nothing is done — a brand-new issue. Offering the thread as
+  // well would put two add forms on screen for the same issue.
+  const rowOffersAdd = active === null && !awaitingReview;
+  const showThreadToggle = canEdit && !rowOffersAdd;
   const activeOwner = active?.owner_id
     ? roster.find((p) => p.id === active.owner_id)?.full_name ?? "Unknown"
     : null;
@@ -176,7 +180,11 @@ export function IssueCard({
               commitment={active}
               canEdit={canEditActive}
             />
-            {doneCount > 0 ? (
+            {/* Opens the thread. Present whenever there is history to
+                read OR an editor who could add to it — an issue can
+                take more than one commitment at a time, and the only
+                way in used to be finishing the current one first. */}
+            {doneCount > 0 || showThreadToggle ? (
               <ThreadToggle
                 doneCount={doneCount}
                 expanded={expanded}
@@ -200,7 +208,7 @@ export function IssueCard({
             />
           </div>
         </>
-      ) : awaitingReview && canEdit && !adding ? (
+      ) : awaitingReview && canEdit ? (
         /* THE REVIEW MOMENT. Everything on this issue has landed and
            nobody has said whether the issue itself is settled. The
            product asks rather than guesses: nothing auto-resolves and
@@ -210,10 +218,10 @@ export function IssueCard({
           doneCount={doneCount}
           expanded={expanded}
           onToggle={() => setExpanded((v) => !v)}
-          onAddNext={() => {
-            setAdding(true);
-            setExpanded(true);
-          }}
+          /* Opens the thread rather than swapping the row. The
+             question stays visible until it is actually answered, and
+             there is exactly one add form on screen instead of two. */
+          onAddNext={() => setExpanded(true)}
         />
       ) : canEdit ? (
         <IssueCommitmentAddInline
@@ -248,7 +256,7 @@ export function IssueCard({
       {/* The thread. Full-width under the row's cells, so the grid
           above keeps its shape and a collapsed card is byte-for-byte
           what it was before any of this. */}
-      {expanded && (doneCount > 0 || adding) ? (
+      {expanded ? (
         <div className={styles.thread}>
           {thread.completed.map((done) => (
             <ThreadDoneLine key={done.id} commitment={done} />
@@ -256,7 +264,7 @@ export function IssueCard({
           {thread.otherOpen.map((extra) => (
             <ThreadOpenLine key={extra.id} commitment={extra} />
           ))}
-          {canEdit && (adding || awaitingReview) ? (
+          {canEdit ? (
             <div className={styles.threadAdd}>
               <IssueCommitmentAddInline
                 issueId={issue.id}
@@ -801,14 +809,24 @@ function ThreadToggle({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  // "2 done" where there is history; "+ add commitment" where there
+  // is not. The same control either way, because it opens the same
+  // panel — and an issue with no history still needs a way in, which
+  // is the gap the first version left.
+  const label = doneCount > 0 ? `${doneCount} done` : "+ add commitment";
   return (
     <button
       type="button"
       className={styles.threadToggle}
       onClick={onToggle}
       aria-expanded={expanded}
+      aria-label={
+        doneCount > 0
+          ? `Show the commitment thread, ${doneCount} completed`
+          : "Add another commitment to this issue"
+      }
     >
-      {doneCount} done
+      {label}
     </button>
   );
 }
