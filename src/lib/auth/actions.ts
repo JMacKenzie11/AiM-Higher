@@ -5,11 +5,11 @@ import { revalidatePath } from "next/cache";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { APP_URL } from "@/lib/supabase/env";
 import { clearScopedCompanyCookie } from "@/lib/admin/scope";
 import { sendResetEmail } from "@/lib/email";
 import { trackAfter } from "@/lib/analytics/track";
 import type { Profile } from "@/lib/types";
+import { currentRequestOrigin } from "@/lib/instances/origin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server actions for auth flows. Every UI form here has a matching
@@ -117,6 +117,11 @@ export async function requestPasswordResetAction(
     return { ok: false, message: "Enter the email tied to your account." };
   }
 
+  // The instance's own host, not NEXT_PUBLIC_APP_URL. See
+  // lib/instances/origin.ts: one deployment serves every instance, so
+  // that variable is right for at most one of them, and a recovery
+  // token minted by one Supabase project does not exist in another.
+  const origin = await currentRequestOrigin();
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data, error } = await admin.auth.admin.generateLink({
     type: "recovery",
@@ -125,7 +130,7 @@ export async function requestPasswordResetAction(
       // Not delivered to the user — we build our own /auth/callback
       // link below — but Supabase requires a valid redirectTo, so
       // point it at the real destination as a safety net.
-      redirectTo: `${APP_URL()}/reset-password`,
+      redirectTo: `${origin}/reset-password`,
     },
   });
 
@@ -164,7 +169,7 @@ export async function requestPasswordResetAction(
   // that GET the URL never consume the token. Same pattern used
   // by GitHub / Google / most modern SaaS.
   const link =
-    `${APP_URL()}/reset-password` +
+    `${origin}/reset-password` +
     `?token_hash=${encodeURIComponent(hashedToken)}` +
     `&type=recovery`;
 
@@ -245,6 +250,20 @@ export async function completeAcceptInviteAction(
     token_hash: tokenHash,
   });
   if (otpErr || !otpData.session) {
+    // NAMES THE INSTANCE. A token minted by one Supabase project does
+    // not exist in another, so "expired" and "verified against the
+    // wrong database" are the same message to the user and
+    // indistinguishable in a bug report. The instance the exchange
+    // ran against is the one fact that separates them. The token is
+    // deliberately not logged.
+    const instance = await getCurrentInstanceConfig();
+    console.warn("accept-invite verifyOtp FAILED", {
+      instance: instance.subdomain,
+      type,
+      code: (otpErr as { code?: string } | null)?.code ?? null,
+      status: (otpErr as { status?: number } | null)?.status ?? null,
+      message: otpErr?.message ?? "no session returned",
+    });
     return {
       ok: false,
       message:
