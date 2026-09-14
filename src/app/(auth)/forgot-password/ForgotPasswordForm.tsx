@@ -16,11 +16,25 @@ export function ForgotPasswordForm() {
   const submitted = state?.ok === true;
   const errorMessage = state && !state.ok ? state.message : null;
 
+  // The address is repeated back, and that is the whole change.
+  //
+  // On 2026-09-14 a reset was requested for `jasonm@mandown.tools`
+  // when the account is `jason@mandown.tools`. Everything behaved
+  // correctly: GoTrue said "User with this email not found", the
+  // action swallowed it to avoid confirming whether an address is
+  // registered, and this screen said a link was on its way. The typo
+  // was invisible for half an hour.
+  //
+  // Echoing it leaks nothing — the reader typed it a second ago — and
+  // a wrong address is obvious the moment it is shown back.
+  const submittedEmail = state?.ok === true ? state.email : undefined;
+
   if (submitted && !pending) {
     return (
       <p className={formStyles.successMessage} role="status">
-        If that email is registered, a reset link is on its way. It works for
-        one hour.
+        If <strong>{submittedEmail ?? "that email"}</strong> is registered, a
+        reset link is on its way. It works for one hour. Check the address
+        above if nothing arrives.
       </p>
     );
   }

@@ -16,7 +16,12 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // action; the UI never talks to Supabase directly for these operations.
 
 export type AuthActionResult =
-  | { ok: true }
+  // `email` is set by requestPasswordResetAction only, and carries
+  // back the address the caller actually submitted so the
+  // confirmation can repeat it. See the note there: echoing an
+  // address the user just typed leaks nothing and is the difference
+  // between spotting a typo in two seconds and not spotting it.
+  | { ok: true; email?: string }
   | { ok: false; message: string };
 
 // ---- Sign in ---------------------------------------------------
@@ -135,7 +140,7 @@ export async function requestPasswordResetAction(
       code: (error as { code?: string }).code ?? null,
       status: (error as { status?: number }).status ?? null,
     });
-    return { ok: true };
+    return { ok: true, email };
   }
 
   const hashedToken = (
@@ -149,7 +154,7 @@ export async function requestPasswordResetAction(
     console.error(`${RESET_FAIL}: generateLink(recovery) returned no token`, {
       email,
     });
-    return { ok: true };
+    return { ok: true, email };
   }
 
   // Link points DIRECTLY at /reset-password with the token in the
@@ -187,11 +192,11 @@ export async function requestPasswordResetAction(
       email,
       message: sent.message,
     });
-    return { ok: true };
+    return { ok: true, email };
   }
 
   console.log("password-reset sent", { email });
-  return { ok: true };
+  return { ok: true, email };
 }
 
 // ---- Complete accept-invite (verify OTP + set password + activate)

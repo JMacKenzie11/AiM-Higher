@@ -239,6 +239,11 @@ describe("signOutAction", () => {
 
 // ==============================================================
 // requestPasswordResetAction — the "don't leak" contract
+//
+// The contract is about whether an address is REGISTERED. Repeating
+// back the address the caller submitted says nothing about that, and
+// it is what turns a typo from a half-hour mystery into something
+// visible on the confirmation screen. jasonm@mandown.tools, 2026-09-14.
 // ==============================================================
 describe("requestPasswordResetAction", () => {
   beforeEach(() => {
@@ -275,7 +280,10 @@ describe("requestPasswordResetAction", () => {
       formDataFrom({ email: "unknown@x.co" })
     );
 
-    expect(res).toEqual({ ok: true });
+    // The address comes back so the confirmation screen can repeat
+    // it. That is not a leak: the caller typed it a second ago, and
+    // the answer is identical whether or not it is registered.
+    expect(res).toEqual({ ok: true, email: "unknown@x.co" });
     expect(mocks.sendResetEmail).not.toHaveBeenCalled();
   });
 
@@ -291,7 +299,7 @@ describe("requestPasswordResetAction", () => {
       formDataFrom({ email: "a@b.co" })
     );
 
-    expect(res).toEqual({ ok: true });
+    expect(res).toEqual({ ok: true, email: "a@b.co" });
     expect(mocks.sendResetEmail).not.toHaveBeenCalled();
   });
 
@@ -375,12 +383,12 @@ describe("requestPasswordResetAction", () => {
     });
     expect(
       await requestPasswordResetAction(undefined, formDataFrom({ email: "a@b.co" }))
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, email: "a@b.co" });
 
     mocks.sendResetEmail.mockResolvedValueOnce({ ok: false, message: "nope" });
     expect(
       await requestPasswordResetAction(undefined, formDataFrom({ email: "a@b.co" }))
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, email: "a@b.co" });
     spy.mockRestore();
   });
 
