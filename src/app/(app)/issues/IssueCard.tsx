@@ -643,6 +643,7 @@ function IssueCommitmentAddInline({
   // has settled on the NEW focus target — if it's still inside this
   // form, we're just tabbing between fields and shouldn't submit.
   const formId = `add-cmt-${issueId}`;
+  const inputId = `${formId}-description`;
   function maybeAutoSubmit() {
     setTimeout(() => {
       const active = document.activeElement;
@@ -662,19 +663,22 @@ function IssueCommitmentAddInline({
         id={formId}
         ref={formRef}
         action={formAction}
-        className={`${styles.cellCommitment} ${styles.addLine}`}
+        className={styles.addLine}
       >
         <input type="hidden" name="issue_id" value={issueId} />
         <input type="hidden" name="owner_id" value={ownerId} />
         <input type="hidden" name="due_date" value={dueDate} />
-        {/* The other end of a commitment's life. Same circle as the
-            close control on an open line, so the thread reads as one
-            list of like things with an empty slot at the bottom
-            rather than a form bolted underneath it. */}
-        <span aria-hidden className={styles.addCircle}>
-          +
-        </span>
+        {/* A LABEL, not a decorative span. Filled and coloured, it
+            reads as a button, and a thing that looks like a button
+            has to do something when clicked. As a label it focuses
+            the textarea natively and adds no extra tab stop, so the
+            keyboard path is unchanged. */}
+        <label htmlFor={inputId} className={styles.addCircle}>
+          <span aria-hidden>+</span>
+          <span className={styles.srOnly}>Add a commitment</span>
+        </label>
         <textarea
+          id={inputId}
           ref={inputRef}
           name="description"
           value={description}
@@ -787,6 +791,11 @@ function OpenCommitmentLine({
   return (
     <>
       <div className={styles.commitmentCell}>
+        {/* ONE control at the start of the line, not two. The check
+            and the clarity dot were both circles sitting in front of
+            the text, which read as clutter and made it unclear which
+            one did the thing. The check leads, because closing is the
+            action; clarity trails the text as the annotation it is. */}
         <div className={styles.commitmentLead}>
           <button
             type="button"
@@ -798,13 +807,19 @@ function OpenCommitmentLine({
           >
             ✓
           </button>
+          {/* Wrapped, because the editor returns a FRAGMENT of one or
+              two elements depending on state (textarea plus an error
+              paragraph while editing). Without this the row's child
+              count changes under it and any positional CSS drifts. */}
+          <div className={styles.commitmentText}>
+            <CommitmentDescriptionEditor
+              commitment={commitment}
+              canEdit={canEdit}
+            />
+          </div>
           <ClarityChip
             state={clarityState(commitment)}
             onClick={canEdit ? onToggleClarity : undefined}
-          />
-          <CommitmentDescriptionEditor
-            commitment={commitment}
-            canEdit={canEdit}
           />
         </div>
         {error ? (

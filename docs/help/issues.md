@@ -15,10 +15,10 @@ forward. The commitment lives here **and** on the owner's
 Commitments list and scorecard.
 
 **An issue usually takes more than one go.** Every commitment on an
-issue is listed the same way — what was committed to, who owns it,
-when it's due — with an empty line at the bottom ready for the next
-one. Type into that line to add another; there's no separate form
-and no button to find first.
+issue is listed the same way: what was committed to, who owns it,
+when it's due, with an empty line at the bottom ready for the next
+one. It's marked with a blue plus. Click the plus or type straight
+into the line to add another; there's no separate form to open.
 
 **Tick the circle to close a commitment** without leaving this page.
 
