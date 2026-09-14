@@ -176,10 +176,10 @@ describe("portfolio_admin scope routing", () => {
     ).toBe(false);
   });
 
-  it("picks companies, not Guide HQ", () => {
+  it("picks the portfolio, not Guide HQ", () => {
     // /hq admits aims_guide and system_admin only. Sending a
     // portfolio_admin there is a redirect loop, not a picker.
-    expect(scopePickerPathFor("portfolio_admin")).toBe("/admin/companies");
+    expect(scopePickerPathFor("portfolio_admin")).toBe("/portfolio");
     expect(scopePickerPathFor("system_admin")).toBe("/hq");
     expect(scopePickerPathFor("aims_guide")).toBe("/hq");
   });

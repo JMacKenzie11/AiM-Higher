@@ -1,0 +1,129 @@
+/* The portfolio overview.
+ *
+ * DESIGN SYSTEM ONLY. Every value below is a token from
+ * brand/tokens.css, and the card, heading and muted-caption shapes are
+ * the ones Guide HQ already uses. What differs is the arrangement: a
+ * grid rather than a table, because the reader is scanning companies
+ * rather than comparing columns. No new visual vocabulary.
+ */
+
+.content {
+  position: relative;
+  margin: -32px auto 0;
+  padding: 0 var(--space-6) var(--space-6);
+  max-width: 1160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.h2 {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.sectionCaption {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+.companyCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.companyName {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+/* Three label/value pairs about one subject is a definition list,
+   not a table. */
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  align-items: baseline;
+}
+
+.metricLabel {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+.metricValue {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* The denominator that travels with the scorecard number. Muted and
+   smaller: context for the value beside it, not a value of its own. */
+.metricQualifier {
+  display: block;
+  color: var(--text-faint);
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body);
+}
+
+/* The empty-instance state. Dashed border, matching Guide HQ's
+   zero-caseload card, so "nothing here yet" looks the same wherever
+   it appears. */
+.zeroCard {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: left;
+}
+
+.zeroTitle {
+  margin: 0;
+  color: var(--text-heading);
+  font: var(--text-h3);
+}
+
+.zeroBody {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-body);
+}

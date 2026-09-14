@@ -73,6 +73,7 @@ not set" or cannot find the composer, this is the first thing to try.
 | Quarter | Open, spanning ±120 days around today |
 | `E2E_ADMIN_EMAIL` | `system_admin`, no company, guide assignment to the fixture company |
 | `E2E_MEMBER_EMAIL` | `team_member` inside the fixture company |
+| `E2E_PORTFOLIO_EMAIL` | `portfolio_admin`, no company and no assignments |
 
 The quarter is deliberately wide. The commitments composer refuses to
 render without one covering this week, and a narrow window would make
@@ -86,11 +87,19 @@ The member is a `team_member`, the least-privileged real user, which is
 the right thing to test ordinary navigation and commitment creation
 with.
 
+The portfolio admin has no company and no guide assignments, and needs
+neither: the role's reach is the whole instance by construction
+(migration 0190), and a database constraint forbids it from holding a
+company at all. It is a real `portfolio_admin` rather than a
+`system_admin` standing in for one, because the thing under test is
+what that role can and cannot do — a stand-in would prove nothing.
+
 ### Credentials
 
 Live in `.env.local` beside every other local-only value:
 `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD`, `E2E_MEMBER_EMAIL` /
-`E2E_MEMBER_PASSWORD`. Dedicated fixtures, never a personal account: a
+`E2E_MEMBER_PASSWORD`, `E2E_PORTFOLIO_EMAIL` /
+`E2E_PORTFOLIO_PASSWORD`. Dedicated fixtures, never a personal account: a
 test that signs in as a real person will one day change that person's
 data.
 

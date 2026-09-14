@@ -11,6 +11,7 @@ import { NotificationBell } from "@/components/nav-band/NotificationBell";
 import type { NotificationItem } from "@/lib/notifications/service";
 import styles from "./Sidebar.module.css";
 import type { Role } from "@/lib/types";
+import { navBandsFor, type NavBand } from "./nav-bands";
 
 // Left-rail primary navigation. Replaces the top NavBand: one click
 // to any surface, groups become section headers instead of dropdowns
@@ -185,6 +186,64 @@ const GUIDE_HQ_ITEMS: readonly NavItem[] = [
   },
 ];
 
+// The portfolio owner's own top band.
+//
+// ONE ITEM, AND THAT IS THE DESIGN. Guide HQ's band is Overview plus
+// Companies, because a guide moves between a caseload view and a fleet
+// list. /portfolio is both of those for this role: it lists every
+// company and it is the home page. A second link would point at
+// /admin/companies, which is the fleet-admin list and not theirs.
+const PORTFOLIO_ITEMS: readonly NavItem[] = [
+  {
+    kind: "group",
+    label: "Portfolio",
+    feature: null,
+    items: [
+      {
+        kind: "link",
+        label: "Overview",
+        href: "/portfolio",
+        icon: "dashboard",
+        roles: ["portfolio_admin", "system_admin"],
+      },
+    ],
+  },
+];
+
+// Bottom band for a portfolio_admin who is scoped into a company.
+//
+// THE ONE /admin PATH THIS ROLE'S NAV CONTAINS, and it is a
+// company-scoped one: the settings page for the company they are
+// currently inside, not the fleet list. Two of the role's three
+// administrative writes — settings and feature flags — live on that
+// page and nowhere else, so a nav with no route to it would leave the
+// role holding grants it cannot reach without typing a URL.
+//
+// Built per-render rather than as a constant because the href carries
+// the scoped company id. Absent entirely when unscoped, which is the
+// state /portfolio itself is for.
+function portfolioBottomItems(
+  scopedCompanyId: string | null | undefined
+): readonly NavItem[] {
+  if (!scopedCompanyId) return [];
+  return [
+    {
+      kind: "group",
+      label: "Admin",
+      feature: null,
+      items: [
+        {
+          kind: "link",
+          label: "Company settings",
+          href: `/admin/companies/${scopedCompanyId}`,
+          icon: "building",
+          roles: ["portfolio_admin"],
+        },
+      ],
+    },
+  ];
+}
+
 // Rendered at the very bottom of the nav for system admins only,
 // regardless of which company they are currently scoped into.
 // Kept in its own group so it reads as a distinct "platform tools"
@@ -245,6 +304,9 @@ export type SidebarProps = {
   contextLabel?: string;
   showExitScope?: boolean;
   scopedCompanyName?: string;
+  // The company the caller is currently scoped into, when there is
+  // one. Only the portfolio band uses it, to build the settings link.
+  scopedCompanyId?: string | null;
   features?: readonly string[];
   hasChartMeasures?: boolean;
   notifications?: readonly NotificationItem[];
@@ -266,6 +328,7 @@ export function Sidebar({
   contextLabel,
   showExitScope = false,
   scopedCompanyName,
+  scopedCompanyId = null,
   features = [],
   hasChartMeasures = false,
   notifications = [],
@@ -386,25 +449,35 @@ export function Sidebar({
     if (filteredChildren.length === 0) return [];
     return [{ ...item, items: filteredChildren }];
   });
-  // Bottom-band group is admin-role specific:
-  //  - system_admin → "System admin" (Platform dashboard)
-  //  - company_admin → "Admin" (Company settings)
-  // aims_guides don't get a bottom band; their per-company settings
-  // are reached from the Guide HQ → Companies list → click a company.
-  const bottomAdminItems: readonly NavItem[] = isSystemAdmin
-    ? SYSTEM_ADMIN_BOTTOM_ITEMS
-    : userRole === "company_admin"
-      ? COMPANY_ADMIN_BOTTOM_ITEMS
-      : [];
-  const items: NavItem[] = isSystemAdmin
-    ? showExitScope && !onAdminPicker && !onHqSurface
-      ? [...guideHqItems, ...subscribedApp, ...bottomAdminItems]
-      : [...guideHqItems, ...bottomAdminItems]
-    : userRole === "aims_guide"
-      ? onHqSurface
-        ? [...guideHqItems, ...bottomAdminItems]
-        : [...guideHqItems, ...subscribedApp, ...bottomAdminItems]
-      : [...subscribedApp, ...bottomAdminItems];
+  // The portfolio band, filtered by role the same way the guide band
+  // is, so the constant above cannot be the only thing deciding who
+  // sees it.
+  const portfolioItems = PORTFOLIO_ITEMS.flatMap<NavItem>((item) => {
+    if (item.kind === "link") return linkVisible(item) ? [item] : [];
+    const filteredChildren = item.items.filter(linkVisible);
+    if (filteredChildren.length === 0) return [];
+    return [{ ...item, items: filteredChildren }];
+  });
+
+  // WHO SEES WHAT is decided in nav-bands.ts, as a pure function, so
+  // it can be tested by calling it rather than by reading this file
+  // with a regex. This maps its answer onto the actual item lists.
+  const bands = navBandsFor({
+    role: userRole,
+    scopedIntoCompany: showExitScope,
+    onHqSurface,
+    onPortfolioSurface: pathname === "/portfolio",
+    onAdminPicker,
+  });
+  const byBand: Record<NavBand, readonly NavItem[]> = {
+    guideHq: guideHqItems,
+    portfolio: portfolioItems,
+    app: subscribedApp,
+    systemAdminBottom: SYSTEM_ADMIN_BOTTOM_ITEMS,
+    companyAdminBottom: COMPANY_ADMIN_BOTTOM_ITEMS,
+    portfolioBottom: portfolioBottomItems(scopedCompanyId),
+  };
+  const items: NavItem[] = bands.flatMap((band) => [...byBand[band]]);
 
   return (
     <>

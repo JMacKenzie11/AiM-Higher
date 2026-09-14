@@ -42,9 +42,9 @@ export const SCOPE_PICKER_PATH = "/hq";
 // /hq is Guide HQ, and it admits aims_guide and system_admin only. A
 // portfolio_admin bounced there would be bounced straight back out,
 // which is a redirect loop rather than a picker — so their picker is
-// the companies list, which is their home surface anyway.
+// /portfolio, which is their home surface and already a company list.
 export function scopePickerPathFor(role: string | null): string {
-  return role === "portfolio_admin" ? "/admin/companies" : SCOPE_PICKER_PATH;
+  return role === "portfolio_admin" ? "/portfolio" : SCOPE_PICKER_PATH;
 }
 
 // Company id embedded in an /admin/companies/<uuid> path, else null.
