@@ -116,11 +116,15 @@ As an admin or guide, you can also:
 
 - **Add, rename, and resolve any issue.** Click the title to
   rename; tick the round check at the left to close the loop.
-- **Delete an issue** — trash icon beside that check. Hard
+- **Delete an open issue** — trash icon beside that check. Hard
   delete; the confirm dialog spells out that it can't be undone.
   Any commitments linked to the issue stay live and just lose the
-  linkage, so no owner loses their next-step work.
-- **Reorder issues by rank** — drag the handle in column two.
+  linkage, so no owner loses their next-step work. **Resolved
+  issues can't be deleted.** Once an issue is closed it's a record:
+  its commitments already count toward follow-through and the
+  weekly scorecard, so removing it would leave those numbers with
+  nothing behind them. Delete it before you resolve it, or leave it.
+- **Reorder issues by rank** — drag the handle on the left.
   Rank is company-wide and shared: everyone in the company sees
   the same order, and the new position sticks across sessions.
   Team members see the drag handle only on issues they created.
@@ -245,4 +249,5 @@ in error, add a new issue capturing what's still unresolved.
 **What happens to commitments when an admin deletes an issue?**
 The commitments stay alive on the owner's list; only the link
 back to the (now-gone) issue is cleared. Delete removes the
-issue row itself, not the work anyone committed to.
+issue row itself, not the work anyone committed to. This only
+applies to open issues — a resolved one can't be deleted.
