@@ -730,7 +730,10 @@ function MessageBubble({
     // unlabeled — the right-aligned position already reads as "you".
     const showLabel = showAttribution && author !== null;
     return (
-      <div className={`${styles.bubbleRow} ${styles.bubbleRowUser}`}>
+      <div
+        className={`${styles.bubbleRow} ${styles.bubbleRowUser}`}
+        data-testid="coach-bubble"
+      >
         <div className={styles.bubbleUserGroup}>
           {showLabel ? (
             <div className={styles.bubbleAttribution}>
@@ -795,7 +798,10 @@ function MessageBubble({
   };
 
   return (
-    <div className={`${styles.bubbleRow} ${styles.bubbleRowAssistant}`}>
+    <div
+      className={`${styles.bubbleRow} ${styles.bubbleRowAssistant}`}
+      data-testid="coach-bubble"
+    >
       <div className={styles.bubbleAssistant}>
         {isThinking ? (
           <p className={styles.thinking} role="status" aria-live="polite">
