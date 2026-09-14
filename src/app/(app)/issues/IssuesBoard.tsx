@@ -105,16 +105,14 @@ export function IssuesBoard({
           {error}
         </p>
       ) : null}
-      {/* Five cells, matching .issueRow: drag, issue, what we want,
-          delete, resolve. Commitment / assigned to / due date are no
-          longer issue columns — each issue labels its own commitment
-          block, because that block is a list of its own. */}
+      {/* Labels only the two columns the ISSUE occupies, positioned
+          by class rather than by source order so they sit over the
+          same columns the cells do. Commitment / assigned to / due
+          date are labelled per issue by CommitmentSubHeader, because
+          that block is a list of its own. */}
       <div className={styles.columnHeader} role="row" aria-hidden="true">
-        <span aria-hidden />
-        <span>Issue</span>
-        <span>What we want</span>
-        <span aria-hidden />
-        <span aria-hidden />
+        <span className={styles.headIssue}>Issue</span>
+        <span className={styles.headWant}>What we want</span>
       </div>
       <DndContext
         sensors={sensors}

@@ -32,21 +32,17 @@
 /* ---- Column header row --------------------------------------- */
 .columnHeader {
   display: grid;
-  /* drag | issue | what we want | delete | resolve.
-     ISSUE-LEVEL COLUMNS ONLY. Commitment / assigned to / due date
-     left this grid: they belong to a commitment, and an issue has
-     any number of those, so they live in the full-width commitments
-     region on the row beneath. Keeping them here made the issue's
-     row double as the first commitment's row, which parked an
-     issue-level Resolve alongside a commitment-level control.
-     Delete is admin/guide-only and sits left of Resolve so the two
-     admin affordances cluster. */
-  grid-template-columns:
-    20px
-    minmax(0, 1.8fr)
-    minmax(0, 1.5fr)
-    28px
-    74px;
+  /* THE SAME EIGHT COLUMNS A COMMITMENT ROW USES. The card holds
+     two kinds of thing — one issue, then its commitments — and they
+     share one column system so the card reads as a single table
+     instead of two unrelated grids stacked on each other.
+     The issue occupies only some of them: drag at the far left, the
+     title over the commitment descriptions it heads, "what we want"
+     beside it, and the two admin affordances at the right where
+     nothing collides with them. Commitment / assigned to / due date
+     are NOT issue columns — they belong to a commitment, and an
+     issue has any number of those. */
+  grid-template-columns: 40px 28px 28px 1fr 180px 180px 110px 90px;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
@@ -73,8 +69,10 @@
   gap: 0;
 }
 
+/* Stronger than the hairlines inside an issue's commitment panel, so
+   the eye reads "next issue" rather than "next row". */
 .issueListItem {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .issueListItem:last-child {
@@ -88,21 +86,17 @@
      sticky header. */
   scroll-margin-top: 96px;
   display: grid;
-  /* drag | issue | what we want | delete | resolve.
-     ISSUE-LEVEL COLUMNS ONLY. Commitment / assigned to / due date
-     left this grid: they belong to a commitment, and an issue has
-     any number of those, so they live in the full-width commitments
-     region on the row beneath. Keeping them here made the issue's
-     row double as the first commitment's row, which parked an
-     issue-level Resolve alongside a commitment-level control.
-     Delete is admin/guide-only and sits left of Resolve so the two
-     admin affordances cluster. */
-  grid-template-columns:
-    20px
-    minmax(0, 1.8fr)
-    minmax(0, 1.5fr)
-    28px
-    74px;
+  /* THE SAME EIGHT COLUMNS A COMMITMENT ROW USES. The card holds
+     two kinds of thing — one issue, then its commitments — and they
+     share one column system so the card reads as a single table
+     instead of two unrelated grids stacked on each other.
+     The issue occupies only some of them: drag at the far left, the
+     title over the commitment descriptions it heads, "what we want"
+     beside it, and the two admin affordances at the right where
+     nothing collides with them. Commitment / assigned to / due date
+     are NOT issue columns — they belong to a commitment, and an
+     issue has any number of those. */
+  grid-template-columns: 40px 28px 28px 1fr 180px 180px 110px 90px;
   /* Top-align each cell so a 3-line "what we want" or commitment
      doesn't push the shorter cells to the middle of the row —
      reads more like a data table that way. */
@@ -153,7 +147,23 @@
    styling — body font, regular weight, text color (not
    text-heading). Editable button carries the dashed-border-at-rest
    affordance so the click target reads without a hover. */
+.issueRow > .dragHandle,
+.issueRow > .dragHandlePlaceholder {
+  grid-column: 1;
+}
+
+/* The header labels sit over the cells they name. Placed by class,
+   not by counting spacer spans into position. */
+.headIssue {
+  grid-column: 4;
+}
+
+.headWant {
+  grid-column: 5 / 7;
+}
+
 .cellIssue {
+  grid-column: 4;
   min-width: 0;
   display: flex;
   align-items: flex-start;
@@ -212,7 +222,10 @@
 }
 
 /* Column: What we want */
+/* Spans the assigned-to and priority columns beneath it. An outcome
+   statement is a sentence, not a field, and 180px is too narrow. */
 .cellWant {
+  grid-column: 5 / 7;
   min-width: 0;
   display: flex;
   align-items: flex-start;
@@ -391,6 +404,16 @@
   cursor: not-allowed;
 }
 
+.issueRow > .deleteButton,
+.issueRow > .deletePlaceholder {
+  grid-column: 7;
+}
+
+.issueRow > .resolveButton,
+.issueRow > .resolvePlaceholder {
+  grid-column: 8;
+}
+
 .deletePlaceholder {
   display: inline-block;
   width: 28px;
@@ -402,33 +425,15 @@
    radius, sans-serif weight 600 — so buttons across the app
    share one shape. Compact height keeps it inside the narrow
    right-most column. */
+/* The app has one button system; this used to hand-roll a ninth
+   variant of it (its own padding, height, radius, weight, hover and
+   focus ring) that drifted from the other ~25 call sites. Ghost
+   because Resolve is the row's action, not the page's, and small
+   because it sits on a table row. */
 .resolveButton {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 0 var(--space-3);
-  height: var(--control-h-sm, 32px);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  composes: btnGhost btnSm from "../../../components/ui/ui.module.css";
 }
 
-.resolveButton:hover:not(:disabled) {
-  background: var(--aims-navy-tint);
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.resolveButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
-}
 
 .resolvePlaceholder {
   display: inline-block;
@@ -487,6 +492,13 @@
   .cellOwner,
   .cellDue {
     display: block;
+  }
+
+  /* One column down here, so the explicit desktop placements have
+     to be released or every cell fights for column 4. */
+  .issueRow > *,
+  .resolvedRow > * {
+    grid-column: auto !important;
   }
 
   /* Delete + Resolve line up together at the bottom instead of
@@ -606,10 +618,10 @@
 }
 
 
+/* Was composing btnPrimary and then re-specifying padding and font
+   by hand, which is the small-button variant spelled out. Use it. */
 .reviewResolve {
-  composes: btnPrimary from "../../../components/ui/ui.module.css";
-  padding: 2px var(--space-3);
-  font: var(--text-button-sm);
+  composes: btnPrimary btnSm from "../../../components/ui/ui.module.css";
 }
 
 
@@ -647,9 +659,32 @@
    issue's own cells rather than beside them. No subgrid any more:
    the lines inside are real `CommitmentRow`s carrying the
    /commitments grid, which is the entire point of the change. */
+/* A RECESSED PANEL, so an issue and the commitments under it are not
+   one undifferentiated field of white. Uses the app's existing two
+   tones rather than a new colour: cards are `--surface` (white) and
+   the page behind them is `--bg` (sand), so a sand panel inside a
+   white row reads as inset — the same relationship the page already
+   uses at a larger scale.
+
+   Deliberately NOT indented. The whole card shares one column
+   system, and a left inset would buy a visual cue by knocking every
+   commitment column out of line with the header above it. The tone
+   change carries the hierarchy; the columns stay honest. */
 .commitments {
   grid-column: 1 / -1;
   min-width: 0;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* The last line needs no rule under it — the panel edge already
+   closes the list. Targets my own list's children rather than
+   reaching into CommitmentRow's hashed class with :global. */
+.commitmentList > *:last-child {
+  border-bottom: none;
 }
 
 .commitmentList {
@@ -714,6 +749,15 @@
 .addLine {
   composes: row from "../commitments/commitments.module.css";
   border-bottom: none;
+  border-radius: var(--radius-md);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+/* Clicking the plus on an empty line only moves the caret, which on
+   an already-visible box looked like nothing happened. The line
+   lights up so the click has a visible answer. */
+.addLine:focus-within {
+  background: var(--surface);
 }
 
 .addLineError {
@@ -756,4 +800,26 @@
   font-size: 14px;
   font-weight: 600;
   line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.addCircle:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.addCircle:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.addCircle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.addCircle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }

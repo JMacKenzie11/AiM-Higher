@@ -17,8 +17,10 @@ Commitments list and scorecard.
 **An issue usually takes more than one go.** Every commitment on an
 issue is listed the same way: what was committed to, who owns it,
 when it's due, with an empty line at the bottom ready for the next
-one. It's marked with a blue plus. Click the plus or type straight
-into the line to add another; there's no separate form to open.
+one. It's marked with a blue plus. Type straight into the line, or
+click the plus: on an empty line it puts the cursor in the field, and
+once you've written something it saves. There's no separate form to
+open and no submit button to hunt for.
 
 **Commitments sit underneath the issue, not beside it.** The top
 line is the issue itself: what it is, what you want, and the

@@ -46,13 +46,10 @@ export function ResolvedIssuesList({
 }) {
   return (
     <div className={styles.resolvedTable}>
-      {/* Same five cells as the open list's header. */}
+      {/* Same header as the open list, same placement classes. */}
       <div className={styles.resolvedColumnHeader} role="row" aria-hidden="true">
-        <span aria-hidden />
-        <span>Issue</span>
-        <span>What we want</span>
-        <span aria-hidden />
-        <span aria-hidden />
+        <span className={styles.headIssue}>Issue</span>
+        <span className={styles.headWant}>What we want</span>
       </div>
       <ul className={styles.issueList}>
         {items.map((issue) => (

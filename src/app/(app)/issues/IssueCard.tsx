@@ -154,6 +154,18 @@ export function IssueCard({
         <DesiredOutcomeEditor issue={issue} canEdit={canEdit} />
       </div>
 
+      {isAdmin ? (
+        <DeleteIssueButton issueId={issue.id} issueTitle={issue.title} />
+      ) : (
+        <span aria-hidden className={styles.deletePlaceholder} />
+      )}
+
+      {canEdit ? (
+        <ResolveIssueButton issueId={issue.id} />
+      ) : (
+        <span aria-hidden className={styles.resolvePlaceholder} />
+      )}
+
       {/* The commitments region spans the FULL row and therefore
           auto-places on its own grid line, underneath the issue. It
           used to sit at `grid-column: 4 / 7`, level with the issue
@@ -222,17 +234,6 @@ export function IssueCard({
         ) : null}
       </div>
 
-      {isAdmin ? (
-        <DeleteIssueButton issueId={issue.id} issueTitle={issue.title} />
-      ) : (
-        <span aria-hidden className={styles.deletePlaceholder} />
-      )}
-
-      {canEdit ? (
-        <ResolveIssueButton issueId={issue.id} />
-      ) : (
-        <span aria-hidden className={styles.resolvePlaceholder} />
-      )}
     </article>
   );
 }
@@ -663,6 +664,25 @@ function IssueCommitmentAddInline({
   // form, we're just tabbing between fields and shouldn't submit.
   const formId = `add-cmt-${issueId}`;
   const inputId = `${formId}-description`;
+
+  // The plus always does something. With text in the field it
+  // submits, which is what "add" means once you have written the
+  // thing; empty, it puts the cursor in the field.
+  //
+  // It was a <label>, which focuses its control natively and adds no
+  // tab stop. Correct, and it read as broken: clicking it on an
+  // empty line moved focus into a box that was already visible and
+  // already showing its placeholder, so nothing appeared to happen.
+  // An affordance that looks like a button has to answer a click
+  // visibly, so this is a button, and `.addLine:focus-within` gives
+  // the line a lit state to answer with.
+  function onPlusClick() {
+    if (description.trim() && !pending) {
+      formRef.current?.requestSubmit();
+      return;
+    }
+    inputRef.current?.focus();
+  }
   function maybeAutoSubmit() {
     setTimeout(() => {
       const active = document.activeElement;
@@ -694,14 +714,16 @@ function IssueCommitmentAddInline({
         <input type="hidden" name="owner_id" value={ownerId} />
         <input type="hidden" name="due_date" value={dueDate} />
 
-        {/* A LABEL, not a decorative span. Filled and coloured, it
-            reads as a button, and a thing that looks like a button
-            has to do something when clicked. As a label it focuses
-            the textarea natively and adds no extra tab stop. */}
-        <label htmlFor={inputId} className={styles.addCircle}>
+        <button
+          type="button"
+          className={styles.addCircle}
+          onClick={onPlusClick}
+          disabled={pending}
+          title="Add a commitment"
+        >
           <span aria-hidden>+</span>
           <span className={styles.srOnly}>Add a commitment</span>
-        </label>
+        </button>
         <span aria-hidden />
         <span aria-hidden />
 
