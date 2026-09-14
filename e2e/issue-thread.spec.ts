@@ -124,6 +124,25 @@ test.describe("issue commitment thread", () => {
       timeout: 30_000,
     });
     await expect(row.getByText("Second, alongside")).toBeVisible();
+
+    // AND BOTH SURVIVE A RELOAD. The original spec asserted only what
+    // was on screen straight after adding, which passed while the
+    // first commitment was in fact being folded into a collapsed
+    // panel — visible only because the panel happened to be open.
+    // Navigating away and back is what exposed it.
+    await page.goto("/dashboard");
+    await page.goto("/issues");
+    const reloaded = page.getByRole("article").filter({ hasText: title });
+    await expect(reloaded.getByText("First, still open")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(reloaded.getByText("Second, alongside")).toBeVisible();
+
+    // Nothing to click to reveal them: while more than one is open
+    // there is no collapse control at all.
+    await expect(
+      reloaded.getByRole("button", { name: /add another commitment/i })
+    ).toHaveCount(0);
   });
 
   test("an issue with no history looks exactly as it did", async ({ page }) => {

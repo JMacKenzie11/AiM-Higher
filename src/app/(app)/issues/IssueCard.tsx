@@ -94,6 +94,21 @@ export function IssueCard({
   // background. Otherwise collapsed, so the common case looks
   // exactly as it did before any of this existed.
   const [expanded, setExpanded] = useState(awaitingReview);
+  // NOTHING THAT IS STILL OPEN MAY BE HIDDEN.
+  //
+  // The row has one commitment slot, so splitThread names the newest
+  // open one "active" and the rest "otherOpen". That was harmless
+  // while the card could not add a second one alongside the first —
+  // otherOpen was always empty. Once adding became possible it turned
+  // into a real defect: a second commitment DISPLACED the first into
+  // a collapsed panel, so the issue looked like it had one commitment
+  // and the earlier one only reappeared on clicking "+ add
+  // commitment". Reported from the browser.
+  //
+  // History can be folded away; live work cannot. When more than one
+  // commitment is open the thread is not collapsible at all.
+  const hasOtherOpen = thread.otherOpen.length > 0;
+  const threadOpen = expanded || hasOtherOpen;
   // The row already offers an inline add form when nothing is open
   // and nothing is done — a brand-new issue. Offering the thread as
   // well would put two add forms on screen for the same issue.
@@ -184,7 +199,10 @@ export function IssueCard({
                 read OR an editor who could add to it — an issue can
                 take more than one commitment at a time, and the only
                 way in used to be finishing the current one first. */}
-            {doneCount > 0 || showThreadToggle ? (
+            {/* No toggle while other commitments are open — there is
+                nothing to collapse to, and offering one would imply
+                the live rows could be put away. */}
+            {!hasOtherOpen && (doneCount > 0 || showThreadToggle) ? (
               <ThreadToggle
                 doneCount={doneCount}
                 expanded={expanded}
@@ -256,13 +274,22 @@ export function IssueCard({
       {/* The thread. Full-width under the row's cells, so the grid
           above keeps its shape and a collapsed card is byte-for-byte
           what it was before any of this. */}
-      {expanded ? (
+      {threadOpen ? (
         <div className={styles.thread}>
           {thread.completed.map((done) => (
             <ThreadDoneLine key={done.id} commitment={done} />
           ))}
           {thread.otherOpen.map((extra) => (
-            <ThreadOpenLine key={extra.id} commitment={extra} />
+            <ThreadOpenLine
+              key={extra.id}
+              commitment={extra}
+              ownerName={
+                extra.owner_id
+                  ? roster.find((p) => p.id === extra.owner_id)?.full_name ??
+                    "Unknown"
+                  : null
+              }
+            />
           ))}
           {canEdit ? (
             <div className={styles.threadAdd}>
@@ -850,18 +877,33 @@ function ThreadDoneLine({ commitment }: { commitment: CommitmentWithMeta }) {
   );
 }
 
-// A second open commitment. Should not happen — the card only offers
-// to add when nothing is open — but it is legal in the database, and
-// the previous version of this card hid it behind
-// openCommitments[0]. Shown rather than dropped.
-function ThreadOpenLine({ commitment }: { commitment: CommitmentWithMeta }) {
+// Another commitment that is still open.
+//
+// Carries its owner and due date, unlike a finished line: this is
+// live work somebody is accountable for this week, not history. The
+// first version showed the text and the words "also open", which
+// told a reader it existed and nothing they could act on.
+function ThreadOpenLine({
+  commitment,
+  ownerName,
+}: {
+  commitment: CommitmentWithMeta;
+  ownerName: string | null;
+}) {
   return (
-    <p className={styles.threadLine}>
+    <p className={`${styles.threadLine} ${styles.threadLineOpen}`}>
       <span aria-hidden className={styles.threadOpenDot}>
         ◦
       </span>
       <span className={styles.threadText}>{commitment.description}</span>
-      <span className={styles.threadDate}>also open</span>
+      {ownerName ? (
+        <span className={styles.threadOwner}>{ownerName}</span>
+      ) : null}
+      {commitment.due_date ? (
+        <span className={styles.threadDate}>
+          {formatShortDate(commitment.due_date.slice(0, 10))}
+        </span>
+      ) : null}
     </p>
   );
 }

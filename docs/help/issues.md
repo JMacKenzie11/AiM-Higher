@@ -25,6 +25,12 @@ opens the thread:
   the same thread, oldest first, with the finished ones collapsed
   to a line each and the add form at the end.
 
+**If more than one commitment is open, you see them all.** The most
+recent sits in the Commitment column and the others are listed
+underneath with their own owner and due date. There is nothing to
+click to reveal them and no way to fold them away — finished work
+can be tucked out of sight, live work cannot.
+
 **When everything on an issue has been finished, the row asks
 "Did this solve it?"** and gives you two answers: *Resolve issue*,
 or *Add next commitment*. Nothing happens on its own — the issue
