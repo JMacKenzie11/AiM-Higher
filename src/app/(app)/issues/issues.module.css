@@ -651,3 +651,136 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-3);
 }
+
+/* ---- The commitment thread -----------------------------------
+ *
+ * An issue is worked through a sequence of commitments. The row above
+ * keeps its grid and its current commitment exactly as before; this is
+ * the history behind it, and it is absent entirely when there is none.
+ * Tokens only — no new visual vocabulary. */
+
+/* Not composing btnGhost: every property it brings is overridden
+   below, and a compose that survives none of itself is a lie about
+   where the styling comes from. */
+.threadToggle {
+  margin-top: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.threadToggle:hover {
+  color: var(--aims-cobalt);
+}
+
+/* Spans the whole row beneath the cells. grid-column: 1/-1 keeps the
+   row's column template untouched, which is what makes a collapsed
+   card identical to what it was. */
+.thread {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding: var(--space-3) 0 var(--space-2) var(--space-6);
+  border-top: 1px solid var(--border);
+}
+
+.threadLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.threadCheck {
+  color: var(--aims-success);
+  font-weight: 700;
+}
+
+.threadOpenDot {
+  color: var(--text-faint);
+}
+
+/* Truncated: a finished commitment is context, and a wrapped
+   paragraph of it would outweigh the live one above. */
+.threadText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.threadDate {
+  color: var(--text-faint);
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.threadAdd {
+  display: contents;
+}
+
+/* ---- The review moment ---------------------------------------- */
+
+.reviewPrompt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.reviewAsk {
+  margin: 0;
+  font: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.reviewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.reviewResolve {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+  padding: 2px var(--space-3);
+  font: var(--text-button-sm);
+}
+
+.reviewAddNext {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+  padding: 2px var(--space-3);
+  font: var(--text-button-sm);
+}
+
+.reviewError {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--aims-danger);
+}
+
+/* Quiet by design. It marks a question waiting for an answer, not a
+   problem — the attention queue is a different surface with a
+   different tone. */
+.needsReviewBadge {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--aims-sky-tint);
+  color: var(--text-muted);
+  font: var(--text-caption);
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
+}

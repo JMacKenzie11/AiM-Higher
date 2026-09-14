@@ -188,6 +188,20 @@ Scoring code lives in `src/lib/maturity/` (config in `disciplines.ts`, one file 
 
 ---
 
+## 8b. Issues / Solutions (`/issues`)
+
+An issue is a problem the leadership team has named. It is worked through a **sequence of commitments**, not one.
+
+- **The data model has always been plural.** `commitments.issue_id` is a nullable FK (migration `0143`) with a plain, non-unique partial index. `issues` carries no commitment column. The only related constraint, `commitments_link_exclusive`, caps how many *link types* one commitment may have at one — it says nothing about how many commitments an issue may have. Until 2026-09-14 the card collapsed the list to `openCommitments[0]`, so additional commitments stayed linked in the database and invisible on screen; nothing else changed to support the thread.
+- **The thread.** Finished commitments render as single collapsed lines, oldest first, behind a `N done` marker. The current open commitment keeps the slot it has always had. An issue with no history is byte-for-byte the row it was before the thread existed — no marker, no badge, no toggle.
+- **The review moment.** When every commitment on an unresolved issue has landed, the commitment slot asks **"Did this solve it?"** with two actions: *Resolve issue* and *Add next commitment*. **Nothing is automatic** — no auto-resolve, no auto-created follow-up. A quiet `needs review` badge marks the same state in the list.
+- **`needs review` is derived, not stored.** No column, no new status value. The condition is *unresolved* AND *nothing open* AND *at least one completed*, computed in `src/lib/issues/thread.ts`. The third clause is what keeps the prompt off issues nobody has started, and it is also what grandfathers existing data: measured on production before the change, of 27 issues 6 were resolved while carrying open commitments and **zero** resolved issues had a completed one, so nothing that existed could badge. No `resolved_at` cutoff was needed and none was added.
+- **Status remains two values**, `open` and `resolved`, with `resolved_at`. Resolving an issue that still has open commitments keeps them live and says so in the confirm copy — unchanged.
+- **There is no reopen.** Nothing writes `status` back to `open` after creation. If the review question is answered "not solved" on an already-resolved issue, today's answer is a new issue. A reopen path is a future decision, not an omission.
+- **Every commitment mutation revalidates `/issues`.** Create, relink and delete always did; the other ten (mark kept, unmark kept, mark missed, unmark missed, reschedule, park, unpark, reassign, clarity, description) did not, so resolving an issue-linked commitment could leave the page showing it as still open. The fix lives in the shared `revalidateCommitmentSurfaces` helper, which now takes the issue id, so the cost stays on the rows that have one.
+
+---
+
 ## 9. Functional Org Chart
 
 The functional org chart at `/chart` (nav label: **Functional Org Chart**). Distinct from the reporting hierarchy in `profiles.reports_to`.

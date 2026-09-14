@@ -33,6 +33,9 @@ import {
   ClarityEditor,
   clarityState,
 } from "../commitments/ClarityStrip";
+import { splitThread, needsReview } from "@/lib/issues/thread";
+import type { CommitmentWithMeta } from "@/lib/commitments/service";
+import { formatShortDate } from "@/lib/dates";
 import styles from "./issues.module.css";
 
 // One issue = one row. Five columns match the /commitments visual
@@ -77,13 +80,21 @@ export function IssueCard({
   dragHandleProps?: HTMLAttributes<HTMLButtonElement>;
 }) {
   const canEdit = isAdmin || issue.created_by === currentUserId;
-  // Take the newest open commitment as "this week's". If more than
-  // one exists, older ones stay linked in the DB but don't render
-  // here — the row's premise is a single current commitment.
-  const openCommitments = issue.commitments
-    .filter((c) => c.status === "open" && !c.deleted_at && !c.parked_at)
-    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
-  const active = openCommitments[0] ?? null;
+  // An issue is worked through a SEQUENCE of commitments. The newest
+  // open one keeps the slot it has always had; the finished ones are
+  // the thread behind it, which this card used to drop on the floor.
+  // See lib/issues/thread.ts for the derivation and why each clause
+  // of the review condition is load-bearing.
+  const thread = splitThread(issue.commitments);
+  const active = thread.active;
+  const doneCount = thread.completed.length;
+  const awaitingReview = needsReview(issue, thread);
+  // Expanded by default when the issue is waiting on a decision:
+  // that is the one moment the history is the point rather than
+  // background. Otherwise collapsed, so the common case looks
+  // exactly as it did before any of this existed.
+  const [expanded, setExpanded] = useState(awaitingReview);
+  const [adding, setAdding] = useState(false);
   const activeOwner = active?.owner_id
     ? roster.find((p) => p.id === active.owner_id)?.full_name ?? "Unknown"
     : null;
@@ -143,6 +154,12 @@ export function IssueCard({
 
       <div className={styles.cellIssue}>
         <IssueTitleEditor issue={issue} canEdit={canEdit} />
+        {/* Derived state, not a status value: unresolved, nothing
+            open, at least one thing finished. No column, no enum
+            change. */}
+        {awaitingReview ? (
+          <span className={styles.needsReviewBadge}>needs review</span>
+        ) : null}
       </div>
 
       <div className={styles.cellWant}>
@@ -156,6 +173,13 @@ export function IssueCard({
               commitment={active}
               canEdit={canEditActive}
             />
+            {doneCount > 0 ? (
+              <ThreadToggle
+                doneCount={doneCount}
+                expanded={expanded}
+                onToggle={() => setExpanded((v) => !v)}
+              />
+            ) : null}
           </div>
           <div className={styles.cellOwner}>
             <OwnerAssignmentEditor
@@ -173,6 +197,21 @@ export function IssueCard({
             />
           </div>
         </>
+      ) : awaitingReview && canEdit && !adding ? (
+        /* THE REVIEW MOMENT. Everything on this issue has landed and
+           nobody has said whether the issue itself is settled. The
+           product asks rather than guesses: nothing auto-resolves and
+           nothing auto-creates the next commitment. */
+        <ReviewPrompt
+          issueId={issue.id}
+          doneCount={doneCount}
+          expanded={expanded}
+          onToggle={() => setExpanded((v) => !v)}
+          onAddNext={() => {
+            setAdding(true);
+            setExpanded(true);
+          }}
+        />
       ) : canEdit ? (
         <IssueCommitmentAddInline
           issueId={issue.id}
@@ -202,6 +241,31 @@ export function IssueCard({
       ) : (
         <span aria-hidden className={styles.resolvePlaceholder} />
       )}
+
+      {/* The thread. Full-width under the row's cells, so the grid
+          above keeps its shape and a collapsed card is byte-for-byte
+          what it was before any of this. */}
+      {expanded && (doneCount > 0 || adding) ? (
+        <div className={styles.thread}>
+          {thread.completed.map((done) => (
+            <ThreadDoneLine key={done.id} commitment={done} />
+          ))}
+          {thread.otherOpen.map((extra) => (
+            <ThreadOpenLine key={extra.id} commitment={extra} />
+          ))}
+          {canEdit && (adding || awaitingReview) ? (
+            <div className={styles.threadAdd}>
+              <IssueCommitmentAddInline
+                issueId={issue.id}
+                roster={roster}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+                todayIso={todayIso}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {showClarity && active && canEditClarity ? (
         <ClarityEditor
@@ -716,6 +780,132 @@ function IssueCommitmentAddInline({
           aria-label="Due date"
         />
       </div>
+    </>
+  );
+}
+
+// ---- The thread ------------------------------------------------
+
+// "2 done" beside the current commitment, and the control that opens
+// the history. Absent entirely when there is no history, which is the
+// common case and must look exactly as it did before.
+function ThreadToggle({
+  doneCount,
+  expanded,
+  onToggle,
+}: {
+  doneCount: number;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={styles.threadToggle}
+      onClick={onToggle}
+      aria-expanded={expanded}
+    >
+      {doneCount} done
+    </button>
+  );
+}
+
+// One finished commitment, collapsed to a single line: a check, the
+// text, the date it landed. Deliberately not editable — this is
+// history, and the place to resolve or reschedule a commitment is the
+// surface where it is still live.
+function ThreadDoneLine({ commitment }: { commitment: CommitmentWithMeta }) {
+  const landed = commitment.completed_at ?? commitment.due_date;
+  return (
+    <p className={styles.threadLine}>
+      <span aria-hidden className={styles.threadCheck}>
+        ✓
+      </span>
+      <span className={styles.threadText}>{commitment.description}</span>
+      {landed ? (
+        <span className={styles.threadDate}>{formatShortDate(landed.slice(0, 10))}</span>
+      ) : null}
+    </p>
+  );
+}
+
+// A second open commitment. Should not happen — the card only offers
+// to add when nothing is open — but it is legal in the database, and
+// the previous version of this card hid it behind
+// openCommitments[0]. Shown rather than dropped.
+function ThreadOpenLine({ commitment }: { commitment: CommitmentWithMeta }) {
+  return (
+    <p className={styles.threadLine}>
+      <span aria-hidden className={styles.threadOpenDot}>
+        ◦
+      </span>
+      <span className={styles.threadText}>{commitment.description}</span>
+      <span className={styles.threadDate}>also open</span>
+    </p>
+  );
+}
+
+// The two-action prompt. Occupies the commitment slot when everything
+// on the issue has landed and the issue is still open.
+function ReviewPrompt({
+  issueId,
+  doneCount,
+  expanded,
+  onToggle,
+  onAddNext,
+}: {
+  issueId: string;
+  doneCount: number;
+  expanded: boolean;
+  onToggle: () => void;
+  onAddNext: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function resolve() {
+    setError(null);
+    startTransition(async () => {
+      const result = await resolveIssueAction(issueId);
+      if (!result.ok) setError(result.message);
+    });
+  }
+
+  return (
+    <>
+      <div className={`${styles.cellCommitment} ${styles.reviewPrompt}`}>
+        <p className={styles.reviewAsk}>Did this solve it?</p>
+        <div className={styles.reviewActions}>
+          <button
+            type="button"
+            className={styles.reviewResolve}
+            onClick={resolve}
+            disabled={pending}
+          >
+            {pending ? "Resolving…" : "Resolve issue"}
+          </button>
+          <button
+            type="button"
+            className={styles.reviewAddNext}
+            onClick={onAddNext}
+            disabled={pending}
+          >
+            Add next commitment
+          </button>
+        </div>
+        {error ? (
+          <p role="alert" className={styles.reviewError}>
+            {error}
+          </p>
+        ) : null}
+        <ThreadToggle
+          doneCount={doneCount}
+          expanded={expanded}
+          onToggle={onToggle}
+        />
+      </div>
+      <div className={styles.cellOwner}>—</div>
+      <div className={styles.cellDue}>—</div>
     </>
   );
 }
