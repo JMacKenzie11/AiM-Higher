@@ -27,6 +27,7 @@
     "seed:demo": "node --env-file=.env.local --experimental-strip-types scripts/seed-demo.ts",
     "seed:construction": "node --env-file=.env.local --experimental-strip-types scripts/seed-construction.ts",
     "seed:meridian-measures": "node --env-file=.env.local --experimental-strip-types scripts/seed-meridian-measures.ts",
+    "check:docs": "node --experimental-strip-types scripts/check-docs-touched.ts",
     "check:help": "node --experimental-strip-types scripts/check-help-coverage.ts",
     "rls:hazards": "tsx --tsconfig scripts/tsconfig.json scripts/rls-harness.ts",
     "posthog:insights": "node --env-file=.env.local --experimental-strip-types scripts/setup-posthog-insights.ts"

@@ -1,0 +1,53 @@
+# The docs-in-the-same-PR gate.
+#
+# Its own workflow rather than a step in checks.yml, because it needs
+# the PULL REQUEST — the changed-file list and the description — and
+# checks.yml also runs on pushes, where there is no PR and no
+# description to read. Folding it in would mean a step that silently
+# skips on half its runs.
+name: Docs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+# `edited` is in that list on purpose: adding `Docs-exempt:` to the
+# description is how an author satisfies this check, and without
+# `edited` they would have to push an empty commit to re-run it.
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the PR
+        uses: actions/checkout@v4
+        with:
+          # Need the base commit to diff against, not just the tip.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: List the files this PR changes
+        run: |
+          git diff --name-only \
+            "origin/${{ github.base_ref }}...${{ github.event.pull_request.head.sha }}" \
+            > changed-files.txt
+          echo "Changed files:"
+          sed 's/^/  /' changed-files.txt
+
+      - name: Save the PR description
+        # Through the environment, not through a shell interpolation:
+        # a description is arbitrary user text and interpolating it
+        # into a run block is a script-injection hole.
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$PR_BODY" > pr-body.txt
+
+      - name: Documentation changed, or exemption claimed
+        run: |
+          node --experimental-strip-types scripts/check-docs-touched.ts \
+            --files changed-files.txt \
+            --body pr-body.txt
