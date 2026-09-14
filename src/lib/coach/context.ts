@@ -1,3 +1,4 @@
+import { compareToOwnBaseline, themesFrom } from "./history-shape";
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -164,8 +165,16 @@ export async function buildCoachContext(
     };
   }
 
-  const { subject, openQuarter, keepRatesByQuarter, commitmentStats, plan, strengthsContext } =
-    subjectBundle;
+  const {
+    subject,
+    openQuarter,
+    keepRatesByQuarter,
+    commitmentStats,
+    baseline,
+    openIssues,
+    plan,
+    strengthsContext,
+  } = subjectBundle;
   const {
     keptOnTimeCount,
     keptLateCount,
@@ -190,6 +199,8 @@ export async function buildCoachContext(
     missed,
     keptLate,
     openCommitments,
+    baseline,
+    openIssues,
     priorities: plan.priorities,
     goals: plan.goals,
   });
@@ -237,6 +248,22 @@ export async function buildCoachContext(
 // buildCoachContext can skip all of it cleanly when the mode is
 // general. Runs the intra-bundle queries in parallel + the wave-2
 // dependent queries (quarter-scoped rates) after.
+// LONGITUDINAL DEPTH, capped. Six quarters is eighteen months, which
+// is long enough for "third quarter running" to be a claim the data
+// can actually support and short enough that the block stays a
+// handful of lines. It was two, which could show a change but never a
+// pattern.
+//
+// Bounded by the person's TENURE where hire_date is known: a quarter
+// that closed before somebody joined is not a quarter they had, and
+// listing it with a blank rate invites reading an absence as a lapse.
+const PERSON_BLOCK_QUARTERS = 6;
+
+// Aggregates only in the default block. The tools exist for
+// drill-down, and paying for verbatim history in every turn of every
+// conversation buys depth the conversation has not asked for yet.
+const MAX_OPEN_ISSUES_LISTED = 5;
+
 async function loadSubjectBundle(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   companyId: string,
@@ -251,20 +278,25 @@ async function loadSubjectBundle(
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, full_name, position, role, company_id")
+      .select("id, full_name, position, role, company_id, hire_date")
       .eq("id", subjectProfileId)
       .maybeSingle<
-        Pick<Profile, "id" | "full_name" | "position" | "role" | "company_id">
+        Pick<
+          Profile,
+          "id" | "full_name" | "position" | "role" | "company_id" | "hire_date"
+        >
       >(),
     getCurrentQuarter(companyId),
-    loadPriorQuarters(supabase, companyId, 2),
+    loadPriorQuarters(supabase, companyId, PERSON_BLOCK_QUARTERS),
     loadOwnedPlanItems(supabase, subjectProfileId),
     buildStrengthsContext({ supabase, subjectProfileId, companyId }),
   ]);
 
-  const quartersForRate = [openQuarter, ...priorQuarters].filter(
-    (q): q is Quarter => Boolean(q)
-  );
+  const hired = subject?.hire_date ?? null;
+  const quartersForRate = [openQuarter, ...priorQuarters]
+    .filter((q): q is Quarter => Boolean(q))
+    // A quarter that closed before they arrived is not theirs.
+    .filter((q) => !hired || q.end_date >= hired);
 
   const [keepRatesByQuarter, commitmentStats] = await Promise.all([
     Promise.all(
@@ -281,14 +313,76 @@ async function loadSubjectBundle(
     loadSubjectCommitments(supabase, subjectProfileId, openQuarter),
   ]);
 
+  // Their own baseline, not the company's and not a fixed bar. Null
+  // when there is too little to compare, which is the case the
+  // provenance guidance turns on — see prompts/leadership-coach.md.
+  const rated = keepRatesByQuarter.map((r) => ({
+    follow_through_pct: r.keepRate,
+  }));
+  const baseline =
+    rated.length > 0 ? compareToOwnBaseline(rated[0]!, rated.slice(1)) : null;
+
+  const openIssues = await loadSubjectOpenIssues(supabase, subjectProfileId);
+
   return {
     subject,
     openQuarter,
     keepRatesByQuarter,
     commitmentStats,
+    baseline,
+    openIssues,
     plan,
     strengthsContext,
   };
+}
+
+// Open issues the subject is carrying: ones where they own a
+// commitment that is still open. Deliberately NOT "issues they
+// raised" — an issue someone raised and handed on is not work they
+// are carrying, and the coaching question is what is on them now.
+async function loadSubjectOpenIssues(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  subjectProfileId: string
+): Promise<Array<{ title: string; attempts: number }>> {
+  const { data: mine } = await supabase
+    .from("commitments")
+    .select("issue_id")
+    .eq("owner_id", subjectProfileId)
+    .eq("status", "open")
+    .not("issue_id", "is", null)
+    .is("deleted_at", null)
+    .is("parked_at", null);
+  const ids = [
+    ...new Set(
+      ((mine ?? []) as Array<{ issue_id: string | null }>)
+        .map((r) => r.issue_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ].slice(0, MAX_OPEN_ISSUES_LISTED);
+  if (ids.length === 0) return [];
+
+  const [{ data: issueRows }, { data: allCommitments }] = await Promise.all([
+    supabase
+      .from("issues")
+      .select("id, title")
+      .in("id", ids)
+      .eq("status", "open"),
+    supabase
+      .from("commitments")
+      .select("issue_id")
+      .in("issue_id", ids)
+      .is("deleted_at", null),
+  ]);
+  const counts = new Map<string, number>();
+  for (const row of (allCommitments ?? []) as Array<{ issue_id: string | null }>) {
+    if (row.issue_id) counts.set(row.issue_id, (counts.get(row.issue_id) ?? 0) + 1);
+  }
+  return ((issueRows ?? []) as Array<{ id: string; title: string }>).map((i) => ({
+    title: i.title,
+    // How many goes it has taken so far. A count, not the thread —
+    // issue_casefiles returns the thread when the conversation wants it.
+    attempts: counts.get(i.id) ?? 0,
+  }));
 }
 
 // Emit the subject's strengths context — combines two sources:
@@ -617,10 +711,16 @@ function formatCompanyContext({
   return lines.join("\n");
 }
 
-function formatPersonContext({
+// Exported for the context-cost test, which measures the rendered
+// artifact rather than a reconstruction of it. A cost budget checked
+// against an approximation of the block is a budget on the
+// approximation.
+export function formatPersonContext({
   subject,
   todayIso,
   keepRatesByQuarter,
+  baseline,
+  openIssues,
   openQuarter,
   keptOnTimeCount,
   keptLateCount,
@@ -651,6 +751,13 @@ function formatPersonContext({
   >;
   keptLate: Array<Pick<Commitment, "description" | "week_ending" | "due_date">>;
   openCommitments: Array<Pick<Commitment, "description" | "due_date" | "week_ending">>;
+  baseline: {
+    current_pct: number;
+    baseline_pct: number;
+    baseline_quarters: number;
+    delta: number;
+  } | null;
+  openIssues: Array<{ title: string; attempts: number }>;
   priorities: Array<Pick<Priority, "title" | "status">>;
   goals: Array<Pick<AnnualGoal, "title" | "status">>;
 }): string {
@@ -671,6 +778,22 @@ function formatPersonContext({
       const rate = row.keepRate === null ? "—" : `${row.keepRate}%`;
       lines.push(`- ${row.quarter.label}: ${rate}`);
     }
+  }
+
+  // Against their OWN prior quarters. Null when there is too little
+  // to compare, and the line then says that rather than going quiet —
+  // silence here would read as "nothing notable" when it means
+  // "nothing sayable", and those license very different sentences.
+  if (baseline) {
+    const dir =
+      baseline.delta > 0 ? "above" : baseline.delta < 0 ? "below" : "level with";
+    lines.push(
+      `This quarter vs their own baseline: ${baseline.current_pct}% against ${baseline.baseline_pct}% averaged over their previous ${baseline.baseline_quarters} quarters — ${dir}${baseline.delta === 0 ? "" : ` by ${Math.abs(baseline.delta)} points`}.`
+    );
+  } else {
+    lines.push(
+      "This quarter vs their own baseline: not enough history to compare (fewer than two prior quarters with a rate, or nothing resolved yet this quarter). Do not infer a trend from this."
+    );
   }
 
   lines.push("");
@@ -741,6 +864,32 @@ function formatPersonContext({
   } else {
     for (const g of goals) {
       lines.push(`- ${g.title.trim()} — ${g.status}`);
+    }
+  }
+
+  // SHAPE OF WHAT THEY ARE CARRYING, not a list of it. The open
+  // commitments are already itemised above; this says how much and
+  // what it clusters around, which is the thing a coach reads first
+  // and the thing a count alone cannot carry.
+  lines.push("");
+  const themes = themesFrom(openCommitments.map((c) => c.description));
+  lines.push(
+    `Currently carrying ${openCommitments.length} open commitment${openCommitments.length === 1 ? "" : "s"}${
+      themes.length > 0 ? `, clustered around: ${themes.join(", ")}` : ""
+    }.`
+  );
+
+  lines.push("");
+  lines.push(
+    "Open issues they are carrying (they own an open commitment on it; attempts = commitments raised against it so far):"
+  );
+  if (openIssues.length === 0) {
+    lines.push("- (none)");
+  } else {
+    for (const i of openIssues) {
+      lines.push(
+        `- ${i.title.trim()} — ${i.attempts} attempt${i.attempts === 1 ? "" : "s"} so far`
+      );
     }
   }
 

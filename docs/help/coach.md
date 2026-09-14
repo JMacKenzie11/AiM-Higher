@@ -26,6 +26,18 @@ read what.
   see this" below for the boundaries.
 - **Archive a thread** — the row-level action tucks a thread out
   of the way without deleting it.
+- **Ask about history** — Aimee can look up what actually happened:
+  follow-through by quarter for a person or the whole company,
+  how the scorecard has moved week by week, resolved issues with
+  everything that was tried against each one, and what past
+  quarters planned against what landed. Ask in plain language
+  ("is this a pattern or a bad quarter?", "have we tried anything
+  on invoicing before?") and she'll go and read the record.
+
+  Two things worth knowing. She only reads what **you** can already
+  see — the same records, the same permissions, nothing extra. And
+  when the record is thin, she says so instead of calling two data
+  points a trend.
 
 ## How to start a coaching thread
 

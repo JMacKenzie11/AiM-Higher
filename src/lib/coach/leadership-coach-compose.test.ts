@@ -19,8 +19,13 @@ import path from "node:path";
 // output) so voice/tone edits stay a deliberate act, not a drive-
 // by.
 
+// Regenerated 2026-09-14 for the tier-one history work: the prompt
+// gained a "Claims about the past" section carrying the provenance
+// rule and its worked examples. A deliberate edit to the coaching
+// spine, which is exactly the kind of change this guard is here to
+// make somebody say out loud.
 const LEADERSHIP_COACH_BASE_SHA =
-  "02409ada0c8dd4a69bc1a434296dc172cb2b22903ba8f474f58e443e7020f825";
+  "89abcd10cf4064eaf06a9a38d4feae4818e9f48aad5c7f9de0afd3254767381d";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {
