@@ -7,6 +7,8 @@ import {
   formatMemoryBlock,
   MAX_MEMORIES_PER_CONVERSATION,
   type StoredMemory,
+  selectSweepCandidates,
+  type SweepCandidate,
 } from "./memory-shape";
 
 describe("parseMemoryResponse", () => {
@@ -247,5 +249,91 @@ describe("summarization output, end to end through the shaping layer", () => {
       parseMemoryResponse("Nothing durable came up in this conversation.")
     );
     expect(kept).toEqual([]);
+  });
+});
+
+describe("selectSweepCandidates", () => {
+  const pick = (
+    candidates: SweepCandidate[],
+    turns: Record<string, number>,
+    maxPerRun = 3
+  ) =>
+    selectSweepCandidates({
+      candidates,
+      userTurns: new Map(Object.entries(turns)),
+      maxPerRun,
+      minUserTurns: 2,
+    }).map((c) => c.id);
+
+  const convo = (id: string, updated: string, wm: string | null = null): SweepCandidate => ({
+    id,
+    updated_at: updated,
+    memory_summarized_through: wm,
+  });
+
+  // The production deadlock, as found on 2026-09-14. The three newest
+  // conversations were empty shells; the real ones sat behind them and
+  // were never reached, because the old code looked at only
+  // MAX_PER_RUN + 1 rows and a thin row consumed a slot permanently.
+  it("looks past a run of empty conversations at the head of the queue", () => {
+    const candidates = [
+      convo("empty-1", "2026-09-14T21:50:50Z"),
+      convo("empty-2", "2026-09-14T21:09:36Z"),
+      convo("one-turn", "2026-09-14T15:23:40Z"),
+      convo("empty-3", "2026-08-31T23:56:35Z"),
+      convo("real-1", "2026-08-31T23:22:00Z"),
+      convo("real-2", "2026-08-31T23:21:00Z"),
+    ];
+    const turns = {
+      "empty-1": 0,
+      "empty-2": 0,
+      "one-turn": 1,
+      "empty-3": 0,
+      "real-1": 9,
+      "real-2": 10,
+    };
+    // The old shape, demonstrated rather than asserted about: it
+    // fetched only MAX_PER_RUN + 1 rows, so the function never saw
+    // anything past the empty ones. This is what production did on
+    // every page entry, forever.
+    expect(pick(candidates.slice(0, 4), turns)).toEqual([]);
+
+    // Looking at the whole window reaches the real conversations.
+    expect(pick(candidates, turns)).toEqual(["real-1", "real-2"]);
+  });
+
+  it("still refuses to summarize a thin conversation", () => {
+    const candidates = [convo("a", "2026-09-14T10:00:00Z")];
+    expect(pick(candidates, { a: 1 })).toEqual([]);
+  });
+
+  it("caps model calls at maxPerRun however many it had to look at", () => {
+    const candidates = [
+      convo("skip-1", "2026-09-14T09:00:00Z"),
+      convo("skip-2", "2026-09-14T08:00:00Z"),
+      convo("a", "2026-09-14T07:00:00Z"),
+      convo("b", "2026-09-14T06:00:00Z"),
+      convo("c", "2026-09-14T05:00:00Z"),
+      convo("d", "2026-09-14T04:00:00Z"),
+    ];
+    const turns = { "skip-1": 0, "skip-2": 0, a: 4, b: 4, c: 4, d: 4 };
+    expect(pick(candidates, turns)).toEqual(["a", "b", "c"]);
+  });
+
+  it("skips a conversation already summarized through its latest message", () => {
+    const candidates = [
+      convo("done", "2026-09-14T10:00:00Z", "2026-09-14T10:00:00Z"),
+      convo("grew", "2026-09-14T11:00:00Z", "2026-09-14T09:00:00Z"),
+    ];
+    expect(pick(candidates, { done: 5, grew: 5 })).toEqual(["grew"]);
+  });
+
+  // A conversation with no messages at all has no timestamp to mark,
+  // so it can never be watermarked out of the way. Looking past it is
+  // the only thing that works.
+  it("never returns an empty conversation, however often it is seen", () => {
+    const candidates = [convo("ghost", "2026-09-14T10:00:00Z")];
+    expect(pick(candidates, { ghost: 0 })).toEqual([]);
+    expect(pick(candidates, {})).toEqual([]);
   });
 });
