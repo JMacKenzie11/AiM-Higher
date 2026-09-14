@@ -86,6 +86,9 @@ function signature(table: string, ops: string[]): string {
   if (table === "functions") {
     return has("in:id") ? "functions:enrich" : "functions:options";
   }
+  // Joined the loader when /commitments started showing issue-linked
+  // commitments: the "From issue" tag needs the title.
+  if (table === "issues") return "issues:enrich";
   return table;
 }
 
@@ -351,9 +354,106 @@ describe("getCommitmentsPageData — header stats and enrichment", () => {
       id: "f_1",
       title: "Operations",
     });
-    // Always null on this loader: the page filters issue-linked rows
-    // out entirely.
+    // Null when the commitment has no issue — not because the loader
+    // hardcodes it, which it used to.
     expect(byId.get("rich")?.issue).toBeNull();
+  });
+
+  // ---- Issue-linked commitments are on this page --------------
+  //
+  // They were filtered out of all three queries until 2026-09-14, on
+  // the grounds that they have their own home on /issues. That made
+  // this page an incomplete ledger: those commitments counted in the
+  // follow-through rate, the weekly scorecard and the coach's
+  // context the whole time, so the page people READ was the only
+  // place they did not appear.
+
+  it("includes an issue-linked commitment in the main list", async () => {
+    mocks.rows.set("commitments:main", [
+      commitment("plain", { week_ending: THIS_FRIDAY }),
+      commitment("from_issue", {
+        week_ending: THIS_FRIDAY,
+        issue_id: "i_1",
+      }),
+    ]);
+    mocks.rows.set("issues:enrich", [
+      { id: "i_1", title: "Warehouse throughput", status: "open" },
+    ]);
+    const { getCommitmentsPageData } = await import("./service");
+
+    const data = await getCommitmentsPageData("co_1", "u_ann", ALL);
+    const ids = data.mainList.map((c) => c.id);
+
+    expect(ids).toContain("from_issue");
+  });
+
+  it("carries the issue so the From issue tag has something to say", async () => {
+    // Leaving `issue` hardcoded null while showing the rows would
+    // have rendered every one of them as unlinked: visible, but
+    // lying about where it came from.
+    mocks.rows.set("commitments:main", [
+      commitment("from_issue", {
+        week_ending: THIS_FRIDAY,
+        issue_id: "i_1",
+      }),
+    ]);
+    mocks.rows.set("issues:enrich", [
+      { id: "i_1", title: "Warehouse throughput", status: "open" },
+    ]);
+    const { getCommitmentsPageData } = await import("./service");
+
+    const data = await getCommitmentsPageData("co_1", "u_ann", ALL);
+
+    expect(data.mainList[0]?.issue).toEqual({
+      id: "i_1",
+      title: "Warehouse throughput",
+      status: "open",
+    });
+  });
+
+  it("counts issue-linked commitments in the header stats", async () => {
+    // The check that the lists and the numbers agree. Both derive
+    // from allRows, so this pins that nothing re-filters between.
+    mocks.rows.set("commitments:main", [
+      commitment("plain", { week_ending: THIS_FRIDAY, status: "open" }),
+      commitment("from_issue", {
+        week_ending: THIS_FRIDAY,
+        status: "open",
+        issue_id: "i_1",
+      }),
+    ]);
+    mocks.rows.set("commitments:stranded", [
+      commitment("old_issue", {
+        week_ending: TWO_FRIDAYS_AGO,
+        status: "open",
+        issue_id: "i_1",
+      }),
+    ]);
+    mocks.rows.set("issues:enrich", [
+      { id: "i_1", title: "Warehouse throughput", status: "open" },
+    ]);
+    const { getCommitmentsPageData } = await import("./service");
+
+    const data = await getCommitmentsPageData("co_1", "u_ann", ALL);
+
+    expect(data.headerStats.openThisWeek).toBe(2);
+    expect(data.headerStats.needsAttentionCount).toBe(1);
+  });
+
+  it("does not ask for issues when no commitment has one", async () => {
+    // The lookup is conditional on ids being present, like the
+    // priority and functional-area ones beside it.
+    mocks.rows.set("commitments:main", [
+      commitment("plain", { week_ending: THIS_FRIDAY }),
+    ]);
+    mocks.rows.set("issues:enrich", [
+      { id: "i_1", title: "Should not be read", status: "open" },
+    ]);
+    const { getCommitmentsPageData } = await import("./service");
+
+    const data = await getCommitmentsPageData("co_1", "u_ann", ALL);
+
+    expect(data.mainList[0]?.issue).toBeNull();
   });
 
   it("returns the picker options and the week anchors the page renders", async () => {

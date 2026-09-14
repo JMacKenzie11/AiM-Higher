@@ -111,7 +111,10 @@ export function IssueCard({
   const canEditActive = active !== null && canEditClarity;
 
   return (
-    <article className={styles.issueRow}>
+    // Anchored so /commitments can link straight to this row. There
+    // is no issue detail page to link to — unlike a meeting, which
+    // has one — so the row itself is the destination.
+    <article className={styles.issueRow} id={`issue-${issue.id}`}>
       {/* Col 1: clarity dot (leftmost) — only when a commitment
           exists. No commitment = empty column, keeping the grid
           shape stable across rows. */}

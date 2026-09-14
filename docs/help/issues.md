@@ -4,6 +4,11 @@ title: Issues/Solutions
 
 # Issues/Solutions
 
+**Commitments made here also appear on Commitments**, tagged *From
+issue* with a link back to the row they came from. They always
+counted toward your follow-through rate and the company scorecard;
+now they are listed where you go to read them.
+
 The Solution Seeking discipline in one list. Name the issue,
 decide what you want, and commit to the next step that moves it
 forward. The commitment lives here **and** on the owner's

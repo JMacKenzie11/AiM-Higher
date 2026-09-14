@@ -270,7 +270,20 @@ function matchesFilters(
     }
   }
 
-  // Type
+  // Type.
+  //
+  // "Operational" means "not strategic", i.e. carries no priority. It
+  // does NOT mean "carries no link at all", and that distinction now
+  // has two populations in it rather than one: functional-area-linked
+  // commitments have always landed here, and issue-linked ones join
+  // them as of 2026-09-14.
+  //
+  // Left as-is deliberately. Whether an issue-linked commitment is
+  // "operational" is a question about what that word promises the
+  // reader, and the answer would apply equally to the
+  // functional-area rows that have sat in this bucket since 0143.
+  // Changing it for one and not the other would make the filter less
+  // coherent, not more. Flagged rather than decided here.
   if (filters.type === "strategic" && commitment.priority_id === null) return false;
   if (filters.type === "operational" && commitment.priority_id !== null) return false;
 
@@ -341,7 +354,6 @@ export async function getCommitmentsPageData(
       .select("*")
       .eq("company_id", companyId)
       .is("deleted_at", null)
-      .is("issue_id", null)
       .not("parked_at", "is", null)
       .order("parked_at", { ascending: false }),
   ]);
@@ -385,12 +397,27 @@ export async function getCommitmentsPageData(
   // don't belong in any list, count, or metric on this page. Parked
   // rows come back through their own dedicated query below.
   //
-  // Issue-linked commitments (issue_id set) are EXCLUDED from this
-  // page regardless of owner-filter state. They live on the
-  // Issues/Solutions page and only render there for company-level
-  // views; personal surfaces (Guide HQ my commitments, scorecard,
-  // coaching context, follow-through math) continue to include them
-  // because those loaders don't touch this file.
+  // ISSUE-LINKED COMMITMENTS ARE INCLUDED, as of 2026-09-14. They
+  // used to be filtered out of every query on this page.
+  //
+  // WHY THEY WERE EXCLUDED: they have their own home on
+  // Issues/Solutions, and showing them twice looked like
+  // duplication.
+  //
+  // WHY THAT WAS WRONG: this page is the complete promise ledger for
+  // a company — what was committed to, and what happened. A
+  // commitment that is invisible here escapes the weekly reckoning
+  // even though it counted everywhere the numbers were computed.
+  // They have always been in the follow-through rate (the
+  // company_follow_through view filters only deleted and parked),
+  // in the weekly scorecard (maturity/scorers/execution.ts), and in
+  // the coach's context — so the page that people actually READ was
+  // the only place they did not appear. Somebody could be judged on
+  // work they could not see listed.
+  //
+  // They are not duplicated so much as cross-referenced: each one
+  // carries a "From issue" tag back to the issue it belongs to, the
+  // same shape as the existing "From meeting" tag.
   // Also pull past-week still-open rows from BEFORE the window so the
   // "Needs attention" bucket never loses a row that fell off the edge.
   // Bounded to a one-year lookback so genuinely abandoned rows (open
@@ -417,7 +444,6 @@ export async function getCommitmentsPageData(
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .is("parked_at", null)
-        .is("issue_id", null)
         .gte("week_ending", windowStart)
         .lte("week_ending", windowEnd)
         .order("due_date", { ascending: true }),
@@ -428,13 +454,14 @@ export async function getCommitmentsPageData(
         .eq("status", "open")
         .is("deleted_at", null)
         .is("parked_at", null)
-        .is("issue_id", null)
         .lt("week_ending", windowStart)
         .gte("week_ending", strandedFloor),
-      // Deliberately NOT derived from the rows above: it counts
-      // issue-linked commitments, which this page excludes. Same
-      // reason it was a separate query before — only its position
-      // moved.
+      // Still a separate query, though the reason it was one has
+      // gone: it used to count issue-linked commitments that the
+      // rows above filtered out, and now they are in both. It stays
+      // separate because it spans the whole open quarter while the
+      // rows above span a display window, so deriving one from the
+      // other would quietly change what the rate measures.
       openQuarter
         ? computeQuarterKeepRate(companyId, openQuarter)
         : Promise.resolve(null as number | null),
@@ -463,16 +490,30 @@ export async function getCommitmentsPageData(
         .filter((id): id is string => Boolean(id))
     )
   );
-  // ---- Wave 3: the two lookups that need the rows ----------------
-  // Independent of each other; both wait only on the ids the rows
-  // above carry.
-  const [{ data: prows }, { data: frows }] = await Promise.all([
+  const issueIds = Array.from(
+    new Set(
+      enrichSource
+        .map((r) => r.issue_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  // ---- Wave 3: the three lookups that need the rows --------------
+  // Independent of each other; all wait only on the ids the rows
+  // above carry. Issues joined the wave when this page started
+  // showing issue-linked commitments — without the title there is
+  // nothing for the "From issue" tag to say.
+  const [{ data: prows }, { data: frows }, { data: irows }] = await Promise.all([
     priorityIds.length > 0
       ? supabase.from("priorities").select("id, title").in("id", priorityIds)
       : Promise.resolve({ data: [] as Priority[] }),
     functionalAreaIds.length > 0
       ? supabase.from("functions").select("id, title").in("id", functionalAreaIds)
       : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+    issueIds.length > 0
+      ? supabase.from("issues").select("id, title, status").in("id", issueIds)
+      : Promise.resolve({
+          data: [] as Array<{ id: string; title: string; status: string }>,
+        }),
   ]);
 
   const priorityMap = new Map<string, Pick<Priority, "id" | "title">>();
@@ -483,15 +524,27 @@ export async function getCommitmentsPageData(
   for (const row of (frows ?? []) as Array<{ id: string; title: string }>) {
     functionalAreaMap.set(row.id, row);
   }
+  const issueMap = new Map<
+    string,
+    { id: string; title: string; status: "open" | "resolved" }
+  >();
+  for (const row of (irows ?? []) as Array<{
+    id: string;
+    title: string;
+    status: "open" | "resolved";
+  }>) {
+    issueMap.set(row.id, row);
+  }
 
   const enrich = (c: Commitment): CommitmentWithMeta => ({
     ...c,
     owner: c.owner_id ? rosterById.get(c.owner_id) ?? null : null,
     priority: c.priority_id ? priorityMap.get(c.priority_id) ?? null : null,
-    // Issue is always null on this loader (the company page filters
-    // .is('issue_id', null)) — kept in the type so /issues + hq
-    // consumers of CommitmentWithMeta can share the LinkChip.
-    issue: null,
+    // Populated now. This was hardcoded null while the page filtered
+    // issue-linked rows out, and leaving it null once they are shown
+    // would have rendered every one of them as unlinked — visible,
+    // but lying about where it came from.
+    issue: c.issue_id ? issueMap.get(c.issue_id) ?? null : null,
     functionalArea: c.functional_area_id
       ? functionalAreaMap.get(c.functional_area_id) ?? null
       : null,
