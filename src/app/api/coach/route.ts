@@ -252,7 +252,13 @@ export async function POST(req: NextRequest): Promise<Response> {
   const personBlock = context.personContext ? `${context.personContext}\n\n` : "";
   const partnerBlock = context.partnerContext ? `${context.partnerContext}\n\n` : "";
   const strengthsBlock = context.strengthsContext ? `${context.strengthsContext}\n\n` : "";
-  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${context.coachingContext}\n\n`;
+  // Memory rides LAST among the data blocks, immediately before the
+  // coaching context that tells the model how to use it. Absent
+  // entirely when there is nothing to recall — an empty
+  // <coach_memory> block is a prompt saying "there is a memory system
+  // and it is empty", which invites apologising for it.
+  const memoryBlock = context.memoryContext ? `${context.memoryContext}\n\n` : "";
+  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${memoryBlock}${context.coachingContext}\n\n`;
   const messages = buildMessages(history, userTurnPrefix);
   void practice; // reserved for future per-practice tool gating
 

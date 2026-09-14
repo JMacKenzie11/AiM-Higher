@@ -603,7 +603,7 @@ export function ChatView({
         ) : null}
       </div>
 
-      <div className={styles.thread}>
+      <div className={styles.thread} data-testid="coach-thread">
         {isEmpty ? (
           <div className={styles.emptyState}>
             <p className={styles.emptyStatePrompt}>

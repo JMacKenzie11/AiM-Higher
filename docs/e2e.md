@@ -144,6 +144,78 @@ lives in the production project**, so a hostname with a domain under it
 would reach for production. `CONTROL_PLANE_*` is blanked on that server
 too, so an accidental lookup fails loudly instead of connecting.
 
+## Running the live-credential specs
+
+Two specs need more than a browser: they need a real model and, in one
+case, they write real rows. They are listed here because "the E2E path
+was never stood up" has been the reason a feature shipped unproven
+twice, and the fix is a written procedure rather than a note in a PR.
+
+| Spec | Needs | Writes |
+|---|---|---|
+| `coach-history.spec.ts` | `ANTHROPIC_API_KEY` | nothing |
+| `coach-memory.spec.ts` | `ANTHROPIC_API_KEY` | **real `coach_memories` rows** |
+
+### One-time setup
+
+```bash
+npm run seed:e2e                       # fixture users, company, quarter
+# .env.local must carry, in addition to the E2E_* credentials:
+#   ANTHROPIC_API_KEY=...              # the specs make real model calls
+#   NEXT_PUBLIC_APP_URL=http://localhost:3200
+```
+
+Then, with the app running against the **dev clone** (never production):
+
+```bash
+npm run dev                            # terminal one
+npx playwright test e2e/coach-memory.spec.ts   # terminal two
+```
+
+### The rules for specs that write to `coach_memories`
+
+`coach_memories` is the most sensitive table on the platform. The first
+spec that wrote to it set the pattern every later one copies, so the
+pattern is written down:
+
+1. **A synthetic fixture profile only.** `users.member()`, created by
+   `seed:e2e`. Never a real account, never a real profile's id. There
+   is no version of this that is fine "just to check something".
+2. **Assert the subject before writing.** The spec checks it is signed
+   in as the fixture *before* it says anything to the coach. A spec
+   that merely intends to use a fixture is one misconfigured env var
+   away from writing memory about a real person.
+3. **Clean up in `afterEach`, not at the end of the test**, and clean
+   up EVERYTHING the fixture has — `POST /api/coach/memory` with
+   `{ all: true }`, which deletes only the caller's own rows (RLS makes
+   that structural, not a promise the route is keeping).
+
+   **Not just what the run created.** That was the first version and it
+   left rows behind twice. The memory trigger deliberately summarizes
+   conversations OTHER than the one open, so a run writes memory for
+   threads left by *earlier* runs — rows the spec caused and did not
+   create. Per-conversation cleanup misses exactly those, and the test
+   goes green while they accumulate.
+
+4. **Check the cleanup's result and fail loudly on it.** The first
+   version swallowed every error, so a cleanup deleting nothing looked
+   identical to one that worked. Three rows sat on the clone through
+   several green runs before anyone counted.
+
+5. **Count the rows afterwards the first time you write one of these.**
+   Not forever — but a hygiene safeguard nobody has ever seen fail is
+   a safeguard nobody has tested.
+6. **Never against production.** The specs have no service key and the
+   app they drive resolves its database from the host; point them at
+   the clone.
+
+### Why these are not simply in the normal run
+
+They cost money per run and they are slower than everything else by an
+order of magnitude. Run them when the feature they cover changes, and
+before shipping anything that touches coach context assembly, the
+summarization prompt, or the access wall.
+
 ## Why this is not in CI yet
 
 `.github/workflows/checks.yml` runs four gates in about a minute.

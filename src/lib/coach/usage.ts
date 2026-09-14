@@ -82,6 +82,7 @@ export type CoachUsagePurpose =
   | "clarity" // commitment clarity, measure critique, measure target check
   | "facilitation" // leadership facilitation review
   | "insights_analysis" // per-conversation Coaching insights summarizer
+  | "memory" // coach memory: distilling a finished conversation
   | "other";
 
 // Fire-and-forget log. Callers should NOT await this in the
