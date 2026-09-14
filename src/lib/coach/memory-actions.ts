@@ -258,6 +258,34 @@ export async function summarizeFinishedConversationsAction(
 // boundary. Scoped to one conversation rather than "all mine",
 // because a broad delete built for a test is a broad delete somebody
 // later calls for a different reason.
+// Delete ALL of the caller's own memory.
+//
+// Not a test affordance and not a broad hammer: "you can see and
+// delete everything she remembers" is the promise part 3 publishes,
+// and this is that. RLS bounds it to the caller absolutely — the
+// DELETE policy admits `profile_id = auth.uid()` and nothing else, so
+// there is no argument, header or bug that reaches another person's
+// memory.
+//
+// The E2E needs it because cleaning up "what this run created" is not
+// enough: the trigger under test deliberately summarizes OTHER
+// conversations, so a run writes memory for threads left by earlier
+// runs. Leaving the fixture's memory as it found it — empty — is the
+// only cleanup that actually holds.
+export async function deleteAllMyMemoriesAction(): Promise<
+  { ok: true; deleted: number } | { ok: false; message: string }
+> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase
+    .from("coach_memories")
+    .delete()
+    .eq("profile_id", session.profile.id)
+    .select("id");
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, deleted: (data ?? []).length };
+}
+
 export async function deleteMyMemoriesForConversationAction(
   conversationId: string
 ): Promise<{ ok: true; deleted: number } | { ok: false; message: string }> {

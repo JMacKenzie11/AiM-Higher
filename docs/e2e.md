@@ -185,12 +185,27 @@ pattern is written down:
    in as the fixture *before* it says anything to the coach. A spec
    that merely intends to use a fixture is one misconfigured env var
    away from writing memory about a real person.
-3. **Clean up in `afterEach`, not at the end of the test.** A failing
-   test is exactly when rows get left behind, and `afterEach` runs
-   either way. Cleanup goes through `POST /api/coach/memory`, which
-   deletes only the caller's own rows — RLS makes that structural, not
-   a promise the route is keeping.
-4. **Never against production.** The specs have no service key and the
+3. **Clean up in `afterEach`, not at the end of the test**, and clean
+   up EVERYTHING the fixture has — `POST /api/coach/memory` with
+   `{ all: true }`, which deletes only the caller's own rows (RLS makes
+   that structural, not a promise the route is keeping).
+
+   **Not just what the run created.** That was the first version and it
+   left rows behind twice. The memory trigger deliberately summarizes
+   conversations OTHER than the one open, so a run writes memory for
+   threads left by *earlier* runs — rows the spec caused and did not
+   create. Per-conversation cleanup misses exactly those, and the test
+   goes green while they accumulate.
+
+4. **Check the cleanup's result and fail loudly on it.** The first
+   version swallowed every error, so a cleanup deleting nothing looked
+   identical to one that worked. Three rows sat on the clone through
+   several green runs before anyone counted.
+
+5. **Count the rows afterwards the first time you write one of these.**
+   Not forever — but a hygiene safeguard nobody has ever seen fail is
+   a safeguard nobody has tested.
+6. **Never against production.** The specs have no service key and the
    app they drive resolves its database from the host; point them at
    the clone.
 

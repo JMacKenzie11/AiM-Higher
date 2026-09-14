@@ -30,36 +30,91 @@ const FIRST_THING = "I keep putting off handing the Thursday dispatch run to Mar
 const SECOND_THING =
   "It is partly that I do not think he is ready, and partly that I hate the conversation.";
 
+// The conversation id out of the URL, tolerant of a query string.
+//
+// `url.split("/").pop()` was the first version, and it returned
+// "<uuid>?from=ask-aimee" — which is not an id, so the cleanup
+// deleted nothing and left three rows on the clone. The test still
+// passed, because passing was never conditional on the cleanup
+// working. That is the shape of hygiene failure worth naming: the
+// safeguard was silent, and the only reason it was caught is that
+// somebody counted the rows afterwards.
+function conversationIdFrom(url: string): string {
+  const match = url.match(
+    /\/ask-aimee\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
+  );
+  if (!match?.[1]) throw new Error(`no conversation id in URL: ${url}`);
+  return match[1];
+}
+
 async function sendAndWait(page: import("@playwright/test").Page, text: string) {
+  const thread = page.getByTestId("coach-thread");
+  const before = (await thread.innerText().catch(() => "")).length;
+
   const composer = page
     .getByRole("textbox")
     .or(page.getByPlaceholder(/ask|message|type/i))
     .first();
   await composer.fill(text);
   await composer.press("Enter");
-  // The assistant's reply landing is the signal the turn is stored.
-  await expect(page.getByRole("main")).toContainText(/\w{40,}/, {
-    timeout: 120_000,
-  });
-  await page.waitForTimeout(1500);
+
+  // "A reply landed" = the transcript grew by more than the message
+  // just sent. Measured rather than pattern-matched: the first
+  // version waited for /\w{40,}/, which asks for forty consecutive
+  // word characters with no spaces and so can never match prose. It
+  // failed against a perfectly good answer.
+  await expect(async () => {
+    const now = (await thread.innerText()).length;
+    expect(now).toBeGreaterThan(before + text.length + 40);
+  }).toPass({ timeout: 180_000 });
+
+  // The turn is stored by the route after the stream closes.
+  await page.waitForTimeout(2000);
 }
 
 test.describe("coach memory", () => {
+  // Four model round trips plus a summarization pass. Playwright's
+  // 30-second default is for a click and a render; this is a
+  // conversation. The first run died at 30s while waiting on a reply
+  // that was still being generated, which reads as "the feature is
+  // broken" and meant "the clock was wrong".
+  test.describe.configure({ timeout: 480_000 });
+
   const created: string[] = [];
 
   test.afterEach(async ({ page }) => {
-    // Runs on failure too. Rows left behind by a red test are exactly
-    // the ones nobody goes back for.
-    for (const id of created) {
-      await page.evaluate(async (conversationId) => {
-        await fetch("/api/coach/memory", {
+    // LEAVE THE FIXTURE'S MEMORY AS WE FOUND IT: empty.
+    //
+    // The first version deleted only what this run created, which is
+    // not enough and took two runs to notice. The trigger under test
+    // deliberately summarizes OTHER conversations, so a run writes
+    // memory for threads left behind by earlier runs — rows this
+    // spec caused and did not create. Cleaning up per-conversation
+    // left three of them on the clone while the test went green.
+    //
+    // Safe because the subject is asserted to be the synthetic
+    // fixture before anything is written, and because RLS bounds the
+    // delete to the caller absolutely.
+    const outcome = await page
+      .evaluate(async () => {
+        const res = await fetch("/api/coach/memory", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversationId }),
-        }).catch(() => {});
-      }, id);
-    }
+          body: JSON.stringify({ all: true }),
+        });
+        return { status: res.status, body: await res.text() };
+      })
+      .catch((err) => ({ status: 0, body: String(err) }));
     created.length = 0;
+
+    // Loud, and checked. A cleanup that silently deleted nothing
+    // looked exactly like one that worked, which is how rows sat on
+    // the clone through several green-looking runs.
+    if (outcome.status !== 200) {
+      throw new Error(
+        `coach_memories cleanup FAILED — rows remain on the clone: ${outcome.body}`
+      );
+    }
   });
 
   test("a second conversation recalls the first, framed as recall", async ({
@@ -68,14 +123,20 @@ test.describe("coach memory", () => {
     await signIn(page, users.member());
 
     // (2) ASSERT THE SUBJECT BEFORE WRITING ANYTHING.
+    //
+    // toContainText, not innerText. A locator's innerText on an
+    // element that does not exist does not reject — it waits, takes
+    // the test timeout with it, and reports "target page has been
+    // closed" thirty seconds later. The first version of this
+    // assertion did exactly that, which is the worst possible
+    // behaviour for the one check standing between a misconfigured
+    // env var and memory written about a real person: it has to fail
+    // loudly and legibly, or it is not a safeguard.
     await page.goto("/profile");
-    const signedInAs = await page.getByTestId("profile-email").innerText().catch(
-      async () => (await page.getByRole("main").innerText())
-    );
-    expect(
-      signedInAs.toLowerCase(),
+    await expect(
+      page.getByText(/signed in as/i),
       "refusing to write coach_memories: not signed in as the E2E fixture member"
-    ).toContain(users.member().email.toLowerCase());
+    ).toContainText(users.member().email, { timeout: 15_000 });
 
     // ---- Conversation one ------------------------------------
     await page.goto("/ask-aimee");
@@ -83,7 +144,7 @@ test.describe("coach memory", () => {
     await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
       timeout: 30_000,
     });
-    const firstId = page.url().split("/").pop() as string;
+    const firstId = conversationIdFrom(page.url());
     created.push(firstId);
 
     await sendAndWait(page, FIRST_THING);
@@ -101,7 +162,7 @@ test.describe("coach memory", () => {
     await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
       timeout: 30_000,
     });
-    const secondId = page.url().split("/").pop() as string;
+    const secondId = conversationIdFrom(page.url());
     created.push(secondId);
     expect(secondId).not.toBe(firstId);
 
@@ -110,12 +171,24 @@ test.describe("coach memory", () => {
       "Have we talked about Marcus before? What do you remember?"
     );
 
-    const answer = (await page.getByRole("main").innerText()).toLowerCase();
+    const answer = (
+      await page.getByTestId("coach-thread").innerText()
+    ).toLowerCase();
 
-    // THE CLAIM: it knows, and it frames knowing as recall.
+    // THE CLAIM: it knows what was said in the EARLIER conversation,
+    // and it frames knowing as recall rather than as fact.
     expect(answer).toContain("marcus");
+    expect(
+      /dispatch|thursday/.test(answer),
+      "recalled Marcus but not what was actually said about him"
+    ).toBe(true);
+    // RECALL FRAMING, broadly. The first version listed the phrasings
+    // I imagined and missed the ones the coach actually used — "here's
+    // what i have on record from earlier today" and "you said" — and
+    // so failed a textbook-correct answer. A test that only accepts
+    // the wording its author predicted is testing the author.
     const recallFramed =
-      /last time|previously|you mentioned|earlier you|when we (last )?spoke|you told me|i have it down|from our last/.test(
+      /last time|previously|you mentioned|you said|you told me|earlier (today|you)|when we (last )?spoke|we'?ve talked|on record|i have (it )?(down|on record)|from our last|a guess of my own/.test(
         answer
       );
     const honestlyBlank =

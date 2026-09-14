@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { deleteMyMemoriesForConversationAction } from "@/lib/coach/memory-actions";
+import {
+  deleteAllMyMemoriesAction,
+  deleteMyMemoriesForConversationAction,
+} from "@/lib/coach/memory-actions";
 
 // DELETE the caller's own coach memories for one conversation.
 //
@@ -15,12 +18,22 @@ import { deleteMyMemoriesForConversationAction } from "@/lib/coach/memory-action
 // and nothing else, so there is no request shape — authenticated or
 // otherwise — that reaches somebody else's memory.
 export async function POST(request: Request): Promise<Response> {
-  let conversationId: unknown;
+  let body: { conversationId?: unknown; all?: unknown };
   try {
-    conversationId = (await request.json())?.conversationId;
+    body = (await request.json()) ?? {};
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
+
+  // `{ all: true }` is the promise part 3 publishes — delete
+  // everything she remembers about you. Bounded to the caller by RLS,
+  // not by this branch.
+  if (body.all === true) {
+    const all = await deleteAllMyMemoriesAction();
+    return NextResponse.json(all, { status: all.ok ? 200 : 400 });
+  }
+
+  const conversationId = body.conversationId;
   if (typeof conversationId !== "string" || conversationId.length === 0) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
