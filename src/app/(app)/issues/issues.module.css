@@ -118,11 +118,7 @@
    naturally-single-line cells lines them up with body text that
    sits inside a control (input, select, date). */
 .issueRow > .cellOwner,
-.issueRow > .cellDue {
-  padding-top: 2px;
-}
-
-/* No row-level hover tint — matches /commitments where the row
+.issueRow > /* No row-level hover tint — matches /commitments where the row
    stays quiet at rest and each editable cell carries its own
    dashed-border-at-rest affordance. */
 
@@ -288,43 +284,12 @@
 }
 
 
-/* Columns: Commitment / Owner / Due. Font + weight aligned with
-   /commitments' row so the two pages read as siblings — body font,
-   text color, tabular-nums on the date cell. */
-.cellCommitment {
-  min-width: 0;
-  font: var(--text-body);
-  color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  white-space: normal;
-  word-break: break-word;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.cellOwner {
-  min-width: 0;
-  font: var(--text-body);
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .cellDue {
   min-width: 0;
   font: var(--text-body);
   font-variant-numeric: tabular-nums;
   color: var(--text);
   white-space: nowrap;
-}
-
-.cellMuted {
-  color: var(--text-muted);
-  font-style: italic;
 }
 
 /* Stands in for the commitment on an issue the team closed in the
@@ -534,20 +499,6 @@
   .resolveButton {
     align-self: flex-end;
   }
-
-  /* Resolved rows use a different grid — collapse them too so
-     the two lists stay visually consistent below the breakpoint. */
-  .resolvedRow,
-  .resolvedRowWithDelete {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
-    padding: var(--space-4);
-    border-bottom: 1px solid var(--border);
-  }
-  .resolvedColumnHeader,
-  .resolvedColumnHeaderWithDelete {
-    display: none;
-  }
 }
 
 /* ---- Resolved section (unchanged from previous cut) --------- */
@@ -583,66 +534,31 @@
   opacity: 0.85;
 }
 
-.resolvedColumnHeader,
-.resolvedColumnHeaderWithDelete {
-  display: grid;
-  grid-template-columns:
-    minmax(0, 1.2fr)
-    minmax(0, 1.5fr)
-    minmax(0, 1.8fr)
-    minmax(120px, 0.8fr)
-    minmax(110px, 0.6fr);
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
-  font: var(--text-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-strong);
-}
-
-/* Admin variant: same 5 header cells + a trailing 28px slot so the
-   header aligns with the trash-icon column on the rows below. */
-.resolvedColumnHeaderWithDelete {
-  grid-template-columns:
-    minmax(0, 1.2fr)
-    minmax(0, 1.5fr)
-    minmax(0, 1.8fr)
-    minmax(120px, 0.8fr)
-    minmax(110px, 0.6fr)
-    28px;
+/* The resolved list IS the open list, in past tense — same grid,
+   same commitment lines. It used to carry its own five-column
+   template, a second copy of it with a trailing 28px cell, matching
+   header variants, and a duplicate set of mobile rules; the
+   component swapped classes on `isAdmin` to pick between them. All
+   of it is gone. The delete slot is simply always in the grid and
+   the row renders a placeholder into it, which is what the open row
+   has always done — and `composes` means the mobile collapse is
+   inherited rather than restated. */
+.resolvedColumnHeader {
+  composes: columnHeader;
 }
 
 .resolvedRow {
-  display: grid;
-  grid-template-columns:
-    minmax(0, 1.2fr)
-    minmax(0, 1.5fr)
-    minmax(0, 1.8fr)
-    minmax(120px, 0.8fr)
-    minmax(110px, 0.6fr);
-  align-items: start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-3);
+  composes: issueRow;
 }
 
-/* Admin variant: same 5 content columns, plus a 28px trailing cell
-   for the trash icon. ResolvedIssuesList swaps to this class (and
-   to .resolvedColumnHeaderWithDelete on the header) when isAdmin
-   is true so the delete affordance lines up under the header slot. */
-.resolvedRowWithDelete {
-  display: grid;
-  grid-template-columns:
-    minmax(0, 1.2fr)
-    minmax(0, 1.5fr)
-    minmax(0, 1.8fr)
-    minmax(120px, 0.8fr)
-    minmax(110px, 0.6fr)
-    28px;
-  align-items: start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-3);
+/* Shown instead of the commitment list when no commitment on the
+   issue ever carried text. A statement about the issue, so it spans
+   the region rather than sitting in a cell. */
+.resolvedNote {
+  margin: 0;
+  padding: var(--space-2) 0 0;
+  font: var(--text-body);
+  color: var(--text-muted);
 }
 
 /* ---- The commitment thread -----------------------------------

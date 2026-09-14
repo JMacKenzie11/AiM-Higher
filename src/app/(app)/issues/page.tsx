@@ -224,6 +224,9 @@ export default async function IssuesPage({ searchParams }: PageProps) {
           <ResolvedIssuesList
             items={filteredResolved}
             roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
+            priorityOptions={priorityOptions}
+            todayIso={todayIso}
+            currentUserId={session.profile.id}
             isAdmin={isAdmin}
           />
         </section>

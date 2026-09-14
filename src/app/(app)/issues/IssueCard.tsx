@@ -242,7 +242,7 @@ export function IssueCard({
 // actual columns rather than over a copy of them that can drift.
 // The leading spacers are resolve circle, delete and clarity; the
 // sixth is the hidden priority placeholder `hidePriority` keeps.
-function CommitmentSubHeader() {
+export function CommitmentSubHeader() {
   return (
     <div className={styles.commitmentSubHeader} role="row" aria-hidden="true">
       <span aria-hidden />

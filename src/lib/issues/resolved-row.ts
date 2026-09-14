@@ -1,5 +1,5 @@
-// What the Commitment column shows for a row in the Resolved issues
-// table on /issues.
+// What a row in the Resolved issues list on /issues shows WHERE ITS
+// COMMITMENTS WOULD GO.
 //
 // Pulled out of ResolvedIssuesList as a pure function so the rule is
 // testable: the project has no DOM test tooling (vitest runs
@@ -7,10 +7,11 @@
 // component is a rule with no regression cover.
 //
 // Three outcomes, in priority order:
-//   commitment  — a commitment landed on the issue; show its text.
-//                 Takes precedence even on a resolved-in-meeting row,
-//                 on the off chance one was linked afterwards: real
-//                 work beats a provenance label.
+//   commitment  — at least one commitment landed on the issue; the
+//                 caller renders the full list of them. Takes
+//                 precedence even on a resolved-in-meeting row, on
+//                 the off chance one was linked afterwards: real work
+//                 beats a provenance label.
 //   in-meeting  — no commitment, and the issue was closed by the
 //                 meeting-summary "Resolved in meeting" shortcut.
 //                 Say so, rather than showing a dash that reads as
@@ -23,7 +24,9 @@ export type ResolvedCommitmentCell =
   | { kind: "empty" };
 
 export function resolvedCommitmentCell(args: {
-  // The representative (newest) commitment on the issue, if any.
+  // Any non-blank commitment description on the issue. The caller
+  // renders every commitment, so this only answers "is there any
+  // real work to show at all"; which one it came from is irrelevant.
   commitmentDescription: string | null | undefined;
   // issues.resolved_in_meeting. Optional because the column arrives
   // in migration 0162 and the loader selects "*": before that
