@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { APP_URL } from "@/lib/supabase/env";
 import { requireRole } from "@/lib/auth/current-user";
 import {
   isAdminForCompany,
   type SessionProfileLike,
 } from "@/lib/auth/permissions";
 import { sendInviteEmail } from "@/lib/email";
+import { currentRequestOrigin } from "@/lib/instances/origin";
 import {
   createPendingUser,
   generateAcceptLink,
@@ -561,7 +561,7 @@ export async function getInviteLinkAction(
 
   const generated = await generateAcceptLink({
     admin,
-    appUrl: APP_URL(),
+    appUrl: await currentRequestOrigin(),
     email: userRow.user.email,
   });
   if (!generated.ok) {
@@ -609,7 +609,7 @@ export async function dispatchInvite(
   // @supabase/ssr is designed around for admin-initiated flows.
   const generated = await generateAcceptLink({
     admin,
-    appUrl: APP_URL(),
+    appUrl: await currentRequestOrigin(),
     email,
   });
   if (!generated.ok) {
