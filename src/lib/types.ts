@@ -6,7 +6,16 @@ export type Role =
   | "system_admin"
   | "company_admin"
   | "team_member"
-  | "aims_guide";
+  | "aims_guide"
+  // A PE operating partner who owns this instance's portfolio.
+  // Instance-wide READ on every company's content, and a closed list
+  // of three administrative writes on the container around them
+  // (create a company, manage its settings and features, invite
+  // company-scoped users). Never a content write. Like system_admin
+  // and aims_guide it has no company_id: having one would make every
+  // `auth_company_id() = company_id` predicate in the schema quietly
+  // true for one tenant. See migration 0190.
+  | "portfolio_admin";
 
 // A single (guide -> company) assignment. Guides have no primary
 // company_id on their profile; their access is derived from these

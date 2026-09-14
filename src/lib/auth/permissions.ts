@@ -37,6 +37,40 @@ export function isAdminForCompany(
 }
 
 /**
+ * true if the session role is portfolio_admin.
+ *
+ * Deliberately NOT folded into isAdminForCompany. That helper answers
+ * "may this caller WRITE here", and a portfolio_admin may not: their
+ * reach is instance-wide read plus three administrative writes on the
+ * container, none of which run through isAdminForCompany. Folding
+ * them in would light up every edit button on every content surface
+ * for a role whose writes RLS then refuses, which is the worst of
+ * both — an affordance that lies.
+ */
+export function isPortfolioAdmin(profile: Pick<Profile, "role">): boolean {
+  return profile.role === "portfolio_admin";
+}
+
+/**
+ * true if the caller may VIEW the given company.
+ *
+ * The read counterpart of isAdminForCompany. Everyone that helper
+ * admits, plus portfolio_admin for any company on the instance —
+ * their scope is the instance, so there is no per-company condition
+ * to check and no assignment table to check it against.
+ *
+ * Use this for page-level access gates. Use isAdminForCompany for
+ * anything that decides whether a write is offered.
+ */
+export function canViewCompany(
+  profile: SessionProfileLike,
+  companyId: string
+): boolean {
+  if (profile.role === "portfolio_admin") return true;
+  return isAdminForCompany(profile, companyId);
+}
+
+/**
  * Standard "admin OR owner" check used by every commitment write path.
  * The row must expose `company_id` and `owner_id` (which may be null
  * for unassigned commitments extracted from meeting transcripts).
@@ -90,12 +124,17 @@ export async function scopedCompanyId(
 ): Promise<string | null> {
   const role = session.profile.role;
   let resolved: string | null;
-  if (role === "system_admin" || role === "aims_guide") {
+  if (
+    role === "system_admin" ||
+    role === "aims_guide" ||
+    role === "portfolio_admin"
+  ) {
     if (formCompanyId) {
       resolved = formCompanyId;
     } else {
-      // Neither sysadmins nor guides have a primary company_id; fall
-      // through to the scope cookie via the shared resolver.
+      // None of the three cross-company roles has a primary
+      // company_id; fall through to the scope cookie via the shared
+      // resolver.
       resolved = await getEffectiveCompanyId(session);
     }
   } else {

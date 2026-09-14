@@ -5,6 +5,7 @@ import {
   companyIdFromPath,
   needsScopePicker,
   roleUsesCompanyScope,
+  scopePickerPathFor,
 } from "./scope-request";
 
 // These used to assert that middleware skipped its scope-cookie WRITE
@@ -139,6 +140,47 @@ describe("the scope cookie is no longer a GET side effect", () => {
       "companyIdFromPath",
       "needsScopePicker",
       "roleUsesCompanyScope",
+      // Reads a role and returns a path. Decides WHERE to send a
+      // caller who is being bounced, never whether to write anything.
+      "scopePickerPathFor",
     ]);
+  });
+});
+
+// ---- portfolio_admin ------------------------------------------
+describe("portfolio_admin scope routing", () => {
+  it("carries a scope cookie like the other cross-tenant roles", () => {
+    // Without this, a portfolio_admin deep-linking a company page
+    // while scoped elsewhere would render it against their cookie
+    // rather than against the company in the URL.
+    expect(roleUsesCompanyScope("portfolio_admin")).toBe(true);
+  });
+
+  it("is bounced to the picker for a company it is not scoped into", () => {
+    expect(
+      needsScopePicker({
+        pathname: "/admin/companies/11111111-1111-4111-8111-111111111111",
+        currentScope: "22222222-2222-4222-8222-222222222222",
+        role: "portfolio_admin",
+      })
+    ).toBe(true);
+  });
+
+  it("is not bounced when already scoped into that company", () => {
+    expect(
+      needsScopePicker({
+        pathname: "/admin/companies/11111111-1111-4111-8111-111111111111",
+        currentScope: "11111111-1111-4111-8111-111111111111",
+        role: "portfolio_admin",
+      })
+    ).toBe(false);
+  });
+
+  it("picks companies, not Guide HQ", () => {
+    // /hq admits aims_guide and system_admin only. Sending a
+    // portfolio_admin there is a redirect loop, not a picker.
+    expect(scopePickerPathFor("portfolio_admin")).toBe("/admin/companies");
+    expect(scopePickerPathFor("system_admin")).toBe("/hq");
+    expect(scopePickerPathFor("aims_guide")).toBe("/hq");
   });
 });

@@ -61,6 +61,11 @@ export class CrossTenantAccessError extends Error {
 // throws instead of silently serving wrong-tenant data.
 //
 // - system_admin: bypass unconditionally.
+// - portfolio_admin: bypass unconditionally. Their scope is the
+//   instance, so every company in this database is in it, including
+//   ones created after they were granted the role. There is no
+//   assignment list to consult — that absence is the design (0190),
+//   and portfolio_admin_events is what stands in for it.
 // - aims_guide: allowed iff the target is in their assignments.
 // - company_admin / team_member: MUST match profile.company_id.
 export function assertCompanyAccess(
@@ -69,6 +74,7 @@ export function assertCompanyAccess(
 ): void {
   const { role, company_id } = session.profile;
   if (role === "system_admin") return;
+  if (role === "portfolio_admin") return;
   if (role === "aims_guide") {
     const assignments = session.profile.guide_company_ids ?? [];
     if (assignments.includes(targetCompanyId)) return;
@@ -114,7 +120,7 @@ async function resolveCompanyIdInternal(
 ): Promise<string | null> {
   if (session.profile.company_id) return session.profile.company_id;
   const role = session.profile.role;
-  if (role === "system_admin") {
+  if (role === "system_admin" || role === "portfolio_admin") {
     const cookie = await getScopedCompanyId();
     if (!cookie) return null;
     // Verify the scoped company still exists and isn't soft-deleted.
@@ -165,7 +171,13 @@ export async function setScopedCompanyCookie(
   companyId: string,
   role: Role
 ): Promise<void> {
-  if (role !== "system_admin" && role !== "aims_guide") return;
+  if (
+    role !== "system_admin" &&
+    role !== "aims_guide" &&
+    role !== "portfolio_admin"
+  ) {
+    return;
+  }
   const jar = await cookies();
   jar.set(SCOPE_COOKIE_NAME, companyId, {
     path: "/",

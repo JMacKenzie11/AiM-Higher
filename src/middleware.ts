@@ -9,7 +9,7 @@ import {
 import { hostnameFromHeaders } from "@/lib/instances/request";
 import { SCOPE_COOKIE_NAME } from "@/lib/admin/scope";
 import {
-  SCOPE_PICKER_PATH,
+  scopePickerPathFor,
   needsScopePicker,
 } from "@/lib/admin/scope-request";
 
@@ -134,8 +134,15 @@ export async function middleware(request: NextRequest) {
   // ignores the scope cookie so typing aims-hq.com/ doesn't strand a
   // sysadmin inside whichever company they last scoped into.
   if (request.nextUrl.pathname === "/" && isAuthenticated) {
+    // portfolio_admin is cross-tenant but does not belong on Guide
+    // HQ, which is a caseload surface for coaches and admits only the
+    // two roles that have one. Their home is the portfolio.
     const home =
-      role === "system_admin" || role === "aims_guide" ? "/hq" : "/dashboard";
+      role === "portfolio_admin"
+        ? "/admin/companies"
+        : role === "system_admin" || role === "aims_guide"
+          ? "/hq"
+          : "/dashboard";
     return NextResponse.redirect(new URL(home, request.url));
   }
 
@@ -148,7 +155,9 @@ export async function middleware(request: NextRequest) {
   // profile row and never carry a scope cookie, so their navigation is
   // untouched.
   if (needsScopePicker({ pathname: path, currentScope, role })) {
-    return NextResponse.redirect(new URL(SCOPE_PICKER_PATH, request.url));
+    return NextResponse.redirect(
+      new URL(scopePickerPathFor(role), request.url)
+    );
   }
 
   return response;

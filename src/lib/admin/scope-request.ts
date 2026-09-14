@@ -37,6 +37,16 @@ const COMPANY_ADMIN_PATH = /^\/admin\/companies\/([0-9a-f-]{36})(?:\/|$)/i;
 // Where a cross-tenant operator is sent to pick a company.
 export const SCOPE_PICKER_PATH = "/hq";
 
+// Where a cross-tenant operator is sent to choose a company.
+//
+// /hq is Guide HQ, and it admits aims_guide and system_admin only. A
+// portfolio_admin bounced there would be bounced straight back out,
+// which is a redirect loop rather than a picker — so their picker is
+// the companies list, which is their home surface anyway.
+export function scopePickerPathFor(role: string | null): string {
+  return role === "portfolio_admin" ? "/admin/companies" : SCOPE_PICKER_PATH;
+}
+
 // Company id embedded in an /admin/companies/<uuid> path, else null.
 export function companyIdFromPath(pathname: string): string | null {
   const match = pathname.match(COMPANY_ADMIN_PATH);
@@ -48,7 +58,11 @@ export function companyIdFromPath(pathname: string): string | null {
 // and ignore the cookie entirely (see scope.ts), so none of this
 // applies to them and their navigation must be untouched.
 export function roleUsesCompanyScope(role: string | null): boolean {
-  return role === "system_admin" || role === "aims_guide";
+  return (
+    role === "system_admin" ||
+    role === "aims_guide" ||
+    role === "portfolio_admin"
+  );
 }
 
 // Should this request be bounced to the picker instead of rendering?

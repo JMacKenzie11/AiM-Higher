@@ -4,30 +4,61 @@ import { useActionState } from "react";
 
 import {
   createSystemAdminAction,
+  createPortfolioAdminAction,
   type UserActionResult,
 } from "@/lib/auth/users";
 import { useStayOpenForm } from "@/lib/hooks/use-stay-open-form";
 import { ConfirmationChip } from "@/components/ui/ConfirmationChip";
 import styles from "@/app/(app)/admin/companies/admin.module.css";
 
-// Add a system admin.
+// Add a company-less platform user: a system admin, or a portfolio
+// admin.
 //
 // Same shape as the company roster's InviteForm, and deliberately so:
 // the person receives the ordinary invitation and sets their own
 // password. What differs is that there is no company to pick and no
-// role to choose — a system_admin belongs to no company, which is the
-// whole meaning of the role.
+// role to choose in the form — the role is fixed by which form this
+// is, because both of these roles belong to no company, and that is
+// the whole meaning of each.
 //
-// The invite can be held back the same way it can for a company user,
-// so an account can be staged before the person is ready for it.
+// ONE COMPONENT, TWO ROLES. The forms are identical apart from their
+// labels, and a copy would be the thing that keeps the invite-failure
+// warning on one and loses it on the other.
+//
+// Only a system_admin can reach either action. That is the point of
+// the portfolio one: it is the door a portfolio_admin must not be
+// able to open, so it is behind the role they do not have.
 
 const INITIAL: UserActionResult = { ok: false, message: "" };
 
-export function SystemAdminForm() {
+export function SystemAdminForm({
+  variant = "system_admin",
+}: {
+  variant?: "system_admin" | "portfolio_admin";
+}) {
+  const isPortfolio = variant === "portfolio_admin";
+  const copy = isPortfolio
+    ? {
+        idPrefix: "portfolioadmin",
+        testId: "portfolio-admin-form",
+        buttonTestId: "add-portfolio-admin",
+        button: "Add portfolio admin",
+        pending: "Adding…",
+        confirmation: "Portfolio admin added",
+      }
+    : {
+        idPrefix: "sysadmin",
+        testId: "system-admin-form",
+        buttonTestId: "add-system-admin",
+        button: "Add system admin",
+        pending: "Adding…",
+        confirmation: "System admin added",
+      };
+
   const [state, formAction, pending] = useActionState<
     UserActionResult,
     FormData
-  >(createSystemAdminAction, INITIAL);
+  >(isPortfolio ? createPortfolioAdminAction : createSystemAdminAction, INITIAL);
 
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
@@ -44,14 +75,14 @@ export function SystemAdminForm() {
       action={formAction}
       className={styles.form}
       ref={formRef}
-      data-testid="system-admin-form"
+      data-testid={copy.testId}
     >
       <div className={styles.field}>
-        <label htmlFor="sysadmin-name" className={styles.label}>
+        <label htmlFor={`${copy.idPrefix}-name`} className={styles.label}>
           Full name
         </label>
         <input
-          id="sysadmin-name"
+          id={`${copy.idPrefix}-name`}
           name="full_name"
           required
           className={styles.input}
@@ -60,11 +91,11 @@ export function SystemAdminForm() {
       </div>
 
       <div className={styles.field}>
-        <label htmlFor="sysadmin-email" className={styles.label}>
+        <label htmlFor={`${copy.idPrefix}-email`} className={styles.label}>
           Email
         </label>
         <input
-          id="sysadmin-email"
+          id={`${copy.idPrefix}-email`}
           name="email"
           type="email"
           required
@@ -95,11 +126,11 @@ export function SystemAdminForm() {
           type="submit"
           className={styles.primaryButton}
           disabled={pending}
-          data-testid="add-system-admin"
+          data-testid={copy.buttonTestId}
         >
-          {pending ? "Adding…" : "Add system admin"}
+          {pending ? copy.pending : copy.button}
         </button>
-        <ConfirmationChip visible={confirmationVisible} label="System admin added" />
+        <ConfirmationChip visible={confirmationVisible} label={copy.confirmation} />
       </div>
     </form>
   );

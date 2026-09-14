@@ -72,6 +72,13 @@ mode E2.
 
 ## Permissions
 
+**portfolio_admin may hold a write policy only on `companies`,
+`company_features`, `profiles` and `portfolio_admin_events`.** The list is
+closed. `npm run rls:hazards` fails on a write policy naming the role
+anywhere else, in either spelling, and plants a deliberately wrong one on
+every run so a clean result is never a broken matcher. Reads are wide on
+purpose; writes are four tables.
+
 **A role widening ships with its RLS change and a harness probe in the same
 PR.** App guards are courtesy; RLS is the boundary. The probe runs as the
 granted role, asserts both the write that must now succeed and a write the

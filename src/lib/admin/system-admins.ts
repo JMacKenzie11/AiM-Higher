@@ -32,12 +32,25 @@ export type SystemAdminRow = Pick<
 };
 
 export async function listSystemAdmins(): Promise<SystemAdminRow[]> {
+  return listPlatformRole("system_admin");
+}
+
+// The instance's portfolio admins. Same shape, same page, same
+// reasoning: they belong to no company, so there is no company People
+// page for them to appear on.
+export async function listPortfolioAdmins(): Promise<SystemAdminRow[]> {
+  return listPlatformRole("portfolio_admin");
+}
+
+async function listPlatformRole(
+  role: "system_admin" | "portfolio_admin"
+): Promise<SystemAdminRow[]> {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data } = await supabase
     .from("profiles")
     .select("id, full_name, status, invited_at, created_at")
-    .eq("role", "system_admin")
+    .eq("role", role)
     .order("full_name");
 
   const rows = (data ?? []) as Array<

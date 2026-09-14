@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
-import { isAdminForCompany } from "@/lib/auth/permissions";
+import { canViewCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { getBulkResetImpact } from "@/lib/plan/service";
@@ -46,15 +46,27 @@ export default async function CompanyDetailPage({
     "system_admin",
     "aims_guide",
     "company_admin",
+    "portfolio_admin",
   ]);
   const { id } = await params;
   const flash = await searchParams;
   const isSystemAdmin = session.profile.role === "system_admin";
   const isCompanyAdmin = session.profile.role === "company_admin";
+  // The container role. Everything below that is gated on
+  // `isSystemAdmin || isPortfolioAdmin` is an item on the closed list
+  // in migration 0192; everything gated on `isSystemAdmin` alone is
+  // not, and Delete is the one to look at twice.
+  const isPortfolioAdmin = session.profile.role === "portfolio_admin";
+  const managesContainer = isSystemAdmin || isPortfolioAdmin;
   // A guide can only view companies they're assigned to; a company
   // admin can only view their own company. isAdminForCompany covers
   // both cases (see src/lib/auth/permissions.ts).
-  if (!isAdminForCompany(session.profile, id)) {
+  // canViewCompany, not isAdminForCompany: this is an access gate,
+  // and a portfolio_admin may view every company on the instance. The
+  // write affordances further down still ask isAdminForCompany, which
+  // does not admit them, so the page renders read-only for this role
+  // apart from the container controls it is entitled to.
+  if (!canViewCompany(session.profile, id)) {
     redirect("/admin/companies");
   }
 
@@ -117,7 +129,7 @@ export default async function CompanyDetailPage({
   // who noticed, so it renders here, next to the control that causes
   // it. system_admin only: they are the only role that can make the
   // change, and the only role the SELECT policy admits.
-  const timezoneHistory = isSystemAdmin
+  const timezoneHistory = managesContainer
     ? (
         (
           await supabase
@@ -165,7 +177,7 @@ export default async function CompanyDetailPage({
               Actions
             </h2>
             <p className={styles.subtitleInline}>
-              {isSystemAdmin
+              {managesContainer
                 ? "Open the company to work inside it, or archive to hide it from picker lists and stop sign-ins."
                 : "Open the company to work inside it."}
             </p>
@@ -174,10 +186,18 @@ export default async function CompanyDetailPage({
                 companyId={company.id}
                 name="Open this company →"
               />
-              {isSystemAdmin ? (
+              {/* Archive is on the closed list; Delete is not, and
+                  they live in the same component. `canDelete` is what
+                  separates them here — RLS refuses the delete either
+                  way (companies_delete admits system_admin only, and
+                  `deleted_at` is absent from 0192's column allowlist),
+                  so this is the courtesy half of a boundary that is
+                  already enforced below it. */}
+              {managesContainer ? (
                 <CompanyRowActions
                   companyId={company.id}
                   status={company.status}
+                  canDelete={isSystemAdmin}
                 />
               ) : null}
             </div>
@@ -186,7 +206,7 @@ export default async function CompanyDetailPage({
 
         {/* Industry — visible to system admins and company admins,
             not to guides (guides don't set brand-level metadata). */}
-        {isSystemAdmin || isCompanyAdmin ? (
+        {managesContainer || isCompanyAdmin ? (
           <section className={styles.card} aria-labelledby="industry-heading">
             <h2 id="industry-heading" className={styles.h2}>
               Industry
@@ -202,7 +222,7 @@ export default async function CompanyDetailPage({
             bucketed read in the app, so it does not sit with the
             roles that administer a single tenant. 0176's column guard
             enforces that below the app. */}
-        {isSystemAdmin ? (
+        {managesContainer ? (
           <section className={styles.card} aria-labelledby="timezone-heading">
             <h2 id="timezone-heading" className={styles.h2}>
               Timezone
@@ -228,7 +248,7 @@ export default async function CompanyDetailPage({
         ) : null}
 
         {/* Features — system-admin only (module entitlements). */}
-        {isSystemAdmin ? (
+        {managesContainer ? (
           <section className={styles.card} aria-labelledby="features-heading">
             <h2 id="features-heading" className={styles.h2}>
               Features
