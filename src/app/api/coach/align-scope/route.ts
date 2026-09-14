@@ -75,6 +75,18 @@ export async function GET(request: NextRequest): Promise<Response> {
     return NextResponse.redirect(new URL("/admin/companies", url));
   }
 
-  await setScopedCompanyCookie(conversation.company_id, role);
+  // Bound to the caller, like every other write of this cookie.
+  //
+  // SEPARATELY, AND NOT FIXED HERE: this is a GET that changes who the
+  // caller is acting as, which docs/product-spec.md says nothing does
+  // ("No request changes who the caller is acting as, only the
+  // action"). That invariant was established after a Link prefetch
+  // moved an operator into a company nobody chose. This route is the
+  // one place it is still false, for system_admin and aims_guide.
+  // Binding the cookie stops a DIFFERENT user inheriting the result;
+  // it does not stop a prefetched GET from scoping the caller. Worth
+  // closing, and worth closing deliberately rather than inside a fix
+  // for something else.
+  await setScopedCompanyCookie(conversation.company_id, role, session.profile.id);
   return NextResponse.redirect(new URL(safeNext, url));
 }

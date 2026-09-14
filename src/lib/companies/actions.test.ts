@@ -365,7 +365,8 @@ describe("createCompanyAction", () => {
 
     expect(mocks.setScopedCompanyCookie).toHaveBeenCalledWith(
       "co_new",
-      "system_admin"
+      "system_admin",
+      "root"
     );
   });
 

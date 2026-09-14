@@ -128,10 +128,23 @@ export async function expectMenuNotClipped(menu: Locator): Promise<void> {
   ).toBe(true);
 }
 
+// The raw cookie value, `<profileId>:<companyId>` since 2026-09-14.
+// Specs that only care whether a scope exists use this; specs that
+// care WHICH company use scopedCompanyId below.
 export async function scopeCookie(page: Page): Promise<string | null> {
   const cookies = await page.context().cookies();
   const hit = cookies.find((c) => c.name === SCOPE_COOKIE);
   return hit && hit.value.length > 0 ? hit.value : null;
+}
+
+// The company the scope cookie points at, with the profile binding
+// stripped. Null when there is no cookie, or when it is unbound —
+// which is the same answer the app gives, deliberately.
+export async function scopedCompanyId(page: Page): Promise<string | null> {
+  const raw = await scopeCookie(page);
+  if (!raw) return null;
+  const at = raw.indexOf(":");
+  return at > 0 ? raw.slice(at + 1) : null;
 }
 
 // The fixture company's id, read from a scope-in control rather than

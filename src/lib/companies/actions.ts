@@ -70,7 +70,11 @@ export async function createCompanyAction(
     // now sends a cross-tenant role asking for a company they are not
     // scoped into back to /hq. Without this the redirect below lands
     // on Guide HQ instead of the company just created, silently.
-    await setScopedCompanyCookie(result.company.id, session.profile.role);
+    await setScopedCompanyCookie(
+      result.company.id,
+      session.profile.role,
+      session.profile.id
+    );
     redirect(`/admin/companies/${result.company.id}`);
   }
 
