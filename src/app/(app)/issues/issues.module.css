@@ -32,7 +32,7 @@
 /* ---- Column header row --------------------------------------- */
 .columnHeader {
   display: grid;
-  /* THE SAME EIGHT COLUMNS A COMMITMENT ROW USES. The card holds
+  /* THE SAME SEVEN COLUMNS A COMMITMENT ROW USES. The card holds
      two kinds of thing — one issue, then its commitments — and they
      share one column system so the card reads as a single table
      instead of two unrelated grids stacked on each other.
@@ -42,7 +42,7 @@
      nothing collides with them. Commitment / assigned to / due date
      are NOT issue columns — they belong to a commitment, and an
      issue has any number of those. */
-  grid-template-columns: 40px 28px 28px 1fr 180px 180px 110px 90px;
+  grid-template-columns: 40px 28px 28px 1fr 180px 110px 90px;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
@@ -86,7 +86,7 @@
      sticky header. */
   scroll-margin-top: 96px;
   display: grid;
-  /* THE SAME EIGHT COLUMNS A COMMITMENT ROW USES. The card holds
+  /* THE SAME SEVEN COLUMNS A COMMITMENT ROW USES. The card holds
      two kinds of thing — one issue, then its commitments — and they
      share one column system so the card reads as a single table
      instead of two unrelated grids stacked on each other.
@@ -96,7 +96,7 @@
      nothing collides with them. Commitment / assigned to / due date
      are NOT issue columns — they belong to a commitment, and an
      issue has any number of those. */
-  grid-template-columns: 40px 28px 28px 1fr 180px 180px 110px 90px;
+  grid-template-columns: 40px 28px 28px 1fr 180px 110px 90px;
   /* Top-align each cell so a 3-line "what we want" or commitment
      doesn't push the shorter cells to the middle of the row —
      reads more like a data table that way. */
@@ -172,7 +172,7 @@
 }
 
 .headWant {
-  grid-column: 5 / 7;
+  grid-column: 5 / -1;
 }
 
 .cellIssue {
@@ -235,10 +235,10 @@
 }
 
 /* Column: What we want */
-/* Spans the assigned-to and priority columns beneath it. An outcome
-   statement is a sentence, not a field, and 180px is too narrow. */
+/* Takes every trailing column. An outcome statement is a sentence,
+   not a field, and one 180px column is too narrow for it. */
 .cellWant {
-  grid-column: 5 / 7;
+  grid-column: 5 / -1;
   min-width: 0;
   display: flex;
   align-items: flex-start;
@@ -709,11 +709,26 @@
 .commitments {
   grid-column: 1 / -1;
   min-width: 0;
-  margin-top: var(--space-2);
-  padding: var(--space-1) var(--space-3) var(--space-2);
+
+  /* FULL-BLEED, and that is the alignment fix, not a style choice.
+     Measured from the card's content edge, the issue title sat at
+     132px and the commitment descriptions at 161px, because this
+     panel's own horizontal padding stacked on top of the padding
+     `.row` already carries. Twenty-nine pixels apart reads as a
+     wonky indent rather than a deliberate one.
+
+     Cancelling `.issueRow`'s padding here and carrying none of its
+     own lets `.row`'s 16px land the commitment grid exactly on the
+     issue grid: circle over circle, trash over trash, drag handle
+     over the clarity dot, title over the descriptions it heads. */
+  margin: var(--space-2) calc(-1 * var(--space-4))
+    calc(-1 * var(--space-3));
+  padding: var(--space-1) 0 var(--space-2);
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+
+  /* A band rather than an inset card — full-bleed corners cannot be
+     rounded without the fill pulling away from the card edge. */
+  border-top: 1px solid var(--border);
 }
 
 /* The last line needs no rule under it — the panel edge already
