@@ -56,6 +56,14 @@ async function handle(req: NextRequest): Promise<Response> {
       const { data: companies, error: listError } = await admin
         .from("companies")
         .select("id, name")
+        // Not redundant with the status check, though it looks it.
+        // A soft-deleted company is always archived first
+        // (deleteCompanyAction refuses otherwise), so status alone
+        // excludes it TODAY — by way of an invariant enforced in a
+        // different file. This runs as service role, so RLS is not
+        // filtering it either. One explicit clause is cheaper than a
+        // dependency on both.
+        .is("deleted_at", null)
         .eq("status", "active");
       // Throwing rather than returning: failing to list an
       // instance's companies means this instance did no work at all,
