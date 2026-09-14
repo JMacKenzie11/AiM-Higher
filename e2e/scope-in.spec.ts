@@ -4,6 +4,7 @@ import {
   openUserMenu,
   signIn,
   scopeCookie,
+  scopedCompanyId,
   users,
 } from "./fixtures";
 
@@ -25,7 +26,7 @@ test.describe("scoping into a company", () => {
     // The action hard-navigates, so wait for the destination rather
     // than a client transition.
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
-    expect(await scopeCookie(page)).toBe(companyId);
+    expect(await scopedCompanyId(page)).toBe(companyId);
 
     // The app agrees it is acting as that company. The way back out
     // is asserted by the scope-out test below, which owns that
@@ -45,7 +46,7 @@ test.describe("scoping into a company", () => {
     // The case that matters: scope in, then paste a URL.
     await page.goto(`/admin/companies/${companyId}`);
     await expect(page).toHaveURL(new RegExp(`${companyId}$`));
-    expect(await scopeCookie(page)).toBe(companyId);
+    expect(await scopedCompanyId(page)).toBe(companyId);
   });
 
   test("scoping out clears the cookie", async ({ page }) => {

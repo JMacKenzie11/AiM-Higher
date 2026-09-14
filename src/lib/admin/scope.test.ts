@@ -278,8 +278,9 @@ describe("getEffectiveCompanyId (invariant coverage)", () => {
     expect(result).toBe("co_a");
   });
 
-  it("routes a sysadmin through the scope cookie", async () => {
-    cookieMocks.store.set("aims_scope_company", "co_target");
+  it("routes a sysadmin through their own scope cookie", async () => {
+    // The cookie is `<profileId>:<companyId>` since 2026-09-14.
+    cookieMocks.store.set("aims_scope_company", "root:co_target");
     const { getEffectiveCompanyId } = await import("./scope");
     const result = await getEffectiveCompanyId({
       profile: {
@@ -290,6 +291,57 @@ describe("getEffectiveCompanyId (invariant coverage)", () => {
       },
     });
     expect(result).toBe("co_target");
+  });
+
+  it("refuses a scope cookie belonging to a different user", async () => {
+    // THE INCIDENT, AS A REGRESSION TEST. A newly created
+    // portfolio_admin signed in on production and landed inside a
+    // company's dashboard without ever pressing a scope-in control,
+    // and with no audit row to say they had entered. The cookie was
+    // the previous occupant of that browser.
+    cookieMocks.store.set("aims_scope_company", "somebody_else:co_target");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "portfolio_1",
+        role: "portfolio_admin",
+        company_id: null,
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBeNull();
+  });
+
+  it("refuses an unbound cookie written before the binding existed", async () => {
+    cookieMocks.store.set("aims_scope_company", "co_target");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "root",
+        role: "system_admin",
+        company_id: null,
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBeNull();
+  });
+
+  it("refuses another user's cookie for a guide too", async () => {
+    // Not a portfolio_admin problem. Every role that reads this cookie
+    // could inherit one, and a guide inheriting a scope would land
+    // them in a company their assignments may not even cover.
+    cookieMocks.store.set("aims_scope_company", "somebody_else:co_a");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "g_1",
+        role: "aims_guide",
+        company_id: null,
+        guide_company_ids: ["co_a", "co_b"],
+      },
+    });
+    // Two assignments, so there is no sole-assignment fallback either.
+    expect(result).toBeNull();
   });
 
   it("auto-scopes a guide to their sole assignment when no cookie is set", async () => {

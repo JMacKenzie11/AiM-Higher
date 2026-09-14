@@ -137,9 +137,12 @@ describe("scopeIntoCompany", () => {
       ok: true,
       redirectTo: "/dashboard",
     });
+    // Third argument is the profile the scope belongs to. The cookie
+    // is bound to it, so another user's session cannot inherit this.
     expect(mocks.setScopedCompanyCookie).toHaveBeenCalledWith(
       "co_target",
-      "system_admin"
+      "system_admin",
+      expect.any(String)
     );
     // The layout gets a revalidation ping so any server render before
     // the client reload lands sees the fresh cookie.
@@ -179,7 +182,8 @@ describe("scopeIntoCompany", () => {
     });
     expect(mocks.setScopedCompanyCookie).toHaveBeenCalledWith(
       "co_meridian",
-      "aims_guide"
+      "aims_guide",
+      expect.any(String)
     );
   });
 

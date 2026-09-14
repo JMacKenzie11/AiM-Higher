@@ -45,10 +45,15 @@ export async function signInAction(
     };
   }
 
-  // Every fresh sign-in starts unscoped. System admins land on the
-  // company list; any prior scope cookie from an earlier session is
-  // dropped so they explicitly re-pick. No effect for company users
-  // (they never had a scope cookie to begin with).
+  // Every fresh sign-in starts unscoped. Any prior scope cookie is
+  // dropped so the operator explicitly re-picks. No effect for company
+  // users (they never had one to begin with).
+  //
+  // This line used to be the ONLY protection against a session
+  // inheriting another user's scope, and it only covered the password
+  // form — not sign-out, and not invite acceptance, which creates a
+  // session for a different user entirely. See the binding note in
+  // lib/admin/scope.ts for what that cost on production.
   await clearScopedCompanyCookie();
 
   const userId = data?.user?.id;
@@ -64,6 +69,13 @@ export async function signInAction(
 export async function signOutAction(): Promise<never> {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   await supabase.auth.signOut();
+  // Belt to the cookie's braces. The binding in lib/admin/scope.ts is
+  // what actually stops the next session inheriting this scope, and it
+  // holds whether or not this line exists. Dropping a cookie the
+  // signed-out user no longer has any use for is still the right thing
+  // to do, and it means the browser is not carrying one company's id
+  // around after somebody has left.
+  await clearScopedCompanyCookie();
   redirect("/sign-in");
 }
 
@@ -232,6 +244,13 @@ export async function completeAcceptInviteAction(
       userId: otpData.session.user.id,
     });
   }
+
+  // The path that found the bug. verifyOtp above created a session for
+  // a DIFFERENT user in whatever browser the invite was opened in, and
+  // nothing here dropped the previous occupant's scope. The binding in
+  // lib/admin/scope.ts is the real fix; this drops the stale cookie
+  // rather than leaving it to be refused on every request.
+  await clearScopedCompanyCookie();
 
   revalidatePath("/", "layout");
   const acceptedUserId = otpData.session.user.id;

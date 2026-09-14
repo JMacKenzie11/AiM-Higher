@@ -69,7 +69,11 @@ export async function scopeIntoCompany(
     return { ok: false, message: "That company is no longer available." };
   }
 
-  await setScopedCompanyCookie(companyId, session.profile.role);
+  await setScopedCompanyCookie(
+    companyId,
+    session.profile.role,
+    session.profile.id
+  );
 
   // A portfolio_admin entering a company is the event with no row
   // anywhere else. A guide entering one is already answerable through

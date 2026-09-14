@@ -26,10 +26,67 @@ export type Scopeable = {
   };
 };
 
-export async function getScopedCompanyId(): Promise<string | null> {
+// THE COOKIE IS BOUND TO THE USER IT WAS ISSUED FOR.
+//
+// Stored as `<profileId>:<companyId>`, and read back only when the
+// profile id matches the caller. A scope belonging to somebody else is
+// not a scope; it is a cookie left in a browser.
+//
+// WHY, AND IT IS NOT HYPOTHETICAL. Found on production 2026-09-14: a
+// newly created portfolio_admin signed in and landed directly inside a
+// company's dashboard, having never pressed a scope-in control, with
+// no row in portfolio_admin_events to say they had entered.
+//
+// The cookie was the previous session's. It is path=/ with an 8-hour
+// life, and only TWO code paths ever cleared it: signInAction and
+// exitCompanyScopeAction. Signing OUT did not, and neither did
+// accepting an invite — which creates a brand-new session for a
+// DIFFERENT user through verifyOtp, in the same browser, with the
+// previous user's scope still sitting there. getEffectiveCompanyId
+// then read it back and handed the new account a tenant nobody had
+// chosen for them.
+//
+// Adding a third and fourth clear() call would have closed those two
+// doors. Binding closes the class: it does not matter which auth path
+// created the session, or which ones remember to tidy up, because a
+// cookie issued to one profile cannot resolve for another.
+//
+// The scope-in ACTION remains the only thing that writes this, and the
+// only thing that records an entry. That was always the intent; this
+// is what makes it true regardless of what else a browser is holding.
+function splitScopeCookie(raw: string | undefined): {
+  profileId: string;
+  companyId: string;
+} | null {
+  if (!raw) return null;
+  const at = raw.indexOf(":");
+  // No separator means a cookie written before this change. Treated as
+  // unusable rather than as a bare company id: an unbound cookie is
+  // exactly the thing this function exists to stop honouring, and the
+  // cost of refusing it is one re-pick per operator, once.
+  if (at <= 0) return null;
+  const profileId = raw.slice(0, at);
+  const companyId = raw.slice(at + 1);
+  if (!profileId || !companyId) return null;
+  return { profileId, companyId };
+}
+
+// The company id this cookie carries, or null when it carries none,
+// is malformed, is unbound, or belongs to somebody else.
+export function scopedCompanyIdForProfile(
+  raw: string | undefined,
+  profileId: string
+): string | null {
+  const parsed = splitScopeCookie(raw);
+  if (!parsed) return null;
+  return parsed.profileId === profileId ? parsed.companyId : null;
+}
+
+export async function getScopedCompanyId(
+  profileId: string
+): Promise<string | null> {
   const jar = await cookies();
-  const value = jar.get(SCOPE_COOKIE_NAME)?.value;
-  return value && value.length > 0 ? value : null;
+  return scopedCompanyIdForProfile(jar.get(SCOPE_COOKIE_NAME)?.value, profileId);
 }
 
 // Thrown when a caller would be routed to a company they don't have
@@ -121,7 +178,7 @@ async function resolveCompanyIdInternal(
   if (session.profile.company_id) return session.profile.company_id;
   const role = session.profile.role;
   if (role === "system_admin" || role === "portfolio_admin") {
-    const cookie = await getScopedCompanyId();
+    const cookie = await getScopedCompanyId(session.profile.id);
     if (!cookie) return null;
     // Verify the scoped company still exists and isn't soft-deleted.
     // Without this, a sysadmin's cookie can stick to a tenant that
@@ -140,7 +197,7 @@ async function resolveCompanyIdInternal(
   }
   if (role === "aims_guide") {
     const assignments = session.profile.guide_company_ids ?? [];
-    const cookie = await getScopedCompanyId();
+    const cookie = await getScopedCompanyId(session.profile.id);
     if (cookie && assignments.includes(cookie)) {
       if (!(await companyIsLive(cookie))) return null;
       return cookie;
@@ -169,7 +226,12 @@ async function companyIsLive(companyId: string): Promise<boolean> {
 
 export async function setScopedCompanyCookie(
   companyId: string,
-  role: Role
+  role: Role,
+  // The profile this scope belongs to. Required: a cookie that does
+  // not say who it is for is the bug this signature exists to prevent,
+  // and making it optional would let a caller re-create it by
+  // forgetting an argument.
+  profileId: string
 ): Promise<void> {
   if (
     role !== "system_admin" &&
@@ -179,7 +241,7 @@ export async function setScopedCompanyCookie(
     return;
   }
   const jar = await cookies();
-  jar.set(SCOPE_COOKIE_NAME, companyId, {
+  jar.set(SCOPE_COOKIE_NAME, `${profileId}:${companyId}`, {
     path: "/",
     httpOnly: true,
     sameSite: "lax",
