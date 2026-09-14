@@ -390,6 +390,41 @@ export async function POST(req: NextRequest): Promise<Response> {
           .select("*")
           .single<CoachingMessage>();
 
+        // ---- COACH MEMORY, PART 2: READ THIS FIRST ---------------
+        //
+        // This is where a conversation-end summarization hook belongs,
+        // and it comes with a constraint decided in part 1 (migration
+        // 0194) rather than one to be discovered here.
+        //
+        // The only write path into coach_memories is
+        // public.record_coach_memory(), a SECURITY DEFINER function
+        // that forces profile_id to auth.uid(). profile_id is NOT a
+        // parameter: there is no argument any caller can pass to write
+        // into somebody else's memory. That was chosen over
+        // service-role writes confined by a static source check,
+        // against failure mode E5 — the boundary belongs in the
+        // database, and a static check over application source is an
+        // app guard wearing a test's clothing.
+        //
+        // The consequence for part 2, stated plainly: THE WRITE MUST
+        // HAPPEN WHILE THE CALLER'S SESSION IS STILL IN SCOPE. Here,
+        // inside the request, is such a place. A queue drained by a
+        // cron, a background job, or anything else running without a
+        // JWT is NOT — record_coach_memory raises when auth.uid() is
+        // null, deliberately.
+        //
+        // If part 2's design wants summarization outside the request,
+        // it returns to 0194 and changes the write path in a
+        // migration, with probes, rather than reaching for the service
+        // client. That is a real option and not a forbidden one; it is
+        // simply a decision that has to be made in the database with
+        // the access wall in front of it, because the wall is the
+        // feature. Design the conversation-end hook with this
+        // constraint visible, not around it.
+        //
+        // See docs/product-spec.md, the coach_memories entry.
+        // -----------------------------------------------------------
+
         // Fire-and-forget usage log — dashboard-facing cost tracking.
         // Not awaited so a logging hiccup can never stall the client's
         // done event or leave the stream half-closed.
