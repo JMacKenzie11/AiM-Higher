@@ -48,8 +48,8 @@ function conversationIdFrom(url: string): string {
 }
 
 async function sendAndWait(page: import("@playwright/test").Page, text: string) {
-  const thread = page.getByTestId("coach-thread");
-  const before = (await thread.innerText().catch(() => "")).length;
+  const bubbles = page.getByTestId("coach-bubble");
+  const before = await bubbles.count();
 
   const composer = page
     .getByRole("textbox")
@@ -58,18 +58,30 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
   await composer.fill(text);
   await composer.press("Enter");
 
-  // "A reply landed" = the transcript grew by more than the message
-  // just sent. Measured rather than pattern-matched: the first
-  // version waited for /\w{40,}/, which asks for forty consecutive
-  // word characters with no spaces and so can never match prose. It
-  // failed against a perfectly good answer.
+  // "A reply landed" = two more message bubbles: the question and the
+  // answer. Counted, not measured by text length.
+  //
+  // Two earlier versions of this got it wrong in ways worth keeping
+  // in view. The first waited for /\w{40,}/ — forty consecutive word
+  // characters, which prose never contains — and failed a correct
+  // answer. The second compared transcript LENGTH against a baseline
+  // that included the empty-state placeholder, which disappears the
+  // moment you send; so a SHORT correct answer ("I don't have
+  // anything on record") scored below the threshold and failed. Both
+  // times the product was right and the ruler was wrong.
+  await expect(bubbles).toHaveCount(before + 2, { timeout: 180_000 });
+
+  // And wait for it to have SAID something. The count passes the
+  // moment the assistant bubble mounts, which is before a single
+  // token has streamed into it — so reading the transcript here got
+  // the question back with an empty answer beneath it.
   await expect(async () => {
-    const now = (await thread.innerText()).length;
-    expect(now).toBeGreaterThan(before + text.length + 40);
+    const reply = await bubbles.last().innerText();
+    expect(reply.replace(/thinking|…|\./gi, "").trim().length).toBeGreaterThan(40);
   }).toPass({ timeout: 180_000 });
 
   // The turn is stored by the route after the stream closes.
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(2500);
 }
 
 test.describe("coach memory", () => {
@@ -203,5 +215,102 @@ test.describe("coach memory", () => {
     if (recallFramed) {
       expect(answer).not.toMatch(/you always|you never|your pattern of|you clearly/);
     }
+  });
+
+  test("the trust surface lists memories, deletes one, and the coach forgets it", async ({
+    page,
+  }) => {
+    await signIn(page, users.member());
+
+    await page.goto("/profile");
+    await expect(
+      page.getByText(/signed in as/i),
+      "refusing to write coach_memories: not signed in as the E2E fixture member"
+    ).toContainText(users.member().email, { timeout: 15_000 });
+
+    // ---- Produce a memory -------------------------------------
+    await page.goto("/ask-aimee");
+    await page.getByRole("button", { name: /new|start|ask/i }).first().click();
+    await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, { timeout: 30_000 });
+    created.push(conversationIdFrom(page.url()));
+    await sendAndWait(page, FIRST_THING);
+    await sendAndWait(page, SECOND_THING);
+
+    // Leaving is what finishes the thought and triggers the sweep.
+    await page.goto("/ask-aimee");
+    await page.waitForTimeout(4000);
+
+    // ---- The page shows them ----------------------------------
+    await page.goto("/ask-aimee/memory");
+    await expect(page.getByRole("heading", { name: /what aimee remembers/i }))
+      .toBeVisible({ timeout: 30_000 });
+    // The promise is on the page, in the same words as the help.
+    await expect(page.getByText(/stays between you and Aimee/i)).toBeVisible();
+
+    const deleteButtons = page.getByRole("button", { name: /^Delete:/i });
+    await expect(deleteButtons.first()).toBeVisible({ timeout: 30_000 });
+    const before = await deleteButtons.count();
+    expect(before, "no memories were produced to delete").toBeGreaterThan(0);
+
+    // Capture what we are about to delete, so the forgetting can be
+    // checked against the specific line rather than against a vibe.
+    const deletedText = (
+      await deleteButtons.first().getAttribute("aria-label")
+    )?.replace(/^Delete:\s*/i, "") ?? "";
+    expect(deletedText.length).toBeGreaterThan(10);
+
+    // ---- Delete: one confirm, no undo -------------------------
+    await deleteButtons.first().click();
+    await expect(page.getByText(/delete this memory\?/i)).toBeVisible();
+    await page.getByRole("button", { name: /^delete$/i }).click();
+
+    await expect(async () => {
+      expect(await page.getByRole("button", { name: /^Delete:/i }).count()).toBe(
+        before - 1
+      );
+    }).toPass({ timeout: 30_000 });
+
+    // ---- THE CLAIM: gone from CONTEXT, not just from the page ---
+    //
+    // Asserted by emptying memory entirely rather than by checking
+    // that one line's words stopped appearing. The first version did
+    // the latter and failed against correct behaviour: the memories
+    // from one conversation all concern the same subject, so deleting
+    // one leaves siblings that mention the same words. "The topic
+    // survived" is not "the deleted row survived", and a test that
+    // cannot tell them apart is not testing deletion.
+    //
+    // Emptying it is the unambiguous version: if anything at all were
+    // still reaching context assembly after every row was deleted,
+    // she would recall it.
+    const remaining = page.getByRole("button", { name: /^Delete:/i });
+    for (let guard = 0; guard < 20; guard += 1) {
+      if ((await remaining.count()) === 0) break;
+      await remaining.first().click();
+      await page.getByRole("button", { name: /^delete$/i }).click();
+      await page.waitForTimeout(800);
+    }
+    await expect(remaining).toHaveCount(0, { timeout: 30_000 });
+
+    await page.goto("/ask-aimee");
+    await page.getByRole("button", { name: /new|start|ask/i }).first().click();
+    await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, { timeout: 30_000 });
+    created.push(conversationIdFrom(page.url()));
+
+    await sendAndWait(page, "What do you remember about me? List everything.");
+    const answer = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
+
+    // She must say she has nothing — and must not produce the content
+    // of the conversation that was deleted.
+    expect(
+      /don'?t have|nothing (yet|on record|from)|no (memory|memories|record)|first time|haven'?t (talked|noted)|starting fresh/.test(
+        answer
+      ),
+      `expected an empty-memory answer after deleting everything. Got: ${answer.slice(0, 400)}`
+    ).toBe(true);
+    expect(
+      answer.includes("dispatch"),
+      "the coach recalled deleted content"
+    ).toBe(false);
   });
 });

@@ -1,0 +1,119 @@
+/* "What Aimee remembers" — the trust surface.
+ *
+ * DESIGN SYSTEM ONLY. Every rule below either composes an existing
+ * class or uses a token. No hardcoded colour, spacing, radius or type
+ * size appears in this file, and none should be added: the page has
+ * to read as part of Aimee's area rather than a settings screen
+ * bolted on beside it, and the way that happens is by not inventing
+ * anything.
+ *
+ * Composed from:
+ *   coach.module.css  .card, .conversationRow, .conversationMeta,
+ *                     .ghostButton   (the surface this page lives on)
+ *   ui.module.css     .emptyLine     (the quiet empty state)
+ *   commitments       .fromIssuePill is the REFERENCE for the kind
+ *                     tag — not composed, because it is a link style
+ *                     with hover affordance and this is a static
+ *                     label. Same tokens, same shape, no hover.
+ */
+
+.card {
+  composes: card from "../../coach/coach.module.css";
+}
+
+/* The list row, matching the conversation list on the surface this
+ * page is reached from. Three columns rather than two: the kind tag
+ * sits with the meta line, and delete takes the trailing slot the
+ * conversation list gives its archive button. */
+.row {
+  composes: conversationRow from "../../coach/coach.module.css";
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.content {
+  font: var(--text-body);
+  color: var(--text);
+  line-height: 1.4;
+}
+
+/* The meta line: date, kind tag, and where it came from. */
+.meta {
+  composes: conversationMeta from "../../coach/coach.module.css";
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* The kind tag. Same shape and tokens as the FROM ISSUE / FROM
+ * MEETING family: a hairline outline, muted text, uppercase caption.
+ * UNDERSTATED ON PURPOSE — it is a label saying where a line came
+ * from, not a warning about it, so it introduces no colour of its
+ * own and does not shout at the one kind people might distrust. */
+.kindTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.sourceLink {
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.sourceLink:hover {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.deleteButton {
+  composes: ghostButton from "../../coach/coach.module.css";
+}
+
+.empty {
+  composes: emptyLine from "../../../../components/ui/ui.module.css";
+}
+
+/* The promise, restated where the person can see it.
+ *
+ * ON A SURFACE, because PageShell's content band carries
+ * `margin: -32px` and deliberately overlaps the hero — so the first
+ * child of any page sits on the gradient. Every other page in the app
+ * starts with a card for exactly that reason. Rendered as bare prose
+ * it came out washed out and clipped against the hero, which is the
+ * worst available treatment for the one paragraph this page exists to
+ * make good on. The design system was already saying this; it took a
+ * screenshot for me to hear it. */
+.promiseCard {
+  composes: card from "../../coach/coach.module.css";
+  padding: var(--space-5);
+}
+
+.promise {
+  font: var(--text-body);
+  color: var(--text);
+  line-height: 1.5;
+  margin: 0;
+  max-width: none;
+}
+
+.error {
+  font: var(--text-caption);
+  color: var(--aims-danger);
+  margin: var(--space-2) 0 0;
+}

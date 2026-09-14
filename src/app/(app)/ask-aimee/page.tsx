@@ -62,7 +62,14 @@ export default async function AskAimeePage() {
             Recent conversations
           </h2>
           <AskAimeeNewButton />
-        </div>
+                  {/* The trust surface, reached from the surface it is about.
+              Sits with the list actions rather than in the nav: it is
+              something you check occasionally about Ask Aimee, not a
+              destination of its own. */}
+          <Link href="/ask-aimee/memory" className={styles.crumb}>
+            What Aimee remembers
+          </Link>
+</div>
         {conversations.length === 0 ? (
           <p className={styles.emptyLine}>
             No conversations yet. Start one to talk something through.

@@ -82,7 +82,7 @@ export async function summarizeFinishedConversationsAction(
   // one in front of them, most recently touched first.
   let query = supabase
     .from("coaching_conversations")
-    .select("id, updated_at")
+    .select("id, updated_at, memory_summarized_through")
     .eq("created_by", session.profile.id)
     .eq("mode", "general")
     .order("updated_at", { ascending: false })
@@ -93,36 +93,24 @@ export async function summarizeFinishedConversationsAction(
   const candidates = (convoRows ?? []) as Array<{
     id: string;
     updated_at: string;
+    memory_summarized_through: string | null;
   }>;
   if (candidates.length === 0) {
     return { ok: true, conversationsSummarized: 0, memoriesWritten: 0, droppedByFilter: 0 };
   }
 
-  // THE WATERMARK, without a schema change. Part 1 is deployed, so a
-  // column would cost a migration; conversation_ref + created_at
-  // already carry what is needed.
+  // THE WATERMARK IS ON THE CONVERSATION, not derived from memory.
   //
-  // KNOWN IMPRECISION, named rather than hidden: created_at is when
-  // the SUMMARY was written, not when the last covered message
-  // arrived. A message landing between reading the transcript and
-  // writing the memory is skipped. The window is a single request,
-  // and the next trigger picks it up — the cost of closing it
-  // properly is a column on the platform's most sensitive table.
-  const { data: markRows } = await supabase
-    .from("coach_memories")
-    .select("conversation_ref, created_at")
-    .eq("profile_id", session.profile.id)
-    .in("conversation_ref", candidates.map((c) => c.id))
-    .order("created_at", { ascending: false });
-  const watermark = new Map<string, string>();
-  for (const row of (markRows ?? []) as Array<{
-    conversation_ref: string | null;
-    created_at: string;
-  }>) {
-    if (row.conversation_ref && !watermark.has(row.conversation_ref)) {
-      watermark.set(row.conversation_ref, row.created_at);
-    }
-  }
+  // It used to be the newest memory carrying this conversation_ref,
+  // which was wrong in a way only part 3 could expose: delete your
+  // memories and the watermark goes with them, so the next sweep
+  // reads the conversation from the top and writes the same memories
+  // back. Deletion was not durable. See migration 0195.
+  //
+  // Storing the last message's timestamp rather than "now" also
+  // retires the read-write race the old version documented: a message
+  // arriving mid-summarization is after the watermark, so the next
+  // sweep picks it up instead of skipping it.
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -141,7 +129,7 @@ export async function summarizeFinishedConversationsAction(
   let dropped = 0;
 
   for (const convo of candidates.slice(0, MAX_PER_RUN)) {
-    const since = watermark.get(convo.id);
+    const since = convo.memory_summarized_through;
     // Nothing new since the last summary. Top-up semantics: resuming
     // a summarized thread and continuing produces another memory on
     // the next entry, not a duplicate of the first.
@@ -159,7 +147,11 @@ export async function summarizeFinishedConversationsAction(
     const messages = (msgRows ?? []) as Array<{
       role: "user" | "assistant";
       content: string;
+      created_at: string;
     }>;
+    // The high-water mark this pass will claim: the last message
+    // actually read, not the moment the write happens.
+    const readThrough = messages[messages.length - 1]?.created_at ?? null;
     const userTurns = messages.filter((m) => m.role === "user").length;
     if (userTurns < MIN_USER_TURNS) continue;
 
@@ -232,6 +224,22 @@ export async function summarizeFinishedConversationsAction(
       }
       written += 1;
     }
+    // Advance the watermark even when the model returned nothing and
+    // even when everything was filtered out. A conversation that
+    // yielded no durable memory has still been READ, and re-reading
+    // it every page load would be a model call per visit forever.
+    if (readThrough) {
+      const { error: markError } = await supabase
+        .from("coaching_conversations")
+        .update({ memory_summarized_through: readThrough })
+        .eq("id", convo.id);
+      if (markError) {
+        console.error("coach memory: watermark not advanced", {
+          conversationId: convo.id,
+          code: markError.code,
+        });
+      }
+    }
     summarized += 1;
   }
 
@@ -258,6 +266,83 @@ export async function summarizeFinishedConversationsAction(
 // boundary. Scoped to one conversation rather than "all mine",
 // because a broad delete built for a test is a broad delete somebody
 // later calls for a different reason.
+// Delete ONE memory. The row-level action behind the trust surface.
+//
+// Deletion is the person's right, not an admin action: there is no
+// role check here because there is no role that may do this on
+// somebody else's behalf. RLS admits `profile_id = auth.uid()` on
+// DELETE and nothing else, so the eq() below is intent and the policy
+// is the boundary.
+//
+// It writes NO AUDIT TRAIL. Deliberately. A record that Dana deleted
+// a memory on Tuesday is itself a fact about Dana that somebody could
+// read, and the promise is that nobody but Dana knows what Aimee
+// remembers — which has to include knowing what she made Aimee
+// forget.
+export async function deleteMyMemoryAction(
+  memoryId: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase
+    .from("coach_memories")
+    .delete()
+    .eq("id", memoryId)
+    .eq("profile_id", session.profile.id)
+    .select("id");
+  if (error) return { ok: false, message: "Couldn't delete that memory." };
+  if ((data ?? []).length === 0) {
+    // Not found, or not theirs — the same answer either way, because
+    // distinguishing them would confirm that somebody else's memory
+    // with that id exists.
+    return { ok: false, message: "That memory is no longer there." };
+  }
+  return { ok: true };
+}
+
+// Read the caller's own memory for the trust surface, newest first,
+// with the conversation each arose in so the page can link to it.
+export type MemoryListRow = {
+  id: string;
+  kind: "said" | "inferred";
+  content: string;
+  created_at: string;
+  conversation_ref: string | null;
+  conversation_title: string | null;
+};
+
+export async function listMyMemoriesAction(): Promise<MemoryListRow[]> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data } = await supabase
+    .from("coach_memories")
+    .select(
+      "id, kind, content, created_at, conversation_ref, coaching_conversations(title)"
+    )
+    .eq("profile_id", session.profile.id)
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as Array<{
+    id: string;
+    kind: "said" | "inferred";
+    content: string;
+    created_at: string;
+    conversation_ref: string | null;
+    coaching_conversations: { title: string } | { title: string }[] | null;
+  }>).map((r) => {
+    const convo = Array.isArray(r.coaching_conversations)
+      ? r.coaching_conversations[0]
+      : r.coaching_conversations;
+    return {
+      id: r.id,
+      kind: r.kind,
+      content: r.content,
+      created_at: r.created_at,
+      conversation_ref: r.conversation_ref,
+      conversation_title: convo?.title ?? null,
+    };
+  });
+}
+
 // Delete ALL of the caller's own memory.
 //
 // Not a test affordance and not a broad hammer: "you can see and
