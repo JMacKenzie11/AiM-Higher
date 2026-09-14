@@ -1,4 +1,5 @@
 import { test, expect, signIn, users } from "./fixtures";
+import type { Locator } from "@playwright/test";
 
 // The issue commitment thread, end to end.
 //
@@ -11,6 +12,18 @@ import { test, expect, signIn, users } from "./fixtures";
 // commitments and resolve, which is the whole path.
 
 const ISSUE_TITLE = () => `E2E thread issue ${Date.now()}`;
+
+// An issue commitment is a real CommitmentRow now, so it resolves the
+// way one does everywhere else: the circle OPENS A MENU and never
+// resolves on click. That is the point of the change, so this does
+// both gestures rather than reaching for a one-click check.
+async function landFirstOpenCommitment(row: Locator) {
+  await row.getByRole("button", { name: /open actions/i }).first().click();
+  await row
+    .getByRole("menuitem", { name: /^mark kept( \(late\))?$/i })
+    .first()
+    .click();
+}
 
 test.describe("issue commitment thread", () => {
   test("land, review, add next, land, resolve", async ({ page }) => {
@@ -37,15 +50,16 @@ test.describe("issue commitment thread", () => {
 
     // ---- First commitment ----------------------------------
     await row.getByPlaceholder(/commitment/i).first().fill("First attempt");
-    await row.getByRole("button", { name: /add|save/i }).first().click();
+    await row
+      .getByPlaceholder(/commitment/i)
+      .first()
+      .press("ControlOrMeta+Enter");
     await expect(row.getByText("First attempt")).toBeVisible({
       timeout: 30_000,
     });
 
     // ---- Land it, and the review moment appears ------------
-    await row.getByRole("button", { name: /kept|done|complete/i })
-      .first()
-      .click();
+    await landFirstOpenCommitment(row);
 
     await expect(row.getByText(/did this solve it\?/i)).toBeVisible({
       timeout: 30_000,
@@ -60,7 +74,10 @@ test.describe("issue commitment thread", () => {
     // No "add next" button any more: the add line is already there,
     // at the end of the thread, whatever state the issue is in.
     await row.getByPlaceholder(/commitment/i).first().fill("Second attempt");
-    await row.getByRole("button", { name: /add|save/i }).first().click();
+    await row
+      .getByPlaceholder(/commitment/i)
+      .first()
+      .press("ControlOrMeta+Enter");
     await expect(row.getByText("Second attempt")).toBeVisible({
       timeout: 30_000,
     });
@@ -71,9 +88,7 @@ test.describe("issue commitment thread", () => {
     await expect(row.getByText(/needs review/i)).toHaveCount(0);
 
     // ---- Land the second, and resolve from the prompt ------
-    await row.getByRole("button", { name: /kept|done|complete/i })
-      .first()
-      .click();
+    await landFirstOpenCommitment(row);
     await expect(row.getByText(/did this solve it\?/i)).toBeVisible({
       timeout: 30_000,
     });
@@ -110,7 +125,10 @@ test.describe("issue commitment thread", () => {
 
     // First commitment, left OPEN.
     await row.getByPlaceholder(/commitment/i).first().fill("First, still open");
-    await row.getByRole("button", { name: /add|save/i }).first().click();
+    await row
+      .getByPlaceholder(/commitment/i)
+      .first()
+      .press("ControlOrMeta+Enter");
     await expect(row.getByText("First, still open")).toBeVisible({
       timeout: 30_000,
     });
@@ -119,7 +137,10 @@ test.describe("issue commitment thread", () => {
     // thread, so a second commitment is typed in the same place the
     // first was.
     await row.getByPlaceholder(/commitment/i).last().fill("Second, alongside");
-    await row.getByRole("button", { name: /add|save/i }).last().click();
+    await row
+      .getByPlaceholder(/commitment/i)
+      .last()
+      .press("ControlOrMeta+Enter");
 
     // Both are on the issue, and neither displaced the other.
     await expect(row.getByText("First, still open")).toBeVisible({

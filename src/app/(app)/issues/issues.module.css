@@ -32,20 +32,19 @@
 /* ---- Column header row --------------------------------------- */
 .columnHeader {
   display: grid;
-  /* drag | issue | what we want | commitment | assigned to
-     | due date | delete | resolve.
-     The clarity column left the ROW when an issue gained more than
-     one commitment: clarity belongs to a commitment, so the dot
-     moved onto each commitment line inside the commitments region.
-     Delete (trash icon) is admin/guide-only and lives left of
-     Resolve so the two admin affordances cluster. */
+  /* drag | issue | what we want | delete | resolve.
+     ISSUE-LEVEL COLUMNS ONLY. Commitment / assigned to / due date
+     left this grid: they belong to a commitment, and an issue has
+     any number of those, so they live in the full-width commitments
+     region on the row beneath. Keeping them here made the issue's
+     row double as the first commitment's row, which parked an
+     issue-level Resolve alongside a commitment-level control.
+     Delete is admin/guide-only and sits left of Resolve so the two
+     admin affordances cluster. */
   grid-template-columns:
     20px
     minmax(0, 1.8fr)
     minmax(0, 1.5fr)
-    minmax(0, 1.8fr)
-    minmax(120px, 0.8fr)
-    minmax(110px, 0.6fr)
     28px
     74px;
   align-items: center;
@@ -89,20 +88,19 @@
      sticky header. */
   scroll-margin-top: 96px;
   display: grid;
-  /* drag | issue | what we want | commitment | assigned to
-     | due date | delete | resolve.
-     The clarity column left the ROW when an issue gained more than
-     one commitment: clarity belongs to a commitment, so the dot
-     moved onto each commitment line inside the commitments region.
-     Delete (trash icon) is admin/guide-only and lives left of
-     Resolve so the two admin affordances cluster. */
+  /* drag | issue | what we want | delete | resolve.
+     ISSUE-LEVEL COLUMNS ONLY. Commitment / assigned to / due date
+     left this grid: they belong to a commitment, and an issue has
+     any number of those, so they live in the full-width commitments
+     region on the row beneath. Keeping them here made the issue's
+     row double as the first commitment's row, which parked an
+     issue-level Resolve alongside a commitment-level control.
+     Delete is admin/guide-only and sits left of Resolve so the two
+     admin affordances cluster. */
   grid-template-columns:
     20px
     minmax(0, 1.8fr)
     minmax(0, 1.5fr)
-    minmax(0, 1.8fr)
-    minmax(120px, 0.8fr)
-    minmax(110px, 0.6fr)
     28px
     74px;
   /* Top-align each cell so a 3-line "what we want" or commitment
@@ -729,67 +727,25 @@
  * version gave one commitment the row's three cells and rendered the
  * rest as second-class lines underneath, which is the asymmetry that
  * produced three separate defects in a day. */
+/* Full width, so grid auto-placement drops it onto the row BELOW the
+   issue's own cells rather than beside them. No subgrid any more:
+   the lines inside are real `CommitmentRow`s carrying the
+   /commitments grid, which is the entire point of the change. */
 .commitments {
-  grid-column: 4 / 7;
-  display: grid;
-  grid-template-columns: subgrid;
-  row-gap: var(--space-2);
-  align-content: start;
-}
-
-/* Each line renders exactly three children into the three columns. */
-.commitmentCell {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  grid-column: 1 / -1;
   min-width: 0;
 }
 
-.commitmentLead {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
+.commitmentList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* The description takes the slack; the check and the clarity dot keep
-   their size. Named rather than positional: the editor inside renders
-   a varying number of elements. */
-.commitmentText {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Close a commitment from the issue itself. Circular, quiet until
-   hovered — the same shape as the add control at the end of the
-   thread, because they are the two ends of one commitment's life. */
-.closeCommitment {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  margin-top: 2px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-faint);
-  font-size: 12px;
-  line-height: 1;
-  cursor: pointer;
-  transition: all var(--duration-fast) ease;
-}
-
-.closeCommitment:hover:not(:disabled) {
-  border-color: var(--aims-success);
-  background: var(--aims-success-tint);
-  color: var(--aims-success);
-}
-
-.closeCommitment:disabled {
-  cursor: default;
-  opacity: 0.4;
+/* Same grid as a commitment row, borrowed rather than copied so the
+   labels cannot drift off the columns they name. */
+.commitmentSubHeader {
+  composes: columnHeader from "../commitments/commitments.module.css";
 }
 
 .commitmentError {
@@ -802,25 +758,6 @@
   margin: 0;
   color: var(--text-muted);
   font: var(--text-body-sm);
-}
-
-/* Finished: same three columns, muted, read-only. */
-.commitmentDone {
-  color: var(--text-muted);
-}
-
-.doneCheck {
-  flex: none;
-  color: var(--aims-success);
-  font-weight: 700;
-  margin-right: var(--space-2);
-}
-
-.doneText {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The review question spans all three columns: it is about the ISSUE,
@@ -855,17 +792,19 @@
    three-line clamp — a clamping container, not a flex row — so
    `flex-direction: row` on top of it did nothing and the circle sat
    above the textarea. */
+/* The same eight columns as a commitment row, borrowed rather than
+   restated, so the plus lands in the resolve-circle column and the
+   field, owner and date sit under the headers above them. */
 .addLine {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
+  composes: row from "../commitments/commitments.module.css";
+  border-bottom: none;
 }
 
-.addLine > textarea {
-  flex: 1;
-  min-width: 0;
+.addLineError {
+  grid-column: 1 / -1;
+  margin: var(--space-1) 0 0;
+  font: var(--text-caption);
+  color: var(--aims-danger);
 }
 
 /* The affordance: a filled circle with a contrasting plus. Uses the

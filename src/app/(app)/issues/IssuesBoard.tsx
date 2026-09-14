@@ -105,16 +105,14 @@ export function IssuesBoard({
           {error}
         </p>
       ) : null}
-      {/* Eight cells, matching .issueRow. The clarity spacer that used
-          to lead this row went with the clarity column, which moved
-          onto the individual commitment lines. */}
+      {/* Five cells, matching .issueRow: drag, issue, what we want,
+          delete, resolve. Commitment / assigned to / due date are no
+          longer issue columns — each issue labels its own commitment
+          block, because that block is a list of its own. */}
       <div className={styles.columnHeader} role="row" aria-hidden="true">
         <span aria-hidden />
         <span>Issue</span>
         <span>What we want</span>
-        <span>Commitment</span>
-        <span>Assigned to</span>
-        <span>Due date</span>
         <span aria-hidden />
         <span aria-hidden />
       </div>
