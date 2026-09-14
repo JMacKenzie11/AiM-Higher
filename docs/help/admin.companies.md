@@ -1,6 +1,6 @@
 ---
 title: Companies (admin overview)
-roles: [system_admin, aims_guide]
+roles: [system_admin, aims_guide, portfolio_admin]
 ---
 
 # Companies
@@ -75,6 +75,14 @@ The confirm dialog spells out the same thing so no one presses
 Delete under a misunderstanding.
 
 ## Common questions
+
+**I'm a portfolio admin — why is my home `/portfolio` and not this
+page?** Both list every company on the instance; Portfolio adds the
+numbers that say how each one is doing, and it is where the
+*Create a company* form lives for you. This page stays reachable and
+is the system admin's and guide's version of the same idea.
+
+
 
 **Why do guides see so much less?** Guides can't create,
 archive, or manage guides. Those actions are system-admin only

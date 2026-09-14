@@ -52,6 +52,16 @@ no auto-share.
 
 ## Common questions
 
+**I opened a chat from another company and my sidebar didn't
+change. Is that right?** Yes, and it changed on purpose. Opening a
+conversation used to switch you into its company for the next eight
+hours, so the next thing you clicked took you somewhere you hadn't
+chosen. Now the conversation reads correctly against its own
+company and your scope stays where you put it. To actually move,
+pick the company from Guide HQ or the Companies list.
+
+
+
 **Where do I self-coach?** Use *Ask Aimee* — anyone landing on
 their own coach URL gets redirected there automatically.
 

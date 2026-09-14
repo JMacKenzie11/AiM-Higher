@@ -1,6 +1,6 @@
 ---
 title: Company settings
-roles: [system_admin, company_admin, aims_guide]
+roles: [system_admin, company_admin, aims_guide, portfolio_admin]
 ---
 
 # Company settings
@@ -36,7 +36,8 @@ No separate "open the company" step is needed.
 
 - **Set the industry** — free-text field on the Industry card.
   Displayed in the settings hero, stored on the company row for
-  reference and future analytics. Guides don't see this card.
+  reference and future analytics. Guides don't see this card;
+  portfolio admins do.
 - **Start a new planning cycle** — the *Planning cycle* card
   archives every active Strategic Focus Area, Annual Goal, and
   Priority so the team can build the next cycle from a clean
@@ -45,7 +46,7 @@ No separate "open the company" step is needed.
   keep their historical link. The card only appears when there's
   something to archive.
 
-### System admins only
+### System admins and portfolio admins only
 
 - **Archive or reactivate the company** — under Actions.
 - **Toggle features** — the Features card enables or disables
@@ -53,7 +54,23 @@ No separate "open the company" step is needed.
   Tracking*, *Meeting Facilitation Review*, *Automated Commitment
   Tracking*, *Classroom*, and *Role Descriptions*. Each toggle
   carries a one-line hint. Turning a module off hides it in nav;
-  existing data is preserved.
+  existing data is preserved. Every change is recorded, so "when
+  did this company get Strengths?" stays answerable.
+- **Change the timezone** — the Timezone card. **Read this before
+  you use it.** Every weekly and daily number in the product is
+  bucketed by date in the company's own clock: the scorecard, the
+  discipline snapshots, the follow-through window. Moving the clock
+  does not migrate anything, it re-asks the question, so counts
+  either side of the old midnight will read differently afterwards.
+  The last three changes are listed under the control with the name
+  of whoever made them. Company admins and guides cannot reach this
+  field.
+
+### System admins only
+
+- **Delete the company** — the *Delete* pill, which only appears
+  once a company is archived. Portfolio admins can archive and
+  cannot delete.
 
 ## How to connect Google Drive and start ingesting meetings
 

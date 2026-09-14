@@ -40,6 +40,21 @@ off nightly jobs.
   kept-on-time ÷ (kept-on-time + kept-late + missed) over 30
   days.
 
+- **Add a system admin** — the *System admins* card at the
+  bottom. They belong to no company, which is why they appear here
+  rather than on any company's Team page. They get the ordinary
+  invitation and set their own password.
+- **Add a portfolio admin** — the *Portfolio admins* card beneath
+  it. A portfolio admin **reads every company on this instance and
+  writes none of their content.** What they can do is run the
+  container around those companies: create a company, set its
+  settings and features, archive it, and invite people into
+  company roles. They cannot delete a company, and they cannot
+  create another portfolio admin or a system admin — only you can,
+  from this page. Their home is `/portfolio`. Every time one of
+  them opens a company, and every administrative action they take,
+  is recorded.
+
 ## Common workflows
 
 - **Call list for the week** — start in Needs attention. Every
