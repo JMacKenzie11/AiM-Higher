@@ -125,6 +125,24 @@ const APP_ITEMS: readonly NavItem[] = [
     feature: null,
     items: [
       { kind: "link", label: "Ask Aimee", href: "/ask-aimee", icon: "sparkle" },
+      // The trust surface, in the nav rather than tucked beside the
+      // new-conversation button on the list page. It was a text link
+      // there and read as secondary chrome next to a filled primary
+      // button — too quiet for the page that answers "what does it
+      // know about me, and can I delete it". A person should not have
+      // to already know it exists to find it.
+      // "Memory" rather than "What Aimee remembers": short enough to
+      // sit beside Ask Aimee and Classroom without wrapping, and a
+      // container name rather than a description of today's contents,
+      // so more can be added under it without the label going stale.
+      // The page keeps the longer title — there it is the heading, and
+      // a heading can afford to be a sentence.
+      {
+        kind: "link",
+        label: "Memory",
+        href: "/ask-aimee/memory",
+        icon: "doc",
+      },
       {
         kind: "link",
         label: "Classroom",

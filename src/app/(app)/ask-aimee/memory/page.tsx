@@ -36,10 +36,9 @@ export default async function CoachMemoryPage() {
           the page exists, not a footnote to it. */}
       <div className={styles.promiseCard}>
         <p className={styles.promise}>
-          What you tell Aimee stays between you and Aimee. No one at your
-          company, no one at your portfolio, and no one at AiMS can read it.
-          You can see everything she remembers about you, and delete any of
-          it, whenever you want.
+          What you tell Aimee stays between you and Aimee. No one else can
+          read it. You can see everything Aimee remembers about you, and
+          delete any of it, whenever you want.
         </p>
       </div>
 

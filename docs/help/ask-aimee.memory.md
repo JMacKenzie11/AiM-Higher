@@ -14,10 +14,9 @@ conversation it came from.
 
 ## The promise
 
-**What you tell Aimee stays between you and Aimee. No one at your
-company, no one at your portfolio, and no one at AiMS can read it. You
-can see everything she remembers about you, and delete any of it,
-whenever you want.**
+**What you tell Aimee stays between you and Aimee. No one else can
+read it. You can see everything Aimee remembers about you, and delete
+any of it, whenever you want.**
 
 That is enforced in the database, not by a setting. Your manager can't
 read it. Your company admin can't. Your AiMS guide can't. Neither can
