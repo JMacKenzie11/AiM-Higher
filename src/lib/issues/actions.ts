@@ -7,7 +7,8 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { trackAfter } from "@/lib/analytics/track";
-import type { Issue } from "@/lib/types";
+import type { Commitment, Issue } from "@/lib/types";
+import { todayInTimezone } from "@/lib/dates";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Server actions for the Issues/Solutions page. Edit rights follow
@@ -196,7 +197,14 @@ export async function resolveIssueAction(id: string): Promise<IssueResult> {
   if (error || !data) {
     return { ok: false, message: "Couldn't resolve that issue." };
   }
+
+  const closed = await closeOpenCommitments(supabase, session.profile, data);
+
   revalidatePath("/issues");
+  if (closed > 0) {
+    revalidatePath("/commitments");
+    revalidatePath("/dashboard");
+  }
   trackAfter(
     session.profile.id,
     "issue.resolved",
@@ -204,6 +212,87 @@ export async function resolveIssueAction(id: string): Promise<IssueResult> {
     { company: data.company_id }
   );
   return { ok: true, issue: data };
+}
+
+// Resolving an issue closes the commitments on it.
+//
+// The issue is resolved because the work landed, so the commitments
+// that carried it resolve as KEPT — on time or late against their own
+// due date, the same rule `markKeptAction` applies when an owner
+// ticks one by hand. This writes real performance data into
+// Follow-Through and the weekly scorecard, which is why the confirm
+// dialog now says plainly that it will happen: the person clicking is
+// the one asserting the work is done.
+//
+// Runs on the CALLER'S client, so RLS is the boundary. A non-admin
+// issue owner resolving an issue that carries somebody else's
+// commitment closes their own and silently leaves the other — the
+// database refuses it, which is the correct answer, and the count
+// returned reflects what actually changed.
+//
+// Two exclusions:
+//   parked  — already outside every metric; closing one would drag it
+//             back in and claim it was kept.
+//   ongoing — a weekly commitment never closes, it records an
+//             occurrence and rolls forward. Rolling somebody's
+//             recurring commitment forward as a side effect of
+//             resolving an issue is not what "close this" means, so
+//             they stay live.
+async function closeOpenCommitments(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  profile: Awaited<ReturnType<typeof requireProfile>>["profile"],
+  issue: Issue
+): Promise<number> {
+  const { data: open } = await supabase
+    .from("commitments")
+    .select("id, due_date")
+    .eq("issue_id", issue.id)
+    .eq("status", "open")
+    .is("parked_at", null)
+    .eq("is_ongoing", false)
+    .is("deleted_at", null)
+    .returns<Array<Pick<Commitment, "id" | "due_date">>>();
+  if (!open || open.length === 0) return 0;
+
+  const { data: company } = await supabase
+    .from("companies")
+    .select("timezone")
+    .eq("id", issue.company_id)
+    .maybeSingle<{ timezone: string }>();
+  const { iso: todayIso } = todayInTimezone(
+    company?.timezone ?? "America/Anchorage"
+  );
+
+  const role = isAdminForCompany(profile, issue.company_id)
+    ? profile.role === "aims_guide"
+      ? "guide"
+      : "admin"
+    : "owner";
+  const now = new Date().toISOString();
+
+  // Two writes rather than one per row: on-time and late are the only
+  // two outcomes, and they are decided by each row's own due date.
+  const buckets: Array<[string, string[]]> = [
+    ["kept_on_time", open.filter((c) => c.due_date >= todayIso).map((c) => c.id)],
+    ["kept_late", open.filter((c) => c.due_date < todayIso).map((c) => c.id)],
+  ];
+
+  let closed = 0;
+  for (const [status, ids] of buckets) {
+    if (ids.length === 0) continue;
+    const { data: updated } = await supabase
+      .from("commitments")
+      .update({
+        status,
+        completed_at: now,
+        resolved_by_role: role,
+        resolved_by_profile_id: profile.id,
+      })
+      .in("id", ids)
+      .select("id");
+    closed += updated?.length ?? 0;
+  }
+  return closed;
 }
 
 // ---- Delete ---------------------------------------------------

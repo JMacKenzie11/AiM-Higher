@@ -20,6 +20,19 @@ const mocks = vi.hoisted(() => {
   const issuesUpdatePatch = vi.fn();
   const issuesUpdateSingle = vi.fn();
   const issuesUpdateNoSelect = vi.fn(async () => ({ error: null }));
+  // Resolving an issue closes the commitments on it.
+  const commitmentsSelectReturns = vi.fn(async () => ({ data: [] as Array<{
+    id: string;
+    due_date: string;
+  }> }));
+  const commitmentsUpdatePatch = vi.fn();
+  const commitmentsUpdateIds = vi.fn();
+  const commitmentsUpdateSelect = vi.fn(async () => ({
+    data: [] as Array<{ id: string }>,
+  }));
+  const companiesSelectMaybeSingle = vi.fn(async () => ({
+    data: { timezone: "America/Anchorage" },
+  }));
   // Typed with the delete-options arg and count on the return so
   // `.mock.calls` and `.mockResolvedValue({error, count})` both
   // stay well-typed. Delete now goes through the admin client and
@@ -78,6 +91,36 @@ const mocks = vi.hoisted(() => {
         },
       };
     }
+    if (table === "commitments") {
+      return {
+        // closeOpenCommitments: .select().eq().eq().is().eq().is().returns()
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              is: () => ({
+                eq: () => ({
+                  is: () => ({ returns: commitmentsSelectReturns }),
+                }),
+              }),
+            }),
+          }),
+        }),
+        update: (patch: unknown) => {
+          commitmentsUpdatePatch(patch);
+          return {
+            in: (_col: string, ids: string[]) => {
+              commitmentsUpdateIds(ids);
+              return { select: commitmentsUpdateSelect };
+            },
+          };
+        },
+      };
+    }
+    if (table === "companies") {
+      return {
+        select: () => ({ eq: () => ({ maybeSingle: companiesSelectMaybeSingle }) }),
+      };
+    }
     throw new Error(`Unexpected table in test: ${table}`);
   };
 
@@ -103,6 +146,11 @@ const mocks = vi.hoisted(() => {
   const trackAfter = vi.fn();
 
   return {
+    commitmentsSelectReturns,
+    commitmentsUpdatePatch,
+    commitmentsUpdateIds,
+    commitmentsUpdateSelect,
+    companiesSelectMaybeSingle,
     issuesSelectMaybeSingle,
     issuesSelectLimitMaybeSingle,
     issuesInsertSingle,
@@ -402,6 +450,61 @@ describe("resolveIssueAction", () => {
     >;
     expect(patch.status).toBe("resolved");
     expect(typeof patch.resolved_at).toBe("string");
+  });
+
+  // The cascade writes real performance data into Follow-Through and
+  // the weekly scorecard, so the on-time/late split is pinned here
+  // rather than trusted.
+  it("closes the open commitments on it, on-time vs late by due date", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.issuesSelectMaybeSingle.mockResolvedValue({ data: baseIssue() });
+    mocks.issuesUpdateSingle.mockResolvedValue({
+      data: baseIssue({ status: "resolved" }),
+      error: null,
+    });
+    mocks.companiesSelectMaybeSingle.mockResolvedValue({
+      data: { timezone: "UTC" },
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    mocks.commitmentsSelectReturns.mockResolvedValue({
+      data: [
+        { id: "c_ontime", due_date: today },
+        { id: "c_late", due_date: "2020-01-01" },
+      ],
+    });
+    mocks.commitmentsUpdateSelect.mockResolvedValue({ data: [{ id: "x" }] });
+
+    const result = await resolveIssueAction("i_1");
+    expect(result.ok).toBe(true);
+
+    const patches = mocks.commitmentsUpdatePatch.mock.calls.map(
+      (c) => c[0] as Record<string, unknown>
+    );
+    const idSets = mocks.commitmentsUpdateIds.mock.calls.map(
+      (c) => c[0] as string[]
+    );
+    expect(patches).toHaveLength(2);
+    expect(patches[0]?.status).toBe("kept_on_time");
+    expect(idSets[0]).toEqual(["c_ontime"]);
+    expect(patches[1]?.status).toBe("kept_late");
+    expect(idSets[1]).toEqual(["c_late"]);
+    // Resolved BY the person who resolved the issue, in their role.
+    expect(patches[0]?.resolved_by_role).toBe("admin");
+    expect(patches[0]?.resolved_by_profile_id).toBe(ADMIN.id);
+  });
+
+  it("writes nothing to commitments when the issue has none open", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: CREATOR });
+    mocks.issuesSelectMaybeSingle.mockResolvedValue({ data: baseIssue() });
+    mocks.issuesUpdateSingle.mockResolvedValue({
+      data: baseIssue({ status: "resolved" }),
+      error: null,
+    });
+    mocks.commitmentsSelectReturns.mockResolvedValue({ data: [] });
+
+    const result = await resolveIssueAction("i_1");
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
   });
 
   it("is idempotent for an already-resolved issue", async () => {

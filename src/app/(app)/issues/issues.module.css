@@ -222,9 +222,15 @@
   align-items: flex-start;
 }
 
+/* SEMIBOLD, so an issue outranks the commitments listed under it.
+   Both were plain --text-body, which made a parent and its children
+   the same weight and left the card with no hierarchy to read. The
+   recessed band separates them; the weight says which one is the
+   heading. */
 .issueTitle,
 .issueTitleEditable {
   font: var(--text-body);
+  font-weight: 600;
   color: var(--text);
   white-space: normal;
   word-break: break-word;
@@ -258,6 +264,7 @@
 
 .issueTitleInput {
   font: var(--text-body);
+  font-weight: 600;
   font-family: inherit;
   color: var(--text);
   background: var(--surface);
@@ -884,5 +891,9 @@
 
 .addDue {
   grid-column: 6;
+}
+
+.subHeadStatus {
+  grid-column: 7;
 }
 

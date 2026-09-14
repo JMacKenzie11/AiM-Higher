@@ -33,7 +33,14 @@ wrong one.
 
 **The issue has the same round check a commitment has**, at the left
 of its line with the trash can beside it, just right of the drag
-handle you reorder issues with. Resolving an issue
+handle you reorder issues with.
+
+**Resolving an issue also closes the commitments on it.** They are
+marked kept, which counts toward follow-through, so only resolve when
+the work actually landed. The confirm box tells you how many will
+close before you commit to it. Parked commitments and repeating
+weekly ones are left alone. If you close one by mistake you can
+reopen it from your Commitments page; the issue stays resolved. Resolving an issue
 and resolving a commitment look and feel the same; the issue's check
 just asks you to confirm rather than opening a menu, because an issue
 can't be parked or rescheduled.

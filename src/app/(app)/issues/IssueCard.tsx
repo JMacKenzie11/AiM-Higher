@@ -120,22 +120,13 @@ export function IssueCard({
     // is no issue detail page to link to — unlike a meeting, which
     // has one — so the row itself is the destination.
     <article className={styles.issueRow} id={`issue-${issue.id}`}>
-      {/* Resolve, then delete, then drag — the same order and the
-          same two columns a commitment line uses, so the controls
-          for "act on this row" sit in one place on the card whether
-          the row is an issue or a commitment. */}
-      {canEdit ? (
-        <ResolveIssueButton issueId={issue.id} />
-      ) : (
-        <span aria-hidden className={styles.resolvePlaceholder} />
-      )}
-
-      {isAdmin ? (
-        <DeleteIssueButton issueId={issue.id} issueTitle={issue.title} />
-      ) : (
-        <span aria-hidden className={styles.deletePlaceholder} />
-      )}
-
+      {/* DOM ORDER MATCHES COLUMN ORDER, and it has to: these are
+          placed explicitly at columns 1, 2 and 3, and grid
+          auto-flow only moves forward. Emitted as resolve-delete-drag
+          against a drag-resolve-delete column order, the drag handle
+          could not reach column 1 on the row already past it, so it
+          started a SECOND row and took the title and outcome with
+          it. Keyboard order follows the same sequence. */}
       {canEdit ? (
         <button
           type="button"
@@ -155,6 +146,28 @@ export function IssueCard({
         </button>
       ) : (
         <span aria-hidden className={styles.dragHandlePlaceholder} />
+      )}
+
+      {canEdit ? (
+        <ResolveIssueButton
+          issueId={issue.id}
+          // Only the ones the cascade will actually close. Parked and
+          // ongoing rows are excluded server-side, so counting them
+          // here would promise something the action does not do.
+          openCount={
+            openCommitments.filter(
+              (c) => !c.is_ongoing && c.parked_at === null
+            ).length
+          }
+        />
+      ) : (
+        <span aria-hidden className={styles.resolvePlaceholder} />
+      )}
+
+      {isAdmin ? (
+        <DeleteIssueButton issueId={issue.id} issueTitle={issue.title} />
+      ) : (
+        <span aria-hidden className={styles.deletePlaceholder} />
       )}
 
       <div className={styles.cellIssue}>
@@ -244,26 +257,19 @@ export function IssueCard({
 
 // Labels the commitment columns inside one issue.
 //
-// EIGHT cells for SEVEN columns, deliberately: these rows are
-// `hidePriority`, which means `.rowNoPriority` — a seven-column
-// template that hides the sixth CHILD rather than renumbering
-// anything. So the priority spacer has to be present to be hidden,
-// exactly as CommitmentRow renders it. Drop it and every cell after
-// it shifts one column left, which is precisely what was wrong:
-// this composed the eight-column header while the rows beneath
-// composed the seven-column one, so ASSIGNED TO sat two columns
-// away from the owners it named.
+// PLACED, not counted. This used to render eight cells and lean on
+// `.rowNoPriority > :nth-child(6)` to hide the priority slot — the
+// same counting trick CommitmentRow used, and it broke for the same
+// reason: once that rule became class-based, nothing hid the sixth
+// cell, so eight cells went into seven columns and STATUS wrapped
+// onto a line of its own.
 export function CommitmentSubHeader() {
   return (
     <div className={styles.commitmentSubHeader} role="row" aria-hidden="true">
-      <span aria-hidden />
-      <span aria-hidden />
-      <span aria-hidden />
-      <span>Commitment</span>
-      <span>Assigned to</span>
-      <span aria-hidden />
-      <span>Due date</span>
-      <span>Status</span>
+      <span className={styles.addDescription}>Commitment</span>
+      <span className={styles.addOwner}>Assigned to</span>
+      <span className={styles.addDue}>Due date</span>
+      <span className={styles.subHeadStatus}>Status</span>
     </div>
   );
 }
@@ -502,7 +508,13 @@ function DesiredOutcomeEditor({
   );
 }
 
-function ResolveIssueButton({ issueId }: { issueId: string }) {
+function ResolveIssueButton({
+  issueId,
+  openCount,
+}: {
+  issueId: string;
+  openCount: number;
+}) {
   const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -540,7 +552,11 @@ function ResolveIssueButton({ issueId }: { issueId: string }) {
       <ConfirmDialog
         open={confirming}
         title="Resolve this issue?"
-        message="It moves off the open list. Any open commitments on it stay live and remain yours to resolve as normal."
+        message={
+          openCount > 0
+            ? `It moves off the open list, and ${openCount === 1 ? "the commitment" : `all ${openCount} commitments`} still open on it will be marked kept. That counts toward follow-through, so only resolve if the work actually landed.`
+            : "It moves off the open list."
+        }
         confirmLabel="Resolve"
         tone="primary"
         onConfirm={run}
