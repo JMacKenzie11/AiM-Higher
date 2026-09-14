@@ -52,6 +52,10 @@ export async function createCompanyAction(
   });
   if (!result.ok) return result;
 
+  // /portfolio is a second list of the same companies, and a create
+  // that does not invalidate it leaves the new company invisible on
+  // the page the button was pressed from. Found by writing the
+  // Playwright spec for that button.
   await recordPortfolioEvent({
     profile: session.profile,
     action: "company_created",
@@ -60,6 +64,7 @@ export async function createCompanyAction(
   });
 
   revalidatePath("/admin/companies");
+  revalidatePath("/portfolio");
 
   // Callers can opt into an immediate redirect (Phase 2 minimal admin
   // did this). Section 8.9's polished list wants to stay on the list.
@@ -164,6 +169,7 @@ export async function setCompanyFeaturesAction(
   }
 
   revalidatePath("/admin/companies");
+  revalidatePath("/portfolio");
   revalidatePath(`/admin/companies/${companyId}`);
   // Toggling a feature must also invalidate the app layout, otherwise
   // the sidebar keeps rendering the old feature set until the next
@@ -220,6 +226,7 @@ export async function setCompanyIndustryAction(
   });
 
   revalidatePath("/admin/companies");
+  revalidatePath("/portfolio");
   revalidatePath(`/admin/companies/${companyId}`);
   return { ok: true, company: data };
 }
@@ -284,6 +291,7 @@ export async function setCompanyTimezoneAction(
   });
 
   revalidatePath("/admin/companies");
+  revalidatePath("/portfolio");
   revalidatePath(`/admin/companies/${companyId}`);
   // Every bucketed read in the app resolves "today" through this
   // value, so the answer on a cached page is now the answer to a
@@ -325,6 +333,7 @@ export async function setCompanyStatusAction(
   });
 
   revalidatePath("/admin/companies");
+  revalidatePath("/portfolio");
   revalidatePath(`/admin/companies/${companyId}`);
   return { ok: true, company: data };
 }
@@ -388,6 +397,7 @@ export async function deleteCompanyAction(
   }
 
   revalidatePath("/admin/companies");
+  revalidatePath("/portfolio");
   revalidatePath(`/admin/companies/${companyId}`);
   return { ok: true };
 }

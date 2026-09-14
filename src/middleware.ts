@@ -136,10 +136,10 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname === "/" && isAuthenticated) {
     // portfolio_admin is cross-tenant but does not belong on Guide
     // HQ, which is a caseload surface for coaches and admits only the
-    // two roles that have one. Their home is the portfolio.
+    // two roles that have one. Their home is /portfolio.
     const home =
       role === "portfolio_admin"
-        ? "/admin/companies"
+        ? "/portfolio"
         : role === "system_admin" || role === "aims_guide"
           ? "/hq"
           : "/dashboard";

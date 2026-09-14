@@ -1,0 +1,89 @@
+import { requireRole } from "@/lib/auth/current-user";
+import { PageShell } from "@/components/ui/PageShell";
+import { loadPortfolioOverview } from "@/lib/portfolio/service";
+import { CreateCompanyForm } from "../admin/companies/CreateCompanyForm";
+import { PortfolioCompanyCard } from "./PortfolioCompanyCard";
+import styles from "./portfolio.module.css";
+
+// /portfolio — where a portfolio_admin lands, and the only cross-
+// company surface they have.
+//
+// OVERSIGHT, NOT COACHING. Guide HQ answers "what needs me this week":
+// an attention queue, nudges, session briefs, an activity feed. This
+// answers "what shape is the portfolio in". The coaching machinery is
+// deliberately absent and deliberately not imported — a queue that
+// tells a portfolio owner which companies to chase is a different
+// product decision, and it would arrive here by accretion if the
+// imports were already in the file.
+//
+// NO SPECIAL CASING FOR ONE COMPANY. An instance with a single company
+// renders one card in the same grid. The alternative — detecting the
+// case and rendering something bespoke — means a second layout that
+// only one instance ever sees, and therefore a second layout nobody
+// ever looks at.
+
+export default async function PortfolioPage() {
+  // system_admin is admitted alongside, and only so the surface can be
+  // looked at by the people who grant the role. It is not their home;
+  // middleware still sends them to /hq.
+  const session = await requireRole(["portfolio_admin", "system_admin"]);
+  const cards = await loadPortfolioOverview();
+
+  return (
+    <PageShell
+      eyebrow={
+        session.profile.role === "portfolio_admin"
+          ? "Portfolio admin"
+          : "System admin"
+      }
+      title="Portfolio"
+      subtitle="Every company on this instance, with the three numbers that say how each one is doing. Open a company to look inside it."
+      ariaLabel="Portfolio header"
+    >
+      <div className={styles.content}>
+        {cards.length === 0 ? (
+          // THE EMPTY INSTANCE IS THE CREATE AFFORDANCE, not an empty
+          // dashboard with a button hidden under it. A portfolio admin
+          // arriving at a fresh instance has exactly one useful thing
+          // to do, so that is what the page is.
+          <section className={styles.zeroCard} aria-labelledby="portfolio-zero">
+            <h2 id="portfolio-zero" className={styles.zeroTitle}>
+              No companies yet
+            </h2>
+            <p className={styles.zeroBody}>
+              This instance has no companies on it. Create the first one
+              and it will appear here with its scorecard, its quarter and
+              its week.
+            </p>
+            <CreateCompanyForm />
+          </section>
+        ) : (
+          <>
+            <section className={styles.card} aria-labelledby="portfolio-companies">
+              <h2 id="portfolio-companies" className={styles.h2}>
+                Companies
+              </h2>
+              <p className={styles.sectionCaption}>
+                Scorecard overall, this quarter&rsquo;s priorities, and this
+                week&rsquo;s commitments. Each company&rsquo;s week ends on
+                Friday in its own timezone.
+              </p>
+              <ul className={styles.grid}>
+                {cards.map((card) => (
+                  <PortfolioCompanyCard key={card.id} card={card} />
+                ))}
+              </ul>
+            </section>
+
+            <section className={styles.card} aria-labelledby="portfolio-create">
+              <h2 id="portfolio-create" className={styles.h2}>
+                Create a company
+              </h2>
+              <CreateCompanyForm />
+            </section>
+          </>
+        )}
+      </div>
+    </PageShell>
+  );
+}

@@ -18,6 +18,11 @@
  *     guide_assignments row for the fixture company. The spec calls
  *     for both: system_admin exercises the cross-tenant paths, and the
  *     assignment exercises the guide caseload surfaces.
+ *   - E2E_PORTFOLIO_EMAIL — portfolio_admin, no company of its own and
+ *     no assignments. The role's whole point is that it needs neither:
+ *     its reach is the instance (migration 0190). Seeded so the
+ *     portfolio spec can sign in as one rather than as a system_admin
+ *     pretending to be one, which would prove nothing about the role.
  *   - E2E_MEMBER_EMAIL — team_member inside the fixture company. The
  *     least-privileged real user, which is the right thing to test
  *     ordinary navigation and commitment creation with.
@@ -96,7 +101,7 @@ type UserSpec = {
   email: string;
   password: string;
   fullName: string;
-  role: "system_admin" | "team_member";
+  role: "system_admin" | "team_member" | "portfolio_admin";
   companyId: string | null;
 };
 
@@ -185,6 +190,8 @@ async function main() {
   const adminPassword = required("E2E_ADMIN_PASSWORD");
   const memberEmail = required("E2E_MEMBER_EMAIL");
   const memberPassword = required("E2E_MEMBER_PASSWORD");
+  const portfolioEmail = required("E2E_PORTFOLIO_EMAIL");
+  const portfolioPassword = required("E2E_PORTFOLIO_PASSWORD");
 
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -265,6 +272,18 @@ async function main() {
     fullName: "E2E Team Member",
     role: "team_member",
     companyId,
+  });
+
+  await upsertUser(admin, {
+    email: portfolioEmail,
+    password: portfolioPassword,
+    fullName: "E2E Portfolio Admin",
+    role: "portfolio_admin",
+    // No company, and the database agrees: migration 0190 adds a
+    // constraint forbidding a portfolio_admin from holding one, so a
+    // seed that set it here would fail loudly rather than create a
+    // fixture that quietly behaves unlike the real role.
+    companyId: null,
   });
 
   // ---- guide assignment ---------------------------------------

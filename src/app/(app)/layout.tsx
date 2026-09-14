@@ -32,13 +32,22 @@ export default async function AppLayout({
   const role = session.profile.role;
   const isSystemAdmin = role === "system_admin";
   const isGuide = role === "aims_guide";
-  const isCrossCompanyRole = isSystemAdmin || isGuide;
+  const isPortfolioAdmin = role === "portfolio_admin";
+  // Whether the caller's company comes from a scope cookie rather than
+  // from their own profile row. portfolio_admin belongs here for the
+  // same reason the other two do: they have no company_id at all
+  // (migration 0190 forbids it), so without this their effective
+  // company resolves to null on every page, no entitlements load, and
+  // every feature-gated nav item silently disappears while scoped in.
+  const isCrossCompanyRole = isSystemAdmin || isGuide || isPortfolioAdmin;
 
   const roleLabel = isSystemAdmin
     ? "System admin"
     : isGuide
       ? "AiMS Guide"
-      : null;
+      : isPortfolioAdmin
+        ? "Portfolio admin"
+        : null;
 
   let scopedCompanyId: string | null = null;
 
@@ -167,6 +176,7 @@ export default async function AppLayout({
             userAvatarUrl={session.profile.avatar_url}
             userRole={session.profile.role}
             isSystemAdmin={isCrossCompanyRole}
+            scopedCompanyId={scopedCompanyId}
             contextLabel={contextLabel}
             showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}
             scopedCompanyName={scopedCompanyName}

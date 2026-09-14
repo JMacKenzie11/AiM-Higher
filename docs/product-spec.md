@@ -439,6 +439,23 @@ Client wiring:
 
 ---
 
+## 16b. Portfolio (`/portfolio`)
+
+The `portfolio_admin` home, and their only cross-company surface. **Oversight, not coaching.** Guide HQ answers "what needs me this week" with an attention queue, nudges, session briefs and an activity feed; this answers "what shape is the portfolio in". None of the coaching machinery appears here, and a source-level test asserts the page does not so much as import it — that decision erodes one import at a time.
+
+- **One card per company on the instance**, from `loadPortfolioOverview`. Which companies appear is decided by RLS (`companies_select_portfolio`, migration 0191), not by a filter in the loader, so there is one rule rather than a weaker second copy of it.
+- **Three numbers per card:** scorecard overall, this quarter's priorities, this week's commitments.
+  - **The scorecard's denominator travels with it** — "3.4/10, across 8 disciplines". An overall is a weighted mean over whichever disciplines scored, so two companies' overalls are not comparable unless they cover the same set, and a grid of cards is an invitation to compare them. Same reasoning as `compareOverall` (migration-era note in `lib/maturity/compute.ts`), which exists because four of eight companies once showed a false "scorecard dropped" from exactly that mismatch.
+  - **Priorities** are `summarizePriorityHealth`, extracted from `getDashboardData` when this page became the second caller. Null (no quarter, or no priorities in it) and zero (nothing on track) render differently and mean different things.
+  - **This week** is `summarizeFollowThrough`, the one shared rule, over commitments whose `week_ending` is the Friday of the current week **in that company's timezone** — not the viewer's. A portfolio admin reading from another timezone sees the same week the company's own dashboard shows.
+- **Cards link to scope-in and nothing else.** Guide HQ offers "Prepare for <company>" beside each row because a guide is about to coach them. A portfolio admin is not.
+- **The empty instance is the create affordance**, not an empty dashboard with a button under it. A new `portfolio_admin` on a fresh instance has exactly one useful thing to do, so that is what the page is. A populated instance carries the same form in its own card.
+- **A single-company instance renders one ordinary card.** No special casing: the alternative is a second layout that only one instance ever sees.
+- **Navigation:** `portfolio_admin` sees *Portfolio* always; the scoped company's own surfaces once inside one; and that company's settings page. Never Guide HQ, the fleet list, or the platform tools. The decision lives in `components/sidebar/nav-bands.ts` as a pure function so it can be tested by calling it rather than by reading the component's source. Root routing sends the role to `/portfolio`; so does the scope picker, because `/hq` admits only the two roles that have a caseload and would bounce them straight back out.
+- **Design system only.** Every value is a token from `brand/tokens.css`; the card, heading and muted-caption shapes are Guide HQ's. What differs is a grid instead of a table, because the reader is scanning companies rather than comparing columns.
+
+---
+
 ## 17. Guide HQ
 
 The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the caller's own `guide_assignments` rows regardless of role — a sysadmin with three assignments sees exactly those three, not every company on the platform. Zero assignments hits a distinct empty state, not a fallback to global scope (deliberate — protects the "I coach a specific caseload" mental model).

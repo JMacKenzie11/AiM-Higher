@@ -34,6 +34,14 @@ export const users = {
     email: credential("E2E_MEMBER_EMAIL"),
     password: credential("E2E_MEMBER_PASSWORD"),
   }),
+  // A real portfolio_admin: no company, no assignments, instance-wide
+  // read and three container writes. Not a system_admin standing in
+  // for one — the thing under test is what this role can and cannot
+  // do, and a stand-in can do more.
+  portfolio: () => ({
+    email: credential("E2E_PORTFOLIO_EMAIL"),
+    password: credential("E2E_PORTFOLIO_PASSWORD"),
+  }),
 };
 
 export async function signIn(

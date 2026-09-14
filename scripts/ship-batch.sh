@@ -59,9 +59,22 @@ fi
 printf '  rebased onto origin/main\n'
 
 # ---- 3. verify, in the state that will be pushed ---------------
+#
+# EVERY GATE CI RUNS, IN CI'S ORDER. This block used to be typecheck
+# and tests, which is two of the four, and the gap showed up exactly
+# as you would expect: /portfolio shipped with green local gates and
+# failed CI on `check:help`, a rule that every route carries a help
+# doc. Nothing was wrong with the code; the script simply did not ask
+# the question CI asks.
+#
+# Keep this list identical to .github/workflows/checks.yml. A local
+# run that passes a subset is worse than no local run, because it
+# reads as a green light.
 npm run typecheck
+npm run lint
 npm test
-printf '  typecheck and tests green on the rebased tree\n'
+npm run check:help
+printf '  typecheck, lint, tests and help coverage green on the rebased tree\n'
 
 # ---- 4. push --------------------------------------------------
 # --force-with-lease because a rebase rewrites the branch, and the

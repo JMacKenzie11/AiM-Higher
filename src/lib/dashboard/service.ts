@@ -15,6 +15,7 @@ import type {
   StrategicFocusArea,
 } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { summarizePriorityHealth } from "@/lib/plan/priority-health";
 
 // Data shape rendered on /dashboard (Section 8.2).
 
@@ -268,10 +269,11 @@ export async function getDashboardData(
     Priority,
     "id" | "status" | "archived"
   >[];
-  const onTrackTotal = priorities.length;
-  const onTrackGood = priorities.filter(
-    (p) => p.status === "on_track" || p.status === "complete"
-  ).length;
+  // The rule moved to lib/plan/priority-health.ts when /portfolio
+  // needed the same answer per company. Same arithmetic, one place.
+  const priorityHealth = summarizePriorityHealth(priorities);
+  const onTrackTotal = priorityHealth.total;
+  const onTrackGood = priorityHealth.good;
 
   const quarterCommitments = (quarterCommitmentRows ?? []) as Array<
     Pick<
