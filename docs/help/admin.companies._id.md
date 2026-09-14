@@ -88,10 +88,20 @@ No separate "open the company" step is needed.
 ## Common questions
 
 **Who can see what on this page?** System admins see everything.
+
+Portfolio admins see everything except *Delete* — they can change
+the name, timezone, industry and features, and archive or
+reactivate the company, but not remove one.
+
 Company admins see Actions (their company can't archive
 themselves — only *Open this company* is shown), Industry,
-transcripts, and Planning cycle. Guides see Actions and
-transcripts, but not Industry or Features or Planning cycle.
+transcripts, and Planning cycle. They do not see Timezone: moving a
+company's clock re-dates its whole reporting history, so it sits
+with the roles that own the portfolio rather than the ones inside
+it.
+
+Guides see Actions and transcripts, but not Industry, Timezone,
+Features or Planning cycle.
 
 **A transcript came in but didn't route to this company.**
 Check the alias substring against the file name (case-insensitive
