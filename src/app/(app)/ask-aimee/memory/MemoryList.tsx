@@ -18,7 +18,13 @@ import styles from "./memory.module.css";
 // back, and forgetting is not. Undo theatre on this page would also
 // be a small lie: the row is gone from the database the moment it is
 // gone from the screen.
-export function MemoryList({ memories }: { memories: MemoryListRow[] }) {
+export function MemoryList({
+  memories,
+  readFailed = false,
+}: {
+  memories: MemoryListRow[];
+  readFailed?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState<MemoryListRow | null>(null);
@@ -34,13 +40,30 @@ export function MemoryList({ memories }: { memories: MemoryListRow[] }) {
     });
   }
 
+  // A failed read is not an empty memory, and must never be reported
+  // as one. Saying "Aimee hasn't noted anything yet" when the query was
+  // refused tells the person their memory is empty on the strength of a
+  // question we could not ask.
+  if (readFailed) {
+    return (
+      <div className={styles.card}>
+        <p className={styles.empty}>
+          We couldn&rsquo;t load your memory just now. Nothing has been lost.
+          Try again in a moment.
+        </p>
+      </div>
+    );
+  }
+
   if (memories.length === 0) {
     return (
       <div className={styles.card}>
         <p className={styles.empty}>
-          Aimee hasn&rsquo;t noted anything yet. After you&rsquo;ve had a
-          conversation or two, the things worth still knowing next time will
-          show up here &mdash; and you can delete any of them.
+          Aimee hasn&rsquo;t noted anything yet. Notes appear once you&rsquo;ve
+          finished a conversation and moved on to another one, so the thread
+          you&rsquo;re in is never the one being written down. Coaching about
+          someone else doesn&rsquo;t add anything here: only your own
+          conversations do.
         </p>
       </div>
     );

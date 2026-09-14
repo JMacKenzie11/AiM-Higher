@@ -6,6 +6,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { logCoachTokenUsage } from "./usage";
+import { reportError } from "@/lib/observability/report";
 import {
   applyNeverWrittenFilter,
   parseMemoryResponse,
@@ -89,7 +90,16 @@ export async function summarizeFinishedConversationsAction(
     .limit(MAX_PER_RUN + 1);
   if (openConversationId) query = query.neq("id", openConversationId);
 
-  const { data: convoRows } = await query;
+  const { data: convoRows, error: candidateError } = await query;
+  if (candidateError) {
+    // Was discarded. A refused candidate read is indistinguishable
+    // from "nothing to summarize" at every layer above this, which is
+    // how a sweep that never ran once looked exactly like a sweep
+    // that found nothing worth keeping.
+    reportError("coach.memory.candidates", candidateError, {
+      profileId: session.profile.id,
+    });
+  }
   const candidates = (convoRows ?? []) as Array<{
     id: string;
     updated_at: string;
@@ -117,6 +127,9 @@ export async function summarizeFinishedConversationsAction(
     // Not an error the caller should see: the page is rendering and
     // memory is an enhancement. Log and move on.
     console.warn("coach memory: ANTHROPIC_API_KEY not set; skipping");
+    reportError("coach.memory.no_api_key", new Error("ANTHROPIC_API_KEY not set"), {
+      profileId: session.profile.id,
+    });
     return { ok: true, conversationsSummarized: 0, memoriesWritten: 0, droppedByFilter: 0 };
   }
 
@@ -191,6 +204,7 @@ export async function summarizeFinishedConversationsAction(
         conversationId: convo.id,
         error: err instanceof Error ? err.message : String(err),
       });
+      reportError("coach.memory.summarize", err, { conversationId: convo.id });
       continue;
     }
 
@@ -220,6 +234,7 @@ export async function summarizeFinishedConversationsAction(
           code: error.code,
           message: error.message,
         });
+        reportError("coach.memory.write", error, { conversationId: convo.id });
         continue;
       }
       written += 1;
@@ -238,6 +253,10 @@ export async function summarizeFinishedConversationsAction(
           conversationId: convo.id,
           code: markError.code,
         });
+        // Worth paging on: a watermark that never advances means this
+        // conversation is re-read and re-summarized on every entry,
+        // for as long as the refusal lasts.
+        reportError("coach.memory.watermark", markError, { conversationId: convo.id });
       }
     }
     summarized += 1;
@@ -311,17 +330,28 @@ export type MemoryListRow = {
   conversation_title: string | null;
 };
 
-export async function listMyMemoriesAction(): Promise<MemoryListRow[]> {
+export type MemoryListResult = {
+  rows: MemoryListRow[];
+  // A refused or failed read, as distinct from an empty one. The page
+  // MUST NOT render "Aimee hasn't noted anything yet" on this, because
+  // that sentence claims the memory is empty when we do not know.
+  readFailed: boolean;
+};
+
+export async function listMyMemoriesAction(): Promise<MemoryListResult> {
   const session = await requireProfile();
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data } = await supabase
+  const { data, error: readError } = await supabase
     .from("coach_memories")
     .select(
       "id, kind, content, created_at, conversation_ref, coaching_conversations(title)"
     )
     .eq("profile_id", session.profile.id)
     .order("created_at", { ascending: false });
-  return ((data ?? []) as Array<{
+  if (readError) {
+    reportError("coach.memory.list", readError, { profileId: session.profile.id });
+  }
+  const rows = ((data ?? []) as Array<{
     id: string;
     kind: "said" | "inferred";
     content: string;
@@ -341,6 +371,7 @@ export async function listMyMemoriesAction(): Promise<MemoryListRow[]> {
       conversation_title: convo?.title ?? null,
     };
   });
+  return { rows, readFailed: Boolean(readError) };
 }
 
 // Delete ALL of the caller's own memory.

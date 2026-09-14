@@ -21,7 +21,7 @@ export const metadata = { title: "Memory" };
 
 export default async function CoachMemoryPage() {
   await requireProfile();
-  const memories = await listMyMemoriesAction();
+  const { rows, readFailed } = await listMyMemoriesAction();
 
   return (
     <PageShell
@@ -42,7 +42,7 @@ export default async function CoachMemoryPage() {
         </p>
       </div>
 
-      <MemoryList memories={memories} />
+      <MemoryList memories={rows} readFailed={readFailed} />
     </PageShell>
   );
 }

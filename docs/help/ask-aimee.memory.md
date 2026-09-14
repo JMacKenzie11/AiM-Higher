@@ -4,13 +4,17 @@ title: Memory
 
 # Memory
 
-After a conversation with Aimee ends, she notes down the few things
-worth still knowing next time: what you said you'd do, a decision and
+Once you've finished a conversation and moved on to another one, she
+notes down the few things worth still knowing next time: what you said you'd do, a decision and
 what it turned on, something you noticed about how you work. Not a
 transcript, and not everything — a handful of lines.
 
 This page is all of it. Newest first, dated, each one linked to the
 conversation it came from.
+
+The thread you're currently in is never the one being written down, so
+the newest conversation shows up here only after you've started or
+reopened another one.
 
 Find it in the left sidebar under **Resources → Memory**, below Ask
 Aimee.
