@@ -51,6 +51,21 @@ The header matches the Issues page so the two surfaces read as
 siblings. On narrow screens the row grid collapses to a stacked
 layout and the header hides.
 
+## How to filter the list
+
+**Status** narrows by where a commitment stands. **Type** splits the
+list two ways, and the word is worth pinning down:
+
+- **Strategic** — the commitment is attached to a priority.
+- **Operational** — it isn't.
+
+Operational means **"no priority attached"**, not "no link at all".
+A commitment tied to an issue or to a functional area is linked to
+something, but not to a priority, so it files under Operational. That
+is the same thing its *Priority* column is telling you: a *From
+issue* pill sits there instead of a priority because an issue is
+neither a priority nor attached to one.
+
 ## How to resolve a commitment
 
 Click the circle at the left of the row to open the menu. Options

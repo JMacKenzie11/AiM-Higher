@@ -6,9 +6,9 @@ import { clampScore, type DisciplineScore } from "../types";
 //
 //   - Follow-through rate over rolling 30 days
 //       (kept / (kept + missed))                         → 7 pts max
-//   - Aging opens: open commitments with due_date more than 14 days
-//     past today. Each one costs 0.5 pts up to a 3 pt cap so a large
-//     backlog can't drive the whole discipline to 0 by itself.
+//   - Aging opens: open commitments due between 90 and 14 days ago.
+//     Each one costs 0.5 pts up to a 3 pt cap so a large backlog
+//     can't drive the whole discipline to 0 by itself.
 //                                                         → 3 pts max
 //
 // Priority linkage used to be scored here (a "% of open commitments
@@ -28,6 +28,11 @@ export async function scoreExecution(
   const todayIso = now.toISOString().slice(0, 10);
   const cutoffIso = thirtyDaysAgo.toISOString().slice(0, 10);
   const agingCutoff = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  // The floor. Past this, an open commitment is abandoned rather than
+  // aging, and stops counting. See the note below the query pair.
+  const abandonedCutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
 
@@ -51,7 +56,11 @@ export async function scoreExecution(
       .eq("company_id", companyId)
       .eq("status", "open")
       .is("deleted_at", null)
-      .is("parked_at", null),
+      .is("parked_at", null)
+      // IN THE QUERY, not in Node. A scorer that fetches everything
+      // and filters afterwards passes a behavioural test and still
+      // ships every row a company has ever opened over the wire.
+      .gte("due_date", abandonedCutoff),
   ]);
 
   // DELETED AND PARKED ROWS ARE EXCLUDED, as of 2026-09-14.
@@ -84,11 +93,34 @@ export async function scoreExecution(
   // compareOverall restricts to disciplines both points scored, so
   // the step cannot present as a false DROP on Guide HQ.
   //
-  // STILL OPEN, and deliberately not fixed here: the open-commitments
-  // query has no date window at all, so a commitment from 2024 still
-  // costs 0.5 points today. Every other commitment read in the
-  // product is bounded. Narrowing it would move scores again and is
-  // its own decision.
+  // THE OPEN QUERY IS NOW BOUNDED TOO, as of 2026-09-14.
+  //
+  // It had no date window at all, so a commitment from 2024 still
+  // cost 0.5 points today while every other commitment read in the
+  // product was bounded. The resolved side above uses a 30-day
+  // window and the header claims the score "reflects the recent past
+  // only"; the aging half reached back forever, so the claim was
+  // false and a company that was messy last year could not recover
+  // those 3 points by behaving well now.
+  //
+  // The floor is 90 days: aging means due between 90 and 14 days
+  // ago. NOT the 30-day window the resolved side uses, which would
+  // leave a 16-day band and mean a commitment 45 days overdue stops
+  // counting while one 20 days overdue still does — worse debt
+  // scoring better.
+  //
+  // THE HONEST COST of any floor: ignoring something long enough
+  // makes it stop counting, which is the opposite of what this
+  // scorer is for. Accepted deliberately. The counter-argument is
+  // that the remedy was always available — resolve it, park it or
+  // delete it, all three of which already drop a row out — so the
+  // penalty was never truly permanent, only permanent for anyone who
+  // never revisited the list. Weighed against a score that can never
+  // be recovered, recoverable-but-forgiving won.
+  //
+  // FIXED FORWARD ONLY, on the same terms as the exclusion above:
+  // stored snapshots are left alone and the trend line steps up once
+  // more on the date this ships. Recorded in docs/product-spec.md.
   const resolved = (resolvedRes.data ?? []) as Array<{ status: string }>;
   const open = (openRes.data ?? []) as Array<{ due_date: string | null }>;
 
@@ -116,7 +148,11 @@ export async function scoreExecution(
       keptCount: kept,
       missedCount: missed,
       followThroughPct: Math.round(followThroughRate * 100),
+      // Open commitments INSIDE the 90-day floor, not every open
+      // commitment the company has. Named in the breakdown so the
+      // number is not mistaken for a total.
       openCount: open.length,
+      agingFloorDays: 90,
       agingCount,
       today: todayIso,
     },
