@@ -486,6 +486,21 @@ a test that will eventually break the wrong one.
 
 ## Order of operations for a deploy
 
+**Dev is the rehearsal, not the cleanup.** The clone is a disposable
+database that nobody is served from, so it is where a migration should
+meet a real, non-rolled-back application for the first time. Running it
+there before the fleet turns the dry run into something stronger: the
+dry run proves the plan parses and both connections answer, and
+`migrate:dev` proves the SQL actually applies to a database with this
+schema and this data in it. A migration that is going to fail fails on
+dev, where the cost is a message in a terminal.
+
+This is a change of order, made on 2026-09-14. `migrate:dev` used to be
+the last step, which made it a cleanup chore after the risk had already
+been taken, and it was skipped seven times in a row before a gate was
+added to catch it. A step that only tidies up gets skipped. A step that
+stands between a migration and production does not.
+
 1. Set the Production and Preview variables above.
 2. Run `npm run seed:instances` against the control plane. Idempotent,
    so rerunning is free.
@@ -493,36 +508,74 @@ a test that will eventually break the wrong one.
    `active`.
 4. Open a preview deployment and sign in.
 5. Merge.
-6. Check `www.aims-hq.com` and `aims-hq.com` both load, and that a cron
-   route is not returning the not-found page.
-7. **If the release carried a migration, catch up the dev clone:**
-   `npm run migrate:dev`. **This step is the deployer's, it is not
-   optional, and skipping it is silent.** It builds the connection string from
-   `DEV_SUPABASE_URL` and `DEV_DATABASE_PASSWORD` in `.env.provisioning`
-   and the pooler host from the Management API, and refuses to run if
-   that ref is also production or the control plane. `npm run
-   migrate:dev -- --dry-run` first if you want to see what it would
-   apply. The older `npm run migrate:instances -- --db-url "<clone
-   session pooler url>"` still works and is the same code path, with
-   the string pasted instead of built.
+6. `git checkout main && git pull`. The next three steps read migrations
+   from the working tree, so they must be reading the merged ones.
 
-   **What goes wrong when it is skipped.** On 2026-09-13 it was
-   skipped seven times in a row: the fleet reached 0188 while the
-   clone sat at 0180, which is the state F8 batches 6a through 6f were
-   each measured in. Their before/after pairs happened to stand,
-   because batches touch disjoint tables and 0175's helpers were
-   already present — a property of the batch ordering, not of the
-   instrument. One batch depending on an earlier one's work would have
-   produced a report that was wrong and looked exactly like a report
-   that was right.
+   *Steps 7 to 9 apply only if the release carried a migration. If it
+   did not, go straight to step 10.*
 
-   **It is now enforced rather than remembered.** `npm run rls:hazards`
-   prints the clone's head against the newest local migration on every
-   invocation, and a `--batch` run refuses outright when the clone is
-   behind, naming the missing versions and pointing back at this step.
-   A batch report is evidence; evidence from a stale instrument is
-   worth less than none, because it is indistinguishable from the real
-   thing.
+7. **Fleet dry run:** `npm run migrate:instances -- --dry-run`. Nothing
+   is written. It reads the registry, verifies a connection to every
+   active instance, and prints what each one would apply. This is the
+   step that catches a bad registry row, an unreachable instance or a
+   missing credential — before anything has been applied anywhere.
+8. **Apply to the dev clone:** `npm run migrate:dev`. **This is the
+   rehearsal, and it is the reason the fleet apply below is safe to
+   run.** It builds the connection string from `DEV_SUPABASE_URL` and
+   `DEV_DATABASE_PASSWORD` in `.env.provisioning` and the pooler host
+   from the Management API, and refuses to run if that ref is also
+   production or the control plane. `npm run migrate:dev -- --dry-run`
+   first if you want to see what it would apply, but the canonical
+   sequence is the fleet dry run above, then this as a real apply, then
+   the fleet as a real apply. The older `npm run migrate:instances
+   -- --db-url "<clone session pooler url>"` still works and is the
+   same code path, with the string pasted instead of built.
+
+   **A failure here halts the ritual, and that halt is the whole point
+   of the step.** If `migrate:dev` does not finish cleanly, do not run
+   step 9. Fix the migration, and start again from step 7 — the fleet
+   has not been touched, so there is nothing to unwind. The failure
+   happened on the one database in the estate whose users are nobody.
+
+   **Dev running one step ahead of the fleet is expected here, and
+   harmless.** Between step 8 and step 9 the clone is at the new head
+   while production and every other instance are still at the old one.
+   That window is the rehearsal. It is not a state anybody needs to
+   repair, and nothing warns about it: the staleness gate in
+   `npm run rls:hazards` compares the clone against the REPO, not
+   against the fleet, so a clone that is ahead of the fleet reads as
+   current, which it is.
+9. **Fleet apply:** `npm run migrate:instances`. Only reached because
+   dev took the same migrations cleanly a moment ago.
+10. Check `www.aims-hq.com` and `aims-hq.com` both load, and that a cron
+    route is not returning the not-found page. If the release carried a
+    migration, exercise the surface it touched rather than only the
+    front door.
+
+**Fleet applies and any write to a live database are Jason's, or run on
+his explicit per-run instruction.** That covers steps 8 and 9 both: dev
+is a live database. See CLAUDE.md.
+
+### What the old ordering cost
+
+Kept because it is the argument for the new one. `migrate:dev` was step
+7, after the fleet apply, and on 2026-09-13 it was skipped seven times
+in a row: the fleet reached 0188 while the clone sat at 0180, which is
+the state F8 batches 6a through 6f were each measured in. Their
+before/after pairs happened to stand, because batches touch disjoint
+tables and 0175's helpers were already present — a property of the batch
+ordering, not of the instrument. One batch depending on an earlier one's
+work would have produced a report that was wrong and looked exactly like
+a report that was right.
+
+A gate was added rather than a reminder. `npm run rls:hazards` prints
+the clone's head against the newest local migration on every
+invocation, and a `--batch` run refuses outright when the clone is
+behind, naming the missing versions. That gate stays, and under the new
+ordering it should almost never fire — if it does, the ritual was not
+followed. A batch report is evidence; evidence from a stale instrument
+is worth less than none, because it is indistinguishable from the real
+thing.
 
 ### The dev clone is not migrated by the fleet, and that is deliberate
 
@@ -530,21 +583,27 @@ a test that will eventually break the wrong one.
 row — a registry row is the switch that makes a hostname serve
 customers, and the clone is disposable tooling. Giving it one to get it
 migrated would make it look like an instance to every other fleet tool,
-including `sync:content`. So it stays out, and catching it up is step 7
+including `sync:content`. So it stays out, and migrating it is step 8
 above rather than something the runner does.
 
-The consequence, stated so nobody has to rediscover it: **after a
-migration lands on the fleet, the clone is behind until somebody runs
-step 7.** Local dev and the Playwright suite both point at the clone, so
-the symptom is a feature that works in production and looks broken on a
-laptop. On 2026-09-08 that was `/admin/companies` rendering every
-Follow-Through rate as an em-dash, because the view in migration 0174
+The consequence used to be stated here as "after a migration lands on
+the fleet, the clone is behind until somebody catches it up". **Under
+the ordering above that is no longer how it goes wrong**, because the
+clone is migrated BEFORE the fleet and is never the one left behind by
+a completed ritual. What can still leave it behind is a ritual that was
+not completed, or a migration applied to the fleet some other way.
+
+The symptom is worth keeping, because it is what that looks like from a
+laptop. Local dev and the Playwright suite both point at the clone, so a
+behind-clone shows up as a feature that works in production and looks
+broken locally. On 2026-09-08 that was `/admin/companies` rendering every
+Follow-Through rate as a dash, because the view in migration 0174
 existed on both instances and not on the clone.
 
 Two things make that survivable. The read logs an error naming the
 consequence rather than failing silently, so the browser console says
 what happened. And `npm run scrub:dev` + `npm run seed:e2e` are only
-needed after a *refresh* from production, not after step 7 — a
+needed after a *refresh* from production, not after step 8 — a
 migration neither wipes the e2e fixtures nor copies fresh OAuth
 credentials in, so catching the clone up costs one command and nothing
 else. After a refresh, both. See docs/e2e.md.
@@ -552,7 +611,7 @@ else. After a refresh, both. See docs/e2e.md.
 Refreshing the clone from production is the other cure and a blunter
 one: it replaces the schema wholesale, wipes every fixture, and needs
 `npm run seed:e2e` afterwards. Use it when the clone's DATA is stale.
-Use step 7 when only its SCHEMA is behind. See `docs/e2e.md`.
+Use step 8 when only its SCHEMA is out of date. See `docs/e2e.md`.
 
 ### What a preview does and does not prove
 
@@ -573,7 +632,7 @@ must not have done had the header been honoured.
 
 So the production variables have to be verified by looking at them in
 the Vercel dashboard. There is no deployed check that covers them
-first. Verify, then merge, then check step 6 immediately.
+first. Verify, then merge, then check step 10 immediately.
 
 ### The production deployment's own .vercel.app alias
 

@@ -4332,7 +4332,7 @@ async function main(): Promise<void> {
         "  right by accident, and it would read exactly like a report that\n" +
         "  is wrong.\n\n" +
         "  Catch the clone up first: npm run migrate:dev\n" +
-        "  (deploy ritual step 7, docs/deployment.md)"
+        "  (deploy ritual step 8, docs/deployment.md)"
     );
   }
   if (batch) {

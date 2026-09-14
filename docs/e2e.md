@@ -52,10 +52,14 @@ correct on dev.
 
 A refresh is also the blunt cure for dev-clone schema drift: it
 replaces the clone's schema wholesale with production's. The precise
-cure is `npm run migrate:instances -- --db-url "<clone url>"`, which
-applies only what is pending and records the history. Use the refresh
-when the clone's data is stale, the migration run when only its schema
-is behind.
+cure is `npm run migrate:dev`, which applies only what is pending and
+records the history. Use the refresh when the clone's DATA is stale,
+the migration run when only its SCHEMA is out of date.
+
+In an ordinary deploy the clone should not drift at all: `migrate:dev`
+is step 8 of the ritual in docs/deployment.md and runs BEFORE the fleet
+apply, not after it, so the clone is the first database a migration
+reaches rather than the last.
 
 That is the whole checklist. The script is idempotent, safe to rerun,
 and prints what it created. If a spec fails with "E2E_ADMIN_EMAIL is
