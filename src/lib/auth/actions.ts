@@ -16,7 +16,12 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // action; the UI never talks to Supabase directly for these operations.
 
 export type AuthActionResult =
-  | { ok: true }
+  // `email` is set by requestPasswordResetAction only, and carries
+  // back the address the caller actually submitted so the
+  // confirmation can repeat it. See the note there: echoing an
+  // address the user just typed leaks nothing and is the difference
+  // between spotting a typo in two seconds and not spotting it.
+  | { ok: true; email?: string }
   | { ok: false; message: string };
 
 // ---- Sign in ---------------------------------------------------
@@ -88,7 +93,21 @@ export async function signOutAction(): Promise<never> {
 // shows up in Resend's dashboard for debuggability.
 //
 // Always returns { ok: true } — we never leak whether the email
-// exists. All failure paths log server-side for triage.
+// exists. That rule is about the RESPONSE, and it had leaked into the
+// logging: all three failure paths warned quietly and the operator saw
+// a success screen either way.
+//
+// On 2026-09-14 a portfolio admin asked for a reset and nothing
+// arrived. Resend showed no send at all, which pointed at Resend; the
+// send had simply never been reached, because generateLink failed and
+// said so to nobody. `auth.users.recovery_sent_at` was still NULL,
+// which is how it was eventually pinned down — from the database,
+// after the fact.
+//
+// So the failures are now loud in the log, carry the GoTrue code and
+// status, and share one greppable prefix. The user-facing contract is
+// unchanged: still always ok, still no enumeration.
+const RESET_FAIL = "password-reset FAILED";
 export async function requestPasswordResetAction(
   _prev: AuthActionResult | undefined,
   formData: FormData
@@ -111,16 +130,31 @@ export async function requestPasswordResetAction(
   });
 
   if (error) {
-    console.warn("generateLink(recovery) failed for %s: %s", email, error.message);
-    return { ok: true };
+    // The step that failed on 2026-09-14. A recovery link is issued by
+    // GoTrue, not by us, so its refusals are the ones we cannot guess
+    // at from the outside — the code and status are the whole
+    // diagnosis and both used to be dropped.
+    console.error(`${RESET_FAIL}: generateLink(recovery) refused`, {
+      email,
+      message: error.message,
+      code: (error as { code?: string }).code ?? null,
+      status: (error as { status?: number }).status ?? null,
+    });
+    return { ok: true, email };
   }
 
   const hashedToken = (
     data as { properties?: { hashed_token?: string } }
   )?.properties?.hashed_token;
   if (!hashedToken) {
-    console.warn("generateLink(recovery) returned no hashed_token for %s", email);
-    return { ok: true };
+    // Distinct from the branch above on purpose: "GoTrue refused" and
+    // "GoTrue succeeded and gave us nothing to send" are different
+    // problems with different fixes, and one log line for both would
+    // have cost a second round of diagnosis.
+    console.error(`${RESET_FAIL}: generateLink(recovery) returned no token`, {
+      email,
+    });
+    return { ok: true, email };
   }
 
   // Link points DIRECTLY at /reset-password with the token in the
@@ -151,10 +185,18 @@ export async function requestPasswordResetAction(
   });
 
   if (!sent.ok) {
-    console.warn("sendResetEmail failed for %s: %s", email, sent.message);
+    // The only one of the three that Resend's dashboard would have
+    // shown, and therefore the only one anybody would have found
+    // without reading code.
+    console.error(`${RESET_FAIL}: Resend rejected the send`, {
+      email,
+      message: sent.message,
+    });
+    return { ok: true, email };
   }
 
-  return { ok: true };
+  console.log("password-reset sent", { email });
+  return { ok: true, email };
 }
 
 // ---- Complete accept-invite (verify OTP + set password + activate)

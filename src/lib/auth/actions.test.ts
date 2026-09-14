@@ -239,6 +239,11 @@ describe("signOutAction", () => {
 
 // ==============================================================
 // requestPasswordResetAction — the "don't leak" contract
+//
+// The contract is about whether an address is REGISTERED. Repeating
+// back the address the caller submitted says nothing about that, and
+// it is what turns a typo from a half-hour mystery into something
+// visible on the confirmation screen. jasonm@mandown.tools, 2026-09-14.
 // ==============================================================
 describe("requestPasswordResetAction", () => {
   beforeEach(() => {
@@ -275,7 +280,10 @@ describe("requestPasswordResetAction", () => {
       formDataFrom({ email: "unknown@x.co" })
     );
 
-    expect(res).toEqual({ ok: true });
+    // The address comes back so the confirmation screen can repeat
+    // it. That is not a leak: the caller typed it a second ago, and
+    // the answer is identical whether or not it is registered.
+    expect(res).toEqual({ ok: true, email: "unknown@x.co" });
     expect(mocks.sendResetEmail).not.toHaveBeenCalled();
   });
 
@@ -291,8 +299,97 @@ describe("requestPasswordResetAction", () => {
       formDataFrom({ email: "a@b.co" })
     );
 
-    expect(res).toEqual({ ok: true });
+    expect(res).toEqual({ ok: true, email: "a@b.co" });
     expect(mocks.sendResetEmail).not.toHaveBeenCalled();
+  });
+
+  // ---- Every failure is loud in the log ----------------------
+  //
+  // The response contract above is right and stays. What was wrong was
+  // that it had spread to the LOGGING: a reset that never sent looked
+  // identical to one that did, from both ends. A portfolio admin asked
+  // for a reset on 2026-09-14, nothing arrived, Resend showed no send
+  // at all — and the answer only emerged from
+  // auth.users.recovery_sent_at being NULL in the database.
+  //
+  // These pin that each failure says so, distinctly, with what the
+  // caller would need to act on it.
+
+  it("logs the GoTrue code and status when generateLink is refused", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.generateLink.mockResolvedValueOnce({
+      data: null,
+      error: { message: "boom", code: "over_email_send_rate_limit", status: 429 },
+    });
+    const { requestPasswordResetAction } = await import("./actions");
+
+    await requestPasswordResetAction(undefined, formDataFrom({ email: "a@b.co" }));
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining("password-reset FAILED"),
+      expect.objectContaining({
+        code: "over_email_send_rate_limit",
+        status: 429,
+        message: "boom",
+      })
+    );
+    spy.mockRestore();
+  });
+
+  it("distinguishes 'refused' from 'succeeded but gave us no token'", async () => {
+    // Two different problems with two different fixes. One log line
+    // for both would cost a second round of diagnosis.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.generateLink.mockResolvedValueOnce({
+      data: { properties: {} },
+      error: null,
+    });
+    const { requestPasswordResetAction } = await import("./actions");
+
+    await requestPasswordResetAction(undefined, formDataFrom({ email: "a@b.co" }));
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining("returned no token"),
+      expect.objectContaining({ email: "a@b.co" })
+    );
+    spy.mockRestore();
+  });
+
+  it("says so when Resend rejects the send", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.sendResetEmail.mockResolvedValueOnce({
+      ok: false,
+      message: "domain not verified",
+    });
+    const { requestPasswordResetAction } = await import("./actions");
+
+    await requestPasswordResetAction(undefined, formDataFrom({ email: "a@b.co" }));
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining("Resend rejected"),
+      expect.objectContaining({ message: "domain not verified" })
+    );
+    spy.mockRestore();
+  });
+
+  it("still returns ok:true on every one of them", async () => {
+    // The contract that must not regress while making failures loud.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { requestPasswordResetAction } = await import("./actions");
+
+    mocks.generateLink.mockResolvedValueOnce({
+      data: null,
+      error: { message: "nope" },
+    });
+    expect(
+      await requestPasswordResetAction(undefined, formDataFrom({ email: "a@b.co" }))
+    ).toEqual({ ok: true, email: "a@b.co" });
+
+    mocks.sendResetEmail.mockResolvedValueOnce({ ok: false, message: "nope" });
+    expect(
+      await requestPasswordResetAction(undefined, formDataFrom({ email: "a@b.co" }))
+    ).toEqual({ ok: true, email: "a@b.co" });
+    spy.mockRestore();
   });
 
   it("builds a token-in-URL link that goes DIRECTLY to /reset-password (never /auth/callback)", async () => {
