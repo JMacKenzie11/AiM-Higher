@@ -31,8 +31,9 @@ it is a commitment. They used to share one line, which put the
 issue's controls next to a commitment's and made it easy to press the
 wrong one.
 
-**The issue has the same round check a commitment has**, at the far
-left of its line, with the trash can beside it. Resolving an issue
+**The issue has the same round check a commitment has**, at the left
+of its line with the trash can beside it, just right of the drag
+handle you reorder issues with. Resolving an issue
 and resolving a commitment look and feel the same; the issue's check
 just asks you to confirm rather than opening a menu, because an issue
 can't be parked or rescheduled.
@@ -107,7 +108,7 @@ As a team member, you can:
 As an admin or guide, you can also:
 
 - **Add, rename, and resolve any issue.** Click the title to
-  rename; tick the round check at the far left to close the loop.
+  rename; tick the round check at the left to close the loop.
 - **Delete an issue** — trash icon beside that check. Hard
   delete; the confirm dialog spells out that it can't be undone.
   Any commitments linked to the issue stay live and just lose the
