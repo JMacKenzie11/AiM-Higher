@@ -147,9 +147,22 @@
    styling — body font, regular weight, text color (not
    text-heading). Editable button carries the dashed-border-at-rest
    affordance so the click target reads without a hover. */
+/* Resolve, delete, drag — columns 1, 2, 3, the same two control
+   columns a commitment line uses, then the drag handle in the slot
+   the clarity dot occupies down there. */
+.issueRow > .issueResolveCircle,
+.issueRow > .resolvePlaceholder {
+  grid-column: 1;
+}
+
+.issueRow > .deleteButton,
+.issueRow > .deletePlaceholder {
+  grid-column: 2;
+}
+
 .issueRow > .dragHandle,
 .issueRow > .dragHandlePlaceholder {
-  grid-column: 1;
+  grid-column: 3;
 }
 
 /* The header labels sit over the cells they name. Placed by class,
@@ -404,16 +417,6 @@
   cursor: not-allowed;
 }
 
-.issueRow > .deleteButton,
-.issueRow > .deletePlaceholder {
-  grid-column: 7;
-}
-
-.issueRow > .resolveButton,
-.issueRow > .resolvePlaceholder {
-  grid-column: 8;
-}
-
 .deletePlaceholder {
   display: inline-block;
   width: 28px;
@@ -425,14 +428,48 @@
    radius, sans-serif weight 600 — so buttons across the app
    share one shape. Compact height keeps it inside the narrow
    right-most column. */
-/* The app has one button system; this used to hand-roll a ninth
-   variant of it (its own padding, height, radius, weight, hover and
-   focus ring) that drifted from the other ~25 call sites. Ghost
-   because Resolve is the row's action, not the page's, and small
-   because it sits on a table row. */
-.resolveButton {
-  composes: btnGhost btnSm from "../../../components/ui/ui.module.css";
+/* The issue's resolve control IS the commitment resolve circle,
+   composed rather than imitated. It used to be a pill labelled
+   "Resolve" sitting in the last column, which made acting on an
+   issue look like a different kind of operation from acting on a
+   commitment, and put it at the opposite end of the row from the
+   controls it belongs with. */
+.issueResolveCircle {
+  composes: resolveCircle from "../commitments/commitments.module.css";
 }
+
+/* The resolved-issue marker. Composes the same circle, filled the
+   way a kept commitment's is, but WITHOUT resolveCircleChecked —
+   that carries a pop animation, which is right for the moment you
+   resolve something and wrong for forty rows of history rendering
+   at once. */
+.issueResolvedMark {
+  composes: resolveCircle from "../commitments/commitments.module.css";
+  grid-column: 1;
+  background: var(--aims-success);
+  border-color: var(--aims-success);
+  color: var(--aims-white);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: default;
+}
+
+.issueResolveCheck {
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.issueResolveCircle:hover:not(:disabled) .issueResolveCheck {
+  color: var(--aims-success);
+}
+
+.issueResolveCircle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 
 
 .resolvePlaceholder {
@@ -501,14 +538,13 @@
     grid-column: auto !important;
   }
 
-  /* Delete + Resolve line up together at the bottom instead of
-     sitting in their own trailing grid columns. */
+  /* The placeholders exist only to hold desktop grid columns. */
   .issueRow > .deletePlaceholder,
   .issueRow > .resolvePlaceholder {
     display: none;
   }
   .deleteButton,
-  .resolveButton {
+  .issueResolveCircle {
     align-self: flex-end;
   }
 }
@@ -693,10 +729,15 @@
   list-style: none;
 }
 
-/* Same grid as a commitment row, borrowed rather than copied so the
-   labels cannot drift off the columns they name. */
+/* Same grid as the commitment rows beneath it, borrowed rather than
+   copied so the labels cannot drift off the columns they name.
+   `rowNoPriority` is the load-bearing half: these rows render with
+   `hidePriority`, which is a SEVEN-column template, and composing
+   only the eight-column header put every label from ASSIGNED TO
+   rightward two columns away from the data it named. */
 .commitmentSubHeader {
-  composes: columnHeader from "../commitments/commitments.module.css";
+  composes: columnHeader rowNoPriority
+    from "../commitments/commitments.module.css";
 }
 
 .commitmentError {
@@ -747,15 +788,14 @@
    restated, so the plus lands in the resolve-circle column and the
    field, owner and date sit under the headers above them. */
 .addLine {
-  composes: row from "../commitments/commitments.module.css";
+  composes: row rowNoPriority from "../commitments/commitments.module.css";
   border-bottom: none;
   border-radius: var(--radius-md);
   transition: background var(--duration-fast) var(--ease-out);
 }
 
-/* Clicking the plus on an empty line only moves the caret, which on
-   an already-visible box looked like nothing happened. The line
-   lights up so the click has a visible answer. */
+/* Lifts the line to card white while you are typing in it, so the
+   row you are working on separates from the recessed panel. */
 .addLine:focus-within {
   background: var(--surface);
 }
@@ -767,59 +807,12 @@
   color: var(--aims-danger);
 }
 
-/* The affordance: a filled circle with a contrasting plus. Uses the
-   semantic pair, not the raw cobalt/white, because dark mode redefines
-   --primary to sky and --on-primary to navy together. Hardcoding the
-   brand hexes would put a white plus on pale blue there. */
-/* Gives the textarea a real accessible name. Without it the label's
-   only text is "+", which is what the field would be announced as. */
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+/* The same submit /commitments has always had: filled, labelled and
+   disabled until there is something to add. It replaced a blue
+   circle holding a bare "+", which sat in the RESOLVE-CIRCLE column
+   and so read as this row's resolve control. Nobody could say what
+   it did, which is fair — a "+" does not say. */
+.addSubmit {
+  composes: btnPrimary btnSm from "../../../components/ui/ui.module.css";
 }
 
-.addCircle {
-  flex: none;
-  cursor: pointer;
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 50%;
-  background: var(--primary);
-  color: var(--on-primary);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
-  transition: background var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
-}
-
-.addCircle:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.addCircle:active:not(:disabled) {
-  transform: scale(0.92);
-}
-
-.addCircle:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.addCircle:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
-}

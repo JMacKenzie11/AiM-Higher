@@ -120,6 +120,22 @@ export function IssueCard({
     // is no issue detail page to link to — unlike a meeting, which
     // has one — so the row itself is the destination.
     <article className={styles.issueRow} id={`issue-${issue.id}`}>
+      {/* Resolve, then delete, then drag — the same order and the
+          same two columns a commitment line uses, so the controls
+          for "act on this row" sit in one place on the card whether
+          the row is an issue or a commitment. */}
+      {canEdit ? (
+        <ResolveIssueButton issueId={issue.id} />
+      ) : (
+        <span aria-hidden className={styles.resolvePlaceholder} />
+      )}
+
+      {isAdmin ? (
+        <DeleteIssueButton issueId={issue.id} issueTitle={issue.title} />
+      ) : (
+        <span aria-hidden className={styles.deletePlaceholder} />
+      )}
+
       {canEdit ? (
         <button
           type="button"
@@ -153,18 +169,6 @@ export function IssueCard({
       <div className={styles.cellWant}>
         <DesiredOutcomeEditor issue={issue} canEdit={canEdit} />
       </div>
-
-      {isAdmin ? (
-        <DeleteIssueButton issueId={issue.id} issueTitle={issue.title} />
-      ) : (
-        <span aria-hidden className={styles.deletePlaceholder} />
-      )}
-
-      {canEdit ? (
-        <ResolveIssueButton issueId={issue.id} />
-      ) : (
-        <span aria-hidden className={styles.resolvePlaceholder} />
-      )}
 
       {/* The commitments region spans the FULL row and therefore
           auto-places on its own grid line, underneath the issue. It
@@ -238,11 +242,17 @@ export function IssueCard({
   );
 }
 
-// Labels the commitment columns inside one issue. Borrows the
-// /commitments row grid (via `composes`) so the labels sit over the
-// actual columns rather than over a copy of them that can drift.
-// The leading spacers are resolve circle, delete and clarity; the
-// sixth is the hidden priority placeholder `hidePriority` keeps.
+// Labels the commitment columns inside one issue.
+//
+// EIGHT cells for SEVEN columns, deliberately: these rows are
+// `hidePriority`, which means `.rowNoPriority` — a seven-column
+// template that hides the sixth CHILD rather than renumbering
+// anything. So the priority spacer has to be present to be hidden,
+// exactly as CommitmentRow renders it. Drop it and every cell after
+// it shifts one column left, which is precisely what was wrong:
+// this composed the eight-column header while the rows beneath
+// composed the seven-column one, so ASSIGNED TO sat two columns
+// away from the owners it named.
 export function CommitmentSubHeader() {
   return (
     <div className={styles.commitmentSubHeader} role="row" aria-hidden="true">
@@ -508,14 +518,24 @@ function ResolveIssueButton({ issueId }: { issueId: string }) {
 
   return (
     <>
+      {/* The same circle a commitment carries, in the same column,
+          so "resolve this thing" is one gesture with one look
+          wherever you meet it. No menu: an issue cannot be parked or
+          rescheduled, so a menu of one item is a click in the way.
+          It still never resolves on the click — the confirm dialog
+          below is the second gesture, which is what the commitment
+          circle's menu is doing too. */}
       <button
         type="button"
-        className={styles.resolveButton}
+        className={styles.issueResolveCircle}
         onClick={() => setConfirming(true)}
         disabled={pending}
         title="Resolve this issue"
+        aria-label="Resolve this issue"
       >
-        Resolve
+        <span aria-hidden className={styles.issueResolveCheck}>
+          ✓
+        </span>
       </button>
       <ConfirmDialog
         open={confirming}
@@ -665,24 +685,6 @@ function IssueCommitmentAddInline({
   const formId = `add-cmt-${issueId}`;
   const inputId = `${formId}-description`;
 
-  // The plus always does something. With text in the field it
-  // submits, which is what "add" means once you have written the
-  // thing; empty, it puts the cursor in the field.
-  //
-  // It was a <label>, which focuses its control natively and adds no
-  // tab stop. Correct, and it read as broken: clicking it on an
-  // empty line moved focus into a box that was already visible and
-  // already showing its placeholder, so nothing appeared to happen.
-  // An affordance that looks like a button has to answer a click
-  // visibly, so this is a button, and `.addLine:focus-within` gives
-  // the line a lit state to answer with.
-  function onPlusClick() {
-    if (description.trim() && !pending) {
-      formRef.current?.requestSubmit();
-      return;
-    }
-    inputRef.current?.focus();
-  }
   function maybeAutoSubmit() {
     setTimeout(() => {
       const active = document.activeElement;
@@ -714,16 +716,12 @@ function IssueCommitmentAddInline({
         <input type="hidden" name="owner_id" value={ownerId} />
         <input type="hidden" name="due_date" value={dueDate} />
 
-        <button
-          type="button"
-          className={styles.addCircle}
-          onClick={onPlusClick}
-          disabled={pending}
-          title="Add a commitment"
-        >
-          <span aria-hidden>+</span>
-          <span className={styles.srOnly}>Add a commitment</span>
-        </button>
+        {/* Column 1 is the resolve circle on the rows above. Nothing
+            to resolve on a line with no commitment on it yet, so it
+            stays empty. A filled blue circle sat here and read as
+            this row's resolve control; nobody could say what it did,
+            which is fair, because a bare "+" does not say. */}
+        <span aria-hidden />
         <span aria-hidden />
         <span aria-hidden />
 
@@ -784,7 +782,17 @@ function IssueCommitmentAddInline({
           aria-label="Due date"
         />
 
-        <span aria-hidden />
+        {/* Says what it does. Same control /commitments has had all
+            along: filled, labelled, and disabled until there is
+            something to add. Blur-save still works; this is for
+            people who want a button to press. */}
+        <button
+          type="submit"
+          className={styles.addSubmit}
+          disabled={pending || !description.trim()}
+        >
+          {pending ? "Saving…" : "Add"}
+        </button>
 
         {errorMessage ? (
           <p role="alert" className={styles.addLineError}>
