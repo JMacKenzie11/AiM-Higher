@@ -32,7 +32,21 @@
 /* ---- Column header row --------------------------------------- */
 .columnHeader {
   display: grid;
-  /* THE SAME SEVEN COLUMNS A COMMITMENT ROW USES. The card holds
+  /* Drag first, then the commitment row's own three control columns
+     (40 / 28 / 28) so the issue's check sits directly above the
+     commitment checks, then title and outcome.
+
+     The drag handle is the reason the commitments band carries a
+     left pad: it is an issue-only column, so the band shifts right
+     by exactly its width plus one gap and every column below lines
+     up with the one above it.
+
+     Title and outcome SHARE the remaining width rather than the
+     title taking the commitment grid's 1fr and the outcome taking
+     three fixed columns. Their left edges still align with the
+     description column below; their right edges do not, and that is
+     the trade: an outcome is a sentence and needs the room more
+     than the title does. The card holds
      two kinds of thing — one issue, then its commitments — and they
      share one column system so the card reads as a single table
      instead of two unrelated grids stacked on each other.
@@ -42,7 +56,13 @@
      nothing collides with them. Commitment / assigned to / due date
      are NOT issue columns — they belong to a commitment, and an
      issue has any number of those. */
-  grid-template-columns: 40px 28px 28px 1fr 180px 110px 90px;
+  grid-template-columns:
+    20px
+    40px
+    28px
+    28px
+    minmax(0, 1fr)
+    minmax(0, 1.35fr);
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
@@ -86,7 +106,21 @@
      sticky header. */
   scroll-margin-top: 96px;
   display: grid;
-  /* THE SAME SEVEN COLUMNS A COMMITMENT ROW USES. The card holds
+  /* Drag first, then the commitment row's own three control columns
+     (40 / 28 / 28) so the issue's check sits directly above the
+     commitment checks, then title and outcome.
+
+     The drag handle is the reason the commitments band carries a
+     left pad: it is an issue-only column, so the band shifts right
+     by exactly its width plus one gap and every column below lines
+     up with the one above it.
+
+     Title and outcome SHARE the remaining width rather than the
+     title taking the commitment grid's 1fr and the outcome taking
+     three fixed columns. Their left edges still align with the
+     description column below; their right edges do not, and that is
+     the trade: an outcome is a sentence and needs the room more
+     than the title does. The card holds
      two kinds of thing — one issue, then its commitments — and they
      share one column system so the card reads as a single table
      instead of two unrelated grids stacked on each other.
@@ -96,7 +130,13 @@
      nothing collides with them. Commitment / assigned to / due date
      are NOT issue columns — they belong to a commitment, and an
      issue has any number of those. */
-  grid-template-columns: 40px 28px 28px 1fr 180px 110px 90px;
+  grid-template-columns:
+    20px
+    40px
+    28px
+    28px
+    minmax(0, 1fr)
+    minmax(0, 1.35fr);
   /* Top-align each cell so a 3-line "what we want" or commitment
      doesn't push the shorter cells to the middle of the row —
      reads more like a data table that way. */
@@ -150,33 +190,33 @@
 /* Resolve, delete, drag — columns 1, 2, 3, the same two control
    columns a commitment line uses, then the drag handle in the slot
    the clarity dot occupies down there. */
+.issueRow > .dragHandle,
+.issueRow > .dragHandlePlaceholder {
+  grid-column: 1;
+}
+
 .issueRow > .issueResolveCircle,
 .issueRow > .resolvePlaceholder {
-  grid-column: 1;
+  grid-column: 2;
 }
 
 .issueRow > .deleteButton,
 .issueRow > .deletePlaceholder {
-  grid-column: 2;
-}
-
-.issueRow > .dragHandle,
-.issueRow > .dragHandlePlaceholder {
   grid-column: 3;
 }
 
 /* The header labels sit over the cells they name. Placed by class,
    not by counting spacer spans into position. */
 .headIssue {
-  grid-column: 4;
+  grid-column: 5;
 }
 
 .headWant {
-  grid-column: 5 / -1;
+  grid-column: 6;
 }
 
 .cellIssue {
-  grid-column: 4;
+  grid-column: 5;
   min-width: 0;
   display: flex;
   align-items: flex-start;
@@ -238,7 +278,7 @@
 /* Takes every trailing column. An outcome statement is a sentence,
    not a field, and one 180px column is too narrow for it. */
 .cellWant {
-  grid-column: 5 / -1;
+  grid-column: 6;
   min-width: 0;
   display: flex;
   align-items: flex-start;
@@ -445,7 +485,7 @@
    at once. */
 .issueResolvedMark {
   composes: resolveCircle from "../commitments/commitments.module.css";
-  grid-column: 1;
+  grid-column: 2;
   background: var(--aims-success);
   border-color: var(--aims-success);
   color: var(--aims-white);
@@ -723,7 +763,7 @@
      over the clarity dot, title over the descriptions it heads. */
   margin: var(--space-2) calc(-1 * var(--space-4))
     calc(-1 * var(--space-3));
-  padding: var(--space-1) 0 var(--space-2);
+  padding: var(--space-1) 0 var(--space-2) calc(20px + var(--space-3));
   background: var(--bg);
 
   /* A band rather than an inset card — full-bleed corners cannot be
@@ -829,5 +869,20 @@
    it did, which is fair — a "+" does not say. */
 .addSubmit {
   composes: btnPrimary btnSm from "../../../components/ui/ui.module.css";
+  grid-column: 7;
+}
+
+/* Placed, not counted. See the comment on the form in IssueCard:
+   the hidden inputs make :nth-child unusable on this line. */
+.addDescription {
+  grid-column: 4;
+}
+
+.addOwner {
+  grid-column: 5;
+}
+
+.addDue {
+  grid-column: 6;
 }
 

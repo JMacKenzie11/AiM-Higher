@@ -433,7 +433,7 @@ function DesiredOutcomeEditor({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
-          rows={3}
+          rows={1}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
@@ -716,15 +716,18 @@ function IssueCommitmentAddInline({
         <input type="hidden" name="owner_id" value={ownerId} />
         <input type="hidden" name="due_date" value={dueDate} />
 
-        {/* Column 1 is the resolve circle on the rows above. Nothing
-            to resolve on a line with no commitment on it yet, so it
-            stays empty. A filled blue circle sat here and read as
-            this row's resolve control; nobody could say what it did,
-            which is fair, because a bare "+" does not say. */}
-        <span aria-hidden />
-        <span aria-hidden />
-        <span aria-hidden />
+        {/* Every cell below is placed by an EXPLICIT grid-column.
+            This line used to lean on `.rowNoPriority > :nth-child(6)`
+            to hide the priority slot, the way CommitmentRow does —
+            but :nth-child counts every element child, and this form
+            carries three `<input type="hidden">` before its first
+            cell. That shifted the count by three, so the rule hid
+            the wrong element, the date landed in the STATUS column
+            and the Add button wrapped onto a row of its own.
 
+            Columns 1-3 (resolve, delete, clarity) are simply empty:
+            there is no commitment on this line yet, so there is
+            nothing to resolve, delete or score. */}
         <textarea
           id={inputId}
           ref={inputRef}
@@ -742,7 +745,7 @@ function IssueCommitmentAddInline({
               if (description.trim()) formRef.current?.requestSubmit();
             }
           }}
-          className={styles.commitmentAddInput}
+          className={`${styles.commitmentAddInput} ${styles.addDescription}`}
           placeholder="What will move this forward this week?"
           required
           disabled={pending}
@@ -754,7 +757,7 @@ function IssueCommitmentAddInline({
             value={ownerId}
             onChange={(e) => setOwnerId(e.target.value)}
             onBlur={maybeAutoSubmit}
-            className={styles.commitmentAddSelect}
+            className={`${styles.commitmentAddSelect} ${styles.addOwner}`}
             disabled={pending}
             aria-label="Owner"
           >
@@ -765,19 +768,17 @@ function IssueCommitmentAddInline({
             ))}
           </select>
         ) : (
-          <span>
+          <span className={styles.addOwner}>
             {roster.find((p) => p.id === currentUserId)?.full_name ?? "You"}
           </span>
         )}
-
-        <span aria-hidden />
 
         <input
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
           onBlur={maybeAutoSubmit}
-          className={styles.commitmentAddDate}
+          className={`${styles.commitmentAddDate} ${styles.addDue}`}
           disabled={pending}
           aria-label="Due date"
         />

@@ -326,7 +326,12 @@
 .rowNoPriority {
   grid-template-columns: 40px 28px 28px 1fr 180px 110px 90px;
 }
-.rowNoPriority > :nth-child(6) {
+/* Hidden BY CLASS, not by counting. This was
+   `.rowNoPriority > :nth-child(6)`, which is only the priority slot
+   while nothing else is conditionally rendered among the row's
+   direct children — and the resolve menu was. With the menu open
+   the count shifted by one and this rule hid the OWNER. */
+.priorityHidden {
   display: none;
 }
 

@@ -457,85 +457,6 @@ export function CommitmentRow({
         ) : null}
       </button>
 
-      {showActionMenu ? (
-        <div
-          ref={menuRef}
-          className={styles.resolveMenu}
-          role="menu"
-          aria-label="Commitment actions"
-        >
-          {isParked ? (
-            <button
-              type="button"
-              className={styles.resolveMenuItem}
-              role="menuitem"
-              onClick={() => menuChoose("unpark")}
-            >
-              <span aria-hidden>↻</span> Bring back
-            </button>
-          ) : isActive ? (
-            <>
-              {/* Resolve menu: Mark kept (or late), Reschedule, Park.
-                  No Missed — if the work got done, Kept (late); if it
-                  didn't happen this week, Reschedule (new intent) or
-                  Park (set aside). Missed still exists as a state —
-                  it's reached by the ongoing weekly-rollover flow and
-                  by admin tooling, not by an owner clicking a menu
-                  item. Stop repeating lives on the Ongoing (weekly)
-                  chip. */}
-              {/* On overdue rows, admins see BOTH kept-on-time and
-                  kept-late as separate options. Non-admins only see
-                  kept-late — the honest signal for their own row. */}
-              {isOverdue && isAdmin ? (
-                <button
-                  type="button"
-                  className={styles.resolveMenuItemKept}
-                  role="menuitem"
-                  onClick={() => menuChoose("kept_on_time_admin")}
-                  title="Record as kept on time even though the due date has passed"
-                >
-                  <span aria-hidden>✓</span> Mark kept (on time)
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={styles.resolveMenuItemKept}
-                role="menuitem"
-                onClick={() => menuChoose("kept")}
-              >
-                <span aria-hidden>✓</span>{" "}
-                {isOverdue ? "Mark kept (late)" : "Mark kept"}
-              </button>
-              <button
-                type="button"
-                className={styles.resolveMenuItem}
-                role="menuitem"
-                onClick={() => menuChoose("reschedule")}
-              >
-                <span aria-hidden>→</span> Reschedule
-              </button>
-              <button
-                type="button"
-                className={styles.resolveMenuItem}
-                role="menuitem"
-                onClick={() => menuChoose("park")}
-              >
-                <span aria-hidden>⏸</span> Park
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              className={styles.resolveMenuItem}
-              role="menuitem"
-              onClick={() => menuChoose("reopen")}
-            >
-              <span aria-hidden>↺</span> Reopen
-            </button>
-          )}
-        </div>
-      ) : null}
-
       {canDelete ? (
         <button
           type="button"
@@ -709,7 +630,7 @@ export function CommitmentRow({
       />
 
       {hidePriority ? (
-        <span aria-hidden />
+        <span aria-hidden className={styles.priorityHidden} />
       ) : commitment.issue ? (
         /* AN ISSUE COMMITMENT HAS NO PRIORITY. An issue is not a
            priority and is not attached to one, so the link chip's
@@ -1012,6 +933,95 @@ export function CommitmentRow({
           pending={pending}
         />
       ) : null}
+      {/* LAST, and that placement is load-bearing. This is
+          `position: absolute`, anchored to `.row`, so where it sits
+          in the DOM changes nothing visually — but it IS a direct
+          child of the row, and several rules address these children
+          BY POSITION: `.rowNoPriority > :nth-child(6)` hides the
+          priority slot, and the mobile breakpoint maps
+          `.row > :nth-child(1..8)` onto grid areas. Rendered second,
+          it shifted every later child by one whenever the menu was
+          open, which hid the OWNER instead of the priority
+          placeholder and remapped the entire mobile layout. */}
+      {showActionMenu ? (
+        <div
+          ref={menuRef}
+          className={styles.resolveMenu}
+          role="menu"
+          aria-label="Commitment actions"
+        >
+          {isParked ? (
+            <button
+              type="button"
+              className={styles.resolveMenuItem}
+              role="menuitem"
+              onClick={() => menuChoose("unpark")}
+            >
+              <span aria-hidden>↻</span> Bring back
+            </button>
+          ) : isActive ? (
+            <>
+              {/* Resolve menu: Mark kept (or late), Reschedule, Park.
+                  No Missed — if the work got done, Kept (late); if it
+                  didn't happen this week, Reschedule (new intent) or
+                  Park (set aside). Missed still exists as a state —
+                  it's reached by the ongoing weekly-rollover flow and
+                  by admin tooling, not by an owner clicking a menu
+                  item. Stop repeating lives on the Ongoing (weekly)
+                  chip. */}
+              {/* On overdue rows, admins see BOTH kept-on-time and
+                  kept-late as separate options. Non-admins only see
+                  kept-late — the honest signal for their own row. */}
+              {isOverdue && isAdmin ? (
+                <button
+                  type="button"
+                  className={styles.resolveMenuItemKept}
+                  role="menuitem"
+                  onClick={() => menuChoose("kept_on_time_admin")}
+                  title="Record as kept on time even though the due date has passed"
+                >
+                  <span aria-hidden>✓</span> Mark kept (on time)
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.resolveMenuItemKept}
+                role="menuitem"
+                onClick={() => menuChoose("kept")}
+              >
+                <span aria-hidden>✓</span>{" "}
+                {isOverdue ? "Mark kept (late)" : "Mark kept"}
+              </button>
+              <button
+                type="button"
+                className={styles.resolveMenuItem}
+                role="menuitem"
+                onClick={() => menuChoose("reschedule")}
+              >
+                <span aria-hidden>→</span> Reschedule
+              </button>
+              <button
+                type="button"
+                className={styles.resolveMenuItem}
+                role="menuitem"
+                onClick={() => menuChoose("park")}
+              >
+                <span aria-hidden>⏸</span> Park
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className={styles.resolveMenuItem}
+              role="menuitem"
+              onClick={() => menuChoose("reopen")}
+            >
+              <span aria-hidden>↺</span> Reopen
+            </button>
+          )}
+        </div>
+      ) : null}
+
     </li>
   );
 }
