@@ -802,3 +802,16 @@
   white-space: nowrap;
   vertical-align: middle;
 }
+
+/* A still-open commitment in the thread. Darker than a finished line
+   and carrying its owner and date, because it is live work somebody
+   is accountable for this week rather than history. */
+.threadLineOpen {
+  color: var(--text);
+}
+
+.threadOwner {
+  color: var(--text-muted);
+  font: var(--text-caption);
+  white-space: nowrap;
+}

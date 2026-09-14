@@ -52,6 +52,22 @@ describe("splitThread", () => {
     expect(t.active?.id).toBe(newer.id);
   });
 
+  it("keeps every open commitment, so none can be hidden by the card", () => {
+    // The defect this guards: with two open, the card showed the
+    // newest and folded the other into a collapsed panel, so adding
+    // a second DISPLACED the first. splitThread must hand the card
+    // all of them; the card must then show all of them.
+    const a = c({ ...OPEN, created_at: "2026-09-01T00:00:00Z" });
+    const b = c({ ...OPEN, created_at: "2026-09-05T00:00:00Z" });
+    const d = c({ ...OPEN, created_at: "2026-09-09T00:00:00Z" });
+    const t = splitThread([a, b, d]);
+    const shown = [t.active, ...t.otherOpen].filter(Boolean);
+    expect(shown).toHaveLength(3);
+    expect(new Set(shown.map((x) => x!.id))).toEqual(
+      new Set([a.id, b.id, d.id])
+    );
+  });
+
   it("surfaces a second open commitment instead of dropping it", () => {
     // Legal in the database; the old openCommitments[0] hid it.
     const older = c({ ...OPEN, created_at: "2026-09-01T00:00:00Z" });
