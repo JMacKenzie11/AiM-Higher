@@ -21,12 +21,15 @@ As a team member, you can:
   cards in read-only form.
 :::
 
-::: role company_admin,aims_guide,system_admin
-As an admin or guide, you can also:
-
+::: role company_admin,aims_guide,system_admin,portfolio_admin
 - **Add a person** — name, email, position, role. Choose to send
   the invite email now or keep them *pending* to pre-stage the
   roster.
+:::
+
+::: role company_admin,aims_guide,system_admin
+As an admin or guide, you can also:
+
 - **Edit anyone's Details and Strengths** — the top-of-page cards
   become editable with a Save button.
 - **Coach a direct report or anyone in your company** — from the
@@ -35,9 +38,19 @@ As an admin or guide, you can also:
 - **Delete** — removes sign-in + profile permanently. See below.
 :::
 
+::: role portfolio_admin
+You can add people to any company on the instance, and that is
+where it stops: no editing, no deactivating, no deleting. You can
+staff a company; the people in it are not yours to rewrite.
+
+You can also only create **team members and company admins** — not
+another portfolio admin, and not a system admin. Those are minted
+by a system admin from the platform dashboard.
+:::
+
 ## How to add a person
 
-::: role company_admin,aims_guide,system_admin
+::: role company_admin,aims_guide,system_admin,portfolio_admin
 1. Fill in name, email, position, and role in the *Add a person*
    form.
 2. Decide: **Send invite now** (they get an email with a sign-in
