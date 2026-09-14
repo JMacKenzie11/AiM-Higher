@@ -45,6 +45,10 @@ No separate "open the company" step is needed.
   commitments become Operational (unlinked); resolved commitments
   keep their historical link. The card only appears when there's
   something to archive.
+  You can run this for your own company as a company admin, or for
+  any company in your caseload as a guide. It archives, it does not
+  delete, and the counts it reports back are what it actually
+  archived.
 
 ### System admins and portfolio admins only
 
