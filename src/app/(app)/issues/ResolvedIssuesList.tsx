@@ -1,10 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { deleteIssueAction } from "@/lib/issues/actions";
+import { useState } from "react";
 import { resolvedCommitmentCell } from "@/lib/issues/resolved-row";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { IssueWithCommitments } from "@/lib/issues/service";
 import type { Priority, Profile } from "@/lib/types";
 import { CommitmentRow } from "../commitments/CommitmentRow";
@@ -137,14 +134,14 @@ function ResolvedRow({
             reopen, so an affordance here would promise one. */}
         <span aria-hidden className={styles.issueResolvedMark}>✓</span>
 
-        {isAdmin ? (
-          <DeleteResolvedIssueButton
-            issueId={issue.id}
-            issueTitle={issue.title}
-          />
-        ) : (
-          <span aria-hidden className={styles.deletePlaceholder} />
-        )}
+        {/* No delete here. An issue is deletable while it is OPEN
+            and becomes a record once it is resolved: the commitments
+            under it are already counted in follow-through and the
+            weekly scorecard, so removing the issue leaves the
+            arithmetic standing with nothing to explain it. The
+            placeholder holds the column so both lists still line
+            up. */}
+        <span aria-hidden className={styles.deletePlaceholder} />
 
         {/* The disclosure. A CHEVRON, not a plus: on this page a
             filled circle holding a plus is the Add control on the
@@ -222,74 +219,5 @@ function ResolvedRow({
         ) : null}
       </article>
     </li>
-  );
-}
-
-// Same trash-icon shape as DeleteIssueButton on the open row.
-// Kept co-located because ResolvedIssuesList is a client component
-// already and a second file for the same 40-line pattern is noise.
-function DeleteResolvedIssueButton({
-  issueId,
-  issueTitle,
-}: {
-  issueId: string;
-  issueTitle: string;
-}) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function run() {
-    setConfirming(false);
-    setError(null);
-    startTransition(async () => {
-      const result = await deleteIssueAction(issueId);
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      router.refresh();
-    });
-  }
-
-  return (
-    <>
-      <button
-        type="button"
-        className={styles.deleteButton}
-        onClick={() => setConfirming(true)}
-        disabled={pending}
-        aria-label="Delete this issue"
-        title="Delete this issue"
-        tabIndex={0}
-      >
-        <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
-          <path
-            d="M4 5 h8 v8 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 z M6.5 5 V3.5 a1 1 0 0 1 1 -1 h1 a1 1 0 0 1 1 1 V5 M3 5 h10"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.4}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-      <ConfirmDialog
-        open={confirming}
-        title="Delete this resolved issue?"
-        message={`This can't be undone. "${issueTitle}" will be removed from history. Any linked commitments stay live but lose their issue linkage.`}
-        confirmLabel="Delete"
-        tone="danger"
-        onConfirm={run}
-        onCancel={() => setConfirming(false)}
-        pending={pending}
-      />
-      {error ? (
-        <p role="alert" className={styles.rowError}>
-          {error}
-        </p>
-      ) : null}
-    </>
   );
 }
