@@ -29,7 +29,7 @@ export default async function CoachMemoryPage() {
       backLabel="Ask Aimee"
       eyebrow="Coaching"
       title="What Aimee remembers"
-      subtitle="Everything she has noted from your conversations, newest first. Delete anything you want gone."
+      subtitle="Everything she has noted from your conversations, newest first."
     >
       {/* The promise, in the same words as the help content. It sits
           at the top rather than the bottom because it is the reason

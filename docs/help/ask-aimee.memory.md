@@ -12,6 +12,9 @@ transcript, and not everything — a handful of lines.
 This page is all of it. Newest first, dated, each one linked to the
 conversation it came from.
 
+Find it in the left sidebar under **Resources → Memory**, below Ask
+Aimee.
+
 ## The promise
 
 **What you tell Aimee stays between you and Aimee. No one else can

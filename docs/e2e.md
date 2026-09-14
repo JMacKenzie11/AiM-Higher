@@ -32,7 +32,7 @@ So, immediately after any refresh:
 
 ```bash
 npm run scrub:dev      # delete the OAuth credentials the copy brought with it
-npm run seed:e2e       # recreate the fixtures the copy destroyed
+npm run seed:e2e       # recreate the fixtures, and clear what earlier runs left
 ```
 
 **The scrub is not optional and it goes first.** A clone of production
@@ -205,7 +205,16 @@ pattern is written down:
 5. **Count the rows afterwards the first time you write one of these.**
    Not forever — but a hygiene safeguard nobody has ever seen fail is
    a safeguard nobody has tested.
-6. **Never against production.** The specs have no service key and the
+6. **A spec that creates CONVERSATIONS is litter too.** `seed:e2e`
+   now deletes the fixture users' coaching conversations before it
+   reseeds, because nothing else ever did: forty-odd threads had
+   accumulated on the fixture member's account in a single day of
+   work. Same gap as rule 3, one object along — cleanup that covers
+   what a spec was told to create and not what it produces. If you
+   add a spec that creates some other kind of row, ask which of those
+   two it is.
+
+7. **Never against production.** The specs have no service key and the
    app they drive resolves its database from the host; point them at
    the clone.
 

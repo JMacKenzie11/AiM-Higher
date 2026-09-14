@@ -247,22 +247,49 @@ describe("getCommitmentsPageData — bucketing", () => {
 });
 
 describe("getCommitmentsPageData — ordering", () => {
-  it("sorts the main list by owner name, then due date, unassigned last", async () => {
+  it("sorts the main list by DUE DATE, then owner, unassigned last", async () => {
+    // Due date leads. It used to group by owner and sort by date
+    // within each owner, which answers "what is Dana carrying" — a
+    // real question, and not the one this page is open for. The list
+    // people read on a Monday is a queue, and owner-grouping buried
+    // the most overdue row mid-list whenever its owner's name sorted
+    // late.
     seed("commitments:main", [
       commitment("bob_late", { owner_id: "u_bob", due_date: "2026-09-04" }),
-      commitment("unassigned", { owner_id: null }),
+      commitment("unassigned", { owner_id: null, due_date: "2026-09-04" }),
       commitment("ann_late", { owner_id: "u_ann", due_date: "2026-09-04" }),
-      commitment("ann_early", { owner_id: "u_ann", due_date: "2026-09-01" }),
+      commitment("bob_early", { owner_id: "u_bob", due_date: "2026-09-01" }),
     ]);
     const { getCommitmentsPageData } = await import("./service");
 
     const data = await getCommitmentsPageData("co_1", "u_ann", ALL);
 
     expect(data.mainList.map((c) => c.id)).toEqual([
-      "ann_early",
+      // Earliest due date first, regardless of whose it is.
+      "bob_early",
+      // Then the same-day rows, grouped by owner so a day still reads
+      // as a tidy block per person.
       "ann_late",
       "bob_late",
+      // Unassigned sinks within its day rather than to the very end.
       "unassigned",
+    ]);
+  });
+
+  it("puts an overdue commitment above a later one owned by someone earlier in the alphabet", async () => {
+    // The specific failure the old order produced: Ann's not-yet-due
+    // row outranked Bob's overdue one purely on name.
+    seed("commitments:main", [
+      commitment("ann_not_due_yet", { owner_id: "u_ann", due_date: "2026-09-10" }),
+      commitment("bob_overdue", { owner_id: "u_bob", due_date: "2026-08-20" }),
+    ]);
+    const { getCommitmentsPageData } = await import("./service");
+
+    const data = await getCommitmentsPageData("co_1", "u_ann", ALL);
+
+    expect(data.mainList.map((c) => c.id)).toEqual([
+      "bob_overdue",
+      "ann_not_due_yet",
     ]);
   });
 

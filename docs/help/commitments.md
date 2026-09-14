@@ -51,6 +51,17 @@ The header matches the Issues page so the two surfaces read as
 siblings. On narrow screens the row grid collapses to a stacked
 layout and the header hides.
 
+## The order things appear in
+
+**Soonest due first.** The live list reads as a queue: whatever is due
+earliest sits at the top, whether it is yours or someone else's, and
+anything overdue is above everything that is not. Commitments sharing
+a due date are grouped by person, so a given day still reads as a
+tidy block rather than a shuffle.
+
+Prior weeks are listed newest first, and the Parking lot sits at the
+bottom.
+
 ## How to filter the list
 
 **Status** narrows by where a commitment stands. **Type** splits the

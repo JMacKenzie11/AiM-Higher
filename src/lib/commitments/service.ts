@@ -565,10 +565,19 @@ export async function getCommitmentsPageData(
   );
 
   // Everything currently in play: past-week open (would've been "Needs
-  // Attention") plus this-week open + resolved. One list, sorted so
-  // commitments group by owner and, within each owner, sit in
-  // earliest-due-date-first order. Unassigned commitments fall to
-  // the end.
+  // Attention") plus this-week open + resolved.
+  //
+  // SORTED BY DUE DATE, earliest first. It used to group by owner and
+  // sort by date within each owner, which answers "what is Dana
+  // carrying" — a useful question, but not the one this page is open
+  // for. The list people read on a Monday is a queue, and a queue is
+  // ordered by when things are due. Owner-grouping also buried the
+  // most overdue row in the middle of the list whenever its owner's
+  // name sorted late.
+  //
+  // Owner is the tie-break, so a day's worth of commitments still
+  // reads as a tidy block per person rather than shuffling on every
+  // load.
   const mainList = filtered
     .filter(
       (c) =>
@@ -576,7 +585,7 @@ export async function getCommitmentsPageData(
         c.week_ending === thisFri
     )
     .map(enrich)
-    .sort(byOwnerThenDue);
+    .sort(byDueThenOwner);
 
   // Future rows: everything week_ending > thisFri. In practice these
   // are all open (a resolved row dated in the future would be
@@ -586,10 +595,9 @@ export async function getCommitmentsPageData(
   const futureList = filtered
     .filter((c) => c.week_ending > thisFri)
     .map(enrich)
-    .sort((a, b) => {
-      if (a.due_date !== b.due_date) return a.due_date < b.due_date ? -1 : 1;
-      return byOwnerThenDue(a, b);
-    });
+    // Same order as the main list above, and now literally the same
+    // comparator — this had the identical two lines written out.
+    .sort(byDueThenOwner);
 
   // Prior-week groups contain ONLY resolved rows by definition — open
   // rows in past weeks live in Needs Attention above.
@@ -660,6 +668,14 @@ async function loadOpenPriorityOptions(
     .eq("archived", false)
     .order("title");
   return (data ?? []) as Array<Pick<Priority, "id" | "title">>;
+}
+
+// Sort by earliest due date, then owner. The order the main list
+// reads in: a queue, oldest-due first, with each day's rows grouped
+// by person so the block is still scannable.
+function byDueThenOwner(a: CommitmentWithMeta, b: CommitmentWithMeta): number {
+  if (a.due_date !== b.due_date) return a.due_date < b.due_date ? -1 : 1;
+  return byOwnerThenDue(a, b);
 }
 
 // Sort by owner name, then earliest due date. Unassigned rows
