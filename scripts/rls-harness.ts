@@ -4920,6 +4920,41 @@ async function main(): Promise<void> {
   }
   if (batch) {
     const b = findBatch(batch) as Batch;
+
+    // A batch that creates tables has a lifespan. Its whole method is
+    // to apply its migration inside a transaction and measure the
+    // before/after pair; once the migration has landed for real, that
+    // application raises 42710 (policy already exists) and the batch
+    // reports a stack trace instead of a verdict.
+    //
+    // That is not a failure, it is the batch being spent. Say so, and
+    // point at what carries the claim forward — for coach_memories
+    // that is the permanent access-wall check, which runs on every
+    // invocation against whatever schema is actually deployed and is
+    // the reason a batch is allowed to expire at all.
+    if ((b.newTables ?? []).length > 0) {
+      const [landed] = await run<{ present: boolean }>(
+        `select count(*) > 0 as present from pg_tables
+          where schemaname = 'public'
+            and tablename in (${(b.newTables ?? [])
+              .map((t) => `'${t}'`)
+              .join(", ")});`
+      );
+      if (landed?.present) {
+        console.log(
+          `\n  Batch ${b.n} is SPENT: ${(b.newTables ?? []).join(", ")} already ` +
+            `exists on this database.\n` +
+            `  Its before/after pair needed a schema without the table, and there\n` +
+            `  is no longer one. The acceptance evidence it produced is in the PR\n` +
+            `  that landed supabase/migrations/${b.migration}.\n\n` +
+            `  What carries the claim forward is the permanent check above, which\n` +
+            `  runs on every invocation against the deployed schema. Re-run without\n` +
+            `  --batch to see it.\n`
+        );
+        return;
+      }
+    }
+
     console.log(
       `  Batch ${b.n}: ${b.tables.join(", ")}\n` +
         `  Measured with supabase/migrations/${b.migration} applied inside each\n` +
