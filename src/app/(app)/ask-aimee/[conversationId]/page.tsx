@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
-import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   getAccessForConversation,
   getConversation,
@@ -66,32 +65,35 @@ export default async function AskAimeeChatPage({
   // Access check: owner (created_by = me) or someone with a share
   // row. RLS already blocks the SELECT for anyone else, but explicit
   // check gives us the right UI branch (owner vs. write vs. read)
-  // and a friendly 404 instead of a silent empty state. Runs before
-  // the scope-align redirect so a non-participant guide/sysadmin
-  // gets a proper 404 rather than a scope bounce.
+  // and a friendly 404 instead of a silent empty state.
   const access = await getAccessForConversation(
     conversation.id,
     session.profile.id
   );
   if (access === null) notFound();
-  // Sysadmin/guide scope alignment: if the chat lives on a tenant
-  // that doesn't match the current cookie scope, bounce through
-  // the route handler so the cookie catches up before we render.
-  // Otherwise the share picker + agent gate would read against the
-  // wrong company (the bug that produced empty pickers on chats
-  // stamped under a since-switched-away-from tenant).
-  const currentScope = await getEffectiveCompanyId(session);
-  const role = session.profile.role;
-  if (
-    (role === "system_admin" || role === "aims_guide") &&
-    currentScope !== conversation.company_id
-  ) {
-    const next = `/ask-aimee/${conversation.id}`;
-    redirect(
-      `/api/coach/align-scope?conversation=${conversation.id}&next=${encodeURIComponent(next)}`
-    );
-  }
-
+  // THE CHAT'S OWN COMPANY, not the caller's ambient scope.
+  //
+  // This page used to redirect a sysadmin or guide through
+  // /api/coach/align-scope, a GET that rewrote their scope cookie so
+  // the ambient company would match the chat before rendering. Two
+  // things were wrong with that.
+  //
+  // It made a REQUEST change who the caller was acting as, which
+  // docs/product-spec.md says nothing does — an invariant added after
+  // a Link prefetch moved an operator into a company nobody chose.
+  // And it PERSISTED: reading one coaching conversation silently
+  // moved your scope to its tenant for the next eight hours, so the
+  // Dashboard link took you somewhere you had not asked to go.
+  //
+  // Neither was necessary. The share picker already derives its
+  // company from the conversation row
+  // (listShareCandidatesForConversation), and RLS never saw the
+  // cookie at all — auth_company_id() reads the caller's PROFILE.
+  // The only thing the alignment fed was the agent gate below, and
+  // passing the conversation's company to it is not a workaround for
+  // losing the cookie: it is the more correct argument. The question
+  // is "may this caller run this practice on THIS chat's company",
+  // and the chat's company is the answer whatever the cookie says.
   const messages = await getMessages(conversationId);
 
   // Build the sender lookup once, server-side, from the union of
@@ -119,15 +121,14 @@ export default async function AskAimeeChatPage({
   // caller. Role-gated at the page level so the modal never
   // shows a card the launch would reject. Only relevant when the
   // caller is the owner — sharees don't get to switch the agent.
-  // currentScope was resolved above for the scope-alignment guard;
-  // by this point it matches conversation.company_id for a sysadmin
-  // or guide (or the caller's own profile.company_id).
+  // Gated against the conversation's company, which is the company
+  // the practice would actually run against.
   const agentPickerPractices =
     access === "owner"
       ? PRACTICES.filter((p) => {
           if (!p.allowedRoles) return true;
-          if (!currentScope) return false;
-          return practiceRoleGate(p, session.profile, currentScope).ok;
+          return practiceRoleGate(p, session.profile, conversation.company_id)
+            .ok;
         })
       : null;
 

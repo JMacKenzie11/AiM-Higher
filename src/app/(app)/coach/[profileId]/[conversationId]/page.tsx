@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   getAccessForConversation,
   getConversation,
@@ -38,29 +37,25 @@ export default async function CoachChatPage({ params }: PageProps) {
   // Access check admits owner OR sharee. RLS also scopes SELECT, so
   // a non-participant would already have hit notFound() above via
   // getConversation returning null — this branch decides which UI
-  // state to render (write vs. read). Runs before the scope-align
-  // redirect so a non-participant gets a proper 404, not a bounce.
+  // state to render (write vs. read).
   const access = await getAccessForConversation(
     conversation.id,
     session.profile.id
   );
   if (access === null) notFound();
-  // Sysadmin/guide scope alignment (mirror of the /ask-aimee guard).
-  // A person-scoped chat still carries a company_id at the row level
-  // via the subject's tenant; bounce through the align-scope route
-  // so the cookie catches up before we render.
-  const currentScope = await getEffectiveCompanyId(session);
-  const role = session.profile.role;
-  if (
-    (role === "system_admin" || role === "aims_guide") &&
-    currentScope !== conversation.company_id
-  ) {
-    const next = `/coach/${profileId}/${conversation.id}`;
-    redirect(
-      `/api/coach/align-scope?conversation=${conversation.id}&next=${encodeURIComponent(next)}`
-    );
-  }
-
+  // No scope alignment, and nothing here needed one.
+  //
+  // This mirrored the /ask-aimee guard and bounced sysadmins and
+  // guides through /api/coach/align-scope so their scope cookie would
+  // match the chat's company before rendering. On this page the
+  // aligned value was then read by nothing at all: every query below
+  // takes the conversation, the subject profile, or an explicit id.
+  // The redirect existed to keep the two chat surfaces symmetrical,
+  // and what it actually did was move an operator's scope to another
+  // tenant for eight hours because they opened a conversation.
+  //
+  // See the note on the /ask-aimee page for why a request must not
+  // change who the caller is acting as.
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: subject } = await supabase
     .from("profiles")
