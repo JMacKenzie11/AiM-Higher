@@ -56,7 +56,8 @@ Eight disciplines, each 0–10:
   on their due dates (4 points each). Fresh plans with nothing past-date
   get full credit for the closure halves.
 - **Execution** — 30-day follow-through rate on commitments, minus aging
-  (open more than 14 days past due). Priority linkage is deliberately
+  (open more than 14 days past due). Deleted and parked commitments
+  don't count toward either half. Priority linkage is deliberately
   not scored.
 - **Success tracking** — every measure has a target, has been logged in
   the last 7 days, and auto-track measures aren't sitting empty. Only
@@ -99,6 +100,14 @@ climbing" from "high but sliding."
 
 **Why is my score different today than yesterday?** It's computed live.
 If ten commitments closed this morning, Execution moves this afternoon.
+
+**Why did Execution jump on 14 September 2026?** A fix, not a change
+in how anyone worked. Deleted commitments were being counted against
+the aging half of this tile and should never have been — deleting one
+is meant to take it out of every count. Four companies had been
+scoring lower than they'd earned. Earlier weeks keep the numbers they
+were recorded with rather than being rewritten, so the trend line
+steps up once on that date.
 The Sunday snapshot only backs the sparkline.
 
 **Why is a discipline sitting at "Not enabled"?** The company's feature

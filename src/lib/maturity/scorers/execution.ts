@@ -40,14 +40,55 @@ export async function scoreExecution(
       // matched nothing since migration 0139, which silently pinned
       // this company's follow-through rate to 0.
       .in("status", ["kept_on_time", "kept_late", "missed"])
+      // Soft-deleted and parked rows do not count, here or anywhere.
+      // See the note below the query pair.
+      .is("deleted_at", null)
+      .is("parked_at", null)
       .gte("week_ending", cutoffIso),
     admin
       .from("commitments")
       .select("due_date")
       .eq("company_id", companyId)
-      .eq("status", "open"),
+      .eq("status", "open")
+      .is("deleted_at", null)
+      .is("parked_at", null),
   ]);
 
+  // DELETED AND PARKED ROWS ARE EXCLUDED, as of 2026-09-14.
+  //
+  // They were not, and this was the only follow-through path in the
+  // product where that was true — `company_follow_through` (0174),
+  // `computeQuarterKeepRate` and the dashboard's quarter query all
+  // filter both. Deleting a commitment is supposed to remove it from
+  // every list, count and metric; here it went on costing the company
+  // 0.5 points a week forever, because the aging query below has no
+  // window for a row to age out of.
+  //
+  // MEASURED BEFORE IT WAS FIXED, on production 2026-09-14: 31
+  // soft-deleted commitments were being counted as aging across five
+  // companies, and one deleted row sat in a follow-through numerator.
+  // Four of eight companies were scoring BELOW what they had earned —
+  // Benson Seafood 7.5 where it should be 10.0, Geo-Sci 7.0 where it
+  // should be 10.0, Centre North 7.0 against 9.0, Howard Concrete 7.5
+  // against 9.0. Parked rows contributed nothing in practice: only
+  // two exist and neither was aging.
+  //
+  // FIXED FORWARD ONLY. The 34 stored execution snapshots, covering
+  // ten weeks from 2026-08-15, are LEFT AS THEY ARE. Recomputing them
+  // would rewrite numbers clients have already been shown; leaving
+  // them means the trend line steps up once, on the date this
+  // shipped, for a reason no client behaviour caused. That is a
+  // product decision, made deliberately, and the step is written down
+  // in docs/product-spec.md so nobody has to rediscover it.
+  //
+  // compareOverall restricts to disciplines both points scored, so
+  // the step cannot present as a false DROP on Guide HQ.
+  //
+  // STILL OPEN, and deliberately not fixed here: the open-commitments
+  // query has no date window at all, so a commitment from 2024 still
+  // costs 0.5 points today. Every other commitment read in the
+  // product is bounded. Narrowing it would move scores again and is
+  // its own decision.
   const resolved = (resolvedRes.data ?? []) as Array<{ status: string }>;
   const open = (openRes.data ?? []) as Array<{ due_date: string | null }>;
 
