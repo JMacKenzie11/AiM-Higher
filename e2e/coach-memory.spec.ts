@@ -242,7 +242,7 @@ test.describe("coach memory", () => {
 
     // ---- The page shows them ----------------------------------
     await page.goto("/ask-aimee/memory");
-    await expect(page.getByRole("heading", { name: /what aimee remembers/i }))
+    await expect(page.getByRole("heading", { name: /^Memory$/ }))
       .toBeVisible({ timeout: 30_000 });
     // The promise is on the page, in the same words as the help.
     await expect(page.getByText(/stays between you and Aimee/i)).toBeVisible();

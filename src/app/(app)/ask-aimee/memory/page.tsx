@@ -4,7 +4,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { MemoryList } from "./MemoryList";
 import styles from "./memory.module.css";
 
-// "What Aimee remembers" — the trust surface.
+// Memory — the trust surface.
 //
 // EVERY USER, ABOUT THEMSELVES ONLY. There is no route parameter for
 // whose memory to show and no role branch anywhere on this page:
@@ -17,7 +17,7 @@ import styles from "./memory.module.css";
 // No export. No share. No admin view. Those are not omissions to fill
 // in later: a page that could hand somebody's memory to a second
 // person would undo the thing this page exists to demonstrate.
-export const metadata = { title: "What Aimee remembers" };
+export const metadata = { title: "Memory" };
 
 export default async function CoachMemoryPage() {
   await requireProfile();
@@ -28,8 +28,8 @@ export default async function CoachMemoryPage() {
       backHref="/ask-aimee"
       backLabel="Ask Aimee"
       eyebrow="Coaching"
-      title="What Aimee remembers"
-      subtitle="Everything she has noted from your conversations, newest first."
+      title="Memory"
+      subtitle="Everything Aimee has noted from your conversations, newest first."
     >
       {/* The promise, in the same words as the help content. It sits
           at the top rather than the bottom because it is the reason
