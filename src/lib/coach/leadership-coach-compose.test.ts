@@ -19,13 +19,20 @@ import path from "node:path";
 // output) so voice/tone edits stay a deliberate act, not a drive-
 // by.
 
-// Regenerated 2026-09-14 for the tier-one history work: the prompt
+// Regenerated 2026-09-14 (twice): first for the tier-one history
+// work, then for coach memory part 2, which added a "What you
+// remember" section carrying the recall-framing rules and their
+// worked examples. Both were deliberate edits to the coaching spine,
+// which is exactly what this guard is here to make somebody say out
+// loud.
+//
+// Original note, for the tier-one history work: the prompt
 // gained a "Claims about the past" section carrying the provenance
 // rule and its worked examples. A deliberate edit to the coaching
 // spine, which is exactly the kind of change this guard is here to
 // make somebody say out loud.
 const LEADERSHIP_COACH_BASE_SHA =
-  "89abcd10cf4064eaf06a9a38d4feae4818e9f48aad5c7f9de0afd3254767381d";
+  "229be6ec14fc8ecd6c347ccccc44d4ed8fe2b334d8367ba52cc0c70372ec2787";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {

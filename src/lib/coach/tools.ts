@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { buildHistoryTools } from "./history-tools";
+import { makeMemoryLookupTool } from "./memory-tool";
 
 // Coach tools — factory pattern. Every tool is a closure over the
 // conversation's subject + company, so the model can never supply
@@ -68,6 +69,15 @@ export async function buildCoachTools(args: {
   // general ("Ask Aimee") conversations; the person scope inside
   // commitment_history is offered only when there is a subject, and
   // the tool's own schema drops the enum value when there is not.
+  // Recall. General mode only: memory is written for the person
+  // talking, and an about-mode conversation is a leader discussing
+  // somebody else — recalling the leader's own memory into it would
+  // be answering a question nobody asked with material from a
+  // different relationship.
+  if (!args.subjectProfileId) {
+    tools.push(makeMemoryLookupTool());
+  }
+
   tools.push(
     ...buildHistoryTools({
       subjectProfileId: args.subjectProfileId,

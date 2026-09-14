@@ -1,3 +1,8 @@
+import {
+  selectForContext,
+  formatMemoryBlock,
+  type StoredMemory,
+} from "./memory-shape";
 import { compareToOwnBaseline, themesFrom } from "./history-shape";
 import "server-only";
 
@@ -63,6 +68,13 @@ export type CoachContextInput = {
 
 export type CoachContextBlocks = {
   companyContext: string;
+  // What the coach remembers about the PARTICIPANT from previous
+  // general-mode conversations. Null when there is nothing to recall,
+  // or in about mode — memory belongs to the person talking, and a
+  // leader's memory has no business in a conversation about somebody
+  // else. Recency-weighted and capped; older memories fall out of
+  // this block and stay reachable through memory_lookup.
+  memoryContext: string | null;
   // Null in general mode (except for practices, which load the
   // participant's own person_context so the coach can ground its
   // guidance in the participant's actual role and history).
@@ -142,6 +154,14 @@ export async function buildCoachContext(
 
   const mode: "about" | "general" = input.subjectProfileId ? "about" : "general";
 
+  // Read-before. General mode only, and about the participant, never
+  // the subject: memory is written for whoever is talking, so that is
+  // the only person it can honestly be recalled to.
+  const memoryContext =
+    mode === "general"
+      ? await loadMemoryContext(supabase, input.currentAdminProfileId, todayIso)
+      : null;
+
   if (!subjectBundle) {
     // Vanilla general mode — Ask Aimee. No subject; no person,
     // keep-rate, or strengths context. The coach relies on what the
@@ -157,6 +177,7 @@ export async function buildCoachContext(
     ].join("\n");
     return {
       companyContext,
+      memoryContext,
       personContext: null,
       partnerContext: null,
       strengthsContext: null,
@@ -231,6 +252,7 @@ export async function buildCoachContext(
 
   return {
     companyContext,
+    memoryContext,
     personContext,
     partnerContext,
     // Strengths for a practice session would leak the participant's
@@ -383,6 +405,32 @@ async function loadSubjectOpenIssues(
     // issue_casefiles returns the thread when the conversation wants it.
     attempts: counts.get(i.id) ?? 0,
   }));
+}
+
+// Read-before: the participant's own recent memory.
+//
+// RLS does the work — coach_memories admits `profile_id = auth.uid()`
+// and nothing else, so this query CANNOT return another person's rows
+// however it is called. The explicit eq() is belt-and-braces and a
+// statement of intent, not the boundary.
+async function loadMemoryContext(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  participantProfileId: string,
+  todayIso: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("coach_memories")
+    .select("id, kind, content, created_at")
+    .eq("profile_id", participantProfileId)
+    .order("created_at", { ascending: false })
+    // A generous read, narrowed in memory by selectForContext. The
+    // window and the cap are a context budget, not a privacy control;
+    // the privacy control is the policy.
+    .limit(60);
+  const rows = (data ?? []) as StoredMemory[];
+  const picked = selectForContext(rows, `${todayIso}T12:00:00Z`);
+  const block = formatMemoryBlock(picked, `${todayIso}T12:00:00Z`);
+  return block === "" ? null : block;
 }
 
 // Emit the subject's strengths context — combines two sources:

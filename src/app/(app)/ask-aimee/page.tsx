@@ -8,6 +8,7 @@ import {
 import { PageShell } from "@/components/ui/PageShell";
 import { findPractice } from "@/lib/practices/registry";
 import { AskAimeeNewButton } from "./AskAimeeNewButton";
+import { MemorySweep } from "./MemorySweep";
 import { ArchiveConversationButton } from "../coach/[profileId]/ArchiveConversationButton";
 import styles from "../coach/coach.module.css";
 
@@ -43,6 +44,9 @@ export default async function AskAimeePage() {
       title="Ask Aimee"
       subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Conversations are private to you by default; you can invite specific people from your company as collaborators, and pick a guided agent from inside any chat."
     >
+      {/* Entering the surface with nothing open: every finished
+          conversation is a candidate. */}
+      <MemorySweep openConversationId={null} />
       <div className={styles.card}>
         <div className={styles.listActions}>
           <h2

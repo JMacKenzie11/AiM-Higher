@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { formatPersonContext } from "./context";
+import {
+  formatMemoryBlock,
+  selectForContext,
+  CONTEXT_MEMORY_LIMIT,
+  type StoredMemory,
+} from "./memory-shape";
 
 // CONTEXT COST BUDGET, enforced rather than measured once.
 //
@@ -161,5 +167,100 @@ describe("widened person block stays inside its context budget", () => {
     });
     expect(thin).toContain("not enough history to compare");
     expect(thin).toContain("Do not infer a trend");
+  });
+});
+
+
+// ---- Coach memory block --------------------------------------
+//
+// Same budget discipline as the person block above, for the same
+// reason: this rides in every turn of every general-mode
+// conversation, so anything added is paid for on every message
+// forever.
+//
+// Measured against the person block, which is the block it sits
+// beside and a fair comparator for "is this a reasonable share of
+// context". The ceiling is the same 15%.
+const memoryAt = (days: number, content: string): StoredMemory => ({
+  id: `m${days}`,
+  kind: days % 2 === 0 ? "said" : "inferred",
+  content,
+  created_at: new Date(
+    Date.parse("2026-11-18T12:00:00Z") - days * 86_400_000
+  ).toISOString(),
+});
+
+// A person a few months into using the coach: more memories than the
+// block will show, so the cap is doing real work.
+const REALISTIC_MEMORIES: StoredMemory[] = [
+  memoryAt(2, "Wants to hand the Thursday dispatch run to Marcus before the quarter closes"),
+  memoryAt(4, "Finds the weekly leadership meeting frustrating and has for months"),
+  memoryAt(9, "Is weighing whether Dana is ready to lead the second crew"),
+  memoryAt(12, "Leaves the hard conversations until the end of the week"),
+  memoryAt(16, "Decided to keep vendor consolidation in-house rather than bring in a consultant"),
+  memoryAt(21, "Tried a written agenda for the ops meeting and it did not stick"),
+  memoryAt(28, "Wants to cut travel substantially next quarter"),
+  memoryAt(35, "Doubts the second ops hire was the right call"),
+  memoryAt(44, "Plans to restructure dispatch under one manager by Q1"),
+  memoryAt(52, "Keeps meaning to write the onboarding checklist and has not"),
+  memoryAt(70, "Said the escalation path is the thing that wakes him up at night"),
+  memoryAt(88, "Promoted Priya and thinks it went better than expected"),
+  memoryAt(110, "Has been trying to run fewer, longer one-to-ones"),
+  memoryAt(140, "Older than the window; must not appear in the default block"),
+  memoryAt(200, "Much older; reachable by memory_lookup, not free in context"),
+];
+
+describe("coach memory block stays inside its context budget", () => {
+  const NOW = "2026-11-18T12:00:00Z";
+  const picked = selectForContext(REALISTIC_MEMORIES, NOW);
+  const block = formatMemoryBlock(picked, NOW);
+
+  it("costs less than 15% of context assembly", async () => {
+    // AGAINST ASSEMBLY, not against the person block.
+    //
+    // The person block's gate compares a widening to the thing it
+    // widened, which is the right question there. This is a NEW
+    // block, so the question is what share of the whole it takes —
+    // and the honest denominator is the fixed cost every turn already
+    // pays: the composed system prompt plus the person block.
+    //
+    // Reported both ways, because the smaller number is the one a
+    // favourable denominator would be hiding behind.
+    const { promises: fs } = await import("node:fs");
+    const path = (await import("node:path")).default;
+    const root = process.cwd();
+    const [remainder, voice] = await Promise.all([
+      fs.readFile(path.join(root, "prompts", "leadership-coach.md"), "utf8"),
+      fs.readFile(path.join(root, "prompts", "aims-voice.md"), "utf8"),
+    ]);
+    const systemPrompt = remainder.replace("{{AIMS_VOICE}}", voice);
+    const assembly = tokens(systemPrompt) + tokens(after);
+    const pctAssembly = (tokens(block) / assembly) * 100;
+    const pctPerson = (tokens(block) / tokens(after)) * 100;
+
+    console.info(
+      `memory block: ${block.length} chars (~${tokens(block)} tok), ` +
+        `${picked.length} of ${REALISTIC_MEMORIES.length} memories; ` +
+        `${pctAssembly.toFixed(1)}% of assembly (~${assembly} tok), ` +
+        `${pctPerson.toFixed(1)}% of the person block alone`
+    );
+    expect(pctAssembly).toBeLessThan(15);
+  });
+
+  it("caps the count and drops what is past the window", () => {
+    expect(picked.length).toBeLessThanOrEqual(CONTEXT_MEMORY_LIMIT);
+    expect(block).not.toContain("Older than the window");
+    expect(block).not.toContain("Much older");
+  });
+
+  it("carries the kind label, which the provenance rules turn on", () => {
+    // A memory whose kind is lost is a memory the coach cannot know
+    // whether to quote or to offer tentatively.
+    expect(block).toContain("[said]");
+    expect(block).toContain("[inferred]");
+  });
+
+  it("costs nothing at all for someone with no memory", () => {
+    expect(formatMemoryBlock(selectForContext([], NOW), NOW)).toBe("");
   });
 });

@@ -12,6 +12,7 @@ import { practiceRoleGate } from "@/lib/practices/gate";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 import { ShareChatButton } from "./ShareChatButton";
+import { MemorySweep } from "../MemorySweep";
 
 type PageProps = {
   params: Promise<{ conversationId: string }>;
@@ -140,6 +141,10 @@ export default async function AskAimeeChatPage({
       eyebrow="Coaching"
       title={practice ? practice.title : "Ask Aimee"}
     >
+      {/* Opening one conversation summarizes the OTHERS. The one in
+          front of the person is never distilled while they are in it:
+          the thought is not finished until they move on. */}
+      <MemorySweep openConversationId={conversation.id} />
       <ChatView
         conversation={conversation}
         subjectName={null}
