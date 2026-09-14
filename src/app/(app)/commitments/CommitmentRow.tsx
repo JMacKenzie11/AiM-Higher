@@ -629,6 +629,20 @@ export function CommitmentRow({
                 </span>
               )
             ) : null}
+            {/* From issue. Same chip, same placement, same shape as
+                From meeting below it. Everyone gets the link — unlike
+                a meeting analysis, the issues page is company-wide
+                and a team member can already read it. There is no
+                issue detail page, so it anchors the row. */}
+            {commitment.issue ? (
+              <Link
+                href={`/issues#issue-${commitment.issue.id}`}
+                className={styles.fromMeetingChip}
+                title={`From the issue "${commitment.issue.title}" — click to open it`}
+              >
+                From issue
+              </Link>
+            ) : null}
             {commitment.source_meeting_id ? (
               isAdmin ? (
                 <Link

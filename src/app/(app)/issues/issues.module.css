@@ -84,6 +84,10 @@
 
 /* ---- One issue = one row (matches .columnHeader grid) ------- */
 .issueRow {
+  /* Room above the row when arrived at via #issue-<id> from the
+     commitments page, so the anchor does not land it flush under the
+     sticky header. */
+  scroll-margin-top: 96px;
   display: grid;
   /* clarity | drag | issue | what we want | commitment
      | assigned to | due date | delete | resolve. Clarity sits

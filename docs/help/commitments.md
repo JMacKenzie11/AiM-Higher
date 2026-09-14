@@ -115,10 +115,18 @@ stated in the meeting, the extracted commitment defaults to
 **meeting date + 7 days**. Auto-creation depends on the
 *Automated Commitment Tracking* company feature.
 
-**Where are my issue-linked commitments?** Not here — those live
-on `/issues` (Workspace → Issues/Solutions) alongside the issue
-they're moving forward. They still show on personal surfaces
-(your Guide HQ *My commitments*, your scorecard).
+**What does the *From issue* tag mean?** That commitment was made
+against an issue on Issues/Solutions. Click the tag to open that
+issue and see the whole thread of commitments on it. These used to
+be hidden from this page and are not any more: they always counted
+toward follow-through and the scorecard, so leaving them off the
+list you actually read meant being measured on work you could not
+see here.
+
+**Why is a *From issue* commitment filed under Operational?** The
+Operational filter means "no priority attached", not "no link at
+all". Commitments tied to a functional area sit there for the same
+reason.
 
 **Is a delete recoverable?** Not through the UI. Deletes are soft
 (the row is hidden from every list and metric), but there's no
