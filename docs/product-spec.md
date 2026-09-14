@@ -472,6 +472,8 @@ Sharing is an overlay on ownership, added in migration 0150. It lets the owner o
 
 ---
 
+**Memory sweep selection.** On entry to a coaching surface the sweep looks at the **50** most recently updated general-mode conversations belonging to the caller, and spends a model call on at most **3** of them. Looking and summarizing are deliberately different numbers. A conversation with fewer than 2 user turns is never summarized, and an empty one cannot be watermarked at all because it has no message timestamp to mark, so the window has to range past any run of unusable rows. Sizing the window to the per-run cap deadlocked production on 2026-09-14: three empty threads sat at the head of the queue, every sweep examined those three and returned nothing, and 48 conversations produced zero memories for as long as the feature had been live. `about` mode produces no memory at all (see Section 13).
+
 ## 14. Ask Aimee (Personal Reflection AI)
 
 Top-level nav item, always visible to any active member.

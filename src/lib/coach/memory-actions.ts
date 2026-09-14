@@ -10,7 +10,9 @@ import { reportError } from "@/lib/observability/report";
 import {
   applyNeverWrittenFilter,
   parseMemoryResponse,
+  selectSweepCandidates,
   MAX_MEMORIES_PER_CONVERSATION,
+  SWEEP_CANDIDATE_WINDOW,
 } from "./memory-shape";
 
 // Coach memory, the write-after half.
@@ -87,7 +89,11 @@ export async function summarizeFinishedConversationsAction(
     .eq("created_by", session.profile.id)
     .eq("mode", "general")
     .order("updated_at", { ascending: false })
-    .limit(MAX_PER_RUN + 1);
+    // How far we LOOK. Deliberately not MAX_PER_RUN: a run of empty
+    // conversations at the head used to wall off everything behind
+    // them, because a skipped conversation consumed a slot and was
+    // never watermarked. See selectSweepCandidates.
+    .limit(SWEEP_CANDIDATE_WINDOW);
   if (openConversationId) query = query.neq("id", openConversationId);
 
   const { data: convoRows, error: candidateError } = await query;
@@ -141,12 +147,33 @@ export async function summarizeFinishedConversationsAction(
   let written = 0;
   let dropped = 0;
 
-  for (const convo of candidates.slice(0, MAX_PER_RUN)) {
+  // User-turn counts for the whole window in ONE query, so that
+  // looking past unusable conversations costs a single round trip
+  // rather than one per candidate.
+  const { data: turnRows, error: turnError } = await supabase
+    .from("coaching_messages")
+    .select("conversation_id")
+    .in("conversation_id", candidates.map((c) => c.id))
+    .eq("role", "user");
+  if (turnError) {
+    reportError("coach.memory.turn_counts", turnError, {
+      profileId: session.profile.id,
+    });
+  }
+  const userTurns = new Map<string, number>();
+  for (const row of (turnRows ?? []) as Array<{ conversation_id: string }>) {
+    userTurns.set(row.conversation_id, (userTurns.get(row.conversation_id) ?? 0) + 1);
+  }
+
+  const selected = selectSweepCandidates({
+    candidates,
+    userTurns,
+    maxPerRun: MAX_PER_RUN,
+    minUserTurns: MIN_USER_TURNS,
+  });
+
+  for (const convo of selected) {
     const since = convo.memory_summarized_through;
-    // Nothing new since the last summary. Top-up semantics: resuming
-    // a summarized thread and continuing produces another memory on
-    // the next entry, not a duplicate of the first.
-    if (since && convo.updated_at <= since) continue;
 
     let messageQuery = supabase
       .from("coaching_messages")
@@ -162,12 +189,16 @@ export async function summarizeFinishedConversationsAction(
       content: string;
       created_at: string;
     }>;
+    // Nothing new to read. updated_at can move without a message
+    // arriving, and selection works from whole-conversation turn
+    // counts, so this is the one case it cannot rule out. Sending an
+    // empty transcript to the model would spend a call to summarize
+    // nothing.
+    if (messages.length === 0) continue;
+
     // The high-water mark this pass will claim: the last message
     // actually read, not the moment the write happens.
     const readThrough = messages[messages.length - 1]?.created_at ?? null;
-    const userTurns = messages.filter((m) => m.role === "user").length;
-    if (userTurns < MIN_USER_TURNS) continue;
-
     const transcript = messages
       .map((m) => `${m.role === "user" ? "Person" : "Coach"}: ${m.content}`)
       .join("\n\n");
