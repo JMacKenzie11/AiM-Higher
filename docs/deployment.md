@@ -547,7 +547,33 @@ stands between a migration and production does not.
    current, which it is.
 9. **Fleet apply:** `npm run migrate:instances`. Only reached because
    dev took the same migrations cleanly a moment ago.
-10. Check `www.aims-hq.com` and `aims-hq.com` both load, and that a cron
+10. **Verify the fleet:** `npm run verify:fleet`. Reads the applied
+    migration ledger back out of every active instance and compares it
+    to `supabase/migrations`. Read-only — the single statement it
+    issues is a `select` against
+    `supabase_migrations.schema_migrations`, and it holds no writable
+    client.
+
+    This is not the same evidence step 9 gives you. `migrate:instances`
+    reports what its RUN did; this reports what the FLEET IS. They
+    differ on exactly the days it is hardest to notice: an instance the
+    run never reached, a registry row added between the apply and now,
+    or a push that reported success against a database that did not
+    keep it.
+
+    **It exits non-zero if any instance is behind OR unreachable.** An
+    unreachable instance is not a pass with a caveat — it is the case
+    the step exists to catch, because "all good" for the instances that
+    answered is how the one that did not ends up as the only database
+    still behind with nothing saying so. Suspended instances are passed
+    over, the same ones `migrate:instances` skips.
+
+    Named `verify:fleet`, not `verify:instances`, because the
+    provisioning CLI already has a step called `verify-instance` that
+    does something else entirely — it polls a newly created subdomain
+    until it serves the sign-in page.
+
+11. Check `www.aims-hq.com` and `aims-hq.com` both load, and that a cron
     route is not returning the not-found page. If the release carried a
     migration, exercise the surface it touched rather than only the
     front door.

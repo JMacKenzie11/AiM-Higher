@@ -79,6 +79,55 @@ describe("scoreExecution", () => {
     }
   });
 
+  it("bounds the open query with the 90-day floor in the QUERY", async () => {
+    const { client, filters } = fakeAdmin({ resolved: [], open: [] });
+
+    await scoreExecution(client, "co_1");
+
+    // Same reason as the deleted/parked assertion above: filtering in
+    // Node would pass a behavioural test and still pull every open
+    // commitment the company has ever had over the wire.
+    const openQuery = filters.find((f) =>
+      f.some((x) => x === "select:due_date")
+    );
+    expect(openQuery).toBeDefined();
+    expect(openQuery).toContain("gte:due_date");
+  });
+
+  it("stops counting an open commitment once it is past the floor", async () => {
+    // A 2024 commitment cost 0.5 points forever. The resolved side has
+    // always used a 30-day window, so the score claimed to reflect the
+    // recent past while the aging half reached back indefinitely.
+    const { client } = fakeAdmin({
+      resolved: [{ status: "kept_on_time" }],
+      open: [{ due_date: daysAgo(400) }],
+    });
+
+    // The floor lives in the query, so the fake returns the row and
+    // the scorer must still not count it: the in-memory aging test
+    // only looks at rows the query let through, and a row this old
+    // would not be among them. Asserted through the breakdown so the
+    // intent is legible rather than inferred from a score.
+    const result = await scoreExecution(client, "co_1");
+    expect(result.breakdown.agingFloorDays).toBe(90);
+  });
+
+  it("still counts a commitment 45 days overdue", async () => {
+    // Guards the window choice. Matching the resolved side's 30 days
+    // would have left a 16-day band, so this row would stop counting
+    // while a 20-day-overdue one still did — worse debt scoring
+    // better.
+    const { client } = fakeAdmin({
+      resolved: [{ status: "kept_on_time" }],
+      open: [{ due_date: daysAgo(45) }],
+    });
+
+    const result = await scoreExecution(client, "co_1");
+    expect(result.breakdown.agingCount).toBe(1);
+    // 7 for a perfect rate, 3 - 0.5 for the one aging row.
+    expect(result.score).toBe(9.5);
+  });
+
   it("scores a clean sheet at full marks", async () => {
     const { client } = fakeAdmin({
       resolved: [{ status: "kept_on_time" }, { status: "kept_on_time" }],
