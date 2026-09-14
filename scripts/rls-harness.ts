@@ -347,6 +347,68 @@ async function hazard1(run: Runner, ids: Identities): Promise<CaseResult> {
   };
 }
 
+// The coach's tier-one history tools read the shared organizational
+// record through the CALLER'S client, so their visibility is whatever
+// RLS already grants that person. They ship no policy of their own
+// and widen nothing — which is a claim, and this is the probe.
+//
+// The claim under test is the one that would matter if it were false:
+// an ordinary team member's coach must not be able to read another
+// COMPANY'S commitment history. Same-company visibility is existing
+// product behaviour, so it is REPORTED rather than asserted — pinning
+// a number here would freeze a decision this feature did not make.
+//
+// The canary is a scratch table carrying both companies' rows behind
+// the mistake this would be if somebody wrote the tool as a service-
+// role read: a policy that admits any authenticated caller. If that
+// side ever stops leaking, the case is broken and its green means
+// nothing.
+async function coachHistoryReads(
+  run: Runner,
+  ids: Identities
+): Promise<CaseResult> {
+  const sql = asCaller(
+    ids.member,
+    `
+create table _rls_wrong (id int primary key, company_id uuid);
+insert into _rls_wrong values (1, '${ids.memberCompany}'), (2, '${ids.otherCompany}');
+alter table _rls_wrong enable row level security;
+create policy p on _rls_wrong for select to authenticated using (true);
+grant select on _rls_wrong to authenticated;`,
+    `select
+       (select count(*) from _rls_wrong where company_id = '${ids.otherCompany}')::int as wrong,
+       (select count(*) from public.commitments
+          where company_id = '${ids.otherCompany}')::int as right_,
+       (select count(*) from public.commitments
+          where company_id = '${ids.memberCompany}')::int as own,
+       (select count(*) from public.issues
+          where company_id = '${ids.otherCompany}')::int as issues_other,
+       (select count(*) from public.company_discipline_snapshots
+          where company_id = '${ids.otherCompany}')::int as snapshots_other;`
+  );
+  const [row] = await run<{
+    wrong: number;
+    right_: number;
+    own: number;
+    issues_other: number;
+    snapshots_other: number;
+  }>(sql);
+  const leaked =
+    (row?.right_ ?? 0) + (row?.issues_other ?? 0) + (row?.snapshots_other ?? 0);
+  return {
+    name: "coach-history-reads",
+    hazard:
+      "A history tool reading as service role would return every company's record to every caller",
+    wrong: `admit-all policy returned ${row?.wrong ?? "?"} of the other company's rows`,
+    right: `commitments ${row?.right_ ?? "?"}, issues ${row?.issues_other ?? "?"}, snapshots ${row?.snapshots_other ?? "?"} for the other company`,
+    ok: (row?.wrong ?? 0) > 0 && leaked === 0,
+    detail:
+      leaked === 0
+        ? `Member sees nothing of the other company across all three tables the history tools read. Own-company commitments visible to this member: ${row?.own ?? "?"} (reported, not asserted — existing product visibility, unchanged by this feature).`
+        : `LEAK: ${leaked} row(s) of another company were visible to an ordinary member.`,
+  };
+}
+
 async function hazard2(run: Runner, ids: Identities): Promise<CaseResult> {
   // With no profile row auth_profile() returns zero rows, so EXISTS is
   // false but a scalar subquery is NULL. A bare USING (NULL) denies,
@@ -4388,6 +4450,7 @@ async function main(): Promise<void> {
     ["hazard-1", hazard1],
     ["hazard-2", hazard2],
     ["hazard-3", hazard3],
+    ["coach-history-reads", coachHistoryReads],
   ] as const;
 
   const results: CaseResult[] = [];

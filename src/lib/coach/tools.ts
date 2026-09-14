@@ -4,6 +4,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { buildHistoryTools } from "./history-tools";
 
 // Coach tools — factory pattern. Every tool is a closure over the
 // conversation's subject + company, so the model can never supply
@@ -46,6 +47,33 @@ export async function buildCoachTools(args: {
   if (await companyHasFeature(args.companyId, "classroom")) {
     tools.push(makeSearchClassroomTool());
   }
+
+  // History tools — the accumulated organizational record.
+  //
+  // SCOPE BOUNDARY. These read the SHARED ORGANIZATIONAL RECORD only:
+  // commitments and occurrences, scorecard snapshots, issues and
+  // their commitment threads, the planning cascade, measures.
+  //
+  // NOTHING registered here reads `coaching_conversations`,
+  // `coaching_messages`, or anything derived from a conversation.
+  // That is deliberate and it is not a gap for the next tool to fill
+  // on its way past. Whether the coach may read what was said in
+  // earlier coaching sessions carries consent, confidentiality and
+  // mode-boundary consequences — a leader in "about" mode must not be
+  // handed what a team member said in "self" mode — and it is tier
+  // two's design question. A conversation-reading tool added here
+  // would answer that question by accident.
+  //
+  // Registered in both modes. Company-scoped history is useful in
+  // general ("Ask Aimee") conversations; the person scope inside
+  // commitment_history is offered only when there is a subject, and
+  // the tool's own schema drops the enum value when there is not.
+  tools.push(
+    ...buildHistoryTools({
+      subjectProfileId: args.subjectProfileId,
+      companyId: args.companyId,
+    })
+  );
   return tools;
 }
 
