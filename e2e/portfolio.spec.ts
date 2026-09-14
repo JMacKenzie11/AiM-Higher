@@ -4,6 +4,7 @@ import {
   openUserMenu,
   signIn,
   scopeCookie,
+  scopedCompanyId,
   users,
 } from "./fixtures";
 
@@ -59,7 +60,11 @@ test.describe("portfolio_admin", () => {
     await control.click();
 
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
-    expect(await scopeCookie(page)).toBe(companyId);
+    // scopedCompanyId, not scopeCookie: the cookie is
+    // `<profileId>:<companyId>` since the binding landed, so comparing
+    // the raw value to a company id would fail for a reason that has
+    // nothing to do with this page.
+    expect(await scopedCompanyId(page)).toBe(companyId);
     await expect(page.getByTestId("context-pill")).toBeVisible();
 
     // READ-ONLY IS THE CLAIM. Every content surface computes its edit
