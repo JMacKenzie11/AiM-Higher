@@ -432,37 +432,11 @@
    promotion) so the two lists behave identically when you scan
    for the trash affordance. */
 .deleteButton {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-faint);
-  padding: 0;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
+  composes: iconActionDanger from "../../../components/ui/ui.module.css";
 }
 
-.deleteButton:hover:not(:disabled) {
-  color: var(--aims-danger);
-  background: var(--aims-danger-tint);
-  border-color: color-mix(in srgb, var(--aims-danger) 30%, transparent);
-}
 
-.deleteButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
-}
 
-.deleteButton:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
 
 .deletePlaceholder {
   display: inline-block;

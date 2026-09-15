@@ -427,6 +427,8 @@ Feature-gated (`meeting_facilitation_review`) opt-in second LLM pass on every in
 
 ---
 
+**Row action icons are one object (2026-09-15).** The edit pencil and the delete bin share a single definition, `iconAction` / `iconActionDanger` in `components/ui/ui.module.css`, composed by every surface that has them: memory, commitments, issues, the org chart and critical success factors. Six near-identical copies existed before, one per page, already drifting on size (26px vs 28px), resting colour (`--text-faint` vs `--text-muted`) and whether they had a focus ring at all. **Blue at rest**, by the product owner's decision, rather than the grey-until-hover convention the copies used: an action a person is meant to use should look like one before they go looking for it. Danger stays a hover state rather than a resting colour, because a row of red bins reads as a warning about the rows while red on approach reads as a warning about the click. The measures rows also swapped a text "Edit" button for the pencil, so a word and a glyph are no longer doing the same job two columns apart.
+
 **Draft rows commit with a button (2026-09-15).** Five surfaces used to commit an inline draft row on Enter alone, with no visible control, and said so in placeholder text: critical success factors, KPIs, responsibilities, decision rights and competencies. Instruction text was doing a button's job, and the behaviour was discoverable only by being told. All five now carry `components/ui/AddRowButton` — the house primary at small size, on the same row as the field it commits, never wrapping beneath it. Enter still submits, so nothing that worked before stopped working. One component rather than five buttons, so the five cannot drift apart again.
 
 ## 13. Coaching Module (AI)

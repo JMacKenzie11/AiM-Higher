@@ -192,10 +192,23 @@ export function ManagedMeasureRow({
           <>
           <button
             type="button"
-            className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
+            className={styles.iconEditButton}
             onClick={() => setEditing(true)}
+            aria-label={
+              kind === "kpi" ? "Edit this KPI" : "Edit this critical success factor"
+            }
+            title="Edit"
           >
-            Edit
+            <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+              <path
+                d="M11.5 2.5 a1.4 1.4 0 0 1 2 2 L6 12 L3 13 L4 10 z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
           {kind === "kpi" ? (
             <ArchiveMeasureButton measureId={measure.id} />

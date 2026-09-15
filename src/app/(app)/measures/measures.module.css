@@ -660,22 +660,24 @@
   white-space: nowrap;
 }
 
-.iconDeleteButton {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-  padding: 2px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
+/* The edit pencil, sibling to .iconDeleteButton below and sharing its
+ * shape: transparent and muted at rest, coloured by intent on hover.
+ *
+ * It replaced a ghost button reading "Edit", which sat beside a bin
+ * GLYPH in the same cell — a word and a picture doing the same class
+ * of job, two columns apart. The memory table settled this pattern
+ * first: both are glyphs, and hover colour is what distinguishes the
+ * reversible one from the one that is not. */
+.iconEditButton {
+  composes: iconAction from "../../../components/ui/ui.module.css";
 }
 
-.iconDeleteButton:hover {
-  color: var(--aims-danger);
-  border-color: color-mix(in srgb, var(--aims-danger) 25%, transparent);
-  background: var(--aims-danger-tint);
+
+
+.iconDeleteButton {
+  composes: iconActionDanger from "../../../components/ui/ui.module.css";
 }
+
 
 .rowError {
   flex: 1 0 100%;

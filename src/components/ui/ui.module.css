@@ -209,3 +209,67 @@
   flex: 0 0 auto;
   white-space: nowrap;
 }
+
+/* ---- Row action icons -------------------------------------------
+ *
+ * The edit pencil and the delete bin, everywhere they appear: memory,
+ * commitments, issues, the org chart, critical success factors.
+ *
+ * Six near-identical copies of this existed, one per page, all
+ * drifting: 26px or 28px, --text-faint or --text-muted, some with a
+ * focus ring and some without. They now compose from here, so the
+ * pencil on a commitment and the pencil on a memory are the same
+ * object rather than two that resemble each other.
+ *
+ * BLUE AT REST, by the product owner's decision. The previous pattern
+ * was grey until hover, which is the common convention and was judged
+ * too quiet here: an action a person is meant to use should look like
+ * one before they go looking for it.
+ *
+ * Danger stays a HOVER state rather than a resting colour. A row of
+ * red bins reads as a warning about the rows; red on approach reads
+ * as a warning about the click, which is the thing actually worth
+ * warning about. */
+.iconAction {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.iconAction:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.iconAction:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.iconAction:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The one that cannot be undone. */
+.iconActionDanger {
+  composes: iconAction;
+}
+
+.iconActionDanger:hover:not(:disabled) {
+  color: var(--aims-danger);
+  background: var(--aims-danger-tint);
+  border-color: color-mix(in srgb, var(--aims-danger) 30%, transparent);
+}
