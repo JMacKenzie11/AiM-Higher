@@ -167,12 +167,66 @@
   color: var(--text-faint);
 }
 
+/* Icon buttons, in the app's icon-button idiom rather than as small
+ * ghost text buttons.
+ *
+ * They composed btn + btnGhost + btnSm, which is the right treatment
+ * for a button with a WORD in it and the wrong one for a button with
+ * a glyph: it drew a bordered white pill around every pencil and bin,
+ * so a table of five memories rendered ten outlined circles competing
+ * with the text they act on, in a black-and-white palette the app
+ * uses nowhere else.
+ *
+ * The house pattern (chart.module.css .roleDeleteIcon, and the issue
+ * and commitment rows that copy it) is quiet by default and coloured
+ * by INTENT on hover: transparent until you reach for it, then the
+ * colour of what it will do. Destructive goes danger, everything else
+ * goes primary. That is also the only affordance telling somebody
+ * which of two adjacent glyphs is the dangerous one. */
 .iconButton {
-  composes: btn from "../../../components/ui/ui.module.css";
-  composes: btnGhost from "../../../components/ui/ui.module.css";
-  composes: btnSm from "../../../components/ui/ui.module.css";
-  padding: var(--space-2);
-  line-height: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.iconButton:hover:not(:disabled) {
+  color: var(--primary);
+  background: var(--aims-cobalt-tint);
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.iconButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.iconButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Delete. The one glyph whose hover should not look like the others,
+ * because it is the one that cannot be undone. */
+.iconButtonDanger {
+  composes: iconButton;
+}
+
+.iconButtonDanger:hover:not(:disabled) {
+  color: var(--aims-danger);
+  background: var(--aims-danger-tint);
+  border-color: color-mix(in srgb, var(--aims-danger) 30%, transparent);
 }
 
 /* The edit box wraps and grows to its content; height is set from

@@ -199,7 +199,9 @@ export function MemoryRows({ rows }: { rows: MemoryListRow[] }) {
                   <td className={styles.actionCell}>
                     <button
                       type="button"
-                      className={styles.iconButton}
+                      className={
+                        isEditing ? styles.iconButton : styles.iconButtonDanger
+                      }
                       onClick={() =>
                         isEditing ? cancelEdit() : setConfirming(memory)
                       }
