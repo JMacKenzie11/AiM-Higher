@@ -81,3 +81,58 @@ describe("the measures grid keeps its columns", () => {
     expect(row).toContain("{trackingEnabled ? (");
   });
 });
+
+// ---- The CSF row must not be inside an empty state ---------------
+//
+// The critical success factor's own row IS the first row of the grid;
+// there is no separate heading carrying its name. So anything that
+// can replace the grid can also erase the name.
+//
+// That happened. The "No KPIs yet" message was the first branch of a
+// ternary whose else-branch was the whole grid, and a newly created
+// CSF has no KPIs by definition — so every new CSF rendered as a
+// nameless block with an "Add a KPI" button under it. The page looked
+// like the save had failed. It had not: the row was in the element
+// the message replaced.
+//
+// Read from source for the same reason as the alignment check above:
+// nothing throws, nothing fails, and the only symptom is a missing
+// name on a page that otherwise works.
+describe("the critical success factor row survives an empty KPI list", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src", "app", "(app)", "measures", "OutcomeSection.tsx"),
+    "utf8"
+  );
+
+  it("renders the CSF row before the empty-KPI note, not inside it", () => {
+    const csfRow = src.indexOf('kind="csf"');
+    const emptyNote = src.indexOf("No KPIs yet");
+    expect(csfRow, 'expected a ManagedMeasureRow with kind="csf"').toBeGreaterThan(-1);
+    expect(emptyNote, "expected the empty-KPI note").toBeGreaterThan(-1);
+    // The note is a footnote under the grid. If it moves back above
+    // the row, it is replacing the grid again.
+    expect(
+      csfRow,
+      "the CSF row now sits after the empty-KPI note, which means the note can replace it again"
+    ).toBeLessThan(emptyNote);
+  });
+
+  it("opens the grid before the empty-KPI note can be reached", () => {
+    // The first test guards the ROW; this one guards the GRID that
+    // holds it. Both matter: the row could be moved out of the grid,
+    // or the grid could go back to being a ternary branch, and either
+    // one loses the name.
+    //
+    // Asserted as ordering rather than by matching the old ternary,
+    // because the note is still a ternary — it just sits underneath
+    // now. A regex for its shape matches the correct code too, which
+    // is how the first version of this test failed against the fix.
+    const grid = src.indexOf("styles.measureGrid");
+    const emptyNote = src.indexOf("No KPIs yet");
+    expect(grid).toBeGreaterThan(-1);
+    expect(
+      grid,
+      "the grid is rendered after the empty-KPI note, so the note can replace it"
+    ).toBeLessThan(emptyNote);
+  });
+});
