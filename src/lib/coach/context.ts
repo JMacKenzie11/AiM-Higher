@@ -1,8 +1,10 @@
 import {
   selectForContext,
   formatMemoryBlock,
+  CONTEXT_MEMORY_LIMIT,
   type StoredMemory,
 } from "./memory-shape";
+import { reportError } from "@/lib/observability/report";
 import { compareToOwnBaseline, themesFrom } from "./history-shape";
 import "server-only";
 
@@ -170,7 +172,8 @@ export async function buildCoachContext(
   const memoryContext = await loadMemoryContext(
     supabase,
     input.currentAdminProfileId,
-    todayIso
+    todayIso,
+    input.subjectProfileId ?? null
   );
 
   if (!subjectBundle) {
@@ -427,7 +430,10 @@ async function loadSubjectOpenIssues(
 async function loadMemoryContext(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   participantProfileId: string,
-  todayIso: string
+  todayIso: string,
+  // In about mode, the person this conversation is about. Their
+  // memories are fetched separately and placed first.
+  subjectProfileId: string | null = null
 ): Promise<string | null> {
   const { data } = await supabase
     .from("coach_memories")
@@ -439,7 +445,55 @@ async function loadMemoryContext(
     // the privacy control is the policy.
     .limit(60);
   const rows = (data ?? []) as StoredMemory[];
-  const picked = selectForContext(rows, `${todayIso}T12:00:00Z`);
+
+  // SUBJECT-SCOPED RECALL.
+  //
+  // A SECOND read rather than a filter over the first, and the
+  // difference matters. The pool above is the 60 most recent, so a
+  // leader who coaches about several people can have this person's
+  // thread fall out of it entirely on recency, which is exactly the
+  // case the feature is for: picking a months-old thread about one
+  // person back up. Asking for them by name guarantees they are in
+  // the pool at all; selectForContext then decides what fits.
+  //
+  // The join is coach_memories.conversation_ref ->
+  // coaching_conversations.subject_profile_id, over the FK declared
+  // in 0194. `!inner` makes the embedded filter a join condition
+  // rather than a nullable side-load. Both reads run as the caller,
+  // so RLS bounds this to the leader's own memory and their own
+  // conversations; it can only ever narrow, never widen.
+  const priorityIds = new Set<string>();
+  if (subjectProfileId) {
+    const { data: scoped, error } = await supabase
+      .from("coach_memories")
+      .select(
+        "id, kind, content, created_at, coaching_conversations!inner(subject_profile_id)"
+      )
+      .eq("profile_id", participantProfileId)
+      .eq("coaching_conversations.subject_profile_id", subjectProfileId)
+      .order("created_at", { ascending: false })
+      .limit(60);
+    if (error) {
+      // Not fatal: the general block below is still correct, just not
+      // prioritised. Silence here would make a broken join look like
+      // a leader who has never discussed this person.
+      reportError("coach.memory.subject_scoped", error, {
+        participantProfileId,
+        subjectProfileId,
+      });
+    }
+    for (const row of (scoped ?? []) as StoredMemory[]) {
+      priorityIds.add(row.id);
+      if (!rows.some((r) => r.id === row.id)) rows.push(row);
+    }
+  }
+
+  const picked = selectForContext(
+    rows,
+    `${todayIso}T12:00:00Z`,
+    CONTEXT_MEMORY_LIMIT,
+    priorityIds
+  );
   const block = formatMemoryBlock(picked, `${todayIso}T12:00:00Z`);
   return block === "" ? null : block;
 }

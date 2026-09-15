@@ -62,8 +62,7 @@ export function MemoryList({
           Aimee hasn&rsquo;t noted anything yet. Notes appear once you&rsquo;ve
           finished a conversation and moved on to another one, so the thread
           you&rsquo;re in is never the one being written down. Coaching about
-          someone else doesn&rsquo;t add anything here: only your own
-          conversations do.
+          someone on your team counts too, and lands here like the rest.
         </p>
       </div>
     );
@@ -73,7 +72,16 @@ export function MemoryList({
     <>
       <div className={styles.card}>
         {memories.map((memory) => (
-          <div key={memory.id} className={styles.row}>
+          <div
+            key={memory.id}
+            className={styles.row}
+            data-testid="memory-row"
+            // The kind, machine-readable. The label beside it is for
+            // the person; this is so a test can assert that an
+            // observation the leader made is stored as `said` and not
+            // quietly promoted from Aimee's own read.
+            data-kind={memory.kind}
+          >
             <div className={styles.rowMain}>
               <span className={styles.content}>{memory.content}</span>
               <span className={styles.meta}>

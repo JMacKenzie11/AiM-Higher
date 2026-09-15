@@ -19,11 +19,17 @@ import type { CoachTool } from "./tools";
 // question is still open and this does not answer it.
 //
 // What this reads is the caller's OWN distilled memory, written from
-// their own general-mode conversations, readable by nobody else on
+// their own conversations in EITHER mode, readable by nobody else on
 // the platform including system_admin. It is the person's own record,
-// returned to the person it is about. No mode boundary is crossed
-// because a leader's about-mode conversation produces no memory at
-// all.
+// returned to the person it is about.
+//
+// As of 2026-09-15 that includes what a leader observed about a team
+// member in an about-mode conversation. No mode boundary is crossed
+// by returning it: the rows belong to the leader, were written from
+// the leader's own words, and are being handed back to the leader.
+// What would cross a boundary is reading the TEAM MEMBER's memory
+// into the leader's session, and that is refused structurally rather
+// than by care here, per the next paragraph.
 //
 // ---- NO IDENTIFIER VOCABULARY ------------------------------------
 //

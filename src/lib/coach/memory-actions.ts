@@ -227,6 +227,7 @@ export async function summarizeFinishedConversationsAction(
     const subjectNames = convo.subject_profile_id
       ? subjectNamesById.get(convo.subject_profile_id) ?? []
       : [];
+    const subjectName = subjectNames[0] ?? "a person on their team";
     if (isAbout && subjectNames.length === 0) {
       // The backstop is blind for this one. The prompt still applies,
       // but nothing deterministic is behind it, so say so.
@@ -277,9 +278,13 @@ export async function summarizeFinishedConversationsAction(
             content: isAbout
               ? `Distil this finished coaching conversation.\n\nThis is an ` +
                 `about-mode conversation: a leader thinking through ` +
-                `${subjectNames[0] ?? "a person on their team"}, who is on their ` +
-                `team and was not present. Write the memory about the leader, ` +
-                `never about ${subjectNames[0] ?? "that person"}.\n\n${transcript}`
+                `${subjectName}, who is on their team and was not present. ` +
+                `Capture both sides: what the leader is working on, and what ` +
+                `they observe about ${subjectName}. Anything the leader ` +
+                `stated about ${subjectName} is "said", including when the ` +
+                `coach questioned it or the record does not corroborate it. ` +
+                `Your own reading of ${subjectName} is "inferred".` +
+                `\n\n${transcript}`
               : `Distil this finished coaching conversation.\n\n${transcript}`,
           },
         ],
@@ -307,9 +312,7 @@ export async function summarizeFinishedConversationsAction(
       continue;
     }
 
-    const { kept, dropped: removed } = applyNeverWrittenFilter(drafts, {
-      subjectNames,
-    });
+    const { kept, dropped: removed } = applyNeverWrittenFilter(drafts);
     dropped += removed.length;
     if (removed.length > 0) {
       // Counts and reasons only — logging the content would put the
