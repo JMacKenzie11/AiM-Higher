@@ -45,6 +45,11 @@ export type Profile = {
   position: string | null;
   avatar_url: string | null;
   role: Role;
+  // Where the app takes a cross-tenant operator when they open it.
+  // A landing preference, never a permission: auth_company_id() does
+  // not return it and no policy reads it. See migration 0200 and
+  // product-spec §1a.
+  home_company_id: string | null;
   status: ProfileStatus;
   invited_at: string | null;
   created_at: string;

@@ -520,7 +520,7 @@ async function coachMemoryEdit(
 // one they write only that company, and the assignment they can
 // create is only ever their own.
 //
-// Four claims, because three of them are the ways this could be
+// Five claims, because four of them are the ways this could be
 // wrong in a direction nobody would notice:
 //   1. no assignment -> content write refused (the role's definition)
 //   2. assignment    -> content write succeeds (the feature works)
@@ -528,6 +528,16 @@ async function coachMemoryEdit(
 //      assignment is per-company, not a switch)
 //   4. cannot insert an assignment naming somebody else (self-only,
 //      which is the clause decision 2 rests on)
+//   5. home_company_id set, no assignment -> content write STILL
+//      refused (0200). This is the one the audit bought. The first
+//      design put home into `company_id`, and the audit then found
+//      ten policies granting on a bare company match with no role
+//      test, three of them writes — so that design would have handed
+//      a landing preference the rights of membership. Home lives in
+//      its own column now and nothing in the database reads it. This
+//      claim is what keeps that true, and it asserts the home was
+//      really set first, so a refused UPDATE cannot pass it by
+//      leaving the column null.
 async function portfolioAssignmentBoundary(
   run: Runner,
   ids: Identities,
@@ -631,11 +641,58 @@ values ('${PA}', null, 'Harness Portfolio Admin', 'portfolio_admin', 'active');`
     ].join("\n")
   );
 
+  // Claim 5 (0200). Guarded on the column, because this case also
+  // runs on schemas that predate it and a missing column would error
+  // the whole case rather than report on the one claim it belongs to.
+  const [hasHome] = await run<{ ok: boolean }>(
+    [
+      "begin;", pending,
+      `select count(*) > 0 as ok from information_schema.columns
+        where table_schema='public' and table_name='profiles'
+          and column_name='home_company_id';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  // Set as the portfolio admin themselves, not as the superuser, so
+  // the probe covers the shape step 4 will actually ship: a person
+  // choosing where they land. profiles_update_self pins role,
+  // company_id and status and leaves this column open, which is only
+  // safe if choosing a landing place grants nothing — the next probe.
+  const homeSet = !hasHome?.ok
+    ? 1
+    : await count(
+        [
+          "begin;", pending, seedPa,
+          "set local role authenticated;", claims(PA),
+          `update public.profiles set home_company_id = '${A}' where id = '${PA}';`,
+          `select count(*)::int as n from public.profiles
+             where id = '${PA}' and home_company_id = '${A}';`,
+          "rollback;",
+        ].join("\n")
+      );
+
+  const homeWrites = !hasHome?.ok
+    ? 0
+    : await count(
+        [
+          "begin;", pending, seedPa,
+          "set local role authenticated;", claims(PA),
+          `update public.profiles set home_company_id = '${A}' where id = '${PA}';`,
+          issue(A, "harness: home without assignment"),
+          `select count(*)::int as n from public.issues
+             where title = 'harness: home without assignment';`,
+          "rollback;",
+        ].join("\n")
+      );
+
   const ok =
     noAssignment === 0 &&
     withAssignment === 1 &&
     otherCompany === 0 &&
-    forSomebodyElse === 0;
+    forSomebodyElse === 0 &&
+    homeSet === 1 &&
+    homeWrites === 0;
   return {
     name: "portfolio-assignment-boundary",
     hazard:
@@ -644,8 +701,12 @@ values ('${PA}', null, 'Harness Portfolio Admin', 'portfolio_admin', 'active');`
     right: `with an assignment: ${withAssignment} in that company, ${otherCompany} in another`,
     ok,
     detail: ok
-      ? "No assignment, no content write. One assignment, writes in that company and nowhere else. An assignment naming somebody else is refused, which is the clause self-assignment rests on."
-      : `no-assignment ${noAssignment} (want 0), with-assignment ${withAssignment} (want 1), other-company ${otherCompany} (want 0), for-somebody-else ${forSomebodyElse} (want 0).`,
+      ? `No assignment, no content write. One assignment, writes in that company and nowhere else. An assignment naming somebody else is refused, which is the clause self-assignment rests on. ${
+          hasHome?.ok
+            ? "Setting home_company_id grants nothing: the write is still refused."
+            : "home_company_id not on this schema; claim 5 skipped (runs under --pending 0200_home_company.sql)."
+        }`
+      : `no-assignment ${noAssignment} (want 0), with-assignment ${withAssignment} (want 1), other-company ${otherCompany} (want 0), for-somebody-else ${forSomebodyElse} (want 0), home-set ${homeSet} (want 1), home-writes ${homeWrites} (want 0).`,
   };
 }
 
