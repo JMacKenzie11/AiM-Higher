@@ -10,7 +10,7 @@ import {
   type MemoryListRow,
 } from "@/lib/coach/memory-actions";
 import { MAX_DIRECTED_MEMORY_CHARS } from "@/lib/coach/memory-shape";
-import { memoryKindLabel } from "@/lib/coach/memory-kind";
+import { memoryKindLabel, memoryKindClass } from "@/lib/coach/memory-kind";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./memory-card.module.css";
 
@@ -129,7 +129,7 @@ export function MemoryCard({
                 <span className={styles.content}>{memory.content}</span>
                 <span className={styles.meta}>
                   <span>{formatShortDate(memory.created_at.slice(0, 10))}</span>
-                  <span className={styles.kindTag}>
+                  <span className={styles[memoryKindClass(memory.kind)]}>
                     {memoryKindLabel(memory.kind)}
                   </span>
                 </span>

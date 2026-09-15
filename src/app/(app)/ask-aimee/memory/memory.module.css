@@ -51,24 +51,42 @@
   flex-wrap: wrap;
 }
 
-/* The kind tag. Same shape and tokens as the FROM ISSUE / FROM
- * MEETING family: a hairline outline, muted text, uppercase caption.
- * UNDERSTATED ON PURPOSE — it is a label saying where a line came
- * from, not a warning about it, so it introduces no colour of its
- * own and does not shout at the one kind people might distrust. */
-.kindTag {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-muted);
-  font: var(--text-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  white-space: nowrap;
+/* The kind chips.
+ *
+ * Composed from the house chip in ui.module.css rather than
+ * hand-rolled. The first version copied .fromIssuePill on the
+ * commitments page — an outline pill with a hairline border,
+ * transparent fill, --text-caption and 0.1em tracking. That was a
+ * real pattern, but it is not the house CHIP, which is a tinted fill
+ * with no border at --text-subhead and 0.15em. Two pill vocabularies
+ * on one page read as two products.
+ *
+ * Colour carries the provenance, because that is the distinction the
+ * whole surface exists to make:
+ *   said     - navy tint, muted text. Your own words, stated quietly.
+ *   inferred - cobalt tint, primary text. Aimee's colour, for Aimee's
+ *              read. Distinguishable at a glance without alarming:
+ *              this is the kind a person might distrust, and it needs
+ *              to be findable, not flagged.
+ *   directed - chartreuse tint, navy text. The brand's accent for the
+ *              one you put there yourself.
+ *
+ * Geometry stays in the design system; only the fill is named here,
+ * and only from brand tokens. */
+.kindSaid {
+  composes: chipInactive from "../../../../components/ui/ui.module.css";
 }
+
+.kindInferred {
+  composes: chipInfo from "../../../../components/ui/ui.module.css";
+}
+
+.kindDirected {
+  composes: chip from "../../../../components/ui/ui.module.css";
+  background: var(--aims-chartreuse-tint);
+  color: var(--aims-navy);
+}
+
 
 .sourceLink {
   color: var(--text-muted);
