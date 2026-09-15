@@ -108,7 +108,7 @@ Every row that comes back is a policy that would change behaviour for a reason u
 
 **5. A company admin cannot revoke a portfolio admin's assignment.** Decided rather than defaulted. The portfolio admin owns the portfolio; a company inside it cannot evict its operator, and a company admin who could would be able to lock the owner out of their own holding. Only the portfolio admin themselves and a `system_admin` may delete an assignment row, and the DELETE policy on `portfolio_assignments` must say exactly that — **it must not admit `company_admin` of the target company**, which is the one clause somebody will be tempted to add because it reads as symmetric with every other people-management policy in the schema. It is not symmetric, deliberately.
 
-**6. They appear in the company's roster as an ordinary company admin.** No badge, no separate section. Everyone in these companies knows who the operating partner is by name, and marking them out would imply a distinction the product does not otherwise make. **This is new behaviour and not an existing pattern**: `getPeopleRoster` is `profiles where company_id = <company>`, so today an `aims_guide` assigned to a company does *not* appear in that company's roster at all — their `company_id` is null. Showing an assigned portfolio admin means the roster becomes a union of profiles homed here and profiles assigned here. Whether guides should join them is a separate question this record does not answer.
+**6. They appear in the company's roster as an ordinary company admin.** No separate section, and the Role cell reads exactly what it is. *Amended by decision 8, which adds a provenance badge beside it — the reasoning below still stands, because the badge does not identify the person, it explains where their access came from.* Everyone in these companies knows who the operating partner is by name, and marking them out would imply a distinction the product does not otherwise make. **This is new behaviour and not an existing pattern**: `getPeopleRoster` is `profiles where company_id = <company>`, so today an `aims_guide` assigned to a company does *not* appear in that company's roster at all — their `company_id` is null. Showing an assigned portfolio admin means the roster becomes a union of profiles homed here and profiles assigned here. Whether guides should join them is a separate question this record does not answer.
 
 **The trap that decisions 5 and 6 create together.** Putting an unrevocable person into a list whose every other row carries Deactivate, Delete and Send invite produces exactly the failure documented elsewhere in this spec: the button is there and the save fails. RLS would refuse it correctly, and the company admin would be left pressing a control that does nothing and reports nothing. **The row's management actions must be suppressed, not merely refused** — `canManageProfileIn` gains the assignment case, and the roster row for an assignment-derived profile renders without the menu. The RLS refusal stays as the boundary; the missing menu is the courtesy, and here the two must agree or the page lies.
 
@@ -118,7 +118,24 @@ This is a **widening of `company_admin`, and it changes live behaviour.** `guide
 
 **Removing an assigned person is not deleting them.** The roster row for a guide or portfolio admin looks like any other, but the person belongs to no company — or to a different one. A company's roster must never offer an action that deletes their *profile*; the only thing a company can end is the *assignment*. Same row, different verb, and the verb has to be written as *Remove from this company* rather than *Delete*, because the existing row menu's Delete does something a company admin must not be able to do to somebody who is not theirs.
 
-**Open question.** Whether a company admin can *see* that an assignment exists at all. Decision 6 says an assigned person renders as an ordinary company admin with no badge, and decision 5 says a portfolio admin's row carries no management actions. Together those produce a row that looks like every other company admin, offers no controls, and explains nothing — the reader can see that this person is different and cannot find out why or from whom. That is a worse state than either a visible badge or a plain refusal message, and it is the one thing in this design that has been decided into existence without being decided on. **Note that decision 7 does not have this problem**: a guide's row is revocable, so its menu is present and ordinary.
+**8. The row carries a provenance badge.** This closes the gap decisions 5 and 6 created between them, and amends decision 6's "no badge".
+
+The Role cell is unchanged — `Company admin`, because that is what they are here. Beside it sits a chip saying where the access came from:
+
+```
+NAME            POSITION     ROLE                        STATUS
+Dana Whitfield  Ops Lead     Company admin               Active
+Scot Lowry      —            Company admin  PORTFOLIO    Active
+Jeff Bouwman    —            Company admin  AIMS GUIDE   Active
+```
+
+**`PORTFOLIO` and `AIMS GUIDE`**, in `chipInfo` — cobalt tint, primary text, uppercase at 0.15em: the same chip as `AIMEE INFERRED` on the memory page, and deliberately **not** `chipWarning` or `chipDanger`. This person is not a problem, they are an explanation. The roster's Status column already renders a chip, so this is the table's existing idiom rather than a new one.
+
+**The badge does provenance, not identification.** That is why it does not contradict decision 6's reasoning: everyone in these companies knows who the operating partner is by name, and the badge is not there to tell them. It answers the other question — *how did this person get admin rights here* — which is exactly the job the `said` / `inferred` chips do on the memory page. Not "who is this" but "how did this get here".
+
+**Two other things carry what the badge does not.** A guide's row keeps its ordinary menu, now offering *Remove from this company* (decision 7). A portfolio admin's row has no menu, and the badge's `title` says why on hover: *"Portfolio admin — access is managed at the portfolio level."* Without the badge a menu-less row is simply inconsistent; with it, the missing menu reads as the consequence of something stated.
+
+**No open questions remain on visibility.** The gap that existed between decisions 5 and 6 — a row that looked ordinary, offered no controls and explained nothing — is closed by decision 8. What remains open is narrower and is listed at the end of this record.
 
 - **Managers:** `profiles.reports_to` establishes a direct manager, unlocking manager-level affordances (e.g., coach *about* a direct report) without granting admin.
 - **Invitations:** email invite flow with expiry; role assigned at invite time. Admins can pre-stage the roster (create as pending, send invite later).
