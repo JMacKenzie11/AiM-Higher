@@ -354,6 +354,9 @@ export type SweepCandidate = {
   id: string;
   updated_at: string;
   memory_summarized_through: string | null;
+  // The agent this conversation ran, if any. Null for a direct Ask
+  // Aimee conversation and for about-mode coaching.
+  practice_id?: string | null;
 };
 
 // How far down the list we are willing to LOOK. Bounded so that one
@@ -374,6 +377,21 @@ export function selectSweepCandidates<T extends SweepCandidate>(opts: {
   const picked: T[] = [];
   for (const c of opts.candidates) {
     if (picked.length >= opts.maxPerRun) break;
+    // AGENT CONVERSATIONS PRODUCE NO MEMORY.
+    //
+    // A conversation with an agent attached (the Functional Chart
+    // Builder, Prepare a Hard Conversation, and the rest) is a person
+    // working THROUGH a structured flow, not thinking out loud. What
+    // it leaves behind is the artefact the flow produced, which is
+    // already saved somewhere better than a memory line, and the
+    // person's half of it reads as answers to prompts rather than as
+    // anything durable about them.
+    //
+    // Filtered HERE as well as in the query. The query filter is what
+    // does the work; this one is what stops a future edit to the
+    // query from quietly reintroducing them, which is exactly how the
+    // about-mode exclusion came and went without anybody noticing.
+    if (c.practice_id) continue;
     // Already summarized through its latest message. Top-up
     // semantics: it returns as a candidate only when it grows.
     if (c.memory_summarized_through && c.updated_at <= c.memory_summarized_through) {

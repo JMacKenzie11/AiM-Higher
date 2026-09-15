@@ -104,8 +104,18 @@ export async function summarizeFinishedConversationsAction(
   // one in front of them, most recently touched first.
   let query = supabase
     .from("coaching_conversations")
-    .select("id, updated_at, memory_summarized_through, mode, subject_profile_id")
+    .select(
+      "id, updated_at, memory_summarized_through, mode, subject_profile_id, practice_id"
+    )
     .eq("created_by", session.profile.id)
+    // Agents produce no memory. A conversation run through the
+    // Functional Chart Builder or any other agent is somebody working
+    // a structured flow, and the thing worth keeping from it is the
+    // artefact, not a distillation of the prompts they answered.
+    // Direct Ask Aimee conversations and about-mode coaching both
+    // carry a null practice_id, so this one filter keeps exactly the
+    // two the product wants and drops the rest.
+    .is("practice_id", null)
     .order("updated_at", { ascending: false })
     // How far we LOOK. Deliberately not MAX_PER_RUN: a run of empty
     // conversations at the head used to wall off everything behind
@@ -130,6 +140,7 @@ export async function summarizeFinishedConversationsAction(
     memory_summarized_through: string | null;
     mode: string;
     subject_profile_id: string | null;
+    practice_id: string | null;
   }>;
   if (candidates.length === 0) {
     return { ok: true, conversationsSummarized: 0, memoriesWritten: 0, droppedByFilter: 0 };

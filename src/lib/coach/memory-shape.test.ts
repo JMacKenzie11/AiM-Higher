@@ -530,3 +530,74 @@ describe("explicit asks are filtered too", () => {
     ).toEqual({ keep: true });
   });
 });
+
+// ---- Agents produce no memory ---------------------------------
+//
+// A conversation run through an agent (Functional Chart Builder,
+// Prepare a Hard Conversation, and the rest) is a person working a
+// structured flow. What is worth keeping from it is the artefact the
+// flow produced, not a distillation of the prompts they answered.
+//
+// Measured on production when this was decided: 39 of 75 conversations
+// carried an agent, against 25 direct Ask Aimee and 11 about-mode. So
+// this is the majority of the table, and summarizing it was filling
+// memory with the wrong half.
+describe("selectSweepCandidates skips agent conversations", () => {
+  const convo = (
+    id: string,
+    updated: string,
+    practice_id: string | null = null
+  ): SweepCandidate => ({
+    id,
+    updated_at: updated,
+    memory_summarized_through: null,
+    practice_id,
+  });
+  const pick = (candidates: SweepCandidate[], turns: Record<string, number>) =>
+    selectSweepCandidates({
+      candidates,
+      userTurns: new Map(Object.entries(turns)),
+      maxPerRun: 3,
+      minUserTurns: 2,
+    }).map((c) => c.id);
+
+  it("drops a conversation with an agent attached", () => {
+    const candidates = [
+      convo("chart", "2026-09-15T10:00:00Z", "functional-chart-builder"),
+      convo("hard-convo", "2026-09-15T09:00:00Z", "prepare-a-hard-conversation"),
+      convo("direct", "2026-09-15T08:00:00Z", null),
+    ];
+    const turns = { chart: 9, "hard-convo": 7, direct: 4 };
+    expect(pick(candidates, turns)).toEqual(["direct"]);
+  });
+
+  // The same head-of-line property the empty-conversation fix needed:
+  // an agent conversation must not consume a slot on its way past.
+  it("looks past a run of agent conversations to reach a real one", () => {
+    const candidates = [
+      ...Array.from({ length: 8 }, (_, i) =>
+        convo(`agent-${i}`, `2026-09-1${5 - (i % 5)}T10:00:00Z`, "ask-better-questions")
+      ),
+      convo("direct", "2026-09-01T08:00:00Z", null),
+    ];
+    const turns = Object.fromEntries([
+      ...Array.from({ length: 8 }, (_, i) => [`agent-${i}`, 6]),
+      ["direct", 4],
+    ]);
+    expect(pick(candidates, turns)).toEqual(["direct"]);
+  });
+
+  it("keeps about-mode coaching, which carries no agent", () => {
+    const candidates = [convo("about-marcus", "2026-09-15T10:00:00Z", null)];
+    expect(pick(candidates, { "about-marcus": 5 })).toEqual(["about-marcus"]);
+  });
+
+  it("treats a missing practice_id as no agent", () => {
+    const bare = {
+      id: "legacy",
+      updated_at: "2026-09-15T10:00:00Z",
+      memory_summarized_through: null,
+    } as SweepCandidate;
+    expect(pick([bare], { legacy: 4 })).toEqual(["legacy"]);
+  });
+});
