@@ -16,6 +16,7 @@ import {
   MAX_MEMORIES_PER_CONVERSATION,
   MAX_DIRECTED_MEMORY_CHARS,
   SWEEP_CANDIDATE_WINDOW,
+  type MemoryKind,
 } from "./memory-shape";
 
 // Coach memory, the write-after half.
@@ -498,11 +499,68 @@ export async function addDirectedMemoryAction(
   return { ok: true, id: data as string };
 }
 
+// ---- Editing a memory ------------------------------------------
+//
+// 0194 made memory append-only and said of UPDATE: "no policy.
+// Deliberately absent. Do not add one." 0197 reverses that, by the
+// product owner's decision: a person who can see a line written about
+// them should be able to correct it, not only destroy it.
+//
+// The reversal is narrower than it sounds, and deliberately so.
+// `authenticated` still holds NO UPDATE privilege on the table; a
+// direct UPDATE from here would fail with 42501. The only way in is
+// update_coach_memory, a definer function with no profile_id
+// parameter, matching how writing has always worked. A caller cannot
+// spell an edit of somebody else's memory.
+//
+// The edited row becomes `directed`, and that is honesty rather than
+// convenience: once somebody rewrites the words, the words are
+// theirs, and leaving "Aimee inferred" on a line the person authored
+// is exactly the mislabelling the said/inferred split exists to
+// prevent. created_at is kept, so the record still says when the
+// thought first appeared; edited_at says when it was rewritten.
+export async function editMemoryAction(
+  id: string,
+  content: string
+): Promise<AddMemoryResult> {
+  const session = await requireProfile();
+  const trimmed = content.trim();
+  if (trimmed.length === 0) {
+    return { ok: false, message: "A memory can't be empty. Delete it instead." };
+  }
+  if (trimmed.length > MAX_DIRECTED_MEMORY_CHARS) {
+    return {
+      ok: false,
+      message: `Keep it under ${MAX_DIRECTED_MEMORY_CHARS} characters.`,
+    };
+  }
+
+  // The never-written list applies to an edit exactly as to an add.
+  // Otherwise it is a way around the filter: save something
+  // innocuous, then edit it into what would have been refused.
+  const verdict = filterVerdict(trimmed);
+  if (!verdict.keep) {
+    return { ok: false, declined: true, message: declineMessageFor(verdict.reason) };
+  }
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase.rpc("update_coach_memory", {
+    p_id: id,
+    p_content: trimmed,
+  });
+  if (error) {
+    reportError("coach.memory.edit", error, { profileId: session.profile.id });
+    return { ok: false, message: "Couldn't save that just now. Nothing was changed." };
+  }
+  return { ok: true, id: data as string };
+}
+
 export type MemoryListRow = {
   id: string;
-  kind: "said" | "inferred";
+  kind: MemoryKind;
   content: string;
   created_at: string;
+  edited_at: string | null;
   conversation_ref: string | null;
   conversation_title: string | null;
 };
@@ -521,7 +579,7 @@ export async function listMyMemoriesAction(): Promise<MemoryListResult> {
   const { data, error: readError } = await supabase
     .from("coach_memories")
     .select(
-      "id, kind, content, created_at, conversation_ref, coaching_conversations(title)"
+      "id, kind, content, created_at, edited_at, conversation_ref, coaching_conversations(title)"
     )
     .eq("profile_id", session.profile.id)
     .order("created_at", { ascending: false });
@@ -530,9 +588,10 @@ export async function listMyMemoriesAction(): Promise<MemoryListResult> {
   }
   const rows = ((data ?? []) as Array<{
     id: string;
-    kind: "said" | "inferred";
+    kind: MemoryKind;
     content: string;
     created_at: string;
+    edited_at: string | null;
     conversation_ref: string | null;
     coaching_conversations: { title: string } | { title: string }[] | null;
   }>).map((r) => {
@@ -544,6 +603,7 @@ export async function listMyMemoriesAction(): Promise<MemoryListResult> {
       kind: r.kind,
       content: r.content,
       created_at: r.created_at,
+      edited_at: r.edited_at,
       conversation_ref: r.conversation_ref,
       conversation_title: convo?.title ?? null,
     };

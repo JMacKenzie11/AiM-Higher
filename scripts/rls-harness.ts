@@ -392,6 +392,119 @@ async function hazard1(run: Runner, ids: Identities): Promise<CaseResult> {
 //
 // Skips cleanly before 0196 lands, and runs for real under
 // `--pending 0196_coach_memory_directed.sql`.
+// The edit path (0197).
+//
+// Three claims: a caller can rewrite their OWN line; a caller cannot
+// rewrite somebody else's, even naming its id directly; and the app's
+// role still cannot UPDATE the table at all, so the definer function
+// remains the only way in. That last one is E8 held forward through a
+// change that could easily have undone it.
+async function coachMemoryEdit(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;",
+      pending,
+      `select count(*) > 0 as ok from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'update_coach_memory';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name: "coach-memory-edit",
+      hazard: "A caller edits somebody else's memory",
+      wrong: "function not on this schema",
+      right: "function not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0197 has not landed here yet. Runs for real under --pending 0197_coach_memory_edit.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  // Own row: rewritten, relabelled `directed`, edited_at stamped, and
+  // created_at untouched so the record still says when it first
+  // appeared.
+  const [own] = await run<{
+    content: string;
+    kind: string;
+    stamped: boolean;
+    created_kept: boolean;
+  }>(
+    [
+      "begin;",
+      pending,
+      "set local role authenticated;",
+      claims(ids.member),
+      `create temp table _m as select public.record_coach_memory('inferred', 'harness: before edit', null) as id;`,
+      `select public.update_coach_memory((select id from _m), 'harness: after edit');`,
+      `select m.content, m.kind,
+              m.edited_at is not null as stamped,
+              m.created_at <= now() as created_kept
+         from public.coach_memories m where m.id = (select id from _m);`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  // Somebody else's row, named directly. The function's own
+  // profile_id = auth.uid() clause is what refuses it.
+  let otherTouched = -1;
+  try {
+    const [other] = await run<{ n: number }>(
+      [
+        "begin;",
+        pending,
+        "set local role authenticated;",
+        claims(ids.companyAdmin),
+        `create temp table _o as select public.record_coach_memory('said', 'harness: not yours', null) as id;`,
+        claims(ids.member),
+        `select public.update_coach_memory((select id from _o), 'harness: hijacked');`,
+        `select count(*)::int as n from public.coach_memories
+          where content = 'harness: hijacked';`,
+        "rollback;",
+      ].join("\n")
+    );
+    otherTouched = other?.n ?? -1;
+  } catch {
+    // The function raises when no row matches the caller, which is
+    // the stronger outcome.
+    otherTouched = 0;
+  }
+
+  const [priv] = await run<{ no_update: boolean }>(
+    [
+      "begin;",
+      pending,
+      `select not has_table_privilege('authenticated', 'public.coach_memories', 'update')
+         as no_update;`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const edited = own?.content === "harness: after edit";
+  const relabelled = own?.kind === "directed";
+  const ok =
+    edited && relabelled && own?.stamped === true && otherTouched === 0 && priv?.no_update === true;
+  return {
+    name: "coach-memory-edit",
+    hazard:
+      "A caller edits somebody else's memory, or the app gains a blanket UPDATE on the table",
+    wrong: `edit aimed at another profile changed ${otherTouched} row(s)`,
+    right: `own row rewritten=${edited}, relabelled directed=${relabelled}, edited_at stamped=${own?.stamped}`,
+    ok,
+    detail: ok
+      ? "A person can rewrite their own line and nobody else's, and `authenticated` still holds no UPDATE privilege: the definer function is the only way in."
+      : `edited=${edited} relabelled=${relabelled} stamped=${own?.stamped} otherTouched=${otherTouched} (want 0) noUpdatePriv=${priv?.no_update}`,
+  };
+}
+
 async function coachMemoryDirected(
   run: Runner,
   ids: Identities,
@@ -3252,8 +3365,16 @@ async function portfolioAllowlistCheck(
 //      = auth.uid()" and nothing else, so a role branch appearing
 //      later is a visible, deliberate act rather than a line in a
 //      larger migration.
-//   2. No UPDATE policy exists, and UPDATE is not granted — memory is
-//      append-only and a correction is a delete plus a new row.
+//   2. UPDATE is not GRANTED to `authenticated`. An UPDATE policy is
+//      now expected (0197, editing), and the distinction between the
+//      two is the entire lesson of E8: the policy says which rows a
+//      verb may touch, the grant says whether the verb runs at all.
+//      Editing goes through update_coach_memory, a definer function
+//      with no profile_id parameter, so the privilege stays revoked
+//      and a direct UPDATE from the app is still refused with 42501.
+//      The policy is required only because the table is FORCE ROW
+//      LEVEL SECURITY, which subjects the definer's owner to policies
+//      too — the same arrangement INSERT has had since 0194.
 //   3. service_role cannot read it. Every other table in this schema
 //      relies on RLS alone and 0004's own comment says why that is
 //      enough there: "service_role bypasses RLS via GRANT anyway". On
@@ -3319,6 +3440,10 @@ async function coachMemoryWallCheck(
   }
 
   const offenders = memoryRoleOffenders(live);
+  // Expected as of 0197. Asserted PRESENT rather than merely
+  // tolerated: without it the definer function is refused along with
+  // everybody else, and editing fails in a way that looks like a bug
+  // in the action rather than a missing policy.
   const hasUpdate = mine.some((r) => r.cmd === "UPDATE");
 
   // service_role, measured. `set local role` drops the superuser
@@ -3351,14 +3476,14 @@ async function coachMemoryWallCheck(
 
   const ok =
     offenders.length === 0 &&
-    !hasUpdate &&
+    hasUpdate &&
     serviceDenied &&
     noUpdatePriv &&
     noInsertPriv &&
     caught;
   const faults = [
     offenders.length > 0 ? `policies naming a role: ${offenders.join(", ")}` : null,
-    hasUpdate ? "an UPDATE policy exists" : null,
+    hasUpdate ? null : "the UPDATE policy is missing; editing cannot work",
     noUpdatePriv ? null : "authenticated still HOLDS the UPDATE privilege",
     noInsertPriv ? null : "authenticated can INSERT directly, bypassing the write path",
     serviceDenied ? null : "service_role can still SELECT the table",
@@ -3370,7 +3495,7 @@ async function coachMemoryWallCheck(
     before: `${mine.length} policies on the table (${mine.map((r) => r.cmd).join(", ")})`,
     after:
       faults.length === 0
-        ? "no role branch, no UPDATE policy or privilege, no direct INSERT, service_role has no SELECT privilege"
+        ? "no role branch, no UPDATE or INSERT privilege, edit and write only via definer functions, service_role has no SELECT privilege"
         : faults.join(" | "),
     ok,
     detail:
@@ -5088,6 +5213,10 @@ async function main(): Promise<void> {
     [
       "coach-memory-directed",
       (r: Runner, i: Identities) => coachMemoryDirected(r, i, pendingSql),
+    ],
+    [
+      "coach-memory-edit",
+      (r: Runner, i: Identities) => coachMemoryEdit(r, i, pendingSql),
     ],
   ] as const;
 

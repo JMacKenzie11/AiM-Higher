@@ -46,35 +46,10 @@
   margin: 0 0 var(--space-4);
 }
 
-.rows {
-  display: flex;
-  flex-direction: column;
-}
 
-.row {
-  composes: conversationRow from "../coach/coach.module.css";
-}
 
-.rowMain {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
 
-.content {
-  font: var(--text-body);
-  color: var(--text);
-  line-height: 1.4;
-}
 
-.meta {
-  composes: conversationMeta from "../coach/coach.module.css";
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
 
 /* The kind chips.
  *
@@ -113,9 +88,6 @@
 }
 
 
-.ghostButton {
-  composes: ghostButton from "../coach/coach.module.css";
-}
 
 .empty {
   composes: emptyLine from "../../../components/ui/ui.module.css";
@@ -133,4 +105,89 @@
 .seeAll:hover {
   color: var(--primary);
   border-bottom-color: var(--primary);
+}
+
+/* The table.
+ *
+ * Same shape as the roster on /people: collapsed borders,
+ * --text-subhead uppercase headers with 0.15em tracking on a hairline
+ * rule, --space-3 cells, a navy-tint hover, and no rule under the
+ * last row. Written out rather than composed because .table th / td
+ * are descendant selectors in people.module.css, which `composes`
+ * cannot reach. The values are the design system's; only the
+ * duplication is local, and the comment is here so the next person
+ * knows which table to keep it in step with. */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body);
+}
+
+.table th {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table tr:hover td {
+  background: var(--aims-navy-tint);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+/* The two action columns. Sized to their icon so the memory column
+ * takes the rest: this table is read left to right for the verb and
+ * then across for the content, and a wide action column would put
+ * empty space between the two halves of that motion. */
+.actionHead {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.actionCell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.dateCell {
+  white-space: nowrap;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+/* Edited is a footnote on the date, not a status of its own: it
+ * answers "is this still as first written" for somebody scanning,
+ * and nothing more. */
+.editedNote {
+  color: var(--text-faint);
+}
+
+.iconButton {
+  composes: btn from "../../../components/ui/ui.module.css";
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+  composes: btnSm from "../../../components/ui/ui.module.css";
+  padding: var(--space-2);
+  line-height: 0;
+}
+
+.editInput {
+  composes: input from "./profile.module.css";
+  width: 100%;
 }

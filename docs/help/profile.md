@@ -61,7 +61,15 @@ the way the noted ones do. You can also just ask in conversation:
 *"remember that I want every plan checked against cash before
 headcount"*.
 
-**To delete one**, click *Delete* on the row and confirm. It's gone
+**To edit one**, click the pencil on the row, change the wording,
+and save. Two things change with it: the line becomes *You asked me
+to remember*, because once you've rewritten it the words are yours
+and it would be wrong to keep calling it something Aimee inferred;
+and because those are carried into every conversation rather than
+fading, editing a memory also pins it. The date stays as when it
+first appeared, marked *edited*.
+
+**To delete one**, click the bin on the row and confirm. It's gone
 from the database and won't be used in future conversations. There's
 no undo.
 
