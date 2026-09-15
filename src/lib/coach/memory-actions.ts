@@ -11,7 +11,10 @@ import {
   applyNeverWrittenFilter,
   parseMemoryResponse,
   selectSweepCandidates,
+  filterVerdict,
+  declineMessageFor,
   MAX_MEMORIES_PER_CONVERSATION,
+  MAX_DIRECTED_MEMORY_CHARS,
   SWEEP_CANDIDATE_WINDOW,
 } from "./memory-shape";
 
@@ -425,6 +428,60 @@ export async function deleteMyMemoryAction(
 
 // Read the caller's own memory for the trust surface, newest first,
 // with the conversation each arose in so the page can link to it.
+// ---- Person-added memory ---------------------------------------
+//
+// The person hands the record a line and asks for it back later.
+// Written through the SAME definer path as everything else, which is
+// the point: there is still no way to spell "write this into
+// somebody else's memory", and adding a second write path would have
+// been the easy way to lose that.
+//
+// The never-written list applies to an explicit ask exactly as it
+// applies to a distilled one. That is a deliberate decision and not
+// an oversight: a person asking Aimee to hold a medical fact is
+// asking her to be a place that medical facts live, and this is not
+// that place. She declines, says why in a sentence, and offers the
+// work-shaped version she can keep.
+export type AddMemoryResult =
+  | { ok: true; id: string }
+  | { ok: false; declined: true; message: string }
+  | { ok: false; declined?: false; message: string };
+
+export async function addDirectedMemoryAction(
+  content: string
+): Promise<AddMemoryResult> {
+  const session = await requireProfile();
+  const trimmed = content.trim();
+  if (trimmed.length === 0) {
+    return { ok: false, message: "Nothing to save." };
+  }
+  if (trimmed.length > MAX_DIRECTED_MEMORY_CHARS) {
+    return {
+      ok: false,
+      message: `Keep it under ${MAX_DIRECTED_MEMORY_CHARS} characters. A memory is one thing worth still knowing, not a note.`,
+    };
+  }
+
+  const verdict = filterVerdict(trimmed);
+  if (!verdict.keep) {
+    return { ok: false, declined: true, message: declineMessageFor(verdict.reason) };
+  }
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase.rpc("record_coach_memory", {
+    p_kind: "directed",
+    p_content: trimmed,
+    p_conversation_ref: null,
+  });
+  if (error) {
+    reportError("coach.memory.add_directed", error, {
+      profileId: session.profile.id,
+    });
+    return { ok: false, message: "Couldn't save that just now. Try again in a moment." };
+  }
+  return { ok: true, id: data as string };
+}
+
 export type MemoryListRow = {
   id: string;
   kind: "said" | "inferred";

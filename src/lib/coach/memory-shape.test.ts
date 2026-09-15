@@ -10,6 +10,8 @@ import {
   selectSweepCandidates,
   type SweepCandidate,
   CONTEXT_MEMORY_DAYS,
+  pinnedCarryLimit,
+  declineMessageFor,
 } from "./memory-shape";
 
 describe("parseMemoryResponse", () => {
@@ -424,5 +426,107 @@ describe("selectForContext, subject priority", () => {
     expect(selectForContext(rows, NOW, 12).map((p) => p.id)).toEqual(
       selectForContext(rows, NOW, 12, new Set()).map((p) => p.id)
     );
+  });
+});
+
+// ---- Directed memories: pinned, and what happens at the ceiling --
+describe("directed memories in the context block", () => {
+  const NOW = "2026-09-15T12:00:00Z";
+  const mem = (
+    id: string,
+    daysAgo: number,
+    kind: "said" | "inferred" | "directed"
+  ): StoredMemory => ({
+    id,
+    kind,
+    content: `memory ${id}`,
+    created_at: new Date(Date.parse(NOW) - daysAgo * 86_400_000).toISOString(),
+  });
+
+  it("carries a directed memory far older than the recency window", () => {
+    // The whole point: a person who asked to be remembered something
+    // did not ask for four months of it.
+    const rows = [
+      mem("pinned", CONTEXT_MEMORY_DAYS + 200, "directed"),
+      mem("recent", 1, "said"),
+    ];
+    const picked = selectForContext(rows, NOW, 12);
+    expect(picked.map((m) => m.id)).toEqual(["pinned", "recent"]);
+  });
+
+  it("puts pinned memories ahead of the recency-weighted slice", () => {
+    const rows = [
+      mem("s1", 1, "said"),
+      mem("s2", 2, "said"),
+      mem("p1", 300, "directed"),
+    ];
+    expect(selectForContext(rows, NOW, 12)[0].id).toBe("p1");
+  });
+
+  // THE CEILING. "Always included" and "inside the same budget"
+  // cannot both hold without a rule for what gives.
+  it("caps pinned memories at their share and drops the OLDEST first", () => {
+    const rows = [
+      ...Array.from({ length: 12 }, (_, i) => mem(`p${i}`, (i + 1) * 10, "directed")),
+      mem("said-1", 1, "said"),
+    ];
+    const picked = selectForContext(rows, NOW, 12);
+    const carried = picked.filter((m) => m.kind === "directed").map((m) => m.id);
+    expect(carried).toHaveLength(pinnedCarryLimit(12));
+    // Newest pinned survive; p11 is the oldest and is not carried.
+    expect(carried).toContain("p0");
+    expect(carried).not.toContain("p11");
+    // And the block is still the budget, not the budget plus pins.
+    expect(picked.length).toBeLessThanOrEqual(12);
+  });
+
+  it("leaves room for distilled memory even when pins would fill it", () => {
+    const rows = [
+      ...Array.from({ length: 20 }, (_, i) => mem(`p${i}`, i + 1, "directed")),
+      mem("said-1", 1, "said"),
+    ];
+    const picked = selectForContext(rows, NOW, 12);
+    expect(picked.some((m) => m.kind !== "directed")).toBe(true);
+  });
+
+  it("voices a directed memory as an instruction, not as recall", () => {
+    const block = formatMemoryBlock([mem("p1", 400, "directed")], NOW);
+    expect(block).toContain("they asked you to remember this");
+  });
+});
+
+// ---- The decline, for an EXPLICIT ask --------------------------
+//
+// The never-written list is not softened by the person asking. That
+// is a decision, not an oversight: somebody asking Aimee to hold a
+// medical fact is asking her to be a place medical facts live, and
+// she is not that place. What she owes them is a reason and the
+// version she CAN keep.
+describe("explicit asks are filtered too", () => {
+  it("refuses a health ask and offers the work-framed alternative", () => {
+    const ask = "remember my dad is in hospital until October";
+    const verdict = filterVerdict(ask);
+    expect(verdict).toEqual({ keep: false, reason: "health" });
+
+    // The reply is not a bare refusal. It says what it does not keep,
+    // in one sentence, and offers the reduced-capacity reframe.
+    const message = declineMessageFor("health");
+    expect(message).toMatch(/health or medical/i);
+    expect(message).toMatch(/stretched/i);
+    expect(message).toMatch(/no reason attached/i);
+  });
+
+  it("refuses a family ask and offers the work-framed alternative", () => {
+    expect(filterVerdict("remember that my divorce is final in March")).toEqual({
+      keep: false,
+      reason: "family",
+    });
+    expect(declineMessageFor("family")).toMatch(/without the personal detail/i);
+  });
+
+  it("keeps an ordinary standing instruction", () => {
+    expect(
+      filterVerdict("remember that I want every plan checked against cash before headcount")
+    ).toEqual({ keep: true });
   });
 });

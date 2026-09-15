@@ -2,6 +2,8 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getUserStrengths } from "@/lib/strengths/user-strengths";
 import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
 import { PageShell } from "@/components/ui/PageShell";
+import { listMyMemoriesAction } from "@/lib/coach/memory-actions";
+import { MemoryCard } from "./MemoryCard";
 import { AvatarUpload } from "./AvatarUpload";
 import { ProfileDetailsForm } from "./ProfileDetailsForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
@@ -14,6 +16,12 @@ import styles from "./profile.module.css";
 export default async function ProfilePage() {
   const session = await requireProfile();
   const strengths = await getUserStrengths(session.profile.id);
+
+  // Newest first already; the card shows the head of the list and
+  // links to the rest.
+  const { rows: allMemories } = await listMyMemoriesAction();
+  const recentMemories = allMemories.slice(0, 5);
+  const memoryTotal = allMemories.length;
 
   return (
     <PageShell
@@ -58,6 +66,23 @@ export default async function ProfilePage() {
           conversation.
         </p>
         <StrengthsEditor userId={session.profile.id} initial={strengths} heading="" />
+      </section>
+
+      {/* What Aimee remembers, where the other things that are you
+          already live. This replaced a sidebar entry of its own: a
+          person checking what the product holds about them is doing
+          something closer to reading their profile than opening a
+          feature. */}
+      <section className={styles.card} aria-labelledby="memory">
+        <h2 id="memory" className={styles.h2}>
+          Memory
+        </h2>
+        <p className={styles.subtitleInline}>
+          What you tell Aimee stays between you and Aimee. No one else can read
+          it. You can see everything Aimee remembers about you, and delete any
+          of it, whenever you want.
+        </p>
+        <MemoryCard recent={recentMemories} total={memoryTotal} />
       </section>
 
       <section className={styles.card} aria-labelledby="password">
