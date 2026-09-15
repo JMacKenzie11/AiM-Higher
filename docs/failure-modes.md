@@ -789,3 +789,118 @@ data rather than the wall.
 UPDATE nor INSERT and `service_role` holds no SELECT, alongside the
 policy-text assertions — plus the batch probes expecting `42501` from
 both the subject and a system_admin.
+
+### E9. A queue whose skip path does not advance its cursor
+
+**Situation.** Work is processed from a queue, newest first, with a
+cap on how much is done per pass. Some items are not eligible and are
+skipped. The skip is written as an early `continue`, and the statement
+that records progress sits at the *end* of the loop body — so a
+skipped item is never marked as seen. If the window the queue is read
+through is sized to the same number as the work cap, a run of
+ineligible items at the head walls off everything behind them,
+permanently.
+
+**Specimen.** The coach-memory sweep (0194 era) ordered conversations
+by `updated_at`, fetched `MAX_PER_RUN + 1` of them — four — and
+skipped any with fewer than two user turns via a `continue` that
+jumped past the watermark update. The owner's four newest general
+conversations had **0, 0, 1 and 0** user turns: empty shells left
+behind by `/ask-aimee/new`, which creates a row before the first
+message, every time somebody opens a thread and backs out.
+
+Every sweep examined the same three empty conversations, skipped all
+three, and returned `0/0/0`. The real conversations sat at positions
+seven and eight with nine and ten user turns and were **never once
+reached**. 48 conversations produced zero memories for the entire
+life of the feature.
+
+It could not self-correct, either. An empty conversation has no
+message timestamp, so there is nothing to write a watermark from: it
+cannot be marked as seen even in principle.
+
+**Rule.** **How many items you LOOK at is not how many you WORK on,
+and sizing the first to the second guarantees head-of-line blocking.**
+Looking is cheap; make the window wide enough to get past any
+plausible run of ineligible items. Working is expensive; keep that
+capped. And check every early `continue` against the statement that
+records progress — if the cursor lives at the bottom of the loop, a
+skip silently means "try this again forever".
+
+**Corollary, on why nobody noticed.** Every failure mode of that
+feature rendered as the same screen: "Aimee hasn't noted anything
+yet." A sweep that never ran, a write the database refused, and a read
+that failed were one indistinguishable empty page, because the
+candidate query discarded its error, three failure paths logged to
+`console` and continued, and the read path discarded its error and
+returned `[]`. Diagnosis from outside was impossible, and the access
+wall correctly refused the service-role key the inside view would have
+needed. **A feature whose failure modes all render as its empty state
+has no failure modes you can see.** Route them somewhere a person
+looks, and make the empty state say which kind of empty it is.
+
+**Corollary, on why the tests passed.** The E2E exercised the real
+page and the real trigger and was green throughout, because its
+fixture creates a conversation *with content* at the head of the
+queue. The bug needs ineligible items at the head, and a test that
+constructs the happy precondition cannot see a bug that lives in the
+unhappy one.
+
+**Pinned by.** `selectSweepCandidates` in `src/lib/coach/memory-shape.ts`,
+extracted from the action precisely so the selection rule is testable
+without a database, and its tests in `memory-shape.test.ts` — which
+demonstrate the old shape rather than asserting about it: the same
+fixture sliced to four rows returns `[]`, which is what production did
+on every page entry.
+
+### E10. An instruction reverted in one layer while its twin lived on in another
+
+**Situation.** A behaviour is enforced in two places at once — a
+system prompt and an instruction assembled at request time, or a
+policy and the code that assumes it. The behaviour is later reversed.
+The obvious copy is found and rewritten; the second one is not, and
+the two halves now say opposite things. The model, or the next
+reader, splits the difference, and the result looks like the *new*
+rule being followed badly rather than the *old* rule still being
+enforced somewhere.
+
+**Specimen.** #144 shipped the participant-frame rule for coach
+memory: an about-mode conversation could be summarized, but never with
+a claim about the team member. It was enforced in
+`prompts/coach-memory.md` **and** by a sentence prepended to the
+summarizer's user turn in `memory-actions.ts`: *"Write the memory
+about the leader, never about `<name>`."*
+
+#145 reversed the decision. The prompt section was rewritten, the
+deterministic filter removed, the SHA guard regenerated, the spec and
+help amended. The runtime sentence was missed, and it sits directly
+beside the transcript.
+
+The model hedged. A leader's own statement — "Marcus keeps missing the
+Thursday handoff" — came back as `inferred`, phrased *"believes X, but
+this belief is not yet validated"*. That is not a provenance error so
+much as an obedience compromise between two contradictory
+instructions, and it put the model's assessment of a claim into the
+record where the leader's words belonged.
+
+Two fix attempts went into strengthening the prompt, which was already
+correct.
+
+**Rule.** **Before reverting a behaviour, inventory every layer that
+states it, then revert them together.** Grep for the behaviour, not
+for the file you remember editing. A rule worth stating twice is worth
+un-stating twice.
+
+**Corollary, on proximity.** When a model disobeys a rule you have
+just strengthened, suspect a contradicting instruction *closer to the
+content* before suspecting the rule. An instruction adjacent to the
+material being processed outweighs a paragraph deep in a long system
+prompt, so the layer nearest the data is the first place to look and
+the last place people think of.
+
+**Pinned by.** The two-half prompt guard in `memory-prompt.test.ts`
+— SHA plus line-level assertions on the operative sentences, so a
+softening edit fails even with a regenerated SHA — and the about-mode
+E2E, which asserts provenance on the row's own `data-kind` attribute
+rather than on page text. Matching on text passed while the row was
+labelled an inference; only the attribute could tell the difference.

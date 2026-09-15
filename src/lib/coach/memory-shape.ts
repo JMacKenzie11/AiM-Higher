@@ -344,6 +344,7 @@ function relativeAge(createdAt: string, nowIso: string): string {
 //
 // The fix separates two things the old code conflated: how many
 // conversations we LOOK at, and how many we spend a model call on.
+// Failure mode E9.
 // Looking is cheap and must range far enough to get past any run of
 // unusable rows. Summarizing is expensive and stays capped.
 //
