@@ -451,6 +451,7 @@ export default async function AdminDashboardPage() {
         <SystemAdminList
           admins={portfolioAdmins}
           currentProfileId={session.profile.id}
+          variant="portfolio_admin"
         />
         <SystemAdminForm variant="portfolio_admin" />
       </section>
