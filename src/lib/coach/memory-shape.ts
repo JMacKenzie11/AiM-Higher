@@ -16,6 +16,20 @@ export type MemoryKind = "said" | "inferred" | "directed";
 export type DraftMemory = { kind: MemoryKind; content: string };
 
 export const MAX_MEMORIES_PER_CONVERSATION = 6;
+// How many of those six may be the coach's own reading.
+//
+// A ceiling, not a target. Left uncapped, the model wrote one
+// inference per statement: each `said` line got a hedged restatement
+// of itself labelled `inferred`, and a conversation with two ideas in
+// it produced four rows. The prompt now says an inference must add
+// something the person did not say; this is the backstop for when it
+// does it anyway, because a prompt rule is guidance and this is
+// arithmetic.
+//
+// Two rather than one because a genuinely separate second read does
+// happen — a pattern across episodes AND a contradiction, say — and
+// one would force the model to discard a real observation.
+export const MAX_INFERRED_PER_CONVERSATION = 2;
 export const MAX_MEMORY_CHARS = 200;
 // Lives here rather than beside the action that enforces it, because
 // a "use server" file may export only async functions and the card
@@ -51,6 +65,7 @@ export function parseMemoryResponse(raw: string): DraftMemory[] {
   if (!Array.isArray(list)) return [];
 
   const out: DraftMemory[] = [];
+  let inferred = 0;
   for (const item of list) {
     const kind = (item as { kind?: unknown })?.kind;
     const content = (item as { content?: unknown })?.content;
@@ -58,6 +73,18 @@ export function parseMemoryResponse(raw: string): DraftMemory[] {
     if (typeof content !== "string") continue;
     const trimmed = content.trim().slice(0, MAX_MEMORY_CHARS).trim();
     if (trimmed.length === 0) continue;
+    // The inference ceiling. Extras are DROPPED rather than
+    // converted to `said`: relabelling the coach's own reading as
+    // something the person stated is the one failure the whole
+    // said/inferred split exists to prevent, and a cap is not a
+    // reason to commit it.
+    //
+    // First-come, so the prompt can tell the model its best
+    // inference should come first and that instruction is true.
+    if (kind === "inferred" && inferred >= MAX_INFERRED_PER_CONVERSATION) {
+      continue;
+    }
+    if (kind === "inferred") inferred += 1;
     out.push({ kind, content: trimmed });
     if (out.length >= MAX_MEMORIES_PER_CONVERSATION) break;
   }

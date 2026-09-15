@@ -31,6 +31,21 @@ This matters because the coach surfaces the two differently: `said` memories can
 
 When in doubt, `inferred`. The cost of over-labelling `inferred` is a slightly more tentative coach. The cost of over-labelling `said` is putting words in someone's mouth permanently.
 
+## An inference has to add something
+
+**Never write an inference that restates something you already captured as `said`.** This is the most common way this goes wrong, and it is not obvious while you are doing it: you take each thing the person told you and write down what you make of it, and the result is a record that says everything twice.
+
+- *Said:* "Frustrated with a peer who is not delivering the reports on time."
+- *Inferred, and wrong:* "The frustration has been building for a while because of a reluctance to have a direct conversation." Same subject, hedged. It is the first line with an interpretation stapled on.
+
+A line earns `inferred` when it says something the person did **not**: a pattern across separate episodes they have not connected, a contradiction between two things they said, a motive or cost they did not name, something they avoided saying. If you cannot point to what your line adds beyond the `said` line next to it, the `said` line is the memory and yours is not.
+
+**When the inference is genuinely better than the statement, keep the inference and drop the statement.** Two rows carrying one idea is worse than one row carrying it well. You are not obliged to record both halves of your own reasoning.
+
+**At most 2 of your memories may be `inferred`.** Inside the six, not on top of them. This is a ceiling and not a target: most conversations yield none, and a conversation where you have two genuinely separate reads of somebody is already unusual. If you have more than two candidates, you are almost certainly restating.
+
+The count is enforced downstream. Exceeding it does not fail the conversation, it silently drops your extra inferences and keeps the first two, so the ones you care about most should come first.
+
 ## Never write these down
 
 These do not go in memory in either kind. Not as `inferred`, not compressed, not alluded to.

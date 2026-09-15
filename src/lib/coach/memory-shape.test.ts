@@ -635,3 +635,64 @@ describe("pageWindow", () => {
     expect(pageWindow(1, 0).pageCount).toBe(1);
   });
 });
+
+// ---- The inference ceiling --------------------------------------
+//
+// Left uncapped, the model wrote one inference per statement: every
+// `said` line got a hedged restatement of itself, so a conversation
+// with two ideas produced four rows. Seen on a real memory page, not
+// theorised.
+//
+// The prompt now says an inference must add something the person did
+// not say. This is the backstop, because a prompt rule is guidance
+// and this is arithmetic.
+describe("parseMemoryResponse caps inferences", () => {
+  const raw = (kinds: string[]) =>
+    JSON.stringify({
+      memories: kinds.map((k, i) => ({ kind: k, content: `memory number ${i}` })),
+    });
+
+  it("keeps at most two inferred, and all the said", () => {
+    const out = parseMemoryResponse(
+      raw(["inferred", "inferred", "inferred", "inferred", "said", "said"])
+    );
+    expect(out.filter((m) => m.kind === "inferred")).toHaveLength(2);
+    expect(out.filter((m) => m.kind === "said")).toHaveLength(2);
+  });
+
+  it("keeps the FIRST inferences, so the prompt can ask for the best one first", () => {
+    const out = parseMemoryResponse(
+      JSON.stringify({
+        memories: [
+          { kind: "inferred", content: "the one that matters" },
+          { kind: "inferred", content: "the second one" },
+          { kind: "inferred", content: "the one to drop" },
+        ],
+      })
+    );
+    expect(out.map((m) => m.content)).toEqual([
+      "the one that matters",
+      "the second one",
+    ]);
+  });
+
+  // The failure a cap could tempt somebody into: keeping the extra
+  // inference by calling it something else.
+  it("DROPS extras rather than relabelling them as said", () => {
+    const out = parseMemoryResponse(raw(["inferred", "inferred", "inferred"]));
+    expect(out).toHaveLength(2);
+    expect(out.every((m) => m.kind === "inferred")).toBe(true);
+  });
+
+  it("leaves a conversation of only said memories alone", () => {
+    const out = parseMemoryResponse(raw(["said", "said", "said", "said"]));
+    expect(out).toHaveLength(4);
+  });
+
+  it("still respects the overall cap of six", () => {
+    const out = parseMemoryResponse(
+      raw(["said", "said", "said", "said", "said", "said", "said", "inferred"])
+    );
+    expect(out).toHaveLength(MAX_MEMORIES_PER_CONVERSATION);
+  });
+});
