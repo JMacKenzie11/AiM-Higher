@@ -289,6 +289,11 @@ export async function summarizeFinishedConversationsAction(
         messages: [
           {
             role: "user",
+            // The about-mode instruction, stated HERE as well as in
+            // the prompt. Two copies of a rule is two places to
+            // revert it: the participant-frame version of this
+            // sentence outlived its own reversal by one PR and had
+            // the model splitting the difference. Failure mode E10.
             content: isAbout
               ? `Distil this finished coaching conversation.\n\nThis is an ` +
                 `about-mode conversation: a leader thinking through ` +
