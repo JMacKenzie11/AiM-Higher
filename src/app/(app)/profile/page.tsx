@@ -17,11 +17,9 @@ export default async function ProfilePage() {
   const session = await requireProfile();
   const strengths = await getUserStrengths(session.profile.id);
 
-  // Newest first already; the card shows the head of the list and
-  // links to the rest.
-  const { rows: allMemories } = await listMyMemoriesAction();
-  const recentMemories = allMemories.slice(0, 5);
-  const memoryTotal = allMemories.length;
+  // Newest first already. The card takes all of them and pages in
+  // place, so there is no second page to send anybody to.
+  const { rows: memories } = await listMyMemoriesAction();
 
   return (
     <PageShell
@@ -82,7 +80,7 @@ export default async function ProfilePage() {
           it. You can see everything Aimee remembers about you, and delete any
           of it, whenever you want.
         </p>
-        <MemoryCard recent={recentMemories} total={memoryTotal} />
+        <MemoryCard memories={memories} />
       </section>
 
       <section className={styles.card} aria-labelledby="password">

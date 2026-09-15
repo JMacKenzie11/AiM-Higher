@@ -82,6 +82,23 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
 
   // The turn is stored by the route after the stream closes.
   await page.waitForTimeout(2500);
+
+  // AND THE THREAD STILL HOLDS IT. 2500ms was a guess, and twice it
+  // was not enough: the thread re-rendered before the turn was
+  // persisted, dropped the un-persisted assistant bubble, and the
+  // next read got back only the question. The test then failed
+  // reporting that the coach had not recalled anything, which is a
+  // true statement about an empty thread and a false one about the
+  // product.
+  //
+  // So wait on the CONDITION rather than on the clock: the thread
+  // must contain more than the message just sent. Fourth ruler bug in
+  // this file, and the same shape as the other three — the product
+  // was right and the measurement was not.
+  await expect(async () => {
+    const thread = await page.getByTestId("coach-thread").innerText();
+    expect(thread.replace(text, "").trim().length).toBeGreaterThan(40);
+  }).toPass({ timeout: 60_000 });
 }
 
 test.describe("coach memory", () => {

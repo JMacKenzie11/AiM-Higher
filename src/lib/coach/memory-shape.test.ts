@@ -12,6 +12,7 @@ import {
   CONTEXT_MEMORY_DAYS,
   pinnedCarryLimit,
   declineMessageFor,
+  pageWindow,
 } from "./memory-shape";
 
 describe("parseMemoryResponse", () => {
@@ -599,5 +600,38 @@ describe("selectSweepCandidates skips agent conversations", () => {
       memory_summarized_through: null,
     } as SweepCandidate;
     expect(pick([bare], { legacy: 4 })).toEqual(["legacy"]);
+  });
+});
+
+describe("pageWindow", () => {
+  it("pages a list that divides unevenly", () => {
+    expect(pageWindow(14, 0)).toMatchObject({
+      pageCount: 2, current: 0, start: 0, end: 10, firstShown: 1, lastShown: 10,
+    });
+    expect(pageWindow(14, 1)).toMatchObject({
+      pageCount: 2, current: 1, start: 10, end: 14, firstShown: 11, lastShown: 14,
+    });
+  });
+
+  // The case that strands somebody: they are on page 2 of 2, delete
+  // the last row on it, and the list is now one page long.
+  it("clamps a page index that the list has shrunk past", () => {
+    expect(pageWindow(10, 1)).toMatchObject({ pageCount: 1, current: 0, start: 0, end: 10 });
+    expect(pageWindow(3, 7)).toMatchObject({ pageCount: 1, current: 0, start: 0, end: 3 });
+  });
+
+  it("survives an empty list without reporting 1-0 of 0", () => {
+    expect(pageWindow(0, 0)).toMatchObject({
+      pageCount: 1, current: 0, start: 0, end: 0, firstShown: 0, lastShown: 0,
+    });
+  });
+
+  it("treats a negative index as the first page", () => {
+    expect(pageWindow(25, -3).current).toBe(0);
+  });
+
+  it("is a single page when everything fits", () => {
+    expect(pageWindow(10, 0).pageCount).toBe(1);
+    expect(pageWindow(1, 0).pageCount).toBe(1);
   });
 });
