@@ -7,12 +7,21 @@
 // through a mock of the Anthropic client and testing it by calling
 // it.
 
-export type MemoryKind = "said" | "inferred";
+// Provenance, not confidence. Each answers "who put this here".
+//   said     - the person stated it in a conversation
+//   inferred - the coach concluded it
+//   directed - the person asked for it to be kept
+export type MemoryKind = "said" | "inferred" | "directed";
 
 export type DraftMemory = { kind: MemoryKind; content: string };
 
 export const MAX_MEMORIES_PER_CONVERSATION = 6;
 export const MAX_MEMORY_CHARS = 200;
+// Lives here rather than beside the action that enforces it, because
+// a "use server" file may export only async functions and the card
+// needs this for its maxLength. Same ceiling as a distilled memory:
+// one thing worth still knowing, not a note.
+export const MAX_DIRECTED_MEMORY_CHARS = 200;
 
 // What the model is asked to return. Parsed defensively: a model that
 // returns prose, a fence, a wrong shape or a partial object must
@@ -132,6 +141,35 @@ export function filterVerdict(content: string): FilterVerdict {
   return { keep: true };
 }
 
+// What the person hears when they ask for something the record will
+// not keep.
+//
+// The decline is kind, one sentence about why, and it always offers
+// the thing that CAN be kept, because the point is almost never the
+// detail itself. Somebody saying "remember my dad is in hospital
+// until October" is telling you they will be stretched until October,
+// and that part is ordinary work context worth having.
+//
+// A refusal with no alternative reads as the product being squeamish.
+// A refusal with one reads as the product knowing the difference
+// between what helps and what is nobody's business.
+export function declineMessageFor(reason: "health" | "family"): string {
+  if (reason === "health") {
+    return (
+      "I don't keep anything about health or medical matters, yours or " +
+      "anyone else's, so I haven't saved that. If it would help, I can " +
+      "note the work side instead: that you're going to be stretched, " +
+      "and until when, with no reason attached."
+    );
+  }
+  return (
+    "I don't keep notes about family or personal life, so I haven't " +
+    "saved that. If it's shaping something at work, I can keep that " +
+    "part instead: the commitment that's moving, or the stretch you're " +
+    "expecting, without the personal detail."
+  );
+}
+
 export type FilterResult = {
   kept: DraftMemory[];
   dropped: Array<{ memory: DraftMemory; reason: "health" | "family" }>;
@@ -171,6 +209,33 @@ export const CONTEXT_MEMORY_DAYS = 120;
 // more than it does. Three bands say what is actually known — this
 // is recent, this is a while back, this is old — and inside a band
 // the newest wins.
+// How many of the block's slots pinned memories may occupy before the
+// oldest of them starts falling out.
+//
+// THE OVERFLOW RULE, which needs stating because "always included"
+// and "inside the same token budget" cannot both hold forever. A
+// person who pins thirty things would otherwise either blow the
+// budget or push every distilled memory out of the block, and the
+// coach would arrive knowing thirty instructions and nothing about
+// the conversation they are in.
+//
+// So: pinned memories are exempt from the RECENCY fade, not from the
+// budget. They take the front of the block, newest first, up to this
+// share of it. Past that, the OLDEST pinned rows fall back to being
+// tool-reachable through memory_lookup, exactly as an old distilled
+// memory does. Newest-wins rather than oldest-wins because a person
+// who keeps pinning is telling you what matters now, and the thing
+// they pinned two years ago has had its chance to be acted on.
+//
+// The card says which ones are actively carried, so this is visible
+// rather than silent — a person who pins a thirteenth thing and
+// quietly loses the first would have no way to know.
+export const CONTEXT_PINNED_SHARE = 0.75;
+
+export function pinnedCarryLimit(limit: number = CONTEXT_MEMORY_LIMIT): number {
+  return Math.max(1, Math.floor(limit * CONTEXT_PINNED_SHARE));
+}
+
 export function selectForContext(
   memories: readonly StoredMemory[],
   nowIso: string,
@@ -190,11 +255,19 @@ export function selectForContext(
   priorityIds: ReadonlySet<string> = new Set()
 ): StoredMemory[] {
   const now = Date.parse(nowIso);
-  const scored = memories
-    .map((m) => {
-      const ageDays = (now - Date.parse(m.created_at)) / 86_400_000;
-      return { m, ageDays, priority: priorityIds.has(m.id) ? 0 : 1 };
-    })
+  const age = (m: StoredMemory) =>
+    (now - Date.parse(m.created_at)) / 86_400_000;
+
+  // PINNED FIRST, and exempt from the age window. A person who asked
+  // for something to be remembered did not ask for four months of it.
+  const pinned = memories
+    .filter((m) => m.kind === "directed")
+    .sort((a, b) => age(a) - age(b))
+    .slice(0, pinnedCarryLimit(limit));
+
+  const rest = memories
+    .filter((m) => m.kind !== "directed")
+    .map((m) => ({ m, ageDays: age(m), priority: priorityIds.has(m.id) ? 0 : 1 }))
     // Older than the window drops out of the DEFAULT block. Still in
     // the table, still reachable by tool, deliberately not free.
     .filter((s) => s.ageDays <= CONTEXT_MEMORY_DAYS)
@@ -203,8 +276,10 @@ export function selectForContext(
       const band = ageBand(a.ageDays) - ageBand(b.ageDays);
       if (band !== 0) return band;
       return a.ageDays - b.ageDays;
-    });
-  return scored.slice(0, limit).map((s) => s.m);
+    })
+    .map((s) => s.m);
+
+  return [...pinned, ...rest].slice(0, limit);
 }
 
 function ageBand(days: number): number {
@@ -226,7 +301,12 @@ export function formatMemoryBlock(
   lines.push("");
   for (const m of memories) {
     const age = relativeAge(m.created_at, nowIso);
-    lines.push(`- [${m.kind}] ${m.content} (${age})`);
+    // `directed` is labelled with what it actually is, because the
+    // coach voices it differently: it is not something distilled from
+    // a conversation, it is an instruction the person left for you.
+    const tag =
+      m.kind === "directed" ? "directed - they asked you to remember this" : m.kind;
+    lines.push(`- [${tag}] ${m.content} (${age})`);
   }
   lines.push("</coach_memory>");
   return lines.join("\n");

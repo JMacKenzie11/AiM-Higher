@@ -519,3 +519,110 @@ test.describe("coach memory, about mode", () => {
     ).not.toMatch(/thursday handoff|before friday/);
   });
 });
+
+// ---- PERSON-ADDED MEMORY ---------------------------------------
+//
+// REQUIRES MIGRATION 0196 on the dev clone. Until it lands, the
+// insert is refused by the kind check constraint and this fails at
+// the "added" assertion with a saving error, which is the correct
+// failure: the surface is real and the column is not.
+//
+// Standing fixture hygiene: the synthetic member only, asserted
+// before writing, all memory deleted afterwards whether or not the
+// test passed.
+test.describe("coach memory, person-added", () => {
+  test.describe.configure({ timeout: 600_000 });
+
+  test.afterEach(async ({ page }) => {
+    const outcome = await page
+      .evaluate(async () => {
+        const res = await fetch("/api/coach/memory", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ all: true }),
+        });
+        return { status: res.status, body: await res.text() };
+      })
+      .catch((err) => ({ status: 0, body: String(err) }));
+    if (outcome.status !== 200) {
+      throw new Error(
+        `coach_memories cleanup FAILED — rows remain on the clone: ${outcome.body}`
+      );
+    }
+  });
+
+  test("add from the profile card, carried into a conversation, then deleted", async ({
+    page,
+  }) => {
+    await signIn(page, users.member());
+
+    await page.goto("/profile");
+    await expect(
+      page.getByText(/signed in as/i),
+      "refusing to write coach_memories: not signed in as the E2E fixture member"
+    ).toContainText(process.env.E2E_MEMBER_EMAIL ?? "___no_fixture___");
+
+    // THE DECLINE, first, because it must hold even on a direct ask
+    // and because it writes nothing — the filter runs before the
+    // database is touched at all.
+    const input = page.getByLabel("Add a memory");
+    await input.fill("remember my dad is in hospital until October");
+    await page.getByRole("button", { name: /add a memory/i }).click();
+    const declineText = page.getByRole("status");
+    await expect(declineText).toBeVisible({ timeout: 15_000 });
+    await expect(declineText).toContainText(/health or medical/i);
+    // And the alternative, which is the half that makes it a decline
+    // rather than a refusal.
+    await expect(declineText).toContainText(/stretched/i);
+    await expect(
+      page.getByTestId("memory-row").filter({ hasText: /hospital/i }),
+      "a declined memory was saved anyway"
+    ).toHaveCount(0);
+
+    // THE ADD.
+    const PINNED = "Check every plan against cash before headcount";
+    await input.fill(PINNED);
+    await page.getByRole("button", { name: /add a memory/i }).click();
+    const row = page.getByTestId("memory-row").filter({ hasText: /against cash/i });
+    await expect(row, "the directed memory was not saved").toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(row).toHaveAttribute("data-kind", "directed");
+    await expect(row).toContainText(/you asked me to remember/i);
+
+    // CARRIED, in a fresh conversation. Not "eventually" — a directed
+    // memory is exempt from the recency fade, so it rides in the very
+    // next one.
+    await page.goto("/ask-aimee");
+    await expect(page).toHaveURL(/\/ask-aimee/, { timeout: 30_000 });
+    await page.getByRole("link", { name: /new conversation|start/i }).first().click().catch(async () => {
+      await page.goto("/ask-aimee/new");
+    });
+    await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, { timeout: 30_000 });
+    await sendAndWait(page, "What should I keep in mind as I plan next quarter?");
+    const thread = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
+    expect(
+      thread,
+      `expected the pinned memory to be carried. Got: ${thread.slice(0, 700)}`
+    ).toMatch(/cash|headcount/);
+
+    // DELETED, and gone from recall.
+    await page.goto("/profile");
+    await page
+      .getByRole("button", { name: new RegExp(`delete: ${PINNED}`, "i") })
+      .click();
+    await page.getByRole("button", { name: /^delete$/i }).last().click();
+    await expect(
+      page.getByTestId("memory-row").filter({ hasText: /against cash/i })
+    ).toHaveCount(0, { timeout: 20_000 });
+
+    await page.goto("/ask-aimee/new");
+    await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, { timeout: 30_000 });
+    await sendAndWait(page, "What should I keep in mind as I plan next quarter?");
+    const after = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
+    expect(
+      after,
+      `deleted memory still reached recall: ${after.slice(0, 700)}`
+    ).not.toMatch(/before headcount/);
+  });
+});

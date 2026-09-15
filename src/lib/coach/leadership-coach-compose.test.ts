@@ -32,6 +32,14 @@ import path from "node:path";
 // spine, which is exactly the kind of change this guard is here to
 // make somebody say out loud.
 //
+// Changed again 2026-09-15, saying it out loud: the memory section
+// gained the `directed` kind and the `remember_this` tool. Two things
+// in it are load-bearing. A directed memory is raised plainly rather
+// than hedged, because the person asked for it and hedging their own
+// instruction back at them is absurd. And a declined save is
+// delivered as Aimee's answer with the work-shaped alternative, never
+// saved in different words, even though they asked directly.
+//
 // Changed again 2026-09-14, and saying it out loud: the spine gained a
 // terminal state and turns gained a length ceiling. A real conversation
 // reached step 7, the leader said "I'll go try that test", and the coach
@@ -41,7 +49,7 @@ import path from "node:path";
 // ask a question without a hypothesis alongside it" made the shortest
 // legal turn a hypothesis and a question. The seven steps are untouched.
 const LEADERSHIP_COACH_BASE_SHA =
-  "153a940f72d95f56e7d0126e6223a5efc9611c0d295148aec61ab99e06286989";
+  "181fc2ed2e67537a261d60e4d6e8ce8535113eff4c8c6570315d52668c9a5cf8";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {

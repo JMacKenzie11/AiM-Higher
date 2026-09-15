@@ -380,6 +380,107 @@ async function hazard1(run: Runner, ids: Identities): Promise<CaseResult> {
 // because the table is FORCE ROW LEVEL SECURITY with an insert policy
 // of profile_id = auth.uid(), so there is no way to plant the row
 // from outside a real caller's session. That is the point of it.
+// The 'directed' write path, added with 0196.
+//
+// The claim is not "directed rows can be written" — it is that the
+// new kind changes NOTHING about whose store a row lands in. Part 1
+// made that structural by giving record_coach_memory no profile_id
+// parameter, and a new kind is exactly the kind of change that
+// tempts somebody to add one "just for this case". So the probe
+// asserts both halves: the definer path writes a directed row to the
+// CALLER, and a direct insert naming somebody else is refused.
+//
+// Skips cleanly before 0196 lands, and runs for real under
+// `--pending 0196_coach_memory_directed.sql`.
+async function coachMemoryDirected(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const MARK = "harness fixture: directed row";
+  const [allowed] = await run<{ ok: boolean }>(
+    [
+      "begin;",
+      pending,
+      `select pg_get_constraintdef(oid) like '%directed%' as ok
+         from pg_constraint
+        where conrelid = 'public.coach_memories'::regclass
+          and conname = 'coach_memories_kind_check';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!allowed?.ok) {
+    return {
+      name: "coach-memory-directed",
+      hazard: "A directed memory lands in somebody else's store",
+      wrong: "kind not on this schema",
+      right: "kind not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0196 has not landed here yet. Runs for real under --pending 0196_coach_memory_directed.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  // Written through the definer path as the member, then checked:
+  // whose row is it?
+  const [mine] = await run<{ own: number; theirs: number }>(
+    [
+      "begin;",
+      pending,
+      "set local role authenticated;",
+      claims(ids.member),
+      `select public.record_coach_memory('directed', '${MARK}', null);`,
+      `select
+         (select count(*)::int from public.coach_memories
+           where content = '${MARK}' and profile_id = '${ids.member}') as own,
+         (select count(*)::int from public.coach_memories
+           where content = '${MARK}' and profile_id <> '${ids.member}') as theirs;`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  // And the thing somebody would reach for if they wanted to direct a
+  // memory into another person's store: a direct insert naming them.
+  // The insert policy is profile_id = auth.uid(), so this is refused.
+  let plantedRows = -1;
+  try {
+    const [planted] = await run<{ n: number }>(
+      [
+        "begin;",
+        pending,
+        "set local role authenticated;",
+        claims(ids.member),
+        `insert into public.coach_memories (profile_id, kind, content)
+           values ('${ids.companyAdmin}', 'directed', '${MARK} planted');`,
+        `select count(*)::int as n from public.coach_memories
+           where content = '${MARK} planted';`,
+        "rollback;",
+      ].join("\n")
+    );
+    plantedRows = planted?.n ?? -1;
+  } catch {
+    // A refusal that raises rather than returning 0 is the stronger
+    // outcome and is what the insert policy actually does.
+    plantedRows = 0;
+  }
+
+  const ok = mine?.own === 1 && mine?.theirs === 0 && plantedRows === 0;
+  return {
+    name: "coach-memory-directed",
+    hazard:
+      "A directed memory lands in somebody else's store, or can be aimed at one",
+    wrong: `direct insert naming another profile left ${plantedRows} row(s)`,
+    right: `definer path wrote ${mine?.own ?? "?"} row to the caller and ${mine?.theirs ?? "?"} to anyone else`,
+    ok,
+    detail: ok
+      ? "A directed row goes to the caller and nowhere else, and an insert aimed at another profile is refused. The new kind did not widen the write path."
+      : `own ${mine?.own} (want 1), theirs ${mine?.theirs} (want 0), planted ${plantedRows} (want 0).`,
+  };
+}
+
 async function coachMemoryAboutMode(
   run: Runner,
   _ids: Identities
@@ -4980,6 +5081,14 @@ async function main(): Promise<void> {
     ["hazard-3", hazard3],
     ["coach-history-reads", coachHistoryReads],
     ["coach-memory-about-mode", coachMemoryAboutMode],
+    // Threaded `pendingSql` because this one probes a migration that
+    // has not landed yet, and a case that silently reports "not
+    // applicable" under --pending would be a probe that never ran
+    // while looking like one that passed.
+    [
+      "coach-memory-directed",
+      (r: Runner, i: Identities) => coachMemoryDirected(r, i, pendingSql),
+    ],
   ] as const;
 
   const results: CaseResult[] = [];
