@@ -583,22 +583,39 @@ test.describe("coach memory, person-added", () => {
     const PINNED = "Check every plan against cash before headcount";
     await input.fill(PINNED);
     await page.getByRole("button", { name: /add a memory/i }).click();
-    const row = page.getByTestId("memory-row").filter({ hasText: /against cash/i });
-    await expect(row, "the directed memory was not saved").toBeVisible({
+    // BY KIND, not by content. The first version matched any row
+    // mentioning the same words, and a distilled memory covering the
+    // same ground ("Wants to check every plan against cash before
+    // headcount in next quarter's planning") is legitimate and
+    // expected. Matching on text could not tell the row the person
+    // pinned from one Aimee wrote about the same subject.
+    const directed = page.locator('[data-testid="memory-row"][data-kind="directed"]');
+    await expect(directed, "the directed memory was not saved").toHaveCount(1, {
       timeout: 20_000,
     });
-    await expect(row).toHaveAttribute("data-kind", "directed");
-    await expect(row).toContainText(/you asked me to remember/i);
+    await expect(directed).toContainText(/against cash/i);
+    await expect(directed).toContainText(/you asked me to remember/i);
 
     // CARRIED, in a fresh conversation. Not "eventually" — a directed
     // memory is exempt from the recency fade, so it rides in the very
     // next one.
+    // Started the way the two tests above start one. /ask-aimee/new
+    // was the first attempt and it renders an error boundary rather
+    // than redirecting when called directly twice in a run, which is
+    // worth knowing but is not what this test is about.
     await page.goto("/ask-aimee");
-    await expect(page).toHaveURL(/\/ask-aimee/, { timeout: 30_000 });
-    await page.getByRole("link", { name: /new conversation|start/i }).first().click().catch(async () => {
-      await page.goto("/ask-aimee/new");
-    });
+    await page.getByRole("button", { name: /new|start|ask/i }).first().click();
     await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, { timeout: 30_000 });
+    // EMPTY, asserted. Every conversation in this test stays at one
+    // user turn, which is below MIN_USER_TURNS and keeps the
+    // summarizer out of it entirely — that is what makes the recall
+    // assertions below about the PINNED memory and nothing else. If
+    // the control lands on an existing thread instead of creating
+    // one, that guarantee is gone silently, so it is checked.
+    await expect(
+      page.getByTestId("coach-bubble"),
+      "expected a fresh conversation; landing on an existing thread would let the summarizer run"
+    ).toHaveCount(0, { timeout: 15_000 });
     await sendAndWait(page, "What should I keep in mind as I plan next quarter?");
     const thread = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
     expect(
@@ -613,11 +630,23 @@ test.describe("coach memory, person-added", () => {
       .click();
     await page.getByRole("button", { name: /^delete$/i }).last().click();
     await expect(
-      page.getByTestId("memory-row").filter({ hasText: /against cash/i })
+      page.locator('[data-testid="memory-row"][data-kind="directed"]'),
+      "the directed memory survived its own delete"
     ).toHaveCount(0, { timeout: 20_000 });
 
-    await page.goto("/ask-aimee/new");
+    await page.goto("/ask-aimee");
+    await page.getByRole("button", { name: /new|start|ask/i }).first().click();
     await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, { timeout: 30_000 });
+    // EMPTY, asserted. Every conversation in this test stays at one
+    // user turn, which is below MIN_USER_TURNS and keeps the
+    // summarizer out of it entirely — that is what makes the recall
+    // assertions below about the PINNED memory and nothing else. If
+    // the control lands on an existing thread instead of creating
+    // one, that guarantee is gone silently, so it is checked.
+    await expect(
+      page.getByTestId("coach-bubble"),
+      "expected a fresh conversation; landing on an existing thread would let the summarizer run"
+    ).toHaveCount(0, { timeout: 15_000 });
     await sendAndWait(page, "What should I keep in mind as I plan next quarter?");
     const after = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
     expect(
