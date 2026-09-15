@@ -121,3 +121,29 @@ describe("memory_lookup behaviour", () => {
     expect(mocks.applied.some((a) => a.startsWith("gte:created_at"))).toBe(true);
   });
 });
+
+// Structural, in the same spirit as the identifier-vocabulary check
+// above: buildCoachTools is server-only and hits the database, so the
+// cheap and durable way to pin WHERE the tool is offered is to read
+// the registration site.
+//
+// This was general-mode only until 2026-09-14, when about-mode
+// conversations started producing memory in the participant frame. A
+// write half with no read half is pointless, so the gate came off.
+// Re-adding a subject-mode guard here would silently disable recall
+// in exactly the conversations the amendment was for.
+describe("memory_lookup registration", () => {
+  it("is offered in both modes, not gated on there being a subject", async () => {
+    const { promises: fs } = await import("node:fs");
+    const path = await import("node:path");
+    const src = await fs.readFile(
+      path.join(process.cwd(), "src", "lib", "coach", "tools.ts"),
+      "utf8"
+    );
+    expect(src).toContain("tools.push(makeMemoryLookupTool());");
+    // The old shape, which must not come back without a decision.
+    expect(src).not.toMatch(
+      /if\s*\(\s*!args\.subjectProfileId\s*\)\s*\{\s*tools\.push\(makeMemoryLookupTool\(\)\);/
+    );
+  });
+});

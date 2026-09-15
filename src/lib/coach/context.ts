@@ -68,12 +68,12 @@ export type CoachContextInput = {
 
 export type CoachContextBlocks = {
   companyContext: string;
-  // What the coach remembers about the PARTICIPANT from previous
-  // general-mode conversations. Null when there is nothing to recall,
-  // or in about mode — memory belongs to the person talking, and a
-  // leader's memory has no business in a conversation about somebody
-  // else. Recency-weighted and capped; older memories fall out of
-  // this block and stay reachable through memory_lookup.
+  // What the coach remembers about the PARTICIPANT from their previous
+  // conversations, in either mode. Null only when there is nothing to
+  // recall. It is always the participant's own memory: a leader's
+  // memory is recalled to the leader, never to or about the subject.
+  // Recency-weighted and capped; older memories fall out of this
+  // block and stay reachable through memory_lookup.
   memoryContext: string | null;
   // Null in general mode (except for practices, which load the
   // participant's own person_context so the coach can ground its
@@ -154,13 +154,24 @@ export async function buildCoachContext(
 
   const mode: "about" | "general" = input.subjectProfileId ? "about" : "general";
 
-  // Read-before. General mode only, and about the participant, never
-  // the subject: memory is written for whoever is talking, so that is
-  // the only person it can honestly be recalled to.
-  const memoryContext =
-    mode === "general"
-      ? await loadMemoryContext(supabase, input.currentAdminProfileId, todayIso)
-      : null;
+  // Read-before, in BOTH modes as of 2026-09-14, and about the
+  // participant, never the subject: memory is written for whoever is
+  // talking, so that is the only person it can honestly be recalled
+  // to. currentAdminProfileId is that person in either mode.
+  //
+  // This used to be general-only, on the reasoning that recalling a
+  // leader's own memory into a conversation about somebody else was
+  // "material from a different relationship". That held while memory
+  // came only from general-mode conversations. Now that an about-mode
+  // conversation is itself summarized, in the participant frame, the
+  // leader's memory is exactly the thread to pick up: what they said
+  // last time they sat down to think about this person, and whether
+  // they did it. Withholding it would make the write half useless.
+  const memoryContext = await loadMemoryContext(
+    supabase,
+    input.currentAdminProfileId,
+    todayIso
+  );
 
   if (!subjectBundle) {
     // Vanilla general mode — Ask Aimee. No subject; no person,

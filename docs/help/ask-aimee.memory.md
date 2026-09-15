@@ -73,8 +73,18 @@ weighing — that's coaching content and it's exactly what makes her
 useful next time. It's protected by the same wall as everything else
 here: nobody but you can read it.
 
-**What about conversations about someone else?** Coaching
-conversations *about* a team member don't produce memory at all.
+**What about conversations about someone else?** When you use
+coaching about a team member, Aimee remembers what YOU are working
+on: your commitments and decisions. She doesn't keep notes about the
+team member; their actual record in the system speaks for itself,
+fresh, every time.
+
+So "you said you'd have the feedback conversation before Friday" is
+remembered, and comes back next time you sit down to think about
+them. "Marcus isn't ready" is not remembered, in any wording, even
+as your own doubt. Nothing from those conversations is visible to
+the team member, or to anyone else, for the same reason nothing else
+here is.
 
 **If I delete something, is it really gone?** Yes. It's deleted from
 the database, and the next conversation is assembled without it.
