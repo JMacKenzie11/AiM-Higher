@@ -223,3 +223,63 @@ function relativeAge(createdAt: string, nowIso: string): string {
   if (days < 60) return `${Math.round(days / 7)} weeks ago`;
   return `${Math.round(days / 30)} months ago`;
 }
+
+// ---- Which conversations a sweep actually works on ---------------
+//
+// Extracted and made pure because the first version of this lived
+// inline in the action as "take the newest MAX_PER_RUN + 1, skip the
+// thin ones", and that shape deadlocked in production.
+//
+// The failure: a conversation with fewer than MIN_USER_TURNS was
+// skipped by a `continue` that jumped past the watermark update, so
+// it was never marked as seen. An empty conversation, of which
+// /ask-aimee/new leaves one behind every time somebody opens a thread
+// and backs out, therefore stayed a candidate forever AND stayed at
+// the head of the queue, because ordering is by updated_at. With a
+// window of only four, three empty conversations at the head meant
+// every sweep examined the same three, skipped all three, and
+// returned nothing. The owner's real conversations sat at positions
+// seven and eight with nine and ten user turns and were never once
+// reached.
+//
+// The fix separates two things the old code conflated: how many
+// conversations we LOOK at, and how many we spend a model call on.
+// Looking is cheap and must range far enough to get past any run of
+// unusable rows. Summarizing is expensive and stays capped.
+//
+// A thin conversation is still not summarized. It just no longer
+// blocks the ones behind it.
+
+export type SweepCandidate = {
+  id: string;
+  updated_at: string;
+  memory_summarized_through: string | null;
+};
+
+// How far down the list we are willing to LOOK. Bounded so that one
+// page entry is a predictable amount of work, wide enough that a run
+// of empty threads cannot wall off everything behind them.
+export const SWEEP_CANDIDATE_WINDOW = 50;
+
+export function selectSweepCandidates(opts: {
+  candidates: SweepCandidate[];
+  // user-turn count per conversation id, for the whole window
+  userTurns: Map<string, number>;
+  maxPerRun: number;
+  minUserTurns: number;
+}): SweepCandidate[] {
+  const picked: SweepCandidate[] = [];
+  for (const c of opts.candidates) {
+    if (picked.length >= opts.maxPerRun) break;
+    // Already summarized through its latest message. Top-up
+    // semantics: it returns as a candidate only when it grows.
+    if (c.memory_summarized_through && c.updated_at <= c.memory_summarized_through) {
+      continue;
+    }
+    // An opening line, or an empty shell. Not a thought worth
+    // keeping, and critically, no longer a reason to stop looking.
+    if ((opts.userTurns.get(c.id) ?? 0) < opts.minUserTurns) continue;
+    picked.push(c);
+  }
+  return picked;
+}
