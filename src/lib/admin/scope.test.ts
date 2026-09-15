@@ -406,3 +406,218 @@ describe("getEffectiveCompanyId (invariant coverage)", () => {
     expect(result).toBeNull();
   });
 });
+
+// ===============================================================
+// home_company_id — a landing preference, never a permission
+// ===============================================================
+//
+// Added with migration 0200. The column answers one question: where
+// does the app take a cross-tenant operator when they open it. It is
+// read in exactly one branch of the resolver, after the scope cookie,
+// and nothing else in the codebase or the database reads it at all.
+//
+// The tests below are mostly about what it does NOT do. That is the
+// point of them: the audit that preceded this design found ten
+// policies granting on a company match with no role discrimination,
+// three of them writes, which is what killed the original plan of
+// putting home into `company_id`. Home in its own column is only safe
+// for as long as it stays inert, so the inertness is what gets
+// asserted.
+describe("home_company_id", () => {
+  it("lands a portfolio_admin on their home when no cookie is set", async () => {
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "portfolio_1",
+        role: "portfolio_admin",
+        company_id: null,
+        home_company_id: "co_home",
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBe("co_home");
+  });
+
+  it("lands a system_admin on their home too", async () => {
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "root",
+        role: "system_admin",
+        company_id: null,
+        home_company_id: "co_home",
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBe("co_home");
+  });
+
+  it("lets an explicit scope-in beat home", async () => {
+    // Home is where you start, not where you are kept. Somebody who
+    // has scoped into another company stays there.
+    cookieMocks.store.set("aims_scope_company", "portfolio_1:co_target");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "portfolio_1",
+        role: "portfolio_admin",
+        company_id: null,
+        home_company_id: "co_home",
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBe("co_target");
+  });
+
+  it("falls back to home when the scope cookie points at a dead company", async () => {
+    cookieMocks.store.set("aims_scope_company", "portfolio_1:co_dead");
+    dbMocks.deletedIds.add("co_dead");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "portfolio_1",
+        role: "portfolio_admin",
+        company_id: null,
+        home_company_id: "co_home",
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBe("co_home");
+  });
+
+  it("returns null when home itself is soft-deleted", async () => {
+    // Same reasoning as the dead-cookie case above: a company that
+    // reads back null through companies_hide_deleted is a ghost, and
+    // landing on it gives empty pickers and orphaned records rather
+    // than an error anyone can act on.
+    dbMocks.deletedIds.add("co_gone");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "portfolio_1",
+        role: "portfolio_admin",
+        company_id: null,
+        home_company_id: "co_gone",
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBeNull();
+  });
+
+  it("does not consult home for an aims_guide", async () => {
+    // A guide's scope is their assignment list, and home must not
+    // widen it by the back door. Two assignments means no sole-
+    // assignment auto-scope, so the answer is the picker, not the
+    // home this profile happens to carry.
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "g_1",
+        role: "aims_guide",
+        company_id: null,
+        home_company_id: "co_home",
+        guide_company_ids: ["co_a", "co_b"],
+      },
+    });
+    expect(result).toBeNull();
+  });
+
+  it("does not let home override a company_admin's own company", async () => {
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "u_1",
+        role: "company_admin",
+        company_id: "co_a",
+        home_company_id: "co_elsewhere",
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBe("co_a");
+  });
+
+  it("does not let home override a team_member's own company", async () => {
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "u_2",
+        role: "team_member",
+        company_id: "co_a",
+        home_company_id: "co_elsewhere",
+        guide_company_ids: [],
+      },
+    });
+    expect(result).toBe("co_a");
+  });
+
+  it("still throws when a company user is handed their home company", async () => {
+    // THE INVARIANT, STATED AGAINST THE NEW COLUMN. If home ever
+    // became a permission, this is the test that would go green
+    // instead of throwing. It must keep throwing.
+    const { assertCompanyAccess, CrossTenantAccessError } = await import(
+      "./scope"
+    );
+    expect(() =>
+      assertCompanyAccess(
+        {
+          profile: {
+            id: "u_1",
+            role: "company_admin",
+            company_id: "co_a",
+            home_company_id: "co_elsewhere",
+            guide_company_ids: [],
+          },
+        },
+        "co_elsewhere"
+      )
+    ).toThrow(CrossTenantAccessError);
+  });
+
+  it("still throws when a guide is handed an unassigned home company", async () => {
+    const { assertCompanyAccess, CrossTenantAccessError } = await import(
+      "./scope"
+    );
+    expect(() =>
+      assertCompanyAccess(
+        {
+          profile: {
+            id: "g_1",
+            role: "aims_guide",
+            company_id: null,
+            home_company_id: "co_elsewhere",
+            guide_company_ids: ["co_a"],
+          },
+        },
+        "co_elsewhere"
+      )
+    ).toThrow(CrossTenantAccessError);
+  });
+
+  it("behaves exactly as before when home is absent", async () => {
+    // The pre-migration shape: profiles that predate the column, and
+    // everybody whose company_id already answers the question. Both
+    // read as undefined here, and both must resolve to what they
+    // resolved to yesterday.
+    const { getEffectiveCompanyId } = await import("./scope");
+    const noHome = await getEffectiveCompanyId({
+      profile: {
+        id: "portfolio_1",
+        role: "portfolio_admin",
+        company_id: null,
+        guide_company_ids: [],
+      },
+    });
+    expect(noHome).toBeNull();
+
+    const nullHome = await getEffectiveCompanyId({
+      profile: {
+        id: "portfolio_1",
+        role: "portfolio_admin",
+        company_id: null,
+        home_company_id: null,
+        guide_company_ids: [],
+      },
+    });
+    expect(nullHome).toBeNull();
+  });
+});

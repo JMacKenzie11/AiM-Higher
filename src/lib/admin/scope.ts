@@ -21,7 +21,16 @@ export const SCOPE_COOKIE_NAME = "aims_scope_company";
 export const SCOPE_COOKIE_MAX_AGE = 60 * 60 * 8; // 8 hours
 
 export type Scopeable = {
+  // home_company_id is optional, and deliberately. It was required for
+  // one revision of this change, which pulled it into
+  // SessionProfileLike and then GateProfile and then their tests: a
+  // landing preference spreading through types that have nothing to do
+  // with landing. It earns none of that, because the worst an absent
+  // one can do is resolve null, which is what this function returned
+  // before the column existed. Real callers pass a whole profile row,
+  // and the loader selects `*`, so they carry it without being asked.
   profile: Pick<Profile, "id" | "company_id" | "role"> & {
+    home_company_id?: string | null;
     guide_company_ids?: readonly string[];
   };
 };
@@ -179,7 +188,6 @@ async function resolveCompanyIdInternal(
   const role = session.profile.role;
   if (role === "system_admin" || role === "portfolio_admin") {
     const cookie = await getScopedCompanyId(session.profile.id);
-    if (!cookie) return null;
     // Verify the scoped company still exists and isn't soft-deleted.
     // Without this, a sysadmin's cookie can stick to a tenant that
     // was archived + deleted after the scope-in — every subsequent
@@ -187,13 +195,34 @@ async function resolveCompanyIdInternal(
     // etc.). companies_hide_deleted RLS gives us the check for
     // free: the SELECT returns null when deleted_at is not null.
     //
-    // Just returns null on a dead cookie — cookie clearing needs a
-    // Server Action or Route Handler (Server Components can't mutate
-    // cookies), and every caller of getEffectiveCompanyId already
-    // handles null. The next scope-in overwrites the cookie, and
-    // scopeIntoCompanyAction refuses to point it at a dead tenant.
-    if (!(await companyIsLive(cookie))) return null;
-    return cookie;
+    // Cookie clearing needs a Server Action or Route Handler (Server
+    // Components can't mutate cookies), and every caller of
+    // getEffectiveCompanyId already handles null. The next scope-in
+    // overwrites the cookie, and scopeIntoCompanyAction refuses to
+    // point it at a dead tenant.
+    if (cookie && (await companyIsLive(cookie))) return cookie;
+
+    // HOME, and only after the cookie. Added 0200.
+    //
+    // APPENDED, NOT REORDERED, and that distinction is the reason
+    // this change is small. The original design put home in
+    // `company_id`, which is read at the top of this function — so a
+    // portfolio admin would have been pinned to their home and
+    // silently stopped being a portfolio admin in the UI while still
+    // holding the role. Home lives in its own column instead, so the
+    // branch above is untouched and this is a final fallback.
+    //
+    // It grants nothing. assertCompanyAccess still runs on whatever
+    // comes back, and for these two roles it bypasses because their
+    // scope is already the instance — landing somewhere is not
+    // permission to write there, which portfolio_assignments decides
+    // and the harness asserts separately.
+    //
+    // Null for everyone today, so this returns exactly what it
+    // returned before until somebody sets one.
+    const home = session.profile.home_company_id ?? null;
+    if (home && (await companyIsLive(home))) return home;
+    return null;
   }
   if (role === "aims_guide") {
     const assignments = session.profile.guide_company_ids ?? [];
