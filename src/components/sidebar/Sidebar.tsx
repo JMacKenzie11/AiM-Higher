@@ -125,24 +125,14 @@ const APP_ITEMS: readonly NavItem[] = [
     feature: null,
     items: [
       { kind: "link", label: "Ask Aimee", href: "/ask-aimee", icon: "sparkle" },
-      // The trust surface, in the nav rather than tucked beside the
-      // new-conversation button on the list page. It was a text link
-      // there and read as secondary chrome next to a filled primary
-      // button — too quiet for the page that answers "what does it
-      // know about me, and can I delete it". A person should not have
-      // to already know it exists to find it.
-      // "Memory": a container name rather than a description of
-      // today's contents, so more can be added under it without the
-      // label going stale. The page carries the same name — it was
-      // briefly "What Aimee remembers" there, which meant the nav item
-      // and the page it opened had different names and the help had to
-      // explain the relationship.
-      {
-        kind: "link",
-        label: "Memory",
-        href: "/ask-aimee/memory",
-        icon: "doc",
-      },
+      // NO MEMORY ITEM HERE, and that is deliberate as of 2026-09-15.
+      // It briefly lived in this list, on the reasoning that a person
+      // should not have to already know the trust surface exists to
+      // find it. True, but the nav was the wrong answer: it put "what
+      // does this know about me" among the features, when it belongs
+      // among the other things that ARE the person. It is a card on
+      // /profile now, beside their photo and their strengths, with
+      // the full list still at /ask-aimee/memory behind it.
       {
         kind: "link",
         label: "Classroom",

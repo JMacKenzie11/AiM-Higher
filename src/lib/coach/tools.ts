@@ -6,6 +6,7 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { buildHistoryTools } from "./history-tools";
 import { makeMemoryLookupTool } from "./memory-tool";
+import { makeRememberTool } from "./remember-tool";
 
 // Coach tools — factory pattern. Every tool is a closure over the
 // conversation's subject + company, so the model can never supply
@@ -81,6 +82,11 @@ export async function buildCoachTools(args: {
   // thing the coach could reach for, and the write half would be
   // pointless without a read half that can see it.
   tools.push(makeMemoryLookupTool());
+
+  // The write half, in both modes for the same reason as the read
+  // half: it saves to the CALLER and has no vocabulary for anyone
+  // else, so an about-mode conversation cannot aim it at the subject.
+  tools.push(makeRememberTool());
 
   tools.push(
     ...buildHistoryTools({

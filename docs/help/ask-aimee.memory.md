@@ -16,8 +16,36 @@ The thread you're currently in is never the one being written down, so
 the newest conversation shows up here only after you've started or
 reopened another one.
 
-Find it in the left sidebar under **Resources → Memory**, below Ask
-Aimee.
+Find it on your **profile page**, in the Memory card: the few most
+recent, with a link to the full list. It used to be a sidebar item;
+it sits with your photo and your strengths now, because what Aimee
+remembers about you belongs with the other things that are you.
+
+## Adding something yourself
+
+The card has an **Add a memory** box. Anything you put there is kept
+as-is and carried into every conversation, rather than fading the way
+distilled memories do. You can also just ask her in conversation:
+*"remember that I want every plan checked against cash before
+headcount"*. She'll save it and tell you what she saved, so you can
+correct it there and then.
+
+Those show up labelled **You asked me to remember**.
+
+Two things she won't save even when you ask directly: health and
+medical, and family and personal life. She'll say so in a sentence
+and offer the work-shaped version instead. If you tell her a parent
+is in hospital until October, what she can keep is that you'll be
+stretched until October, with no reason attached.
+
+## How long it's kept
+
+Memories are kept until you delete them. There's no expiry and
+nothing ages out of the record. What changes over time is what she
+carries for free: the recent ones ride along in every conversation
+automatically, and older ones stay in the list and remain reachable
+when something in the conversation calls for them. Anything you added
+yourself is always carried, not just the recent ones.
 
 ## The promise
 

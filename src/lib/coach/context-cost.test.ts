@@ -5,6 +5,7 @@ import {
   selectForContext,
   CONTEXT_MEMORY_LIMIT,
   type StoredMemory,
+  pinnedCarryLimit,
 } from "./memory-shape";
 
 // CONTEXT COST BUDGET, enforced rather than measured once.
@@ -325,5 +326,83 @@ describe("subject-scoped priority costs nothing extra", () => {
     // Without priority, the 88-day-old one is nowhere near the front.
     const plainPick = selectForContext(REALISTIC_MEMORIES, NOW);
     expect(plainPick.slice(0, 3).map((m) => m.id)).not.toContain("m88");
+  });
+});
+
+// Directed (pinned) memories, added with 0196. They are exempt from
+// the recency fade, so the question the budget has to answer is what
+// a realistic set of them costs, and what happens as they alone
+// approach the ceiling.
+describe("pinned memories stay inside the same budget", () => {
+  const NOW = "2026-11-18T12:00:00Z";
+  const pin = (id: string, daysAgo: number, content: string): StoredMemory => ({
+    id,
+    kind: "directed",
+    content,
+    created_at: new Date(Date.parse(NOW) - daysAgo * 86_400_000).toISOString(),
+  });
+
+  // What a person actually pins: standing instructions and facts they
+  // are tired of repeating. Deliberately includes old ones, because
+  // surviving the fade is the whole feature.
+  const PINNED: StoredMemory[] = [
+    pin("p1", 5, "Prefers to be challenged directly rather than eased into it"),
+    pin("p2", 30, "Board meets the first Tuesday; do not suggest anything that lands that week"),
+    pin("p3", 120, "Is deliberately not hiring into the ops lead role until Q2"),
+    pin("p4", 240, "Has a standing agreement with Priya to own vendor decisions outright"),
+    pin("p5", 400, "Wants every plan checked against cash before headcount"),
+  ];
+
+  it("reports the cost of a realistic pinned set", async () => {
+    const all = [...PINNED, ...REALISTIC_MEMORIES];
+    const picked = selectForContext(all, NOW);
+    const block = formatMemoryBlock(picked, NOW);
+
+    const { promises: fs } = await import("node:fs");
+    const path = (await import("node:path")).default;
+    const root = process.cwd();
+    const [remainder, voice] = await Promise.all([
+      fs.readFile(path.join(root, "prompts", "leadership-coach.md"), "utf8"),
+      fs.readFile(path.join(root, "prompts", "aims-voice.md"), "utf8"),
+    ]);
+    const systemPrompt = remainder.replace("{{AIMS_VOICE}}", voice);
+    const assembly = tokens(systemPrompt) + tokens(after);
+    const pct = (tokens(block) / assembly) * 100;
+    const carried = picked.filter((m) => m.kind === "directed").length;
+
+    console.info(
+      `memory block with ${PINNED.length} pinned: ${block.length} chars ` +
+        `(~${tokens(block)} tok), ${picked.length} memories ` +
+        `(${carried} pinned, ${picked.length - carried} distilled); ` +
+        `${pct.toFixed(1)}% of assembly (~${assembly} tok); ` +
+        `pinned ceiling ${pinnedCarryLimit(CONTEXT_MEMORY_LIMIT)} of ${CONTEXT_MEMORY_LIMIT}`
+    );
+
+    expect(pct).toBeLessThan(15);
+    // Every pin here is inside the ceiling, so all are carried, and
+    // the block is still the same size as it ever was.
+    expect(carried).toBe(PINNED.length);
+    expect(picked.length).toBeLessThanOrEqual(CONTEXT_MEMORY_LIMIT);
+  });
+
+  it("reports the cost at the ceiling, where pins alone would fill it", async () => {
+    const many = Array.from({ length: 20 }, (_, i) =>
+      pin(`q${i}`, (i + 1) * 15, "A standing instruction the person asked to be kept in mind")
+    );
+    const picked = selectForContext([...many, ...REALISTIC_MEMORIES], NOW);
+    const block = formatMemoryBlock(picked, NOW);
+    const carried = picked.filter((m) => m.kind === "directed").length;
+
+    console.info(
+      `at the ceiling: 20 pinned offered, ${carried} carried, ` +
+        `${picked.length - carried} distilled slots kept; ` +
+        `${block.length} chars (~${tokens(block)} tok)`
+    );
+
+    expect(carried).toBe(pinnedCarryLimit(CONTEXT_MEMORY_LIMIT));
+    expect(picked.length).toBe(CONTEXT_MEMORY_LIMIT);
+    // The thing the rule exists to protect: the coach still arrives
+    // knowing something about the conversation, not only instructions.
+    expect(picked.length - carried).toBeGreaterThan(0);
   });
 });

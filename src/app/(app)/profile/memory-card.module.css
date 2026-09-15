@@ -1,0 +1,113 @@
+/* The memory card on the profile page.
+ *
+ * Composes from the same sources the full memory page uses, so a row
+ * here and a row there are the same object seen twice rather than two
+ * things that happen to look alike. Nothing new is invented: no
+ * bespoke colours, no local spacing scale, no second delete
+ * affordance. */
+
+.addRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.input {
+  composes: input from "./profile.module.css";
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+/* Filled primary, because every committing action on this page is
+ * one: Save on details, Save on strengths, Save on password. A ghost
+ * button here was the odd one out on its own page, which is the thing
+ * a design system exists to stop. */
+.addButton {
+  composes: btn from "../../../components/ui/ui.module.css";
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+}
+
+/* A decline is Aimee answering, not the form failing. Muted body
+ * text, no danger colour, no alert icon: she is explaining what she
+ * keeps, and dressing that as an error would make an ordinary
+ * boundary feel like the person did something wrong. */
+.declined {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0 0 var(--space-4);
+}
+
+.error {
+  font: var(--text-body-sm);
+  color: var(--danger);
+  margin: 0 0 var(--space-4);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  composes: conversationRow from "../coach/coach.module.css";
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.content {
+  font: var(--text-body);
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.meta {
+  composes: conversationMeta from "../coach/coach.module.css";
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.kindTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.ghostButton {
+  composes: ghostButton from "../coach/coach.module.css";
+}
+
+.empty {
+  composes: emptyLine from "../../../components/ui/ui.module.css";
+}
+
+.seeAll {
+  display: inline-block;
+  margin-top: var(--space-3);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.seeAll:hover {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
