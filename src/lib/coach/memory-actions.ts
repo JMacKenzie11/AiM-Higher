@@ -44,17 +44,33 @@ import {
 // that the newest conversation is not yet in memory, which is small
 // because the coach can read an open conversation's messages directly.
 //
-// ---- GENERAL MODE ONLY -------------------------------------------
+// ---- BOTH MODES, IN THE PARTICIPANT FRAME ------------------------
 //
-// `about` conversations produce no memory. The write path attaches
-// memory to auth.uid() — the PARTICIPANT — so an about-mode
-// conversation would write a leader's characterisations of a report
-// into the LEADER's memory. That is the safe direction, and it is
-// still not a thing to build by default: it would be durable
-// third-party notes about someone who never consented to the record.
-// See docs/product-spec.md, where the reasoning is recorded so that
-// adding about-mode later reopens at that paragraph rather than
-// starting from scratch.
+// AMENDED 2026-09-14 (ratified, Jason + Jeff). This used to be
+// general-mode only, on the reasoning that an about-mode conversation
+// would write a leader's characterisations of a report into the
+// leader's memory, which is durable third-party notes about somebody
+// who never consented to a record. That risk was real and the
+// exclusion was the blunt answer to it.
+//
+// The amendment keeps the risk refused and drops the bluntness. An
+// about-mode conversation IS summarized, strictly in the PARTICIPANT
+// FRAME: what the leader intends, committed to, keeps avoiding,
+// decided. Never a claim about the team member.
+//
+// Two things enforce that, and they are not the same thing:
+//
+//   - WHO the row belongs to is structural, from part 1. The write
+//     path forces profile_id := auth.uid() and takes no profile
+//     parameter, so a memory cannot land on the subject's record even
+//     if everything here is wrong.
+//   - WHAT the row may say is the frame rule. It lives in
+//     prompts/coach-memory.md, with a deterministic backstop in
+//     memory-shape.ts that needs the subject's name to see a claim
+//     about them, which is why the name is looked up and passed.
+//
+// The team member's record is not lost by any of this: the coach
+// reads it live through the tier-one tools every turn.
 
 const PROMPT_PATH = path.join(process.cwd(), "prompts", "coach-memory.md");
 const MODEL = "claude-haiku-4-5";
@@ -85,9 +101,8 @@ export async function summarizeFinishedConversationsAction(
   // one in front of them, most recently touched first.
   let query = supabase
     .from("coaching_conversations")
-    .select("id, updated_at, memory_summarized_through")
+    .select("id, updated_at, memory_summarized_through, mode, subject_profile_id")
     .eq("created_by", session.profile.id)
-    .eq("mode", "general")
     .order("updated_at", { ascending: false })
     // How far we LOOK. Deliberately not MAX_PER_RUN: a run of empty
     // conversations at the head used to wall off everything behind
@@ -110,6 +125,8 @@ export async function summarizeFinishedConversationsAction(
     id: string;
     updated_at: string;
     memory_summarized_through: string | null;
+    mode: string;
+    subject_profile_id: string | null;
   }>;
   if (candidates.length === 0) {
     return { ok: true, conversationsSummarized: 0, memoriesWritten: 0, droppedByFilter: 0 };
@@ -172,8 +189,53 @@ export async function summarizeFinishedConversationsAction(
     minUserTurns: MIN_USER_TURNS,
   });
 
+  // Subject names for the about-mode conversations in this run, in
+  // one query. The frame rule's backstop can only recognise a claim
+  // about somebody it can name, so a missing name means the prompt is
+  // the only thing standing between a characterisation and the
+  // record. That is worth knowing about rather than shrugging at.
+  const subjectIds = [
+    ...new Set(
+      selected
+        .filter((c) => c.mode === "about" && c.subject_profile_id)
+        .map((c) => c.subject_profile_id as string)
+    ),
+  ];
+  const subjectNamesById = new Map<string, string[]>();
+  if (subjectIds.length > 0) {
+    const { data: subjectRows, error: subjectError } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", subjectIds);
+    if (subjectError) {
+      reportError("coach.memory.subject_names", subjectError, {
+        profileId: session.profile.id,
+      });
+    }
+    for (const row of (subjectRows ?? []) as Array<{ id: string; full_name: string | null }>) {
+      const full = (row.full_name ?? "").trim();
+      if (!full) continue;
+      const first = full.split(/\s+/)[0];
+      // Full name first: the longer match is the more specific one.
+      subjectNamesById.set(row.id, first && first !== full ? [full, first] : [full]);
+    }
+  }
+
   for (const convo of selected) {
     const since = convo.memory_summarized_through;
+    const isAbout = convo.mode === "about";
+    const subjectNames = convo.subject_profile_id
+      ? subjectNamesById.get(convo.subject_profile_id) ?? []
+      : [];
+    if (isAbout && subjectNames.length === 0) {
+      // The backstop is blind for this one. The prompt still applies,
+      // but nothing deterministic is behind it, so say so.
+      reportError(
+        "coach.memory.subject_name_missing",
+        new Error("about-mode conversation has no resolvable subject name"),
+        { conversationId: convo.id }
+      );
+    }
 
     let messageQuery = supabase
       .from("coaching_messages")
@@ -212,7 +274,13 @@ export async function summarizeFinishedConversationsAction(
         messages: [
           {
             role: "user",
-            content: `Distil this finished coaching conversation.\n\n${transcript}`,
+            content: isAbout
+              ? `Distil this finished coaching conversation.\n\nThis is an ` +
+                `about-mode conversation: a leader thinking through ` +
+                `${subjectNames[0] ?? "a person on their team"}, who is on their ` +
+                `team and was not present. Write the memory about the leader, ` +
+                `never about ${subjectNames[0] ?? "that person"}.\n\n${transcript}`
+              : `Distil this finished coaching conversation.\n\n${transcript}`,
           },
         ],
       });
@@ -239,7 +307,9 @@ export async function summarizeFinishedConversationsAction(
       continue;
     }
 
-    const { kept, dropped: removed } = applyNeverWrittenFilter(drafts);
+    const { kept, dropped: removed } = applyNeverWrittenFilter(drafts, {
+      subjectNames,
+    });
     dropped += removed.length;
     if (removed.length > 0) {
       // Counts and reasons only — logging the content would put the

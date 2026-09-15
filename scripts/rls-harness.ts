@@ -363,6 +363,116 @@ async function hazard1(run: Runner, ids: Identities): Promise<CaseResult> {
 // role read: a policy that admits any authenticated caller. If that
 // side ever stops leaking, the case is broken and its green means
 // nothing.
+// The about-mode wall, permanent because the batch that would have
+// carried it is spent: coach_memories already exists everywhere, so
+// its before/after pair has nowhere to stand. This runs against the
+// deployed schema on every invocation instead.
+//
+// Added 2026-09-14 with the amendment that lets a conversation ABOUT
+// a team member produce memory. Part 1's policy already guarantees
+// the answer, because SELECT is person-only with no role branch and
+// the amendment does not touch it. It is probed anyway: "the policy
+// already covers it" is the sentence in front of most of
+// docs/failure-modes.md, and this is the exact question a person
+// reads the help page and then wants checked.
+//
+// The write goes through record_coach_memory rather than an INSERT,
+// because the table is FORCE ROW LEVEL SECURITY with an insert policy
+// of profile_id = auth.uid(), so there is no way to plant the row
+// from outside a real caller's session. That is the point of it.
+async function coachMemoryAboutMode(
+  run: Runner,
+  _ids: Identities
+): Promise<CaseResult> {
+  const CONVO = "aaaaaaaa-0000-4000-8000-00000000000a";
+  const MARK = "harness fixture: about-mode leader commitment";
+
+  // A leader and a team member in the SAME company, so the about-mode
+  // insert policy on coaching_conversations is actually satisfiable.
+  const [pair] = await run<{ leader: string | null; subject: string | null; company: string | null }>(
+    `select a.id as leader, m.id as subject, a.company_id as company
+       from public.profiles a
+       join public.profiles m
+         on m.company_id = a.company_id and m.id <> a.id
+        and m.role = 'team_member' and m.status = 'active'
+      where a.role = 'company_admin' and a.status = 'active'
+        and a.company_id is not null
+      limit 1;`
+  );
+  if (!pair?.leader || !pair?.subject) {
+    return {
+      name: "coach-memory-about-mode",
+      hazard: "A leader's memory from a conversation about someone becomes readable by that someone",
+      wrong: "no fixture",
+      right: "no fixture",
+      ok: false,
+      detail: "NOT PROVEN: no company_admin and team_member pair in one company on this database.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  // Written by the leader, through the only path that can write it.
+  const write = `
+insert into public.coaching_conversations
+  (id, company_id, subject_profile_id, created_by, title, mode)
+values ('${CONVO}', '${pair.company}', '${pair.subject}', '${pair.leader}',
+        'harness fixture: about-mode', 'about');
+select public.record_coach_memory('said', '${MARK}', '${CONVO}');`;
+
+  // A canary the subject CAN read, so a zero below is a refusal and
+  // not a session that reads nothing at all.
+  const canary = `
+create table _rls_mem_canary (id int primary key);
+insert into _rls_mem_canary values (1);
+alter table _rls_mem_canary enable row level security;
+create policy p on _rls_mem_canary for select to authenticated using (true);
+grant select on _rls_mem_canary to authenticated;`;
+
+  const [asSubject] = await run<{ seen: number; canary: number }>(
+    [
+      "begin;",
+      canary,
+      "set local role authenticated;",
+      claims(pair.leader),
+      write,
+      claims(pair.subject),
+      `select (select count(*) from public.coach_memories
+                where conversation_ref = '${CONVO}')::int as seen,
+              (select count(*) from _rls_mem_canary)::int as canary;`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const [asLeader] = await run<{ seen: number }>(
+    [
+      "begin;",
+      "set local role authenticated;",
+      claims(pair.leader),
+      write,
+      `select (select count(*) from public.coach_memories
+                where conversation_ref = '${CONVO}')::int as seen;`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const subjectSees = asSubject?.seen ?? -1;
+  const leaderSees = asLeader?.seen ?? -1;
+  const canarySees = asSubject?.canary ?? -1;
+  const ok = subjectSees === 0 && leaderSees === 1 && canarySees === 1;
+  return {
+    name: "coach-memory-about-mode",
+    hazard:
+      "A leader's memory from a conversation about a team member becomes readable by that team member",
+    wrong: `admit-all canary returned ${canarySees} row to the subject's session`,
+    right: `subject sees ${subjectSees} of the leader's rows for that conversation`,
+    ok,
+    detail: ok
+      ? `The team member reads none of it, while the leader reads ${leaderSees}. The row was written by record_coach_memory as the leader, so it is a real memory refused by the policy, not an absent one.`
+      : `subject ${subjectSees} (want 0), leader ${leaderSees} (want 1), canary ${canarySees} (want 1).`,
+  };
+}
+
 async function coachHistoryReads(
   run: Runner,
   ids: Identities
@@ -4869,6 +4979,7 @@ async function main(): Promise<void> {
     ["hazard-2", hazard2],
     ["hazard-3", hazard3],
     ["coach-history-reads", coachHistoryReads],
+    ["coach-memory-about-mode", coachMemoryAboutMode],
   ] as const;
 
   const results: CaseResult[] = [];

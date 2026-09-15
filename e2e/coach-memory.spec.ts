@@ -314,3 +314,160 @@ test.describe("coach memory", () => {
     ).toBe(false);
   });
 });
+
+// ---- ABOUT MODE, IN THE PARTICIPANT FRAME ------------------------
+//
+// Added 2026-09-14 with the amendment that lets a conversation ABOUT
+// a team member produce memory. The claim under test is not "memory
+// gets written" — it is that what gets written is about the LEADER
+// and never about the team member, and that the leader can pick their
+// own thread back up next time.
+//
+// HYGIENE, extended: this run has TWO synthetic people in it. The
+// leader is users.admin(), whose memory these rows land on, and the
+// subject is the fixture team member, who must end the run with
+// nothing written about them anywhere. Both are asserted before a
+// word is sent, for the same reason as above: a misconfigured env var
+// here would write a characterisation of a real person.
+const LEADER_COMMITMENT =
+  "I committed to having the feedback conversation with E2E Team Member before Friday.";
+const SUBJECT_CHARACTERISATION =
+  "Honestly E2E Team Member is not ready for the lead role and struggles with escalations.";
+
+test.describe("coach memory, about mode", () => {
+  test.describe.configure({ timeout: 600_000 });
+
+  test.afterEach(async ({ page }) => {
+    const outcome = await page
+      .evaluate(async () => {
+        const res = await fetch("/api/coach/memory", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ all: true }),
+        });
+        return { status: res.status, body: await res.text() };
+      })
+      .catch((err) => ({ status: 0, body: String(err) }));
+    if (outcome.status !== 200) {
+      throw new Error(
+        `coach_memories cleanup FAILED — rows remain on the clone: ${outcome.body}`
+      );
+    }
+  });
+
+  test("remembers the leader's commitment and nothing about the subject", async ({
+    page,
+  }) => {
+    await signIn(page, users.admin());
+
+    // ASSERT BOTH IDENTITIES BEFORE WRITING ANYTHING.
+    await page.goto("/profile");
+    await expect(
+      page.getByText(/signed in as/i),
+      "refusing to write coach_memories: not signed in as the E2E fixture admin"
+    ).toContainText(process.env.E2E_ADMIN_EMAIL ?? "___no_fixture___");
+
+    // SCOPE IN FIRST. users.admin() is a system_admin with no company
+    // of its own, so every company-scoped page resolves to nothing
+    // until it picks one — getEffectiveCompanyId reads a cookie that
+    // only /admin/companies sets. The first version of this spec went
+    // straight to /people and found an empty roster, which the
+    // fixture assertion caught and reported as "the fixture team
+    // member is not on /people". It was right: they were not.
+    await page.goto("/admin/companies");
+    // By testid, not by name: the row also carries an "Unassign from
+    // E2E Fixture Co" button, so the accessible name matches twice.
+    await page
+      .getByTestId("scope-into-company")
+      .filter({ hasText: /^E2E Fixture Co$/ })
+      .click();
+    await expect(page).not.toHaveURL(/\/admin\/companies/, { timeout: 30_000 });
+
+    // The subject is reached the way a person reaches it: the Coach
+    // button beside their name. That also proves the synthetic
+    // subject is the one being discussed, rather than a uuid typed
+    // into a URL by a spec that hopes it is right.
+    await page.goto("/people");
+    const row = page.locator("tr", { hasText: "E2E Team Member" }).first();
+    await expect(
+      row,
+      "refusing to write coach_memories: the fixture team member is not on /people"
+    ).toBeVisible({ timeout: 30_000 });
+    await row.getByRole("link", { name: /^coach$/i }).click();
+    await expect(page).toHaveURL(/\/coach\/[0-9a-f-]{36}/, { timeout: 30_000 });
+    const subjectPath = new URL(page.url()).pathname;
+
+    await page.getByRole("button", { name: /new conversation/i }).click();
+    await expect(page).toHaveURL(/\/coach\/[0-9a-f-]{36}\/[0-9a-f-]{36}/, {
+      timeout: 30_000,
+    });
+
+    // One turn carrying the thing that must be kept, one carrying the
+    // thing that must never be. Two user turns also clears
+    // MIN_USER_TURNS, which is what makes it a summarization
+    // candidate at all.
+    await sendAndWait(page, LEADER_COMMITMENT);
+    await sendAndWait(page, SUBJECT_CHARACTERISATION);
+
+    // The sweep fires on entry to Ask Aimee, and never summarizes the
+    // conversation in front of you. Leaving is what finishes it.
+    await page.goto("/ask-aimee");
+    await page.waitForTimeout(20_000);
+
+    await page.goto("/ask-aimee/memory");
+    const memoryText = (await page.locator("body").innerText()).toLowerCase();
+
+    // KEPT: the leader's own commitment.
+    expect(
+      memoryText,
+      `expected the leader's commitment in memory. Got: ${memoryText.slice(0, 600)}`
+    ).toMatch(/feedback conversation|before friday/);
+
+    // NEVER WRITTEN: any claim about the subject. Asserted as the
+    // absence of the characterisation's load-bearing words rather
+    // than of the whole sentence, because the model paraphrases and
+    // an exact-string check would pass on a paraphrase that says the
+    // same thing.
+    expect(
+      memoryText,
+      `a characterisation of the subject reached memory: ${memoryText.slice(0, 600)}`
+    ).not.toMatch(/not ready|isn't ready|struggles with escalation/);
+
+    // ---- Recall, in a FRESH about-mode conversation --------------
+    await page.goto(subjectPath);
+    await page.getByRole("button", { name: /new conversation/i }).click();
+    await expect(page).toHaveURL(/\/coach\/[0-9a-f-]{36}\/[0-9a-f-]{36}/, {
+      timeout: 30_000,
+    });
+    await sendAndWait(page, "Where did we get to with the delegation?");
+    const recalled = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
+    expect(
+      recalled,
+      `expected recall of the leader's own commitment. Got: ${recalled.slice(0, 600)}`
+    ).toMatch(/feedback conversation|before friday|last time|you said/);
+
+    // ---- Deletion removes it from recall -------------------------
+    await page.goto("/ask-aimee/memory");
+    const cleared = await page.evaluate(async () => {
+      const res = await fetch("/api/coach/memory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
+      return res.status;
+    });
+    expect(cleared).toBe(200);
+
+    await page.goto(subjectPath);
+    await page.getByRole("button", { name: /new conversation/i }).click();
+    await expect(page).toHaveURL(/\/coach\/[0-9a-f-]{36}\/[0-9a-f-]{36}/, {
+      timeout: 30_000,
+    });
+    await sendAndWait(page, "Where did we get to with the delegation?");
+    const afterDelete = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
+    expect(
+      afterDelete,
+      `deleted memory still reached recall: ${afterDelete.slice(0, 600)}`
+    ).not.toMatch(/before friday/);
+  });
+});

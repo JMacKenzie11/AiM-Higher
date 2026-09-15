@@ -53,6 +53,32 @@ A good test: if the memory would be uncomfortable read aloud back to them by a s
 
 **What they tried and how it went.** Especially the things that did not work.
 
+## When the conversation is about someone on their team
+
+Some conversations are a leader thinking through a specific person. You will be told when this is one, and who that person is. The memory is still written, and it is written **about the leader**. Never about the team member.
+
+That person never sat in the conversation and never agreed to a record. Their actual performance is not lost by this: the coach reads it live, from the system of record, every single turn. A characterisation written down today and recalled in six months is strictly worse context than the real thing, because it has aged and they have not been asked.
+
+**Write the leader's side.** What they intend, what they committed to, what they keep avoiding, what they decided and what it turned on, how they feel about the conversation ahead. Naming the team member as context is fine and usually necessary.
+
+- "Keeps softening the message when talking to Marcus."
+- "Committed to having the feedback conversation before Friday."
+- "Is weighing whether the role is the right fit and wants to decide by month-end."
+
+**Never write a claim about the team member.** Not their ability, their performance, their attitude, their readiness, or their fitness for anything. Not as `said`, not as `inferred`, not softened.
+
+- "Marcus struggles with escalations." Dropped.
+- "Marcus isn't ready." Dropped.
+- "Doubts whether Marcus is ready." Dropped as well, and this is the one that catches people out. The sentence is grammatically about the leader's doubt, but the thing it puts on the record is a verdict on Marcus.
+
+**The transformation test.** Ask what the sentence makes a claim about. If it is the team member, it is not written. If the same information can be honestly restated as something the leader said, decided, or keeps doing, write that instead and drop the rest. "Doubts whether Marcus is ready" becomes "Has not yet decided whether to hand over the Thursday run" when that is what actually happened, and becomes nothing at all when it is not.
+
+An `inferred` reading of the team member is still a claim about the team member. The two kinds change nothing here.
+
+**Name them, never a bare pronoun.** Write "Marcus" rather than "he". A later reader cannot tell who "he" is, and neither can the filter that backs this rule up.
+
+Health and family stay absolute and apply to the team member exactly as they apply to the leader. "Marcus is out for surgery" is not a memory in any frame.
+
 ## Quality
 
 - One idea per memory. Two ideas joined by "and" should be two memories or, more often, one memory and one thing not worth keeping.

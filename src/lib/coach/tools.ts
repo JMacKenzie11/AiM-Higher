@@ -69,14 +69,18 @@ export async function buildCoachTools(args: {
   // general ("Ask Aimee") conversations; the person scope inside
   // commitment_history is offered only when there is a subject, and
   // the tool's own schema drops the enum value when there is not.
-  // Recall. General mode only: memory is written for the person
-  // talking, and an about-mode conversation is a leader discussing
-  // somebody else — recalling the leader's own memory into it would
-  // be answering a question nobody asked with material from a
-  // different relationship.
-  if (!args.subjectProfileId) {
-    tools.push(makeMemoryLookupTool());
-  }
+  // Recall, in both modes as of 2026-09-14. The tool reads the
+  // CALLER's own memory and has no identifier vocabulary at all (see
+  // memory-tool.ts), so it cannot be pointed at the subject in either
+  // mode. That is what makes registering it here safe.
+  //
+  // It was general-only while memory came only from general-mode
+  // conversations. Now that an about-mode conversation is summarized
+  // in the participant frame, the leader's own commitments from the
+  // last time they thought about this person are the most useful
+  // thing the coach could reach for, and the write half would be
+  // pointless without a read half that can see it.
+  tools.push(makeMemoryLookupTool());
 
   tools.push(
     ...buildHistoryTools({

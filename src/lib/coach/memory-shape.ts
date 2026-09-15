@@ -105,11 +105,107 @@ const WORK_CONTEXT = [
   "budget", "headcount", "benefit", "plan for", "process",
 ];
 
+// ---- The about-mode frame rule --------------------------------
+//
+// An `about` conversation is a leader thinking through someone on
+// their team. Its memory is written about the LEADER: what they
+// intend, committed to, keep avoiding, decided. The team member may
+// appear as context. What must never be written is a claim ABOUT the
+// team member, because that is a durable personnel note on somebody
+// who never sat in the conversation and never consented to a record.
+//
+// The team member's actual record is not lost by this. It is live,
+// through the tier-one execution tools, every turn. A stale
+// characterisation is strictly worse context than the real thing.
+//
+// This applies ONLY when a subject name is supplied, which is what
+// makes it an `about`-mode rule. In general mode a leader reflecting
+// on their own patterns may name whoever they like, and
+// "Worried that Dana is not ready for the lead role" is exactly the
+// personnel thinking the wall exists to make safe to keep.
+//
+// The discriminator is grammatical position, not sentiment. The
+// prompt writes memories in the third person about the leader, so
+// "is it about them or about the subject" cannot be settled by
+// person. It is settled by whether the subject's name is the thing
+// the sentence makes a claim about.
+
+// A word after the name that means the sentence is asserting
+// something about them.
+const CLAIM_VERBS = new Set([
+  "is", "isn't", "isnt", "was", "wasn't", "wasnt", "are", "aren't",
+  "seems", "seemed", "appears", "appeared", "feels", "felt",
+  "has", "hasn't", "hasnt", "had", "have",
+  "can", "can't", "cant", "cannot", "could", "couldn't",
+  "won't", "wont", "will", "would", "wouldn't",
+  "does", "doesn't", "doesnt", "did", "didn't", "didnt",
+  "struggles", "struggled", "lacks", "lacked", "needs", "needed",
+  "missed", "misses", "fails", "failed", "refuses", "refused",
+  "keeps", "kept", "tends", "tended", "avoids", "avoided",
+  "underperforms", "resists", "resisted", "gets", "got",
+]);
+
+// A word after the name that means the name is riding along as
+// context rather than being the thing claimed about.
+const OBLIQUE_FOLLOWERS = new Set([
+  "about", "above", "across", "after", "against", "along", "among",
+  "around", "as", "at", "before", "behind", "below", "beneath",
+  "beside", "between", "beyond", "by", "despite", "down", "during",
+  "except", "for", "from", "in", "inside", "into", "near", "of",
+  "off", "on", "onto", "out", "outside", "over", "past", "since",
+  "than", "through", "to", "toward", "towards", "under", "until",
+  "up", "upon", "with", "within", "without",
+]);
+
+// A word before the name that opens a clause, which puts the name in
+// subject position: "worried THAT Marcus ...", "whether Marcus ...".
+const CLAUSE_OPENERS = new Set([
+  "that", "whether", "if", "why", "how", "when", "because", "since",
+  "although", "though", "but", "and", "or", "so", "while", "unless",
+  "until", "before", "after",
+]);
+
+function namedInClaimPosition(content: string, name: string): boolean {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`\\b${escaped}\\b`, "gi");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(content)) !== null) {
+    const after = content.slice(m.index + m[0].length);
+    // Possessive: "Marcus's schedule" is the leader's doing, told
+    // about Marcus's thing. Context, not a claim.
+    if (/^['’]s\b/.test(after)) continue;
+    const nextWord = (after.match(/^\s*([A-Za-z']+)/)?.[1] ?? "").toLowerCase();
+    // End of sentence or clause: nothing is being claimed.
+    if (!nextWord) continue;
+    if (CLAIM_VERBS.has(nextWord)) return true;
+    if (OBLIQUE_FOLLOWERS.has(nextWord)) continue;
+
+    const before = content.slice(0, m.index);
+    const prevWord = (before.match(/([A-Za-z']+)[^A-Za-z']*$/)?.[1] ?? "").toLowerCase();
+    // Start of the memory, or the start of a clause, means the name
+    // is the grammatical subject of what follows.
+    if (!prevWord || CLAUSE_OPENERS.has(prevWord)) return true;
+    // Otherwise the name sits after a verb or preposition, as an
+    // object: "considering letting Marcus go". The leader is still
+    // the one doing the thing.
+  }
+  return false;
+}
+
 export type FilterVerdict =
   | { keep: true }
-  | { keep: false; reason: "health" | "family" };
+  | { keep: false; reason: "health" | "family" | "subject_frame" };
 
-export function filterVerdict(content: string): FilterVerdict {
+export type FilterOptions = {
+  // Names of the `about`-mode subject (full and first). Absent in
+  // general mode, which is what switches the frame rule off.
+  subjectNames?: readonly string[];
+};
+
+export function filterVerdict(
+  content: string,
+  opts: FilterOptions = {}
+): FilterVerdict {
   const text = content.toLowerCase();
   const hasWorkContext = WORK_CONTEXT.some((w) => text.includes(w));
 
@@ -123,21 +219,34 @@ export function filterVerdict(content: string): FilterVerdict {
       return { keep: false, reason: "family" };
     }
   }
+  // Health and family are checked FIRST and apply to the subject just
+  // as absolutely as to the participant: "Marcus is out for surgery"
+  // is refused as health before the frame rule ever sees it.
+  for (const name of opts.subjectNames ?? []) {
+    if (!name.trim()) continue;
+    if (namedInClaimPosition(content, name.trim())) {
+      return { keep: false, reason: "subject_frame" };
+    }
+  }
   return { keep: true };
 }
 
 export type FilterResult = {
   kept: DraftMemory[];
-  dropped: Array<{ memory: DraftMemory; reason: "health" | "family" }>;
+  dropped: Array<{
+    memory: DraftMemory;
+    reason: "health" | "family" | "subject_frame";
+  }>;
 };
 
 export function applyNeverWrittenFilter(
-  drafts: readonly DraftMemory[]
+  drafts: readonly DraftMemory[],
+  opts: FilterOptions = {}
 ): FilterResult {
   const kept: DraftMemory[] = [];
   const dropped: FilterResult["dropped"] = [];
   for (const m of drafts) {
-    const verdict = filterVerdict(m.content);
+    const verdict = filterVerdict(m.content, opts);
     if (verdict.keep) kept.push(m);
     else dropped.push({ memory: m, reason: verdict.reason });
   }
@@ -261,14 +370,17 @@ export type SweepCandidate = {
 // of empty threads cannot wall off everything behind them.
 export const SWEEP_CANDIDATE_WINDOW = 50;
 
-export function selectSweepCandidates(opts: {
-  candidates: SweepCandidate[];
+// Generic in the row type so the caller keeps whatever else it
+// selected (mode, subject_profile_id). Narrowing to SweepCandidate
+// here would force the action to re-look-up fields it already has.
+export function selectSweepCandidates<T extends SweepCandidate>(opts: {
+  candidates: T[];
   // user-turn count per conversation id, for the whole window
   userTurns: Map<string, number>;
   maxPerRun: number;
   minUserTurns: number;
-}): SweepCandidate[] {
-  const picked: SweepCandidate[] = [];
+}): T[] {
+  const picked: T[] = [];
   for (const c of opts.candidates) {
     if (picked.length >= opts.maxPerRun) break;
     // Already summarized through its latest message. Top-up
