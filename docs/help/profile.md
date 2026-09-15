@@ -5,8 +5,9 @@ title: Your profile
 # Your profile
 
 Your self-serve page for the fields you control: photo, name,
-position, strengths, superpowers, and password. Role and company
-assignment live with admins — they aren't editable here.
+position, strengths, superpowers, password, and what Aimee remembers
+about you. Role and company assignment live with admins: they aren't
+editable here.
 
 ## What you can do here
 
@@ -22,6 +23,9 @@ assignment live with admins — they aren't editable here.
   Aimee uses these to tailor conversations.
 - **Change your password** — at least 8 characters. You stay
   signed in on this device.
+- **See and manage your Memory** — the few things Aimee has noted
+  from your conversations, plus anything you've asked it to
+  remember. Add, delete, or open the full list.
 
 ## How to set your photo
 
@@ -41,6 +45,36 @@ Remove it later with *Remove photo* under the preview.
    you go, so adding several is a keyboard-only motion.
 3. Save at the bottom of the section.
 
+## Memory
+
+The Memory card shows the most recent things Aimee has noted from
+your conversations, newest first. Each line is dated and labelled
+with where it came from:
+
+- **You said** is something you actually told Aimee.
+- **Aimee inferred** is a read on it, not something you stated.
+- **You asked me to remember** is something you added yourself.
+
+**To add one**, type it into the box and click *Add a memory*. It's
+kept as-is and carried into every conversation, rather than fading
+the way the noted ones do. You can also just ask in conversation:
+*"remember that I want every plan checked against cash before
+headcount"*.
+
+**To delete one**, click *Delete* on the row and confirm. It's gone
+from the database and won't be used in future conversations. There's
+no undo.
+
+**To see everything**, use the *See all* link, which opens the full
+list with the same controls.
+
+Two things are never saved, even if you ask directly: health and
+medical, and family and personal life. Aimee says so and offers the
+work-shaped version instead.
+
+**Only you can read any of it.** Not your manager, not a company
+admin, not your AiMS guide, and not a system administrator at AiMS.
+
 ## How to change your password
 
 1. Scroll to *Change password*.
@@ -55,7 +89,8 @@ concerns. Ask a company admin (or a system admin) to update either.
 **Who sees what I put here?** Your photo, name, and position feed
 the roster (everyone on the company). Your Strengths & Superpowers
 feed the coach and appear on your own scorecard's Strengths card;
-admins on your company can see them. Your password is yours alone.
+admins on your company can see them. Your password is yours alone,
+and so is your Memory: nobody else on the platform can read it.
 
 **What file types work for the photo?** PNG, JPG, and WebP up to
 2 MB. The crop step re-encodes to PNG regardless of the source
