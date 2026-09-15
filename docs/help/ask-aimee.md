@@ -138,6 +138,10 @@ narrowly scoped:
    the moment you send your first message, so if you want to
    switch, do it before you type.
 
+**Where do I see what Aimee remembers?** On your **profile page**,
+in the Memory card. It lists what Aimee has noted from these
+conversations, and you can delete any of it.
+
 ## Common questions
 
 **I opened a chat from another company and my sidebar didn't
