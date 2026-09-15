@@ -264,3 +264,66 @@ describe("coach memory block stays inside its context budget", () => {
     expect(formatMemoryBlock(selectForContext([], NOW), NOW)).toBe("");
   });
 });
+
+// Subject-scoped recall, added with about-mode memory. The gate is
+// UNCHANGED and that is the point of measuring: priority reorders the
+// block, it does not widen it, so the cost should land on top of the
+// unprioritised number rather than above it. A measurement that came
+// back materially larger would mean priority had found a way to add
+// rows, which is exactly the bug this budget exists to catch.
+describe("subject-scoped priority costs nothing extra", () => {
+  const NOW = "2026-11-18T12:00:00Z";
+  // The leader coaches about several people; these three are the
+  // thread about the one in front of them, and two are old enough
+  // that recency alone would bury them.
+  const SUBJECT_IDS = new Set(["m35", "m44", "m88"]);
+
+  it("measures the same block size with priority applied", async () => {
+    const plain = formatMemoryBlock(selectForContext(REALISTIC_MEMORIES, NOW), NOW);
+    const scopedPick = selectForContext(
+      REALISTIC_MEMORIES,
+      NOW,
+      CONTEXT_MEMORY_LIMIT,
+      SUBJECT_IDS
+    );
+    const scoped = formatMemoryBlock(scopedPick, NOW);
+
+    const { promises: fs } = await import("node:fs");
+    const path = (await import("node:path")).default;
+    const root = process.cwd();
+    const [remainder, voice] = await Promise.all([
+      fs.readFile(path.join(root, "prompts", "leadership-coach.md"), "utf8"),
+      fs.readFile(path.join(root, "prompts", "aims-voice.md"), "utf8"),
+    ]);
+    const systemPrompt = remainder.replace("{{AIMS_VOICE}}", voice);
+    const assembly = tokens(systemPrompt) + tokens(after);
+    const pct = (tokens(scoped) / assembly) * 100;
+
+    console.info(
+      `memory block, subject-scoped: ${scoped.length} chars (~${tokens(scoped)} tok) ` +
+        `vs plain ${plain.length} chars (~${tokens(plain)} tok); ` +
+        `${pct.toFixed(1)}% of assembly (~${assembly} tok); ` +
+        `${scopedPick.length} memories, cap ${CONTEXT_MEMORY_LIMIT}`
+    );
+
+    // The gate, unchanged.
+    expect(pct).toBeLessThan(15);
+    // And the count is identical: reordering, not widening.
+    expect(scopedPick.length).toBe(selectForContext(REALISTIC_MEMORIES, NOW).length);
+  });
+
+  it("actually front-loads the subject's thread", () => {
+    const scopedPick = selectForContext(
+      REALISTIC_MEMORIES,
+      NOW,
+      CONTEXT_MEMORY_LIMIT,
+      SUBJECT_IDS
+    );
+    expect(scopedPick.slice(0, 3).map((m) => m.id).sort()).toEqual(
+      ["m35", "m44", "m88"]
+    );
+    // Without priority, the 88-day-old one is nowhere near the front.
+    const plainPick = selectForContext(REALISTIC_MEMORIES, NOW);
+    expect(plainPick.slice(0, 3).map((m) => m.id)).not.toContain("m88");
+  });
+});

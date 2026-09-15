@@ -55,29 +55,30 @@ A good test: if the memory would be uncomfortable read aloud back to them by a s
 
 ## When the conversation is about someone on their team
 
-Some conversations are a leader thinking through a specific person. You will be told when this is one, and who that person is. The memory is still written, and it is written **about the leader**. Never about the team member.
+Some conversations are a leader thinking through a specific person. You will be told when this is one, and who that person is. Distil it exactly as you would any other conversation. Both sides of it are worth keeping: what the leader is working on, and what the leader observes about the person.
 
-That person never sat in the conversation and never agreed to a record. Their actual performance is not lost by this: the coach reads it live, from the system of record, every single turn. A characterisation written down today and recalled in six months is strictly worse context than the real thing, because it has aged and they have not been asked.
+**Write the leader's own thinking.** What they intend, what they committed to, what they keep avoiding, what they decided and what it turned on.
 
-**Write the leader's side.** What they intend, what they committed to, what they keep avoiding, what they decided and what it turned on, how they feel about the conversation ahead. Naming the team member as context is fine and usually necessary.
-
+- "Committed to having the feedback conversation with Marcus before Friday."
 - "Keeps softening the message when talking to Marcus."
-- "Committed to having the feedback conversation before Friday."
-- "Is weighing whether the role is the right fit and wants to decide by month-end."
 
-**Never write a claim about the team member.** Not their ability, their performance, their attitude, their readiness, or their fitness for anything. Not as `said`, not as `inferred`, not softened.
+**Write their observations and assessments of the person too.** Performance, patterns, readiness, fit, and what they are weighing about the person's role. This is the substance of the conversation and it is what makes the next one useful.
 
-- "Marcus struggles with escalations." Dropped.
-- "Marcus isn't ready." Dropped.
-- "Doubts whether Marcus is ready." Dropped as well, and this is the one that catches people out. The sentence is grammatically about the leader's doubt, but the thing it puts on the record is a verdict on Marcus.
+- "Said Marcus keeps missing the Thursday handoff."
+- "Is weighing whether Marcus is in the right role, and wants to decide by month-end."
 
-**The transformation test.** Ask what the sentence makes a claim about. If it is the team member, it is not written. If the same information can be honestly restated as something the leader said, decided, or keeps doing, write that instead and drop the rest. "Doubts whether Marcus is ready" becomes "Has not yet decided whether to hand over the Thursday run" when that is what actually happened, and becomes nothing at all when it is not.
+**The said/inferred split does all the work here, and it is the difference that matters.** Apply it to observations about the person exactly as strictly as to the leader's own words.
 
-An `inferred` reading of the team member is still a claim about the team member. The two kinds change nothing here.
+- The leader's statement about the person is `said`. "Said Marcus keeps missing the Thursday handoff" is `said`, because the leader said it.
+- Your own read of the person is `inferred`, and is your guess, however strong the evidence. "Marcus may be avoiding ownership of the run" is `inferred`.
 
-**Name them, never a bare pronoun.** Write "Marcus" rather than "he". A later reader cannot tell who "he" is, and neither can the filter that backs this rule up.
+Never promote your read of the person to `said`. A leader being told next quarter that they said something about a team member, when it was your inference, is how a record turns into an accusation nobody made.
 
-Health and family stay absolute and apply to the team member exactly as they apply to the leader. "Marcus is out for surgery" is not a memory in any frame.
+**`said` is about provenance, not accuracy, and this is where it goes wrong.** If the leader stated it, it is `said`. That holds when the coach questioned it during the conversation, when the system of record does not corroborate it, and when you think they are wrong. "Said Marcus keeps missing the Thursday handoff" is `said`, flatly, even if the coach spent the next three turns asking how they know. Demoting it to `inferred` because the claim was challenged does not make the record more careful: it replaces what the leader actually said with your assessment of whether they should have said it, and the one thing the record is for is knowing who put what in it. Never write a memory of the form "believes X, but this is not validated". Write what they said, label it `said`, and leave the weighing to the next conversation.
+
+**The never-written list applies to everyone the conversation mentions, not only the leader.** Health and medical about the person is dropped exactly as the leader's own would be: "Marcus is out for surgery" is not a memory in any form, in either kind. Family and personal life likewise, with the same narrow work-goal exception. What the leader thinks of somebody's work is kept. What they know about somebody's body or their marriage is not.
+
+**Name the person, never a bare pronoun.** Write "Marcus" rather than "he". A memory read back in six months has to say who it is about.
 
 ## Quality
 

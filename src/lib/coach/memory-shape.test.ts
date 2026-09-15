@@ -9,6 +9,7 @@ import {
   type StoredMemory,
   selectSweepCandidates,
   type SweepCandidate,
+  CONTEXT_MEMORY_DAYS,
 } from "./memory-shape";
 
 describe("parseMemoryResponse", () => {
@@ -338,95 +339,90 @@ describe("selectSweepCandidates", () => {
   });
 });
 
-// ---- The about-mode frame rule --------------------------------
+// ---- About mode: what is kept, and what is still refused -------
 //
-// Same shape as the health and family cases above: the boundary is
-// pinned by near-miss PAIRS, because a rule that only ever sees clear
-// cases is not pinned at all.
-describe("filterVerdict, about-mode subject frame", () => {
-  const MARCUS = { subjectNames: ["Marcus Webb", "Marcus"] };
-
-  it("drops a claim about the subject wearing the leader's clothing", () => {
-    // The near miss that matters most: grammatically the sentence is
-    // about the leader's doubt, but the thing being claimed is
-    // Marcus's readiness. It is a personnel note either way.
+// The frame rule shipped in #144 is GONE, by the product owner's
+// decision: a leader's observations and assessments of a team member
+// are memory like anything else, and governance of those records is
+// the client organisation's responsibility. What survives is the
+// never-written list, which was never about who the sentence is
+// about. It is about which categories are nobody's to keep.
+describe("filterVerdict, about-mode subjects", () => {
+  it("KEEPS the leader's observations and assessments of the subject", () => {
     for (const content of [
-      "Doubts whether Marcus is ready for the dispatch run",
-      "Is uncertain whether Marcus is ready",
-      "Worried that Marcus is not ready for the lead role",
-    ]) {
-      expect(filterVerdict(content, MARCUS)).toEqual({
-        keep: false,
-        reason: "subject_frame",
-      });
-    }
-  });
-
-  it("keeps the leader's own behaviour with the subject as context", () => {
-    for (const content of [
-      "Keeps redoing Marcus's schedule instead of letting his mistakes stand",
-      "Keeps softening the message when talking to Marcus",
-      "Decided to move the Thursday run to Marcus by end of quarter",
-      "Committed to having the feedback conversation before Friday",
-      "Is weighing whether the role is the right fit and wants to decide by month-end",
-    ]) {
-      expect(filterVerdict(content, MARCUS)).toEqual({ keep: true });
-    }
-  });
-
-  it("drops the subject's record, which the tools serve live anyway", () => {
-    for (const content of [
-      "Marcus missed three deadlines",
+      "Said Marcus keeps missing the Thursday handoff",
       "Marcus struggles with escalations",
-      "Marcus isn't ready",
-    ]) {
-      expect(filterVerdict(content, MARCUS).keep).toBe(false);
-    }
-  });
-
-  // The never-written list is not softened by the frame rule; it runs
-  // first and applies to the subject exactly as absolutely.
-  it("drops health about the SUBJECT as health, not as frame", () => {
-    expect(filterVerdict("Marcus is out for surgery", MARCUS)).toEqual({
-      keep: false,
-      reason: "health",
-    });
-  });
-
-  // Aimee's read of the leader is memory. Aimee's read of the subject
-  // is a characterisation of somebody who was not in the room, and
-  // the kind makes no difference to that.
-  it("drops an INFERRED characterisation of the subject", () => {
-    const drafts = [
-      { kind: "inferred" as const, content: "Marcus is avoiding ownership of the run" },
-      { kind: "inferred" as const, content: "May be using the readiness question to put off a hard conversation" },
-    ];
-    const { kept, dropped } = applyNeverWrittenFilter(drafts, MARCUS);
-    expect(kept).toHaveLength(1);
-    expect(kept[0].content).toContain("put off a hard conversation");
-    expect(dropped[0].reason).toBe("subject_frame");
-  });
-
-  // The rule is about-mode only. Without a subject it must not fire,
-  // or it would silently narrow general-mode memory, where personnel
-  // thinking is explicitly kept.
-  it("does not fire in general mode", () => {
-    for (const content of [
-      "Worried that Dana is not ready for the lead role",
-      "Is considering letting Marcus go before the end of the quarter",
+      "Is weighing whether Marcus is in the right role",
+      "Doubts whether Marcus is ready for the dispatch run",
+      "Marcus missed three deadlines",
     ]) {
       expect(filterVerdict(content)).toEqual({ keep: true });
     }
   });
 
-  it("matches the subject by first name or full name, case-insensitively", () => {
-    expect(filterVerdict("marcus webb is not ready", MARCUS).keep).toBe(false);
-    expect(filterVerdict("Marcus Webb struggles with escalations", MARCUS).keep).toBe(false);
+  it("still refuses health about the SUBJECT, not just the participant", () => {
+    for (const content of [
+      "Marcus is out for surgery",
+      "Marcus has been off since the diagnosis",
+    ]) {
+      expect(filterVerdict(content)).toEqual({ keep: false, reason: "health" });
+    }
   });
 
-  it("leaves a memory that never mentions the subject alone", () => {
-    expect(
-      filterVerdict("Leaves hard conversations until Friday", MARCUS)
-    ).toEqual({ keep: true });
+  it("still refuses the subject's family and personal life", () => {
+    expect(filterVerdict("Marcus is going through a divorce").keep).toBe(false);
+  });
+
+  // The narrow work exception is not special-cased for the subject
+  // either: it is the same rule, reached the same way.
+  it("keeps a work framing that happens to touch the exception list", () => {
+    expect(filterVerdict("Planning parental leave cover for Marcus")).toEqual({
+      keep: true,
+    });
+  });
+});
+
+// ---- Subject-scoped priority ----------------------------------
+//
+// The continuity the about-mode feature is for: a leader who coaches
+// about several people should still find THIS person's thread when
+// they sit down about them, months later, and not have it crowded out
+// on recency by five other people's.
+describe("selectForContext, subject priority", () => {
+  const at = (id: string, daysAgo: number): StoredMemory => ({
+    id,
+    kind: "said",
+    content: `memory ${id}`,
+    created_at: new Date(Date.parse("2026-09-15T12:00:00Z") - daysAgo * 86_400_000).toISOString(),
+  });
+  const NOW = "2026-09-15T12:00:00Z";
+
+  it("places the subject's memories ahead of more recent unrelated ones", () => {
+    const rows = [at("other-1", 1), at("other-2", 2), at("subject-1", 40)];
+    const picked = selectForContext(rows, NOW, 3, new Set(["subject-1"]));
+    expect(picked[0].id).toBe("subject-1");
+  });
+
+  it("reorders without widening: the limit still binds", () => {
+    const rows = [at("s1", 30), at("s2", 31), at("o1", 1), at("o2", 2)];
+    const picked = selectForContext(rows, NOW, 2, new Set(["s1", "s2"]));
+    expect(picked.map((p) => p.id)).toEqual(["s1", "s2"]);
+    expect(picked).toHaveLength(2);
+  });
+
+  // Priority must not smuggle an out-of-window memory into the free
+  // block. Old ones stay reachable by memory_lookup, deliberately not
+  // free, and that budget rule is not subject to this feature.
+  it("does not rescue a memory older than the window", () => {
+    const rows = [at("ancient", CONTEXT_MEMORY_DAYS + 10), at("o1", 1)];
+    const picked = selectForContext(rows, NOW, 12, new Set(["ancient"]));
+    expect(picked.map((p) => p.id)).toEqual(["o1"]);
+  });
+
+  it("is a no-op when nothing is prioritised, which is general mode", () => {
+    const rows = [at("a", 1), at("b", 2), at("c", 3)];
+    expect(selectForContext(rows, NOW, 12).map((p) => p.id)).toEqual(
+      selectForContext(rows, NOW, 12, new Set()).map((p) => p.id)
+    );
   });
 });

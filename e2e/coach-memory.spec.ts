@@ -315,27 +315,33 @@ test.describe("coach memory", () => {
   });
 });
 
-// ---- ABOUT MODE, IN THE PARTICIPANT FRAME ------------------------
+// ---- ABOUT MODE ------------------------------------------------
 //
-// Added 2026-09-14 with the amendment that lets a conversation ABOUT
-// a team member produce memory. The claim under test is not "memory
-// gets written" — it is that what gets written is about the LEADER
-// and never about the team member, and that the leader can pick their
-// own thread back up next time.
+// An about-mode conversation produces memory like any other,
+// including the leader's observations and assessments of the team
+// member. The claims under test are three:
 //
-// HYGIENE, extended: this run has TWO synthetic people in it. The
-// leader is users.admin(), whose memory these rows land on, and the
-// subject is the fixture team member, who must end the run with
-// nothing written about them anywhere. Both are asserted before a
-// word is sent, for the same reason as above: a misconfigured env var
-// here would write a characterisation of a real person.
+//   1. Both halves land: the leader's own commitment AND what they
+//      observed about the person.
+//   2. They land with the right PROVENANCE. The leader's statement
+//      about the person is `said`. Aimee's read is `inferred`. That
+//      distinction is the whole protection here, because a record
+//      that says a leader SAID something they never said is worse
+//      than no record.
+//   3. The person it is about cannot see any of it. Part 1's wall
+//      covers this by construction, and it is checked anyway, as the
+//      subject, in their own session.
+//
+// HYGIENE, with TWO synthetic people: a synthetic leader whose memory
+// the rows land on, and a synthetic subject who must end the run with
+// nothing readable. Both asserted before a word is sent.
+const LEADER_OBSERVATION =
+  "E2E Team Member keeps missing the Thursday handoff, three weeks running.";
 const LEADER_COMMITMENT =
   "I committed to having the feedback conversation with E2E Team Member before Friday.";
-const SUBJECT_CHARACTERISATION =
-  "Honestly E2E Team Member is not ready for the lead role and struggles with escalations.";
 
 test.describe("coach memory, about mode", () => {
-  test.describe.configure({ timeout: 600_000 });
+  test.describe.configure({ timeout: 900_000 });
 
   test.afterEach(async ({ page }) => {
     const outcome = await page
@@ -355,12 +361,11 @@ test.describe("coach memory, about mode", () => {
     }
   });
 
-  test("remembers the leader's commitment and nothing about the subject", async ({
+  test("remembers both halves, with provenance, and the subject sees none of it", async ({
     page,
   }) => {
     await signIn(page, users.admin());
 
-    // ASSERT BOTH IDENTITIES BEFORE WRITING ANYTHING.
     await page.goto("/profile");
     await expect(
       page.getByText(/signed in as/i),
@@ -369,24 +374,16 @@ test.describe("coach memory, about mode", () => {
 
     // SCOPE IN FIRST. users.admin() is a system_admin with no company
     // of its own, so every company-scoped page resolves to nothing
-    // until it picks one — getEffectiveCompanyId reads a cookie that
-    // only /admin/companies sets. The first version of this spec went
-    // straight to /people and found an empty roster, which the
-    // fixture assertion caught and reported as "the fixture team
-    // member is not on /people". It was right: they were not.
+    // until it picks one.
     await page.goto("/admin/companies");
-    // By testid, not by name: the row also carries an "Unassign from
-    // E2E Fixture Co" button, so the accessible name matches twice.
     await page
       .getByTestId("scope-into-company")
       .filter({ hasText: /^E2E Fixture Co$/ })
       .click();
     await expect(page).not.toHaveURL(/\/admin\/companies/, { timeout: 30_000 });
 
-    // The subject is reached the way a person reaches it: the Coach
-    // button beside their name. That also proves the synthetic
-    // subject is the one being discussed, rather than a uuid typed
-    // into a URL by a spec that hopes it is right.
+    // Reached the way a person reaches it, which also asserts the
+    // second fixture: the synthetic subject is the one discussed.
     await page.goto("/people");
     const row = page.locator("tr", { hasText: "E2E Team Member" }).first();
     await expect(
@@ -402,52 +399,103 @@ test.describe("coach memory, about mode", () => {
       timeout: 30_000,
     });
 
-    // One turn carrying the thing that must be kept, one carrying the
-    // thing that must never be. Two user turns also clears
-    // MIN_USER_TURNS, which is what makes it a summarization
-    // candidate at all.
+    // One turn observing the person, one turn committing to something.
+    // Two user turns also clears MIN_USER_TURNS.
+    await sendAndWait(page, LEADER_OBSERVATION);
     await sendAndWait(page, LEADER_COMMITMENT);
-    await sendAndWait(page, SUBJECT_CHARACTERISATION);
 
-    // The sweep fires on entry to Ask Aimee, and never summarizes the
-    // conversation in front of you. Leaving is what finishes it.
+    // The sweep fires on entry to Ask Aimee and never summarizes the
+    // conversation in front of you.
     await page.goto("/ask-aimee");
     await page.waitForTimeout(20_000);
 
     await page.goto("/ask-aimee/memory");
+    const rows = page.getByTestId("memory-row");
+    await expect(rows.first()).toBeVisible({ timeout: 30_000 });
     const memoryText = (await page.locator("body").innerText()).toLowerCase();
 
-    // KEPT: the leader's own commitment.
+    // (1) BOTH HALVES.
     expect(
       memoryText,
-      `expected the leader's commitment in memory. Got: ${memoryText.slice(0, 600)}`
+      `expected the observation about the subject in memory. Got: ${memoryText.slice(0, 700)}`
+    ).toMatch(/handoff/);
+    expect(
+      memoryText,
+      `expected the leader's own commitment in memory. Got: ${memoryText.slice(0, 700)}`
     ).toMatch(/feedback conversation|before friday/);
 
-    // NEVER WRITTEN: any claim about the subject. Asserted as the
-    // absence of the characterisation's load-bearing words rather
-    // than of the whole sentence, because the model paraphrases and
-    // an exact-string check would pass on a paraphrase that says the
-    // same thing.
-    expect(
-      memoryText,
-      `a characterisation of the subject reached memory: ${memoryText.slice(0, 600)}`
-    ).not.toMatch(/not ready|isn't ready|struggles with escalation/);
+    // (2) PROVENANCE. Read every row's kind together with its text,
+    // rather than asserting on the first row that mentions the
+    // handoff. The first version did that and failed against correct
+    // behaviour: Aimee had ALSO written a legitimate inference about
+    // the handoff ("may be tracking it outside the operating system"),
+    // that row sorted first, and the assertion read it as the leader's
+    // statement being demoted. The claim is not "the first handoff row
+    // is said" — it is that the leader's own observation is on the
+    // record as something they said.
+    const stored = await rows.evaluateAll((els) =>
+      els.map((el) => ({
+        kind: el.getAttribute("data-kind"),
+        text: (el.textContent ?? "").toLowerCase(),
+      }))
+    );
+    const dump = stored
+      .map((r) => `  [${r.kind}] ${r.text.slice(0, 110)}`)
+      .join("\n");
 
-    // ---- Recall, in a FRESH about-mode conversation --------------
+    expect(
+      stored.filter((r) => r.kind === "said" && /handoff/.test(r.text)).length,
+      `the leader's own observation about the subject is not on the record as \`said\`.\nRows:\n${dump}`
+    ).toBeGreaterThan(0);
+
+    // And the other direction, which is the one that actually harms:
+    // nothing Aimee worked out herself may be stored as the leader's
+    // own words. Any inference must be labelled as one.
+    expect(
+      stored.filter((r) => r.kind === "inferred").length,
+      `expected at least one inference to be labelled as one.\nRows:\n${dump}`
+    ).toBeGreaterThan(0);
+
+    // ---- Recall of BOTH, in a fresh about-mode conversation ------
     await page.goto(subjectPath);
     await page.getByRole("button", { name: /new conversation/i }).click();
     await expect(page).toHaveURL(/\/coach\/[0-9a-f-]{36}\/[0-9a-f-]{36}/, {
       timeout: 30_000,
     });
-    await sendAndWait(page, "Where did we get to with the delegation?");
+    await sendAndWait(page, "Where did we get to on this?");
     const recalled = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
     expect(
       recalled,
-      `expected recall of the leader's own commitment. Got: ${recalled.slice(0, 600)}`
-    ).toMatch(/feedback conversation|before friday|last time|you said/);
+      `expected recall of the observation. Got: ${recalled.slice(0, 700)}`
+    ).toMatch(/handoff|thursday/);
+    expect(
+      recalled,
+      `expected recall of the commitment. Got: ${recalled.slice(0, 700)}`
+    ).toMatch(/feedback conversation|before friday/);
 
-    // ---- Deletion removes it from recall -------------------------
+    // ---- (3) THE SUBJECT SEES NONE OF IT ------------------------
+    //
+    // In their own session, on their own memory page. The wall is
+    // structural and the harness probes the policy directly; this is
+    // the same claim checked the way the person themselves would
+    // check it.
+    await signIn(page, users.member());
+    await page.goto("/profile");
+    await expect(
+      page.getByText(/signed in as/i),
+      "expected to be signed in as the fixture team member for the subject check"
+    ).toContainText(process.env.E2E_MEMBER_EMAIL ?? "___no_fixture___");
     await page.goto("/ask-aimee/memory");
+    const subjectRows = page.getByTestId("memory-row");
+    await expect(subjectRows).toHaveCount(0, { timeout: 30_000 });
+    const subjectText = (await page.locator("body").innerText()).toLowerCase();
+    expect(
+      subjectText,
+      `the subject can see memory from a conversation about them: ${subjectText.slice(0, 700)}`
+    ).not.toMatch(/handoff|feedback conversation/);
+
+    // ---- Deletion removes them from recall ----------------------
+    await signIn(page, users.admin());
     const cleared = await page.evaluate(async () => {
       const res = await fetch("/api/coach/memory", {
         method: "POST",
@@ -463,11 +511,11 @@ test.describe("coach memory, about mode", () => {
     await expect(page).toHaveURL(/\/coach\/[0-9a-f-]{36}\/[0-9a-f-]{36}/, {
       timeout: 30_000,
     });
-    await sendAndWait(page, "Where did we get to with the delegation?");
+    await sendAndWait(page, "Where did we get to on this?");
     const afterDelete = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
     expect(
       afterDelete,
-      `deleted memory still reached recall: ${afterDelete.slice(0, 600)}`
-    ).not.toMatch(/before friday/);
+      `deleted memory still reached recall: ${afterDelete.slice(0, 700)}`
+    ).not.toMatch(/thursday handoff|before friday/);
   });
 });

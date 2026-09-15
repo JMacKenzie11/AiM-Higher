@@ -18,7 +18,7 @@ import path from "node:path";
 //
 //   shasum -a 256 prompts/coach-memory.md
 const COACH_MEMORY_PROMPT_SHA =
-  "1c0a623a1604fc8b0eb901851e188e1012f8c18d81c531379487c63f1b609148";
+  "85428fa7bb54e9659ca03c5662e162b5187170053c97b93d6a0e110d6544f9ec";
 
 describe("coach memory prompt", () => {
   it("has not changed without the SHA being updated deliberately", async () => {
@@ -52,36 +52,51 @@ describe("coach memory prompt", () => {
     expect(raw).toMatch(/Personnel and organisational thinking/i);
   });
 
-  // The about-mode frame rule, added 2026-09-14 when summarization was
-  // extended to about-mode conversations. Asserted line by line rather
-  // than by SHA alone, because this is precisely the paragraph a future
-  // edit could soften without looking like it removed anything: the
-  // section could keep its heading and lose the clause that makes it
-  // bite. The code-side filter in memory-shape.ts is a backstop for
-  // this prompt, not a replacement, and it can only see a claim that
-  // names the person, which is why the naming rule is asserted too.
-  it("still carries the about-mode frame rule that keeps the subject out", async () => {
+  // ABOUT MODE. The frame rule that lived here briefly is gone, by
+  // the product owner's decision: observations and assessments of a
+  // team member are captured like anything else. Two things carry the
+  // weight now, and both are asserted line by line rather than left
+  // to the SHA, because either could be softened by an edit that
+  // looks like tidying and removes nothing visible.
+  //
+  //   1. The said/inferred split applied to observations about the
+  //      SUBJECT. Without it, Aimee's guess about a team member
+  //      becomes something the leader is told they said.
+  //   2. The never-written list covering the subject. Without it,
+  //      health and family about a third party start being written
+  //      down, which no decision has ever authorised.
+  it("still carries the about-mode rules the record depends on", async () => {
     const raw = await fs.readFile(
       path.join(process.cwd(), "prompts", "coach-memory.md"),
       "utf8"
     );
-    // Who the memory is about. The whole feature is this sentence.
-    expect(raw).toMatch(/written \*\*about the leader\*\*/i);
-    expect(raw).toContain("Never about the team member.");
-    // The prohibition, and that neither kind escapes it.
-    expect(raw).toMatch(/Never write a claim about the team member/i);
-    expect(raw).toMatch(/not as `said`, not as `inferred`/i);
+    // Observations of the subject are captured at all.
     expect(raw).toMatch(
-      /An `inferred` reading of the team member is still a claim about the team member/i
+      /Write their observations and assessments of the person too/i
     );
-    // The near miss that the rule exists for. Losing this example is
-    // how the rule would quietly stop catching the common case.
-    expect(raw).toContain("Doubts whether Marcus is ready.");
-    // The test that generalises beyond the examples.
-    expect(raw).toMatch(/The transformation test/i);
-    // What the filter depends on to see the subject at all.
-    expect(raw).toMatch(/Name them, never a bare pronoun/i);
-    // And that the absolute list is not relaxed for the subject.
-    expect(raw).toMatch(/Health and family stay absolute/i);
+    // (1) The split, applied to those observations specifically.
+    expect(raw).toMatch(/The said\/inferred split does all the work here/i);
+    expect(raw).toContain(
+      "Never promote your read of the person to `said`."
+    );
+    expect(raw).toMatch(
+      /The leader's statement about the person is `said`/i
+    );
+    expect(raw).toMatch(/Your own read of the person is `inferred`/i);
+    // Provenance is not accuracy. Added after the E2E caught the
+    // summarizer demoting a leader's own statement to `inferred`
+    // because the coach had challenged it in-conversation, and
+    // writing "believes X, but this belief is not yet validated" in
+    // its place. That is the model's assessment of the claim standing
+    // where the leader's words should be.
+    expect(raw).toMatch(/`said` is about provenance, not accuracy/i);
+    expect(raw).toContain('Never write a memory of the form "believes X, but this is not validated"');
+    // (2) The never-written list, explicitly covering the subject.
+    expect(raw).toMatch(
+      /The never-written list applies to everyone the conversation mentions/i
+    );
+    expect(raw).toContain("Marcus is out for surgery");
+    // And the naming rule a six-month-old memory depends on.
+    expect(raw).toMatch(/Name the person, never a bare pronoun/i);
   });
 });

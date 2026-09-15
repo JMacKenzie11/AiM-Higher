@@ -105,107 +105,11 @@ const WORK_CONTEXT = [
   "budget", "headcount", "benefit", "plan for", "process",
 ];
 
-// ---- The about-mode frame rule --------------------------------
-//
-// An `about` conversation is a leader thinking through someone on
-// their team. Its memory is written about the LEADER: what they
-// intend, committed to, keep avoiding, decided. The team member may
-// appear as context. What must never be written is a claim ABOUT the
-// team member, because that is a durable personnel note on somebody
-// who never sat in the conversation and never consented to a record.
-//
-// The team member's actual record is not lost by this. It is live,
-// through the tier-one execution tools, every turn. A stale
-// characterisation is strictly worse context than the real thing.
-//
-// This applies ONLY when a subject name is supplied, which is what
-// makes it an `about`-mode rule. In general mode a leader reflecting
-// on their own patterns may name whoever they like, and
-// "Worried that Dana is not ready for the lead role" is exactly the
-// personnel thinking the wall exists to make safe to keep.
-//
-// The discriminator is grammatical position, not sentiment. The
-// prompt writes memories in the third person about the leader, so
-// "is it about them or about the subject" cannot be settled by
-// person. It is settled by whether the subject's name is the thing
-// the sentence makes a claim about.
-
-// A word after the name that means the sentence is asserting
-// something about them.
-const CLAIM_VERBS = new Set([
-  "is", "isn't", "isnt", "was", "wasn't", "wasnt", "are", "aren't",
-  "seems", "seemed", "appears", "appeared", "feels", "felt",
-  "has", "hasn't", "hasnt", "had", "have",
-  "can", "can't", "cant", "cannot", "could", "couldn't",
-  "won't", "wont", "will", "would", "wouldn't",
-  "does", "doesn't", "doesnt", "did", "didn't", "didnt",
-  "struggles", "struggled", "lacks", "lacked", "needs", "needed",
-  "missed", "misses", "fails", "failed", "refuses", "refused",
-  "keeps", "kept", "tends", "tended", "avoids", "avoided",
-  "underperforms", "resists", "resisted", "gets", "got",
-]);
-
-// A word after the name that means the name is riding along as
-// context rather than being the thing claimed about.
-const OBLIQUE_FOLLOWERS = new Set([
-  "about", "above", "across", "after", "against", "along", "among",
-  "around", "as", "at", "before", "behind", "below", "beneath",
-  "beside", "between", "beyond", "by", "despite", "down", "during",
-  "except", "for", "from", "in", "inside", "into", "near", "of",
-  "off", "on", "onto", "out", "outside", "over", "past", "since",
-  "than", "through", "to", "toward", "towards", "under", "until",
-  "up", "upon", "with", "within", "without",
-]);
-
-// A word before the name that opens a clause, which puts the name in
-// subject position: "worried THAT Marcus ...", "whether Marcus ...".
-const CLAUSE_OPENERS = new Set([
-  "that", "whether", "if", "why", "how", "when", "because", "since",
-  "although", "though", "but", "and", "or", "so", "while", "unless",
-  "until", "before", "after",
-]);
-
-function namedInClaimPosition(content: string, name: string): boolean {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`\\b${escaped}\\b`, "gi");
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(content)) !== null) {
-    const after = content.slice(m.index + m[0].length);
-    // Possessive: "Marcus's schedule" is the leader's doing, told
-    // about Marcus's thing. Context, not a claim.
-    if (/^['’]s\b/.test(after)) continue;
-    const nextWord = (after.match(/^\s*([A-Za-z']+)/)?.[1] ?? "").toLowerCase();
-    // End of sentence or clause: nothing is being claimed.
-    if (!nextWord) continue;
-    if (CLAIM_VERBS.has(nextWord)) return true;
-    if (OBLIQUE_FOLLOWERS.has(nextWord)) continue;
-
-    const before = content.slice(0, m.index);
-    const prevWord = (before.match(/([A-Za-z']+)[^A-Za-z']*$/)?.[1] ?? "").toLowerCase();
-    // Start of the memory, or the start of a clause, means the name
-    // is the grammatical subject of what follows.
-    if (!prevWord || CLAUSE_OPENERS.has(prevWord)) return true;
-    // Otherwise the name sits after a verb or preposition, as an
-    // object: "considering letting Marcus go". The leader is still
-    // the one doing the thing.
-  }
-  return false;
-}
-
 export type FilterVerdict =
   | { keep: true }
-  | { keep: false; reason: "health" | "family" | "subject_frame" };
+  | { keep: false; reason: "health" | "family" };
 
-export type FilterOptions = {
-  // Names of the `about`-mode subject (full and first). Absent in
-  // general mode, which is what switches the frame rule off.
-  subjectNames?: readonly string[];
-};
-
-export function filterVerdict(
-  content: string,
-  opts: FilterOptions = {}
-): FilterVerdict {
+export function filterVerdict(content: string): FilterVerdict {
   const text = content.toLowerCase();
   const hasWorkContext = WORK_CONTEXT.some((w) => text.includes(w));
 
@@ -219,34 +123,27 @@ export function filterVerdict(
       return { keep: false, reason: "family" };
     }
   }
-  // Health and family are checked FIRST and apply to the subject just
-  // as absolutely as to the participant: "Marcus is out for surgery"
-  // is refused as health before the frame rule ever sees it.
-  for (const name of opts.subjectNames ?? []) {
-    if (!name.trim()) continue;
-    if (namedInClaimPosition(content, name.trim())) {
-      return { keep: false, reason: "subject_frame" };
-    }
-  }
+  // Both lists apply to EVERYONE the conversation mentions, not just
+  // the person talking. In an about-mode conversation the team member
+  // is the one most likely to be described, and "Marcus is out for
+  // surgery" is refused exactly as the participant's own would be.
+  // What the leader thinks of Marcus's WORK is kept; what they know
+  // about his body is not.
   return { keep: true };
 }
 
 export type FilterResult = {
   kept: DraftMemory[];
-  dropped: Array<{
-    memory: DraftMemory;
-    reason: "health" | "family" | "subject_frame";
-  }>;
+  dropped: Array<{ memory: DraftMemory; reason: "health" | "family" }>;
 };
 
 export function applyNeverWrittenFilter(
-  drafts: readonly DraftMemory[],
-  opts: FilterOptions = {}
+  drafts: readonly DraftMemory[]
 ): FilterResult {
   const kept: DraftMemory[] = [];
   const dropped: FilterResult["dropped"] = [];
   for (const m of drafts) {
-    const verdict = filterVerdict(m.content, opts);
+    const verdict = filterVerdict(m.content);
     if (verdict.keep) kept.push(m);
     else dropped.push({ memory: m, reason: verdict.reason });
   }
@@ -277,18 +174,32 @@ export const CONTEXT_MEMORY_DAYS = 120;
 export function selectForContext(
   memories: readonly StoredMemory[],
   nowIso: string,
-  limit: number = CONTEXT_MEMORY_LIMIT
+  limit: number = CONTEXT_MEMORY_LIMIT,
+  // Ids to place ahead of everything else, whatever their age band.
+  // In about mode these are the memories from prior conversations
+  // about the SAME person, which is the continuity the leader is
+  // actually sitting down for: "last time we talked about Marcus".
+  // A leader who coaches about six people would otherwise see this
+  // person's thread crowded out by five other people's, purely on
+  // recency, and the block would get less useful the more they used
+  // the product.
+  //
+  // Priority reorders. It does NOT widen: the age window and the
+  // limit both still apply, so this cannot be used to smuggle more
+  // into the block than the budget allows.
+  priorityIds: ReadonlySet<string> = new Set()
 ): StoredMemory[] {
   const now = Date.parse(nowIso);
   const scored = memories
     .map((m) => {
       const ageDays = (now - Date.parse(m.created_at)) / 86_400_000;
-      return { m, ageDays };
+      return { m, ageDays, priority: priorityIds.has(m.id) ? 0 : 1 };
     })
     // Older than the window drops out of the DEFAULT block. Still in
     // the table, still reachable by tool, deliberately not free.
     .filter((s) => s.ageDays <= CONTEXT_MEMORY_DAYS)
     .sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
       const band = ageBand(a.ageDays) - ageBand(b.ageDays);
       if (band !== 0) return band;
       return a.ageDays - b.ageDays;
