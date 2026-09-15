@@ -61,7 +61,13 @@ the way the noted ones do. You can also just ask in conversation:
 *"remember that I want every plan checked against cash before
 headcount"*.
 
-**To delete one**, click *Delete* on the row and confirm. It's gone
+**To edit one**, click the pencil on the row, change the wording,
+and save. The label stays as it was, because correcting a line
+doesn't change where it came from, and the date stays as when it
+first appeared. The row is marked *edited* so you can tell it isn't
+as first written.
+
+**To delete one**, click the bin on the row and confirm. It's gone
 from the database and won't be used in future conversations. There's
 no undo.
 

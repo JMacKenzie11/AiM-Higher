@@ -3,15 +3,12 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   addDirectedMemoryAction,
-  deleteMyMemoryAction,
   type MemoryListRow,
 } from "@/lib/coach/memory-actions";
 import { MAX_DIRECTED_MEMORY_CHARS } from "@/lib/coach/memory-shape";
-import { memoryKindLabel, memoryKindClass } from "@/lib/coach/memory-kind";
-import { formatShortDate } from "@/lib/dates";
+import { MemoryRows } from "./MemoryRows";
 import styles from "./memory-card.module.css";
 
 // The memory surface where a person already goes to see what the
@@ -34,7 +31,6 @@ export function MemoryCard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
-  const [confirming, setConfirming] = useState<MemoryListRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   // A decline is not an error. It is Aimee answering, and it gets the
   // calmer treatment: the sentence, and what can be kept instead.
@@ -55,16 +51,6 @@ export function MemoryCard({
       } else {
         setError(result.message);
       }
-    });
-  }
-
-  function remove(memory: MemoryListRow) {
-    setConfirming(null);
-    setError(null);
-    startTransition(async () => {
-      const result = await deleteMyMemoryAction(memory.id);
-      if (!result.ok) setError(result.message);
-      else router.refresh();
     });
   }
 
@@ -117,35 +103,7 @@ export function MemoryCard({
           add above lands here straight away.
         </p>
       ) : (
-        <div className={styles.rows}>
-          {recent.map((memory) => (
-            <div
-              key={memory.id}
-              className={styles.row}
-              data-testid="memory-row"
-              data-kind={memory.kind}
-            >
-              <div className={styles.rowMain}>
-                <span className={styles.content}>{memory.content}</span>
-                <span className={styles.meta}>
-                  <span>{formatShortDate(memory.created_at.slice(0, 10))}</span>
-                  <span className={styles[memoryKindClass(memory.kind)]}>
-                    {memoryKindLabel(memory.kind)}
-                  </span>
-                </span>
-              </div>
-              <button
-                type="button"
-                className={styles.ghostButton}
-                onClick={() => setConfirming(memory)}
-                disabled={pending}
-                aria-label={`Delete: ${memory.content}`}
-              >
-                Delete
-              </button>
-            </div>
-          ))}
-        </div>
+        <MemoryRows rows={recent} />
       )}
 
       {total > recent.length ? (
@@ -153,16 +111,6 @@ export function MemoryCard({
           See all {total}
         </Link>
       ) : null}
-
-      <ConfirmDialog
-        open={confirming !== null}
-        tone="danger"
-        title="Delete this memory?"
-        message={confirming?.content ?? ""}
-        confirmLabel="Delete"
-        onConfirm={() => confirming && remove(confirming)}
-        onCancel={() => setConfirming(null)}
-      />
     </>
   );
 }
