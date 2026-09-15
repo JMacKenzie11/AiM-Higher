@@ -655,3 +655,77 @@ test.describe("coach memory, person-added", () => {
     ).not.toMatch(/before headcount/);
   });
 });
+
+// ---- THE TABLE, AND EDITING ------------------------------------
+//
+// Editing is a write path, and a new one: update_coach_memory, added
+// in 0197 and corrected in 0198. It is the first thing that can
+// CHANGE a memory rather than add or remove one, so what it must not
+// do is as important as what it must.
+//
+// The kind-preservation half is proved by the harness case
+// coach-memory-edit, which edits an `inferred` row and asserts the
+// kind survives. This spec cannot: a row it creates is `directed`
+// already, so asserting `directed` after an edit here would pass
+// whether or not preservation worked. What this proves is the
+// surface: that a person can find the control, rewrite the line, and
+// see the result marked as edited.
+test.describe("coach memory, the table", () => {
+  test.describe.configure({ timeout: 600_000 });
+
+  test.afterEach(async ({ page }) => {
+    const outcome = await page
+      .evaluate(async () => {
+        const res = await fetch("/api/coach/memory", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ all: true }),
+        });
+        return { status: res.status, body: await res.text() };
+      })
+      .catch((err) => ({ status: 0, body: String(err) }));
+    if (outcome.status !== 200) {
+      throw new Error(
+        `coach_memories cleanup FAILED — rows remain on the clone: ${outcome.body}`
+      );
+    }
+  });
+
+  test("edits a memory in place and marks it edited", async ({ page }) => {
+    await signIn(page, users.member());
+
+    await page.goto("/profile");
+    await expect(
+      page.getByText(/signed in as/i),
+      "refusing to write coach_memories: not signed in as the E2E fixture member"
+    ).toContainText(process.env.E2E_MEMBER_EMAIL ?? "___no_fixture___");
+
+    await page.getByLabel("Add a memory").fill("Check every plan against cash before headcount");
+    await page.getByRole("button", { name: /add a memory/i }).click();
+    await expect(page.getByTestId("memory-row")).toHaveCount(1, { timeout: 20_000 });
+
+    // The five columns, in the order the surface is specified in.
+    const headers = await page.locator("th").allInnerTexts();
+    expect(headers.map((h) => h.trim().toLowerCase())).toEqual([
+      "edit",
+      "delete",
+      "source",
+      "date",
+      "memory",
+    ]);
+
+    await page.getByRole("button", { name: /^Edit:/ }).click();
+    const editBox = page.getByLabel("Edit memory");
+    await expect(editBox).toBeVisible({ timeout: 10_000 });
+    await editBox.fill("Check every plan against cash before headcount, and say so early");
+    await page.getByRole("button", { name: /^Save:/ }).click();
+
+    const row = page.getByTestId("memory-row").first();
+    await expect(row).toContainText(/say so early/, { timeout: 20_000 });
+    // Marked as no longer being as first written. This is what the
+    // kind used to carry before 0198 put it back.
+    await expect(row).toContainText(/edited/i);
+    // And still exactly one row: an edit is not an add.
+    await expect(page.getByTestId("memory-row")).toHaveCount(1);
+  });
+});

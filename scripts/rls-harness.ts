@@ -489,19 +489,25 @@ async function coachMemoryEdit(
   );
 
   const edited = own?.content === "harness: after edit";
-  const relabelled = own?.kind === "directed";
+  // The kind is PRESERVED, not rewritten. 0197 relabelled an edited
+  // row to 'directed'; 0198 reversed that by the product owner's
+  // decision, because an edit is a correction rather than a change of
+  // authorship. Asserted rather than left alone: silently relabelling
+  // somebody's record is the failure this column exists to prevent,
+  // in either direction.
+  const kindKept = own?.kind === "inferred";
   const ok =
-    edited && relabelled && own?.stamped === true && otherTouched === 0 && priv?.no_update === true;
+    edited && kindKept && own?.stamped === true && otherTouched === 0 && priv?.no_update === true;
   return {
     name: "coach-memory-edit",
     hazard:
       "A caller edits somebody else's memory, or the app gains a blanket UPDATE on the table",
     wrong: `edit aimed at another profile changed ${otherTouched} row(s)`,
-    right: `own row rewritten=${edited}, relabelled directed=${relabelled}, edited_at stamped=${own?.stamped}`,
+    right: `own row rewritten=${edited}, kind preserved=${kindKept}, edited_at stamped=${own?.stamped}`,
     ok,
     detail: ok
-      ? "A person can rewrite their own line and nobody else's, and `authenticated` still holds no UPDATE privilege: the definer function is the only way in."
-      : `edited=${edited} relabelled=${relabelled} stamped=${own?.stamped} otherTouched=${otherTouched} (want 0) noUpdatePriv=${priv?.no_update}`,
+      ? "A person can rewrite their own line and nobody else's, the kind is left as it was, and `authenticated` still holds no UPDATE privilege: the definer function is the only way in."
+      : `edited=${edited} kindKept=${kindKept} stamped=${own?.stamped} otherTouched=${otherTouched} (want 0) noUpdatePriv=${priv?.no_update}`,
   };
 }
 

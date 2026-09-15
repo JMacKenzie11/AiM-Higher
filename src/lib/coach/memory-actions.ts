@@ -513,12 +513,13 @@ export async function addDirectedMemoryAction(
 // parameter, matching how writing has always worked. A caller cannot
 // spell an edit of somebody else's memory.
 //
-// The edited row becomes `directed`, and that is honesty rather than
-// convenience: once somebody rewrites the words, the words are
-// theirs, and leaving "Aimee inferred" on a line the person authored
-// is exactly the mislabelling the said/inferred split exists to
-// prevent. created_at is kept, so the record still says when the
-// thought first appeared; edited_at says when it was rewritten.
+// THE KIND IS PRESERVED. 0197 relabelled an edited row to `directed`;
+// 0198 reversed that by the product owner's decision, because an edit
+// is a correction rather than a change of authorship, and a person
+// fixing a detail in something Aimee noted did not thereby author it.
+// created_at is kept too, so the record still says when the thought
+// first appeared; `edited_at` carries what the relabelling was
+// reaching for, which is that the line is no longer as first written.
 export async function editMemoryAction(
   id: string,
   content: string
