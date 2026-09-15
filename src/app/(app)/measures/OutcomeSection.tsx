@@ -63,18 +63,20 @@ export function OutcomeSection({
 
   return (
     <div className={styles.outcomeBlock}>
-      {outcome.measures.length === 0 && !trackingEnabled ? (
-        <p className={styles.outcomeEmpty}>
-          {authoring
-            ? "No KPIs yet. Add the leading activity that moves this number."
-            : "No KPIs yet."}
-        </p>
-      ) : visibleMeasures.length === 0 && !trackingEnabled ? (
-        <p className={styles.outcomeEmpty}>
-          Every KPI here is hidden by the current filter.
-        </p>
-      ) : (
-        <div
+      {/* THE GRID ALWAYS RENDERS, because the critical success factor's
+          own row lives inside it.
+ 
+          These two empty states used to replace the grid rather than
+          sit under it, and the CSF row went with it. A newly created
+          CSF has no KPIs by definition, so it took the first branch
+          every time: you added a critical success factor and got a
+          block with an "Add a KPI" button and no name on it. The row
+          carrying the name was in the element the message had
+          replaced.
+ 
+          They are notes about the KPI list now, printed below the
+          grid, which is what they were always describing. */}
+      <div
           className={
             trackingEnabled
               ? styles.measureGrid
@@ -154,8 +156,19 @@ export function OutcomeSection({
               weekEnding={weekEnding}
             />
           ))}
-        </div>
-      )}
+      </div>
+
+      {outcome.measures.length === 0 && !trackingEnabled ? (
+        <p className={styles.outcomeEmpty}>
+          {authoring
+            ? "No KPIs yet. Add the leading activity that moves this number."
+            : "No KPIs yet."}
+        </p>
+      ) : visibleMeasures.length === 0 && !trackingEnabled ? (
+        <p className={styles.outcomeEmpty}>
+          Every KPI here is hidden by the current filter.
+        </p>
+      ) : null}
 
       {/* A nudge, not a limit. Three lead measures is about what a
           function head can actually move in a week; past that the
