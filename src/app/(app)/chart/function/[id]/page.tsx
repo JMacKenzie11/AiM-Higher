@@ -111,7 +111,7 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
                 items={detail.decisionRights}
                 canEdit={isAdmin}
                 singularLabel="decision right"
-                addPlaceholder="Add a decision this role can make without escalation — press Enter to save."
+                addPlaceholder="Add a decision this role can make without escalation"
                 suggestTarget="decision_rights"
                 suggestButtonLabel="Suggest decision rights"
                 createAction={createFunctionDecisionRightAction}
@@ -133,7 +133,7 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
                 items={detail.competencies}
                 canEdit={isAdmin}
                 singularLabel="competency indicator"
-                addPlaceholder="Add an observable behavior that shows excellence in this seat — press Enter to save."
+                addPlaceholder="Add an observable behavior that shows excellence in this seat"
                 suggestTarget="competencies"
                 suggestButtonLabel="Suggest competency indicators"
                 createAction={createFunctionCompetencyAction}

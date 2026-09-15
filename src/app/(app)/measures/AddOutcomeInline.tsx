@@ -6,11 +6,13 @@ import {
   type ChartResult,
 } from "@/lib/chart/actions";
 import type { FunctionOutcome } from "@/lib/types";
+import { AddRowButton } from "@/components/ui/AddRowButton";
 import styles from "./measures.module.css";
 
 const INITIAL: ChartResult<FunctionOutcome> = { ok: false, message: "" };
 
-// Per-function "add an outcome" row. Type a title, Enter to save.
+// Per-function "add an outcome" row. Type a title and press Add,
+// or Enter, which still works for rapid entry.
 // Description gets filled in via the Details drawer after creation.
 // When the parent passes onAdded, the form calls it after a
 // successful save so the parent can collapse the row back to its
@@ -60,12 +62,12 @@ export function AddOutcomeInline({
           }
         }}
         className={styles.addOutcomeInput}
-        placeholder="Add a critical success factor, press Enter to save."
+        placeholder="Add a critical success factor"
         required
         disabled={pending}
         aria-label="New critical success factor"
       />
-      {pending ? <span className={styles.savingHint}>Saving…</span> : null}
+      <AddRowButton pending={pending} />
       {errorMessage ? (
         <p role="alert" className={styles.rowError}>
           {errorMessage}

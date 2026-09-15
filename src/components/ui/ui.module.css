@@ -198,3 +198,14 @@
        navigation / selection affordance"; used for nav pills, tabs,
        info chips, calls to action that aren't the primary button.
 */
+
+/* The draft-row Add button.
+ *
+ * Geometry comes from btn/btnPrimary/btnSm; this only stops it
+ * shrinking or wrapping. It sits on the same row as the field it
+ * commits, and a button that wraps under its input reads as belonging
+ * to the next thing down. */
+.addRowButton {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}

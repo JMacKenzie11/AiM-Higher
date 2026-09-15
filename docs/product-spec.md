@@ -427,6 +427,8 @@ Feature-gated (`meeting_facilitation_review`) opt-in second LLM pass on every in
 
 ---
 
+**Draft rows commit with a button (2026-09-15).** Five surfaces used to commit an inline draft row on Enter alone, with no visible control, and said so in placeholder text: critical success factors, KPIs, responsibilities, decision rights and competencies. Instruction text was doing a button's job, and the behaviour was discoverable only by being told. All five now carry `components/ui/AddRowButton` — the house primary at small size, on the same row as the field it commits, never wrapping beneath it. Enter still submits, so nothing that worked before stopped working. One component rather than five buttons, so the five cannot drift apart again.
+
 ## 13. Coaching Module (AI)
 
 Streaming AI coach modeled on the AiMS methodology. Same backend powers both directed coaching (`about` mode) and personal reflection (`general` mode, aka Ask Aimee).
