@@ -21,3 +21,19 @@ export function memoryKindLabel(kind: MemoryKind): string {
       return "You asked me to remember";
   }
 }
+
+// The CSS-module class key for a kind's chip.
+//
+// Here rather than inline in the two components, for the same reason
+// the label is: MemoryList and MemoryCard render the same object and
+// must not drift. A kind added later fails to compile here first.
+export function memoryKindClass(kind: MemoryKind): "kindSaid" | "kindInferred" | "kindDirected" {
+  switch (kind) {
+    case "said":
+      return "kindSaid";
+    case "inferred":
+      return "kindInferred";
+    case "directed":
+      return "kindDirected";
+  }
+}

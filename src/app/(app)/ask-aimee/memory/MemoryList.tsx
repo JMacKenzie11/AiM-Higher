@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { deleteMyMemoryAction, type MemoryListRow } from "@/lib/coach/memory-actions";
-import { memoryKindLabel } from "@/lib/coach/memory-kind";
+import { memoryKindLabel, memoryKindClass } from "@/lib/coach/memory-kind";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./memory.module.css";
 
@@ -91,7 +91,7 @@ export function MemoryList({
                     Aimee; 'inferred' is what Aimee concluded. Both show —
                     hiding the inferences would make the page a
                     a partial account of what it works from. */}
-                <span className={styles.kindTag}>
+                <span className={styles[memoryKindClass(memory.kind)]}>
                   {memoryKindLabel(memory.kind)}
                 </span>
                 {memory.conversation_ref ? (
