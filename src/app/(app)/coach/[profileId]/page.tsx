@@ -6,6 +6,7 @@ import { listConversationsForSubject } from "@/lib/coach/service";
 import { NewConversationButton } from "./NewConversationButton";
 import { ArchiveConversationButton } from "./ArchiveConversationButton";
 import { PageShell } from "@/components/ui/PageShell";
+import { MemorySweep } from "../../ask-aimee/MemorySweep";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import type { Profile } from "@/lib/types";
 import styles from "../coach.module.css";
@@ -58,6 +59,15 @@ export default async function CoachListPage({ params }: PageProps) {
       title={subject.full_name}
       subtitle={subject.position ?? undefined}
     >
+      {/* The sweep fires here too, as of 2026-09-15.
+          It used to mount only under /ask-aimee, which was right
+          while about-mode conversations produced no memory. Once they
+          did, a leader who works entirely in /coach got nothing
+          written, ever: the trigger did not fire on the surface the
+          feature now serves. Silently, because every failure mode of
+          this feature renders as an empty memory page. */}
+      <MemorySweep openConversationId={null} />
+
       <PrivacyNote tone="private">
         Only you can see the coaching threads you create about {firstName}.
         Other admins and {firstName}&rsquo;s direct manager can create their

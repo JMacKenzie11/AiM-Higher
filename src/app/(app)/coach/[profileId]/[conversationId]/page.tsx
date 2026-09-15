@@ -10,6 +10,7 @@ import {
 } from "@/lib/coach/service";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "./ChatView";
+import { MemorySweep } from "../../../ask-aimee/MemorySweep";
 import { ShareChatButton } from "../../../ask-aimee/[conversationId]/ShareChatButton";
 import type { Profile } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -87,6 +88,11 @@ export default async function CoachChatPage({ params }: PageProps) {
       title={subject.full_name}
       subtitle={subject.position ?? undefined}
     >
+      {/* Opening one conversation summarizes the OTHERS, exactly as
+          on the Ask Aimee side: the thread in front of the person is
+          never distilled while they are still in it. */}
+      <MemorySweep openConversationId={conversation.id} />
+
       <ChatView
         conversation={conversation}
         subjectName={subject.full_name}
