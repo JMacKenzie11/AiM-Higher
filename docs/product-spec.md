@@ -40,6 +40,74 @@ pull requests, not here.*
   - **Role restriction.** The cookie is only ever written for `system_admin`, `aims_guide` and `portfolio_admin`, and the redirect above applies only to them. Company users never read it and are never redirected; the resolver returns `profile.company_id` first.
   - **Guide HQ keeps the cookie.** `/hq` hides company-scoped links by pathname in `Sidebar.tsx`, so Week in Review and Functional Org Chart still resolve to the last-scoped company when reached directly.
 - **Root URL routing:** middleware sends authenticated `/` to `/hq` for cross-tenant roles (`system_admin` and `aims_guide`), and to `/dashboard` for everyone else. Deliberately ignores the scope cookie so typing the bare domain doesn't strand a sysadmin inside whichever company they last scoped into.
+### 1a. Portfolio scope alongside a company role — DESIGN RECORD, NOT YET BUILT
+
+**Status: designed, not implemented.** Nothing in this subsection describes current behaviour. It exists so the build is a transcription rather than a series of decisions made under pressure, and so the parts that look safe and are not are written down before anybody touches them. Decisions recorded 2026-09-15 (Jason).
+
+**The problem.** A person can be exactly one thing. `profiles.id` is both primary key and foreign key to `auth.users(id)`, so one email is one profile is one `role`. `profiles_portfolio_admin_has_no_company` additionally forbids a `portfolio_admin` from holding a `company_id` at all. The real case that broke this: Scot Lowry is the company admin of Promise One **and** the portfolio admin of every company on that instance. Today he can be one or the other. Two accounts was rejected outright — nobody signs into the same system twice.
+
+**Decisions taken.**
+
+1. **Portfolio scope keeps its current meaning and gains one thing.** Instance-wide reads plus the same closed list of administrative writes, exactly as documented above, **plus full company-admin CRUD on any company they hold an assignment for**. A portfolio admin who wants to run one of their companies can; one who does not, does not. The system supports both rather than choosing.
+2. **A portfolio admin may assign themselves any company on the instance.** Not only ones they created. The instance boundary *is* the portfolio boundary, so "any company on the instance" and "any company in their portfolio" are the same sentence. Whether they should is a conversation between the operating partner and the owners of their companies, not a rule the software imposes. What the software owes is that the arrangement is **legible**: recorded, visible, and never silent.
+3. **A person with a company needs a home.** `profiles.company_id` becomes where the application takes you when you open it, and nothing more. Rights come from assignments; home is a landing preference.
+4. **Grant-holders are audited exactly like role-holders.** `portfolio_admin_events` already records every scope-in and administrative action, and exists *because* there was no assignment list to inspect afterwards. That reasoning does not weaken when assignments appear; it is the record of who looked at what.
+
+**What this reuses rather than invents.** `aims_guide` already solves the hard half. A guide holds a role and a list of companies, and `is_guide_for(company)` grants **full CRUD** on the ones they hold: 21 INSERT, 20 UPDATE, 19 DELETE policies against 21 SELECT, across ~117 live policies. That is company-admin-equivalent access to N companies, in production, at larger scale than this change needs. Portfolio scope is the simpler half, because it is instance-wide and therefore needs no list: all 56 policies granting it call `is_portfolio_admin()` and **not one inlines the role string**. Two single-choke-point functions is the entire reason this is a tractable change rather than a rewrite of a third of the security model.
+
+**Verified state before any migration** (2026-09-15, both instances):
+
+| | PROD | PROMISEONE |
+|---|---|---|
+| `portfolio_admin` | 1 — *"Jason Testing Account"*, a test account | 0 |
+| `aims_guide` | 2 — Jason, Jeff Bouwman | 0 |
+| `guide_assignments` rows | 17 | 0 |
+
+There is no real portfolio admin to migrate. **There are two real guides with seventeen live assignments**, which is the material risk in this change: `is_guide_for()` is not a dormant function, and a mistake in it reaches Jason and Jeff the moment it deploys.
+
+**The model.**
+
+- `portfolio_assignments(portfolio_admin_id, company_id)`, mirroring `guide_assignments`. A row means *this portfolio admin has company-admin rights in this company*. Its own policies: a portfolio admin may insert and delete their own rows (decision 2), and read them; `system_admin` reads all.
+- `is_portfolio_admin()` is unchanged in meaning and stays the instance-wide test.
+- **`is_guide_for(company)` is extended, not duplicated**, to return true when the caller is a portfolio admin holding an assignment for that company. All ~117 policies inherit it with no edit. The alternative — a parallel `is_portfolio_admin_for()` and 117 new mirror policies — is how the guide mirrors were built and is the thing that made 0111 expensive. **The function's name will then be wrong.** Rename it to `is_admin_for(company)` in the same migration, with `is_guide_for` kept as a thin wrapper so nothing outside has to move at once.
+- `profiles_portfolio_admin_has_no_company` is **dropped**, so a portfolio admin may hold a home company.
+
+**The audit that must happen before that constraint is dropped, and is not optional.** Today `company_id IS NULL` is load-bearing for this role in a way nobody wrote down: any policy shaped `auth_company_id() = company_id` **without** also testing `role` would silently begin admitting a portfolio admin the moment they acquire a home company. Ninety-nine policies name `company_admin`; the count that matters is the ones that check company without checking role. Enumerate them first:
+
+```sql
+select tablename, policyname, cmd
+  from pg_policies
+ where schemaname = 'public'
+   and (coalesce(qual,'') || coalesce(with_check,'')) like '%auth_company_id%'
+   and (coalesce(qual,'') || coalesce(with_check,'')) not like '%auth_role%'
+   and (coalesce(qual,'') || coalesce(with_check,'')) not like '%role%'
+ order by tablename;
+```
+
+Every row that comes back is a policy that would change behaviour for a reason unrelated to this feature. If the list is empty the constraint can go. If it is not, each one is a decision before the migration, not after.
+
+**Session and application layer.** `guide_company_ids` already rides on the session, fetched once in `current-user.ts` so permission checks stay synchronous. Portfolio assignments join it the same way. `assertCompanyAccess` currently bypasses unconditionally for `portfolio_admin`; that stays correct for reads, and the write path continues to run through `isAdminForCompany`, which gains the assignment test. **The app layer is courtesy and RLS is the boundary** — as everywhere else, the two must agree, and the RLS half is what is actually asserted.
+
+**Scope resolution is the dangerous part.** `resolveCompanyIdInternal` returns `profile.company_id` before it ever consults the scope cookie. A portfolio admin with a home company is therefore **pinned to it** and silently stops being a portfolio admin in the UI while still holding the role in the database — the constraint being dropped is currently what prevents that state existing. The resolver must invert for cross-tenant roles only: *if you hold instance scope and have chosen a company, that is the answer; otherwise your home; otherwise nothing.* This is the function that decides whose data a request sees. It gets probes before it gets code, and the existing `CrossTenantAccessError` backstop stays in place to turn a mistake into an exception rather than a wrong-tenant render.
+
+**The harness implication, which is the subtlest thing here.** `npm run rls:hazards` carries a permanent check asserting that no write policy names `portfolio_admin` outside `companies`, `company_features`, `profiles` and `portfolio_admin_events`, and plants a deliberately wrong policy on `commitments` each run to prove the matcher works. Under this design, a portfolio admin's new write access arrives through `is_admin_for()` — a function that **never mentions `portfolio_admin`**. The check will keep passing while the boundary it describes stops being true. A guard that passes while its claim is false is worse than no guard, because it is read as evidence. It must be rewritten in the same migration to assert the boundary that will actually exist: *what can a portfolio admin reach **without** an assignment*, probed as a real JWT holding the role and no assignment rows.
+
+**Surfaces.** The platform dashboard's Portfolio admins card gains assignment management. A portfolio admin needs a way to see and change their own assignments, since they may grant their own (decision 2). The context pill already renders "SYSTEM ADMIN · COMPANY" and needs a portfolio variant. Home company becomes an editable field for anyone holding one.
+
+**Migration sequence.** Each step lands and is proven before the next begins.
+
+1. The policy audit above. No code.
+2. `portfolio_assignments` + its policies + `is_admin_for()` + the `is_guide_for` wrapper, with the rewritten harness check and probes. **No behaviour changes yet**: with zero assignment rows every existing caller resolves exactly as before, which is the property that makes this step safe to deploy alone.
+3. Drop the constraint, add home company handling, invert the resolver. The step with the real risk, landing after the probes that would catch it.
+4. Surfaces.
+5. Promote Scot: `portfolio_admin` with Promise One as home and an assignment for it.
+
+**Test plan.** Harness probes, each shown failing before it is believed: a portfolio admin with no assignments reads every company and writes none; the same caller with one assignment writes in that company and still not in another; cannot grant themselves a `system_admin` or another `portfolio_admin` role, which the existing ceiling probes already cover and which must keep passing unchanged; an `aims_guide` is unaffected by the `is_guide_for` rename, probed against the 17 live assignments' shape. E2E: a dual-role fixture lands on their home company, scopes into another, acts as admin there, exits, and lands home again.
+
+**Rollback.** Steps 1 and 2 are additive and reversible by deleting assignment rows — behaviour returns to today's with no schema change. Step 3 is not cleanly reversible once a portfolio admin holds a home company, because restoring the constraint requires nulling those columns. That is the point at which this stops being easy to undo, and it is why it is third rather than first.
+
+**Open questions.** Whether an assignment should be revocable by the company's own owner, which decision 2 currently does not allow and which is the obvious next request. Whether a portfolio admin's home company should appear to that company's people as an ordinary company admin in the roster, or be distinguished.
+
 - **Managers:** `profiles.reports_to` establishes a direct manager, unlocking manager-level affordances (e.g., coach *about* a direct report) without granting admin.
 - **Invitations:** email invite flow with expiry; role assigned at invite time. Admins can pre-stage the roster (create as pending, send invite later).
 
