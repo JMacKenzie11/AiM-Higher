@@ -511,6 +511,144 @@ async function coachMemoryEdit(
   };
 }
 
+// The boundary the static allowlist check cannot see (0199).
+//
+// From 0199 a portfolio admin reaches a company's content through
+// is_admin_for(), a function that never names the role — so the
+// static check passes regardless. This asserts the thing that
+// actually matters: WITHOUT an assignment they write nothing, WITH
+// one they write only that company, and the assignment they can
+// create is only ever their own.
+//
+// Four claims, because three of them are the ways this could be
+// wrong in a direction nobody would notice:
+//   1. no assignment -> content write refused (the role's definition)
+//   2. assignment    -> content write succeeds (the feature works)
+//   3. assignment to A -> content write in B still refused (the
+//      assignment is per-company, not a switch)
+//   4. cannot insert an assignment naming somebody else (self-only,
+//      which is the clause decision 2 rests on)
+async function portfolioAssignmentBoundary(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;",
+      pending,
+      `select count(*) > 0 as ok from information_schema.tables
+        where table_schema='public' and table_name='portfolio_assignments';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name: "portfolio-assignment-boundary",
+      hazard: "A portfolio admin writes company content without an assignment",
+      wrong: "table not on this schema",
+      right: "table not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0199 has not landed here yet. Runs for real under --pending 0199_portfolio_assignments.sql.",
+    };
+  }
+
+  // A real portfolio_admin, seeded per run: the clone has none of its
+  // own, and a fixture that comes back null reports NOT PROVEN rather
+  // than passing on an absent caller.
+  const PA = "aaaaaaaa-0000-4000-8000-0000000000pa".replace("pa", "ba");
+  const seedPa = `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${PA}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-pa@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${PA}', null, 'Harness Portfolio Admin', 'portfolio_admin', 'active');`;
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const A = ids.memberCompany;
+  const B = ids.otherCompany;
+  const issue = (co: string, title: string) =>
+    `insert into public.issues (company_id, title, created_by)
+       values ('${co}', '${title}', '${PA}');`;
+
+  const count = async (sql: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(sql);
+      return r?.n ?? -1;
+    } catch {
+      // A statement-level refusal is the stronger outcome and is what
+      // an INSERT with no admitting policy actually produces.
+      return 0;
+    }
+  };
+
+  const noAssignment = await count(
+    [
+      "begin;", pending, seedPa,
+      "set local role authenticated;", claims(PA),
+      issue(A, "harness: no assignment"),
+      `select count(*)::int as n from public.issues where title = 'harness: no assignment';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const withAssignment = await count(
+    [
+      "begin;", pending, seedPa,
+      "set local role authenticated;", claims(PA),
+      `insert into public.portfolio_assignments (portfolio_admin_id, company_id)
+         values ('${PA}', '${A}');`,
+      issue(A, "harness: with assignment"),
+      `select count(*)::int as n from public.issues where title = 'harness: with assignment';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const otherCompany = await count(
+    [
+      "begin;", pending, seedPa,
+      "set local role authenticated;", claims(PA),
+      `insert into public.portfolio_assignments (portfolio_admin_id, company_id)
+         values ('${PA}', '${A}');`,
+      issue(B, "harness: other company"),
+      `select count(*)::int as n from public.issues where title = 'harness: other company';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const forSomebodyElse = await count(
+    [
+      "begin;", pending, seedPa,
+      "set local role authenticated;", claims(PA),
+      `insert into public.portfolio_assignments (portfolio_admin_id, company_id)
+         values ('${ids.companyAdmin}', '${A}');`,
+      `select count(*)::int as n from public.portfolio_assignments
+         where portfolio_admin_id = '${ids.companyAdmin}';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const ok =
+    noAssignment === 0 &&
+    withAssignment === 1 &&
+    otherCompany === 0 &&
+    forSomebodyElse === 0;
+  return {
+    name: "portfolio-assignment-boundary",
+    hazard:
+      "A portfolio admin writes company content without an assignment, or grants one to somebody else",
+    wrong: `without an assignment, content writes landed: ${noAssignment}`,
+    right: `with an assignment: ${withAssignment} in that company, ${otherCompany} in another`,
+    ok,
+    detail: ok
+      ? "No assignment, no content write. One assignment, writes in that company and nowhere else. An assignment naming somebody else is refused, which is the clause self-assignment rests on."
+      : `no-assignment ${noAssignment} (want 0), with-assignment ${withAssignment} (want 1), other-company ${otherCompany} (want 0), for-somebody-else ${forSomebodyElse} (want 0).`,
+  };
+}
+
 async function coachMemoryDirected(
   run: Runner,
   ids: Identities,
@@ -3235,7 +3373,31 @@ export function canaryPresent(matches: readonly string[]): boolean {
 // anywhere in the schema name this role", which is a question about
 // the schema. The F8 series is full of tables nobody thought to
 // check; sixty-four of them carry RLS.
+//
+// ---- WHAT THIS CHECK NO LONGER COVERS, AS OF 0199 ---------------
+//
+// It matches policies that NAME the role. From 0199 a portfolio admin
+// can also reach a company's content through is_admin_for(), a
+// function that never mentions `portfolio_admin` — so those writes
+// are invisible here, and this check would keep passing while the
+// boundary it describes stopped being true.
+//
+// A guard that passes while its claim is false is worse than no
+// guard, because it is read as evidence. So the claim is narrowed:
+// this check now says "no write policy NAMES the role outside the
+// list", which is exactly what it tests, and the boundary that
+// actually matters — what a portfolio admin can reach WITHOUT an
+// assignment — is asserted at runtime by the permanent
+// `portfolio-assignment-boundary` case. Neither is sufficient alone.
 export const PORTFOLIO_WRITE_ALLOWLIST: readonly string[] = [
+  // Item 4, added 0199. Their own assignment rows: which companies
+  // they hold admin rights in. Container, not content — it is about
+  // access to companies rather than anything a company produced,
+  // which is the line the other four sit on. Self-assignable by
+  // design (spec §1a decision 2); the policy's `ap.uid =
+  // portfolio_admin_id` clause is what stops it assigning anybody
+  // else, and that clause is probed rather than trusted.
+  "portfolio_assignments",
   // Item 1: create a company. Item 2, half of it: settings, within
   // the column allowlist enforced by companies_restrict_admin_columns.
   "companies",
@@ -3351,13 +3513,13 @@ async function portfolioAllowlistCheck(
     after: !caught
       ? "CHECK IS BROKEN: a deliberately wrong policy on commitments was NOT caught"
       : offenders.length === 0
-        ? `all on allowlisted tables (${PORTFOLIO_WRITE_ALLOWLIST.join(", ")})`
+        ? `no write policy NAMES the role outside (${PORTFOLIO_WRITE_ALLOWLIST.join(", ")}); reach via is_admin_for() is asserted by the portfolio-assignment-boundary case, not here`
         : `OUTSIDE THE ALLOWLIST: ${offenders.join(", ")}`,
     ok,
     detail: !caught
       ? "the matcher missed a planted content grant, so it cannot vouch for the real ones"
       : offenders.length === 0
-        ? "portfolio_admin can write only the container, and a planted content grant is caught"
+        ? "no write policy names portfolio_admin outside the container tables, and a planted content grant is caught. This does NOT say the role cannot reach content — assignment-derived reach is the boundary case's claim."
         : "portfolio_admin has a write policy on a table outside the closed list",
   };
 }
@@ -5223,6 +5385,10 @@ async function main(): Promise<void> {
     [
       "coach-memory-edit",
       (r: Runner, i: Identities) => coachMemoryEdit(r, i, pendingSql),
+    ],
+    [
+      "portfolio-assignment-boundary",
+      (r: Runner, i: Identities) => portfolioAssignmentBoundary(r, i, pendingSql),
     ],
   ] as const;
 

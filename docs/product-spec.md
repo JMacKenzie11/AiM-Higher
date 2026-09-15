@@ -106,7 +106,7 @@ It is still the function that decides whose data a request sees, so it still get
 **Migration sequence.** Each step lands and is proven before the next begins.
 
 1. The policy audit above. No code.
-2. `portfolio_assignments` + its policies + `is_admin_for()` + the `is_guide_for` wrapper, with the rewritten harness check and probes. **No behaviour changes yet**: with zero assignment rows every existing caller resolves exactly as before, which is the property that makes this step safe to deploy alone.
+2. **DONE — migration 0199.** `portfolio_assignments` + its policies + `is_admin_for()` + the `is_guide_for` wrapper, the widened allowlist, and the `portfolio-assignment-boundary` case. **No behaviour changes**: with zero assignment rows every existing caller resolves exactly as before, which is the property that made it safe to deploy alone. Decision 7's `company_admin` delete on `guide_assignments` was deliberately **excluded** — it changes behaviour immediately against 17 live rows, so it cannot ride in a migration whose claim is that nothing changes; it travels with its surface in step 4.
 3. Add `home_company_id` and the resolver's fallback clause. Additive, and behaviour-neutral until a row has one set. No constraint is dropped, at any step.
 4. Surfaces.
 5. Promote Scot: `portfolio_admin` with Promise One as home and an assignment for it.
