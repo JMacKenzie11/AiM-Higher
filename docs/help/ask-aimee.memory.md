@@ -38,6 +38,17 @@ offers the work-shaped version instead. If you mention a parent is in
 hospital until October, what can be kept is that you'll be stretched
 until October, with no reason attached.
 
+## What doesn't get remembered
+
+Conversations you run through an **agent** leave no memory: the
+Functional Chart Builder, Prepare a Hard Conversation, and the rest.
+Those are structured pieces of work, and what's worth keeping from
+them is the thing you built, not a summary of the answers you gave
+along the way.
+
+Two kinds are remembered: talking to Aimee directly, and coaching
+about someone on your team from the Coach button beside their name.
+
 ## How long it's kept
 
 Memories are kept until you delete them. There's no expiry and
