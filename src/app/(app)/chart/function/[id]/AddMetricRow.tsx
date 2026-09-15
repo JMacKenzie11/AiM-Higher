@@ -14,6 +14,7 @@ import type {
   TargetDirection,
 } from "@/lib/types";
 import { SuggestOptionsPopover } from "./SuggestOptionsPopover";
+import { AddRowButton } from "@/components/ui/AddRowButton";
 import styles from "../../chart.module.css";
 
 // Always-live "add a metric" row matched to the roles list rhythm.
@@ -192,7 +193,7 @@ export function AddMetricRow({
             }
           }}
           className={styles.addMetricInput}
-          placeholder="Add a metric — e.g. % of projects on time"
+          placeholder="Add a metric, e.g. % of projects on time"
           required
           disabled={pending}
           aria-label="New metric"
@@ -249,12 +250,13 @@ export function AddMetricRow({
           </select>
         ) : null}
 
-        {/* Enter submits the form from any field — no visible Add
-            button, consistent with the other draft rows on this
-            page (R&R, Decision Rights, Competencies). */}
-        {pending ? (
-          <span className={styles.roleSavingHint}>Saving…</span>
-        ) : null}
+        {/* The Add button, on the same row as the fields it commits.
+            Enter from any field still submits; the button is what
+            makes that discoverable. The other draft rows on this page
+            (R&R, Decision Rights, Competencies) and the critical
+            success factors row all carry the same one now, from
+            components/ui/AddRowButton. */}
+        <AddRowButton pending={pending} />
 
         {errorMessage ? (
           <p role="alert" className={styles.roleError}>

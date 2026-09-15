@@ -11,12 +11,14 @@ import {
 import type { FunctionRole } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SuggestOptionsPopover } from "./SuggestOptionsPopover";
+import { AddRowButton } from "@/components/ui/AddRowButton";
 import styles from "../../chart.module.css";
 
 // Roles & Responsibilities editor.
 //   Baseline row (Lead, Track, Decide) is locked.
 //   Every other row is click-to-edit inline: click the title, type,
-//   blur or Enter to save, Escape to cancel. A trash icon on the
+//   blur or Enter to save, or the Add button. Escape cancels. A
+//   trash icon on the
 //   right deletes with a confirm.
 //   Draft row at the bottom stays live: type + Enter to add another.
 
@@ -244,14 +246,12 @@ function DraftRoleRow({ functionId }: { functionId: string }) {
           }
         }}
         className={styles.roleInput}
-        placeholder="Add a responsibility — press Enter to save."
+        placeholder="Add a responsibility"
         required
         disabled={pending}
         aria-label="New responsibility"
       />
-      {pending ? (
-        <span className={styles.roleSavingHint}>Saving…</span>
-      ) : null}
+      <AddRowButton pending={pending} />
       {errorMessage ? (
         <p role="alert" className={styles.roleError}>
           {errorMessage}

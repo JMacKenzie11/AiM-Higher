@@ -1161,7 +1161,11 @@
    Enter to save. */
 .addMetricRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px 120px auto;
+  /* Trailing auto column is the Add button, which sits on the same
+   * row as the fields it commits and must not wrap under them: a
+   * button below its input reads as belonging to the next thing
+   * down. */
+  grid-template-columns: minmax(0, 1fr) 120px 120px auto auto;
   gap: var(--space-2);
   align-items: center;
   padding: var(--space-3);
@@ -1242,6 +1246,7 @@
 .roleRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--surface);
@@ -1419,7 +1424,13 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font: var(--text-body);
-  width: 100%;
+  /* SHARES the row rather than claiming it. `width: 100%` here pushed
+   * the Add button onto a second line the moment the row was allowed
+   * to wrap, and a button under its own input reads as belonging to
+   * the next thing down. Flex-basis 0 with grow lets it take whatever
+   * is left after the button, at any width. */
+  flex: 1 1 0;
+  width: auto;
   min-width: 0;
 }
 
@@ -1920,10 +1931,18 @@
   background: var(--aims-danger-tint);
 }
 
+/* The error takes its own line, and only it.
+ *
+ * It is a sibling of the input and the Add button inside the form, so
+ * on a nowrap row it squeezed them; the row now wraps and this claims
+ * the full width, which means the button stays beside its field and
+ * the message lands underneath rather than between them. */
 .roleError {
   margin: 0;
   color: var(--aims-danger);
   font: var(--text-caption);
+  flex: 1 0 100%;
+  grid-column: 1 / -1;
 }
 
 /* ---- Seat editor ------------------------------------------ */

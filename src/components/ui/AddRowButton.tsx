@@ -1,0 +1,37 @@
+"use client";
+
+import styles from "./ui.module.css";
+
+// The Add button for a draft row, in one place.
+//
+// Five surfaces used to commit a draft row on Enter alone, with no
+// visible control: critical success factors, KPIs, responsibilities,
+// decision rights and competencies. That was consistent with itself
+// and invisible to anybody who had not been told, and "press Enter to
+// save" in a placeholder is instruction text doing a button's job.
+//
+// One component rather than five buttons, because the point is a
+// single standard. A future change to how a draft row commits has one
+// place to happen, and the five cannot drift apart again.
+//
+// The house primary at small size, matching every other committing
+// action in the app.
+export function AddRowButton({
+  pending = false,
+  label = "Add",
+  disabled = false,
+}: {
+  pending?: boolean;
+  label?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="submit"
+      className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSm} ${styles.addRowButton}`}
+      disabled={pending || disabled}
+    >
+      {pending ? "Adding…" : label}
+    </button>
+  );
+}

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { RdTarget } from "@/lib/role-descriptions/recommend";
 import { SuggestOptionsPopover } from "./SuggestOptionsPopover";
+import { AddRowButton } from "@/components/ui/AddRowButton";
 import styles from "../../chart.module.css";
 
 // Shared inline add/edit/delete list. Used for Decision Rights and
@@ -312,9 +313,7 @@ function DraftRow<T extends BaseItem>({
         required
         disabled={pending}
       />
-      {pending ? (
-        <span className={styles.roleSavingHint}>Saving…</span>
-      ) : null}
+      <AddRowButton pending={pending} />
       {errorMessage ? (
         <p role="alert" className={styles.roleError}>
           {errorMessage}
