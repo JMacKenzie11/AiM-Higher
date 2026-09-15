@@ -131,7 +131,7 @@ narrowly scoped:
 2. Optional: use the agent picker at the top of the chat to
    attach a guided agent. The empty state shows a set of
    starter chips — click one to send it, or type your own.
-3. Aimee shows a *Thinking…* indicator while she reads context;
+3. Aimee shows a *Thinking…* indicator while reading context;
    once tokens stream, a cursor tracks the response.
 4. Keep going — the whole thread is one conversation, and the
    agent remembers it end-to-end. The agent slot is locked from
@@ -157,12 +157,12 @@ default — access is granted per-thread, per-person by you as the
 owner.
 
 **Why is Aimee "Thinking…" for so long?** First token can take a
-few seconds while she reads your company context. Once content
+few seconds while reading your company context. Once content
 starts streaming, the indicator disappears.
 
-**Aimee didn't know something obvious about my company.** Her
-answers are grounded in what she can see. If a piece of data seems
-missing, check the underlying page — she doesn't invent numbers.
+**Aimee didn't know something obvious about my company.** Those
+answers are grounded in what Aimee can see. If a piece of data seems
+missing, check the underlying page: numbers are never invented.
 
 **Why can't I see the Functional Chart Builder agent?** It's
 restricted to company admins, system admins, and AiMS Guides

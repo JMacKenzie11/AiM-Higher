@@ -499,9 +499,9 @@ describe("directed memories in the context block", () => {
 //
 // The never-written list is not softened by the person asking. That
 // is a decision, not an oversight: somebody asking Aimee to hold a
-// medical fact is asking her to be a place medical facts live, and
-// she is not that place. What she owes them is a reason and the
-// version she CAN keep.
+// medical fact is asking Aimee to be a place medical facts live, and
+// it is not that place. What it owes them is a reason and the
+// version it CAN keep.
 describe("explicit asks are filtered too", () => {
   it("refuses a health ask and offers the work-framed alternative", () => {
     const ask = "remember my dad is in hospital until October";

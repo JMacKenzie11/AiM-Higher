@@ -87,10 +87,10 @@ export function MemoryList({
               <span className={styles.content}>{memory.content}</span>
               <span className={styles.meta}>
                 <span>{formatShortDate(memory.created_at.slice(0, 10))}</span>
-                {/* The kind, as a label. 'said' is what you told her;
-                    'inferred' is what she concluded. Both are shown —
+                {/* The kind, as a label. 'said' is what you told
+                    Aimee; 'inferred' is what Aimee concluded. Both show —
                     hiding the inferences would make the page a
-                    partial account of what she is working from. */}
+                    a partial account of what it works from. */}
                 <span className={styles.kindTag}>
                   {memoryKindLabel(memory.kind)}
                 </span>
@@ -126,7 +126,7 @@ export function MemoryList({
         title="Delete this memory?"
         message={
           confirming
-            ? `Aimee will forget: "${confirming.content}" This can't be undone, and she won't use it in future conversations.`
+            ? `Aimee will forget: "${confirming.content}" This can't be undone, and it won't be used in future conversations.`
             : ""
         }
         confirmLabel="Delete"

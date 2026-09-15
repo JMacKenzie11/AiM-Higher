@@ -437,12 +437,12 @@ export default function LandingPage() {
                 answer: (
                   <p>
                     Aimee is an interactive, always-available coach trained
-                    on the AiMS Approach to unlocking capacity. She uses
+                    on the AiMS Approach to unlocking capacity. Aimee uses
                     the same tools our advisors use in the room, grounded
                     in your company&rsquo;s real data (plan, commitments,
                     follow-through, meeting outcomes) through a set of
                     server-side tools. Your data is never used to train
-                    her. Every conversation surface tells you what she read
+                    it. Every conversation surface tells you what was read
                     to answer.
                   </p>
                 ),

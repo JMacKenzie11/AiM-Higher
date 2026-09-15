@@ -37,7 +37,7 @@ export function MemoryCard({
   const [confirming, setConfirming] = useState<MemoryListRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   // A decline is not an error. It is Aimee answering, and it gets the
-  // calmer treatment: the sentence, and what she can keep instead.
+  // calmer treatment: the sentence, and what can be kept instead.
   const [declined, setDeclined] = useState<string | null>(null);
 
   function add() {
