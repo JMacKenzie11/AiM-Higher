@@ -19,13 +19,21 @@ export async function getCurrentUser() {
   return user;
 }
 
-// A SessionProfile is a DB Profile plus the caller's guide
-// assignments loaded eagerly. Non-guides always get an empty array;
-// guides get the full list of company_ids they've been assigned to.
-// Attaching this to the session keeps isAdminForCompany() sync — no
-// DB round trip in every permission check.
+// A SessionProfile is a DB Profile plus the caller's assignments
+// loaded eagerly. Roles that cannot hold a given kind always get an
+// empty array. Attaching these to the session keeps
+// isAdminForCompany() sync — no DB round trip in every permission
+// check.
+//
+// TWO LISTS, NOT ONE, and they are not merged. They mean the same
+// thing to the write gate and different things everywhere else: the
+// roster badge has to say PORTFOLIO or AIMS GUIDE, and decision 5
+// makes a portfolio admin's assignment unrevocable by the company
+// while decision 7 makes a guide's revocable. A merged list would
+// answer the permission question and lose both of those.
 export type SessionProfile = Profile & {
   guide_company_ids: readonly string[];
+  portfolio_company_ids: readonly string[];
 };
 
 export type CurrentSession = {
@@ -71,11 +79,30 @@ export const getCurrentSession = cache(async function getCurrentSession(): Promi
     );
   }
 
+  // Read through the caller's own client, so the row-level policy is
+  // what decides. portfolio_assignments_select (0199) admits the
+  // system_admin and the assignment's own holder, which is exactly
+  // the set that should be able to build this list.
+  let portfolioCompanyIds: string[] = [];
+  if (profile?.role === "portfolio_admin") {
+    const { data: assignments } = await supabase
+      .from("portfolio_assignments")
+      .select("company_id")
+      .eq("portfolio_admin_id", profile.id);
+    portfolioCompanyIds = (
+      (assignments ?? []) as Array<{ company_id: string }>
+    ).map((a) => a.company_id);
+  }
+
   return {
     userId: user.id,
     email: user.email ?? "",
     profile: profile
-      ? { ...profile, guide_company_ids: guideCompanyIds }
+      ? {
+          ...profile,
+          guide_company_ids: guideCompanyIds,
+          portfolio_company_ids: portfolioCompanyIds,
+        }
       : null,
   };
 });
