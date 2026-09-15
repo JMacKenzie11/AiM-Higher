@@ -4,7 +4,7 @@ title: Memory
 
 # Memory
 
-Once you've finished a conversation and moved on to another one, she
+Once you've finished a conversation and moved on to another one, Aimee
 notes down the few things worth still knowing next time: what you said you'd do, a decision and
 what it turned on, something you noticed about how you work. Not a
 transcript, and not everything — a handful of lines.
@@ -25,24 +25,24 @@ remembers about you belongs with the other things that are you.
 
 The card has an **Add a memory** box. Anything you put there is kept
 as-is and carried into every conversation, rather than fading the way
-distilled memories do. You can also just ask her in conversation:
+distilled memories do. You can also just ask in conversation:
 *"remember that I want every plan checked against cash before
-headcount"*. She'll save it and tell you what she saved, so you can
+headcount"*. Aimee saves it and tells you what was saved, so you can
 correct it there and then.
 
 Those show up labelled **You asked me to remember**.
 
-Two things she won't save even when you ask directly: health and
-medical, and family and personal life. She'll say so in a sentence
-and offer the work-shaped version instead. If you tell her a parent
-is in hospital until October, what she can keep is that you'll be
-stretched until October, with no reason attached.
+Two things never get saved, even when you ask directly: health and
+medical, and family and personal life. Aimee says so in a sentence and
+offers the work-shaped version instead. If you mention a parent is in
+hospital until October, what can be kept is that you'll be stretched
+until October, with no reason attached.
 
 ## How long it's kept
 
 Memories are kept until you delete them. There's no expiry and
-nothing ages out of the record. What changes over time is what she
-carries for free: the recent ones ride along in every conversation
+nothing ages out of the record. What changes over time is what gets
+carried for free: the recent ones ride along in every conversation
 automatically, and older ones stay in the list and remain reachable
 when something in the conversation calls for them. Anything you added
 yourself is always carried, not just the recent ones.
@@ -64,13 +64,13 @@ them to look at something with you.
 
 Every line carries a label.
 
-- **You said** — something you actually told her. Close to your words.
-- **Aimee inferred** — her read on it, not something you stated.
+- **You said** — something you actually told Aimee. Close to your words.
+- **Aimee inferred** — a read on it, not something you stated.
 
-She treats the two differently in conversation: she'll quote the first
-back to you plainly and offer the second tentatively, as a question
-rather than a conclusion. If an inference is wrong, say so — she'll
-drop it, and you can delete the line here.
+The two are treated differently in conversation: the first is quoted
+back to you plainly, the second offered tentatively, as a question
+rather than a conclusion. If an inference is wrong, say so. It gets
+dropped, and you can delete the line here.
 
 ## Deleting
 
@@ -95,9 +95,9 @@ or anyone else's — and your family or personal life beyond what you
 explicitly tie to a work goal. If you explain a missed week by
 mentioning a hospital stay, the hospital stay isn't recorded.
 
-**Does she remember what I say about my team?** Yes. Who you're
+**Does it remember what I say about my team?** Yes. Who you're
 thinking of promoting, who you're worried about, a restructure you're
-weighing — that's coaching content and it's exactly what makes her
+weighing — that's coaching content and it's exactly what makes Aimee
 useful next time. It's protected by the same wall as everything else
 here: nobody but you can read it.
 
@@ -108,9 +108,9 @@ any of it.
 
 So if you say a team member keeps missing a handoff, that's
 remembered, and it comes back next time you sit down to think about
-them. Things Aimee worked out herself rather than heard from you are
+them. Things Aimee worked out rather than heard from you are
 labelled **Aimee inferred**, so you can always tell what you actually
-said from what she guessed.
+said from what was guessed.
 
 The team member cannot see any of it, and neither can anyone else.
 Health and family stay off the record for the people you discuss

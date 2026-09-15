@@ -30,7 +30,7 @@
 }
 
 /* A decline is Aimee answering, not the form failing. Muted body
- * text, no danger colour, no alert icon: she is explaining what she
+ * text, no danger colour, no alert icon: Aimee is explaining what it
  * keeps, and dressing that as an error would make an ordinary
  * boundary feel like the person did something wrong. */
 .declined {

@@ -32,11 +32,11 @@ read what.
   everything that was tried against each one, and what past
   quarters planned against what landed. Ask in plain language
   ("is this a pattern or a bad quarter?", "have we tried anything
-  on invoicing before?") and she'll go and read the record.
+  on invoicing before?") and Aimee goes and reads the record.
 
-  Two things worth knowing. She only reads what **you** can already
+  Two things worth knowing. Aimee only reads what **you** can already
   see — the same records, the same permissions, nothing extra. And
-  when the record is thin, she says so instead of calling two data
+  when the record is thin, it says so instead of calling two data
   points a trend.
 
 ## How to start a coaching thread
@@ -44,7 +44,7 @@ read what.
 1. Open the person's scorecard from `/people` or the roster.
 2. Click *New conversation*.
 3. Type your first note or question. Aimee shows *Thinking…* while
-   she reads context; once tokens stream, a cursor tracks the
+   reading context; once tokens stream, a cursor tracks the
    response.
 
 ## Who can see this

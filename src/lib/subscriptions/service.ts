@@ -29,7 +29,7 @@ export type ModuleFeature =
   | "meeting_facilitation_review"
   // Opt-in shared training library. When on, users get a Classroom
   // nav item leading to lessons and video trainings authored by AiMS
-  // system admins. Aimee also gets a search_classroom tool so she can
+  // system admins. Aimee also gets a search_classroom tool to
   // recommend a training in conversation. Content is shared across
   // every flag-enabled company — there is no per-company copy.
   | "classroom"

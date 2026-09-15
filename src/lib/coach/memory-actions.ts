@@ -439,9 +439,9 @@ export async function deleteMyMemoryAction(
 // The never-written list applies to an explicit ask exactly as it
 // applies to a distilled one. That is a deliberate decision and not
 // an oversight: a person asking Aimee to hold a medical fact is
-// asking her to be a place that medical facts live, and this is not
-// that place. She declines, says why in a sentence, and offers the
-// work-shaped version she can keep.
+// asking Aimee to be a place that medical facts live, and this is not
+// that place. It declines, says why in a sentence, and offers the
+// work-shaped version it can keep.
 export type AddMemoryResult =
   | { ok: true; id: string }
   | { ok: false; declined: true; message: string }
