@@ -18,7 +18,7 @@ import path from "node:path";
 //
 //   shasum -a 256 prompts/coach-memory.md
 const COACH_MEMORY_PROMPT_SHA =
-  "85428fa7bb54e9659ca03c5662e162b5187170053c97b93d6a0e110d6544f9ec";
+  "e4b1177765b10a1f1d35e5e2e85a64742b1ac5d0be90a378275c53c2c35a88f6";
 
 describe("coach memory prompt", () => {
   it("has not changed without the SHA being updated deliberately", async () => {
@@ -50,6 +50,33 @@ describe("coach memory prompt", () => {
     // And the half that must NOT be filtered, which is easy to lose
     // to a well-meaning edit that widens the filter.
     expect(raw).toMatch(/Personnel and organisational thinking/i);
+  });
+
+  // THE INFERENCE RULE, added 2026-09-15 after a real memory page
+  // showed every `said` line paired with a hedged restatement of
+  // itself labelled `inferred` — four rows carrying two ideas. The
+  // prompt had "one idea per memory" and nothing saying an inference
+  // must add something the person did not say.
+  //
+  // Asserted line by line, not by SHA, because the paragraph could
+  // keep its heading and lose the sentence that bites. The numeral in
+  // the cap is asserted too: it is duplicated in
+  // MAX_INFERRED_PER_CONVERSATION, and a prompt that promises a
+  // different number than the code enforces is worse than no promise.
+  it("still tells the model an inference must add something, and caps them", async () => {
+    const raw = await fs.readFile(
+      path.join(process.cwd(), "prompts", "coach-memory.md"),
+      "utf8"
+    );
+    expect(raw).toContain(
+      "Never write an inference that restates something you already captured as `said`"
+    );
+    expect(raw).toMatch(/A line earns `inferred` when it says something the person did \*\*not\*\*/i);
+    expect(raw).toMatch(/keep the inference and drop the statement/i);
+    expect(raw).toContain("At most 2 of your memories may be `inferred`.");
+    // And that the model is told the cap is first-come, which is the
+    // behaviour parseMemoryResponse actually implements.
+    expect(raw).toMatch(/keeps the first two/i);
   });
 
   // ABOUT MODE. The frame rule that lived here briefly is gone, by
