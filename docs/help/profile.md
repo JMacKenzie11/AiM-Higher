@@ -71,8 +71,9 @@ as first written.
 from the database and won't be used in future conversations. There's
 no undo.
 
-**To see everything**, use the *See all* link, which opens the full
-list with the same controls.
+**Everything is here**, ten at a time, newest first. Use *Previous*
+and *Next* under the table to move through them. You never leave this
+page to read your own memory.
 
 Two things are never saved, even if you ask directly: health and
 medical, and family and personal life. Aimee says so and offers the

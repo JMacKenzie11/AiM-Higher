@@ -93,19 +93,7 @@
   composes: emptyLine from "../../../components/ui/ui.module.css";
 }
 
-.seeAll {
-  display: inline-block;
-  margin-top: var(--space-3);
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  text-decoration: none;
-  border-bottom: 1px solid var(--border);
-}
 
-.seeAll:hover {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-}
 
 /* The table.
  *
@@ -187,7 +175,51 @@
   line-height: 0;
 }
 
+/* The edit box wraps and grows to its content; height is set from
+ * scrollHeight in the component. resize: none because the height is
+ * managed, and a drag handle would fight it. */
 .editInput {
   composes: input from "./profile.module.css";
   width: 100%;
+  display: block;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.4;
+  font: var(--text-body);
+}
+
+/* The pager.
+ *
+ * Count on the left, controls on the right, both muted: this is
+ * navigation furniture under the thing the person came to read, and
+ * it should not compete with the Add button above the table. Buttons
+ * are the house ghost at small size, which is what every other
+ * secondary control in the app uses.
+ *
+ * Shown only when there is more than one page. A pager under a
+ * five-row table is furniture reporting that there is nothing to page
+ * through. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+}
+
+.pagerCount {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.pagerButtons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.pagerButton {
+  composes: btn from "../../../components/ui/ui.module.css";
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+  composes: btnSm from "../../../components/ui/ui.module.css";
 }

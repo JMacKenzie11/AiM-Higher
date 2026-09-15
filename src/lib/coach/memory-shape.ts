@@ -405,3 +405,44 @@ export function selectSweepCandidates<T extends SweepCandidate>(opts: {
   }
   return picked;
 }
+
+// ---- Paging the memory table -----------------------------------
+//
+// Extracted from the component because the interesting cases are the
+// ones a person hits by accident and a screenshot never shows:
+// deleting the last row on the last page, and a list that shrinks
+// under a page index already past its end.
+export const MEMORY_PAGE_SIZE = 10;
+
+export type PageWindow = {
+  pageCount: number;
+  // The page actually shown, which is not always the one asked for.
+  current: number;
+  start: number;
+  end: number;
+  // 1-based, for "11-14 of 14". Zero when there is nothing.
+  firstShown: number;
+  lastShown: number;
+};
+
+export function pageWindow(
+  total: number,
+  requested: number,
+  pageSize: number = MEMORY_PAGE_SIZE
+): PageWindow {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  // CLAMPED, not trusted. Deleting the last row on page two leaves
+  // the index pointing past the end, and an unclamped slice renders
+  // an empty table with no control that gets you back.
+  const current = Math.min(Math.max(0, requested), pageCount - 1);
+  const start = current * pageSize;
+  const end = Math.min(total, start + pageSize);
+  return {
+    pageCount,
+    current,
+    start,
+    end,
+    firstShown: total === 0 ? 0 : start + 1,
+    lastShown: end,
+  };
+}

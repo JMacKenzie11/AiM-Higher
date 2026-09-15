@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   addDirectedMemoryAction,
@@ -21,13 +20,7 @@ import styles from "./memory-card.module.css";
 // recent and links to the full list, which keeps every part 3
 // requirement: newest first, dated, conversation-linked, kinds
 // distinguished, delete on every row.
-export function MemoryCard({
-  recent,
-  total,
-}: {
-  recent: MemoryListRow[];
-  total: number;
-}) {
+export function MemoryCard({ memories }: { memories: MemoryListRow[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
@@ -96,21 +89,16 @@ export function MemoryCard({
         </p>
       ) : null}
 
-      {recent.length === 0 ? (
+      {memories.length === 0 ? (
         <p className={styles.empty}>
           Aimee hasn&rsquo;t noted anything yet. Notes appear once you&rsquo;ve
           finished a conversation and moved on to another one, and anything you
           add above lands here straight away.
         </p>
       ) : (
-        <MemoryRows rows={recent} />
+        <MemoryRows rows={memories} />
       )}
 
-      {total > recent.length ? (
-        <Link className={styles.seeAll} href="/ask-aimee/memory">
-          See all {total}
-        </Link>
-      ) : null}
     </>
   );
 }
