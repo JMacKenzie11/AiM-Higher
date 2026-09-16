@@ -126,10 +126,17 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
+/* Selected, not filled.
+   
+   The same treatment the quarter switcher took: cobalt tint with
+   brand text, which is the app's documented nav-pill vocabulary for
+   "this is the one you are on". A saturated fill made a selected
+   filter the loudest thing on the page and put it in the same visual
+   class as an action, which is the distinction being retired. */
 .filterPillActive {
-  background: var(--primary);
-  color: var(--on-primary);
-  border-color: var(--primary);
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
+  border-color: var(--border-interactive);
 }
 
 .filterPillActive:hover {
@@ -548,21 +555,8 @@
 }
 
 .drawerPrimaryAction {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--on-primary);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  text-decoration: none;
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
   text-align: center;
-  border: none;
-  cursor: pointer;
-}
-
-.drawerPrimaryAction:hover {
-  background: var(--primary-hover);
 }
 
 .drawerSecondaryAction {
@@ -1049,9 +1043,9 @@ a.fromMeetingChip:hover {
 }
 
 .stripButtonActive {
-  background: var(--primary);
-  color: var(--on-primary);
-  border-color: var(--primary);
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
+  border-color: var(--border-interactive);
 }
 
 .stripLabel {
@@ -1243,15 +1237,7 @@ a.fromMeetingChip:hover {
 }
 
 .addSubmit {
-  padding: 0 var(--space-3);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  height: var(--control-h-md);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .addSubmit:disabled {

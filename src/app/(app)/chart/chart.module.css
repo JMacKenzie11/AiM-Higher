@@ -1532,19 +1532,7 @@
 }
 
 .rdItemLink {
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--on-primary);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.rdItemLink:hover {
-  background: var(--primary-hover);
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .rdItemDoneLabel {
@@ -1576,20 +1564,7 @@
 }
 
 .rdReadinessAction {
-  padding: 10px 20px;
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.rdReadinessAction:hover:not(:disabled) {
-  background: var(--primary-hover);
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .rdReadinessAction:disabled {
@@ -1713,16 +1688,7 @@
 }
 
 .suggestPrimary {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .suggestPrimary:disabled {

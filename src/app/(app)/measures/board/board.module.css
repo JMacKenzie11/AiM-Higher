@@ -103,8 +103,8 @@
 }
 
 .viewToggleButtonActive {
-  background: var(--primary);
-  color: var(--on-primary);
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
 }
 
 /* ---- Empty state --------------------------------------------- */

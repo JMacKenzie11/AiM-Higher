@@ -820,22 +820,7 @@
 }
 
 .primaryLink {
-  display: inline-flex;
-  align-items: center;
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
-  background: var(--primary);
-  color: var(--on-primary);
-  text-decoration: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.primaryLink:hover {
-  background: var(--primary-hover);
-  color: var(--on-primary);
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 /* ---- Inline link-to-parent selects ---- */
