@@ -9,19 +9,38 @@ import type { Profile, Role } from "@/lib/types";
 // Keep one source of truth and let the callers stay short.
 
 // SessionProfileLike is the minimum a permission helper needs. Guide
-// callers must also expose their guide_company_ids so isAdminForCompany
-// can stay synchronous — the assignments are loaded once at session
-// resolution and travel with the profile from there.
+// and portfolio callers must also expose their assignment lists so
+// isAdminForCompany can stay synchronous — the assignments are loaded
+// once at session resolution and travel with the profile from there.
 export type SessionProfileLike = Pick<Profile, "id" | "role" | "company_id"> & {
   guide_company_ids?: readonly string[];
+  portfolio_company_ids?: readonly string[];
 };
 
 /**
  * true if the session role is system_admin, OR the session is a
  * company_admin scoped to the given company, OR the session is an
- * aims_guide whose assignments include the given company. Owner-level
- * checks are NOT included — combine with an owner check when you need
- * "admin or owner".
+ * aims_guide whose assignments include the given company, OR the
+ * session is a portfolio_admin whose assignments include it. Owner-
+ * level checks are NOT included — combine with an owner check when
+ * you need "admin or owner".
+ *
+ * THE PORTFOLIO BRANCH IS PER-COMPANY, and that is the whole point of
+ * it. Instance-wide reach is a different question, answered by
+ * canViewCompany below, and the two must not be collapsed. A
+ * portfolio admin with no assignment row returns false here and every
+ * edit affordance in the app stays off, which is what this role has
+ * always done; one with an assignment gets company-admin-equivalent
+ * writes in that company and nowhere else.
+ *
+ * RLS SAYS THE SAME THING AND SAID IT FIRST. `is_admin_for()`
+ * (migration 0199) already grants exactly this through
+ * portfolio_assignments, and the ~117 policies that call it inherited
+ * it with no edit. Until this branch existed the app layer was the
+ * STRICTER of the two: RLS would have allowed the write and the app
+ * never offered it. That is the safe direction to be wrong in, and it
+ * is why this change adds no grant — it stops the courtesy layer from
+ * refusing what the boundary already permits.
  */
 export function isAdminForCompany(
   profile: SessionProfileLike,
@@ -33,19 +52,26 @@ export function isAdminForCompany(
   if (role === "aims_guide") {
     return (profile.guide_company_ids ?? []).includes(companyId);
   }
+  if (role === "portfolio_admin") {
+    return (profile.portfolio_company_ids ?? []).includes(companyId);
+  }
   return false;
 }
 
 /**
- * true if the session role is portfolio_admin.
+ * true if the session role is portfolio_admin, whatever they are
+ * assigned to.
  *
- * Deliberately NOT folded into isAdminForCompany. That helper answers
- * "may this caller WRITE here", and a portfolio_admin may not: their
- * reach is instance-wide read plus three administrative writes on the
- * container, none of which run through isAdminForCompany. Folding
- * them in would light up every edit button on every content surface
- * for a role whose writes RLS then refuses, which is the worst of
- * both — an affordance that lies.
+ * Deliberately NOT folded into isAdminForCompany, and the reason
+ * survived the arrival of assignments intact. That helper answers
+ * "may this caller WRITE here", which for this role is now a
+ * per-company question with an answer that is usually no: instance-
+ * wide reach plus a closed list of administrative writes on the
+ * container is what the ROLE carries, and content writes come only
+ * from an assignment row. Folding the two together would light up
+ * every edit button on every content surface for companies the
+ * caller holds no assignment for — an affordance that lies, and one
+ * RLS would then refuse.
  */
 export function isPortfolioAdmin(profile: Pick<Profile, "role">): boolean {
   return profile.role === "portfolio_admin";
@@ -57,7 +83,9 @@ export function isPortfolioAdmin(profile: Pick<Profile, "role">): boolean {
  * The read counterpart of isAdminForCompany. Everyone that helper
  * admits, plus portfolio_admin for any company on the instance —
  * their scope is the instance, so there is no per-company condition
- * to check and no assignment table to check it against.
+ * to check here. There IS an assignment table now (0199), and this
+ * function still does not consult it: reads were never what it
+ * gated, and an assignment is about writing.
  *
  * Use this for page-level access gates. Use isAdminForCompany for
  * anything that decides whether a write is offered.

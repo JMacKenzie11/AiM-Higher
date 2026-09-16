@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => {
   const getUser = vi.fn();
   const profilesMaybeSingle = vi.fn();
   const assignmentsEq = vi.fn();
+  const portfolioEq = vi.fn();
   const redirect = vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   });
@@ -44,11 +45,21 @@ const mocks = vi.hoisted(() => {
       if (table === "guide_assignments") {
         return { select: () => ({ eq: assignmentsEq }) };
       }
+      if (table === "portfolio_assignments") {
+        return { select: () => ({ eq: portfolioEq }) };
+      }
       throw new Error(`Unexpected table: ${table}`);
     },
   };
 
-  return { getUser, profilesMaybeSingle, assignmentsEq, redirect, client };
+  return {
+    getUser,
+    profilesMaybeSingle,
+    assignmentsEq,
+    portfolioEq,
+    redirect,
+    client,
+  };
 });
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -74,6 +85,7 @@ beforeEach(() => {
     },
   });
   mocks.assignmentsEq.mockResolvedValue({ data: [] });
+  mocks.portfolioEq.mockResolvedValue({ data: [] });
 });
 
 describe("getCurrentSession", () => {
@@ -87,8 +99,11 @@ describe("getCurrentSession", () => {
     expect(session!.email).toBe("admin@acme.co");
     expect(session!.profile!.company_id).toBe("co_acme");
     expect(session!.profile!.guide_company_ids).toEqual([]);
-    // Non-guides must not pay for the assignments query at all.
+    expect(session!.profile!.portfolio_company_ids).toEqual([]);
+    // Nobody pays for an assignments query their role cannot hold a
+    // row in. Two lists now, and the same rule applies to both.
     expect(mocks.assignmentsEq).not.toHaveBeenCalled();
+    expect(mocks.portfolioEq).not.toHaveBeenCalled();
   });
 
   it("attaches guide assignments for an aims_guide", async () => {
@@ -111,6 +126,74 @@ describe("getCurrentSession", () => {
       "co_acme",
       "co_beta",
     ]);
+    // A guide holds no portfolio assignments, and must not be asked.
+    expect(session!.profile!.portfolio_company_ids).toEqual([]);
+    expect(mocks.portfolioEq).not.toHaveBeenCalled();
+  });
+
+  it("attaches portfolio assignments for a portfolio_admin", async () => {
+    mocks.profilesMaybeSingle.mockResolvedValue({
+      data: {
+        id: "pa_1",
+        company_id: null,
+        role: "portfolio_admin",
+        full_name: "P Admin",
+      },
+    });
+    mocks.portfolioEq.mockResolvedValue({
+      data: [{ company_id: "co_acme" }],
+    });
+    const { getCurrentSession } = await import("./current-user");
+
+    const session = await getCurrentSession();
+
+    expect(session!.profile!.portfolio_company_ids).toEqual(["co_acme"]);
+    // The lists do not cross. A portfolio admin is not a guide, and
+    // reading the guide table for them would be a query whose answer
+    // is always empty.
+    expect(session!.profile!.guide_company_ids).toEqual([]);
+    expect(mocks.assignmentsEq).not.toHaveBeenCalled();
+  });
+
+  it("gives a portfolio_admin with no assignments an empty list", async () => {
+    // The shape every portfolio admin has today, and the one decision
+    // 1 keeps supported forever: holding the role without running any
+    // company. It must read as an empty list, never as a missing one,
+    // because isAdminForCompany treats absent and empty the same way
+    // on purpose and this is where that starts.
+    mocks.profilesMaybeSingle.mockResolvedValue({
+      data: {
+        id: "pa_2",
+        company_id: null,
+        role: "portfolio_admin",
+        full_name: "P Admin",
+      },
+    });
+    mocks.portfolioEq.mockResolvedValue({ data: [] });
+    const { getCurrentSession } = await import("./current-user");
+
+    const session = await getCurrentSession();
+
+    expect(session!.profile!.portfolio_company_ids).toEqual([]);
+  });
+
+  it("survives a null assignments read rather than crashing the session", async () => {
+    // PostgREST returns { data: null } on an error, and a session
+    // that throws here logs everybody out. Empty list, every time.
+    mocks.profilesMaybeSingle.mockResolvedValue({
+      data: {
+        id: "pa_3",
+        company_id: null,
+        role: "portfolio_admin",
+        full_name: "P Admin",
+      },
+    });
+    mocks.portfolioEq.mockResolvedValue({ data: null });
+    const { getCurrentSession } = await import("./current-user");
+
+    const session = await getCurrentSession();
+
+    expect(session!.profile!.portfolio_company_ids).toEqual([]);
   });
 
   it("returns null without reading profiles when nobody is signed in", async () => {
