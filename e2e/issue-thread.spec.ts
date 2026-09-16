@@ -10,6 +10,21 @@ import type { Locator } from "@playwright/test";
 // Signed in as the admin fixture, which is a system_admin with a guide
 // assignment to the fixture company — it can create issues, own
 // commitments and resolve, which is the whole path.
+//
+// THE ADD LINE IS FOUND BY ITS LABEL, NOT ITS PLACEHOLDER, and that is
+// a repair rather than a preference. This spec selected it with
+// getByPlaceholder(/commitment/i) and the placeholder has not
+// contained the word "commitment" since the copy changed — first to
+// "What will move this forward this week?", then to "What will we do
+// this week?". The selector matched nothing and the spec could not
+// have passed. Nothing caught it because e2e is deliberately outside
+// CI (see playwright.config.ts), so the suite only fails when
+// somebody runs it.
+//
+// aria-label="New commitment" exists on that input precisely to name
+// it. Copy is written for readers and changes when a reader is
+// confused; a label is written for machines and changes when the
+// control changes.
 
 const ISSUE_TITLE = () => `E2E thread issue ${Date.now()}`;
 
@@ -49,10 +64,9 @@ test.describe("issue commitment thread", () => {
     await expect(row.getByText(/needs review/i)).toHaveCount(0);
 
     // ---- First commitment ----------------------------------
-    await row.getByPlaceholder(/commitment/i).first().fill("First attempt");
+    await row.getByLabel("New commitment").fill("First attempt");
     await row
-      .getByPlaceholder(/commitment/i)
-      .first()
+      .getByLabel("New commitment")
       .press("ControlOrMeta+Enter");
     await expect(row.getByText("First attempt")).toBeVisible({
       timeout: 30_000,
@@ -73,10 +87,9 @@ test.describe("issue commitment thread", () => {
     // ---- Answer "not yet": add the next commitment ---------
     // No "add next" button any more: the add line is already there,
     // at the end of the thread, whatever state the issue is in.
-    await row.getByPlaceholder(/commitment/i).first().fill("Second attempt");
+    await row.getByLabel("New commitment").fill("Second attempt");
     await row
-      .getByPlaceholder(/commitment/i)
-      .first()
+      .getByLabel("New commitment")
       .press("ControlOrMeta+Enter");
     await expect(row.getByText("Second attempt")).toBeVisible({
       timeout: 30_000,
@@ -124,10 +137,9 @@ test.describe("issue commitment thread", () => {
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     // First commitment, left OPEN.
-    await row.getByPlaceholder(/commitment/i).first().fill("First, still open");
+    await row.getByLabel("New commitment").fill("First, still open");
     await row
-      .getByPlaceholder(/commitment/i)
-      .first()
+      .getByLabel("New commitment")
       .press("ControlOrMeta+Enter");
     await expect(row.getByText("First, still open")).toBeVisible({
       timeout: 30_000,
@@ -136,10 +148,9 @@ test.describe("issue commitment thread", () => {
     // No opener to click: the add line is always the last line of the
     // thread, so a second commitment is typed in the same place the
     // first was.
-    await row.getByPlaceholder(/commitment/i).last().fill("Second, alongside");
+    await row.getByLabel("New commitment").fill("Second, alongside");
     await row
-      .getByPlaceholder(/commitment/i)
-      .last()
+      .getByLabel("New commitment")
       .press("ControlOrMeta+Enter");
 
     // Both are on the issue, and neither displaced the other.
@@ -193,6 +204,6 @@ test.describe("issue commitment thread", () => {
     await expect(row.getByText(/did this solve it\?/i)).toHaveCount(0);
     // The add line is always present — that is the point of the
     // uniform model — so the assertion is that nothing EXTRA appears.
-    await expect(row.getByPlaceholder(/commitment/i)).toHaveCount(1);
+    await expect(row.getByLabel("New commitment")).toHaveCount(1);
   });
 });
