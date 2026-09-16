@@ -987,3 +987,67 @@ that was never granted, with the identical symptom. Whenever a write
 affects zero rows with no error, there are now three candidates and
 they are cheap to separate: the write policy, the table privilege, and
 the SELECT policy standing in front of both.
+
+
+### E12. A boundary enforced at render time, behind gates that never render
+
+**Situation.** A Server Component passes something to a Client
+Component that React does not allow across that boundary. Every gate
+agrees the code is fine, because every gate inspects the code rather
+than running it: typecheck sees compatible types, lint sees valid
+JSX, `next build` compiles it, and the preview deploy builds and goes
+green. The page throws on its first real render, in production, for
+every visitor.
+
+**Specimen.** `/admin/companies` gained drag-to-reorder (#172). The
+cells stayed server-rendered — they carry links, chips and a progress
+bar — so the table took a `renderRow` callback and the server kept
+owning them. That is a function crossing into a Client Component:
+
+```
+Functions cannot be passed directly to Client Components unless you
+explicitly expose it by marking it with "use server".
+  <... companies={[...]} canReorder=... header=... renderRow={function renderRow}>
+```
+
+Typecheck, lint, unit tests, `next build` and the Vercel preview were
+all green on the broken code. It reached production and every load of
+that route hit the error boundary.
+
+**Why the gates could not see it.** They do not render pages. The
+whole gate set is static analysis plus unit tests of modules; nothing
+in it mounts a route. The one thing that would have caught it — an
+e2e that signs in and loads the page — exists but sits outside CI by
+deliberate choice (`playwright.config.ts` explains the trade), so it
+only fails when somebody runs it.
+
+**What a ReactNode does and a function does not.** A rendered node is
+already part of the RSC payload and crosses freely. The fix is to
+build the cells on the server and hand them over as data:
+
+```tsx
+rows={companies.map((company) => ({ id, name, cells: (<>…</>) }))}
+```
+
+**The guard, and the guard's own bug.** A source-level test now
+asserts the Client Component accepts no function-typed prop. Its first
+version read the `<CompaniesTable …/>` JSX at the call site and sliced
+the props at the first `"/>"` — which is inside `</>`, the fragment
+closing an adjacent prop. It inspected 415 characters, none of them
+the prop that mattered, and **passed against the broken code** when
+that was checked deliberately. Rewritten to read the component's props
+TYPE, which is one declaration with no nested JSX to trip over, and
+carrying its own falsification inline so it cannot rot back into a
+guard that passes vacuously.
+
+**The lesson that is not about React.** For a change that restructures
+how a route renders, load the route. The verification here was a
+throwaway script that signed in and fetched the page; it took about a
+minute, reported `HTTP 200, error boundary shown: false`, and when run
+against the stashed broken version reproduced the production error
+verbatim. Cheap, and the only check in this list that was actually
+capable of failing.
+
+**Related.** E4 — a check that was never shown it could fail. Both
+guards here were shown failing first, and the second one had to be,
+because it was wrong.

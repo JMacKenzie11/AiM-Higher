@@ -19,7 +19,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { reorderCompaniesAction } from "@/lib/admin/company-order-actions";
-import type { CompanyOverviewRow } from "@/lib/admin/companies-service";
 import styles from "./admin.module.css";
 
 // Drag-to-reorder for the companies list. Mirrors IssuesBoard's
@@ -35,23 +34,38 @@ import styles from "./admin.module.css";
 // is what people do when the only ordering available is one they
 // cannot change.
 //
-// The rows render as children rather than being built here. The cells
-// are server-rendered — they carry links, chips and a progress bar —
-// and lifting them into a client component to gain a drag handle
-// would drag the whole subtree across the boundary with them.
+// THE CELLS ARRIVE AS RENDERED NODES, NOT AS A FUNCTION THAT MAKES
+// THEM. The first version of this component took a `renderRow`
+// callback so the server could keep owning the cells, and that is not
+// a thing React allows: "Functions cannot be passed directly to
+// Client Components unless you explicitly expose it by marking it
+// with 'use server'." It typechecks, it lints, it builds, and it
+// throws on every render of /admin/companies.
+//
+// A ReactNode crosses the boundary happily — it is already part of
+// the RSC payload — so the server builds each row's cells and hands
+// them over as data. The cells stay server-rendered, which was the
+// point: they carry links, chips and a progress bar, and lifting
+// them into this component to gain a drag handle would drag that
+// whole subtree across with them.
+
+export type CompanyRow = {
+  id: string;
+  name: string;
+  /** The row's <td> cells, rendered on the server. */
+  cells: ReactNode;
+};
 
 export function CompaniesTable({
-  companies,
+  rows,
   canReorder,
   header,
-  renderRow,
 }: {
-  companies: CompanyOverviewRow[];
+  rows: CompanyRow[];
   canReorder: boolean;
   header: ReactNode;
-  renderRow: (company: CompanyOverviewRow, handle: ReactNode) => ReactNode;
 }) {
-  const [order, setOrder] = useState(companies);
+  const [order, setOrder] = useState(rows);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -61,8 +75,8 @@ export function CompaniesTable({
   // props change on every unrelated edit to this page.
   useEffect(() => {
     if (pending) return;
-    setOrder(companies);
-  }, [companies, pending]);
+    setOrder(rows);
+  }, [rows, pending]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -110,13 +124,11 @@ export function CompaniesTable({
         </tr>
       </thead>
       <tbody>
-        {order.map((company) =>
+        {order.map((row) =>
           sortable ? (
-            <SortableCompanyRow key={company.id} company={company}>
-              {renderRow}
-            </SortableCompanyRow>
+            <SortableCompanyRow key={row.id} row={row} />
           ) : (
-            <tr key={company.id}>{renderRow(company, null)}</tr>
+            <tr key={row.id}>{row.cells}</tr>
           )
         )}
       </tbody>
@@ -144,30 +156,9 @@ export function CompaniesTable({
   );
 }
 
-function SortableCompanyRow({
-  company,
-  children,
-}: {
-  company: CompanyOverviewRow;
-  children: (
-    company: CompanyOverviewRow,
-    handle: ReactNode
-  ) => ReactNode;
-}) {
+function SortableCompanyRow({ row }: { row: CompanyRow }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: company.id });
-
-  const handle = (
-    <button
-      type="button"
-      className={styles.dragHandle}
-      aria-label={`Reorder ${company.name}`}
-      {...attributes}
-      {...listeners}
-    >
-      <span aria-hidden="true">⠿</span>
-    </button>
-  );
+    useSortable({ id: row.id });
 
   return (
     <tr
@@ -179,8 +170,18 @@ function SortableCompanyRow({
       }}
       data-dragging={isDragging ? "true" : undefined}
     >
-      <td className={styles.dragCell}>{handle}</td>
-      {children(company, handle)}
+      <td className={styles.dragCell}>
+        <button
+          type="button"
+          className={styles.dragHandle}
+          aria-label={`Reorder ${row.name}`}
+          {...attributes}
+          {...listeners}
+        >
+          <span aria-hidden="true">⠿</span>
+        </button>
+      </td>
+      {row.cells}
     </tr>
   );
 }
