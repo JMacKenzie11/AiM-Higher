@@ -761,13 +761,14 @@ values ('${PA}', null, 'Harness Portfolio Admin', 'portfolio_admin', 'active');`
 //      -> succeeds (the feature)
 //   2. ... in ANOTHER company -> refused (it is their company, not
 //      the role, that admits them)
-//   3. company_admin deletes a PORTFOLIO assignment in their own
-//      company -> refused. Decision 5, and the clause somebody will
-//      be tempted to add because it reads as symmetric with this
-//      one. It is not symmetric: the portfolio owns the company, so
-//      a company cannot evict its owner's operator.
-//   4. a team_member of the same company -> refused. The widening is
+//   3. a team_member of the same company -> refused. The widening is
 //      to company_admin, not to "anybody who works here".
+//
+// A fourth claim used to live here: that a company_admin could NOT
+// delete a PORTFOLIO assignment, which was decision 5. Decision 11
+// reversed that, and the claim moved rather than flipping in place —
+// it belongs to portfolio-assignment-company-access, whose whole
+// subject is that table. This case is about guides.
 async function guideAssignmentRevocation(
   run: Runner,
   ids: Identities,
@@ -785,11 +786,6 @@ async function guideAssignmentRevocation(
   const seedGuideRow = (company: string) => `
 insert into public.guide_assignments (guide_id, company_id)
 values ('${ids.guide}', '${company}')
-on conflict do nothing;`;
-
-  const seedPortfolioRow = `
-insert into public.portfolio_assignments (portfolio_admin_id, company_id)
-values ('${ids.systemAdmin}', '${CO}')
 on conflict do nothing;`;
 
   // THE COUNT RUNS WITH THE ROLE RESET, AND THAT IS NOT A DETAIL.
@@ -905,15 +901,6 @@ on conflict do nothing;`;
     guideWhere(ids.otherCompany)
   );
 
-  const portfolioRow = await remaining(
-    seedPortfolioRow,
-    ids.companyAdmin,
-    `delete from public.portfolio_assignments
-      where portfolio_admin_id = '${ids.systemAdmin}' and company_id = '${CO}';`,
-    `from public.portfolio_assignments
-      where portfolio_admin_id = '${ids.systemAdmin}' and company_id = '${CO}'`
-  );
-
   const asMember = await remaining(
     seedGuideRow(ids.memberCompany),
     ids.member,
@@ -927,7 +914,6 @@ on conflict do nothing;`;
     visible === 1 &&
     ownCompany === 0 &&
     otherCompany === 1 &&
-    portfolioRow === 1 &&
     asMember === 1;
 
   return {
@@ -935,11 +921,11 @@ on conflict do nothing;`;
     hazard:
       "A company cannot end a guide's engagement, or can end things that are not theirs to end",
     wrong: `rows left after the company admin's own-company delete: ${ownCompany} (want 0)`,
-    right: `fixture seeded (${seeded}) and visible to the company admin (${visible}), own company removed, other company kept (${otherCompany}), portfolio assignment kept (${portfolioRow}), member refused (${asMember})`,
+    right: `fixture seeded (${seeded}) and visible to the company admin (${visible}), own company removed, other company kept (${otherCompany}), member refused (${asMember})`,
     ok,
     detail: ok
-      ? "A company admin sees the assignment and ends it, in their own company and nowhere else. A portfolio admin's assignment survives them, which is decision 5. A team member of the same company is refused."
-      : `authenticated holds DELETE on guide_assignments: ${deletePriv} (want true), seeded ${seeded} (want 1), visible-to-company-admin ${visible} (want 1; a delete cannot reach a row the SELECT policy hides), own-company ${ownCompany} (want 0), other-company ${otherCompany} (want 1), portfolio-assignment ${portfolioRow} (want 1), as-member ${asMember} (want 1).`,
+      ? "A company admin sees the assignment and ends it, in their own company and nowhere else. A team member of the same company is refused. Whether they may end a PORTFOLIO admin's assignment is decision 11's question and portfolio-assignment-company-access's claim."
+      : `authenticated holds DELETE on guide_assignments: ${deletePriv} (want true), seeded ${seeded} (want 1), visible-to-company-admin ${visible} (want 1; a delete cannot reach a row the SELECT policy hides), own-company ${ownCompany} (want 0), other-company ${otherCompany} (want 1), as-member ${asMember} (want 1).`,
   };
 }
 
@@ -1277,6 +1263,163 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
     detail: ok
       ? "A company reads the people assigned to it, admins and members alike, and nobody else. A company-less profile holding no assignment stays invisible, which is what keeps this an assignment grant rather than a licence to enumerate the instance. The read brought no write with it."
       : `assigned-guide ${guideToAdmin} (want 1), assigned-portfolio ${portfolioToAdmin} (want 1), to-member ${guideToMember} (want 1), unassigned-outsider ${outsiderToAdmin} (want 0), write-refused ${writeRefused} (want true).`,
+  };
+}
+
+// A company sees and ends a portfolio admin's assignment (0205).
+//
+// This reverses decision 5, so the case that used to assert the
+// refusal now asserts the grant — and the claims that matter are the
+// ones drawing the NEW line, not the old one. A company may end the
+// arrangement; it may not reach the person, and neither may anybody
+// below a company admin.
+//
+// Six claims:
+//   1. a company_admin sees the assignment naming their company
+//   2. a MEMBER sees it too (roster and picker render for everyone)
+//   3. a company_admin ENDS it
+//   4. a company_admin of ANOTHER company cannot
+//   5. a team member of the same company cannot
+//   6. the profile survives: ending an assignment removes a row from
+//      portfolio_assignments and nothing from profiles
+async function portfolioAssignmentCompanyAccess(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const [widened] = await run<{ ok: boolean }>(
+    [
+      "begin;", pending,
+      `select count(*) > 0 as ok from pg_policies
+        where schemaname='public' and tablename='portfolio_assignments'
+          and policyname='portfolio_assignments_delete'
+          and qual like '%company_admin%';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!widened?.ok) {
+    return {
+      name: "portfolio-assignment-company-access",
+      hazard: "A company reaches the person instead of the arrangement",
+      wrong: "policy not widened on this schema",
+      right: "policy not widened on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0205 has not landed here yet. Runs for real under --pending 0205_portfolio_assignment_company_access.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const CO = ids.companyAdminCompany;
+  const uid = (tag: string) => `aaaa0205-0000-4000-8000-0000000000${tag}`;
+  const PA = uid("01");
+  const MEMBER = uid("02");
+
+  const seed = `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${PA}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${PA}@example.invalid', '', now(), now(), now()),
+       ('${MEMBER}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${MEMBER}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${PA}', null, 'Harness PA 0205', 'portfolio_admin', 'active'),
+       ('${MEMBER}', '${CO}', 'Harness Member 0205', 'team_member', 'active');
+insert into public.portfolio_assignments (portfolio_admin_id, company_id)
+values ('${PA}', '${CO}') on conflict do nothing;`;
+
+  // Seen, as the caller.
+  const seenBy = async (sub: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        [
+          "begin;", pending, seed,
+          "set local role authenticated;", claims(sub),
+          `select count(*)::int as n from public.portfolio_assignments
+            where portfolio_admin_id = '${PA}' and company_id = '${CO}';`,
+          "rollback;",
+        ].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return -2;
+    }
+  };
+
+  // Remaining, measured with the role RESET — E11's other half. A
+  // caller who cannot see the row would report zero either way.
+  const remainingAfterDeleteBy = async (
+    sub: string,
+    company: string
+  ): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        [
+          "begin;", pending, seed,
+          "set local role authenticated;", claims(sub),
+          `delete from public.portfolio_assignments
+            where portfolio_admin_id = '${PA}' and company_id = '${company}';`,
+          "reset role;",
+          `select count(*)::int as n from public.portfolio_assignments
+            where portfolio_admin_id = '${PA}' and company_id = '${CO}';`,
+          "rollback;",
+        ].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return -2;
+    }
+  };
+
+  const seenByAdmin = await seenBy(ids.companyAdmin);
+  const seenByMember = await seenBy(MEMBER);
+  const byAdmin = await remainingAfterDeleteBy(ids.companyAdmin, CO);
+  const byOtherAdmin = await (async () => {
+    const [other] = await run<{ id: string | null }>(
+      [
+        "begin;", pending,
+        `select id from public.profiles
+          where role='company_admin' and status='active'
+            and company_id is not null and company_id <> '${CO}' limit 1;`,
+        "rollback;",
+      ].join("\n")
+    );
+    if (!other?.id) return 1; // nobody to probe with; treat as kept
+    return remainingAfterDeleteBy(other.id, CO);
+  })();
+  const byMember = await remainingAfterDeleteBy(MEMBER, CO);
+
+  // The person outlives the arrangement.
+  const [survived] = await run<{ n: number }>(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      `delete from public.portfolio_assignments
+        where portfolio_admin_id = '${PA}' and company_id = '${CO}';`,
+      "reset role;",
+      `select count(*)::int as n from public.profiles where id = '${PA}';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const ok =
+    seenByAdmin === 1 &&
+    seenByMember === 1 &&
+    byAdmin === 0 &&
+    byOtherAdmin === 1 &&
+    byMember === 1 &&
+    (survived?.n ?? -1) === 1;
+
+  return {
+    name: "portfolio-assignment-company-access",
+    hazard: "A company reaches the person instead of the arrangement",
+    wrong: `after the company admin ends it, the profile is gone: ${(survived?.n ?? -1) === 1 ? "no" : "YES"}`,
+    right: `seen by admin ${seenByAdmin} and member ${seenByMember}; ended by its own company ${byAdmin === 0}, refused to another company's admin and to a member; profile still there ${survived?.n}`,
+    ok,
+    detail: ok
+      ? "A company sees the assignment naming it, admins and members alike, and its admin can end it. Another company's admin cannot, and neither can a team member. Ending it removes a row from portfolio_assignments and leaves the person on the instance, which is the whole difference between this and the roster's Delete."
+      : `seen-by-admin ${seenByAdmin} (want 1), seen-by-member ${seenByMember} (want 1), ended-by-own-admin ${byAdmin} (want 0), other-company-admin ${byOtherAdmin} (want 1), member ${byMember} (want 1), profile-survives ${survived?.n} (want 1).`,
   };
 }
 
@@ -6036,6 +6179,11 @@ async function main(): Promise<void> {
     [
       "profiles-select-assigned",
       (r: Runner, i: Identities) => profilesSelectAssigned(r, i, pendingSql),
+    ],
+    [
+      "portfolio-assignment-company-access",
+      (r: Runner, i: Identities) =>
+        portfolioAssignmentCompanyAccess(r, i, pendingSql),
     ],
   ] as const;
 

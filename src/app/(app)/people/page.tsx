@@ -157,7 +157,16 @@ export default async function PeoplePage() {
                       {person.position ?? "—"}
                     </td>
                     <td className={styles.capCell}>
-                      {person.role.replace("_", " ")}
+                      {/* An assigned portfolio admin IS a company
+                          admin here, and the cell says what they are
+                          in this company rather than what they are on
+                          the instance. Their platform role is not
+                          this company's business, and "portfolio
+                          admin" in a team list invites a question
+                          nobody on that page can answer. */}
+                      {person.viaAssignment
+                        ? "company admin"
+                        : person.role.replace("_", " ")}
                     </td>
                     <td>
                       <span className={pill.className} title={pill.title}>
@@ -191,6 +200,9 @@ export default async function PeoplePage() {
                             canToggleStatus={
                               person.id !== session.profile.id &&
                               person.status !== "pending"
+                            }
+                            assignmentCompanyId={
+                              person.viaAssignment ? companyId : undefined
                             }
                           />
                         ) : null}

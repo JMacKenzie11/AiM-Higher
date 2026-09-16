@@ -133,3 +133,47 @@ describe("removeGuideFromCompanyAction", () => {
     expect((await removeGuideFromCompanyAction("co_a", "g_1")).ok).toBe(false);
   });
 });
+
+describe("removePortfolioAssignmentAction", () => {
+  it("lets a company admin end an assignment to their own company", async () => {
+    const { removePortfolioAssignmentAction } = await import(
+      "./assigned-access-actions"
+    );
+    const result = await removePortfolioAssignmentAction("co_a", "pa_1");
+    expect(result.ok).toBe(true);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/people");
+  });
+
+  it("refuses another company's admin", async () => {
+    const { removePortfolioAssignmentAction } = await import(
+      "./assigned-access-actions"
+    );
+    const result = await removePortfolioAssignmentAction("co_b", "pa_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.del).not.toHaveBeenCalled();
+  });
+
+  it("refuses a team member of the same company", async () => {
+    mocks.profile.role = "team_member";
+    const { removePortfolioAssignmentAction } = await import(
+      "./assigned-access-actions"
+    );
+    expect((await removePortfolioAssignmentAction("co_a", "pa_1")).ok).toBe(
+      false
+    );
+    expect(mocks.del).not.toHaveBeenCalled();
+  });
+
+  it("reports zero rows as a failure rather than a success", async () => {
+    // An RLS refusal deletes nothing and raises nothing. Reporting
+    // success would leave them on the roster after a control that
+    // said it removed them.
+    mocks.del.mockResolvedValue({ error: null, count: 0 });
+    const { removePortfolioAssignmentAction } = await import(
+      "./assigned-access-actions"
+    );
+    const result = await removePortfolioAssignmentAction("co_a", "pa_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+});

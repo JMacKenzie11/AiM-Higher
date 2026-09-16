@@ -17,6 +17,15 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 export type PeopleRosterRow = Profile & {
   openCount: number;
   keepRate: number | null; // 0-100 across the open quarter
+  // True when this person is on the roster through a
+  // portfolio_assignments row rather than through company_id.
+  //
+  // It changes exactly one thing in the UI, and it is not their
+  // standing: Delete on their row ends the ASSIGNMENT. The roster's
+  // ordinary Delete calls auth.admin.deleteUser, which would take
+  // their account off the instance and every other company on it,
+  // and that is not what a company admin tidying their team means.
+  viaAssignment: boolean;
 };
 
 export type PeopleRoster = {
@@ -28,13 +37,50 @@ export async function getPeopleRoster(
 ): Promise<PeopleRoster> {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("company_id", companyId)
-    .order("full_name");
+  // The company's own people, plus any portfolio admin who holds an
+  // assignment to it. A portfolio admin only takes company-admin
+  // rights where they mean to do the work, so in that company they
+  // are a colleague and belong on the page that lists colleagues.
+  //
+  // GUIDES ARE NOT HERE, deliberately. They appear on the company's
+  // admin page under Assigned access (spec §1a, decision 9), because
+  // an engagement is a different thing from membership. They can
+  // still own commitments (decision 10); being assignable and being
+  // on the team are separate questions.
+  const [{ data: profiles }, { data: assignmentRows }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("company_id", companyId)
+      .order("full_name"),
+    supabase
+      .from("portfolio_assignments")
+      .select("portfolio_admin_id")
+      .eq("company_id", companyId),
+  ]);
 
-  const roster = (profiles ?? []) as Profile[];
+  const members = (profiles ?? []) as Profile[];
+  const assignedIds = (
+    (assignmentRows ?? []) as Array<{ portfolio_admin_id: string }>
+  )
+    .map((r) => r.portfolio_admin_id)
+    .filter((id) => !members.some((m) => m.id === id));
+
+  // Read through the caller's own client: profiles_select_assigned
+  // (0204) decides. A caller who cannot see them gets the members
+  // alone, which is the list this function returned before.
+  const assigned: Profile[] = assignedIds.length
+    ? (((
+        await supabase
+          .from("profiles")
+          .select("*")
+          .in("id", assignedIds)
+          .order("full_name")
+      ).data ?? []) as Profile[])
+    : [];
+
+  const assignedSet = new Set(assigned.map((p) => p.id));
+  const roster = [...members, ...assigned];
   const openQuarter = await getCurrentQuarter(companyId);
 
   // "Open" counts EVERY still-open commitment for the person (not
@@ -82,6 +128,7 @@ export async function getPeopleRoster(
     ...profile,
     openCount: openByOwner.get(profile.id) ?? 0,
     keepRate: keepRateByOwner.get(profile.id) ?? null,
+    viaAssignment: assignedSet.has(profile.id),
   }));
 
   return { people };
