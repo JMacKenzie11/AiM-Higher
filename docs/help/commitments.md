@@ -36,6 +36,11 @@ As an admin or guide, you can also:
 - **Reassign a commitment** by clicking the owner name on any
   row. The inline dropdown opens; pick a new owner. Same picker
   the Issues page uses.
+- **Give a commitment to your AiMS Guide.** The owner list is your
+  company's people plus anyone assigned to work with you, so a
+  guide can carry a commitment like anyone else. They appear in
+  the dropdown once they are assigned to your company, and drop
+  out of it if that assignment ends.
 - **Force-classify a past-due keep as on-time** for retroactive
   corrections (via the resolve menu). Every admin-driven
   resolution is stamped with the resolving role so coaching

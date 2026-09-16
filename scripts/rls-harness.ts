@@ -234,10 +234,47 @@ async function loadIdentities(run: Runner): Promise<Identities> {
       (select company_id from public.profiles
         where company_id is not null and status = 'active'
           and role = 'team_member' limit 1) as member_company,
+      -- LIVE, AND DETERMINISTIC. This was an unordered limit-1 with
+      -- no deleted_at filter, so it returned whatever the heap handed
+      -- back first. Two soft-deleted "Test Company" rows have sat on
+      -- the clone since August; the day a bulk UPDATE moved companies
+      -- around in the heap, this identity started resolving to one of
+      -- them and two unrelated system_admin probes went red with
+      -- "0 rows (refused by RLS)" — which is exactly what
+      -- companies_hide_deleted does to a ghost, and looks exactly
+      -- like a grant that stopped working.
+      --
+      -- It must also differ from the COMPANY ADMIN's company, not
+      -- only the team member's. Adding the ordering without that
+      -- clause made this resolve to the company admin's own tenant,
+      -- and three cases whose whole claim is "and not in another
+      -- company" started proving nothing while going green on the
+      -- two probes above. Every isolation claim in this file rests on
+      -- these two being different rows.
+      --
+      -- And not one the fixture GUIDE is assigned to, for the same
+      -- reason a third time: the guide probes read this as "a company
+      -- outside my caseload". Three consumers, three meanings, one
+      -- identity — so it is defined here as "a live company that
+      -- belongs to none of our fixtures", which is what all three
+      -- actually want.
       (select c.id from public.companies c
-        where c.id <> (select company_id from public.profiles
+        where c.deleted_at is null
+          and c.id <> (select company_id from public.profiles
                         where company_id is not null and status='active'
-                          and role='team_member' limit 1) limit 1) as other_company`);
+                          and role='team_member' limit 1)
+          and c.id <> (select company_id from public.profiles
+                        where role='company_admin' and status='active'
+                          and company_id is not null limit 1)
+          and not exists (
+            select 1 from public.guide_assignments ga
+            where ga.company_id = c.id
+              and ga.guide_id = (select ga2.guide_id
+                                   from public.guide_assignments ga2
+                                   join public.profiles p2 on p2.id = ga2.guide_id
+                                  where p2.role = 'aims_guide'
+                                    and p2.status = 'active' limit 1))
+        order by c.id limit 1) as other_company`);
 
   if (
     !row?.no_company ||
@@ -1107,6 +1144,139 @@ values ('${PA}', null, 'Harness Sorter', 'portfolio_admin', 'active');`;
     detail: ok
       ? "The two container roles order the portfolio. A company admin and a guide are refused, by a denylist-by-construction written before the column existed — 0203 had to say nothing to make that true. Widening the portfolio allowlist by one word did not widen it by two: deleted_at is still refused."
       : `system_admin ${bySysadmin} (want 1), portfolio_admin ${byPortfolio} (want 1), company_admin ${byCompanyAdmin} (want 0), guide ${byGuide} (want 0), deleted_at-still-refused ${deletedAtStillRefused} (want true).`,
+  };
+}
+
+// Who a company may read (0204).
+//
+// The widening is scoped to ASSIGNMENTS, not to platform roles, and
+// every claim here is about that distinction. The risk of getting it
+// wrong is a company enumerating the instance's staff, so the
+// refusals outnumber the grants.
+//
+// EVERY IDENTITY IS SEEDED, and that is a correction. The first
+// version fished its control out of the clone — "an unassigned
+// system_admin" — and the system_admin it found held a guide
+// assignment, because system admins can. The policy was right and
+// the control was not, which is the more embarrassing way to get a
+// red. A fixture the case builds itself cannot drift underneath it.
+//
+// Five claims:
+//   1. a company_admin reads a guide assigned to their company
+//   2. ... and a portfolio admin assigned to it
+//   3. an ordinary MEMBER reads them too, because the owner picker
+//      renders for everyone and a list that changed by viewer would
+//      be worse than no list
+//   4. an OUTSIDER — company-less, no assignment anywhere — stays
+//      invisible. This is the claim that separates "assigned to my
+//      company" from "company-less", and it is the whole boundary.
+//   5. the read brought no write with it
+async function profilesSelectAssigned(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;", pending,
+      `select count(*) > 0 as ok from pg_policies
+        where schemaname='public' and tablename='profiles'
+          and policyname='profiles_select_assigned';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name: "profiles-select-assigned",
+      hazard: "A company enumerates the instance's staff",
+      wrong: "policy not on this schema",
+      right: "policy not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0204 has not landed here yet. Runs for real under --pending 0204_profiles_select_assigned.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const CO = ids.companyAdminCompany;
+  const uid = (tag: string) => `aaaa0204-0000-4000-8000-0000000000${tag}`;
+  const GUIDE = uid("01");
+  const PA = uid("02");
+  const OUTSIDER = uid("03");
+  const MEMBER = uid("04");
+
+  const person = (id: string, name: string, role: string, company: string | null) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'active');`;
+
+  const seed = [
+    person(GUIDE, "Harness Assigned Guide", "aims_guide", null),
+    person(PA, "Harness Assigned PA", "portfolio_admin", null),
+    person(OUTSIDER, "Harness Outsider", "aims_guide", null),
+    person(MEMBER, "Harness Member", "team_member", CO),
+    `insert into public.guide_assignments (guide_id, company_id)
+       values ('${GUIDE}', '${CO}') on conflict do nothing;`,
+    `insert into public.portfolio_assignments (portfolio_admin_id, company_id)
+       values ('${PA}', '${CO}') on conflict do nothing;`,
+  ].join("\n");
+
+  const visible = async (sub: string, targetId: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        [
+          "begin;", pending, seed,
+          "set local role authenticated;", claims(sub),
+          `select count(*)::int as n from public.profiles where id = '${targetId}';`,
+          "rollback;",
+        ].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return -2;
+    }
+  };
+
+  const guideToAdmin = await visible(ids.companyAdmin, GUIDE);
+  const portfolioToAdmin = await visible(ids.companyAdmin, PA);
+  const guideToMember = await visible(MEMBER, GUIDE);
+  const outsiderToAdmin = await visible(ids.companyAdmin, OUTSIDER);
+
+  // The read is a read. Measured with the role reset, because the
+  // question is what is in the row and not what the caller can see.
+  const [renamed] = await run<{ n: number }>(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      `update public.profiles set full_name = 'harness rename' where id = '${GUIDE}';`,
+      "reset role;",
+      `select count(*)::int as n from public.profiles
+        where id = '${GUIDE}' and full_name = 'harness rename';`,
+      "rollback;",
+    ].join("\n")
+  ).catch(() => [{ n: 0 }]);
+  const writeRefused = (renamed?.n ?? -1) === 0;
+
+  const ok =
+    guideToAdmin === 1 &&
+    portfolioToAdmin === 1 &&
+    guideToMember === 1 &&
+    outsiderToAdmin === 0 &&
+    writeRefused;
+
+  return {
+    name: "profiles-select-assigned",
+    hazard: "A company enumerates the instance's staff",
+    wrong: `a company-less profile with no assignment, readable: ${outsiderToAdmin === 1 ? "YES" : "no"}`,
+    right: `assigned guide ${guideToAdmin}, assigned portfolio admin ${portfolioToAdmin}, seen by a member ${guideToMember}, unassigned outsider ${outsiderToAdmin}`,
+    ok,
+    detail: ok
+      ? "A company reads the people assigned to it, admins and members alike, and nobody else. A company-less profile holding no assignment stays invisible, which is what keeps this an assignment grant rather than a licence to enumerate the instance. The read brought no write with it."
+      : `assigned-guide ${guideToAdmin} (want 1), assigned-portfolio ${portfolioToAdmin} (want 1), to-member ${guideToMember} (want 1), unassigned-outsider ${outsiderToAdmin} (want 0), write-refused ${writeRefused} (want true).`,
   };
 }
 
@@ -5862,6 +6032,10 @@ async function main(): Promise<void> {
     [
       "company-sort-order",
       (r: Runner, i: Identities) => companySortOrder(r, i, pendingSql),
+    ],
+    [
+      "profiles-select-assigned",
+      (r: Runner, i: Identities) => profilesSelectAssigned(r, i, pendingSql),
     ],
   ] as const;
 
