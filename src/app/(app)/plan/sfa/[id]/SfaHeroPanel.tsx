@@ -13,6 +13,7 @@ import {
 import type { CascadeStatus, Profile, StrategicFocusArea } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusPicker } from "../../StatusPicker";
+import { planHrefForSfa } from "../../cascade-anchor";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
 
@@ -87,7 +88,7 @@ export function SfaHeroPanel({
     <div className={heroStyles.wrap}>
       <div className={heroStyles.band}>
         <div className={heroStyles.bandInner}>
-          <Link href="/plan" className={heroStyles.crumb}>
+          <Link href={planHrefForSfa(sfa.id)} className={heroStyles.crumb}>
             ← Back to plan
           </Link>
         </div>
