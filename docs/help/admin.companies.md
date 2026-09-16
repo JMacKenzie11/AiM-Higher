@@ -17,6 +17,12 @@ redirected straight to their own company's settings page.
   (Week in Review, Goals & Priorities, Functional Org Chart, etc.)
   then reads that company's data. Use *Exit* in the user menu to
   drop back out.
+- **Put the list in the order you want** — drag the handle at the
+  left of a row. The order is saved for everyone, not just for you,
+  and it is the order companies appear in everywhere they are
+  listed. System admins and portfolio admins can do this; guides
+  see the same list and cannot change its order. The handle only
+  appears when there is more than one company.
 - **Open a company's settings** — the per-row *Settings* link
   goes to `/admin/companies/[id]` for that company.
 

@@ -11,6 +11,7 @@ import type { MeetingListRow } from "@/lib/types";
 import { CompanyNameLink } from "./CompanyNameLink";
 import { CompanyRowActions } from "./CompanyRowActions";
 import { CreateCompanyForm } from "./CreateCompanyForm";
+import { CompaniesTable } from "./CompaniesTable";
 import { GuidesPanel } from "./GuidesPanel";
 import { PlatformTranscriptsPanel } from "./PlatformTranscriptsPanel";
 import styles from "./admin.module.css";
@@ -121,20 +122,27 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
               No companies yet. Create the first one below.
             </p>
           ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
+            /* Ordering the portfolio belongs to the two roles whose
+               scope IS the portfolio. A guide sees the same list and
+               cannot reorder it, which the column guard on `companies`
+               enforces below the app: sort_order is on the
+               portfolio_admin allowlist and refused to everybody
+               smaller. */
+            <CompaniesTable
+              companies={companies}
+              canReorder={isSystemAdmin || isPortfolioAdmin}
+              header={
+                <>
                   <th>Name</th>
                   <th className={styles.numHead}>People</th>
                   <th>Open quarter</th>
                   <th>Follow-Through Rate</th>
                   <th>Status</th>
                   <th className={styles.actionHead}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {companies.map((company) => (
-                  <tr key={company.id}>
+                </>
+              }
+              renderRow={(company) => (
+                  <>
                     <td>
                       <CompanyNameLink
                         companyId={company.id}
@@ -182,10 +190,9 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                         ) : null}
                       </div>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </>
+              )}
+            />
           )}
         </section>
 

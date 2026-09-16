@@ -62,6 +62,12 @@ export type Company = {
   timezone: string;
   industry: string | null;
   status: CompanyStatus;
+  // Display position among the companies on this instance, lowest
+  // first (migration 0203). Null means never ordered and sorts after
+  // everything that has a position. Not unique and not contiguous: a
+  // reorder rewrites only the rows that moved, so ties are normal and
+  // resolve by name.
+  sort_order: number | null;
   created_at: string;
   updated_at: string;
   // Soft-delete timestamp (migration 0148). Non-null rows are
