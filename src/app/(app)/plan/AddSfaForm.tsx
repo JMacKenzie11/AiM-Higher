@@ -91,7 +91,7 @@ export function AddSfaForm({
           className={styles.primaryButton}
           disabled={pending}
         >
-          {pending ? "Adding…" : "Add Strategic Focus Area"}
+          {pending ? "Adding…" : "Add Focus Area"}
         </button>
         <ConfirmationChip visible={confirmationVisible} />
       </div>

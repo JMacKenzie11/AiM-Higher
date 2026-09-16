@@ -8,7 +8,7 @@ export function CascadeMock() {
   return (
     <div className={styles.cascadeMock} aria-hidden="true">
       <div className={styles.cascadeLevel} data-level="sfa">
-        <div className={styles.cascadeLabel}>Strategic Focus Area</div>
+        <div className={styles.cascadeLabel}>Focus Area</div>
         <div className={styles.cascadeTitle}>Grow the Northwest region</div>
         <div className={styles.cascadeStateRow}>
           <span className={styles.mockChipOnTrack}>On track</span>

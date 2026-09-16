@@ -374,7 +374,7 @@ function makePlanningHistoryTool(args: { companyId: string }): CoachTool {
     definition: {
       name: "planning_history",
       description:
-        `What past quarters PLANNED, against what landed: strategic focus areas, annual goals and quarterly priorities with their final status, for up to ${MAX_QUARTERS} quarters. ` +
+        `What past quarters PLANNED, against what landed: focus areas, annual goals and quarterly priorities with their final status, for up to ${MAX_QUARTERS} quarters. ` +
         "Use this for 'what did we say we would do, and what actually happened'. Returns status='empty' when the company has no closed quarters on record.",
       input_schema: {
         type: "object",

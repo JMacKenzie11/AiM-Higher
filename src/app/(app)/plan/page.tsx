@@ -104,7 +104,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
           />
         ) : (
           <span className={styles.toolbarMuted}>
-            No quarters yet — open one to add actions.
+            No quarters yet — open one to add priorities.
           </span>
         )}
         {isAdmin ? (
@@ -115,7 +115,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
               </Link>
             ) : null}
             {/* All three add buttons are always available for admins.
-                Goals and Actions save as "standalone" when their
+                Goals and Priorities save as "standalone" when their
                 parent picker is left on "Not linked (yet)", and each
                 unlinked row renders in its own section below the
                 cascade. Users can link them via the row's inline
@@ -124,7 +124,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 can't be mistaken for a primary create action. */}
             <details className={styles.toolbarAddDetails}>
               <summary className={styles.toolbarAddSummary}>
-                + Add Strategic Focus Area
+                + Add Focus Area
               </summary>
               <div className={styles.toolbarAddPanel}>
                 <AddSfaForm people={roster} />
@@ -178,7 +178,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 <summary className={styles.sfaSummary}>
                   <div className={styles.summaryMain}>
                     <span className={styles.levelLabel}>
-                      Strategic Focus Area
+                      Focus Area
                     </span>
                     <Link
                       href={`/plan/sfa/${sfa.id}`}
@@ -235,7 +235,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                                 <StatusChip status={goal.status} />
                                 <ProgressBar
                                   percent={goal.percent}
-                                  label="No actions yet"
+                                  label="No priorities yet"
                                 />
                               </div>
                             </summary>
@@ -243,8 +243,8 @@ export default async function PlanPage({ searchParams }: PageProps) {
                               {goal.priorities.length === 0 ? (
                                 <p className={styles.emptyLine}>
                                   {selectedQuarter
-                                    ? `No actions for ${selectedQuarter.label} yet.`
-                                    : "No actions yet."}
+                                    ? `No priorities for ${selectedQuarter.label} yet.`
+                                    : "No priorities yet."}
                                 </p>
                               ) : (
                                 <ul className={styles.rowList}>

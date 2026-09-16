@@ -258,7 +258,7 @@ The "why we exist, where we're going, who we serve, and how we'll know it's work
 3. **Core values** — titled + body, ordered, admin-writable.
 4. **Strengths & Differentiators** — titled + body, numbered, admin-writable.
 5. **Ideal Customer Profile** — two sub-lists (best-fit clients/projects and psychographics). Each entry is a single line with delete-only management; `AddSnippetForm` per sub-list.
-6. **Strategic Focus Areas** — read-only preview here; write side lives on `/plan`. Falls through the same numbered-card grid.
+6. **Focus Areas** — read-only preview here; write side lives on `/plan`. Falls through the same numbered-card grid.
 7. **Key Success Metrics** — titled + body, admin-writable.
 
 **Visual system:**
@@ -277,12 +277,12 @@ All items admin-writable. Consumed by the AI coach, meeting analyzer, and market
 
 Three-level strategic plan tied to quarters. Progressive add reveal — each level's "+ Add" only appears once the parent level exists, so a first-run admin can't build orphans by accident.
 
-- **Strategic Focus Areas (SFAs)** — long-lived themes (often multi-year), sponsor assigned, sortable, archivable, future-perfect narrative body. Detail page hero: status + progress on their own row underneath identity metadata.
-- **Annual Goals** — belong to an SFA (or orphan), owner assigned, per-year. Independent archive / *Mark complete* — an admin can close a Goal while its parent SFA stays open (common because SFAs span multiple years).
+- **Focus Areas** — long-lived themes (often multi-year), sponsor assigned, sortable, archivable, future-perfect narrative body. Detail page hero: status + progress on their own row underneath identity metadata.
+- **Annual Goals** — belong to a Focus Area (or orphan), owner assigned, per-year. Independent archive / *Mark complete* — an admin can close a Goal while its parent Focus Area stays open (common because Focus Areas span multiple years).
 - **Quarterly Priorities** — belong to an Annual Goal (or orphan), owner assigned, per-quarter, status: `not_started` / `on_track` / `behind` / `complete` / `ongoing`.
 - **Quarters** — start/end dates, status: `open` / `closed`, one open per company. `/quarters` admin page lets an admin roll a new quarter, adjust ranges, or close the current one.
-- Progress rolls up: priorities → goals → SFAs → company-level **Strategic Progress %**.
-- **Start a new planning cycle** — collapsed *danger zone* panel at the bottom of the plan page. Archives every active SFA / Goal / Priority in the company; nothing is deleted (records remain on file). Open commitments that were linked to now-archived priorities become Operational (their `priority_id` nulls out); resolved commitments keep their historical link so past-quarter priority progress stays intact. **Who may run it: `system_admin` anywhere, a `company_admin` on their own company, an `aims_guide` on a company in their caseload** — `isAdminForCompany`, the same rule every other write on those tables uses. `portfolio_admin` may not: archiving a company's plan is a content write, and that role has none. Until 2026-09-14 the guard checked only the `company_admin` case, so an unassigned guide reached the writes; RLS refused them and archived nothing, and the action reported `ok` with three zero counts — a success message for a refused action, indistinguishable on screen from "there was nothing to reset".
+- Progress rolls up: priorities → goals → Focus Areas → company-level **Strategic Progress %**.
+- **Start a new planning cycle** — collapsed *danger zone* panel at the bottom of the plan page. Archives every active Focus Area / Goal / Priority in the company; nothing is deleted (records remain on file). Open commitments that were linked to now-archived priorities become Operational (their `priority_id` nulls out); resolved commitments keep their historical link so past-quarter priority progress stays intact. **Who may run it: `system_admin` anywhere, a `company_admin` on their own company, an `aims_guide` on a company in their caseload** — `isAdminForCompany`, the same rule every other write on those tables uses. `portfolio_admin` may not: archiving a company's plan is a content write, and that role has none. Until 2026-09-14 the guard checked only the `company_admin` case, so an unassigned guide reached the writes; RLS refused them and archived nothing, and the action reported `ok` with three zero counts — a success message for a refused action, indistinguishable on screen from "there was nothing to reset".
 
 ---
 
@@ -379,7 +379,7 @@ Real-time single-page view for admins + members.
   - **Streaks in flight** — measures at or above target for 3+ consecutive weeks.
   - **Wins this week** — measures that hit target for the week just ended. Rows show a check-badge that pops in + a target-vs-actual meter that scales from the left with a tick at the target.
   - **Where a conversation could help** — measures that have dipped over 3+ weeks. Amber, coaching-framed — never red.
-- **Strategic Focus Areas** — status + progress bar per SFA, links to the SFA detail page.
+- **Focus Areas** — status + progress bar per Focus Area, links to the Focus Area detail page.
 - **Follow-Through Rate Trend** — 12-week keep-rate bar chart.
 - **People table — "Where to lend support"** — sorted by follow-through ascending, per-person open count + rate. Admins + managers can jump to Coach for people they're allowed to coach.
 - **Recent wins** (admin-only) — 5 most recent kept commitments this quarter.
@@ -395,7 +395,7 @@ Company-wide "how are we doing at running the AiMS disciplines?" view at `/score
 - **Eight disciplines, each rated 0–10.** Foundation, Accountability Chart, Strategic Plan, Execution, Success Tracking (feature-gated on `performance_tracking`), Weekly Leadership Meeting, Solution Seeking (aggregate 4Ws closure), and Appreciative Practice (positive-framing signal) — the last three feature-gated on `meeting_facilitation_review`. Feature-gated disciplines whose feature is OFF render as a muted "Not enabled" tile and are dropped from the overall average — the weight redistributes across the ones that scored, so a company without Success Tracking isn't dinged for not having it.
 - **Overall score** — weighted average across scored disciplines. Planning and Execution weight 2× (the two the whole system is oriented around); the others weight 1×.
 - **State vs behavior disciplines.** Foundation and Accountability Chart are state-based (either filled in or not) and render **without** a trend chip or sparkline — history adds noise where the signal is done-or-not. The other four (Planning, Execution, Success Tracking, Meetings) fluctuate over time, so they carry the trend arrow + 26-week sparkline.
-- **Strategic Plan = cascade + closure.** Populated cascade (SFAs + goals + priorities) is a 2-point baseline; annual goal closure by target_date and priority closure by due_date each contribute up to 4 points. Fresh plans with nothing past due yet receive full credit on the closure halves so a new company isn't dragged down.
+- **Strategic Plan = cascade + closure.** Populated cascade (Focus Areas + goals + priorities) is a 2-point baseline; annual goal closure by target_date and priority closure by due_date each contribute up to 4 points. Fresh plans with nothing past due yet receive full credit on the closure halves so a new company isn't dragged down.
 - **Execution scoring.** Follow-through over rolling 30 days = 7 pts; aging opens (>14 days past due) = 3 pts. Priority linkage is not scored.
 - **Rolling by construction.** Behavior-based scorers use recent-window aggregates (Execution = 30 days, Measures = 7 days, Meetings = 8 weeks). If meeting cadence drops off, the Meetings score falls the following week without any manual intervention.
 - **Trajectory arrow vs 90 days ago.** Behavior-based cards (and the overall number) show ↑ / ↓ / flat vs the oldest snapshot inside the 90-day window. Absolute score AND trajectory both live on the card so "low but climbing" reads distinctly from "high but sliding."
@@ -930,7 +930,7 @@ Things intentionally not built (yet):
 
 When evaluating a competitor, score them on:
 
-1. **Strategic plan cascade** — SFA / Annual Goal / Quarterly Priority levels with progress roll-up?
+1. **Strategic plan cascade** — Focus Area / Annual Goal / Quarterly Priority levels with progress roll-up?
 2. **Weekly commitment tracking with a real Follow-Through Rate metric.**
 3. **Commitment clarity scoring** — do they enforce timeline + observable outcome per commitment, and *AI-score* it automatically?
 4. **Person-level follow-through history** with verbatim missed reasons.

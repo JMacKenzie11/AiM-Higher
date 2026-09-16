@@ -5,7 +5,7 @@ import { TERMS, type TermKey } from "@/lib/terminology";
 import styles from "./TermTooltip.module.css";
 
 // Inline glossary tooltip for platform terms — Kept, Missed,
-// Follow-Through Rate, Priority, SFA, Clarity, Success Measure.
+// Follow-Through Rate, Priority, Focus Area, Clarity, Success Measure.
 // Renders the term's canonical label with a subtle dotted
 // underline; hovering or focusing reveals a small definition
 // panel below.

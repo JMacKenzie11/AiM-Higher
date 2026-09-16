@@ -123,7 +123,7 @@ export default async function DashboardPage() {
             <HeroStat
               label="Strategic Progress"
               caption="Focus Areas this quarter"
-              tooltip="Average progress across your Strategic Focus Areas this quarter. Rolls up from action-level progress and reflects only strategic commitments — operational (unlinked) commitments don't count here."
+              tooltip="Average progress across your Focus Areas this quarter. Rolls up from priority-level progress and reflects only strategic commitments — operational (unlinked) commitments don't count here."
               value={
                 data.headline.executionPercent === null ? (
                   "—"
@@ -238,11 +238,11 @@ export default async function DashboardPage() {
           </section>
         ) : null}
 
-        {/* --- Strategic Focus Areas --- */}
+        {/* --- Focus Areas --- */}
         <section className={styles.cardAccent} aria-labelledby="sfa-card">
           <CardAccent />
           <h2 id="sfa-card" className={styles.h2}>
-            Strategic Focus Areas
+            Focus Areas
           </h2>
           {data.sfas.length === 0 ? (
             <p className={styles.emptyLine}>

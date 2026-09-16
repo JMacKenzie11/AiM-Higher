@@ -56,7 +56,7 @@ The notification bell will tell you when you have some outstanding.
 
 - **Follow-Through Rate** — kept-on-time as a % of resolved commitments
   this quarter. The primary weekly signal.
-- **Strategic Progress** — average % across Strategic Focus Areas.
+- **Strategic Progress** — average % across Focus Areas.
 - **On Track** — count of priorities currently on-track / complete out
   of total priorities in the open quarter.
 - **Open This Week** — commitments due this Friday still open.

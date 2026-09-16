@@ -10,7 +10,7 @@ import type { CascadeStatus, StrategicFocusArea } from "@/lib/types";
 import { parseStatus, type PlanResult } from "./_shared";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
-// Strategic Focus Areas. Admin path is full-field; owner path is
+// Focus Areas. Admin path is full-field; owner path is
 // status-only. Both defend behind RLS from 0005_cascade.sql.
 
 export async function createSfaAction(
