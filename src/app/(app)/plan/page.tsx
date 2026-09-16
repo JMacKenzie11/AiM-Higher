@@ -163,30 +163,6 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 picker whenever the parent exists. Bulk Reset lives
                 in the dedicated danger zone at the bottom so it
                 can't be mistaken for a primary create action. */}
-            {/* Commitments come LAST in the cascade and FIRST in this
-                row, by the product owner's decision: it is the
-                button a team reaches for weekly, where the other
-                three are reached for once a quarter. Only offered
-                when there is a priority to attach one to, because a
-                picker with nothing in it is a dead end. */}
-            {priorityChoices.length > 0 ? (
-              <details
-                className={styles.toolbarAddDetails}
-                data-testid="add-commitment-panel"
-              >
-                <summary className={styles.toolbarAddSummary}>
-                  + Add Commitment
-                </summary>
-                <div className={styles.toolbarAddPanel}>
-                  <AddCommitmentForm
-                    priorities={priorityChoices}
-                    people={roster}
-                    defaultOwnerId={session.profile.id}
-                    defaultDueDate={defaultDueDate}
-                  />
-                </div>
-              </details>
-            ) : null}
             <details
               className={styles.toolbarAddDetails}
               data-testid="add-sfa-panel"
@@ -228,6 +204,30 @@ export default async function PlanPage({ searchParams }: PageProps) {
                     goalOptions={goalOptions}
                     sfaOptions={sfaOptions}
                     people={roster}
+                  />
+                </div>
+              </details>
+            ) : null}
+            {/* Commitments come LAST here, as they do in the
+                cascade: Focus Area, Goal, Quarterly Priority is the
+                order the plan is built in, and a commitment hangs
+                off the end of it. Only offered when there is a
+                priority to attach one to, because a picker with
+                nothing in it is a dead end. */}
+            {priorityChoices.length > 0 ? (
+              <details
+                className={styles.toolbarAddDetails}
+                data-testid="add-commitment-panel"
+              >
+                <summary className={styles.toolbarAddSummary}>
+                  + Add Commitment
+                </summary>
+                <div className={styles.toolbarAddPanel}>
+                  <AddCommitmentForm
+                    priorities={priorityChoices}
+                    people={roster}
+                    defaultOwnerId={session.profile.id}
+                    defaultDueDate={defaultDueDate}
                   />
                 </div>
               </details>
