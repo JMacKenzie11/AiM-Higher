@@ -52,9 +52,21 @@ export function navBandsFor(ctx: NavContext): NavBand[] {
   }
 
   if (ctx.role === "system_admin") {
+    // The portfolio band, after Guide HQ rather than instead of it.
+    //
+    // /portfolio has always admitted a system_admin — requireRole on
+    // the page lists them — and the Overview link has always carried
+    // their role. Only the BAND left them out, so the page was
+    // reachable by typing the URL and by nothing else. A surface you
+    // can only reach if you already know it exists is not a surface.
+    //
+    // It stays their second home, not their first: a system_admin
+    // lands on /hq, and Guide HQ leads. The portfolio view is the
+    // instance read across every company, which is worth having and
+    // is not where they work.
     return ctx.scopedIntoCompany && !ctx.onAdminPicker && !ctx.onHqSurface
-      ? ["guideHq", "app", "systemAdminBottom"]
-      : ["guideHq", "systemAdminBottom"];
+      ? ["guideHq", "portfolio", "app", "systemAdminBottom"]
+      : ["guideHq", "portfolio", "systemAdminBottom"];
   }
 
   if (ctx.role === "aims_guide") {

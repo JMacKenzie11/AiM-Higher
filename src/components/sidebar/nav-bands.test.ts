@@ -67,19 +67,31 @@ describe("portfolio_admin", () => {
 });
 
 describe("the roles that already existed", () => {
-  it("leaves system_admin exactly as it was", () => {
+  it("gives system_admin the portfolio band, after Guide HQ", () => {
+    // NARROWED DELIBERATELY. This asserted system_admin was "exactly
+    // as it was" when portfolio_admin arrived, which was right then
+    // and is a decision now reversed: /portfolio always admitted a
+    // system_admin and the Overview link always carried their role,
+    // so the missing band made the page reachable by typing the URL
+    // and by nothing else.
+    //
+    // What the test still pins is the ORDER. Guide HQ leads, because
+    // that is where a system_admin lands and works; the portfolio is
+    // the instance read across every company and is their second
+    // home, not their first.
     expect(
       navBandsFor(ctx({ role: "system_admin", scopedIntoCompany: true }))
-    ).toEqual(["guideHq", "app", "systemAdminBottom"]);
+    ).toEqual(["guideHq", "portfolio", "app", "systemAdminBottom"]);
     expect(navBandsFor(ctx({ role: "system_admin" }))).toEqual([
       "guideHq",
+      "portfolio",
       "systemAdminBottom",
     ]);
     expect(
       navBandsFor(
         ctx({ role: "system_admin", scopedIntoCompany: true, onHqSurface: true })
       )
-    ).toEqual(["guideHq", "systemAdminBottom"]);
+    ).toEqual(["guideHq", "portfolio", "systemAdminBottom"]);
     expect(
       navBandsFor(
         ctx({
@@ -88,7 +100,7 @@ describe("the roles that already existed", () => {
           onAdminPicker: true,
         })
       )
-    ).toEqual(["guideHq", "systemAdminBottom"]);
+    ).toEqual(["guideHq", "portfolio", "systemAdminBottom"]);
   });
 
   it("leaves aims_guide exactly as it was", () => {
@@ -109,13 +121,12 @@ describe("the roles that already existed", () => {
     expect(navBandsFor(ctx({ role: "team_member" }))).toEqual(["app"]);
   });
 
-  it("gives no role but portfolio_admin a portfolio band", () => {
-    for (const role of [
-      "system_admin",
-      "aims_guide",
-      "company_admin",
-      "team_member",
-    ]) {
+  it("gives no role below a cross-tenant one a portfolio band", () => {
+    // system_admin left this list when they gained the band. The
+    // claim is still worth keeping for the roles it still covers:
+    // a guide, a company admin and a team member have no business on
+    // a page that reads every company on the instance.
+    for (const role of ["aims_guide", "company_admin", "team_member"]) {
       for (const scoped of [true, false]) {
         expect(
           navBandsFor(ctx({ role, scopedIntoCompany: scoped }))
