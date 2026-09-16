@@ -31,19 +31,26 @@ export const NAV_GROUPS_COOKIE = "nav-groups-collapsed";
 //
 // Guide HQ and Portfolio are where you arrive, not where you spend
 // the day. Resources and Strengths are occasional: you go looking
-// for them rather than moving between them. All four push the
-// working nav down while open, and Workspace — the one you are
-// actually in all day — is deliberately not here.
+// for them rather than moving between them. System admin is rarer
+// still, and only a handful of people can see it at all. All five
+// push the working nav down while open, and Workspace — the one you
+// are actually in all day — is deliberately not here.
 //
 // Nothing else is needed to make a group behave this way. The cookie
 // remembers what you open, for a year, and the server hands it back
 // before first paint. Adding a label here only changes where
 // somebody starts.
+//
+// LABELS MUST MATCH THE NAV EXACTLY, including case: this is a
+// string compared against the group's `label` in Sidebar.tsx, so
+// "System Admin" would silently do nothing. The group is "System
+// admin".
 export const DEFAULT_COLLAPSED_GROUPS: readonly string[] = [
   "Guide HQ",
   "Portfolio",
   "Resources",
   "Strengths",
+  "System admin",
 ];
 
 // Written when the user has collapsed nothing. Any value that cannot
