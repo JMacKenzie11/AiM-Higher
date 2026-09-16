@@ -10,6 +10,33 @@ card each, with the three numbers that say how each one is doing.
 It is an oversight view. You can read everything inside a company
 and change nothing that a company produces.
 
+## Company admin access
+
+You read every company on this instance. That never changes and it
+does not depend on anything below.
+
+What the **Company admin access** card adds is the ability to *run*
+a company: tick the ones you actively work in and press **Update**.
+In those companies you get the same rights a company admin has, and
+you appear on that company's team list with the role *company
+admin*, like anyone else there.
+
+**Unticking a company gives that access up**, and there is one thing
+worth knowing before you do it. If you own open commitments in that
+company, they are released to **Unassigned** so somebody else can
+pick them up. That is deliberate: once your access is gone you can
+no longer resolve them, and a commitment owned by someone who cannot
+act on it helps nobody. The card shows the count beside each company
+before you press anything, and asks you to confirm.
+
+Commitments you have already resolved keep your name on them. History
+stays as it was.
+
+A company admin in one of your companies can also remove your access
+from their team list. It ends the access and nothing else: your
+account, your other companies and everything you own stay as they
+are.
+
 ## What's on a card
 
 - **Scorecard** — the company's overall AiMS Implementation score

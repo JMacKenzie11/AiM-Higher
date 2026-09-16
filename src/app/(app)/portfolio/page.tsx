@@ -1,6 +1,10 @@
 import { requireRole } from "@/lib/auth/current-user";
 import { PageShell } from "@/components/ui/PageShell";
-import { loadPortfolioOverview } from "@/lib/portfolio/service";
+import {
+  loadPortfolioOverview,
+  loadPortfolioAdminAccess,
+} from "@/lib/portfolio/service";
+import { CompanyAccessCard } from "./CompanyAccessCard";
 import { CreateCompanyForm } from "../admin/companies/CreateCompanyForm";
 import { PortfolioCompanyCard } from "./PortfolioCompanyCard";
 import styles from "./portfolio.module.css";
@@ -27,7 +31,19 @@ export default async function PortfolioPage() {
   // looked at by the people who grant the role. It is not their home;
   // middleware still sends them to /hq.
   const session = await requireRole(["portfolio_admin", "system_admin"]);
-  const cards = await loadPortfolioOverview();
+  const [cards, access] = await Promise.all([
+    loadPortfolioOverview(),
+    loadPortfolioAdminAccess(),
+  ]);
+  // A portfolio admin manages their own access and nobody else's,
+  // which is what portfolio_assignments_insert already enforces: it
+  // admits a row only when it names the caller. Filtering here keeps
+  // the page from rendering rows whose Update button RLS would
+  // refuse. A system admin sees every row.
+  const accessRows =
+    session.profile.role === "system_admin"
+      ? access
+      : access.filter((row) => row.id === session.profile.id);
 
   return (
     <PageShell
@@ -74,6 +90,28 @@ export default async function PortfolioPage() {
                 ))}
               </ul>
             </section>
+
+            {/* Company admin access. The one thing a portfolio admin
+                could not do from anywhere in the app until now: the
+                grant existed, was enforced, and was reachable only by
+                writing a migration. */}
+            {accessRows.length > 0 ? (
+              <section className={styles.card} aria-labelledby="portfolio-access">
+                <h2 id="portfolio-access" className={styles.h2}>
+                  Company admin access
+                </h2>
+                <p className={styles.sectionCaption}>
+                  Tick the companies you actively run. You get the same rights
+                  a company admin has there, and you appear on that
+                  company&rsquo;s team list. Reading every company on the
+                  instance does not depend on this and never changes.
+                </p>
+                <CompanyAccessCard
+                  rows={accessRows}
+                  companies={cards.map((c) => ({ id: c.id, name: c.name }))}
+                />
+              </section>
+            ) : null}
 
             <section className={styles.card} aria-labelledby="portfolio-create">
               <h2 id="portfolio-create" className={styles.h2}>

@@ -194,3 +194,79 @@ export async function loadPortfolioOverview(): Promise<PortfolioCard[]> {
     })
   );
 }
+
+// ---------------------------------------------------------------
+// Company access: who holds company-admin rights where.
+// ---------------------------------------------------------------
+
+export type PortfolioAdminAccess = {
+  id: string;
+  fullName: string;
+  /** Company ids this person holds an assignment for. */
+  companyIds: string[];
+  /** Open commitments they own, per company id. Shown before removal. */
+  openCommitmentsByCompany: Record<string, number>;
+};
+
+// One row per portfolio admin for the Company access card.
+//
+// The open-commitment counts are here rather than computed on
+// removal, because the confirm has to say the number BEFORE the
+// person decides — "removing yourself releases 3 commitments" is a
+// different sentence from "3 commitments were released".
+export async function loadPortfolioAdminAccess(): Promise<
+  PortfolioAdminAccess[]
+> {
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+
+  const { data: admins } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("role", "portfolio_admin")
+    .neq("status", "inactive")
+    .order("full_name");
+  const rows = (admins ?? []) as Array<{ id: string; full_name: string }>;
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+  const [{ data: assignmentRows }, { data: openRows }] = await Promise.all([
+    supabase
+      .from("portfolio_assignments")
+      .select("portfolio_admin_id, company_id")
+      .in("portfolio_admin_id", ids),
+    supabase
+      .from("commitments")
+      .select("owner_id, company_id")
+      .in("owner_id", ids)
+      .eq("status", "open")
+      .is("deleted_at", null),
+  ]);
+
+  const byAdmin = new Map<string, string[]>();
+  for (const row of (assignmentRows ?? []) as Array<{
+    portfolio_admin_id: string;
+    company_id: string;
+  }>) {
+    byAdmin.set(row.portfolio_admin_id, [
+      ...(byAdmin.get(row.portfolio_admin_id) ?? []),
+      row.company_id,
+    ]);
+  }
+
+  const openByAdmin = new Map<string, Record<string, number>>();
+  for (const row of (openRows ?? []) as Array<{
+    owner_id: string;
+    company_id: string;
+  }>) {
+    const counts = openByAdmin.get(row.owner_id) ?? {};
+    counts[row.company_id] = (counts[row.company_id] ?? 0) + 1;
+    openByAdmin.set(row.owner_id, counts);
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    fullName: r.full_name,
+    companyIds: byAdmin.get(r.id) ?? [],
+    openCommitmentsByCompany: openByAdmin.get(r.id) ?? {},
+  }));
+}

@@ -79,12 +79,10 @@ export function GuidesPanel({
   guides,
   companies,
   sysadminCandidates,
-  attentionCountByGuideId,
 }: {
   guides: GuideOverviewRow[];
   companies: Pick<Company, "id" | "name">[];
   sysadminCandidates: Pick<Profile, "id" | "full_name">[];
-  attentionCountByGuideId: Record<string, number>;
 }) {
   return (
     <section className={styles.card} aria-labelledby="aims-guides">
@@ -106,7 +104,6 @@ export function GuidesPanel({
               <th>Guide</th>
               <th>Status</th>
               <th className={styles.numHead}>Companies</th>
-              <th className={styles.numHead}>Attention</th>
               <th>Assigned</th>
               <th>Assign To</th>
               <th className={styles.actionHead}>Actions</th>
@@ -143,9 +140,6 @@ export function GuidesPanel({
                   </td>
                   <td className={`${styles.numCell} aims-tabular`}>
                     {g.assignments.length}
-                  </td>
-                  <td className={`${styles.numCell} aims-tabular`}>
-                    {attentionCountByGuideId[g.id] ?? "—"}
                   </td>
                   <td>
                     <GuideCompaniesCell
