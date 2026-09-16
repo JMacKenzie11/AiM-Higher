@@ -92,7 +92,13 @@ test.describe("portfolio_admin", () => {
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
 
     await openUserMenu(page);
-    await page.getByRole("button", { name: /exit company/i }).click();
+    // BY TESTID, like scope-in.spec.ts. The button reads
+    // `Exit {scopedCompanyName}` — "Exit E2E Fixture Co" — so a
+    // /exit company/i match only ever hit the fallback label used
+    // when the company name is missing, which is never the case
+    // after a successful scope-in. It waited thirty seconds for a
+    // button whose text it had never matched.
+    await page.getByTestId("exit-company-scope").click();
 
     await expect(page).toHaveURL(/\/(portfolio|admin\/companies)$/, {
       timeout: 30_000,
@@ -114,9 +120,17 @@ test.describe("portfolio_admin", () => {
     // The new company appears as an ordinary card. Creating it also
     // seeds its chart roots and opening quarter through
     // seed_company_roots, which this role holds no content grant for.
-    await expect(page.getByText(name, { exact: true })).toBeVisible({
-      timeout: 30_000,
-    });
+    //
+    // SCOPED TO THE COMPANIES SECTION, because the name now appears
+    // twice on this page: once as a card, and once as a checkbox
+    // label in Company admin access, which lists every company on the
+    // instance. An unscoped getByText was a strict-mode violation the
+    // moment that card shipped — and "the name is somewhere on the
+    // page" was never the claim. The card is.
+    const companies = page.getByRole("region", { name: /companies/i });
+    await expect(
+      companies.getByText(name, { exact: true })
+    ).toBeVisible({ timeout: 30_000 });
   });
 
   test("cannot reach Guide HQ or the platform dashboard", async ({ page }) => {

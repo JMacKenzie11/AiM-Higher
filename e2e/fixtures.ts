@@ -151,8 +151,20 @@ export async function scopeCookie(page: Page): Promise<string | null> {
 export async function scopedCompanyId(page: Page): Promise<string | null> {
   const raw = await scopeCookie(page);
   if (!raw) return null;
-  const at = raw.indexOf(":");
-  return at > 0 ? raw.slice(at + 1) : null;
+  // DECODE FIRST. The cookie is stored as `<profileId>:<companyId>`
+  // and the colon is percent-encoded on the wire, so what Playwright
+  // hands back is `…%3A…`. Next decodes it before the app ever sees
+  // it; page.context().cookies() does not.
+  //
+  // Without this, indexOf(":") finds nothing, the helper answers null,
+  // and every test asserting "scoped into THIS company" fails with
+  // `Expected: <uuid>  Received: null` — which reads as "the scope
+  // cookie was never written" when it was written correctly. Two
+  // scope-in tests and two portfolio tests had been red on it,
+  // unnoticed because e2e is outside CI.
+  const decoded = decodeURIComponent(raw);
+  const at = decoded.indexOf(":");
+  return at > 0 ? decoded.slice(at + 1) : null;
 }
 
 // The fixture company's id, read from a scope-in control rather than
