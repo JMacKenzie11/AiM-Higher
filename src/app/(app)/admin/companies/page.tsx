@@ -226,12 +226,16 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
             guides={guides}
             companies={companies.map((c) => ({ id: c.id, name: c.name }))}
             sysadminCandidates={sysadminCandidates}
-            // Attention count intentionally NOT computed here — it was
-            // one live scorecard compute per company per page load,
-            // which balloons quickly as caseloads grow. The value is
-            // still visible on each guide's /hq surface where it
-            // actually matters; the panel column is a nice-to-have.
-            attentionCountByGuideId={{}}
+            /* No Attention column. It was switched off at birth —
+               computing it meant one live scorecard per company per
+               page load — so it rendered "—" for every guide on every
+               visit, which reads as "nothing needs attention" rather
+               than "we never worked it out". A guide with eight
+               companies and a dash beside them is a claim the page
+               cannot back. The number is real and still on each
+               guide's own /hq, where they act on it; if it is ever
+               wanted here it should come from the stored scorecard
+               snapshots the perf cron already writes. */
           />
         ) : null}
 
