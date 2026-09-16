@@ -46,7 +46,7 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "role_descriptions",
     label: "Role Descriptions",
-    hint: "Interview-driven role documents per Function.",
+    hint: "Generate role descriptions for each function.",
   },
 ];
 
