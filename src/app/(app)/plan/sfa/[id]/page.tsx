@@ -95,8 +95,11 @@ export default async function SfaDetailPage({ params }: PageProps) {
 
         {isAdmin ? (
           <div className={planStyles.addRow}>
+            {/* Exclusive accordion, natively: opening one closes the
+                other. See the same grouping on /plan. */}
             <details
               className={planStyles.addDetails}
+              name="sfa-detail-add"
               data-testid="sfa-add-goal-panel"
             >
               <summary className={planStyles.addSummary}><PlusIcon />Add goal</summary>
@@ -113,6 +116,7 @@ export default async function SfaDetailPage({ params }: PageProps) {
             {detail.openQuarter ? (
               <details
                 className={planStyles.addDetails}
+                name="sfa-detail-add"
                 data-testid="sfa-add-priority-panel"
               >
                 <summary className={planStyles.addSummary}>
