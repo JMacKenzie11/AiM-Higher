@@ -257,7 +257,13 @@ function ExtractedCommitmentRowItem({
             </select>
             <button
               type="button"
-              className={`${uiStyles.btnGhost} ${uiStyles.btnSm}`}
+              // btnPrimary, matching ExtractedIssuesSection's "Add to
+              // open issues" and "Resolved in meeting" directly below
+              // it. Both sections promote an extracted item into
+              // something real and both are the row's whole point;
+              // this one was the only ghost among them, which read as
+              // a different kind of control rather than the same one.
+              className={`${uiStyles.btnPrimary} ${uiStyles.btnSm}`}
               onClick={convertToIssue}
               disabled={pending}
               title="Create an issue titled from this description; does not create a commitment"
