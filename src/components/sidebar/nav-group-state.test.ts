@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_COLLAPSED_GROUPS,
@@ -16,7 +18,7 @@ import {
 // "continually have to reopen it" this was built to avoid.
 
 describe("the defaults", () => {
-  it("names the four groups that start closed", () => {
+  it("names the five groups that start closed", () => {
     // Pinned by name rather than only through the constant, so the
     // list cannot be changed without a test saying so. Every other
     // assertion in this file refers to DEFAULT_COLLAPSED_GROUPS
@@ -26,7 +28,38 @@ describe("the defaults", () => {
       "Portfolio",
       "Resources",
       "Strengths",
+      "System admin",
     ]);
+  });
+
+  it("spells every default exactly as the nav spells the group", () => {
+    // A default is matched against a group's `label` by string
+    // equality, so a capitalisation slip — "System Admin" for "System
+    // admin" — does not fail loudly. It is a default that silently
+    // does nothing, and the only symptom is a group that keeps
+    // starting open.
+    //
+    // Read from source rather than imported: the nav tree lives
+    // inside Sidebar.tsx, a 600-line client component, and this
+    // suite's environment is `node` with no DOM. Same trade as
+    // src/lib/auth/rls-privileges.test.ts, which reads migration text
+    // because there is no Postgres to ask. nav-bands.ts is the
+    // counter-example — when a decision is worth calling, extract it.
+    const source = readFileSync(
+      path.resolve(__dirname, "./Sidebar.tsx"),
+      "utf8"
+    );
+    const groupLabels = [
+      ...source.matchAll(/kind:\s*"group",\s*label:\s*"([^"]+)"/g),
+    ].map((m) => m[1]);
+
+    // Guard the guard: if the regex stops matching, every assertion
+    // below passes vacuously.
+    expect(groupLabels.length).toBeGreaterThanOrEqual(4);
+
+    for (const label of DEFAULT_COLLAPSED_GROUPS) {
+      expect(groupLabels).toContain(label);
+    }
   });
 
   it("leaves Workspace open", () => {
