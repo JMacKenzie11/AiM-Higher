@@ -81,6 +81,9 @@ export type CoachUsagePurpose =
   | "brief" // dashboard "Week in review" brief
   | "clarity" // commitment clarity, measure critique, measure target check
   | "facilitation" // leadership facilitation review
+  | "facilitation_retry" // that review's second attempt, when the
+  // first came back having scored nothing. Its own purpose so two
+  // rows for one meeting read as a retry rather than a double-charge.
   | "insights_analysis" // per-conversation Coaching insights summarizer
   | "memory" // coach memory: distilling a finished conversation
   | "other";
