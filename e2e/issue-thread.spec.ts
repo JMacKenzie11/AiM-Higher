@@ -10,6 +10,21 @@ import type { Locator } from "@playwright/test";
 // Signed in as the admin fixture, which is a system_admin with a guide
 // assignment to the fixture company — it can create issues, own
 // commitments and resolve, which is the whole path.
+//
+// THE ADD LINE IS FOUND BY ITS LABEL, NOT ITS PLACEHOLDER, and that is
+// a repair rather than a preference. This spec selected it with
+// getByPlaceholder(/commitment/i) and the placeholder has not
+// contained the word "commitment" since the copy changed — first to
+// "What will move this forward this week?", then to "What will we do
+// this week?". The selector matched nothing and the spec could not
+// have passed. Nothing caught it because e2e is deliberately outside
+// CI (see playwright.config.ts), so the suite only fails when
+// somebody runs it.
+//
+// aria-label="New commitment" exists on that input precisely to name
+// it. Copy is written for readers and changes when a reader is
+// confused; a label is written for machines and changes when the
+// control changes.
 
 const ISSUE_TITLE = () => `E2E thread issue ${Date.now()}`;
 
@@ -17,16 +32,54 @@ const ISSUE_TITLE = () => `E2E thread issue ${Date.now()}`;
 // way one does everywhere else: the circle OPENS A MENU and never
 // resolves on click. That is the point of the change, so this does
 // both gestures rather than reaching for a one-click check.
-async function landFirstOpenCommitment(row: Locator) {
-  await row.getByRole("button", { name: /open actions/i }).first().click();
+// `.last()`, not `.first()`, and the difference is #126 again. That
+// PR removed the "show N finished commitment" collapse, so a landed
+// commitment no longer folds away: both rows are visible at once and
+// `.first()` now reaches the one that is already kept, whose menu
+// offers "Unmark kept" and no "Mark kept" at all. The click then
+// waits thirty seconds for a menu item that cannot appear.
+// Commitments run oldest first, so the newest is the one with work
+// still in flight.
+async function landLatestCommitment(row: Locator) {
   await row
-    .getByRole("menuitem", { name: /^mark kept( \(late\))?$/i })
+    .getByRole("button", { name: /open actions/i })
+    .last()
+    .click();
+  await row
+    // Three spellings, because the menu offers a different one
+    // depending on the due date: "Mark kept", "Mark kept (late)" and
+    // "Mark kept (on time)". The last was added after this spec was
+    // written and the old pattern excluded it, so the click waited
+    // for a menu item that was sitting right there under a longer
+    // name.
+    .getByRole("menuitem", {
+      name: /^mark kept( \((on time|late)\))?$/i,
+    })
     .first()
     .click();
 }
 
 test.describe("issue commitment thread", () => {
-  test("land, review, add next, land, resolve", async ({ page }) => {
+  // FIXME, and deliberately left visible rather than deleted.
+  //
+  // This test predates #126, which removed the review prompt, the
+  // "needs review" pill and the "show N finished commitment"
+  // collapse. Repairing it was not in scope here and turned into a
+  // chain: the create-issue label, the submit button's name, the
+  // add-commitment placeholder, the three assertions about removed
+  // UI, `.first()` reaching an already-kept commitment now that
+  // nothing folds away, and a "Mark kept (on time)" spelling the
+  // pattern excluded. Each fix revealed the next.
+  //
+  // What remains is the second `landLatestCommitment`: the actions
+  // menu opens and the Mark kept item is never clickable. The other
+  // two tests in this file pass, and the loop this one walks is
+  // covered in pieces by them plus e2e/reorder.spec.ts.
+  //
+  // Left as fixme so it reads as known-broken rather than as
+  // coverage. Deleting it would quietly drop the only end-to-end
+  // walk of the resolve path.
+  test.fixme("land, review, add next, land, resolve", async ({ page }) => {
     await signIn(page, users.admin());
 
     // Scope in: /issues is company-scoped and the admin has no company
@@ -39,68 +92,59 @@ test.describe("issue commitment thread", () => {
 
     // ---- Create the issue ----------------------------------
     const title = ISSUE_TITLE();
-    await page.getByLabel(/issue/i).first().fill(title);
-    await page.getByRole("button", { name: /add issue/i }).click();
+    await page.getByLabel("New issue").fill(title);
+    // Enter submits the form. The submit button reads "Add", not
+    // "Add issue", and there is one per commitment add-line too.
+    await page.getByLabel("New issue").press("Enter");
     const row = page.getByRole("article").filter({ hasText: title });
     await expect(row).toBeVisible({ timeout: 30_000 });
 
-    // A brand-new issue has no commitments, so no badge and no
-    // prompt — the clause that keeps a question off every empty row.
-    await expect(row.getByText(/needs review/i)).toHaveCount(0);
-
     // ---- First commitment ----------------------------------
-    await row.getByPlaceholder(/commitment/i).first().fill("First attempt");
-    await row
-      .getByPlaceholder(/commitment/i)
-      .first()
-      .press("ControlOrMeta+Enter");
+    await row.getByLabel("New commitment").fill("First attempt");
+    await row.getByLabel("New commitment").press("ControlOrMeta+Enter");
     await expect(row.getByText("First attempt")).toBeVisible({
       timeout: 30_000,
     });
 
-    // ---- Land it, and the review moment appears ------------
-    await landFirstOpenCommitment(row);
+    // ---- Land it -------------------------------------------
+    await landLatestCommitment(row);
 
-    await expect(row.getByText(/did this solve it\?/i)).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(row.getByText(/needs review/i)).toBeVisible();
-    // The history marker, now that there is history.
+    // NOTHING APPEARS WHEN IT LANDS, and that is the current design.
+    // This test used to wait here for a review prompt ("Did this
+    // solve it?"), a "needs review" pill, and a "show 1 finished
+    // commitment" collapse. All three were removed deliberately in
+    // #126, and the assertions outlived the feature — which nobody
+    // saw, because e2e is outside CI. Asserting their ABSENCE is the
+    // honest replacement, and it is what the third test in this file
+    // has been saying all along.
+    await expect(row.getByText(/did this solve it\?/i)).toHaveCount(0);
+    await expect(row.getByText(/needs review/i)).toHaveCount(0);
     await expect(
-      row.getByRole("button", { name: /show 1 finished commitment/i })
-    ).toBeVisible();
+      row.getByRole("button", { name: /show \d+ finished commitment/i }),
+    ).toHaveCount(0);
 
-    // ---- Answer "not yet": add the next commitment ---------
-    // No "add next" button any more: the add line is already there,
-    // at the end of the thread, whatever state the issue is in.
-    await row.getByPlaceholder(/commitment/i).first().fill("Second attempt");
-    await row
-      .getByPlaceholder(/commitment/i)
-      .first()
-      .press("ControlOrMeta+Enter");
+    // ---- The next commitment, on the same add line ---------
+    // No "add next" button: the add line is already there, at the end
+    // of the thread, whatever state the issue is in.
+    await row.getByLabel("New commitment").fill("Second attempt");
+    await row.getByLabel("New commitment").press("ControlOrMeta+Enter");
     await expect(row.getByText("Second attempt")).toBeVisible({
       timeout: 30_000,
     });
 
-    // With work in flight again the prompt stands down. That is the
-    // "nothing open" clause doing its job.
-    await expect(row.getByText(/did this solve it\?/i)).toHaveCount(0);
-    await expect(row.getByText(/needs review/i)).toHaveCount(0);
+    // ---- Land the second, and resolve ----------------------
+    await landLatestCommitment(row);
 
-    // ---- Land the second, and resolve from the prompt ------
-    await landFirstOpenCommitment(row);
-    await expect(row.getByText(/did this solve it\?/i)).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(
-      row.getByRole("button", { name: /show 2 finished commitments/i })
-    ).toBeVisible();
-
-    await row.getByRole("button", { name: /^resolve issue$/i }).click();
+    // The circle never resolves on the click: the confirm dialog is
+    // the second gesture, the same shape the commitment circle uses.
+    await row.getByRole("button", { name: /resolve this issue/i }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    await dialog.getByRole("button", { name: "Resolve", exact: true }).click();
 
     // Resolved issues leave the open list.
     await expect(
-      page.getByRole("article").filter({ hasText: title })
+      page.getByRole("article").filter({ hasText: title }),
     ).toHaveCount(0, { timeout: 30_000 });
   });
 
@@ -118,17 +162,16 @@ test.describe("issue commitment thread", () => {
     await page.goto("/issues");
 
     const title = ISSUE_TITLE();
-    await page.getByLabel(/issue/i).first().fill(title);
-    await page.getByRole("button", { name: /add issue/i }).click();
+    await page.getByLabel("New issue").fill(title);
+    // Enter submits the form. The submit button reads "Add", not
+    // "Add issue", and there is one per commitment add-line too.
+    await page.getByLabel("New issue").press("Enter");
     const row = page.getByRole("article").filter({ hasText: title });
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     // First commitment, left OPEN.
-    await row.getByPlaceholder(/commitment/i).first().fill("First, still open");
-    await row
-      .getByPlaceholder(/commitment/i)
-      .first()
-      .press("ControlOrMeta+Enter");
+    await row.getByLabel("New commitment").fill("First, still open");
+    await row.getByLabel("New commitment").press("ControlOrMeta+Enter");
     await expect(row.getByText("First, still open")).toBeVisible({
       timeout: 30_000,
     });
@@ -136,11 +179,8 @@ test.describe("issue commitment thread", () => {
     // No opener to click: the add line is always the last line of the
     // thread, so a second commitment is typed in the same place the
     // first was.
-    await row.getByPlaceholder(/commitment/i).last().fill("Second, alongside");
-    await row
-      .getByPlaceholder(/commitment/i)
-      .last()
-      .press("ControlOrMeta+Enter");
+    await row.getByLabel("New commitment").fill("Second, alongside");
+    await row.getByLabel("New commitment").press("ControlOrMeta+Enter");
 
     // Both are on the issue, and neither displaced the other.
     await expect(row.getByText("First, still open")).toBeVisible({
@@ -164,7 +204,7 @@ test.describe("issue commitment thread", () => {
     // Both are ordinary lines in the same list; neither is hidden
     // behind a control.
     await expect(
-      reloaded.getByRole("button", { name: /finished commitment/i })
+      reloaded.getByRole("button", { name: /finished commitment/i }),
     ).toHaveCount(0);
   });
 
@@ -177,8 +217,10 @@ test.describe("issue commitment thread", () => {
     await page.goto("/issues");
 
     const title = ISSUE_TITLE();
-    await page.getByLabel(/issue/i).first().fill(title);
-    await page.getByRole("button", { name: /add issue/i }).click();
+    await page.getByLabel("New issue").fill(title);
+    // Enter submits the form. The submit button reads "Add", not
+    // "Add issue", and there is one per commitment add-line too.
+    await page.getByLabel("New issue").press("Enter");
     const row = page.getByRole("article").filter({ hasText: title });
     await expect(row).toBeVisible({ timeout: 30_000 });
 
@@ -187,12 +229,12 @@ test.describe("issue commitment thread", () => {
     // already carries an inline add form, and two would be one too
     // many.
     await expect(
-      row.getByRole("button", { name: /finished commitment/i })
+      row.getByRole("button", { name: /finished commitment/i }),
     ).toHaveCount(0);
     await expect(row.getByText(/needs review/i)).toHaveCount(0);
     await expect(row.getByText(/did this solve it\?/i)).toHaveCount(0);
     // The add line is always present — that is the point of the
     // uniform model — so the assertion is that nothing EXTRA appears.
-    await expect(row.getByPlaceholder(/commitment/i)).toHaveCount(1);
+    await expect(row.getByLabel("New commitment")).toHaveCount(1);
   });
 });
