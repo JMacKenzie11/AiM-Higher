@@ -86,3 +86,11 @@
   color: var(--text-muted);
   font: var(--text-body-sm);
 }
+
+.detail {
+  margin-top: var(--space-2);
+}
+
+.rowActions {
+  margin-top: var(--space-3);
+}

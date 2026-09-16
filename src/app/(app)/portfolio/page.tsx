@@ -4,7 +4,8 @@ import {
   loadPortfolioOverview,
   loadPortfolioAdminAccess,
 } from "@/lib/portfolio/service";
-import { CompanyAccessCard } from "./CompanyAccessCard";
+import { CompanyAccessRows } from "@/components/access/CompanyAccessRows";
+import { setPortfolioCompanyAccessAction } from "@/lib/portfolio/company-access-actions";
 import { CreateCompanyForm } from "../admin/companies/CreateCompanyForm";
 import { PortfolioCompanyCard } from "./PortfolioCompanyCard";
 import styles from "./portfolio.module.css";
@@ -106,9 +107,17 @@ export default async function PortfolioPage() {
                   company&rsquo;s team list. Reading every company on the
                   instance does not depend on this and never changes.
                 </p>
-                <CompanyAccessCard
-                  rows={accessRows}
+                <CompanyAccessRows
+                  rows={accessRows.map((r) => ({
+                    id: r.id,
+                    name: r.fullName,
+                    companyIds: r.companyIds,
+                    openCommitmentsByCompany: r.openCommitmentsByCompany,
+                  }))}
                   companies={cards.map((c) => ({ id: c.id, name: c.name }))}
+                  action={setPortfolioCompanyAccessAction}
+                  personLabel="Portfolio admin"
+                  emptyLabel="No portfolio admins on this instance yet."
                 />
               </section>
             ) : null}

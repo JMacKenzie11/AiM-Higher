@@ -1,45 +1,81 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { setPortfolioCompanyAccessAction } from "@/lib/portfolio/company-access-actions";
-import type { PortfolioAdminAccess } from "@/lib/portfolio/service";
+import { useState, useTransition, type ReactNode } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./access.module.css";
 
-// Company admin access, one row per portfolio admin.
+// Who holds company access, one row per person, a checkbox per
+// company, one Update per row.
 //
-// NO "PICK A PERSON" DROPDOWN, unlike the caseload card this borrows
-// its shape from. The row IS the person: a portfolio admin sees only
-// themselves, because portfolio_assignments_insert (0199) admits a
-// row only when it names the caller, and offering a picker of people
-// whose rows RLS would refuse is an affordance that lies. A system
-// admin sees every row, which is the same list.
+// SHARED BY PORTFOLIO ADMINS AND GUIDES because they are the same
+// question asked twice. Both are people with no company_id of their
+// own who hold rights in a list of companies; both lose their only
+// write path when a company comes off that list. Two tables that
+// resemble each other is how the guides panel ended up with a chip
+// list, a separate "Assign To" picker, and two columns that render a
+// dash — three controls for one idea.
+//
+// NO "PICK A PERSON" DROPDOWN. The row IS the person. For portfolio
+// admins that is also what RLS says: portfolio_assignments_insert
+// admits a row only when it names the caller, so offering a picker of
+// people whose rows would be refused is an affordance that lies.
 //
 // The checkboxes are the current state, not a request. Tick, untick,
 // press Update — and unticking is the half that needs care, which is
 // why the confirm counts what it is about to release.
+//
+// THE ACTION ARRIVES AS A PROP, which is the one kind of function
+// allowed across the server/client boundary: a server action. Failure
+// mode E12 is the general rule (a plain function throws at render
+// time); `"use server"` is the exception that makes this legal.
 
-type Row = PortfolioAdminAccess;
+// Counts are optional so both callers fit: the portfolio action
+// reports what it changed, the guide action does not. An action that
+// says nothing gets a plain "Saved." rather than an invented tally.
+export type AccessResult =
+  | { ok: true; added?: number; removed?: number; released?: number }
+  | { ok: false; message: string };
 
-export function CompanyAccessCard({
+export type AccessRowData = {
+  id: string;
+  name: string;
+  /** Rendered under the name: a role badge, a status pill, anything. */
+  detail?: ReactNode;
+  companyIds: string[];
+  openCommitmentsByCompany: Record<string, number>;
+  /** Account-level controls for this person, if any. */
+  actions?: ReactNode;
+};
+
+type Row = AccessRowData;
+
+export function CompanyAccessRows({
   rows,
   companies,
+  action,
+  emptyLabel,
+  personLabel,
 }: {
   rows: Row[];
   companies: Array<{ id: string; name: string }>;
+  action: (id: string, companyIds: string[]) => Promise<AccessResult>;
+  emptyLabel: string;
+  personLabel: string;
 }) {
   if (rows.length === 0) {
-    return (
-      <p className={styles.emptyLine}>
-        No portfolio admins on this instance yet.
-      </p>
-    );
+    return <p className={styles.emptyLine}>{emptyLabel}</p>;
   }
   return (
     <div className={styles.rows}>
       {rows.map((row) => (
-        <AccessRow key={row.id} row={row} companies={companies} />
+        <AccessRow
+          key={row.id}
+          row={row}
+          companies={companies}
+          action={action}
+          personLabel={personLabel}
+        />
       ))}
     </div>
   );
@@ -48,18 +84,27 @@ export function CompanyAccessCard({
 function AccessRow({
   row,
   companies,
+  action,
+  personLabel,
 }: {
   row: Row;
   companies: Array<{ id: string; name: string }>;
+  action: (id: string, companyIds: string[]) => Promise<AccessResult>;
+  personLabel: string;
 }) {
   const [checked, setChecked] = useState<Set<string>>(
+    () => new Set(row.companyIds)
+  );
+  // What the server last confirmed. Props refresh on revalidate, but
+  // not before the message is read, so the row compares against this.
+  const [saved, setSaved] = useState<Set<string>>(
     () => new Set(row.companyIds)
   );
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
-  const original = new Set(row.companyIds);
+  const original = saved;
   const removing = [...original].filter((id) => !checked.has(id));
   const adding = [...checked].filter((id) => !original.has(id));
   const dirty = removing.length > 0 || adding.length > 0;
@@ -77,7 +122,7 @@ function AccessRow({
     setConfirming(false);
     setMessage(null);
     startTransition(async () => {
-      const result = await setPortfolioCompanyAccessAction(row.id, [...checked]);
+      const result = await action(row.id, [...checked]);
       if (!result.ok) {
         setMessage(result.message);
         return;
@@ -92,15 +137,21 @@ function AccessRow({
           } released to Unassigned`
         );
       }
-      setMessage(parts.length ? parts.join(", ") + "." : "Nothing changed.");
+      setMessage(parts.length ? parts.join(", ") + "." : "Saved.");
+      // The checkboxes are now the truth: what was pending is what
+      // the server has. Without this an Update leaves the button
+      // enabled and the row looking unsaved.
+      setSaved(new Set(checked));
     });
   }
 
   return (
-    <section className={styles.row} aria-label={`Company access for ${row.fullName}`}>
+    <section className={styles.row} aria-label={`Company access for ${row.name}`}>
       <div className={styles.rowHead}>
-        <p className={styles.personLabel}>Portfolio admin</p>
-        <p className={styles.personName}>{row.fullName}</p>
+        <p className={styles.personLabel}>{personLabel}</p>
+        <p className={styles.personName}>{row.name}</p>
+        {row.detail ? <div className={styles.detail}>{row.detail}</div> : null}
+        {row.actions ? <div className={styles.rowActions}>{row.actions}</div> : null}
       </div>
 
       <div className={styles.rowBody}>

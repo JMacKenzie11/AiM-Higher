@@ -178,6 +178,16 @@ Decision 9 moved *everyone* assigned to a company off `/people` and onto the com
 
 **Migration 0205** widens `portfolio_assignments_delete` to admit a `company_admin` of the company the assignment names, and widens the matching SELECT — **the second is what makes the first work at all** (failure mode E11: a `delete ... where` cannot reach a row the SELECT policy hides, and widening the delete alone changes nothing, silently). The SELECT widening also finishes a job 0204 left half done: `getAssignablePeople` reads `portfolio_assignments` through the caller's client, and for a company admin that read was returning zero rows, so the portfolio half of the owner picker quietly did nothing while the guide half worked.
 
+**12. Guides and portfolio admins get the same access card.** Decided 2026-09-16 (Jason). They are the same question asked twice: a person with no `company_id` of their own, holding rights in a list of companies, who loses their only write path when a company comes off that list. One shared `CompanyAccessRows` renders both — a row per person, a checkbox per company, one Update.
+
+The guides panel previously carried a chip list with a `×` per company, a separate **Assign To** picker, and two columns (**Attention**, **Actions**) that rendered a dash for the only visible row. Three controls for one idea, plus a column with nothing behind it.
+
+**Unticking releases the person's open commitments in that company, for guides too.** A guide's `auth_company_id()` is null, so `commitments_update_owner` has never admitted them and `is_guide_for()` was their only write path. Since decision 10 gave guides commitments to own, this stopped being hypothetical. Release happens **before** the assignment is deleted, or the release is refused and the work is stranded by the act meant to free it.
+
+**A guide still keeps at least one company.** Carried over from `unassignGuideAction`, which this replaces: a guide coaching nobody should be deleted, and the message says so. A system admin carrying a caseload may go to zero — the role does not rest on the assignments.
+
+**The Attention column is gone.** It was switched off at birth, because computing it meant one live scorecard per company per page load, so it rendered `—` for every guide on every visit. A guide with eight companies and a dash beside them reads as "nothing needs attention" rather than "we never worked it out". The number is real and still on each guide's own `/hq`; at fleet level it should come from the stored scorecard snapshots the perf cron already writes.
+
 **10. An assigned guide or portfolio admin can own a commitment.** Decided 2026-09-16 (Jason). A guide works alongside the team, so work can land on them the way it lands on anybody else. Owner pickers on `/commitments` and `/issues` list the company's active members **plus the people assigned to it** — `guide_assignments` and `portfolio_assignments` — through one shared `getAssignablePeople()` rather than three copies.
 
 **Nothing in the database ever stopped this.** `commitments.owner_id` is `references profiles(id)` and carries no constraint tying an owner to the row's company. The only thing keeping guides out of the picker was the picker.
