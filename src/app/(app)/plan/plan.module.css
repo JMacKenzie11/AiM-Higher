@@ -39,7 +39,15 @@
   padding: var(--space-4) var(--space-5);
 }
 
+/* The positioned ancestor for every add panel. It used to be each
+   <details>, with the panel pinned to `right: 0` of its own button.
+   That worked only while every button sat at the right end of the
+   row: the moment one was added at the LEFT end, its panel hung off
+   that button's right edge and ran off the side of the screen,
+   underneath the sidebar. Anchoring to the row instead means each
+   panel drops under the same right edge whichever button opened it. */
 .toolbarActions {
+  position: relative;
   display: flex;
   gap: var(--space-2);
   align-items: center;
@@ -150,8 +158,10 @@
   color: var(--primary-hover);
 }
 
+/* NOT position: relative. See .toolbarActions above: the panel is
+   anchored to the row, not to the button that opened it. */
 .toolbarAddDetails {
-  position: relative;
+  position: static;
 }
 
 .toolbarAddSummary {
@@ -495,8 +505,25 @@
 }
 
 /* ---- Add-form disclosure ---- */
+/* Row that holds the add controls side by side. They used to stack,
+   each on its own line with a full margin between them, which read
+   as two unrelated links rather than a pair of choices. When one
+   opens it takes the whole row (see .addDetails[open]) so the form
+   below has its full width back. */
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
 .addDetails {
   margin-top: var(--space-2);
+}
+
+.addRow > .addDetails {
+  margin-top: 0;
 }
 
 /* Summary button stays tight (inline-flex above), while the details
@@ -508,18 +535,29 @@
   width: 100%;
 }
 
+/* A real control rather than a bare blue word. Same pill geometry
+   and hover rhythm as the toolbar's primary add buttons, in the
+   app's ghost vocabulary: these are secondary to what is already on
+   the card, and a second row of solid navy pills would compete with
+   it. Cobalt text and border keep them reading as create actions. */
 .addSummary {
   list-style: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-2);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-4);
   color: var(--primary);
+  background: var(--surface);
+  border: 1px solid var(--border);
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: 13px;
-  border-radius: var(--radius-sm);
-  transition: background var(--duration-fast) var(--ease-out);
+  border-radius: var(--radius-pill);
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .addSummary::-webkit-details-marker {
@@ -528,12 +566,48 @@
 
 .addSummary:hover {
   background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
   color: var(--primary-hover);
 }
 
+.addSummary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+/* Open reads as pressed: filled, and the border matches so the pill
+   does not appear to grow. */
 .addDetails[open] > .addSummary {
   background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
 }
+
+/* The panel an inline pill opens.
+   
+   The pill's open state is already cobalt tint (see above). The panel
+   continues it, so the two read as one object rather than a button
+   with an unrelated form underneath — which is what a bare form on
+   the card's white surface looked like. No border: the tint is doing
+   the separating, and a border here would be a third edge beside the
+   pill's own and the card's.
+   
+   Scoped to `> .form` so it reaches only the INLINE forms. The
+   toolbar's version of this form already sits inside
+   .toolbarAddPanel, a floating white panel with its own padding and
+   shadow, and is not a direct child of its <details>. */
+.addDetails[open] > .form {
+  margin-top: var(--space-3);
+  padding: var(--space-5);
+  background: var(--aims-cobalt-tint);
+  border-radius: var(--radius-md);
+}
+
+/* An opened panel takes the whole row, so the form below has its full
+   width back rather than being squeezed into the pill's column. */
+.addRow > .addDetails[open] {
+  flex: 1 1 100%;
+}
+
 
 /* ---- Forms ---- */
 .form {
@@ -600,6 +674,21 @@
   grid-column: 1 / -1;
   display: flex;
   gap: var(--space-3);
+}
+
+/* Checkbox sits on the same baseline as its word, and the whole
+   thing is the hit target. Matches the "Ongoing (weekly)" control on
+   the commitments composer. */
+.checkboxLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font: var(--text-body-sm);
+  color: var(--text);
+  /* Aligns with the sibling fields, whose label sits above the
+     control rather than beside it. */
+  margin-top: calc(var(--space-5) + 2px);
 }
 
 .errorMessage {

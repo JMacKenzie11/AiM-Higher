@@ -925,7 +925,7 @@ export function CommitmentRow({
         <ConfirmDialog
           open={confirmDelete}
           title="Delete this commitment?"
-          message="This can't be undone. Any linkage to an action will be lost too."
+          message="This can't be undone. Any linkage to a priority will be lost too."
           confirmLabel="Delete"
           tone="danger"
           onConfirm={runDelete}

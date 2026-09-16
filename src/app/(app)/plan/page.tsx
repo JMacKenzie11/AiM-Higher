@@ -10,6 +10,7 @@ import { QuarterSwitcher } from "./QuarterSwitcher";
 import { AddSfaForm } from "./AddSfaForm";
 import { AddGoalForm } from "./AddGoalForm";
 import { AddPriorityForm } from "./AddPriorityForm";
+import { AddCommitmentForm } from "./AddCommitmentForm";
 import { LinkGoalToSfaSelect } from "./LinkGoalToSfaSelect";
 import { LinkPriorityToParentSelect } from "./LinkPriorityToParentSelect";
 import { CascadePriorityRow } from "./CascadePriorityRow";
@@ -21,6 +22,7 @@ import styles from "./plan.module.css";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { thisFriday } from "@/lib/dates";
 
 // Plan workspace — Section 8.3.
 
@@ -72,6 +74,47 @@ export default async function PlanPage({ searchParams }: PageProps) {
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
 
+  // Every priority in the selected quarter, labelled by what it sits
+  // under, for the Add Commitment picker. Two priorities can share a
+  // title under different parents, and "Sign the lease" twice in a
+  // row is not a choice anybody can make.
+  const priorityChoices = [
+    ...cascade.sfas.flatMap((sfa) => [
+      ...sfa.goals.flatMap((goal) =>
+        goal.priorities.map((p) => ({
+          id: p.id,
+          title: p.title,
+          parentLabel: `${sfa.title} › ${goal.title}`,
+        }))
+      ),
+      ...sfa.priorities.map((p) => ({
+        id: p.id,
+        title: p.title,
+        parentLabel: sfa.title,
+      })),
+    ]),
+    ...cascade.orphanGoals.flatMap((goal) =>
+      goal.priorities.map((p) => ({
+        id: p.id,
+        title: p.title,
+        parentLabel: goal.title,
+      }))
+    ),
+    ...cascade.orphanPriorities.map((p) => ({
+      id: p.id,
+      title: p.title,
+      parentLabel: "Standalone",
+    })),
+  ];
+
+  // This Friday in the COMPANY's timezone, not the reader's laptop's.
+  const { data: companyRow } = await supabase
+    .from("companies")
+    .select("timezone")
+    .eq("id", companyId)
+    .maybeSingle<{ timezone: string | null }>();
+  const defaultDueDate = thisFriday(companyRow?.timezone ?? "America/Anchorage");
+
   const sfaOptions = cascade.sfas.map((sfa) => ({ id: sfa.id, title: sfa.title }));
   const goalOptions = [
     ...cascade.sfas.flatMap((sfa) =>
@@ -120,6 +163,30 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 picker whenever the parent exists. Bulk Reset lives
                 in the dedicated danger zone at the bottom so it
                 can't be mistaken for a primary create action. */}
+            {/* Commitments come LAST in the cascade and FIRST in this
+                row, by the product owner's decision: it is the
+                button a team reaches for weekly, where the other
+                three are reached for once a quarter. Only offered
+                when there is a priority to attach one to, because a
+                picker with nothing in it is a dead end. */}
+            {priorityChoices.length > 0 ? (
+              <details
+                className={styles.toolbarAddDetails}
+                data-testid="add-commitment-panel"
+              >
+                <summary className={styles.toolbarAddSummary}>
+                  + Add Commitment
+                </summary>
+                <div className={styles.toolbarAddPanel}>
+                  <AddCommitmentForm
+                    priorities={priorityChoices}
+                    people={roster}
+                    defaultOwnerId={session.profile.id}
+                    defaultDueDate={defaultDueDate}
+                  />
+                </div>
+              </details>
+            ) : null}
             <details
               className={styles.toolbarAddDetails}
               data-testid="add-sfa-panel"
@@ -307,40 +374,42 @@ export default async function PlanPage({ searchParams }: PageProps) {
                   )}
 
                   {isAdmin ? (
-                    <details
-                      className={styles.addDetails}
-                      data-testid="sfa-add-goal-panel"
-                    >
-                      <summary className={styles.addSummary}>
-                        + Add goal
-                      </summary>
-                      <AddGoalForm
-                        defaultSfaId={sfa.id}
-                        sfaOptions={sfaOptions}
-                        people={roster}
-                      />
-                    </details>
-                  ) : null}
+                    <div className={styles.addRow}>
+                      <details
+                        className={styles.addDetails}
+                        data-testid="sfa-add-goal-panel"
+                      >
+                        <summary className={styles.addSummary}>
+                          + Add goal
+                        </summary>
+                        <AddGoalForm
+                          defaultSfaId={sfa.id}
+                          sfaOptions={sfaOptions}
+                          people={roster}
+                        />
+                      </details>
 
-                  {isAdmin && selectedQuarter ? (
-                    <details
-                      className={styles.addDetails}
-                      data-testid="sfa-add-priority-panel"
-                    >
-                      <summary className={styles.addSummary}>
-                        + Add quarterly priority
-                      </summary>
-                      <AddPriorityForm
-                        quarterId={selectedQuarter.id}
-                        defaultParent={formatParentRef({
-                          kind: "sfa",
-                          id: sfa.id,
-                        })}
-                        goalOptions={goalOptions}
-                        sfaOptions={sfaOptions}
-                        people={roster}
-                      />
-                    </details>
+                      {selectedQuarter ? (
+                        <details
+                          className={styles.addDetails}
+                          data-testid="sfa-add-priority-panel"
+                        >
+                          <summary className={styles.addSummary}>
+                            + Add quarterly priority
+                          </summary>
+                          <AddPriorityForm
+                            quarterId={selectedQuarter.id}
+                            defaultParent={formatParentRef({
+                              kind: "sfa",
+                              id: sfa.id,
+                            })}
+                            goalOptions={goalOptions}
+                            sfaOptions={sfaOptions}
+                            people={roster}
+                          />
+                        </details>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               </details>
