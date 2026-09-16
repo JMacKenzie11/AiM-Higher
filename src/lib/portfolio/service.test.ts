@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
   const companies = vi.fn();
   const priorities = vi.fn();
   const commitments = vi.fn();
+  const occurrences = vi.fn();
   const scorecard = vi.fn();
   const currentQuarter = vi.fn();
 
@@ -29,12 +30,16 @@ const mocks = vi.hoisted(() => {
       if (table === "companies") return Promise.resolve(companies()).then(onFulfilled);
       if (table === "priorities") return Promise.resolve(priorities()).then(onFulfilled);
       if (table === "commitments") return Promise.resolve(commitments()).then(onFulfilled);
+      // The resolved weeks of any recurring commitment. Follow-Through
+      // counts one unit per week, not one per commitment row.
+      if (table === "commitment_occurrences")
+        return Promise.resolve(occurrences()).then(onFulfilled);
       throw new Error(`Unexpected table: ${table}`);
     };
     return builder;
   };
 
-  return { companies, priorities, commitments, scorecard, currentQuarter, from };
+  return { companies, priorities, commitments, occurrences, scorecard, currentQuarter, from };
 });
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -95,6 +100,13 @@ function primeOneCompany() {
       { status: "open", due_date: "2026-09-18" },
     ],
   });
+  // A recurring commitment's resolved weeks. Its parent row is the
+  // "open, not yet due" one above: it never leaves 'open' while the
+  // cycle runs, so before this population counted weeks, three kept
+  // weeks were worth nothing at all.
+  mocks.occurrences.mockResolvedValue({
+    data: [{ status: "kept_on_time" }, { status: "kept_on_time" }],
+  });
 }
 
 describe("loadPortfolioOverview", () => {
@@ -125,19 +137,32 @@ describe("loadPortfolioOverview", () => {
     const { summarizeFollowThrough } = await import(
       "@/lib/commitments/follow-through"
     );
+    const { mergeFollowThroughRows } = await import(
+      "@/lib/commitments/follow-through-rows"
+    );
     const { loadPortfolioOverview } = await import("./service");
 
     const [card] = await loadPortfolioOverview();
+    // The same rows the loader saw, merged by the same function it
+    // uses: commitments PLUS the resolved weeks of the recurring one.
+    // Building the expectation from commitments alone would assert
+    // the population this page used to have.
     const expected = summarizeFollowThrough(
-      (await mocks.commitments.mock.results[0].value).data,
+      mergeFollowThroughRows(
+        (await mocks.commitments.mock.results[0].value).data,
+        (await mocks.occurrences.mock.results[0].value).data
+      ),
       "2026-09-14"
     );
 
     expect(card.week).toEqual(expected);
-    // One kept on time out of four in the denominator: the not-yet-due
-    // open row is excluded, the overdue one is not.
-    expect(card.week.resolved).toBe(4);
-    expect(card.week.rate).toBe(25);
+    // Three kept on time out of six in the denominator. One is the
+    // plain kept commitment; the other two are weeks of the recurring
+    // one, which used to be invisible here — its parent row is the
+    // not-yet-due open row, and that is excluded entirely.
+    expect(card.week.keptOnTime).toBe(3);
+    expect(card.week.resolved).toBe(6);
+    expect(card.week.rate).toBe(50);
   });
 
   it("carries the scorecard's denominator alongside the score", async () => {
