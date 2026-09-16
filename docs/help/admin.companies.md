@@ -15,7 +15,7 @@ redirected straight to their own company's settings page.
 ## What you can do here
 
 - **Open a company** — click its name in the list. Every module
-  (Week in Review, Goals & Priorities, Functional Org Chart, etc.)
+  (Week in Review, Goals & Priorities, Functional Chart, etc.)
   then reads that company's data. Use *Exit* in the user menu to
   drop back out.
 - **Put the list in the order you want** — drag the handle at the

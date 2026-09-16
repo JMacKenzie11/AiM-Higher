@@ -117,7 +117,7 @@ function EmptyState({ isAdmin }: { isAdmin: boolean }) {
       <p className={styles.emptyLine}>
         No functions in this company yet.{" "}
         <Link href="/chart" className={styles.emptyLink}>
-          Build the Functional Org Chart first
+          Build the Functional Chart first
         </Link>
         , then come back here to add critical success factors and KPIs under
         each function.

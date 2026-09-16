@@ -1,8 +1,8 @@
 ---
-title: Functional Org Chart
+title: Functional Chart
 ---
 
-# Functional Org Chart
+# Functional Chart
 
 The org, in one view: who owns what. Every function has a leader,
 responsibilities they're on the hook for, critical success factors for

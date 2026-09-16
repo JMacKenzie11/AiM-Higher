@@ -102,7 +102,7 @@ const APP_ITEMS: readonly NavItem[] = [
       },
       { kind: "link", label: "One-Page Plan", href: "/foundation", icon: "doc" },
       { kind: "link", label: "Team", href: "/people", icon: "people" },
-      { kind: "link", label: "Functional Org Chart", href: "/chart", icon: "chart" },
+      { kind: "link", label: "Functional Chart", href: "/chart", icon: "chart" },
       // Restored 2026-09-04 as Critical Success Factors, the rethink
       // the surface was pulled for. Deliberately NOT gated on
       // performance_tracking: naming the results a function is
