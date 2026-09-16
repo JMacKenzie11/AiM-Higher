@@ -1,6 +1,14 @@
 import { test, expect, signIn, users } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
+// A DISCLOSURE IS SELECTED AS A <summary>, NEVER BY ITS TEXT.
+//
+// Every add panel has a summary that opens it and a submit button
+// that commits it, and since the labels lost their typed "+" the two
+// differ only by capitalisation — which getByText ignores. Selecting
+// the element type says which one is meant and survives the next
+// copy change.
+
 // The Add Commitment panel in the /plan toolbar.
 //
 // It writes through `createCommitmentAction`, the same action the
@@ -103,23 +111,23 @@ test("a commitment added from the plan toolbar lands on its priority", async ({
 
   // ---- Something to attach a commitment to -------------------
   const addSfa = page.getByTestId("add-sfa-panel");
-  await addSfa.getByText("Add focus area").click();
+  await addSfa.locator("summary").click();
   await addSfa.getByLabel("Title").fill(faTitle);
   await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const fa = sfaCard(page, faTitle);
   await expect(fa).toBeVisible({ timeout: 30_000 });
 
   const addPriority = fa.getByTestId("sfa-add-priority-panel");
-  await addPriority.getByText("Add quarterly priority", { exact: true }).click();
+  await addPriority.locator("summary").click();
   await addPriority.getByLabel("Title").fill(priTitle);
-  await addPriority.getByRole("button", { name: /Add priority/i }).click();
+  await addPriority.getByRole("button", { name: /Add quarterly priority/i }).click();
   await expect(
     page.getByRole("link", { name: priTitle, exact: true })
   ).toBeVisible({ timeout: 30_000 });
 
   // ---- The toolbar panel -------------------------------------
   const panel = page.getByTestId("add-commitment-panel");
-  await panel.getByText("Add commitment", { exact: true }).click();
+  await panel.locator("summary").click();
   await panel.getByLabel("Commitment").fill(commitment);
 
   // The picker groups priorities by what they sit under, so a

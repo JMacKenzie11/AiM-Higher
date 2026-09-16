@@ -92,3 +92,22 @@ test("the four toolbar adds hide behind one Add on a phone", async ({
   await expect(four).toBeVisible({ timeout: 30_000 });
   await expect(trigger).toBeHidden();
 });
+
+// Its own test, loaded straight at desktop width.
+//
+// The assertion above lives at the end of a test that starts on a
+// phone, and it passed while the trigger was in fact showing for
+// every desktop user — the page had been rendered at 430px first.
+// Landing on /plan cold at 1280 is the case a person actually has.
+test("the mobile Add trigger is not on the desktop toolbar", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await scopeIn(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/plan");
+  await expect(page.getByTestId("add-sfa-panel")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByRole("button", { name: "Add", exact: true })).toBeHidden();
+});

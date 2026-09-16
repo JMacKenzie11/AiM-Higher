@@ -75,7 +75,7 @@ export default async function GoalDetailPage({ params }: PageProps) {
           openQuarter ? (
             <details className={planStyles.addDetails}>
               <summary className={planStyles.addSummary}>
-                <PlusIcon />Add priority
+                <PlusIcon />Add quarterly priority
               </summary>
               <AddPriorityForm
                 quarterId={openQuarter.id}

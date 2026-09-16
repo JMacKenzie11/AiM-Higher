@@ -159,15 +159,26 @@
   display: none;
 }
 
+/* A floating panel, dressed as the brand dresses one.
+   
+   --grad-secondary is the app's existing light-surface panel fill,
+   white into sky-tint, already carrying the insight cards on
+   /dashboard, /foundation, /commitments and the admin dashboard. A
+   flat --surface panel over a --surface card left the two reading as
+   one undifferentiated sheet of white.
+   
+   --radius-lg rather than --radius-md because the token says what
+   this is: "modals, hero panels". A panel that floats over the page
+   with a shadow is closer to a modal than to a card. */
 .toolbarAddPanel {
   position: absolute;
   top: calc(100% + var(--space-2));
   right: 0;
   z-index: 5;
   width: min(560px, 92vw);
-  background: var(--surface);
+  background: var(--grad-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: var(--space-5);
 }
@@ -182,13 +193,23 @@
    screenshot the open state. */
 /* The mobile Add trigger. Hidden above the breakpoint, where there is
    room for the four buttons and a menu would only be a click tax. */
+/* Hidden on desktop. The [data-mobile-only] is load-bearing: this
+   composes .btn, which sets display: inline-flex, and a bare
+   `.mobileAddTrigger` is the same one-class specificity — so the
+   winner was whichever sheet the bundler emitted last, and it
+   emitted the shared one last. The trigger showed on desktop as a
+   result. Class + attribute out-specifies it and does not care about
+   emit order. */
 .mobileAddTrigger {
   composes: btnSecondary from "../../../components/ui/ui.module.css";
+}
+
+.mobileAddTrigger[data-mobile-only] {
   display: none;
 }
 
 @media (max-width: 640px) {
-  .mobileAddTrigger {
+  .mobileAddTrigger[data-mobile-only] {
     display: inline-flex;
   }
 
@@ -485,7 +506,10 @@
 
 .goalBody {
   padding: var(--space-3) 0 0 var(--space-4);
-  border-left: 2px solid var(--aims-navy-tint);
+  /* The rail IS the containment signal — it is what says the add
+     inside it belongs to this goal rather than to the card. At
+     navy-tint it was too pale to do that job at a glance. */
+  border-left: 2px solid var(--border-strong);
   margin-left: var(--space-2);
   margin-top: var(--space-2);
   display: flex;
@@ -548,7 +572,13 @@
   flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-2);
-  margin-top: var(--space-4);
+  /* A rule, because these act on the FOCUS AREA and the thing
+     directly above them is the last goal's own add. Without a
+     divider an empty goal's button and these sit a few pixels apart
+     and read as one group of three. */
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
 }
 
 .addDetails {
@@ -576,6 +606,37 @@
    never move. */
 .addDetails[open] {
   align-self: flex-start;
+}
+
+/* Adding a priority INSIDE a goal, as against adding one to the
+   focus area from the card footer.
+   
+   These two do the same thing to different parents, and the only
+   thing that ever said which was a 2px near-white rail. Both were
+   drawn as the same bordered button, so a goal's add and the card's
+   two footer buttons read as three peers — and once every label
+   correctly says "quarterly priority", identical labels make that
+   worse rather than better.
+   
+   So the nested one drops to ghost. No border, no box: it reads as
+   one more line inside the goal it sits in, the way an "add a row"
+   belongs to the list above it. The footer keeps its borders, and
+   the two levels stop looking alike. Containment carries the meaning
+   the label cannot. */
+.addSummaryNested {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+  composes: btnSm from "../../../components/ui/ui.module.css";
+  list-style: none;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.addSummaryNested::-webkit-details-marker {
+  display: none;
+}
+
+.addDetails[open] > .addSummaryNested {
+  background: var(--aims-cobalt-tint);
 }
 
 /* The app's standard button, not a variant of one.
@@ -626,9 +687,11 @@
   z-index: 5;
   margin-top: 0;
   padding: var(--space-5);
-  background: var(--surface);
+  /* Same brand panel fill and radius as .toolbarAddPanel above, so
+     an add panel looks like an add panel wherever it opens. */
+  background: var(--grad-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
 }
 
@@ -720,9 +783,12 @@
   cursor: pointer;
   font: var(--text-body-sm);
   color: var(--text);
-  /* Aligns with the sibling fields, whose label sits above the
-     control rather than beside it. */
-  margin-top: calc(var(--space-5) + 2px);
+  /* Sits on the bottom edge of its grid cell, so it lines up with
+     the inputs when the form is two columns wide and does NOT open a
+     hole above itself when the form is one column — which is what a
+     fixed top margin did in the narrower panels. */
+  align-self: end;
+  padding-bottom: var(--space-2);
 }
 
 .errorMessage {

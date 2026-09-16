@@ -1,6 +1,14 @@
 import { test, expect, signIn, users } from "./fixtures";
 import type { Page } from "@playwright/test";
 
+// A DISCLOSURE IS SELECTED AS A <summary>, NEVER BY ITS TEXT.
+//
+// Every add panel has a summary that opens it and a submit button
+// that commits it, and since the labels lost their typed "+" the two
+// differ only by capitalisation — which getByText ignores. Selecting
+// the element type says which one is meant and survives the next
+// copy change.
+
 // A quarterly priority hanging straight off a focus area, walked
 // end to end (migration 0209).
 //
@@ -66,7 +74,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
 
   // ---- Focus area -------------------------------------------
   const addSfa = page.getByTestId("add-sfa-panel");
-  await addSfa.getByText("Add focus area").click();
+  await addSfa.locator("summary").click();
   await addSfa.getByLabel("Title").fill(faTitle);
   await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const fa = sfaCard(page, faTitle);
@@ -77,7 +85,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
   // normal case rather than an edge — a focus area may hold either
   // or both.
   const addGoal = fa.getByTestId("sfa-add-goal-panel");
-  await addGoal.getByText("Add goal", { exact: true }).click();
+  await addGoal.locator("summary").click();
   await addGoal.getByLabel("Title").fill(goalTitle);
   await addGoal.getByRole("button", { name: "Add goal", exact: true }).click();
   await expect(
@@ -87,7 +95,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
   // ---- The grouped parent picker on the toolbar panel --------
   const addPriorityToolbar = page.getByTestId("add-priority-panel");
   await addPriorityToolbar
-    .getByText("Add quarterly priority", { exact: true })
+    .locator("summary")
     .click();
   const parentPicker = addPriorityToolbar.getByLabel("Parent");
   await expect(parentPicker).toBeVisible();
@@ -106,18 +114,18 @@ test("a priority under a focus area, end to end", async ({ page }) => {
     .getAttribute("value");
   expect(faOption).toMatch(/^sfa:[0-9a-f-]{36}$/);
   await addPriorityToolbar
-    .getByText("Add quarterly priority", { exact: true })
+    .locator("summary")
     .click();
 
   // ---- Add a priority straight under the focus area ----------
   const addPriority = fa.getByTestId("sfa-add-priority-panel");
   await addPriority
-    .getByText("Add quarterly priority", { exact: true })
+    .locator("summary")
     .click();
   await addPriority.getByLabel("Title").fill(priTitle);
   // The parent is implied by where we clicked, so there is no picker.
   await expect(addPriority.getByLabel("Parent")).toHaveCount(0);
-  await addPriority.getByRole("button", { name: /Add priority/i }).click();
+  await addPriority.getByRole("button", { name: /Add quarterly priority/i }).click();
 
   const priLink = page.getByRole("link", { name: priTitle, exact: true });
   await expect(priLink).toBeVisible({ timeout: 30_000 });

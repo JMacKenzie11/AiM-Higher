@@ -25,9 +25,16 @@ export function MobileAddMenu({ children }: { children: ReactNode }) {
 
   return (
     <>
+      {/* data-mobile-only is not decoration: it is what lets the
+          stylesheet out-specify the composed .btn, which sets
+          display: inline-flex. A plain class cannot — both are one
+          class deep, so the winner is decided by which sheet the
+          bundler emits last, and it emitted the shared one last.
+          That is why this button was showing on desktop. */}
       <button
         type="button"
         className={styles.mobileAddTrigger}
+        data-mobile-only="true"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >

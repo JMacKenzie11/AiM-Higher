@@ -347,8 +347,8 @@ export default async function PlanPage({ searchParams }: PageProps) {
                                   className={styles.addDetails}
                                   data-testid="goal-add-priority-panel"
                                 >
-                                  <summary className={styles.addSummary}>
-                                    <PlusIcon />Add priority
+                                  <summary className={styles.addSummaryNested}>
+                                    <PlusIcon />Add quarterly priority
                                   </summary>
                                   <AddPriorityForm
                                     quarterId={selectedQuarter.id}

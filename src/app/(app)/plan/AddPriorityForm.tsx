@@ -160,7 +160,7 @@ export function AddPriorityForm({
           className={styles.primaryButton}
           disabled={pending}
         >
-          {pending ? "Adding…" : "Add priority"}
+          {pending ? "Adding…" : "Add quarterly priority"}
         </button>
         <ConfirmationChip visible={confirmationVisible} />
       </div>
