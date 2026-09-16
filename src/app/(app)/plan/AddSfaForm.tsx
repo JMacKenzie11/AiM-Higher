@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 import {
   createSfaAction,
   type PlanResult,
@@ -21,6 +21,16 @@ export function AddSfaForm({
     PlanResult<StrategicFocusArea>,
     FormData
   >(createSfaAction, INITIAL);
+
+  // Field ids are SCOPED PER FORM INSTANCE. These forms render many
+  // times on /plan — once in the toolbar, once inside every focus
+  // area, once under every goal — and a fixed id would put several
+  // elements with the same id in one document. That is invalid HTML,
+  // and it breaks the thing the id is for: <label htmlFor> resolves
+  // to the FIRST match, so clicking a field's own label focuses a
+  // different form's field. `useId` gives each instance its own.
+  const uid = useId();
+  const fieldId = (name: string) => `${name}-${uid}`;
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
   const { formRef, confirmationVisible } = useStayOpenForm(
@@ -33,11 +43,11 @@ export function AddSfaForm({
   return (
     <form action={formAction} className={styles.form} ref={formRef}>
       <div className={styles.field}>
-        <label htmlFor="sfa-title" className={styles.label}>
+        <label htmlFor={fieldId("sfa-title")} className={styles.label}>
           Title
         </label>
         <input
-          id="sfa-title"
+          id={fieldId("sfa-title")}
           name="title"
           required
           className={styles.input}
@@ -46,11 +56,11 @@ export function AddSfaForm({
       </div>
 
       <div className={styles.field}>
-        <label htmlFor="sfa-sponsor" className={styles.label}>
+        <label htmlFor={fieldId("sfa-sponsor")} className={styles.label}>
           Sponsor
         </label>
         <select
-          id="sfa-sponsor"
+          id={fieldId("sfa-sponsor")}
           name="sponsor_id"
           className={styles.select}
           disabled={pending}
@@ -66,11 +76,11 @@ export function AddSfaForm({
       </div>
 
       <div className={styles.fieldWide}>
-        <label htmlFor="sfa-description" className={styles.label}>
+        <label htmlFor={fieldId("sfa-description")} className={styles.label}>
           Future-perfect narrative
         </label>
         <textarea
-          id="sfa-description"
+          id={fieldId("sfa-description")}
           name="description"
           className={styles.textarea}
           disabled={pending}

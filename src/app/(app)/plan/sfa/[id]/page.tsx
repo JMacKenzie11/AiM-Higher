@@ -93,7 +93,10 @@ export default async function SfaDetailPage({ params }: PageProps) {
         )}
 
         {isAdmin ? (
-          <details className={planStyles.addDetails}>
+          <details
+            className={planStyles.addDetails}
+            data-testid="sfa-add-goal-panel"
+          >
             <summary className={planStyles.addSummary}>
               + Add goal
             </summary>
@@ -109,7 +112,10 @@ export default async function SfaDetailPage({ params }: PageProps) {
             rather than broken when no quarter is open — the same
             rule /plan uses. */}
         {isAdmin && detail.openQuarter ? (
-          <details className={planStyles.addDetails}>
+          <details
+            className={planStyles.addDetails}
+            data-testid="sfa-add-priority-panel"
+          >
             <summary className={planStyles.addSummary}>
               + Add quarterly priority
             </summary>
