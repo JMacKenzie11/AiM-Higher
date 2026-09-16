@@ -93,46 +93,46 @@ export default async function SfaDetailPage({ params }: PageProps) {
         )}
 
         {isAdmin ? (
-          <details
-            className={planStyles.addDetails}
-            data-testid="sfa-add-goal-panel"
-          >
-            <summary className={planStyles.addSummary}>
-              + Add goal
-            </summary>
-            <AddGoalForm
-              defaultSfaId={detail.sfa.id}
-              sfaOptions={[{ id: detail.sfa.id, title: detail.sfa.title }]}
-              people={detail.people}
-            />
-          </details>
-        ) : null}
+          <div className={planStyles.addRow}>
+            <details
+              className={planStyles.addDetails}
+              data-testid="sfa-add-goal-panel"
+            >
+              <summary className={planStyles.addSummary}>+ Add goal</summary>
+              <AddGoalForm
+                defaultSfaId={detail.sfa.id}
+                sfaOptions={[{ id: detail.sfa.id, title: detail.sfa.title }]}
+                people={detail.people}
+              />
+            </details>
 
-        {/* A priority needs a quarter, so this control is absent
-            rather than broken when no quarter is open — the same
-            rule /plan uses. */}
-        {isAdmin && detail.openQuarter ? (
-          <details
-            className={planStyles.addDetails}
-            data-testid="sfa-add-priority-panel"
-          >
-            <summary className={planStyles.addSummary}>
-              + Add quarterly priority
-            </summary>
-            <AddPriorityForm
-              quarterId={detail.openQuarter.id}
-              defaultParent={formatParentRef({
-                kind: "sfa",
-                id: detail.sfa.id,
-              })}
-              goalOptions={detail.goals.map((g) => ({
-                id: g.id,
-                title: g.title,
-              }))}
-              sfaOptions={[{ id: detail.sfa.id, title: detail.sfa.title }]}
-              people={detail.people}
-            />
-          </details>
+            {/* A priority needs a quarter, so this control is absent
+                rather than broken when no quarter is open, the same
+                rule /plan uses. */}
+            {detail.openQuarter ? (
+              <details
+                className={planStyles.addDetails}
+                data-testid="sfa-add-priority-panel"
+              >
+                <summary className={planStyles.addSummary}>
+                  + Add quarterly priority
+                </summary>
+                <AddPriorityForm
+                  quarterId={detail.openQuarter.id}
+                  defaultParent={formatParentRef({
+                    kind: "sfa",
+                    id: detail.sfa.id,
+                  })}
+                  goalOptions={detail.goals.map((g) => ({
+                    id: g.id,
+                    title: g.title,
+                  }))}
+                  sfaOptions={[{ id: detail.sfa.id, title: detail.sfa.title }]}
+                  people={detail.people}
+                />
+              </details>
+            ) : null}
+          </div>
         ) : null}
       </section>
     </>

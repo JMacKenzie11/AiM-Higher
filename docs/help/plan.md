@@ -35,6 +35,13 @@ As a team member, you can:
 ::: role company_admin,aims_guide,system_admin
 As an admin or guide, you can also:
 
+- **Add a Commitment** without leaving this page. *+ Add Commitment*
+  sits first in the toolbar, because it is the weekly move where the
+  rest are quarterly ones. Pick the Priority it belongs to from the
+  list, which is grouped by what each Priority sits under, and the
+  commitment appears on that Priority and on the Commitments board.
+  The button is absent until at least one Priority exists to attach
+  one to.
 - **Add anywhere in the cascade.** The toolbar shows *+ Add Focus
   Area*, *+ Add Goal*, and (with an open quarter) *+ Add Quarterly
   Priority*. If the parent above doesn't exist yet, leave the picker
