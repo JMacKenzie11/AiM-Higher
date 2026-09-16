@@ -19,6 +19,7 @@ import type {
   Quarter,
 } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { getAssignablePeople } from "@/lib/people/assignable";
 
 // --------------------------------------------------------------
 // Shared row shapes for commitments pages.
@@ -98,32 +99,12 @@ export async function getPriorityCommitmentPanelData(
     ? "No quarter is open for this week — open one to start adding commitments."
     : "No quarter is open for this week. Ask your company admin to open one.";
 
-  // Roster mirrors /commitments: active company members + system
-  // admins appended so a coach can be selected as owner too.
-  const [rosterRes, coachesRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name, position")
-      .eq("company_id", companyId)
-      .neq("status", "inactive")
-      .order("full_name"),
-    supabase
-      .from("profiles")
-      .select("id, full_name, position")
-      .eq("role", "system_admin")
-      .neq("status", "inactive")
-      .order("full_name"),
-  ]);
-  const companyMembers = (rosterRes.data ?? []) as Array<
-    Pick<Profile, "id" | "full_name" | "position">
-  >;
-  const coaches = (
-    (coachesRes.data ?? []) as Array<Pick<Profile, "id" | "full_name" | "position">>
-  ).filter((c) => !companyMembers.some((m) => m.id === c.id));
-  const roster: Array<Pick<Profile, "id" | "full_name" | "position">> = [
-    ...companyMembers,
-    ...coaches,
-  ];
+  // Active company members plus the people ASSIGNED to work with this
+  // company. This used to append `role = 'system_admin'` profiles "so
+  // a coach can be selected as owner"; that query returned zero rows
+  // for every company user, because profiles_select never admitted a
+  // platform role to them. See getAssignablePeople.
+  const roster = await getAssignablePeople(supabase, companyId);
   const rosterById = new Map(roster.map((p) => [p.id, p]));
 
   // Ascending by week_ending and due_date so the history reads as
@@ -310,8 +291,7 @@ export async function getCommitmentsPageData(
   const [
     { data: company },
     openQuarter,
-    rosterRes,
-    coachesRes,
+    roster,
     { data: fnRows },
     { data: parkedRows },
   ] = await Promise.all([
@@ -324,21 +304,9 @@ export async function getCommitmentsPageData(
     // Roster for owner filter + display and owner picker in the add
     // row. Pending users show up alongside active — an admin can
     // pre-assign commitments to someone who hasn't accepted their
-    // invite yet.
-    supabase
-      .from("profiles")
-      .select("id, full_name, position")
-      .eq("company_id", companyId)
-      .neq("status", "inactive")
-      .order("full_name"),
-    // System admins (AiMS coaches) are appended so they can be picked
-    // as owners even though they don't belong to the client company.
-    supabase
-      .from("profiles")
-      .select("id, full_name, position")
-      .eq("role", "system_admin")
-      .neq("status", "inactive")
-      .order("full_name"),
+    // invite yet. Includes the people assigned to work with this
+    // company; see getAssignablePeople for what that replaced.
+    getAssignablePeople(supabase, companyId),
     // Non-archived functions from the chart feed the link picker's
     // Functional Areas group.
     supabase
@@ -368,16 +336,6 @@ export async function getCommitmentsPageData(
       openQuarter.end_date >= thisFri
   );
 
-  const companyMembers = (rosterRes.data ?? []) as Array<
-    Pick<Profile, "id" | "full_name" | "position">
-  >;
-  const coaches = (
-    (coachesRes.data ?? []) as Array<Pick<Profile, "id" | "full_name" | "position">>
-  ).filter((c) => !companyMembers.some((m) => m.id === c.id));
-  const roster: Array<Pick<Profile, "id" | "full_name" | "position">> = [
-    ...companyMembers,
-    ...coaches,
-  ];
   const rosterById = new Map(roster.map((p) => [p.id, p]));
 
   const functionalAreaOptions = (fnRows ?? []) as Array<{

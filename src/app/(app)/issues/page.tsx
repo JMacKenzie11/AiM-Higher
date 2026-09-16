@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { getAssignablePeople } from "@/lib/people/assignable";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getIssuesPageData } from "@/lib/issues/service";
 import { getCurrentQuarter } from "@/lib/quarters/service";
@@ -60,14 +61,13 @@ export default async function IssuesPage({ searchParams }: PageProps) {
   // Priority + functional area options feed the LinkChip menu on
   // each issue-linked commitment so a user can re-target the link
   // (switch off the issue to a priority or functional area).
-  const [{ data: rosterRows }, { data: priorityRows }, { data: fnRows }] =
+  const [roster, { data: priorityRows }, { data: fnRows }] =
     await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, full_name, position")
-        .eq("company_id", companyId)
-        .neq("status", "inactive")
-        .order("full_name"),
+      // Company members plus the people assigned to work with this
+      // company. This page never had the union /commitments had, so
+      // its owner picker was the narrower of the two even before
+      // guides could be picked at all.
+      getAssignablePeople(supabase, companyId),
       openQuarter
         ? supabase
             .from("priorities")
@@ -84,9 +84,6 @@ export default async function IssuesPage({ searchParams }: PageProps) {
         .eq("archived", false)
         .order("title"),
     ]);
-  const roster = (rosterRows ?? []) as Array<
-    Pick<Profile, "id" | "full_name" | "position">
-  >;
   const priorityOptions = (priorityRows ?? []) as Array<
     Pick<Priority, "id" | "title">
   >;

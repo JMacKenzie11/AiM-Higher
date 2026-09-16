@@ -78,7 +78,11 @@ function signature(table: string, ops: string[]): string {
     return "commitments:main";
   }
   if (table === "profiles") {
-    return has("eq:role") ? "profiles:coaches" : "profiles:roster";
+    // The assigned read is the one filtered by id. The old shape was
+    // `eq("role", "system_admin")`, which returned nothing for a
+    // company user in production even though this mock happily served
+    // it — see getAssignablePeople.
+    return has("in:id") ? "profiles:assigned" : "profiles:roster";
   }
   if (table === "priorities") {
     return has("in:id") ? "priorities:enrich" : "priorities:options";
@@ -137,9 +141,11 @@ function seedBaseline() {
     { id: "u_ann", full_name: "Ann Adams", position: "COO" },
     { id: "u_bob", full_name: "Bob Brown", position: "Ops" },
   ]);
-  seed("profiles:coaches", [
-    // Already on the roster: must be deduped, not listed twice.
-    { id: "u_ann", full_name: "Ann Adams", position: "COO" },
+  // A guide assigned to this company, plus somebody already on the
+  // roster so the de-duplication is exercised rather than assumed.
+  seed("guide_assignments", [{ guide_id: "u_coach" }, { guide_id: "u_ann" }]);
+  seed("portfolio_assignments", []);
+  seed("profiles:assigned", [
     { id: "u_coach", full_name: "Zoe Coach", position: "AiMS" },
   ]);
   seed("priorities:options", [{ id: "p_1", title: "Ship the thing" }]);
@@ -327,7 +333,7 @@ describe("getCommitmentsPageData — ordering", () => {
     });
   });
 
-  it("puts company members before appended coaches and dedupes the overlap", async () => {
+  it("puts company members before assigned people and dedupes the overlap", async () => {
     const { getCommitmentsPageData } = await import("./service");
 
     const data = await getCommitmentsPageData("co_1", "u_ann", ALL);
