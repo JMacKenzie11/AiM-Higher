@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth/users";
 import { setProfileStatusAction } from "@/lib/people/actions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { removePortfolioAssignmentAction } from "@/lib/admin/assigned-access-actions";
 import type { ProfileStatus } from "@/lib/types";
 import styles from "./people.module.css";
 
@@ -49,6 +50,18 @@ type Props = {
   status: ProfileStatus;
   canDelete: boolean;
   canToggleStatus: boolean;
+  // Set when this person is on the roster through a portfolio
+  // assignment rather than through company_id. Their row looks like
+  // every other admin's, and Delete means something different
+  // underneath: it ends the ASSIGNMENT, not the account.
+  //
+  // The other items are hidden rather than left to fail. Deactivate,
+  // invite and copy-link all act on a profile that belongs to no
+  // company, and canManageProfileIn refuses those for anyone but a
+  // system_admin — so offering them would produce the failure this
+  // codebase keeps writing down: the button that is there and does
+  // nothing.
+  assignmentCompanyId?: string;
 };
 
 export function RowActionsMenu({
@@ -56,7 +69,9 @@ export function RowActionsMenu({
   status,
   canDelete,
   canToggleStatus,
+  assignmentCompanyId,
 }: Props) {
+  const viaAssignment = Boolean(assignmentCompanyId);
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -178,7 +193,9 @@ export function RowActionsMenu({
   function runDelete() {
     setConfirmingDelete(false);
     startTransition(async () => {
-      const result = await deleteUserAction(profileId);
+      const result = assignmentCompanyId
+        ? await removePortfolioAssignmentAction(assignmentCompanyId, profileId)
+        : await deleteUserAction(profileId);
       if (!result.ok) setMessage(result.message);
     });
   }
@@ -237,7 +254,7 @@ export function RowActionsMenu({
                 visibility: pos ? "visible" : "hidden",
               }}
             >
-          {showInviteActions ? (
+          {showInviteActions && !viaAssignment ? (
             <>
               <button
                 type="button"
@@ -257,7 +274,7 @@ export function RowActionsMenu({
               </button>
             </>
           ) : null}
-          {showDeactivate ? (
+          {showDeactivate && !viaAssignment ? (
             <button
               type="button"
               role="menuitem"
@@ -270,7 +287,7 @@ export function RowActionsMenu({
               Deactivate
             </button>
           ) : null}
-          {showReactivate ? (
+          {showReactivate && !viaAssignment ? (
             <button
               type="button"
               role="menuitem"
@@ -290,7 +307,7 @@ export function RowActionsMenu({
                 setConfirmingDelete(true);
               }}
             >
-              Delete
+              {viaAssignment ? "Remove from this company" : "Delete"}
             </button>
           ) : null}
             </div>,
@@ -315,9 +332,17 @@ export function RowActionsMenu({
       ) : null}
       <ConfirmDialog
         open={confirmingDelete}
-        title="Delete this user? This can't be undone."
-        message="Their commitments stay on file as Unassigned, and their weekly numbers and team memberships keep their history. Their sign-in, private coaching notes, and strengths assessment are removed with them."
-        confirmLabel="Delete user"
+        title={
+          viaAssignment
+            ? "Remove them from this company?"
+            : "Delete this user? This can't be undone."
+        }
+        message={
+          viaAssignment
+            ? "They lose admin access to this company and come off your team list. Their account, their other companies and everything they own here stay exactly as they are."
+            : "Their commitments stay on file as Unassigned, and their weekly numbers and team memberships keep their history. Their sign-in, private coaching notes, and strengths assessment are removed with them."
+        }
+        confirmLabel={viaAssignment ? "Remove" : "Delete user"}
         tone="danger"
         onConfirm={runDelete}
         onCancel={() => setConfirmingDelete(false)}

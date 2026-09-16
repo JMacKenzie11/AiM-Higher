@@ -36,6 +36,15 @@ As an admin or guide, you can also:
   quick-view drawer or the scorecard page.
 - **Deactivate** — stops sign-in without deleting history.
 - **Delete** — removes sign-in + profile permanently. See below.
+- **Remove a portfolio admin from this company.** Somebody who runs
+  the wider group of companies can take company admin rights here,
+  and when they do they appear on this list with the role *company
+  admin*, like anyone else. Their row's menu offers *Remove from
+  this company* instead of Delete: it ends their access here and
+  leaves their account, their other companies and everything they
+  own in this one exactly as they are. You cannot deactivate or
+  re-invite them from this page, because their account is not this
+  company's to change.
 :::
 
 ::: role portfolio_admin
