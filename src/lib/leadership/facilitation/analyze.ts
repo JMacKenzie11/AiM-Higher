@@ -9,6 +9,7 @@ import type {
   FacilitationReview,
 } from "./types";
 import { FACILITATION_REVIEW_VERSION } from "./types";
+import { isScoredReview } from "./scored";
 
 // Second LLM pass on a meeting transcript. Runs after the summary +
 // commitment-extraction pipeline, only when the routed company has
@@ -77,7 +78,29 @@ export async function analyzeMeetingFacilitation(
   if (!toolUse) return null;
 
   const raw = toolUse.input as Record<string, unknown>;
-  return normalizeReview(raw);
+  const review = normalizeReview(raw);
+
+  // A review that scored nothing is not a review. Returning null
+  // stores null, which is what "the review did not run" already
+  // means everywhere downstream — rather than a row that reads as
+  // present and renders as dashes.
+  //
+  // The log names what the model actually sent, because the cause is
+  // upstream of anything we can assert: `dimensions` is in the tool
+  // schema's required list and was omitted anyway.
+  if (!isScoredReview(review)) {
+    console.error(
+      "[facilitation] model returned a review with no scores; discarding",
+      {
+        keys: Object.keys(raw).sort(),
+        dimensionsType: typeof raw.dimensions,
+        insufficientTranscript: review.insufficient_transcript,
+      }
+    );
+    return null;
+  }
+
+  return review;
 }
 
 // ----------------------------------------------------------------

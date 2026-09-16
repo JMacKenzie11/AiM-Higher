@@ -11,6 +11,7 @@ import { FacilitationReview } from "@/components/leadership/FacilitationReview";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { ReanalyzeMeetingButton } from "./ReanalyzeMeetingButton";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
+import { isScoredReview } from "@/lib/leadership/facilitation/scored";
 import type {
   ExtractedCommitment,
   ExtractedIssue,
@@ -95,9 +96,17 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     "meeting_facilitation_review"
   );
   const facilitationOn = facilitationFeatureOn && isAdmin;
+  // isScoredReview, not just "a row is present". A review that
+  // scored nothing renders as a card full of dashes while the
+  // meetings list shows an empty Facilitation cell for the same
+  // meeting, and the two disagree about whether a review exists.
+  // The analyzer no longer stores these; this handles the ones
+  // already stored, without needing them re-analysed.
+  const storedReview = (analysis?.facilitation_review_json ??
+    null) as FacilitationReviewData | null;
   const facilitationReview =
-    facilitationOn && analysis?.facilitation_review_json
-      ? (analysis.facilitation_review_json as FacilitationReviewData)
+    facilitationOn && storedReview && isScoredReview(storedReview)
+      ? storedReview
       : null;
 
   const commitmentRows = (commitments ?? []) as Array<{
@@ -370,9 +379,17 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           </h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            {new Date(meeting.created_at).toLocaleString()} ·{" "}
-            {commitmentRows.length} commitment
-            {commitmentRows.length === 1 ? "" : "s"} created
+            {new Date(meeting.created_at).toLocaleString()}
+            {/* Same gate as the section below. With tracking off,
+                "0 commitments created" is true and misleading: the
+                pipeline was never asked to create any. */}
+            {autoTrackOn ? (
+              <>
+                {" · "}
+                {commitmentRows.length} commitment
+                {commitmentRows.length === 1 ? "" : "s"} created
+              </>
+            ) : null}
           </p>
         </div>
       </section>
@@ -408,7 +425,15 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           </div>
         ) : null}
 
-        {commitmentRows.length > 0 ? (
+        {/* AUTO-TRACKING ON ONLY. These rows exist whenever the
+            pipeline created them — or whenever an admin added one
+            from the Commitments identified section below, which is
+            how a company with tracking OFF ends up rendering both
+            headings for the same meeting. Only one of them is ever
+            the right answer, and when tracking is off it is the
+            other one: that section already marks what has been
+            added and where it went. */}
+        {autoTrackOn && commitmentRows.length > 0 ? (
           <section className={styles.card} aria-labelledby="cmt">
             <h2 id="cmt" className={styles.h2}>
               Commitments created
