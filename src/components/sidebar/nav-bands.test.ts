@@ -12,7 +12,6 @@ import { navBandsFor, type NavContext } from "./nav-bands";
 const ctx = (over: Partial<NavContext>): NavContext => ({
   role: "team_member",
   scopedIntoCompany: false,
-  onHqSurface: false,
   onPortfolioSurface: false,
   onAdminPicker: false,
   ...over,
@@ -40,14 +39,14 @@ describe("portfolio_admin", () => {
           role: "portfolio_admin",
           scopedIntoCompany: true,
           onPortfolioSurface: true,
-        })
-      )
+        }),
+      ),
     ).toEqual(["companies", "portfolio"]);
   });
 
   it("adds the company's surfaces and settings once scoped in", () => {
     expect(
-      navBandsFor(ctx({ role: "portfolio_admin", scopedIntoCompany: true }))
+      navBandsFor(ctx({ role: "portfolio_admin", scopedIntoCompany: true })),
     ).toEqual(["companies", "portfolio", "app", "portfolioBottom"]);
   });
 
@@ -56,18 +55,12 @@ describe("portfolio_admin", () => {
     // the system_admin branch — which it would, because the Sidebar's
     // isSystemAdmin prop is really "is cross-tenant".
     for (const scoped of [true, false]) {
-      for (const onHq of [true, false]) {
-        const bands = navBandsFor(
-          ctx({
-            role: "portfolio_admin",
-            scopedIntoCompany: scoped,
-            onHqSurface: onHq,
-          })
-        );
-        expect(bands).not.toContain("guideHq");
-        expect(bands).not.toContain("systemAdminBottom");
-        expect(bands).not.toContain("companyAdminBottom");
-      }
+      const bands = navBandsFor(
+        ctx({ role: "portfolio_admin", scopedIntoCompany: scoped }),
+      );
+      expect(bands).not.toContain("guideHq");
+      expect(bands).not.toContain("systemAdminBottom");
+      expect(bands).not.toContain("companyAdminBottom");
     }
   });
 });
@@ -86,39 +79,78 @@ describe("the roles that already existed", () => {
     // the instance read across every company and is their second
     // home, not their first.
     expect(
-      navBandsFor(ctx({ role: "system_admin", scopedIntoCompany: true }))
-    ).toEqual(["companies", "guideHq", "portfolio", "app", "systemAdminBottom"]);
+      navBandsFor(ctx({ role: "system_admin", scopedIntoCompany: true })),
+    ).toEqual([
+      "companies",
+      "guideHq",
+      "portfolio",
+      "app",
+      "systemAdminBottom",
+    ]);
     expect(navBandsFor(ctx({ role: "system_admin" }))).toEqual([
       "companies",
       "guideHq",
       "portfolio",
       "systemAdminBottom",
     ]);
+    // BEING ON GUIDE HQ NO LONGER HIDES THE COMPANY. The pill says
+    // which company you are in and the user menu offers to exit it;
+    // a nav that offered no way INTO it left you told where you were
+    // and unable to act on it.
     expect(
-      navBandsFor(
-        ctx({ role: "system_admin", scopedIntoCompany: true, onHqSurface: true })
-      )
-    ).toEqual(["companies", "guideHq", "portfolio", "systemAdminBottom"]);
+      navBandsFor(ctx({ role: "system_admin", scopedIntoCompany: true })),
+    ).toEqual([
+      "companies",
+      "guideHq",
+      "portfolio",
+      "app",
+      "systemAdminBottom",
+    ]);
     expect(
       navBandsFor(
         ctx({
           role: "system_admin",
           scopedIntoCompany: true,
           onAdminPicker: true,
-        })
-      )
+        }),
+      ),
     ).toEqual(["companies", "guideHq", "portfolio", "systemAdminBottom"]);
   });
 
-  it("gives aims_guide the fleet list, and otherwise leaves them be", () => {
+  it("gives aims_guide the company's pages exactly when a company resolved", () => {
+    // TIGHTENED, not merely changed. The old rule keyed off the path:
+    // anywhere but /hq, a guide got the app band whether or not a
+    // company had resolved — which is a nav full of links to an
+    // error, the thing this file exists to catch.
+    //
+    // scopedIntoCompany is getEffectiveCompanyId having returned
+    // something, which for a guide includes the sole-assignment
+    // auto-scope, so it means "you are in a company" rather than "a
+    // cookie exists".
+    expect(
+      navBandsFor(ctx({ role: "aims_guide", scopedIntoCompany: true })),
+    ).toEqual(["companies", "guideHq", "app"]);
+
+    // On Guide HQ and still in a company: the pages come too.
+    expect(
+      navBandsFor(ctx({ role: "aims_guide", scopedIntoCompany: true })),
+    ).toEqual(["companies", "guideHq", "app"]);
+
+    // No company resolved: no company links.
     expect(navBandsFor(ctx({ role: "aims_guide" }))).toEqual([
       "companies",
       "guideHq",
-      "app",
     ]);
-    expect(
-      navBandsFor(ctx({ role: "aims_guide", onHqSurface: true }))
-    ).toEqual(["companies", "guideHq"]);
+  });
+
+  it("never offers company pages without a company", () => {
+    // The claim the whole band system is for: a link to a page that
+    // redirects you off it is a nav that lies.
+    for (const role of ["system_admin", "aims_guide", "portfolio_admin"]) {
+      expect(
+        navBandsFor(ctx({ role, scopedIntoCompany: false })),
+      ).not.toContain("app");
+    }
   });
 
   it("gives no company-bound role the fleet list", () => {
@@ -129,7 +161,7 @@ describe("the roles that already existed", () => {
     for (const role of ["company_admin", "team_member"]) {
       for (const scoped of [true, false]) {
         expect(
-          navBandsFor(ctx({ role, scopedIntoCompany: scoped }))
+          navBandsFor(ctx({ role, scopedIntoCompany: scoped })),
         ).not.toContain("companies");
       }
     }
@@ -151,7 +183,7 @@ describe("the roles that already existed", () => {
     for (const role of ["aims_guide", "company_admin", "team_member"]) {
       for (const scoped of [true, false]) {
         expect(
-          navBandsFor(ctx({ role, scopedIntoCompany: scoped }))
+          navBandsFor(ctx({ role, scopedIntoCompany: scoped })),
         ).not.toContain("portfolio");
       }
     }
@@ -164,9 +196,9 @@ describe("the roles that already existed", () => {
       "company_admin",
       "team_member",
     ]) {
-      expect(
-        navBandsFor(ctx({ role, scopedIntoCompany: true }))
-      ).not.toContain("portfolioBottom");
+      expect(navBandsFor(ctx({ role, scopedIntoCompany: true }))).not.toContain(
+        "portfolioBottom",
+      );
     }
   });
 });

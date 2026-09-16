@@ -467,7 +467,6 @@ export function Sidebar({
   // cookie stays put so clicking Dashboard from anywhere else still
   // returns to the last-scoped company; /hq itself just doesn't show
   // those links because HQ is the unscoped home base.
-  const onHqSurface = pathname === "/hq" || pathname.startsWith("/hq/");
 
   // GUIDE_HQ_ITEMS is Overview + Companies for guides/sysadmins.
   // Filter its children by role in case a guide-role assumption
@@ -499,7 +498,6 @@ export function Sidebar({
   const bands = navBandsFor({
     role: userRole,
     scopedIntoCompany: showExitScope,
-    onHqSurface,
     onPortfolioSurface: pathname === "/portfolio",
     onAdminPicker,
   });
