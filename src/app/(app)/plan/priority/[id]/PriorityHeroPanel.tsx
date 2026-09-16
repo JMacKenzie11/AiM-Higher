@@ -21,6 +21,7 @@ import type {
 import { CompleteConfirmDialog } from "@/components/plan/CompleteConfirmDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusPicker } from "../../StatusPicker";
+import { planHrefForGoal } from "../../cascade-anchor";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
 
@@ -119,7 +120,7 @@ export function PriorityHeroPanel({
       <div className={heroStyles.band}>
         <div className={heroStyles.bandInner}>
           <Link
-            href={goal ? `/plan/goal/${goal.id}` : "/plan"}
+            href={goal ? planHrefForGoal(goal.id) : "/plan"}
             className={heroStyles.crumb}
           >
             ← {goal ? "Back to annual goal" : "Back to plan"}

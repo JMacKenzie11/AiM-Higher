@@ -3,11 +3,13 @@
 import { useEffect, useRef } from "react";
 import styles from "./plan.module.css";
 
-// Small client wrapper for the /plan cascade. It does two things:
+// Small client wrapper for the /plan cascade. It does three things:
 //   1. Persists which SFA <details> the user has open in localStorage
 //      so their layout survives navigation and refresh.
 //   2. Renders Expand-all / Collapse-all buttons that toggle every
 //      SFA + Goal <details> on the page at once.
+//   3. Reveals the row a back link named (/plan#goal-<id>), opening
+//      whatever is collapsed above it first.
 //
 // Both behaviors run entirely in the DOM — they don't fight the server
 // component rendering because we only mutate `open` on <details>
@@ -53,6 +55,14 @@ export function PlanCascadeController({
       details.addEventListener("toggle", listener);
       listeners.push([details, listener]);
     }
+    // A detail page's back link names the row it came from
+    // (/plan#goal-<id>). Opening the way to it is OURS TO DO rather
+    // than the browser's: the persisted layout may have collapsed
+    // the focus area holding that goal, and nothing scrolls to a row
+    // inside a closed <details>. Runs after the restore above, so it
+    // wins over the stored state for this one row.
+    revealAnchoredRow(container, window.location.hash);
+
     return () => {
       for (const [element, listener] of listeners) {
         element.removeEventListener("toggle", listener);
@@ -98,4 +108,36 @@ export function PlanCascadeController({
 
 function storageKey(companyId: string, sfaId: string): string {
   return `${STORAGE_KEY_PREFIX}${companyId}.${sfaId}`;
+}
+
+// Open every <details> between the container and the anchored row,
+// the row's own included, then bring it into view. Each open is
+// dispatched as a toggle so the localStorage persistence above
+// records it: the reader asked to be here, so it stays open on the
+// next visit.
+function revealAnchoredRow(container: HTMLElement, hash: string) {
+  if (hash.length < 2) return;
+  let target: HTMLElement | null = null;
+  try {
+    target = container.querySelector<HTMLElement>(
+      `#${CSS.escape(decodeURIComponent(hash.slice(1)))}`
+    );
+  } catch {
+    // A malformed fragment is a no-op, not a crash.
+    return;
+  }
+  if (!target) return;
+
+  let details: HTMLDetailsElement | null = target.closest("details");
+  while (details && container.contains(details)) {
+    if (!details.open) {
+      details.open = true;
+      details.dispatchEvent(new Event("toggle"));
+    }
+    details = details.parentElement?.closest("details") ?? null;
+  }
+
+  // `center` rather than the default `start`: the row lands clear of
+  // the sticky page header instead of underneath it.
+  target.scrollIntoView({ block: "center" });
 }

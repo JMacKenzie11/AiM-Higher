@@ -13,6 +13,7 @@ import { AddPriorityForm } from "./AddPriorityForm";
 import { LinkGoalToSfaSelect } from "./LinkGoalToSfaSelect";
 import { LinkPriorityToGoalSelect } from "./LinkPriorityToGoalSelect";
 import { PlanCascadeController } from "./PlanCascadeController";
+import { goalAnchorId, sfaAnchorId } from "./cascade-anchor";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "./plan.module.css";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -171,6 +172,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
             {cascade.sfas.map((sfa) => (
               <details
                 key={sfa.id}
+                id={sfaAnchorId(sfa.id)}
                 className={styles.sfaCard}
                 data-sfa-id={sfa.id}
                 open
@@ -209,6 +211,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                       {sfa.goals.map((goal) => (
                         <li key={goal.id} className={styles.goalItem}>
                           <details
+                            id={goalAnchorId(goal.id)}
                             className={styles.goalDetails}
                             data-goal-id={goal.id}
                             open
@@ -332,7 +335,11 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 </header>
                 <ul className={styles.rowList}>
                   {cascade.orphanGoals.map((goal) => (
-                    <li key={goal.id} className={styles.goalItem}>
+                    <li
+                      key={goal.id}
+                      id={goalAnchorId(goal.id)}
+                      className={styles.goalItem}
+                    >
                       <div className={styles.summaryMain}>
                         <span className={styles.levelLabel}>
                           Annual Goal

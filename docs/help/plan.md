@@ -21,6 +21,11 @@ As a team member, you can:
   as what is left to do. The bar beside it says how much is already
   done, which is why a Priority can show "1 open commitment" and
   50% at the same time.
+- **Come back to where you were.** The back link on any detail page
+  returns you to this page positioned on the row you came from, and
+  opens its Focus Area if you had it collapsed. From a Priority, the
+  link goes to its Annual Goal here in the cascade rather than to
+  the Goal's own page.
 :::
 
 ::: role company_admin,aims_guide,system_admin

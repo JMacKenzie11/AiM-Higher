@@ -20,6 +20,7 @@ import type {
 import { CompleteConfirmDialog } from "@/components/plan/CompleteConfirmDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusPicker } from "../../StatusPicker";
+import { planHrefForGoal } from "../../cascade-anchor";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
 
@@ -115,7 +116,7 @@ export function GoalHeroPanel({
     <div className={heroStyles.wrap}>
       <div className={heroStyles.band}>
         <div className={heroStyles.bandInner}>
-          <Link href="/plan" className={heroStyles.crumb}>
+          <Link href={planHrefForGoal(goal.id)} className={heroStyles.crumb}>
             ← Back to plan
           </Link>
         </div>
