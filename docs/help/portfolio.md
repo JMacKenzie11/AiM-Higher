@@ -7,6 +7,10 @@ roles: [portfolio_admin, system_admin]
 
 Your home as a portfolio admin: every company on this instance, one
 card each, with the three numbers that say how each one is doing.
+
+System admins see this page too, from **Portfolio** in the sidebar.
+It is not your home — you land on Guide HQ — but it is the fastest
+read of how every company on the instance is doing.
 It is an oversight view. You can read everything inside a company
 and change nothing that a company produces.
 

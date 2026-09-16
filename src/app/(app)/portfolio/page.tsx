@@ -28,9 +28,11 @@ import styles from "./portfolio.module.css";
 // ever looks at.
 
 export default async function PortfolioPage() {
-  // system_admin is admitted alongside, and only so the surface can be
-  // looked at by the people who grant the role. It is not their home;
-  // middleware still sends them to /hq.
+  // system_admin is admitted alongside, and now reaches it from the
+  // nav rather than only by typing the URL. It is still not their
+  // home — middleware sends them to /hq and Guide HQ leads their
+  // sidebar — but the instance read across every company is worth
+  // having one click away for the people who run the instance.
   const session = await requireRole(["portfolio_admin", "system_admin"]);
   const [cards, access] = await Promise.all([
     loadPortfolioOverview(),
