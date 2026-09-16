@@ -377,8 +377,14 @@ export default async function PlanPage({ searchParams }: PageProps) {
 
                   {isAdmin ? (
                     <div className={styles.addRow}>
+                      {/* name= groups these two so the browser closes
+                          one when the other opens — a native exclusive
+                          accordion, no JS. Scoped per focus area so
+                          opening an add on one card does not reach
+                          into another. */}
                       <details
                         className={styles.addDetails}
+                        name={`sfa-add-${sfa.id}`}
                         data-testid="sfa-add-goal-panel"
                       >
                         <summary className={styles.addSummary}>
@@ -394,6 +400,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                       {selectedQuarter ? (
                         <details
                           className={styles.addDetails}
+                          name={`sfa-add-${sfa.id}`}
                           data-testid="sfa-add-priority-panel"
                         >
                           <summary className={styles.addSummary}>
