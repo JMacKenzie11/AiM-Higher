@@ -37,7 +37,13 @@ export type PortfolioAction =
   | "company_unarchived"
   | "feature_enabled"
   | "feature_disabled"
-  | "user_invited";
+  | "user_invited"
+  // Giving yourself a company, and giving it up. Decision 2 allows a
+  // portfolio admin to assign themselves any company on the
+  // instance, and requires the arrangement be "recorded, visible,
+  // and never silent" — the card shipped visible and not recorded.
+  | "company_access_granted"
+  | "company_access_revoked";
 
 // Fire-and-report, never throw.
 //

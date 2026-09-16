@@ -28,12 +28,16 @@ const mocks = vi.hoisted(() => ({
   released: [] as string[],
   calls: [] as string[],
   revalidatePath: vi.fn(),
+  recordEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/current-user", () => ({
   requireProfile: async () => ({ profile: mocks.profile }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
+vi.mock("@/lib/portfolio/audit", () => ({
+  recordPortfolioEvent: mocks.recordEvent,
+}));
 vi.mock("@/lib/instances/current", () => ({
   getCurrentInstanceConfig: () => ({}),
 }));
@@ -139,6 +143,24 @@ describe("setPortfolioCompanyAccessAction", () => {
   it("lets a system admin change anyone's", async () => {
     mocks.profile = { id: "root", role: "system_admin", company_id: null };
     expect((await setAccess("pa_1", ["co_a"])).ok).toBe(true);
+  });
+
+  it("records a grant and a revoke, one row each", async () => {
+    // Decision 2: the arrangement must be "recorded, visible, and
+    // never silent". The card shipped visible and not recorded.
+    mocks.current = [{ company_id: "co_a" }];
+    await setAccess("pa_1", ["co_b"]);
+    const actions = mocks.recordEvent.mock.calls.map((c) => c[0].action);
+    expect(actions).toEqual([
+      "company_access_granted",
+      "company_access_revoked",
+    ]);
+  });
+
+  it("records nothing when nothing changed", async () => {
+    mocks.current = [{ company_id: "co_a" }];
+    await setAccess("pa_1", ["co_a"]);
+    expect(mocks.recordEvent).not.toHaveBeenCalled();
   });
 
   it("refuses a company admin outright", async () => {
