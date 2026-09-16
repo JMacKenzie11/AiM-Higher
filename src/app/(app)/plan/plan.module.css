@@ -254,10 +254,24 @@
   color: var(--primary);
 }
 
+/* Selected, not primary.
+   
+   This was a solid --primary fill, which made the quarter switcher
+   the most saturated thing on the page. Once the add buttons became
+   secondary it was the ONLY saturated thing, so it read as the
+   page's primary action — and it is not an action at all, it is a
+   nav control showing which quarter you are looking at.
+   
+   The tint-and-brand-text treatment is the app's existing nav-pill
+   vocabulary, documented in ui.module.css: cobalt-tint for "this is
+   a navigation or selection affordance" as against saturated fill
+   for "this is the call to action". The border promotes to
+   --border-interactive so selected still reads as selected at a
+   glance against the unselected ones. */
 .quarterPillActive {
-  background: var(--primary);
-  color: var(--on-primary);
-  border: 1px solid var(--primary);
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
+  border: 1px solid var(--border-interactive);
 }
 
 .closedTag,
