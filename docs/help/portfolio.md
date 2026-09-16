@@ -32,6 +32,12 @@ before you press anything, and asks you to confirm.
 Commitments you have already resolved keep your name on them. History
 stays as it was.
 
+**Every change here is recorded.** Taking on a company and giving one
+up both leave a dated entry naming who did it. That is deliberate:
+you can grant yourself any company on the instance without asking
+anybody, so the record is what makes the arrangement legible to the
+people whose companies they are.
+
 A company admin in one of your companies can also remove your access
 from their team list. It ends the access and nothing else: your
 account, your other companies and everything you own stay as they

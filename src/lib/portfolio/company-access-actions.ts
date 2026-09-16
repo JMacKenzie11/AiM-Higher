@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { requireProfile } from "@/lib/auth/current-user";
+import { recordPortfolioEvent } from "@/lib/portfolio/audit";
 
 export type CompanyAccessResult =
   | { ok: true; added: number; removed: number; released: number }
@@ -119,6 +120,34 @@ export async function setPortfolioCompanyAccessAction(
     if (error) {
       return { ok: false, message: "Couldn't remove that company access." };
     }
+  }
+
+  // RECORDED, per decision 2. One row per company either way, so the
+  // record answers "who took what, and when" rather than only "who
+  // holds what now" — which the state already says and which says
+  // nothing about how it got that way.
+  //
+  // recordPortfolioEvent is fire-and-report: the audit write must not
+  // be able to fail the grant it is recording. It also only lands for
+  // a portfolio admin acting on themselves, which is what
+  // portfolio_admin_events_insert admits and what this table is for;
+  // a system_admin editing somebody else's access writes no row here,
+  // deliberately.
+  for (const companyId of toAdd) {
+    await recordPortfolioEvent({
+      profile: session.profile,
+      action: "company_access_granted",
+      companyId,
+      detail: { for_profile_id: portfolioAdminId },
+    });
+  }
+  for (const companyId of toRemove) {
+    await recordPortfolioEvent({
+      profile: session.profile,
+      action: "company_access_revoked",
+      companyId,
+      detail: { for_profile_id: portfolioAdminId, commitments_released: released },
+    });
   }
 
   revalidatePath("/portfolio");
