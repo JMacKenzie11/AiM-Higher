@@ -123,7 +123,7 @@ export function PriorityHeroPanel({
             href={goal ? planHrefForGoal(goal.id) : "/plan"}
             className={heroStyles.crumb}
           >
-            ← {goal ? "Back to annual goal" : "Back to plan"}
+            ← {goal ? "Back to goal" : "Back to plan"}
           </Link>
         </div>
       </div>
@@ -152,7 +152,7 @@ export function PriorityHeroPanel({
 
             <div className={styles.field}>
               <label htmlFor="priority-goal" className={styles.label}>
-                Annual goal
+                Goal
               </label>
               <select
                 id="priority-goal"

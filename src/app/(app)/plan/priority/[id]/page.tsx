@@ -59,7 +59,7 @@ export default async function PriorityDetailPage({ params }: PageProps) {
 
       <section className={styles.card} aria-labelledby="history">
         <h2 id="history" className={styles.h2}>
-          Commitments
+          Action Plan
         </h2>
 
         <InlineAddRow

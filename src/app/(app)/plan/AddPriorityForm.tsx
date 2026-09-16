@@ -62,7 +62,7 @@ export function AddPriorityForm({
       ) : (
         <div className={styles.field}>
           <label htmlFor="priority-goal" className={styles.label}>
-            Annual goal
+            Goal
           </label>
           <select
             id="priority-goal"

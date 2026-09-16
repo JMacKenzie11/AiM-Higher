@@ -89,7 +89,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
       title="Goals & Priorities"
       subtitle="The cascade for your company, one quarter at a time."
     >
-      {/* Toolbar is always visible. SFAs and annual goals aren't
+      {/* Toolbar is always visible. SFAs and goals aren't
           quarter-scoped, so the operator can populate the top of the
           cascade before opening a quarter. Only priorities need a
           quarter, and that gating happens at the priority form. */}
@@ -133,7 +133,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
             </details>
             <details className={styles.toolbarAddDetails}>
               <summary className={styles.toolbarAddSummary}>
-                + Add Annual Goal
+                + Add Goal
               </summary>
               <div className={styles.toolbarAddPanel}>
                 <AddGoalForm
@@ -146,7 +146,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
             {selectedQuarter ? (
               <details className={styles.toolbarAddDetails}>
                 <summary className={styles.toolbarAddSummary}>
-                  + Add 90-Day Priority
+                  + Add Quarterly Priority
                 </summary>
                 <div className={styles.toolbarAddPanel}>
                   <AddPriorityForm
@@ -204,7 +204,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 <div className={styles.sfaBody}>
                   {sfa.goals.length === 0 ? (
                     <p className={styles.emptyLine}>
-                      No annual goals attached yet.
+                      No goals attached yet.
                     </p>
                   ) : (
                     <ul className={styles.rowList}>
@@ -219,7 +219,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                             <summary className={styles.goalSummary}>
                               <div className={styles.summaryMain}>
                                 <span className={styles.levelLabel}>
-                                  Annual Goal
+                                  Goal
                                 </span>
                                 <Link
                                   href={`/plan/goal/${goal.id}`}
@@ -255,7 +255,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                                     <li key={priority.id} className={styles.priorityItem}>
                                       <div className={styles.summaryMain}>
                                         <span className={styles.levelLabel}>
-                                          90-Day Priority
+                                          Quarterly Priority
                                         </span>
                                         <Link
                                           href={`/plan/priority/${priority.id}`}
@@ -309,7 +309,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                   {isAdmin ? (
                     <details className={styles.addDetails}>
                       <summary className={styles.addSummary}>
-                        + Add annual goal
+                        + Add goal
                       </summary>
                       <AddGoalForm
                         defaultSfaId={sfa.id}
@@ -342,7 +342,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                     >
                       <div className={styles.summaryMain}>
                         <span className={styles.levelLabel}>
-                          Annual Goal
+                          Goal
                         </span>
                         <Link
                           href={`/plan/goal/${goal.id}`}
@@ -383,10 +383,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
               >
                 <header className={styles.orphanHeader}>
                   <h2 id="orphan-priorities" className={styles.orphanTitle}>
-                    Standalone 90-Day Priorities
+                    Standalone Quarterly Priorities
                   </h2>
                   <p className={styles.orphanNote}>
-                    Priorities that aren&rsquo;t tied to an annual goal yet. Link one to a goal when the strategic plan takes shape.
+                    Priorities that aren&rsquo;t tied to a goal yet. Link one to a goal when the strategic plan takes shape.
                   </p>
                 </header>
                 <ul className={styles.rowList}>
@@ -394,7 +394,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                     <li key={priority.id} className={styles.priorityItem}>
                       <div className={styles.summaryMain}>
                         <span className={styles.levelLabel}>
-                          90-Day Priority
+                          Quarterly Priority
                         </span>
                         <Link
                           href={`/plan/priority/${priority.id}`}

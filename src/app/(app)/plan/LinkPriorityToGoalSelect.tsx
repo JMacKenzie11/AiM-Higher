@@ -39,7 +39,7 @@ export function LinkPriorityToGoalSelect({
         onChange={onChange}
         disabled={pending}
       >
-        <option value="">Annual goal…</option>
+        <option value="">Goal…</option>
         {options.map((option) => (
           <option key={option.id} value={option.id}>
             {option.title}

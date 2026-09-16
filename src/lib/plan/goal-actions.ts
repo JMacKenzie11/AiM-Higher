@@ -22,7 +22,7 @@ export async function createGoalAction(
   if (!companyId) return { ok: false, message: "Pick a company first." };
 
   const title = String(formData.get("title") ?? "").trim();
-  if (!title) return { ok: false, message: "Give this annual goal a title." };
+  if (!title) return { ok: false, message: "Give this goal a title." };
 
   const sfaId = nullableString(formData.get("sfa_id"));
   const description = nullableString(formData.get("description"));

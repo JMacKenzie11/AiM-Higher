@@ -4,8 +4,8 @@ title: Goals & Priorities
 
 # Goals & Priorities
 
-The quarter's cascade: Focus Areas at the top, Annual
-Goals under them, and 90-Day Priorities under those. Each priority
+The quarter's cascade: Focus Areas at the top, Goals under
+them, and Quarterly Priorities under those. Each priority
 carries the commitments that will move it forward.
 
 ## What you can do here
@@ -16,7 +16,7 @@ As a team member, you can:
 - **See the cascade** — how the quarter's Priorities ladder up to
   Goals and Focus Areas.
 - **Open a Priority** by clicking its title to see the owner,
-  progress, and the commitments feeding it. The line under each
+  progress, and its **Action Plan** — the commitments feeding it. The line under each
   Priority counts the commitments still **open** on it, so it reads
   as what is left to do. The bar beside it says how much is already
   done, which is why a Priority can show "1 open commitment" and
@@ -24,7 +24,7 @@ As a team member, you can:
 - **Come back to where you were.** The back link on any detail page
   returns you to this page positioned on the row you came from, and
   opens its Focus Area if you had it collapsed. From a Priority, the
-  link goes to its Annual Goal here in the cascade rather than to
+  link goes to its Goal here in the cascade rather than to
   the Goal's own page.
 :::
 
@@ -32,8 +32,8 @@ As a team member, you can:
 As an admin or guide, you can also:
 
 - **Add anywhere in the cascade** — the toolbar shows
-  *+ Add Focus Area*, *+ Add Annual Goal*, and (with
-  an open quarter) *+ Add 90-Day Priority*. If the parent above
+  *+ Add Focus Area*, *+ Add Goal*, and (with
+  an open quarter) *+ Add Quarterly Priority*. If the parent above
   doesn't exist yet, leave the picker on *Not linked (yet)* — the
   new row lands in a *Standalone* section below the cascade and
   can be linked later via the inline picker on the row.
@@ -51,8 +51,8 @@ under them, then Priorities under those:
 
 1. Add Focus Areas that describe the quarter's key
    themes.
-2. Add Annual Goals under each Focus Area.
-3. With a quarter open, add 90-Day Priorities under each Goal.
+2. Add Goals under each Focus Area.
+3. With a quarter open, add Quarterly Priorities under each Goal.
 
 Standalone rows (things added without a parent) are a landing pad
 for messy real-world sequencing — not the default shape. Link

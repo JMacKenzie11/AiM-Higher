@@ -21,7 +21,7 @@ export function CascadeMock() {
       <div className={styles.cascadeConnector} aria-hidden="true" />
 
       <div className={styles.cascadeLevel} data-level="goal">
-        <div className={styles.cascadeLabel}>Annual Goal</div>
+        <div className={styles.cascadeLabel}>Goal</div>
         <div className={styles.cascadeTitle}>
           Open two branches in Idaho and Oregon
         </div>
@@ -36,7 +36,7 @@ export function CascadeMock() {
       <div className={styles.cascadeConnector} aria-hidden="true" />
 
       <div className={styles.cascadeLevel} data-level="priority">
-        <div className={styles.cascadeLabel}>90-Day Priority</div>
+        <div className={styles.cascadeLabel}>Quarterly Priority</div>
         <div className={styles.cascadeTitle}>
           Sign the Boise location lease
         </div>

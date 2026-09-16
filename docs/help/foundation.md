@@ -50,7 +50,7 @@ up here.
 ## Common questions
 
 **Why can't I edit Focus Areas on this page?** They're managed on
-the Goals & Priorities page so the cascade (Focus Areas → Annual Goals →
+the Goals & Priorities page so the cascade (Focus Areas → Goals →
 Priorities) stays in one place. The preview here is intentional.
 
 **How careful should I be with these edits?** Foundation content is

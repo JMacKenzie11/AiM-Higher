@@ -365,15 +365,15 @@ function evidenceLines(
       }
       if (!bool("cascadePopulated")) {
         return [
-          `${n("sfas")} focus areas, ${n("goals")} annual goals, ${n("priorities")} priorities in the open quarter`,
-          "Cascade not yet populated — add focus areas, annual goals, and quarterly priorities to begin scoring",
+          `${n("sfas")} focus areas, ${n("goals")} goals, ${n("priorities")} priorities in the open quarter`,
+          "Cascade not yet populated — add focus areas, goals, and quarterly priorities to begin scoring",
         ];
       }
       return [
-        `${n("sfas")} focus areas, ${n("goals")} annual goals, ${n("priorities")} priorities in the open quarter`,
+        `${n("sfas")} focus areas, ${n("goals")} goals, ${n("priorities")} priorities in the open quarter`,
         n("goalsPastDue") === 0
-          ? "No annual goals past their target date yet"
-          : `${n("goalsClosed")} of ${n("goalsPastDue")} past-target annual goals complete (${n("goalClosureRate")}%)`,
+          ? "No goals past their target date yet"
+          : `${n("goalsClosed")} of ${n("goalsPastDue")} past-target goals complete (${n("goalClosureRate")}%)`,
         n("prioritiesPastDue") === 0
           ? "No priorities past their due date yet"
           : `${n("prioritiesClosed")} of ${n("prioritiesPastDue")} past-due priorities complete (${n("priorityClosureRate")}%)`,

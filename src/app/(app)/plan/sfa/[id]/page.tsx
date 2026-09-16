@@ -38,10 +38,10 @@ export default async function SfaDetailPage({ params }: PageProps) {
 
       <section className={styles.card} aria-labelledby="goals">
         <h2 id="goals" className={styles.h2}>
-          Annual goals under this focus area
+          Goals under this focus area
         </h2>
         {detail.goals.length === 0 ? (
-          <p className={styles.emptyLine}>No annual goals linked yet.</p>
+          <p className={styles.emptyLine}>No goals linked yet.</p>
         ) : (
           <ul className={styles.rowList}>
             {detail.goals.map((goal) => (
@@ -67,7 +67,7 @@ export default async function SfaDetailPage({ params }: PageProps) {
         {isAdmin ? (
           <details className={planStyles.addDetails}>
             <summary className={planStyles.addSummary}>
-              + Add annual goal
+              + Add goal
             </summary>
             <AddGoalForm
               defaultSfaId={detail.sfa.id}
