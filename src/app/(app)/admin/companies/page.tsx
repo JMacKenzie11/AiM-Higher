@@ -129,7 +129,6 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                portfolio_admin allowlist and refused to everybody
                smaller. */
             <CompaniesTable
-              companies={companies}
               canReorder={isSystemAdmin || isPortfolioAdmin}
               header={
                 <>
@@ -141,7 +140,16 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                   <th className={styles.actionHead}>Actions</th>
                 </>
               }
-              renderRow={(company) => (
+              /* Cells rendered HERE and passed as nodes. They cannot
+                 be passed as a function that renders them: React
+                 refuses a function across the server/client boundary
+                 unless it is a server action, and it refuses it at
+                 render time rather than at build time. A ReactNode is
+                 already part of the RSC payload and crosses fine. */
+              rows={companies.map((company) => ({
+                id: company.id,
+                name: company.name,
+                cells: (
                   <>
                     <td>
                       <CompanyNameLink
@@ -191,7 +199,8 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                       </div>
                     </td>
                   </>
-              )}
+                ),
+              }))}
             />
           )}
         </section>
