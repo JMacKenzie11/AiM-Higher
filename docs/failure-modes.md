@@ -1051,3 +1051,63 @@ capable of failing.
 **Related.** E4 — a check that was never shown it could fail. Both
 guards here were shown failing first, and the second one had to be,
 because it was wrong.
+
+
+### E13. Forgiving normalization that manufactures a complete-looking row
+
+**Situation.** A model's structured output is normalized defensively:
+a missing field becomes a null, a missing object becomes a record of
+nulls, a missing aggregate is derived from whatever survived. Each
+step is individually reasonable and none of them fails. Together they
+turn "the model did not answer" into a stored row that is
+syntactically complete and semantically empty, and every surface then
+decides for itself whether that row counts.
+
+**Specimen.** Meeting facilitation reviews. `dimensions` is in the
+tool schema's `required` list; a model omitted it anyway. Then:
+
+- `normalizeDimensionScore(undefined)` returns
+  `{ score: null, notes: "" }`, four times.
+- `overall` falls back to the rounded mean of the dimensions that
+  scored. None did, so it is null.
+- `insufficient_transcript` stays false, because the model never said
+  it had too little to work with.
+
+The row stored a rich `executive_summary` and no scores at all.
+**Three surfaces disagreed about whether a review existed**: the
+meetings list showed an empty Facilitation cell, the meeting page
+rendered "How the meeting was run" with a dash in every score chip,
+and the database held a row that read as present. **3 of 29 stored
+reviews on production were in this state** — not a one-off.
+
+**What made it invisible.** Nothing threw. The pipeline logs a
+failure when the review errors, and this was not an error; it was a
+successful call whose result meant nothing. The only evidence was a
+blank cell in a list, which reads as "no review ran yet".
+
+**The guard.** One predicate, `isScoredReview`, used in three places
+for the same reason a single choke point beats three copies:
+
+```ts
+if (review.insufficient_transcript) return true;  // declining is an answer
+return review.overall !== null;
+```
+
+The analyzer refuses to persist an unscored review, which stops new
+ones. The meeting page and the meetings list both refuse to render
+one, which handles the rows already stored without re-analysing them
+and makes the two agree. The analyzer logs the keys the model
+actually sent, because the cause is upstream of anything we can
+assert.
+
+**The general shape.** Defensive normalization is right at the edges
+and wrong at the centre. Filling in a missing field is a kindness;
+deriving an aggregate from nothing and storing the result is an
+invention. Where a normalizer cannot distinguish "absent" from
+"zero", something downstream has to ask whether the whole answer is
+usable — and that question belongs in one function, not in each
+surface's rendering condition.
+
+**Related.** E1, trusting an assumed response shape from an external
+API — the same trust, one layer further in: the shape was checked and
+the content was not.
