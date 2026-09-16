@@ -365,6 +365,20 @@ export async function completeResetPasswordAction(
     };
   }
 
+  // THE FOURTH DOOR. verifyOtp above created a session, in whatever
+  // browser the reset link was opened in, and nothing here dropped
+  // the scope cookie that browser was already carrying. Exactly the
+  // shape of the accept-invite bug recorded a few functions up.
+  //
+  // The binding in lib/admin/scope.ts stops ANOTHER person's scope
+  // resolving. It stops nothing when the person is the same, which
+  // is the common case here: you reset your own password and land
+  // back inside whatever tenant you were in before.
+  //
+  // Cleared before the password write, so a failed update still
+  // leaves the session unscoped rather than half-fixed.
+  await clearScopedCompanyCookie();
+
   const { error: pwErr } = await supabase.auth.updateUser({ password });
   if (pwErr) {
     return {

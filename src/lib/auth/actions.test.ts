@@ -563,6 +563,51 @@ describe("completeResetPasswordAction", () => {
     expect(res).toEqual({ ok: true });
     expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
   });
+
+  it("drops any scope cookie the browser was carrying", async () => {
+    // THE FOURTH DOOR. verifyOtp creates a session in whatever
+    // browser opened the reset link, and this path never dropped the
+    // scope it already held. The binding in lib/admin/scope.ts stops
+    // somebody ELSE'S scope resolving and stops nothing when the
+    // person is the same — which is the common case for a password
+    // reset.
+    const { completeResetPasswordAction } = await import("./actions");
+
+    await completeResetPasswordAction(
+      undefined,
+      formDataFrom({
+        token_hash: "tok",
+        type: "recovery",
+        password: "hunter22",
+        confirm: "hunter22",
+      })
+    );
+
+    expect(mocks.clearScopedCompanyCookie).toHaveBeenCalled();
+  });
+
+  it("clears it even when the password write then fails", async () => {
+    // Cleared before the update, so a failure leaves the session
+    // unscoped rather than half-fixed.
+    mocks.serverClient.auth.updateUser.mockResolvedValueOnce({
+      data: null,
+      error: { message: "too weak" },
+    });
+    const { completeResetPasswordAction } = await import("./actions");
+
+    const res = await completeResetPasswordAction(
+      undefined,
+      formDataFrom({
+        token_hash: "tok",
+        type: "recovery",
+        password: "hunter22",
+        confirm: "hunter22",
+      })
+    );
+
+    expect(res.ok).toBe(false);
+    expect(mocks.clearScopedCompanyCookie).toHaveBeenCalled();
+  });
 });
 
 // ==============================================================
