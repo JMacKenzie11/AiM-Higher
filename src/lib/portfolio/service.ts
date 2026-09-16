@@ -69,6 +69,11 @@ export async function loadPortfolioCompanies(): Promise<PortfolioCompany[]> {
     .from("companies")
     .select("id, name, timezone")
     .eq("status", "active")
+    // Portfolio order, then name. `sort_order` is set by the
+    // instance's owner (migration 0203); NULL means never ordered and
+    // sorts last, alphabetically among its peers, so a fresh instance
+    // reads exactly as it did before anybody dragged anything.
+    .order("sort_order", { ascending: true, nullsFirst: false })
     .order("name", { ascending: true });
   return (data ?? []) as PortfolioCompany[];
 }

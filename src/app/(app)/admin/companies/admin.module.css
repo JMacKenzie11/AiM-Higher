@@ -442,6 +442,44 @@
 }
 
 /* ---- Chips (shared colour variants — see ui.module.css) ---- */
+/* ---- Reordering the portfolio (0203) ------------------------
+   Narrow leading column, present only when the viewer may reorder
+   AND there is more than one company to reorder. The handle mirrors
+   the issues list so the gesture looks the same wherever it exists. */
+.dragHead {
+  width: 28px;
+}
+
+.dragCell {
+  width: 28px;
+  padding-right: 0;
+}
+
+.dragHandle {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+/* The row lifts while it travels, the same signal the issues list
+   uses. Without it a table row mid-drag is indistinguishable from
+   one at rest, because the transform alone is subtle against
+   neighbouring rows of identical height. */
+.table tr[data-dragging="true"] td {
+  background: var(--aims-navy-tint);
+}
+
 /* Assigned access: the Type cell. chipInfo rather than chipWarning or
    chipDanger, deliberately. An assigned guide or portfolio admin is
    not a problem to be flagged, they are an explanation of where admin

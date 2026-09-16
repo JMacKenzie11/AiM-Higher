@@ -987,6 +987,129 @@ on conflict do nothing;`;
   };
 }
 
+// Who may order the portfolio (0203).
+//
+// The column lives on `companies`, which four roles can already write
+// in different ways, so the interesting claims are all about who is
+// refused. The guard is an allowlist for portfolio_admin and a
+// denylist-by-construction for company_admin and aims_guide, which
+// means those two are refused the new column by a guard written
+// before it existed — a claim worth asserting precisely because
+// nothing in 0203 had to be written to make it true.
+//
+// Five claims:
+//   1. system_admin sets sort_order
+//   2. portfolio_admin sets sort_order (the point of the feature)
+//   3. company_admin is refused it on their own company
+//   4. aims_guide is refused it on a company they are assigned to
+//   5. portfolio_admin is STILL refused deleted_at, so widening the
+//      allowlist by one word did not widen it by two
+async function companySortOrder(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;", pending,
+      `select count(*) > 0 as ok from information_schema.columns
+        where table_schema='public' and table_name='companies'
+          and column_name='sort_order';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name: "company-sort-order",
+      hazard: "A company reorders the portfolio it sits in",
+      wrong: "column not on this schema",
+      right: "column not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0203 has not landed here yet. Runs for real under --pending 0203_company_sort_order.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  // A real portfolio_admin, seeded per run: the clone has none.
+  const PA = "aaaaaaaa-0000-4000-8000-0000000000so".replace("so", "50");
+  const seedPa = `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${PA}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-sort@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${PA}', null, 'Harness Sorter', 'portfolio_admin', 'active');`;
+
+  // Counted with the role reset: the question is what is in the row,
+  // not what the caller can read back afterwards.
+  const wrote = async (
+    setup: string,
+    sub: string,
+    company: string,
+    setClause: string
+  ): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        [
+          "begin;", pending, setup,
+          "set local role authenticated;", claims(sub),
+          `update public.companies set ${setClause} where id = '${company}';`,
+          "reset role;",
+          `select count(*)::int as n from public.companies
+            where id = '${company}' and sort_order = 42;`,
+          "rollback;",
+        ].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      // The guard raises insufficient_privilege, which aborts the
+      // transaction. That is the refusal.
+      return 0;
+    }
+  };
+
+  const bySysadmin = await wrote("", ids.systemAdmin, ids.memberCompany, "sort_order = 42");
+  const byPortfolio = await wrote(seedPa, PA, ids.memberCompany, "sort_order = 42");
+  const byCompanyAdmin = await wrote("", ids.companyAdmin, ids.companyAdminCompany, "sort_order = 42");
+  const byGuide = await wrote("", ids.guide, ids.guideCompany, "sort_order = 42");
+
+  // Claim 5: the allowlist gained one word, not two.
+  let deletedAtStillRefused = false;
+  try {
+    await run(
+      [
+        "begin;", pending, seedPa,
+        "set local role authenticated;", claims(PA),
+        `update public.companies set deleted_at = now() where id = '${ids.memberCompany}';`,
+        "rollback;",
+      ].join("\n")
+    );
+  } catch {
+    deletedAtStillRefused = true;
+  }
+
+  const ok =
+    bySysadmin === 1 &&
+    byPortfolio === 1 &&
+    byCompanyAdmin === 0 &&
+    byGuide === 0 &&
+    deletedAtStillRefused;
+
+  return {
+    name: "company-sort-order",
+    hazard: "A company reorders the portfolio it sits in",
+    wrong: `company_admin wrote sort_order: ${byCompanyAdmin === 1 ? "YES" : "no"}`,
+    right: `system_admin ${bySysadmin}, portfolio_admin ${byPortfolio}, company_admin ${byCompanyAdmin}, guide ${byGuide}`,
+    ok,
+    detail: ok
+      ? "The two container roles order the portfolio. A company admin and a guide are refused, by a denylist-by-construction written before the column existed — 0203 had to say nothing to make that true. Widening the portfolio allowlist by one word did not widen it by two: deleted_at is still refused."
+      : `system_admin ${bySysadmin} (want 1), portfolio_admin ${byPortfolio} (want 1), company_admin ${byCompanyAdmin} (want 0), guide ${byGuide} (want 0), deleted_at-still-refused ${deletedAtStillRefused} (want true).`,
+  };
+}
+
 async function coachMemoryDirected(
   run: Runner,
   ids: Identities,
@@ -5735,6 +5858,10 @@ async function main(): Promise<void> {
     [
       "assigned-access-read",
       (r: Runner, i: Identities) => assignedAccessRead(r, i, pendingSql),
+    ],
+    [
+      "company-sort-order",
+      (r: Runner, i: Identities) => companySortOrder(r, i, pendingSql),
     ],
   ] as const;
 
