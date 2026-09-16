@@ -138,7 +138,14 @@ export type AnnualGoal = {
 export type Priority = {
   id: string;
   company_id: string;
+  // A priority hangs off ONE parent or none: a goal, or a focus area
+  // directly (migration 0209, for a focus area whose whole life is
+  // one quarter). Both at once is refused by
+  // `priorities_parent_exclusive`, so treat these as a tagged union
+  // rather than two independent fields. `parentRefOf` in
+  // lib/plan/parent-ref.ts is the one place that reads them together.
   annual_goal_id: string | null;
+  sfa_id: string | null;
   quarter_id: string;
   title: string;
   description: string | null;

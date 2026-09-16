@@ -17,11 +17,14 @@ import type {
   Priority,
   Profile,
   Quarter,
+  StrategicFocusArea,
 } from "@/lib/types";
 import { CompleteConfirmDialog } from "@/components/plan/CompleteConfirmDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusPicker } from "../../StatusPicker";
-import { planHrefForGoal } from "../../cascade-anchor";
+import { planHrefForGoal, planHrefForSfa } from "../../cascade-anchor";
+import { formatParentRef, parentRefOf } from "@/lib/plan/parent-ref";
+import { PriorityParentOptions } from "../../PriorityParentOptions";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
 
@@ -43,8 +46,12 @@ export type PriorityHeroPanelProps = {
   priority: Priority;
   people: Pick<Profile, "id" | "full_name">[];
   goalOptions: Pick<AnnualGoal, "id" | "title">[];
+  sfaOptions: Pick<StrategicFocusArea, "id" | "title">[];
   quarters: Array<{ id: string; label: string; status: string }>;
+  // Exactly one of these is ever set — a priority has one parent or
+  // none (`priorities_parent_exclusive`).
   goal: Pick<AnnualGoal, "id" | "title"> | null;
+  sfa: Pick<StrategicFocusArea, "id" | "title"> | null;
   quarter: Pick<Quarter, "id" | "label"> | null;
   owner: Pick<Profile, "id" | "full_name"> | null;
   progressPercent: number | null;
@@ -57,8 +64,10 @@ export function PriorityHeroPanel({
   priority,
   people,
   goalOptions,
+  sfaOptions,
   quarters,
   goal,
+  sfa,
   quarter,
   owner,
   progressPercent,
@@ -119,11 +128,20 @@ export function PriorityHeroPanel({
     <div className={heroStyles.wrap}>
       <div className={heroStyles.band}>
         <div className={heroStyles.bandInner}>
+          {/* Back to whichever parent this hangs off, positioned on
+              that row in the cascade. A priority with no parent goes
+              to the top of /plan, where its Standalone section is. */}
           <Link
-            href={goal ? planHrefForGoal(goal.id) : "/plan"}
+            href={
+              goal
+                ? planHrefForGoal(goal.id)
+                : sfa
+                  ? planHrefForSfa(sfa.id)
+                  : "/plan"
+            }
             className={heroStyles.crumb}
           >
-            ← {goal ? "Back to goal" : "Back to plan"}
+            ← {goal ? "Back to goal" : sfa ? "Back to focus area" : "Back to plan"}
           </Link>
         </div>
       </div>
@@ -151,22 +169,20 @@ export function PriorityHeroPanel({
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="priority-goal" className={styles.label}>
-                Goal
+              <label htmlFor="priority-parent" className={styles.label}>
+                Parent
               </label>
               <select
-                id="priority-goal"
-                name="annual_goal_id"
-                defaultValue={priority.annual_goal_id ?? ""}
+                id="priority-parent"
+                name="parent"
+                defaultValue={formatParentRef(parentRefOf(priority))}
                 className={styles.select}
                 disabled={pending}
               >
-                <option value="">Not linked</option>
-                {goalOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.title}
-                  </option>
-                ))}
+                <PriorityParentOptions
+                  goalOptions={goalOptions}
+                  sfaOptions={sfaOptions}
+                />
               </select>
             </div>
 
@@ -292,8 +308,12 @@ export function PriorityHeroPanel({
                 >
                   Goal: {goal.title}
                 </Link>
+              ) : sfa ? (
+                <Link href={`/plan/sfa/${sfa.id}`} className={styles.rowTitle}>
+                  Focus area: {sfa.title}
+                </Link>
               ) : (
-                <span>Not linked to a goal</span>
+                <span>Not linked to a goal or focus area</span>
               )}
               <span>·</span>
               <span>Quarter: {quarter?.label ?? "—"}</span>

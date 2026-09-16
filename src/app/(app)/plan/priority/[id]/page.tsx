@@ -47,8 +47,10 @@ export default async function PriorityDetailPage({ params }: PageProps) {
         priority={detail.priority}
         people={detail.people}
         goalOptions={detail.goalOptions}
+        sfaOptions={detail.sfaOptions}
         quarters={detail.quarters}
         goal={detail.goal}
+        sfa={detail.sfa}
         quarter={detail.quarter}
         owner={owner}
         progressPercent={detail.progress?.percent ?? null}

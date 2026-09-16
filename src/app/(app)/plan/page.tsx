@@ -11,7 +11,9 @@ import { AddSfaForm } from "./AddSfaForm";
 import { AddGoalForm } from "./AddGoalForm";
 import { AddPriorityForm } from "./AddPriorityForm";
 import { LinkGoalToSfaSelect } from "./LinkGoalToSfaSelect";
-import { LinkPriorityToGoalSelect } from "./LinkPriorityToGoalSelect";
+import { LinkPriorityToParentSelect } from "./LinkPriorityToParentSelect";
+import { CascadePriorityRow } from "./CascadePriorityRow";
+import { formatParentRef, NO_PARENT } from "@/lib/plan/parent-ref";
 import { PlanCascadeController } from "./PlanCascadeController";
 import { goalAnchorId, sfaAnchorId } from "./cascade-anchor";
 import { PageShell } from "@/components/ui/PageShell";
@@ -38,11 +40,6 @@ type PageProps = {
 // The word "open" is load-bearing. "1 commitment" beside a bar
 // reading 50% looks like one of the two numbers is wrong, and only
 // the label tells you they are answering different questions.
-function openCommitmentsLabel(openCount: number): string {
-  if (openCount === 0) return "no open commitments";
-  return `${openCount} open commitment${openCount === 1 ? "" : "s"}`;
-}
-
 export default async function PlanPage({ searchParams }: PageProps) {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
@@ -151,8 +148,9 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 <div className={styles.toolbarAddPanel}>
                   <AddPriorityForm
                     quarterId={selectedQuarter.id}
-                    defaultGoalId={null}
+                    defaultParent={NO_PARENT}
                     goalOptions={goalOptions}
+                    sfaOptions={sfaOptions}
                     people={roster}
                   />
                 </div>
@@ -202,9 +200,15 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 </summary>
 
                 <div className={styles.sfaBody}>
-                  {sfa.goals.length === 0 ? (
+                  {/* Goals and direct priorities are PEERS here: one
+                      list, same indent, each row named by its own
+                      level eyebrow. `sfa_progress` averages them
+                      one-each, so rendering a priority as a lesser
+                      kind of child would contradict the number in
+                      the summary above. */}
+                  {sfa.goals.length === 0 && sfa.priorities.length === 0 ? (
                     <p className={styles.emptyLine}>
-                      No goals attached yet.
+                      Nothing under this focus area yet.
                     </p>
                   ) : (
                     <ul className={styles.rowList}>
@@ -252,36 +256,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
                               ) : (
                                 <ul className={styles.rowList}>
                                   {goal.priorities.map((priority) => (
-                                    <li key={priority.id} className={styles.priorityItem}>
-                                      <div className={styles.summaryMain}>
-                                        <span className={styles.levelLabel}>
-                                          Quarterly Priority
-                                        </span>
-                                        <Link
-                                          href={`/plan/priority/${priority.id}`}
-                                          className={styles.priorityTitle}
-                                        >
-                                          {priority.title}
-                                        </Link>
-                                        <span className={styles.rowMeta}>
-                                          {priority.owner?.full_name ?? "Unassigned"}
-                                          {priority.due_date
-                                            ? ` · Due ${priority.due_date}`
-                                            : ""}
-                                          {" · "}
-                                          {openCommitmentsLabel(
-                                            priority.open_count
-                                          )}
-                                        </span>
-                                      </div>
-                                      <div className={styles.summaryEnd}>
-                                        <StatusChip status={priority.status} />
-                                        <ProgressBar
-                                          percent={priority.percent}
-                                          label="No commitments yet"
-                                        />
-                                      </div>
-                                    </li>
+                                    <CascadePriorityRow
+                                      key={priority.id}
+                                      priority={priority}
+                                    />
                                   ))}
                                 </ul>
                               )}
@@ -293,8 +271,12 @@ export default async function PlanPage({ searchParams }: PageProps) {
                                   </summary>
                                   <AddPriorityForm
                                     quarterId={selectedQuarter.id}
-                                    defaultGoalId={goal.id}
+                                    defaultParent={formatParentRef({
+                                      kind: "goal",
+                                      id: goal.id,
+                                    })}
                                     goalOptions={goalOptions}
+                                    sfaOptions={sfaOptions}
                                     people={roster}
                                   />
                                 </details>
@@ -302,6 +284,12 @@ export default async function PlanPage({ searchParams }: PageProps) {
                             </div>
                           </details>
                         </li>
+                      ))}
+                      {sfa.priorities.map((priority) => (
+                        <CascadePriorityRow
+                          key={priority.id}
+                          priority={priority}
+                        />
                       ))}
                     </ul>
                   )}
@@ -313,6 +301,24 @@ export default async function PlanPage({ searchParams }: PageProps) {
                       </summary>
                       <AddGoalForm
                         defaultSfaId={sfa.id}
+                        sfaOptions={sfaOptions}
+                        people={roster}
+                      />
+                    </details>
+                  ) : null}
+
+                  {isAdmin && selectedQuarter ? (
+                    <details className={styles.addDetails}>
+                      <summary className={styles.addSummary}>
+                        + Add quarterly priority
+                      </summary>
+                      <AddPriorityForm
+                        quarterId={selectedQuarter.id}
+                        defaultParent={formatParentRef({
+                          kind: "sfa",
+                          id: sfa.id,
+                        })}
+                        goalOptions={goalOptions}
                         sfaOptions={sfaOptions}
                         people={roster}
                       />
@@ -386,44 +392,25 @@ export default async function PlanPage({ searchParams }: PageProps) {
                     Standalone Quarterly Priorities
                   </h2>
                   <p className={styles.orphanNote}>
-                    Priorities that aren&rsquo;t tied to a goal yet. Link one to a goal when the strategic plan takes shape.
+                    Priorities that aren&rsquo;t tied to a goal or a focus area yet. Link one when the plan takes shape.
                   </p>
                 </header>
                 <ul className={styles.rowList}>
                   {cascade.orphanPriorities.map((priority) => (
-                    <li key={priority.id} className={styles.priorityItem}>
-                      <div className={styles.summaryMain}>
-                        <span className={styles.levelLabel}>
-                          Quarterly Priority
-                        </span>
-                        <Link
-                          href={`/plan/priority/${priority.id}`}
-                          className={styles.priorityTitle}
-                        >
-                          {priority.title}
-                        </Link>
-                        <span className={styles.rowMeta}>
-                          {priority.owner?.full_name ?? "Unassigned"}
-                          {priority.due_date ? ` · Due ${priority.due_date}` : ""}
-                          {" · "}
-                          {openCommitmentsLabel(priority.open_count)}
-                        </span>
-                      </div>
-                      <div className={styles.summaryEnd}>
-                        <StatusChip status={priority.status} />
-                        <ProgressBar
-                          percent={priority.percent}
-                          label="No commitments yet"
-                        />
-                        {isAdmin ? (
-                          <LinkPriorityToGoalSelect
+                    <CascadePriorityRow
+                      key={priority.id}
+                      priority={priority}
+                      trailing={
+                        isAdmin ? (
+                          <LinkPriorityToParentSelect
                             priorityId={priority.id}
-                            currentGoalId={null}
-                            options={goalOptions}
+                            currentParent={NO_PARENT}
+                            goalOptions={goalOptions}
+                            sfaOptions={sfaOptions}
                           />
-                        ) : null}
-                      </div>
-                    </li>
+                        ) : null
+                      }
+                    />
                   ))}
                 </ul>
               </section>

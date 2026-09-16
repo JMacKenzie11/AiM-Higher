@@ -6,6 +6,7 @@ import { getCurrentQuarter } from "@/lib/quarters/service";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { GoalHeroPanel } from "./GoalHeroPanel";
 import { AddPriorityForm } from "../../AddPriorityForm";
+import { formatParentRef } from "@/lib/plan/parent-ref";
 import styles from "../../plan-detail.module.css";
 import planStyles from "../../plan.module.css";
 
@@ -77,8 +78,12 @@ export default async function GoalDetailPage({ params }: PageProps) {
               </summary>
               <AddPriorityForm
                 quarterId={openQuarter.id}
-                defaultGoalId={detail.goal.id}
+                defaultParent={formatParentRef({
+                  kind: "goal",
+                  id: detail.goal.id,
+                })}
                 goalOptions={[{ id: detail.goal.id, title: detail.goal.title }]}
+                sfaOptions={[]}
                 people={detail.people}
               />
             </details>

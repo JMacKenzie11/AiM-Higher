@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // ---- Shared spies + fakes -------------------------------------
 const mocks = vi.hoisted(() => {
   const prioritiesInsertSingle = vi.fn();
+  const prioritiesInsertPayload = vi.fn();
   const prioritiesSelectMaybeSingle = vi.fn();
   const prioritiesUpdatePatch = vi.fn();
   const prioritiesUpdateSingle = vi.fn();
@@ -17,7 +18,10 @@ const mocks = vi.hoisted(() => {
   const fromBuilder = (table: string) => {
     if (table === "priorities") {
       return {
-        insert: () => ({ select: () => ({ single: prioritiesInsertSingle }) }),
+        insert: (payload: unknown) => {
+          prioritiesInsertPayload(payload);
+          return { select: () => ({ single: prioritiesInsertSingle }) };
+        },
         select: () => ({
           eq: () => ({ maybeSingle: prioritiesSelectMaybeSingle }),
         }),
@@ -42,6 +46,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     prioritiesInsertSingle,
+    prioritiesInsertPayload,
     prioritiesSelectMaybeSingle,
     prioritiesUpdatePatch,
     prioritiesUpdateSingle,
@@ -97,6 +102,7 @@ function priorityRow(overrides: Record<string, unknown> = {}) {
     id: "pri_1",
     company_id: "co_acme",
     annual_goal_id: "goal_1",
+    sfa_id: null,
     quarter_id: "q_1",
     title: "Ship the migration",
     description: null,
@@ -145,7 +151,7 @@ describe("createPriorityAction", () => {
 
     expect(res).toEqual({
       ok: false,
-      message: "Pick a quarter for this action.",
+      message: "Pick a quarter for this priority.",
     });
     expect(mocks.prioritiesInsertSingle).not.toHaveBeenCalled();
   });
@@ -160,6 +166,49 @@ describe("createPriorityAction", () => {
 
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.message).toMatch(/title/i);
+  });
+
+  // The parent field carries one of two levels. Both columns are
+  // always written, because a row holding two parents is refused by
+  // `priorities_parent_exclusive` and the save would fail with a
+  // database error the reader cannot act on.
+  it("hangs a priority off a focus area", async () => {
+    const { createPriorityAction } = await import("./priority-actions");
+
+    await createPriorityAction(
+      undefined,
+      formDataFrom({ quarter_id: "q_1", title: "Ship it", parent: "sfa:s_1" })
+    );
+
+    expect(mocks.prioritiesInsertPayload).toHaveBeenCalledWith(
+      expect.objectContaining({ sfa_id: "s_1", annual_goal_id: null })
+    );
+  });
+
+  it("hangs a priority off a goal", async () => {
+    const { createPriorityAction } = await import("./priority-actions");
+
+    await createPriorityAction(
+      undefined,
+      formDataFrom({ quarter_id: "q_1", title: "Ship it", parent: "goal:g_1" })
+    );
+
+    expect(mocks.prioritiesInsertPayload).toHaveBeenCalledWith(
+      expect.objectContaining({ annual_goal_id: "g_1", sfa_id: null })
+    );
+  });
+
+  it("creates a standalone priority when no parent is chosen", async () => {
+    const { createPriorityAction } = await import("./priority-actions");
+
+    await createPriorityAction(
+      undefined,
+      formDataFrom({ quarter_id: "q_1", title: "Ship it", parent: "" })
+    );
+
+    expect(mocks.prioritiesInsertPayload).toHaveBeenCalledWith(
+      expect.objectContaining({ annual_goal_id: null, sfa_id: null })
+    );
   });
 });
 
@@ -279,31 +328,50 @@ describe("updatePriorityStatusAction", () => {
 });
 
 // ==============================================================
-// setPriorityGoalAction
+// setPriorityParentAction
+//
+// Every case asserts BOTH columns, never just the one being set.
+// A priority may hold one parent or none (`priorities_parent_exclusive`),
+// so a write that sets the new parent without clearing the old one
+// is refused by the database — and the screen would show a save that
+// silently failed.
 // ==============================================================
-describe("setPriorityGoalAction", () => {
+describe("setPriorityParentAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     primeHappyPath();
   });
 
-  it("writes null when unlinking from a goal", async () => {
-    const { setPriorityGoalAction } = await import("./priority-actions");
+  it("clears both columns when unlinking", async () => {
+    const { setPriorityParentAction } = await import("./priority-actions");
 
-    await setPriorityGoalAction("pri_1", null);
+    await setPriorityParentAction("pri_1", "");
 
     expect(mocks.prioritiesUpdatePatch).toHaveBeenCalledWith({
       annual_goal_id: null,
+      sfa_id: null,
     });
   });
 
-  it("writes the new goal id when linking", async () => {
-    const { setPriorityGoalAction } = await import("./priority-actions");
+  it("writes the goal and clears the focus area", async () => {
+    const { setPriorityParentAction } = await import("./priority-actions");
 
-    await setPriorityGoalAction("pri_1", "goal_new");
+    await setPriorityParentAction("pri_1", "goal:goal_new");
 
     expect(mocks.prioritiesUpdatePatch).toHaveBeenCalledWith({
       annual_goal_id: "goal_new",
+      sfa_id: null,
+    });
+  });
+
+  it("writes the focus area and clears the goal", async () => {
+    const { setPriorityParentAction } = await import("./priority-actions");
+
+    await setPriorityParentAction("pri_1", "sfa:sfa_new");
+
+    expect(mocks.prioritiesUpdatePatch).toHaveBeenCalledWith({
+      annual_goal_id: null,
+      sfa_id: "sfa_new",
     });
   });
 });

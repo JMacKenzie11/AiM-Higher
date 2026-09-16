@@ -12,6 +12,7 @@ import type {
   StrategicFocusArea,
 } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { bucketCascadeChildren } from "./cascade-shape";
 
 // Cascade read model for /plan and the plan detail pages.
 // One query per level (server-side RLS scopes to the caller's company),
@@ -36,6 +37,11 @@ export type CascadeGoal = AnnualGoal & {
 export type CascadeSfa = StrategicFocusArea & {
   percent: number | null;
   goals: CascadeGoal[];
+  // Priorities hanging straight off the focus area, with no goal in
+  // between (migration 0209). They are PEERS of `goals`, not a
+  // lesser kind of child: `sfa_progress` averages both one-each, and
+  // /plan renders them at the same indent.
+  priorities: CascadePriority[];
   sponsor: Pick<Profile, "id" | "full_name"> | null;
 };
 
@@ -142,38 +148,37 @@ export async function getCascade(
     };
   });
 
-  // ---- Goals enriched (children filtered to selected quarter) ----
-  const prioritiesByGoal = new Map<string | null, CascadePriority[]>();
-  for (const cp of cascadePriorities) {
-    const key = cp.annual_goal_id;
-    if (!prioritiesByGoal.has(key)) prioritiesByGoal.set(key, []);
-    prioritiesByGoal.get(key)!.push(cp);
-  }
+  // ---- Where each row renders ----
+  // The rules live in cascade-shape.ts, pure and tested: peers under
+  // a focus area, one parent each, and anything whose parent is off
+  // screen falls to the standalone sections.
+  const buckets = bucketCascadeChildren(sfas, goals, cascadePriorities);
 
   const cascadeGoals: CascadeGoal[] = goals.map((g) => ({
     ...g,
     percent: goalProgressById.get(g.id)?.percent ?? null,
     owner: g.owner_id ? peopleById.get(g.owner_id) ?? null : null,
-    priorities: prioritiesByGoal.get(g.id) ?? [],
+    priorities: buckets.prioritiesByGoal.get(g.id) ?? [],
   }));
-
-  // ---- SFAs enriched ----
-  const goalsBySfa = new Map<string | null, CascadeGoal[]>();
-  for (const g of cascadeGoals) {
-    const key = g.sfa_id;
-    if (!goalsBySfa.has(key)) goalsBySfa.set(key, []);
-    goalsBySfa.get(key)!.push(g);
-  }
+  // The buckets were built from the SAME `goals` array these came
+  // from, so every id in them is present here.
+  const goalById = indexBy(cascadeGoals, (g) => g.id);
+  const enriched = (rows: typeof goals) =>
+    rows.flatMap((g) => {
+      const found = goalById.get(g.id);
+      return found ? [found] : [];
+    });
 
   const cascadeSfas: CascadeSfa[] = sfas.map((s) => ({
     ...s,
     percent: sfaProgressById.get(s.id)?.percent ?? null,
     sponsor: s.sponsor_id ? peopleById.get(s.sponsor_id) ?? null : null,
-    goals: goalsBySfa.get(s.id) ?? [],
+    goals: enriched(buckets.goalsBySfa.get(s.id) ?? []),
+    priorities: buckets.prioritiesBySfa.get(s.id) ?? [],
   }));
 
-  const orphanGoals = goalsBySfa.get(null) ?? [];
-  const orphanPriorities = prioritiesByGoal.get(null) ?? [];
+  const orphanGoals = enriched(buckets.orphanGoals);
+  const orphanPriorities = buckets.orphanPriorities;
 
   return {
     sfas: cascadeSfas,
@@ -194,30 +199,55 @@ export async function getSfaDetail(sfaId: string) {
     .maybeSingle<StrategicFocusArea>();
   if (!sfa) return null;
 
-  const [{ data: goals }, { data: progress }, { data: people }] =
-    await Promise.all([
-      supabase
-        .from("annual_goals")
-        .select("*")
-        .eq("sfa_id", sfa.id)
-        .eq("archived", false)
-        .order("sort_order"),
-      supabase
-        .from("sfa_progress")
-        .select("*")
-        .eq("sfa_id", sfa.id)
-        .maybeSingle<SfaProgressRow>(),
-      supabase
-        .from("profiles")
-        .select("id, full_name")
-        .eq("company_id", sfa.company_id),
-    ]);
+  const [
+    { data: goals },
+    { data: priorities },
+    { data: progress },
+    { data: people },
+    { data: quarters },
+  ] = await Promise.all([
+    supabase
+      .from("annual_goals")
+      .select("*")
+      .eq("sfa_id", sfa.id)
+      .eq("archived", false)
+      .order("sort_order"),
+    // Priorities hanging straight off this focus area. NOT filtered
+    // by quarter: the cascade on /plan shows one quarter at a time,
+    // but this page is the focus area's own record and hiding last
+    // quarter's work behind a filter that isn't on screen would read
+    // as data loss.
+    supabase
+      .from("priorities")
+      .select("*")
+      .eq("sfa_id", sfa.id)
+      .eq("archived", false)
+      .order("due_date", { ascending: true, nullsFirst: false })
+      .order("sort_order"),
+    supabase
+      .from("sfa_progress")
+      .select("*")
+      .eq("sfa_id", sfa.id)
+      .maybeSingle<SfaProgressRow>(),
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("company_id", sfa.company_id),
+    supabase
+      .from("quarters")
+      .select("id, label, status")
+      .eq("company_id", sfa.company_id)
+      .eq("status", "open")
+      .maybeSingle<{ id: string; label: string; status: string }>(),
+  ]);
 
   return {
     sfa,
     goals: (goals ?? []) as AnnualGoal[],
+    priorities: (priorities ?? []) as Priority[],
     percent: progress?.percent ?? null,
     people: (people ?? []) as Pick<Profile, "id" | "full_name">[],
+    openQuarter: quarters ?? null,
   };
 }
 
@@ -338,10 +368,12 @@ export async function getPriorityDetail(priorityId: string) {
 
   const [
     { data: goal },
+    { data: sfa },
     { data: quarter },
     { data: progress },
     { data: people },
     { data: goalOptions },
+    { data: sfaOptions },
     { data: quarters },
   ] = await Promise.all([
     priority.annual_goal_id
@@ -350,6 +382,15 @@ export async function getPriorityDetail(priorityId: string) {
           .select("id, title, sfa_id")
           .eq("id", priority.annual_goal_id)
           .maybeSingle<Pick<AnnualGoal, "id" | "title" | "sfa_id">>()
+      : Promise.resolve({ data: null }),
+    // The other parent a priority can have. Exactly one of these two
+    // is ever non-null; the page reads whichever it gets.
+    priority.sfa_id
+      ? supabase
+          .from("strategic_focus_areas")
+          .select("id, title")
+          .eq("id", priority.sfa_id)
+          .maybeSingle<Pick<StrategicFocusArea, "id" | "title">>()
       : Promise.resolve({ data: null }),
     supabase
       .from("quarters")
@@ -372,6 +413,12 @@ export async function getPriorityDetail(priorityId: string) {
       .eq("archived", false)
       .order("title"),
     supabase
+      .from("strategic_focus_areas")
+      .select("id, title")
+      .eq("company_id", priority.company_id)
+      .eq("archived", false)
+      .order("title"),
+    supabase
       .from("quarters")
       .select("id, label, status")
       .eq("company_id", priority.company_id)
@@ -381,10 +428,15 @@ export async function getPriorityDetail(priorityId: string) {
   return {
     priority,
     goal,
+    sfa,
     quarter,
     progress: progress ?? null,
     people: (people ?? []) as Pick<Profile, "id" | "full_name">[],
     goalOptions: (goalOptions ?? []) as Pick<AnnualGoal, "id" | "title">[],
+    sfaOptions: (sfaOptions ?? []) as Pick<
+      StrategicFocusArea,
+      "id" | "title"
+    >[],
     quarters: (quarters ?? []) as Array<{
       id: string;
       label: string;

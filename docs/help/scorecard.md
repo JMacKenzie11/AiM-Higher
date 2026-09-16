@@ -54,7 +54,10 @@ Eight disciplines, each 0–10:
 - **Strategic plan** — an open quarter with a populated cascade (2-point
   baseline), plus how well goals and quarterly priorities close
   on their due dates (4 points each). Fresh plans with nothing past-date
-  get full credit for the closure halves.
+  get full credit for the closure halves. A populated cascade means
+  focus areas and quarterly priorities: goals are optional, so a plan
+  that runs priorities straight off its focus areas is not penalised
+  for having none.
 - **Execution** — 30-day follow-through rate on commitments, minus aging
   (open more than 14 days past due). Deleted and parked commitments
   don't count toward either half. Priority linkage is deliberately

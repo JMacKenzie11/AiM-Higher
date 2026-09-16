@@ -1027,6 +1027,181 @@ on conflict do nothing;`;
 //   4. aims_guide is refused it on a company they are assigned to
 //   5. portfolio_admin is STILL refused deleted_at, so widening the
 //      allowlist by one word did not widen it by two
+// ---------------------------------------------------------------
+// priorities-under-focus-areas (migration 0209)
+//
+// A quarterly priority may now hang straight off a focus area, so a
+// company whose focus area lives for one quarter no longer has to
+// invent a goal that repeats the focus area's title back at itself.
+//
+// The claims here are STRUCTURAL rather than role-based, which is
+// unusual for this harness and is the reason the case exists: no
+// policy on `priorities` has ever looked at the parent columns, so
+// nothing in RLS would have caught any of these.
+//
+//   1. A priority may hang off a focus area.
+//   2. It may NOT hold both parents at once. Two parents is not a
+//      richer link, it is two contradictory answers to "where does
+//      this roll up?", and the mean would count the row twice.
+//   3. It may NOT hang off another company's focus area — nor
+//      another company's GOAL, which was already reachable before
+//      this migration and is the hole 0209 closes on the way past.
+//      `priorities_update_owner` admits any update where the row
+//      still belongs to the caller, and says nothing about where
+//      the row points.
+//   4. The focus area's percent counts that priority as one child,
+//      the same weight a goal gets.
+//
+// Claim 3 is the one to read first: it is asserted on BOTH parent
+// columns, because a guard that covers only the new column would
+// leave the older, better-travelled one open and look complete.
+async function prioritiesUnderFocusAreas(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;", pending,
+      `select count(*) > 0 as ok from information_schema.columns
+        where table_schema='public' and table_name='priorities'
+          and column_name='sfa_id';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name: "priorities-under-focus-areas",
+      hazard: "A priority hangs off another tenant's parent, or off two at once",
+      wrong: "column not on this schema",
+      right: "column not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0209 has not landed here yet. Runs for real under " +
+        "--pending 0209_priorities_under_focus_areas.sql.",
+    };
+  }
+
+  const FA_HERE = "aaaaaaaa-0209-4000-8000-00000000fa01";
+  const FA_THERE = "aaaaaaaa-0209-4000-8000-00000000fa02";
+  const GOAL_THERE = "aaaaaaaa-0209-4000-8000-000000009002";
+  const QUARTER = "aaaaaaaa-0209-4000-8000-0000000000q1".replace("q1", "0e");
+
+  // Everything this case touches, built inside the transaction and
+  // rolled back with it. A closed quarter, because `quarters_one_open`
+  // allows a company only one open quarter and these companies are
+  // real ones with real plans.
+  const seed = `
+insert into public.quarters (id, company_id, label, start_date, end_date, status)
+values ('${QUARTER}', '${ids.memberCompany}', 'Harness 0209', date '2020-01-01', date '2020-03-31', 'closed');
+insert into public.strategic_focus_areas (id, company_id, title)
+values ('${FA_HERE}', '${ids.memberCompany}', 'Harness focus area (here)');
+insert into public.strategic_focus_areas (id, company_id, title)
+values ('${FA_THERE}', '${ids.otherCompany}', 'Harness focus area (there)');
+insert into public.annual_goals (id, company_id, title)
+values ('${GOAL_THERE}', '${ids.otherCompany}', 'Harness goal (there)');`;
+
+  // Did the write land? Counted with the role reset: the question is
+  // what ended up in the row, never what the writer can read back.
+  const wrote = async (statement: string, where: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        [
+          "begin;", pending, seed,
+          statement,
+          `select count(*)::int as n from public.priorities where ${where};`,
+          "rollback;",
+        ].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      // A CHECK violation or a trigger raise aborts the transaction.
+      // That abort IS the refusal.
+      return 0;
+    }
+  };
+
+  // One priority in memberCompany, pointed at whichever parent the
+  // claim is about.
+  const priorityPointedAt = (column: string, parentId: string) => `
+insert into public.priorities (id, company_id, quarter_id, title, ${column})
+values (gen_random_uuid(), '${ids.memberCompany}', '${QUARTER}', 'Harness priority', '${parentId}');`;
+
+  // 1. The write the migration is for.
+  const underFocusArea = await wrote(
+    priorityPointedAt("sfa_id", FA_HERE),
+    `title = 'Harness priority' and sfa_id = '${FA_HERE}'`
+  );
+
+  // 2. Both parents at once.
+  const bothParents = await wrote(
+    `insert into public.priorities (id, company_id, quarter_id, title, sfa_id, annual_goal_id)
+     select gen_random_uuid(), '${ids.memberCompany}', '${QUARTER}', 'Harness two parents',
+            '${FA_HERE}', g.id
+       from public.annual_goals g where g.company_id = '${ids.memberCompany}' limit 1;`,
+    `title = 'Harness two parents'`
+  );
+
+  // 3a. Another company's focus area.
+  const crossTenantFocusArea = await wrote(
+    priorityPointedAt("sfa_id", FA_THERE),
+    `title = 'Harness priority' and sfa_id = '${FA_THERE}'`
+  );
+
+  // 3b. Another company's GOAL — reachable before 0209, closed by it.
+  const crossTenantGoal = await wrote(
+    priorityPointedAt("annual_goal_id", GOAL_THERE),
+    `title = 'Harness priority' and annual_goal_id = '${GOAL_THERE}'`
+  );
+
+  // 4. The roll-up counts it. A focus area holding exactly one direct
+  //    priority, itself holding one kept commitment, reads 100.
+  let rollUp = -1;
+  try {
+    const [r] = await run<{ percent: number | null }>(
+      [
+        "begin;", pending, seed,
+        `insert into public.priorities (id, company_id, quarter_id, title, sfa_id)
+         values ('${FA_HERE.replace("fa01", "b001")}', '${ids.memberCompany}',
+                 '${QUARTER}', 'Harness rollup priority', '${FA_HERE}');`,
+        `insert into public.commitments (company_id, priority_id, owner_id, description,
+                                         week_ending, due_date, status)
+         values ('${ids.memberCompany}', '${FA_HERE.replace("fa01", "b001")}',
+                 '${ids.member}', 'Harness rollup commitment',
+                 date '2020-02-07', date '2020-02-07', 'kept_on_time');`,
+        `select percent from public.sfa_progress where sfa_id = '${FA_HERE}';`,
+        "rollback;",
+      ].join("\n")
+    );
+    rollUp = r?.percent ?? -1;
+  } catch (err) {
+    if (process.env.HARNESS_DEBUG) console.error("rollup:", err);
+    rollUp = -1;
+  }
+
+  const ok =
+    underFocusArea === 1 &&
+    bothParents === 0 &&
+    crossTenantFocusArea === 0 &&
+    crossTenantGoal === 0 &&
+    rollUp === 100;
+
+  return {
+    name: "priorities-under-focus-areas",
+    hazard: "A priority hangs off another tenant's parent, or off two at once",
+    wrong: `cross-tenant focus area ${crossTenantFocusArea === 1 ? "ACCEPTED" : "refused"}, cross-tenant goal ${crossTenantGoal === 1 ? "ACCEPTED" : "refused"}, two parents ${bothParents === 1 ? "ACCEPTED" : "refused"}`,
+    right: `own focus area: ${underFocusArea} row(s) | focus area percent from one direct priority: ${rollUp}`,
+    ok,
+    detail: ok
+      ? "A priority hangs off a focus area in its own company and counts as one child of it. " +
+        "Two parents, another tenant's focus area and another tenant's goal are all refused — " +
+        "the last of those was reachable before 0209."
+      : `own-focus-area ${underFocusArea} (want 1), two-parents ${bothParents} (want 0), ` +
+        `cross-tenant-fa ${crossTenantFocusArea} (want 0), cross-tenant-goal ${crossTenantGoal} (want 0), ` +
+        `roll-up ${rollUp} (want 100).`,
+  };
+}
+
 async function companySortOrder(
   run: Runner,
   ids: Identities,
@@ -6331,6 +6506,11 @@ async function main(): Promise<void> {
     [
       "promote-steve-and-sean",
       (r: Runner, i: Identities) => promoteStevenAndSean(r, i, pendingSql),
+    ],
+    [
+      "priorities-under-focus-areas",
+      (r: Runner, i: Identities) =>
+        prioritiesUnderFocusAreas(r, i, pendingSql),
     ],
   ] as const;
 

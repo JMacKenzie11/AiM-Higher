@@ -8,6 +8,7 @@ import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
 import type { CascadeStatus, Priority } from "@/lib/types";
 import { parseStatus, type PlanResult } from "./_shared";
+import { parentColumns, parseParentRef } from "./parent-ref";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 export async function createPriorityAction(
@@ -22,12 +23,16 @@ export async function createPriorityAction(
   if (!companyId) return { ok: false, message: "Pick a company first." };
 
   const quarterId = String(formData.get("quarter_id") ?? "").trim();
-  if (!quarterId) return { ok: false, message: "Pick a quarter for this action." };
+  if (!quarterId) return { ok: false, message: "Pick a quarter for this priority." };
 
   const title = String(formData.get("title") ?? "").trim();
-  if (!title) return { ok: false, message: "Give this action a title." };
+  if (!title) return { ok: false, message: "Give this priority a title." };
 
-  const goalId = nullableString(formData.get("annual_goal_id"));
+  // ONE parent field, two levels. A priority hangs off a goal or off
+  // a focus area directly, and `parentColumns` always writes both
+  // columns so one can never be left behind (see parent-ref.ts).
+  const parent = parseParentRef(String(formData.get("parent") ?? ""));
+  const parentCols = parentColumns(parent);
   const description = nullableString(formData.get("description"));
   const ownerId = nullableString(formData.get("owner_id"));
   const dueDate = nullableString(formData.get("due_date"));
@@ -39,7 +44,7 @@ export async function createPriorityAction(
     .from("priorities")
     .insert({
       company_id: companyId,
-      annual_goal_id: goalId,
+      ...parentCols,
       quarter_id: quarterId,
       title,
       description,
@@ -49,15 +54,17 @@ export async function createPriorityAction(
     })
     .select("*")
     .single<Priority>();
-  if (error || !data) return { ok: false, message: "Couldn't create that action." };
+  if (error || !data) return { ok: false, message: "Couldn't create that priority." };
 
   revalidatePath("/plan");
-  if (goalId) revalidatePath(`/plan/goal/${goalId}`);
+  if (parent.kind === "goal") revalidatePath(`/plan/goal/${parent.id}`);
+  if (parent.kind === "sfa") revalidatePath(`/plan/sfa/${parent.id}`);
   trackAfter(
     session.profile.id,
     "priority_created",
     {
       has_annual_goal: Boolean(data.annual_goal_id),
+      has_focus_area: Boolean(data.sfa_id),
       has_owner: Boolean(data.owner_id),
       has_due_date: Boolean(data.due_date),
       initial_status: data.status,
@@ -73,12 +80,14 @@ export async function updatePriorityAction(
 ): Promise<PlanResult<Priority>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const id = String(formData.get("id") ?? "");
-  if (!id) return { ok: false, message: "Missing action id." };
+  if (!id) return { ok: false, message: "Missing priority id." };
 
   const title = String(formData.get("title") ?? "").trim();
   if (!title) return { ok: false, message: "Title can't be empty." };
 
-  const goalId = nullableString(formData.get("annual_goal_id"));
+  const parentCols = parentColumns(
+    parseParentRef(String(formData.get("parent") ?? ""))
+  );
   const description = nullableString(formData.get("description"));
   const ownerId = nullableString(formData.get("owner_id"));
   const dueDate = nullableString(formData.get("due_date"));
@@ -90,7 +99,7 @@ export async function updatePriorityAction(
     .from("priorities")
     .update({
       title,
-      annual_goal_id: goalId,
+      ...parentCols,
       description,
       owner_id: ownerId,
       due_date: dueDate,
@@ -171,20 +180,24 @@ export async function archivePriorityAction(
   return { ok: true, item: data };
 }
 
-export async function setPriorityGoalAction(
+// Re-parent a standalone priority from the inline picker on /plan.
+// Takes the wire form of a parent ref ("goal:<id>", "sfa:<id>", or
+// "") rather than a goal id, because the picker now offers both
+// levels in one list.
+export async function setPriorityParentAction(
   priorityId: string,
-  goalId: string | null
+  parentValue: string
 ): Promise<PlanResult<Priority>> {
   await requireRole(["system_admin", "company_admin", "aims_guide"]);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("priorities")
-    .update({ annual_goal_id: goalId })
+    .update(parentColumns(parseParentRef(parentValue)))
     .eq("id", priorityId)
     .select("*")
     .single<Priority>();
   if (error || !data) {
-    return { ok: false, message: "Couldn't link that action." };
+    return { ok: false, message: "Couldn't link that priority." };
   }
   revalidatePath("/plan");
   revalidatePath(`/plan/priority/${priorityId}`);
