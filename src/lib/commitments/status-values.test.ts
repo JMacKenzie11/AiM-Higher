@@ -175,6 +175,31 @@ describe("commitment status values", () => {
     expect(latest).toMatch(/0::bigint\s+as carried_count/);
   });
 
+  it("counts a recurring commitment's resolved weeks, not just its row", () => {
+    // Migration 0210. An ongoing commitment is ONE row that never
+    // leaves 'open' while the cycle runs (0140), so counting rows
+    // meant a recurring commitment kept faithfully for a quarter
+    // contributed nothing to kept_count and its priority sat at 0%
+    // forever.
+    //
+    // Pinned against the LATEST definition rather than by name,
+    // because the failure mode is a future CREATE OR REPLACE written
+    // from the older body — which is exactly how 0163's statuses went
+    // stale — and that replacement would be silently wrong again.
+    const files = readdirSync(MIGRATIONS)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
+    let latest = "";
+    for (const f of files) {
+      const sql = readFileSync(path.join(MIGRATIONS, f), "utf8");
+      if (/create\s+or\s+replace\s+view\s+public\.priority_progress/i.test(sql)) {
+        latest = sql;
+      }
+    }
+    expect(latest).not.toBe("");
+    expect(latest).toMatch(/commitment_occurrences/);
+  });
+
   it("documents the live status set so a future rename updates this list", () => {
     // Pins the set itself. If someone adds a fifth status, this fails
     // and they are pointed at every consumer above.
