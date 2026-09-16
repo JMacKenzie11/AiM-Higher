@@ -73,6 +73,14 @@
   border-bottom: 1px solid var(--border-strong);
 }
 
+/* The header's columns have to keep landing on the issue rows'
+   columns, and the blocks now inset those rows by their own margin
+   plus their 1px border. Same arithmetic, stated once: anything that
+   changes .issueListItem's margin-inline changes this line too. */
+.columnHeader {
+  padding-inline: calc(var(--space-4) + var(--space-3) + 1px);
+}
+
 @media (max-width: 1024px) {
   .columnHeader {
     display: none;
@@ -80,23 +88,53 @@
 }
 
 /* ---- Sortable list of issues -------------------------------- */
+/* ONE ISSUE AND ITS COMMITMENTS ARE ONE BLOCK.
+   
+   Before this, an issue was a row on the card's own background and
+   its commitments were a tinted full-bleed band underneath, with a
+   single strong line between one issue and the next. Nothing said
+   the band belonged to the row above it: the page went white, grey,
+   white, grey at a perfectly even rhythm, which is what a striped
+   table looks like. The separator was doing the only grouping work,
+   and a 1px line cannot outvote an alternating fill.
+   
+   The fix is the two strongest grouping signals there are, and
+   neither is a line. ENCLOSURE: each issue and its commitments sit
+   inside one bordered, rounded block. PROXIMITY: the space moves to
+   BETWEEN the blocks, where before it was distributed evenly and
+   therefore said nothing. The tint stays exactly as it was, and now
+   reads as the lower half of a block rather than as every other
+   stripe. */
 .issueList {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
 }
 
-/* Stronger than the hairlines inside an issue's commitment panel, so
-   the eye reads "next issue" rather than "next row". */
 .issueListItem {
-  border-bottom: 1px solid var(--border-strong);
+  margin-inline: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  /* The commitments band is full-bleed by design (see .commitments),
+     so it runs to this block's inner edge. Without this its square
+     corners poke through the rounded ones. */
+  overflow: hidden;
 }
 
-.issueListItem:last-child {
-  border-bottom: none;
+/* Reordering still works, and this is the rule that keeps it
+   readable while it does. .issueListItem IS the dnd-kit sortable
+   node: it carries the inline transform, so the whole block travels
+   as one piece rather than the row detaching from its commitments.
+   Lifting it above its neighbours while dragging is what makes that
+   legible. */
+.issueListItem[data-dragging="true"] {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 /* ---- One issue = one row (matches .columnHeader grid) ------- */
