@@ -15,6 +15,27 @@ import {
 // cookie" as "new user" and closes them again. Which is exactly the
 // "continually have to reopen it" this was built to avoid.
 
+describe("the defaults", () => {
+  it("names the four groups that start closed", () => {
+    // Pinned by name rather than only through the constant, so the
+    // list cannot be changed without a test saying so. Every other
+    // assertion in this file refers to DEFAULT_COLLAPSED_GROUPS
+    // symbolically and would happily pass against any contents.
+    expect([...DEFAULT_COLLAPSED_GROUPS].sort()).toEqual([
+      "Guide HQ",
+      "Portfolio",
+      "Resources",
+      "Strengths",
+    ]);
+  });
+
+  it("leaves Workspace open", () => {
+    // The one group somebody is inside all day. Collapsing it would
+    // hide Dashboard, Commitments and Plan behind a triangle.
+    expect(DEFAULT_COLLAPSED_GROUPS).not.toContain("Workspace");
+  });
+});
+
 describe("parseCollapsedGroups", () => {
   it("gives a new user the defaults", () => {
     expect(parseCollapsedGroups(undefined)).toEqual([
