@@ -46,6 +46,44 @@
    that button's right edge and ran off the side of the screen,
    underneath the sidebar. Anchoring to the row instead means each
    panel drops under the same right edge whichever button opened it. */
+/* The mobile Add trigger. Hidden above the breakpoint, where there is
+   room for the four buttons and a menu would only be a click tax. */
+.mobileAddTrigger {
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .mobileAddTrigger {
+    display: inline-flex;
+  }
+
+  /* The four collapse behind it. Still in the DOM and still the same
+     <details> elements, so opening one behaves exactly as it does on
+     desktop. */
+  .toolbarActions {
+    display: none;
+  }
+
+  .toolbarActions[data-mobile-open="true"] {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    /* Its own line, full width. The trigger and this are siblings in
+       the toolbar's flex row, so without the basis it shrinks to fit
+       its labels and the column sits in a narrow gutter. */
+    flex: 1 0 100%;
+    width: 100%;
+  }
+
+  /* Full width once revealed: a column of buttons sized to their
+     labels reads as ragged, and thumb targets want the width. */
+  .toolbarActions[data-mobile-open="true"] .toolbarAddDetails,
+  .toolbarActions[data-mobile-open="true"] .toolbarAddSummary {
+    width: 100%;
+  }
+}
+
 .toolbarActions {
   position: relative;
   display: flex;

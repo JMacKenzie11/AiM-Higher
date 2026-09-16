@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MobileAddMenu } from "./MobileAddMenu";
 import { PlusIcon } from "../../../components/ui/PlusIcon";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
@@ -150,7 +151,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
           </span>
         )}
         {isAdmin ? (
-          <div className={styles.toolbarActions}>
+          <MobileAddMenu>
             {!openQuarter ? (
               <Link href="/quarters" className={styles.toolbarGhost}>
                 + {quarters.length === 0 ? "Open your first quarter" : "Open next quarter"}
@@ -233,7 +234,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 </div>
               </details>
             ) : null}
-          </div>
+          </MobileAddMenu>
         ) : null}
       </div>
 

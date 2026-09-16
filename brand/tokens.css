@@ -40,6 +40,22 @@
   --text-faint: #8A93A0;
   --border: #E2E4DE;
   --border-strong: #C9CCC4;
+  /* The boundary of an interactive control, as opposed to the quiet
+     hairline between rows of content.
+     
+     Cobalt at 70%. Scoped to controls deliberately: --border at
+     1.28:1 on white is below WCAG 1.4.11's 3:1 for a component
+     boundary, and a secondary button is now the DEFAULT button. With
+     an invisible border, secondary cobalt text is indistinguishable
+     from a link — and ghost, which is borderless cobalt text, is the
+     variant that is supposed to look like one. Three variants
+     collapse into two.
+     
+     70% is the first mix that clears 3:1 on BOTH grounds the app
+     uses (3.61 on white, 3.36 on sand); 65% is 3.00 on sand, which
+     is the boundary itself. Still far quieter than the 7.33:1 label,
+     so the box stays subordinate to the words inside it. */
+  --border-interactive: #7285BF;
   --primary: var(--aims-cobalt);
   --primary-hover: var(--aims-cobalt-hover);
   --on-primary: var(--aims-white);
@@ -162,6 +178,8 @@
   --text-faint: #76839A;
   --border: #2C4165;
   --border-strong: #3A5378;
+  /* Lighter than the surface here, for the same 3:1 reason. */
+  --border-interactive: #6B82C4;
   --primary: var(--aims-sky);
   --primary-hover: #A5D2E7;
   --on-primary: var(--aims-navy);

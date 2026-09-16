@@ -540,24 +540,12 @@
 }
 
 .addSummary {
-  list-style: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-1) var(--space-2);
-  color: var(--primary);
-  font: var(--text-button-sm);
-  border-radius: var(--radius-sm);
-  transition: background var(--duration-fast) var(--ease-out);
+  /* The page's one create action, so it is the page's primary. See the primary-per-view table in the design system. */
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
 }
 
 .addSummary::-webkit-details-marker {
   display: none;
-}
-
-.addSummary:hover {
-  background: var(--aims-cobalt-tint);
-  color: var(--primary-hover);
 }
 
 /* When the disclosure is open, the summary is redundant — the panel

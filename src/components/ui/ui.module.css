@@ -42,12 +42,13 @@
  *   cobalt on white          7.33:1   AA pass
  *   cobalt on sand           6.82:1   AA pass
  *   cobalt on cobalt-tint    6.37:1   AA pass
- * The secondary BORDER is 1.28:1 against white, which does not meet
- * WCAG 1.4.11's 3:1 for a component boundary. It is kept as specified
- * because the cobalt label at 7.33:1 is what identifies the control,
- * not the hairline; no hairline-weight value reaches 3:1 (cobalt at
- * 60% is still only 2.89). If the boundary must carry it alone, the
- * one-line change is --border -> a darker outline on .btnSecondary.
+ * The secondary border is --border-interactive (cobalt at 70%),
+ * 3.61:1 on white and 3.36:1 on sand, which meets WCAG 1.4.11's 3:1
+ * for a component boundary. The app's plain --border is 1.28:1 and
+ * was rejected for this: secondary is the DEFAULT button now, and an
+ * invisible border makes it indistinguishable from ghost, which is
+ * borderless cobalt text and is meant to read like a link. See the
+ * token for the full reasoning.
  */
 
 .btn {
@@ -114,7 +115,7 @@
 .btnSecondary {
   composes: btn;
   color: var(--primary);
-  border-color: var(--border);
+  border-color: var(--border-interactive);
 }
 
 .btnSecondary:hover:not(:disabled) {
