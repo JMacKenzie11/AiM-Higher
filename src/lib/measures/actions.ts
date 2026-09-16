@@ -39,6 +39,8 @@ export async function logMeasureEntriesAction(
     value_number: number | null;
     value_text: string | null;
     entered_by: string;
+    origin: null;
+    pulled_at: null;
   }> = [];
 
   for (const e of entries) {
@@ -65,6 +67,15 @@ export async function logMeasureEntriesAction(
       value_number,
       value_text,
       entered_by: session.profile.id,
+      // Explicitly null, not omitted. This is an upsert on
+      // (measure_id, week_ending), and an upsert only writes the
+      // columns in its payload — so omitting these would leave a
+      // previously-pulled week still tagged "Pulled" over a number a
+      // person had just typed by hand. A manual entry clears the
+      // tag, which is the same rule as manual-wins pointing the
+      // other way. Migration 0212.
+      origin: null,
+      pulled_at: null,
     });
   }
 

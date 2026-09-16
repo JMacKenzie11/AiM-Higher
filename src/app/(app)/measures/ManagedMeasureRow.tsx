@@ -27,6 +27,8 @@ import type {
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import uiStyles from "@/components/ui/ui.module.css";
 import { compareCellToTarget, computeStatus, type MeasureStatus } from "./MeasuresManager";
+import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
+import { ExternalSourceControls } from "./external/ExternalSourceControls";
 import styles from "./measures.module.css";
 import chartStyles from "../chart/chart.module.css";
 
@@ -133,6 +135,11 @@ export function ManagedMeasureRow({
             {FREQUENCY_LABELS[measure.update_frequency]}
           </span>
         ) : null}
+        {/* Renders nothing at all unless this company has external
+            measures on AND something has pulled this measure's
+            current week. Every other company's row is byte-identical
+            to what it was before. */}
+        <ExternalMeasureNote measureId={measure.id} />
         {/* Only surface the coaching flag when the target is
             actually being tracked — otherwise it's a stale nag from
             a prior tracking-on period. */}
@@ -188,6 +195,11 @@ export function ManagedMeasureRow({
       {/* Always rendered, empty when not authoring. See the note on
           the header row: a short row shifts every row beneath it. */}
       <div className={styles.measureCellActions} role="cell">
+        {/* Outside the `authoring` branch deliberately. Pulling a
+            week is logging a value, not editing the measure, so it
+            belongs to whoever may log — the same people the action
+            and the database will check again. */}
+        <ExternalSourceControls measureId={measure.id} />
         {authoring ? (
           <>
           <button

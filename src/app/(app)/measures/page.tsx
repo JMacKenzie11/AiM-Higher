@@ -7,6 +7,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getMeasuresPageData } from "@/lib/measures/page-data";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { formatShortDate } from "@/lib/dates";
+import { loadExternalPanel } from "@/lib/external-measures/service";
+import { ExternalMeasuresProvider } from "./external/ExternalMeasuresContext";
 import { MeasuresManager } from "./MeasuresManager";
 import { BoardView } from "./board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
@@ -42,13 +44,33 @@ export default async function MeasuresPage() {
   // same functions, critical success factors, links and KPIs; loading
   // them separately fetched four of five reads twice on every page
   // load. See getMeasuresPageData.
-  const [{ tree, board }, trackingEnabled, rdEnabled] = await Promise.all([
-    getMeasuresPageData(companyId, session.profile.id, timezone, isAdmin),
-    companyHasFeature(companyId, "performance_tracking"),
-    companyHasFeature(companyId, "role_descriptions"),
-  ]);
+  const [{ tree, board }, trackingEnabled, rdEnabled, externalEnabled] =
+    await Promise.all([
+      getMeasuresPageData(companyId, session.profile.id, timezone, isAdmin),
+      companyHasFeature(companyId, "performance_tracking"),
+      companyHasFeature(companyId, "role_descriptions"),
+      companyHasFeature(companyId, "external_measures"),
+    ]);
 
   const { functions, weekEnding } = tree;
+
+  // External measures, loaded only for a company that has them.
+  //
+  // Off, this is one boolean and three reads that never happen, and
+  // the provider below hands every row the OFF state. That is the
+  // whole cost of this feature to the other companies on the
+  // instance, and it is deliberately the cost of a flag check rather
+  // than of a wider spine.
+  //
+  // The ids are taken from the tree the page already built, so the
+  // panel needs no traversal of its own and cannot disagree with
+  // what is on screen about which measures exist.
+  const measureIds = functions.flatMap((f) =>
+    f.outcomes.flatMap((o) => [o.id, ...o.measures.map((m) => m.id)])
+  );
+  const externalPanel = externalEnabled
+    ? await loadExternalPanel(supabase, measureIds, weekEnding, timezone)
+    : null;
   const boardHasContent =
     board.functions.length > 0 &&
     board.functions.some((f) => f.metrics.length > 0);
@@ -89,13 +111,19 @@ export default async function MeasuresPage() {
           </p>
         </section>
       ) : (
-        <MeasuresManager
-          functions={functions}
-          weekEnding={weekEnding}
-          isAdmin={isAdmin}
-          trackingEnabled={trackingEnabled}
-          rdEnabled={rdEnabled}
-        />
+        <ExternalMeasuresProvider
+          panel={externalPanel}
+          canPull={isAdmin}
+          canAdminister={session.profile.role === "system_admin"}
+        >
+          <MeasuresManager
+            functions={functions}
+            weekEnding={weekEnding}
+            isAdmin={isAdmin}
+            trackingEnabled={trackingEnabled}
+            rdEnabled={rdEnabled}
+          />
+        </ExternalMeasuresProvider>
       )}
     </PageShell>
   );
