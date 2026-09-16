@@ -1,4 +1,6 @@
 import "server-only";
+import { loadFollowThroughRows } from "@/lib/commitments/follow-through-rows";
+import type { FollowThroughRow } from "@/lib/commitments/follow-through";
 
 import crypto from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
@@ -206,22 +208,19 @@ async function buildWeeklySnapshot(
       .select("title, status, owner_id, archived")
       .eq("company_id", companyId)
       .eq("archived", false),
+    // Commitments AND the weeks of any recurring ones, through the
+    // shared loader so this cannot count a different population from
+    // the companies list. See follow-through-rows.ts.
     openQuarter
-      ? supabase
-          .from("commitments")
-          .select("status, due_date")
-          .eq("company_id", companyId)
-          .gte("week_ending", openQuarter.start_date)
-          .lte("week_ending", openQuarter.end_date)
-          .is("deleted_at", null)
-          .is("parked_at", null)
-      : Promise.resolve({
-          data: [] as Array<{ status: string; due_date: string | null }>,
-        }),
+      ? loadFollowThroughRows(supabase, companyId, {
+          from: openQuarter.start_date,
+          to: openQuarter.end_date,
+        })
+      : Promise.resolve([] as FollowThroughRow[]),
   ]);
   const recentCommitments = recentRes.data;
   const priorities = priorityRes.data;
-  const quarterKeep = quarterRes.data;
+  const quarterKeep = quarterRes;
 
   const rows = (recentCommitments ?? []) as Array<
     Pick<
@@ -276,10 +275,7 @@ async function buildWeeklySnapshot(
   // printed directly above it on the same page. Its own arithmetic
   // used to count late keeps as successes, which is how B&B Electric
   // read "13 for 13, a clean run" while their dashboard showed 62%.
-  const quarterSummary = summarizeFollowThrough(
-    (quarterKeep ?? []) as Array<{ status: string; due_date: string | null }>,
-    today
-  );
+  const quarterSummary = summarizeFollowThrough(quarterKeep, today);
   const quarterRate = quarterSummary.rate;
 
   const lines: string[] = [];

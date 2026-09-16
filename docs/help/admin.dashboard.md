@@ -37,8 +37,10 @@ off nightly jobs.
   = distinct people who sent a coach message in the window.
   Conv. = coaching threads started. Practices = practice
   conversations started (30 days). Follow-Through Rate =
-  kept-on-time ÷ (kept-on-time + kept-late + missed) over 30
-  days.
+  kept-on-time ÷ (kept-on-time + kept-late + missed + open and
+  past due) over 30 days. An overdue commitment counts against
+  the rate; one not yet due is left out entirely. A weekly
+  repeating commitment counts once per week resolved.
 
 - **Add a system admin** — the *System admins* card at the
   bottom. They belong to no company, which is why they appear here

@@ -19,7 +19,7 @@ As a team member, you can:
 
 - **View the assembled RD** — everyone in the company can read
   the current draft once the function has enough content on it.
-- **Download the .docx** — the *Download* pill streams a proper
+- **Download the .docx** — the *Download* button streams a proper
   Word file (heading hierarchy, bullets, numbered badges, italic
   subtitle, page numbers). Opens cleanly in Word, Pages, and
   Google Docs.

@@ -1,4 +1,5 @@
 import "server-only";
+import { loadFollowThroughRows } from "@/lib/commitments/follow-through-rows";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -158,15 +159,14 @@ export async function loadPortfolioOverview(): Promise<PortfolioCard[]> {
               .eq("quarter_id", quarter.id)
               .eq("archived", false)
           : Promise.resolve({ data: [] }),
-        supabase
-          .from("commitments")
-          .select("status, due_date")
-          .eq("company_id", company.id)
-          .eq("week_ending", weekEnding)
-          // Soft-deleted and parked rows never count toward
-          // follow-through anywhere else in the product.
-          .is("deleted_at", null)
-          .is("parked_at", null),
+        // Commitments AND the weeks of any recurring ones, through
+        // the shared loader. Soft-deleted and parked rows never count
+        // toward follow-through anywhere else in the product, and the
+        // loader applies that to an occurrence's parent too.
+        loadFollowThroughRows(supabase, company.id, {
+          from: weekEnding,
+          to: weekEnding,
+        }),
       ]);
 
       const priorities = summarizePriorityHealth(
@@ -182,13 +182,7 @@ export async function loadPortfolioOverview(): Promise<PortfolioCard[]> {
         priorityGood: priorities.good,
         priorityTotal: priorities.total,
         priorityPercent: priorities.percent,
-        week: summarizeFollowThrough(
-          (weekRows.data ?? []) as Array<{
-            status: string;
-            due_date: string | null;
-          }>,
-          todayIso
-        ),
+        week: summarizeFollowThrough(weekRows, todayIso),
         weekEnding,
       };
     })

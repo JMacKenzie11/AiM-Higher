@@ -24,7 +24,10 @@ As a team member, you can:
   line under each Priority counts the commitments still **open** on
   it, so it reads as what is left to do. The bar beside it says how
   much is already done, which is why a Priority can show "1 open
-  commitment" and 50% at the same time.
+  commitment" and 50% at the same time. A commitment set to repeat
+  weekly counts **once for each week it has been resolved**, so a
+  standing commitment kept for six weeks moves the bar six times
+  rather than sitting at zero until the day somebody stops it.
 - **Come back to where you were.** The back link on any detail page
   returns you to this page positioned on the row you came from, and
   opens its Focus Area if you had it collapsed. From a Priority, that
@@ -35,22 +38,26 @@ As a team member, you can:
 ::: role company_admin,aims_guide,system_admin
 As an admin or guide, you can also:
 
-- **Add a Commitment** without leaving this page. *+ Add Commitment*
-  sits first in the toolbar, because it is the weekly move where the
-  rest are quarterly ones. Pick the Priority it belongs to from the
+- **Add a Commitment** without leaving this page. *Add commitment*
+  sits last in the toolbar, where a commitment sits in the cascade:
+  the row reads Focus Area, Goal, Quarterly Priority, Commitment, in
+  the order a plan is built. Pick the Priority it belongs to from the
   list, which is grouped by what each Priority sits under, and the
   commitment appears on that Priority and on the Commitments board.
   The button is absent until at least one Priority exists to attach
   one to.
-- **Add anywhere in the cascade.** The toolbar shows *+ Add Focus
-  Area*, *+ Add Goal*, and (with an open quarter) *+ Add Quarterly
-  Priority*. If the parent above doesn't exist yet, leave the picker
+- **Add anywhere in the cascade.** The toolbar shows *Add focus
+  area*, *Add goal*, and (with an open quarter) *Add quarterly
+  priority*. On a phone the four buttons sit behind a single *Add*
+  to keep the plan itself on screen; tap it to show them. If the
+  parent above doesn't exist yet, leave the picker
   on *Not linked (yet)*. The new row lands in a *Standalone* section
   below the cascade and can be linked later from the row itself.
 - **Add a Priority straight to a Focus Area.** Open a Focus Area in
-  the cascade and use its *+ Add quarterly priority*, next to *+ Add
+  the cascade and use its *Add quarterly priority*, next to *Add
   goal*. The same pair sits at the bottom of the Focus Area's own
-  page. Use it when the Focus Area is this quarter's work rather than
+  page, and opening one closes the other, so you are only ever
+  filling in one form at a time. Use it when the Focus Area is this quarter's work rather than
   a multi-year theme, so you aren't inventing a Goal that repeats the
   Focus Area's name back at you.
 - **Choose what a Priority sits under.** The *Parent* picker lists

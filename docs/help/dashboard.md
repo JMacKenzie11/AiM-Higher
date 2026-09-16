@@ -55,7 +55,9 @@ The notification bell will tell you when you have some outstanding.
 ## How to interpret the hero stats
 
 - **Follow-Through Rate** — kept-on-time as a % of resolved commitments
-  this quarter. The primary weekly signal.
+  this quarter. The primary weekly signal. A commitment set to repeat
+  weekly counts once for each week resolved in the quarter, so a
+  standing commitment carries the weight of the weeks it actually ran.
 - **Strategic Progress** — average % across Focus Areas.
 - **On Track** — count of priorities currently on-track / complete out
   of total priorities in the open quarter.

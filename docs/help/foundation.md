@@ -28,7 +28,7 @@ As an admin or guide, you can also:
 - **Add or remove items** in Core Values, Strengths &
   Differentiators, Ideal Customer, and Key Success Metrics — every
   numbered card carries Edit and Delete; each section has an
-  *+ Add* affordance at the bottom.
+  *Add* affordance at the bottom.
 - **Edit any list item** inline via the card footer's Edit action.
 :::
 
@@ -37,7 +37,7 @@ As an admin or guide, you can also:
 1. Click the *Edit* button in the card footer (Purpose, Vision) or
    on the numbered card (list items).
 2. Make the change and Save. The read view returns in place.
-3. For list sections, use the *+ Add* disclosure at the bottom of
+3. For list sections, use the *Add* disclosure at the bottom of
    the section to add a new item.
 
 ## How to keep Focus Areas up to date
