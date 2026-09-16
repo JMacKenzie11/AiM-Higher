@@ -24,7 +24,7 @@ import { planHrefForGoal } from "../../cascade-anchor";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
 
-// Annual Goal hero card with an inline read/edit toggle. Mirrors the
+// Goal hero card with an inline read/edit toggle. Mirrors the
 // SFA hero pattern — same card in both states, Edit at the bottom
 // flips fields into inputs, Save closes on success.
 
@@ -123,7 +123,7 @@ export function GoalHeroPanel({
       </div>
 
       <div className={heroStyles.card}>
-        <div className={heroStyles.eyebrow}>Annual Goal</div>
+        <div className={heroStyles.eyebrow}>Goal</div>
 
         {editing ? (
           <form action={formAction} className={styles.form}>
@@ -313,7 +313,7 @@ export function GoalHeroPanel({
                     onClick={() => setEditing(true)}
                     disabled={archiving}
                   >
-                    Edit annual goal
+                    Edit goal
                   </button>
                   <button
                     type="button"

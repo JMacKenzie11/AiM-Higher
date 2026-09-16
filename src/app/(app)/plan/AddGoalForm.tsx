@@ -135,7 +135,7 @@ export function AddGoalForm({
           className={styles.primaryButton}
           disabled={pending}
         >
-          {pending ? "Adding…" : "Add annual goal"}
+          {pending ? "Adding…" : "Add goal"}
         </button>
         <ConfirmationChip visible={confirmationVisible} />
       </div>

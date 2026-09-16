@@ -53,12 +53,12 @@ export const TERMS: Record<TermKey, Term> = {
   priority: {
     label: "Priority",
     definition:
-      "A 90-day priority is a focused result the team aims to deliver in the current quarter. Commitments and actions roll up to their priority so weekly progress is visible against the quarterly aim.",
+      "A quarterly priority is a focused result the team aims to deliver in the current quarter. Commitments roll up to their priority so weekly progress is visible against the quarterly aim.",
   },
   strategicFocusArea: {
     label: "Focus Area",
     definition:
-      "A multi-year strategic theme. Annual Goals sit inside a Focus Area, and 90-Day Priorities sit inside a Goal.",
+      "A multi-year strategic theme. Goals sit inside a Focus Area, and Quarterly Priorities sit inside a Goal.",
   },
   clarity: {
     label: "Clarity",

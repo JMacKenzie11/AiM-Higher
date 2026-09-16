@@ -8,7 +8,7 @@ import { clampScore, type DisciplineScore } from "../types";
 //     open quarter): 2 pts baseline. Missing pieces knock this down
 //     to zero; a healthy cascade earns the floor but doesn't drive
 //     the score on its own.
-//   - Annual goal closure — of goals whose target_date has passed,
+//   - Goal closure — of goals whose target_date has passed,
 //     what fraction are `complete`? Up to 4 pts. When no goals have
 //     hit their date yet, we award full credit because there's
 //     nothing to close (fresh plan shouldn't drag the score).

@@ -294,7 +294,7 @@ export default function LandingPage() {
             title="Know if the plan is moving without asking anyone."
             body={
               <p>
-                Purpose, vision, focus areas, annual goals, quarterly
+                Purpose, vision, focus areas, goals, quarterly
                 actions, weekly commitments, each level hanging from the
                 one above. Progress rolls up on its own, so the dashboard
                 tells the truth about the quarter before the quarter is

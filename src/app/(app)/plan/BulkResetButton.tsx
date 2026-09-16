@@ -76,7 +76,7 @@ export function BulkResetButton({
               </li>
               <li>
                 <strong>{goalCount}</strong>{" "}
-                Annual {goalCount === 1 ? "Goal" : "Goals"}
+                {goalCount === 1 ? "Goal" : "Goals"}
               </li>
               <li>
                 <strong>{priorityCount}</strong>{" "}

@@ -52,7 +52,7 @@ Eight disciplines, each 0–10:
   State-based. LTD Track/Decide always sit with the Lead, so they're not
   scored.
 - **Strategic plan** — an open quarter with a populated cascade (2-point
-  baseline), plus how well annual goals and quarterly priorities close
+  baseline), plus how well goals and quarterly priorities close
   on their due dates (4 points each). Fresh plans with nothing past-date
   get full credit for the closure halves.
 - **Execution** — 30-day follow-through rate on commitments, minus aging

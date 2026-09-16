@@ -1,4 +1,5 @@
 import { test, expect, signIn, users } from "./fixtures";
+import type { Page } from "@playwright/test";
 
 // The /plan cascade is linkable BY ROW: a detail page's back link
 // carries `#goal-<id>`, and landing there opens whatever is
@@ -14,8 +15,52 @@ import { test, expect, signIn, users } from "./fixtures";
 //
 // Creates its own rows and archives them again, per docs/e2e.md.
 
+// A CASCADE CARD IS FOUND BY ITS OWN TITLE LINK, NEVER BY hasText.
+// Every focus-area card carries an "+ Add goal" form whose parent
+// picker lists EVERY focus area by name, so each card's text
+// contains every other card's title and `hasText` matches all of
+// them. That is silent while a single one exists and a strict-mode
+// violation the moment a second does.
+function sfaCard(page: Page, title: string) {
+  return page
+    .locator("details[data-sfa-id]")
+    .filter({ has: page.getByRole("link", { name: title, exact: true }) });
+}
+
+function goalCard(page: Page, title: string) {
+  return page
+    .locator("details[data-goal-id]")
+    .filter({ has: page.getByRole("link", { name: title, exact: true }) });
+}
+
+// Archive whatever detail page we are on, and wait for the redirect
+// that only happens once the write succeeded.
+async function archiveFromDetail(page: Page) {
+  await page.getByRole("button", { name: "Archive", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible({ timeout: 10_000 });
+  await dialog.getByRole("button", { name: "Archive", exact: true }).click();
+  await expect(page).toHaveURL(/\/plan$/, { timeout: 30_000 });
+}
+
+// Rows this spec created are real rows on the clone. A run that dies
+// halfway leaves them there, and the next run is the only thing that
+// will ever tidy them — so it does, before it makes any of its own.
+async function sweepLeftovers(page: Page) {
+  for (let i = 0; i < 12; i += 1) {
+    await page.goto("/plan");
+    const leftover = page
+      .getByRole("link", { name: /^E2E anchor (SFA|goal) \d+$/ })
+      .first();
+    if ((await leftover.count()) === 0) return;
+    await leftover.click();
+    await archiveFromDetail(page);
+  }
+  throw new Error("Could not clear E2E anchor leftovers from /plan.");
+}
+
 test("a back link lands on /plan with the goal revealed", async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const stamp = Date.now();
   const sfaTitle = `E2E anchor SFA ${stamp}`;
   const goalTitle = `E2E anchor goal ${stamp}`;
@@ -28,50 +73,37 @@ test("a back link lands on /plan with the goal revealed", async ({ page }) => {
     .click();
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
 
-  await page.goto("/plan");
+  await sweepLeftovers(page);
 
   // Create a focus area.
   await page.getByText("+ Add Focus Area").click();
   await page.locator("#sfa-title").fill(sfaTitle);
-  await page.getByRole("button", { name: /^Add Focus Area$/ }).click();
-  const sfaDetails = page
-    .locator("details[data-sfa-id]")
-    .filter({ hasText: sfaTitle });
-  await expect(sfaDetails).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Add Focus Area", exact: true }).click();
+  const sfa = sfaCard(page, sfaTitle);
+  await expect(sfa).toBeVisible({ timeout: 30_000 });
 
   // Create a goal under it.
-  await sfaDetails.getByText("+ Add annual goal").click();
-  await sfaDetails.locator("#goal-title").fill(goalTitle);
-  await sfaDetails.getByRole("button", { name: /Add Annual Goal/i }).click();
-  const goalDetails = page
-    .locator("details[data-goal-id]")
-    .filter({ hasText: goalTitle });
-  await expect(goalDetails).toBeVisible({ timeout: 30_000 });
-  const goalId = await goalDetails.getAttribute("data-goal-id");
+  await sfa.getByText("+ Add goal").click();
+  await sfa.locator("#goal-title").fill(goalTitle);
+  await sfa.getByRole("button", { name: "Add goal", exact: true }).click();
+  const goal = goalCard(page, goalTitle);
+  await expect(goal).toBeVisible({ timeout: 30_000 });
+  const goalId = await goal.getAttribute("data-goal-id");
   expect(goalId).toBeTruthy();
 
   // Collapse everything, which persists "closed" for this focus area.
   await page.getByRole("button", { name: "Collapse all" }).click();
-  await expect(goalDetails).toBeHidden();
+  await expect(goal).toBeHidden();
 
   // The link a detail page renders.
   await page.goto(`/plan#goal-${goalId}`);
-  const goalLink = page.getByRole("link", { name: goalTitle });
+  const goalLink = page.getByRole("link", { name: goalTitle, exact: true });
   await expect(goalLink).toBeVisible({ timeout: 30_000 });
   await expect(goalLink).toBeInViewport();
 
-  // Clean up: archive the goal, then the focus area.
-  await goalLink.click();
-  await expect(page).toHaveURL(/\/plan\/goal\//, { timeout: 30_000 });
-  await page.getByRole("button", { name: /^Archive$/ }).click();
-  await page.getByRole("button", { name: /^Archive$/ }).last().click();
-  await expect(page).toHaveURL(/\/plan/, { timeout: 30_000 });
-
-  await page.goto("/plan");
-  const sfaLink = page.getByRole("link", { name: sfaTitle });
-  if (await sfaLink.isVisible()) {
-    await sfaLink.click();
-    await page.getByRole("button", { name: /^Archive$/ }).click();
-    await page.getByRole("button", { name: /^Archive$/ }).last().click();
-  }
+  // Clean up after ourselves.
+  await sweepLeftovers(page);
+  await expect(
+    page.getByRole("link", { name: /^E2E anchor (SFA|goal) \d+$/ }),
+  ).toHaveCount(0);
 });

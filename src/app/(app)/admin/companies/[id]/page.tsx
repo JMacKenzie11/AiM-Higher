@@ -320,8 +320,8 @@ export default async function CompanyDetailPage({
               Planning cycle
             </h2>
             <p className={styles.subtitleInline}>
-              Archives every active Focus Area, Annual Goal, and
-              90-Day Priority in this company so the team can build the next
+              Archives every active Focus Area, Goal, and
+              Quarterly Priority in this company so the team can build the next
               cycle from a clean canvas. Nothing is deleted — records stay
               on file. Open commitments become Operational (unlinked);
               resolved commitments keep their historical link so past-quarter

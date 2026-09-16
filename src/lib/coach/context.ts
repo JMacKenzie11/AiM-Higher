@@ -961,7 +961,7 @@ export function formatPersonContext({
   }
 
   lines.push("");
-  lines.push("Owned 90-Day Priorities (title — status):");
+  lines.push("Owned Quarterly Priorities (title — status):");
   if (priorities.length === 0) {
     lines.push("- (none)");
   } else {
@@ -971,7 +971,7 @@ export function formatPersonContext({
   }
 
   lines.push("");
-  lines.push("Owned annual goals (title — status):");
+  lines.push("Owned goals (title — status):");
   if (goals.length === 0) {
     lines.push("- (none)");
   } else {

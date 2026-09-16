@@ -60,7 +60,7 @@ describe("formatPartnerContext", () => {
       // Priorities and goals are also excluded from partner_context
       // even though person_context includes them.
       "priorit",
-      "annual goal",
+      "goal",
     ];
     for (const banned of forbidden) {
       expect(dataSection).not.toContain(banned.toLowerCase());

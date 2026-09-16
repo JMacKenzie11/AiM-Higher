@@ -321,7 +321,7 @@ async function buildWeeklySnapshot(
   );
   if (priorityBuckets.length > 0) {
     lines.push("");
-    lines.push("90-Day Priority statuses (open-quarter, non-archived):");
+    lines.push("Quarterly Priority statuses (open-quarter, non-archived):");
     for (const [status, count] of priorityBuckets) {
       lines.push(`- ${status}: ${count}`);
     }
