@@ -14,6 +14,8 @@ import type {
 } from "@/lib/types";
 import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
 import styles from "../admin.module.css";
+import { getAssignedAccess } from "@/lib/admin/assigned-access";
+import { AssignedAccessList } from "./AssignedAccessList";
 import { FeaturesForm } from "./FeaturesForm";
 import { IndustryForm } from "./IndustryForm";
 import { TimezoneForm } from "./TimezoneForm";
@@ -78,6 +80,7 @@ export default async function CompanyDetailPage({
     { data: sources },
     { data: meetings },
     connectedAccount,
+    assignedAccess,
   ] = await Promise.all([
     supabase
       .from("companies")
@@ -105,6 +108,10 @@ export default async function CompanyDetailPage({
       .order("created_at", { ascending: false })
       .limit(50),
     getConnectedGoogleAccount(id),
+    // Returns empty for a caller the database does not admit, so this
+    // is safe to fetch unconditionally. The card below is what decides
+    // whether to render it, and for an aims_guide it does not.
+    getAssignedAccess(id),
   ]);
 
   if (!company) notFound();
@@ -254,6 +261,42 @@ export default async function CompanyDetailPage({
               Features
             </h2>
             <FeaturesForm companyId={company.id} initial={features} />
+          </section>
+        ) : null}
+
+        {/* Assigned access — who administers this company without
+            being part of its team. Spec §1a, decision 9.
+
+            NOT on /people, and that is the decision rather than an
+            accident of where it was easy to put. /people is the
+            team's page and everybody in the company reads it; two
+            non-members in that list means explaining the discrepancy
+            to all of them with a badge. The people who need to know
+            are the ones who administer the company, and they are the
+            ones on this page.
+
+            Guides are excluded even though they reach this page for
+            their assigned companies: their own assignments are
+            already in Guide HQ, and this is a management surface for
+            the people who administer the company rather than for the
+            people assigned to it. The database says the same thing —
+            assigned_access() returns empty for a guide — so the card
+            would be empty anyway, and this keeps the heading from
+            appearing above nothing. */}
+        {managesContainer || isCompanyAdmin ? (
+          <section className={styles.card} aria-labelledby="assigned-access">
+            <h2 id="assigned-access" className={styles.h2}>
+              Assigned access
+            </h2>
+            <p className={styles.subtitleInline}>
+              People who administer this company without being part of its
+              team.
+            </p>
+            <AssignedAccessList
+              companyId={company.id}
+              people={assignedAccess}
+              canRemove={isSystemAdmin || isCompanyAdmin}
+            />
           </section>
         ) : null}
 

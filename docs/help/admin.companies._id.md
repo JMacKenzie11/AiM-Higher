@@ -50,6 +50,26 @@ No separate "open the company" step is needed.
   delete, and the counts it reports back are what it actually
   archived.
 
+### Assigned access
+
+Who administers this company without being part of its team. Two
+kinds of person show up here, and the Type column tells them apart:
+
+- **AiMS Guide** — assigned to work with this company. A system
+  admin or the company's own admin can end that with *Remove from
+  this company*. The guide keeps their account and any other
+  companies they work with; only their access to this one ends.
+- **Portfolio** — a portfolio admin who has taken company admin
+  rights here. There is no Remove control on these rows. Portfolio
+  access is managed at the portfolio level, and a company cannot
+  end it.
+
+These people are not listed on your People page. That page is your
+team, and they are not on it.
+
+System admins, portfolio admins and the company's own admins see
+this card. Guides do not.
+
 ### System admins and portfolio admins only
 
 - **Archive or reactivate the company** — under Actions.
@@ -98,14 +118,19 @@ the name, timezone, industry and features, and archive or
 reactivate the company, but not remove one.
 
 Company admins see Actions (their company can't archive
-themselves — only *Open this company* is shown), Industry,
-transcripts, and Planning cycle. They do not see Timezone: moving a
-company's clock re-dates its whole reporting history, so it sits
-with the roles that own the portfolio rather than the ones inside
-it.
+themselves — only *Open this company* is shown), Industry, Assigned
+access, transcripts, and Planning cycle. They do not see Timezone:
+moving a company's clock re-dates its whole reporting history, so it
+sits with the roles that own the portfolio rather than the ones
+inside it.
 
-Guides see Actions and transcripts, but not Industry, Timezone,
-Features or Planning cycle.
+Guides see Actions and transcripts, but not Industry, Assigned
+access, Timezone, Features or Planning cycle.
+
+**Why isn't our guide on the People page?** Because People is your
+team, and a guide belongs to no company. They appear under Assigned
+access on this page instead, where the person who administers the
+company can see them and end the assignment.
 
 **A transcript came in but didn't route to this company.**
 Check the alias substring against the file name (case-insensitive

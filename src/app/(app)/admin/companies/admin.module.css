@@ -442,6 +442,14 @@
 }
 
 /* ---- Chips (shared colour variants — see ui.module.css) ---- */
+/* Assigned access: the Type cell. chipInfo rather than chipWarning or
+   chipDanger, deliberately. An assigned guide or portfolio admin is
+   not a problem to be flagged, they are an explanation of where admin
+   rights in this company came from. */
+.chipInfo {
+  composes: chipInfo from "../../../../components/ui/ui.module.css";
+}
+
 .chipActive {
   composes: chipActive from "../../../../components/ui/ui.module.css";
 }
