@@ -1423,6 +1423,149 @@ values ('${PA}', '${CO}') on conflict do nothing;`;
   };
 }
 
+// 0207 against rows that look like the ones it names.
+//
+// THE PROBLEM THIS SOLVES. 0207 promotes two people by hardcoded
+// uuid on one instance. Neither exists on the dev clone, so
+// `migrate:dev` runs it as a clean no-op — which proves the SQL
+// parses and that it refuses to act on a database where the profiles
+// are absent, and proves nothing at all about what it does when they
+// are present. The migration self-verifies, but only where it finds
+// them, which is the one database nobody wants to learn on.
+//
+// So the fixtures are built here, with the same ids and names the
+// migration looks for, and the migration is applied on top of them
+// inside a transaction that rolls back. What runs is the real file.
+//
+// Five claims:
+//   1. both are promoted: role, company_id null, home set
+//   2. both get an assignment for Promise One
+//   3. THEIR COMMITMENTS SURVIVE, same count, still owned by them.
+//      The whole reason they get an assignment at all.
+//   4. it is idempotent: applied twice, still one assignment each
+//   5. it REFUSES a profile that is not who it expects, and takes
+//      the transaction with it rather than promoting a stranger
+async function promoteStevenAndSean(
+  run: Runner,
+  _ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  if (!pending.includes("0207")) {
+    return {
+      name: "promote-steve-and-sean",
+      hazard: "A one-off promotion lands on the wrong person, or detaches them from their work",
+      wrong: "0207 not among the pending migrations",
+      right: "0207 not among the pending migrations",
+      ok: true,
+      detail:
+        "not applicable: runs only under --pending 0207_promote_steve_and_sean.sql, which is the file it exercises.",
+    };
+  }
+
+  const STEVE = "96cba0fc-9f08-4732-9a07-09ad880763e0";
+  const SEAN = "52e077c5-6ee4-4cca-b4a4-a39b5bd6bfc5";
+  const PROMISE_ONE = "54bac6cf-aabb-4e7a-a083-eda16a8e5460";
+
+  // Same ids, same names, same company as the migration names. A
+  // fixture that differs anywhere the migration checks would prove
+  // the guard fires rather than the promotion works.
+  const seed = `
+insert into public.companies (id, name, timezone, status)
+values ('${PROMISE_ONE}', '1 - Promise One', 'America/New_York', 'active')
+on conflict (id) do nothing;
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${STEVE}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-steve@example.invalid', '', now(), now(), now()),
+       ('${SEAN}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-sean@example.invalid', '', now(), now(), now())
+on conflict (id) do nothing;
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${STEVE}', '${PROMISE_ONE}', 'Steve Kessen', 'team_member', 'active'),
+       ('${SEAN}', '${PROMISE_ONE}', 'Sean Wenger', 'team_member', 'active')
+on conflict (id) do nothing;
+insert into public.commitments (company_id, owner_id, description, week_ending, due_date, status)
+select '${PROMISE_ONE}', '${STEVE}', 'harness steve ' || g, current_date, current_date, 'open'
+  from generate_series(1, 4) g;
+insert into public.commitments (company_id, owner_id, description, week_ending, due_date, status)
+select '${PROMISE_ONE}', '${SEAN}', 'harness sean ' || g, current_date, current_date, 'open'
+  from generate_series(1, 6) g;`;
+
+  const measure = async (extra: string) => {
+    const [r] = await run<{
+      steve_role: string;
+      steve_company: string | null;
+      steve_home: string | null;
+      sean_role: string;
+      assignments: number;
+      steve_open: number;
+      sean_open: number;
+    }>(
+      [
+        "begin;", seed, pending, extra,
+        `select
+           (select role from public.profiles where id = '${STEVE}') as steve_role,
+           (select company_id::text from public.profiles where id = '${STEVE}') as steve_company,
+           (select home_company_id::text from public.profiles where id = '${STEVE}') as steve_home,
+           (select role from public.profiles where id = '${SEAN}') as sean_role,
+           (select count(*)::int from public.portfolio_assignments
+             where portfolio_admin_id in ('${STEVE}', '${SEAN}')
+               and company_id = '${PROMISE_ONE}') as assignments,
+           (select count(*)::int from public.commitments
+             where owner_id = '${STEVE}' and status = 'open' and deleted_at is null) as steve_open,
+           (select count(*)::int from public.commitments
+             where owner_id = '${SEAN}' and status = 'open' and deleted_at is null) as sean_open;`,
+        "rollback;",
+      ].join("\n")
+    );
+    return r;
+  };
+
+  const after = await measure("");
+  // Applied twice: the migration returns early on an existing
+  // portfolio_admin, so nothing should double.
+  const twice = await measure(pending);
+
+  // The guard. A profile with the right id and the wrong name must
+  // stop the migration rather than promote whoever is there.
+  let refusedImpostor = false;
+  try {
+    await run(
+      [
+        "begin;", seed,
+        `update public.profiles set full_name = 'Somebody Else' where id = '${STEVE}';`,
+        pending,
+        "rollback;",
+      ].join("\n")
+    );
+  } catch {
+    refusedImpostor = true;
+  }
+
+  const promoted =
+    after?.steve_role === "portfolio_admin" &&
+    after?.sean_role === "portfolio_admin" &&
+    after?.steve_company === null &&
+    after?.steve_home === PROMISE_ONE;
+  const kept = after?.steve_open === 4 && after?.sean_open === 6;
+  const idempotent = twice?.assignments === 2 && twice?.steve_open === 4;
+
+  const ok =
+    promoted && kept && after?.assignments === 2 && idempotent && refusedImpostor;
+
+  return {
+    name: "promote-steve-and-sean",
+    hazard:
+      "A one-off promotion lands on the wrong person, or detaches them from their work",
+    wrong: `a profile with the right id and the wrong name: ${refusedImpostor ? "refused" : "PROMOTED"}`,
+    right: `both promoted, ${after?.assignments} assignments, commitments kept (${after?.steve_open} + ${after?.sean_open})`,
+    ok,
+    detail: ok
+      ? "Run against fixtures carrying the ids, names and company the migration names: both are promoted, company_id empties, home fills in, each gets an assignment for Promise One, and all ten open commitments are still owned by the people who own them today. Applying it twice changes nothing. A profile with the right id and the wrong name stops the whole transaction."
+      : `promoted ${promoted}, commitments-kept ${kept} (steve ${after?.steve_open} want 4, sean ${after?.sean_open} want 6), assignments ${after?.assignments} (want 2), idempotent ${idempotent}, impostor-refused ${refusedImpostor}.`,
+  };
+}
+
 async function coachMemoryDirected(
   run: Runner,
   ids: Identities,
@@ -6184,6 +6327,10 @@ async function main(): Promise<void> {
       "portfolio-assignment-company-access",
       (r: Runner, i: Identities) =>
         portfolioAssignmentCompanyAccess(r, i, pendingSql),
+    ],
+    [
+      "promote-steve-and-sean",
+      (r: Runner, i: Identities) => promoteStevenAndSean(r, i, pendingSql),
     ],
   ] as const;
 
