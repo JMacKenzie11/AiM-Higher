@@ -776,6 +776,8 @@ Client wiring:
 
 ---
 
+**Companies sits at the top of the sidebar, for every cross-tenant role.** It used to live inside the Guide HQ group, which hid it from a `portfolio_admin` twice: that band is not theirs, and the link's own role list left them out as well. The effect was that the one role whose whole scope is "every company on the instance" had **no route to a company's settings page** unless they were already scoped into it. It is a plain link rather than a group, because a group of one is a disclosure triangle in front of a single destination, and it carries no feature gate — the fleet list is not a module a company subscribes to. No company-bound role gets it, which a test pins.
+
 ## 16b. Portfolio (`/portfolio`)
 
 The `portfolio_admin` home, and their only cross-company surface. **A `system_admin` reaches it from the nav too** (2026-09-16): the page has always admitted them and the Overview link has always carried their role, but the sidebar band left them out, so it was reachable by typing the URL and by nothing else. Guide HQ still leads their sidebar and middleware still lands them on `/hq`; this is their second home, not their first. No role below a cross-tenant one gets the band, which a test still pins. **Oversight, not coaching.** Guide HQ answers "what needs me this week" with an attention queue, nudges, session briefs and an activity feed; this answers "what shape is the portfolio in". None of the coaching machinery appears here, and a source-level test asserts the page does not so much as import it — that decision erodes one import at a time.
