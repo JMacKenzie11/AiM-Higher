@@ -39,7 +39,7 @@ No separate "open the company" step is needed.
   reference and future analytics. Guides don't see this card;
   portfolio admins do.
 - **Start a new planning cycle** — the *Planning cycle* card
-  archives every active Strategic Focus Area, Annual Goal, and
+  archives every active Focus Area, Annual Goal, and
   Priority so the team can build the next cycle from a clean
   canvas. Nothing is deleted; records stay on file. Open
   commitments become Operational (unlinked); resolved commitments

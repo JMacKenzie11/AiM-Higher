@@ -94,7 +94,7 @@ export function SfaHeroPanel({
       </div>
 
       <div className={heroStyles.card}>
-        <div className={heroStyles.eyebrow}>Strategic Focus Area</div>
+        <div className={heroStyles.eyebrow}>Focus Area</div>
 
         {editing ? (
           <form action={formAction} className={styles.form}>
@@ -251,7 +251,7 @@ export function SfaHeroPanel({
       <ConfirmDialog
         open={confirmArchive}
         title={`Archive "${sfa.title}"?`}
-        message="Goals, actions, and linked commitments stay intact and can be restored later. The focus area disappears from the plan."
+        message="Goals, priorities, and linked commitments stay intact and can be restored later. The focus area disappears from the plan."
         confirmLabel="Archive"
         tone="danger"
         onConfirm={runArchive}

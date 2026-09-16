@@ -348,15 +348,15 @@ export default async function OnePagePlanPage() {
             </div>
           </section>
 
-          {/* Strategic Focus Areas — read-only preview; managed on /plan */}
+          {/* Focus Areas — read-only preview; managed on /plan */}
           <section className={styles.cardAccent} aria-labelledby="sfas">
             <CardAccent />
             <h2 id="sfas" className={styles.h2}>
-              Strategic Focus Areas
+              Focus Areas
             </h2>
             {sfas.length === 0 ? (
               <p className={styles.emptyLine}>
-                No strategic focus areas yet.{" "}
+                No focus areas yet.{" "}
                 {isAdmin ? (
                   <>
                     Add them on the{" "}

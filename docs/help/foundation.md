@@ -42,7 +42,7 @@ As an admin or guide, you can also:
 
 ## How to keep Focus Areas up to date
 
-Strategic Focus Areas render here as a **read-only preview**. The
+Focus Areas render here as a **read-only preview**. The
 write side lives on the Goals & Priorities page — click through to
 `/plan` to add, edit, or archive Focus Areas and they'll show back
 up here.

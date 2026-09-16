@@ -72,7 +72,7 @@ export function BulkResetButton({
             <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
               <li>
                 <strong>{sfaCount}</strong>{" "}
-                Strategic {sfaCount === 1 ? "Focus Area" : "Focus Areas"}
+                {sfaCount === 1 ? "Focus Area" : "Focus Areas"}
               </li>
               <li>
                 <strong>{goalCount}</strong>{" "}
@@ -80,12 +80,12 @@ export function BulkResetButton({
               </li>
               <li>
                 <strong>{priorityCount}</strong>{" "}
-                {priorityCount === 1 ? "Action" : "Actions"}
+                {priorityCount === 1 ? "Priority" : "Priorities"}
               </li>
             </ul>
             <p style={{ margin: 0, color: "var(--text-muted)" }}>
               Nothing is deleted — every record stays on file. Open
-              commitments that were linked to these actions become
+              commitments that were linked to these priorities become
               Operational (unlinked); resolved commitments keep their
               historical link so past-quarter progress stays intact.
             </p>

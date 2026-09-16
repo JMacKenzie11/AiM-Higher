@@ -4,7 +4,7 @@ title: Goals & Priorities
 
 # Goals & Priorities
 
-The quarter's cascade: Strategic Focus Areas at the top, Annual
+The quarter's cascade: Focus Areas at the top, Annual
 Goals under them, and 90-Day Priorities under those. Each priority
 carries the commitments that will move it forward.
 
@@ -27,7 +27,7 @@ As a team member, you can:
 As an admin or guide, you can also:
 
 - **Add anywhere in the cascade** — the toolbar shows
-  *+ Add Strategic Focus Area*, *+ Add Annual Goal*, and (with
+  *+ Add Focus Area*, *+ Add Annual Goal*, and (with
   an open quarter) *+ Add 90-Day Priority*. If the parent above
   doesn't exist yet, leave the picker on *Not linked (yet)* — the
   new row lands in a *Standalone* section below the cascade and
@@ -44,7 +44,7 @@ As an admin or guide, you can also:
 The plan reads best when Focus Areas are built first, then Goals
 under them, then Priorities under those:
 
-1. Add Strategic Focus Areas that describe the quarter's key
+1. Add Focus Areas that describe the quarter's key
    themes.
 2. Add Annual Goals under each Focus Area.
 3. With a quarter open, add 90-Day Priorities under each Goal.
@@ -57,7 +57,7 @@ them later via the row's inline picker.
 
 ::: role system_admin
 System-admin only. On the company settings page → *Planning
-cycle*. Archives every active SFA, Goal, and Priority so the team
+cycle*. Archives every active Focus Area, Goal, and Priority so the team
 can build the next cycle from a clean canvas. Nothing is deleted;
 every record stays on file.
 
@@ -78,11 +78,11 @@ If none is open, you'll see an empty state and a link to
 `/quarters` to start one.
 
 **Do priorities carry forward when a quarter closes?**
-Yes — actions carry through with owner and title intact when the
+Yes — priorities carry through with owner and title intact when the
 quarter closes.
 
 **Do I have to archive the whole cycle to close individual
-items?** No. Every SFA, Goal, and Priority has its own Archive /
-Mark complete actions on its detail page. SFAs often span multiple
+items?** No. Every Focus Area, Goal, and Priority has its own Archive /
+Mark complete actions on its detail page. Focus Areas often span multiple
 years, so closing a Goal while leaving its Focus Area open is a
 common move.
