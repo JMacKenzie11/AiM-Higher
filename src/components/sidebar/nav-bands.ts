@@ -39,7 +39,6 @@ export type NavContext = {
   // True when a scope cookie is set and the caller is a role that
   // uses one. The Sidebar receives this as `showExitScope`.
   scopedIntoCompany: boolean;
-  onHqSurface: boolean;
   onPortfolioSurface: boolean;
   onAdminPicker: boolean;
 };
@@ -62,6 +61,26 @@ export function navBandsFor(ctx: NavContext): NavBand[] {
     return ["companies", "portfolio", "app", "portfolioBottom"];
   }
 
+  // BEING SCOPED IS BEING SCOPED, WHEREVER YOU ARE STANDING.
+  //
+  // Guide HQ used to hide the company's pages: /hq once cleared the
+  // scope cookie outright, that broke clicking Dashboard from HQ
+  // (it redirected straight back, no scope), and the August fix kept
+  // the cookie and hid the links by pathname instead.
+  //
+  // The result was three things disagreeing on one screen. The pill
+  // said "SYSTEM ADMIN · B&B ELECTRIC", the user menu offered "Exit
+  // B&B Electric", and the nav offered no way into B&B Electric at
+  // all — so somebody who landed on Guide HQ while scoped was told
+  // where they were and given nothing to do about it. The only route
+  // back in was Companies, and scoping again.
+  //
+  // The surface you are standing on no longer suppresses the app
+  // band, so onHqSurface is gone from the context entirely rather
+  // than left as an input nothing reads. onAdminPicker stays and
+  // still suppresses, because /admin/companies is where you CHOOSE a
+  // company: showing the current one's pages beside the list you are
+  // picking from is the confusion that screen exists to resolve.
   if (ctx.role === "system_admin") {
     // The portfolio band, after Guide HQ rather than instead of it.
     //
@@ -75,15 +94,20 @@ export function navBandsFor(ctx: NavContext): NavBand[] {
     // lands on /hq, and Guide HQ leads. The portfolio view is the
     // instance read across every company, which is worth having and
     // is not where they work.
-    return ctx.scopedIntoCompany && !ctx.onAdminPicker && !ctx.onHqSurface
+    return ctx.scopedIntoCompany && !ctx.onAdminPicker
       ? ["companies", "guideHq", "portfolio", "app", "systemAdminBottom"]
       : ["companies", "guideHq", "portfolio", "systemAdminBottom"];
   }
 
+  // A guide has no scope cookie of their own to check here — the
+  // Sidebar passes showExitScope, which is true for them exactly
+  // when they are working inside one of their companies — so the
+  // same rule applies: if they are in a company, its pages are in
+  // the nav.
   if (ctx.role === "aims_guide") {
-    return ctx.onHqSurface
-      ? ["companies", "guideHq"]
-      : ["companies", "guideHq", "app"];
+    return ctx.scopedIntoCompany && !ctx.onAdminPicker
+      ? ["companies", "guideHq", "app"]
+      : ["companies", "guideHq"];
   }
 
   if (ctx.role === "company_admin") return ["app", "companyAdminBottom"];
