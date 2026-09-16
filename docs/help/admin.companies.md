@@ -44,15 +44,22 @@ redirected straight to their own company's settings page.
   safety on "delete a live tenant by accident"). See *Deleting an
   archived company* below for what happens under the hood.
 - **Manage AiMS Guides** — the *Guides* card invites external
-  coaches, assigns them to companies, and shows each guide's
-  current caseload. An `aims_guide` needs at least one
-  assignment; you can't unassign their last company (delete the
-  guide instead).
+  coaches and sets each one's caseload. Every guide has a row
+  with a checkbox per company: tick the ones they coach, untick
+  the ones they don't, press *Update*. A guide needs at least
+  one company, so you can't untick them all (delete the guide
+  instead).
+  **Unticking a company releases any open commitments that guide
+  owns in it** to *Unassigned*, so somebody there can pick them
+  up. Once their access is gone they can no longer resolve that
+  work, and the card shows the count beside the company before
+  you press anything. Commitments they already resolved keep
+  their name.
 - **Give a system admin a coaching caseload** — the mini-form
-  below the Guides table assigns an existing sysadmin to one or
+  below the Guides card assigns an existing sysadmin to one or
   more companies. No invite is sent (they already have an
-  account); the row shows with a *System admin* badge. Removing
-  a sysadmin's last assignment is fine — their access is
+  account); their row shows a *System admin* badge. Unticking
+  all of a sysadmin's companies is fine — their access is
   role-based, not assignment-based.
 - **View a guide's Guide HQ** — the row-level button on each
   guide opens their `/hq` read-only. Every mutation control is
@@ -94,10 +101,12 @@ is the system admin's and guide's version of the same idea.
 archive, or manage guides. Those actions are system-admin only
 by design.
 
-**Why does the *Attention* column on the Guides panel show
-"—"?** The per-guide count was removed to keep this page fast as
-caseloads grow. The attention queue itself is live on each
-guide's `/hq` surface where it actually drives behaviour.
+**Where did the *Attention* column go?** It never had a number
+behind it — computing one meant a live scorecard for every
+company on every page load — so it showed "—" for every guide,
+which reads as "nothing needs attention" rather than "this was
+never worked out". The attention queue itself is live on each
+guide's `/hq`, where it actually drives behaviour.
 
 **A company admin landed here.** They're auto-redirected to
 their own company's settings page — `/admin/companies` isn't a

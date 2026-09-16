@@ -2,10 +2,10 @@ import type { Company, Profile } from "@/lib/types";
 import type { GuideOverviewRow } from "@/lib/admin/guides-service";
 import { AssignSysadminForm } from "./AssignSysadminForm";
 import { CreateGuideForm } from "./CreateGuideForm";
-import { GuideAssignCell } from "./GuideAssignCell";
-import { GuideCompaniesCell } from "./GuideCompaniesCell";
 import { GuideRowActions } from "./GuideRowActions";
 import styles from "./admin.module.css";
+import { CompanyAccessRows } from "@/components/access/CompanyAccessRows";
+import { setGuideCompanyAccessAction } from "@/lib/admin/guides-actions";
 
 // System-admin surface for managing AiMS Guides. Lists every guide,
 // their status (Active / Pending / Expired / Inactive), which
@@ -95,79 +95,46 @@ export function GuidesPanel({
         here once they&rsquo;re assigned to at least one company.
       </p>
 
-      {guides.length === 0 ? (
-        <p className={styles.emptyLine}>No guides yet.</p>
-      ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Guide</th>
-              <th>Status</th>
-              <th className={styles.numHead}>Companies</th>
-              <th>Assigned</th>
-              <th>Assign To</th>
-              <th className={styles.actionHead}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {guides.map((g) => {
-              const pill = statusPill(g.status, g.invited_at);
-              const isSysadmin = g.role === "system_admin";
-              return (
-                <tr key={g.id}>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>
-                      {g.full_name}
-                      {isSysadmin ? (
-                        <span
-                          className={styles.roleBadge}
-                          title="Carries a coaching caseload alongside their system-admin role"
-                        >
-                          System admin
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td>
-                    <span
-                      className={
-                        isSysadmin ? styles.chipActive : pill.className
-                      }
-                      title={isSysadmin ? "Active" : pill.title}
-                    >
-                      {isSysadmin ? "Active" : pill.label}
-                    </span>
-                  </td>
-                  <td className={`${styles.numCell} aims-tabular`}>
-                    {g.assignments.length}
-                  </td>
-                  <td>
-                    <GuideCompaniesCell
-                      guideId={g.id}
-                      assignments={g.assignments}
-                    />
-                  </td>
-                  <td>
-                    <GuideAssignCell
-                      guideId={g.id}
-                      assignments={g.assignments}
-                      allCompanies={companies}
-                    />
-                  </td>
-                  <td>
-                    <div className={styles.rowActions}>
-                      <GuideRowActions
-                        guideId={g.id}
-                        canManageAccount={!isSysadmin}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
+      {/* THE SAME CARD THE PORTFOLIO ADMINS GET, and for the same
+          reason: a guide and a portfolio admin are the same question
+          asked twice — a person with no company of their own holding
+          rights in a list of companies. This was a table with a chip
+          list, a separate "Assign To" picker and two columns that
+          rendered a dash, which is three controls for one idea.
+          Now: tick, untick, Update.
+
+          The account actions that lived in the old Actions column
+          (resend invite, copy link, delete) ride along on each row.
+          They were never dead — they are hidden for a system admin
+          carrying a caseload, which is who the only visible row
+          belonged to. */}
+      <CompanyAccessRows
+        rows={guides.map((g) => {
+          const isSysadmin = g.role === "system_admin";
+          const pill = statusPill(g.status, g.invited_at);
+          return {
+            id: g.id,
+            name: g.full_name,
+            companyIds: g.assignments.map((a) => a.company_id),
+            openCommitmentsByCompany: g.openCommitmentsByCompany,
+            detail: (
+              <span
+                className={isSysadmin ? styles.chipActive : pill.className}
+                title={isSysadmin ? "Active" : pill.title}
+              >
+                {isSysadmin ? "System admin · Active" : pill.label}
+              </span>
+            ),
+            actions: (
+              <GuideRowActions guideId={g.id} canManageAccount={!isSysadmin} />
+            ),
+          };
+        })}
+        companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+        action={setGuideCompanyAccessAction}
+        personLabel="Guide"
+        emptyLabel="No guides yet."
+      />
 
       <div style={{ marginTop: "var(--space-4)" }}>
         <h3 className={styles.h3}>Add a guide</h3>

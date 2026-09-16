@@ -23,6 +23,10 @@ export type GuideOverviewRow = Pick<
   role: "aims_guide" | "system_admin";
   email: string | null;
   assignments: Array<{ company_id: string; company_name: string }>;
+  // Open commitments this guide owns, per company id. Shown beside
+  // the checkbox so unticking a company with work in it looks
+  // different BEFORE the click, and counted in the confirm.
+  openCommitmentsByCompany: Record<string, number>;
 };
 
 export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
@@ -97,6 +101,32 @@ export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
     assignmentsByGuide.set(row.guide_id, list);
   }
 
+  // Open commitments each guide owns, per company. One query for
+  // the whole panel rather than one per guide: guides can own
+  // commitments as of decision 10, and unticking a company releases
+  // the ones in it, so the card has to show the count before the
+  // click rather than report it after.
+  const openByGuide = new Map<string, Record<string, number>>();
+  if (guides.length > 0) {
+    const { data: openRows } = await supabase
+      .from("commitments")
+      .select("owner_id, company_id")
+      .in(
+        "owner_id",
+        guides.map((g) => g.id)
+      )
+      .eq("status", "open")
+      .is("deleted_at", null);
+    for (const row of (openRows ?? []) as Array<{
+      owner_id: string;
+      company_id: string;
+    }>) {
+      const counts = openByGuide.get(row.owner_id) ?? {};
+      counts[row.company_id] = (counts[row.company_id] ?? 0) + 1;
+      openByGuide.set(row.owner_id, counts);
+    }
+  }
+
   return guides.map((g) => ({
     id: g.id,
     full_name: g.full_name,
@@ -105,6 +135,7 @@ export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
     role: g.role,
     email: null,
     assignments: assignmentsByGuide.get(g.id) ?? [],
+    openCommitmentsByCompany: openByGuide.get(g.id) ?? {},
   }));
 }
 

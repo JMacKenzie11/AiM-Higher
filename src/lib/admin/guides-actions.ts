@@ -188,57 +188,6 @@ export async function resendGuideInviteAction(
   return { ok: true, guideId };
 }
 
-// ---- Assign a guide to a company -----------------------------
-// Accepts either an aims_guide profile (assignment IS their access
-// grant) or a system_admin profile (assignment is a caseload marker
-// only; their access is already unrestricted). Anything else is
-// rejected as a defensive check against stale form state.
-export async function assignGuideAction(
-  guideId: string,
-  companyId: string
-): Promise<GuideActionResult> {
-  const g = await guard();
-  if (!g.ok) return g;
-  if (!guideId || !companyId) {
-    return { ok: false, message: "Pick a guide and a company." };
-  }
-
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("id, role")
-    .eq("id", guideId)
-    .maybeSingle<{ id: string; role: string }>();
-  if (
-    !profile ||
-    (profile.role !== "aims_guide" && profile.role !== "system_admin")
-  ) {
-    return {
-      ok: false,
-      message: "That user isn't an AiMS Guide or system admin.",
-    };
-  }
-
-  const { error } = await admin
-    .from("guide_assignments")
-    .upsert(
-      { guide_id: guideId, company_id: companyId },
-      { onConflict: "guide_id,company_id" }
-    );
-  if (error) {
-    reportError("guides.assign.upsert", error, { guideId, companyId });
-    return { ok: false, message: error.message };
-  }
-
-  revalidatePath("/admin/companies", "layout");
-  return { ok: true };
-}
-
-// ---- Assign a system admin as a working guide (bulk) --------
-// Called from the "Give a system admin a coaching caseload" mini-form
-// on the Guides panel. Same semantics as assignGuideAction, but takes
-// N companies at once so the sysadmin can seed a caseload without
-// N separate clicks. Idempotent per pair (upsert on conflict).
 export async function assignExistingAsGuideAction(
   formData: FormData
 ): Promise<GuideActionResult> {
@@ -288,57 +237,6 @@ export async function assignExistingAsGuideAction(
   return { ok: true, guideId };
 }
 
-// ---- Unassign a guide from a company -------------------------
-// For aims_guide profiles, the "not the last company" invariant
-// still holds — a zero-assignment guide has no access to anything.
-// For system_admin profiles, the last assignment is safe to remove
-// because their cross-tenant access is role-based, not
-// assignment-based; unassigning is a caseload cleanup, not an
-// access change.
-export async function unassignGuideAction(
-  guideId: string,
-  companyId: string
-): Promise<GuideActionResult> {
-  const g = await guard();
-  if (!g.ok) return g;
-
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", guideId)
-    .maybeSingle<{ role: string }>();
-
-  if (profile?.role === "aims_guide") {
-    const { count } = await admin
-      .from("guide_assignments")
-      .select("*", { count: "exact", head: true })
-      .eq("guide_id", guideId);
-    if ((count ?? 0) <= 1) {
-      return {
-        ok: false,
-        message:
-          "This is the guide's only company. Delete the guide instead if they're no longer coaching.",
-      };
-    }
-  }
-
-  const { error } = await admin
-    .from("guide_assignments")
-    .delete()
-    .eq("guide_id", guideId)
-    .eq("company_id", companyId);
-  if (error) {
-    reportError("guides.unassign.delete", error, { guideId, companyId });
-    return { ok: false, message: error.message };
-  }
-
-  revalidatePath("/admin/companies", "layout");
-  return { ok: true };
-}
-
-// ---- Delete a guide entirely --------------------------------
 export async function deleteGuideAction(
   guideId: string
 ): Promise<GuideActionResult> {
@@ -352,6 +250,119 @@ export async function deleteGuideAction(
     return { ok: false, message: error.message };
   }
   // profile + guide_assignments cascade away with the auth row.
+
+  revalidatePath("/admin/companies", "layout");
+  return { ok: true };
+}
+
+// ---- Set a guide's whole caseload in one go ------------------
+//
+// The checkbox card's action, replacing the chip-per-company × and
+// the separate "Assign To" picker with one Update. Same shape as
+// setPortfolioCompanyAccessAction, and for the same reason: a guide
+// and a portfolio admin are the same question asked twice — a person
+// with no company_id of their own holding rights in a list of
+// companies.
+//
+// RELEASING THE WORK IS PART OF REMOVING, not a nicety. A guide's
+// auth_company_id() is null, so commitments_update_owner — which
+// requires `auth_company_id() = company_id` — has never admitted
+// them. Their only write path into a company is is_guide_for(). Take
+// the assignment away and any commitment they still own there becomes
+// unresolvable by them, renders as "Unassigned" because the roster
+// lookup no longer finds them, and cannot be claimed because
+// owner_id is not actually null. Guides can own commitments as of
+// decision 10, so this stopped being hypothetical.
+//
+// THE ORDER MATTERS: release while the assignment still stands, or
+// the release is refused and the work is stranded by the act meant to
+// free it.
+export async function setGuideCompanyAccessAction(
+  guideId: string,
+  companyIds: string[]
+): Promise<GuideActionResult> {
+  const g = await guard();
+  if (!g.ok) return g;
+
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+
+  const [{ data: profile }, { data: currentRows }] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("role")
+      .eq("id", guideId)
+      .maybeSingle<{ role: string }>(),
+    admin
+      .from("guide_assignments")
+      .select("company_id")
+      .eq("guide_id", guideId),
+  ]);
+
+  const current = new Set(
+    ((currentRows ?? []) as Array<{ company_id: string }>).map(
+      (r) => r.company_id
+    )
+  );
+  const wanted = new Set(companyIds);
+  const toAdd = [...wanted].filter((id) => !current.has(id));
+  const toRemove = [...current].filter((id) => !wanted.has(id));
+  if (toAdd.length === 0 && toRemove.length === 0) {
+    return { ok: true };
+  }
+
+  // A GUIDE KEEPS AT LEAST ONE COMPANY. Carried over from
+  // unassignGuideAction, which refused to remove the last one: a
+  // guide coaching nobody is a guide who should be deleted, and the
+  // message says so rather than leaving an empty caseload behind. A
+  // system admin carrying a caseload may go to zero — the role does
+  // not depend on it.
+  if (profile?.role === "aims_guide" && wanted.size === 0) {
+    return {
+      ok: false,
+      message:
+        "A guide needs at least one company. Delete the guide instead if they're no longer coaching.",
+    };
+  }
+
+  if (toAdd.length > 0) {
+    const { error } = await admin.from("guide_assignments").insert(
+      toAdd.map((company_id) => ({ guide_id: guideId, company_id }))
+    );
+    if (error) {
+      reportError("guides.setAccess.insert", error, { guideId });
+      return { ok: false, message: error.message };
+    }
+  }
+
+  for (const companyId of toRemove) {
+    const { error } = await admin
+      .from("commitments")
+      .update({ owner_id: null })
+      .eq("company_id", companyId)
+      .eq("owner_id", guideId)
+      .eq("status", "open")
+      .is("deleted_at", null);
+    if (error) {
+      reportError("guides.setAccess.release", error, { guideId, companyId });
+      return {
+        ok: false,
+        message:
+          "Couldn't release their open commitments, so nothing was removed.",
+      };
+    }
+  }
+
+  if (toRemove.length > 0) {
+    const { error } = await admin
+      .from("guide_assignments")
+      .delete()
+      .eq("guide_id", guideId)
+      .in("company_id", toRemove);
+    if (error) {
+      reportError("guides.setAccess.delete", error, { guideId });
+      return { ok: false, message: error.message };
+    }
+  }
 
   revalidatePath("/admin/companies", "layout");
   return { ok: true };
