@@ -110,31 +110,8 @@
    deepens to primary-hover. Reads as unambiguously "action" chips
    rather than the more subtle ghost-button outline. */
 .pageNavLink {
-  display: inline-flex;
-  align-items: center;
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
   flex-shrink: 0;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-4);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: 1px solid var(--primary);
-  border-radius: var(--radius-pill);
-  font: var(--text-button-sm);
-  text-decoration: none;
-  white-space: nowrap;
-  transition: background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-}
-
-.pageNavLink:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-  /* Reaffirm both explicitly on hover — a global a:hover rule
-     (from a plugin or a future globals.css tweak) can otherwise
-     silently override color/decoration and make the chip label
-     look invisible on the darker hover bg. */
-  color: var(--on-primary);
-  text-decoration: none;
 }
 
 .inlineLink {

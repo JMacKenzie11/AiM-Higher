@@ -47,16 +47,7 @@
 .cancel,
 .confirmDanger,
 .confirmPrimary {
-  height: var(--control-h-md);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
+  composes: btnSecondary from "ui.module.css";
 }
 
 .cancel {
@@ -69,22 +60,25 @@
   background: var(--aims-navy-tint);
 }
 
+/* Danger keeps its own COLOUR but loses its fill, like btnDanger.
+   Red text and a red edge still say "this one is different"; a solid
+   red slab said it by being the only filled thing on screen, which
+   is the signal being retired. */
 .confirmDanger {
-  background: var(--aims-danger);
-  color: var(--aims-white);
+  color: var(--aims-danger);
+  border-color: var(--aims-danger);
 }
 
 .confirmDanger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--aims-danger) 88%, black);
+  background: var(--aims-danger-tint);
 }
 
+/* Outlined like every other button. It was filled to mark it as the
+   dialog's main action, which is the distinction the app no longer
+   makes — a person cannot be expected to read meaning into a fill.
+   The dialog's own copy says what the button does. */
 .confirmPrimary {
-  background: var(--primary);
-  color: var(--on-primary);
-}
-
-.confirmPrimary:hover:not(:disabled) {
-  background: var(--primary-hover);
+  color: var(--primary);
 }
 
 .cancel:disabled,

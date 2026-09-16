@@ -6,15 +6,17 @@
 
 /* ---- Buttons ----------------------------------------------------
  *
- * THREE VARIANTS, and only three.
+ * TWO APPEARANCES, and only two.
  *
- *   btnPrimary    one per view, maximum. Solid brand fill, white
- *                 label. The only saturated button on a screen.
- *   btnSecondary  transparent, hairline border, brand label. The
- *                 default for everything that used to be a solid
- *                 pill.
+ *   btnSecondary  transparent, outlined, brand label. THE button.
+ *                 Every button in the app is this one.
  *   btnGhost      no border, no background. Tertiary and inline
- *                 actions.
+ *                 actions that sit inside something else.
+ *
+ * btnPrimary is an alias of btnSecondary — see the note on it. The
+ * filled variant was removed after the product owner judged that the
+ * filled/outlined distinction read as inconsistency rather than as
+ * hierarchy, because no user can be expected to know the rule.
  *
  * btnDanger is a MODIFIER of intent, not a fourth variant: it is a
  * secondary button that has changed its mind about colour on hover.
@@ -98,20 +100,7 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
-/* ---- Variant: primary ---- */
-.btnPrimary {
-  composes: btn;
-  background: var(--primary);
-  color: var(--on-primary);
-  border-color: var(--primary);
-}
-
-.btnPrimary:hover:not(:disabled) {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-/* ---- Variant: secondary ---- */
+/* ---- Variant: secondary — THE button ---- */
 .btnSecondary {
   composes: btn;
   color: var(--primary);
@@ -121,6 +110,26 @@
 .btnSecondary:hover:not(:disabled) {
   background: var(--aims-cobalt-tint);
   border-color: var(--border-strong);
+}
+
+/* ---- Variant: primary — an ALIAS, not a filled button ----
+ *
+ * THE APP HAS ONE BUTTON APPEARANCE. Decided by the product owner
+ * after seeing filled and outlined buttons side by side: nobody
+ * reading a screen can tell you what the difference is supposed to
+ * mean, so it reads as inconsistency rather than hierarchy. A rule
+ * only the design system knows about is not a rule.
+ *
+ * Kept as a name rather than deleted, for two reasons. Twenty-one
+ * call sites say `btnPrimary` and churning them buys nothing today.
+ * And this is a product decision that may be revisited — when it is,
+ * the filled style comes back HERE, in one place, rather than being
+ * reassembled from twenty-one files.
+ *
+ * It is an alias and nothing else. If you are looking for the filled
+ * button, it is gone on purpose. */
+.btnPrimary {
+  composes: btnSecondary;
 }
 
 /* ---- Variant: ghost ---- */

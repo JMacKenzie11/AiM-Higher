@@ -196,19 +196,7 @@
 }
 
 .linkApply {
-  height: 26px;
-  padding: 0 10px;
-  background: var(--primary);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  font: var(--text-button-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.linkApply:hover {
-  background: var(--primary-hover);
+  composes: btnSecondary from "../ui/ui.module.css";
 }
 
 .linkCancel {

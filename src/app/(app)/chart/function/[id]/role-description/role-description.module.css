@@ -204,15 +204,7 @@
 }
 
 .editablePrimary {
-  padding: 6px 14px;
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
+  composes: btnSecondary from "../../../../../../components/ui/ui.module.css";
 }
 
 .editablePrimary:disabled {

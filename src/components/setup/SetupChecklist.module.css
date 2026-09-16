@@ -110,19 +110,7 @@
 }
 
 .stepLink {
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--on-primary);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.stepLink:hover {
-  background: var(--primary-hover);
+  composes: btnSecondary from "../ui/ui.module.css";
 }
 
 .doneLabel {

@@ -540,14 +540,7 @@
 }
 
 .briefPrimary {
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-  cursor: pointer;
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .briefPrimary:disabled {

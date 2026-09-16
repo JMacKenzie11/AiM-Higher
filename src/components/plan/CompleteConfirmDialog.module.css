@@ -67,12 +67,7 @@
 }
 
 .primary {
-  background: var(--primary);
-  color: var(--on-primary);
-}
-
-.primary:hover:not(:disabled) {
-  background: var(--primary-hover);
+  composes: btnSecondary from "../ui/ui.module.css";
 }
 
 .danger {

@@ -229,14 +229,7 @@
 }
 
 .sequenceAction {
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--on-primary);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  white-space: nowrap;
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .sequenceStep:hover .sequenceAction {
