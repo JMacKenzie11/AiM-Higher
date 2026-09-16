@@ -24,7 +24,6 @@ export type CascadePriority = Priority & {
   open_count: number;
   missed_count: number;
   carried_count: number;
-  commitment_count: number; // includes carried
   owner: Pick<Profile, "id" | "full_name"> | null;
 };
 
@@ -139,11 +138,6 @@ export async function getCascade(
       open_count: pp?.open_count ?? 0,
       missed_count: pp?.missed_count ?? 0,
       carried_count: pp?.carried_count ?? 0,
-      commitment_count:
-        (pp?.kept_count ?? 0) +
-        (pp?.open_count ?? 0) +
-        (pp?.missed_count ?? 0) +
-        (pp?.carried_count ?? 0),
       owner: p.owner_id ? peopleById.get(p.owner_id) ?? null : null,
     };
   });
