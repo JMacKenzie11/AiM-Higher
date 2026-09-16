@@ -104,10 +104,10 @@ export default async function PortfolioPage() {
                   Company admin access
                 </h2>
                 <p className={styles.sectionCaption}>
-                  Tick the companies you actively run. You get the same rights
-                  a company admin has there, and you appear on that
-                  company&rsquo;s team list. Reading every company on the
-                  instance does not depend on this and never changes.
+                  Selecting a company gives you full company administrator
+                  access and you appear on that company&rsquo;s team list. As a
+                  portfolio admin, you always have full read access to every
+                  company.
                 </p>
                 <CompanyAccessRows
                   rows={accessRows.map((r) => ({
