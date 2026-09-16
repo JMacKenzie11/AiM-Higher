@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PlusIcon } from "../../../components/ui/PlusIcon";
 import { useState } from "react";
 import type {
   MeasureTreeFunction,
@@ -140,7 +141,7 @@ export function FunctionSection({
             className={styles.addToggleButton}
             onClick={() => setAddOutcomeOpen(true)}
           >
-            + Add a critical success factor
+            <PlusIcon />Add a critical success factor
           </button>
         )
       ) : null}

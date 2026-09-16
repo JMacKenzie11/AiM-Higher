@@ -511,21 +511,9 @@
 }
 
 .addToggleButton {
+  /* The page's one create action. It was a dashed quiet toggle, which read as a placeholder rather than the thing the page is for. */
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
   align-self: flex-start;
-  background: transparent;
-  border: 1px dashed var(--border);
-  color: var(--text-muted);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-  cursor: pointer;
-}
-
-.addToggleButton:hover {
-  border-style: solid;
-  border-color: var(--primary);
-  color: var(--primary);
-  background: var(--aims-navy-tint);
 }
 
 .addPanel {

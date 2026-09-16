@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PlusIcon } from "../../../../../components/ui/PlusIcon";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getSfaDetail } from "@/lib/plan/service";
@@ -98,7 +99,7 @@ export default async function SfaDetailPage({ params }: PageProps) {
               className={planStyles.addDetails}
               data-testid="sfa-add-goal-panel"
             >
-              <summary className={planStyles.addSummary}>+ Add goal</summary>
+              <summary className={planStyles.addSummary}><PlusIcon />Add goal</summary>
               <AddGoalForm
                 defaultSfaId={detail.sfa.id}
                 sfaOptions={[{ id: detail.sfa.id, title: detail.sfa.title }]}
@@ -115,7 +116,7 @@ export default async function SfaDetailPage({ params }: PageProps) {
                 data-testid="sfa-add-priority-panel"
               >
                 <summary className={planStyles.addSummary}>
-                  + Add quarterly priority
+                  <PlusIcon />Add quarterly priority
                 </summary>
                 <AddPriorityForm
                   quarterId={detail.openQuarter.id}

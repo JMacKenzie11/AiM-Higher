@@ -429,7 +429,7 @@
 /* Composed from the shared ghost + small variants in ui.module.css
    so this button matches the dashboard/admin equivalents exactly. */
 .coachButton {
-  composes: btnGhost btnSm from "../../../components/ui/ui.module.css";
+  composes: btnSecondary btnSm from "../../../components/ui/ui.module.css";
 }
 
 .rowMessage {
@@ -532,7 +532,7 @@
 }
 
 .ghostButton {
-  composes: btnGhost from "../../../components/ui/ui.module.css";
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .dangerGhostButton {

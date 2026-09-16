@@ -272,23 +272,7 @@
 }
 
 .editButton {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-4);
-  background: transparent;
-  color: var(--primary);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.editButton:hover {
-  background: var(--aims-cobalt-tint);
-  color: var(--primary-hover);
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .editPanel {
@@ -433,30 +417,12 @@
 }
 
 .editSummary {
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
   list-style: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-4);
-  background: transparent;
-  color: var(--primary);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
 }
 
 .editSummary::-webkit-details-marker {
   display: none;
-}
-
-.editSummary:hover {
-  background: var(--aims-cobalt-tint);
-  color: var(--primary-hover);
 }
 
 .editDetails[open] > .editSummary {
@@ -579,7 +545,7 @@
 }
 
 .ghostButton {
-  composes: btnGhost from "../../../components/ui/ui.module.css";
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .dangerGhostButton {

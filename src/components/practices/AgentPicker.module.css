@@ -141,19 +141,7 @@
 }
 
 .clearButton {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font: var(--text-body-sm);
-  cursor: pointer;
-}
-
-.clearButton:hover:not(:disabled) {
-  background: var(--aims-navy-tint);
-  color: var(--text);
+  composes: btnSecondary from "../ui/ui.module.css";
 }
 
 .categoryGroup {

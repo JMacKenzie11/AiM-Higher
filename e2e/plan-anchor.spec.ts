@@ -16,7 +16,7 @@ import type { Page } from "@playwright/test";
 // Creates its own rows and archives them again, per docs/e2e.md.
 
 // A CASCADE CARD IS FOUND BY ITS OWN TITLE LINK, NEVER BY hasText.
-// Every focus-area card carries an "+ Add goal" form whose parent
+// Every focus-area card carries an "Add goal" form whose parent
 // picker lists EVERY focus area by name, so each card's text
 // contains every other card's title and `hasText` matches all of
 // them. That is silent while a single one exists and a strict-mode
@@ -77,7 +77,7 @@ test("a back link lands on /plan with the goal revealed", async ({ page }) => {
 
   // Create a focus area.
   const addSfa = page.getByTestId("add-sfa-panel");
-  await addSfa.getByText("+ Add Focus Area").click();
+  await addSfa.getByText("Add focus area").click();
   await addSfa.getByLabel("Title").fill(sfaTitle);
   await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const sfa = sfaCard(page, sfaTitle);
@@ -85,7 +85,7 @@ test("a back link lands on /plan with the goal revealed", async ({ page }) => {
 
   // Create a goal under it.
   const addGoal = sfa.getByTestId("sfa-add-goal-panel");
-  await addGoal.getByText("+ Add goal").click();
+  await addGoal.getByText("Add goal").click();
   await addGoal.getByLabel("Title").fill(goalTitle);
   await addGoal.getByRole("button", { name: "Add goal", exact: true }).click();
   const goal = goalCard(page, goalTitle);

@@ -81,7 +81,7 @@ export function TrainingsInLesson({
           onClick={() => setShowAdd((v) => !v)}
           disabled={pending}
         >
-          {showAdd ? "Cancel" : "+ New section"}
+          {showAdd ? "Cancel" : "New section"}
         </button>
       </div>
 

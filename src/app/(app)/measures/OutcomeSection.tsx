@@ -16,6 +16,7 @@ import type {
   MeasureTreeOutcome,
 } from "@/lib/measures/service";
 import type { FunctionOutcome } from "@/lib/types";
+import { PlusIcon } from "../../../components/ui/PlusIcon";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import uiStyles from "@/components/ui/ui.module.css";
 import { AddMetricRow } from "../chart/function/[id]/AddMetricRow";
@@ -210,7 +211,7 @@ export function OutcomeSection({
               className={styles.addToggleButton}
               onClick={() => setAddMeasureOpen(true)}
             >
-              + Add a KPI
+              <PlusIcon />Add a KPI
             </button>
           )}
         </div>

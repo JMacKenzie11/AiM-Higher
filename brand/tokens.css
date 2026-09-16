@@ -40,6 +40,22 @@
   --text-faint: #8A93A0;
   --border: #E2E4DE;
   --border-strong: #C9CCC4;
+  /* The boundary of an interactive control, as opposed to the quiet
+     hairline between rows of content.
+     
+     Cobalt at 70%. Scoped to controls deliberately: --border at
+     1.28:1 on white is below WCAG 1.4.11's 3:1 for a component
+     boundary, and a secondary button is now the DEFAULT button. With
+     an invisible border, secondary cobalt text is indistinguishable
+     from a link — and ghost, which is borderless cobalt text, is the
+     variant that is supposed to look like one. Three variants
+     collapse into two.
+     
+     70% is the first mix that clears 3:1 on BOTH grounds the app
+     uses (3.61 on white, 3.36 on sand); 65% is 3.00 on sand, which
+     is the boundary itself. Still far quieter than the 7.33:1 label,
+     so the box stays subordinate to the words inside it. */
+  --border-interactive: #7285BF;
   --primary: var(--aims-cobalt);
   --primary-hover: var(--aims-cobalt-hover);
   --on-primary: var(--aims-white);
@@ -84,11 +100,16 @@
   --text-subtitle: 700 14px/1.6 var(--font-body);
   --text-body-sm: 400 13px/1.5 var(--font-body);
   --text-caption: 400 12px/1.4 var(--font-body);
-  /* Buttons: Inter, semibold, tabular. Reference from every button
+  /* Buttons: Inter, MEDIUM, tabular. Reference from every button
      instead of restating font-size/weight inline. line-height:1 keeps
-     labels centered inside fixed-height pills. */
-  --text-button: 600 14px/1 var(--font-sans);
-  --text-button-sm: 600 13px/1 var(--font-sans);
+     labels centered inside fixed-height controls.
+
+     500 rather than 600: at 14px the semibold weight made a row of
+     secondary buttons read as a row of headings. Medium keeps the
+     label legible without competing with the content it sits beside,
+     which is the whole point of a secondary button. */
+  --text-button: 500 14px/1 var(--font-sans);
+  --text-button-sm: 500 13px/1 var(--font-sans);
 
   /* ---- Spacing (4px base, compact app density) ---- */
   --space-1: 4px;
@@ -104,7 +125,12 @@
   --radius-sm: 6px;    /* inputs, table cells */
   --radius-md: 10px;   /* cards, panels */
   --radius-lg: 16px;   /* modals, hero panels */
-  --radius-pill: 999px;/* buttons, badges, chips */
+  --radius-pill: 999px;/* badges and status chips — NOT buttons */
+  /* Buttons. Deliberately not the pill: fully-rounded buttons and
+     fully-rounded status chips were the same shape, so a chip read as
+     something you could press. Chips keep the pill; buttons get a
+     squarer corner and stop borrowing its meaning. */
+  --radius-btn: 8px;
 
   /* ---- Elevation ---- */
   --shadow-sm: 0 1px 2px rgba(17, 21, 26, 0.06);
@@ -122,6 +148,17 @@
   --control-h-sm: 28px;
   --control-h-md: 34px;
   --control-h-lg: 42px;
+
+  /* Buttons have their own height. --control-h-md is shared with
+     inputs and selects, so growing buttons through it would grow
+     every form field on the platform too. */
+  --control-h-btn: 38px;
+  --control-h-btn-sm: 32px;
+
+  /* The minimum comfortable touch target. Applied as hit-area on
+     coarse pointers rather than visual height, so a button stays
+     38px to the eye and 44px to a thumb. */
+  --tap-min: 44px;
 
   /* ---- Charts (use in order) ---- */
   --chart-1: var(--aims-cobalt);
@@ -141,6 +178,8 @@
   --text-faint: #76839A;
   --border: #2C4165;
   --border-strong: #3A5378;
+  /* Lighter than the surface here, for the same 3:1 reason. */
+  --border-interactive: #6B82C4;
   --primary: var(--aims-sky);
   --primary-hover: #A5D2E7;
   --on-primary: var(--aims-navy);

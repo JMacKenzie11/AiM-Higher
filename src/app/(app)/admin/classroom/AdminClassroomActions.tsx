@@ -155,7 +155,7 @@ export function AdminClassroomActions({
               }
               disabled={pending}
             >
-              {creatingIn === g.id ? "Cancel" : "+ New lesson"}
+              {creatingIn === g.id ? "Cancel" : "New lesson"}
             </button>
           </div>
 

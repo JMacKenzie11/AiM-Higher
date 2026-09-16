@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { MobileAddMenu } from "./MobileAddMenu";
+import { PlusIcon } from "../../../components/ui/PlusIcon";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
@@ -149,7 +151,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
           </span>
         )}
         {isAdmin ? (
-          <div className={styles.toolbarActions}>
+          <MobileAddMenu>
             {!openQuarter ? (
               <Link href="/quarters" className={styles.toolbarGhost}>
                 + {quarters.length === 0 ? "Open your first quarter" : "Open next quarter"}
@@ -168,7 +170,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
               data-testid="add-sfa-panel"
             >
               <summary className={styles.toolbarAddSummary}>
-                + Add Focus Area
+                <PlusIcon />Add focus area
               </summary>
               <div className={styles.toolbarAddPanel}>
                 <AddSfaForm people={roster} />
@@ -179,7 +181,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
               data-testid="add-goal-panel"
             >
               <summary className={styles.toolbarAddSummary}>
-                + Add Goal
+                <PlusIcon />Add goal
               </summary>
               <div className={styles.toolbarAddPanel}>
                 <AddGoalForm
@@ -195,7 +197,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 data-testid="add-priority-panel"
               >
                 <summary className={styles.toolbarAddSummary}>
-                  + Add Quarterly Priority
+                  <PlusIcon />Add quarterly priority
                 </summary>
                 <div className={styles.toolbarAddPanel}>
                   <AddPriorityForm
@@ -220,7 +222,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 data-testid="add-commitment-panel"
               >
                 <summary className={styles.toolbarAddSummary}>
-                  + Add Commitment
+                  <PlusIcon />Add commitment
                 </summary>
                 <div className={styles.toolbarAddPanel}>
                   <AddCommitmentForm
@@ -232,7 +234,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 </div>
               </details>
             ) : null}
-          </div>
+          </MobileAddMenu>
         ) : null}
       </div>
 
@@ -346,7 +348,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                                   data-testid="goal-add-priority-panel"
                                 >
                                   <summary className={styles.addSummary}>
-                                    + Add priority
+                                    <PlusIcon />Add priority
                                   </summary>
                                   <AddPriorityForm
                                     quarterId={selectedQuarter.id}
@@ -380,7 +382,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                         data-testid="sfa-add-goal-panel"
                       >
                         <summary className={styles.addSummary}>
-                          + Add goal
+                          <PlusIcon />Add goal
                         </summary>
                         <AddGoalForm
                           defaultSfaId={sfa.id}
@@ -395,7 +397,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                           data-testid="sfa-add-priority-panel"
                         >
                           <summary className={styles.addSummary}>
-                            + Add quarterly priority
+                            <PlusIcon />Add quarterly priority
                           </summary>
                           <AddPriorityForm
                             quarterId={selectedQuarter.id}

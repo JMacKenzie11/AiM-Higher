@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { PlusIcon } from "../../../components/ui/PlusIcon";
 import {
   createPillarAction,
   createSnippetAction,
@@ -96,7 +97,7 @@ export function AddPillarForm() {
 
   return (
     <details className={styles.editDetails}>
-      <summary className={styles.editSummary}>+ Add messaging pillar</summary>
+      <summary className={styles.editSummary}><PlusIcon />Add messaging pillar</summary>
       <form action={formAction} className={styles.form}>
         <div className={styles.fieldWide}>
           <label className={styles.label}>Pillar name</label>

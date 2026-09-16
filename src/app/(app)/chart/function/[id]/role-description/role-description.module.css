@@ -134,29 +134,11 @@
 }
 
 .regenerateButton {
-  padding: 6px 14px;
-  background: transparent;
-  color: var(--primary);
-  border: 1px solid var(--primary);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
+  composes: btnSecondary from "../../../../../../components/ui/ui.module.css";
 }
 
 .downloadButton {
-  padding: 6px 14px;
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  text-decoration: none;
-  white-space: nowrap;
+  composes: btnPrimary from "../../../../../../components/ui/ui.module.css";
 }
 
 .downloadButton:hover,
@@ -169,10 +151,6 @@
   background: var(--primary-hover, var(--primary));
   color: var(--on-primary);
   text-decoration: none;
-}
-
-.regenerateButton:hover:not(:disabled) {
-  background: var(--aims-cobalt-tint);
 }
 
 .regenerateButton:disabled {

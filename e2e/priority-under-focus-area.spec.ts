@@ -66,7 +66,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
 
   // ---- Focus area -------------------------------------------
   const addSfa = page.getByTestId("add-sfa-panel");
-  await addSfa.getByText("+ Add Focus Area").click();
+  await addSfa.getByText("Add focus area").click();
   await addSfa.getByLabel("Title").fill(faTitle);
   await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const fa = sfaCard(page, faTitle);
@@ -77,7 +77,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
   // normal case rather than an edge — a focus area may hold either
   // or both.
   const addGoal = fa.getByTestId("sfa-add-goal-panel");
-  await addGoal.getByText("+ Add goal", { exact: true }).click();
+  await addGoal.getByText("Add goal", { exact: true }).click();
   await addGoal.getByLabel("Title").fill(goalTitle);
   await addGoal.getByRole("button", { name: "Add goal", exact: true }).click();
   await expect(
@@ -87,7 +87,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
   // ---- The grouped parent picker on the toolbar panel --------
   const addPriorityToolbar = page.getByTestId("add-priority-panel");
   await addPriorityToolbar
-    .getByText("+ Add Quarterly Priority", { exact: true })
+    .getByText("Add quarterly priority", { exact: true })
     .click();
   const parentPicker = addPriorityToolbar.getByLabel("Parent");
   await expect(parentPicker).toBeVisible();
@@ -106,13 +106,13 @@ test("a priority under a focus area, end to end", async ({ page }) => {
     .getAttribute("value");
   expect(faOption).toMatch(/^sfa:[0-9a-f-]{36}$/);
   await addPriorityToolbar
-    .getByText("+ Add Quarterly Priority", { exact: true })
+    .getByText("Add quarterly priority", { exact: true })
     .click();
 
   // ---- Add a priority straight under the focus area ----------
   const addPriority = fa.getByTestId("sfa-add-priority-panel");
   await addPriority
-    .getByText("+ Add quarterly priority", { exact: true })
+    .getByText("Add quarterly priority", { exact: true })
     .click();
   await addPriority.getByLabel("Title").fill(priTitle);
   // The parent is implied by where we clicked, so there is no picker.
