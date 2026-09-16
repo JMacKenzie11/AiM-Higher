@@ -32,26 +32,30 @@ const ISSUE_TITLE = () => `E2E thread issue ${Date.now()}`;
 // way one does everywhere else: the circle OPENS A MENU and never
 // resolves on click. That is the point of the change, so this does
 // both gestures rather than reaching for a one-click check.
-// `.last()`, not `.first()`, and the difference is #126 again. That
-// PR removed the "show N finished commitment" collapse, so a landed
-// commitment no longer folds away: both rows are visible at once and
-// `.first()` now reaches the one that is already kept, whose menu
-// offers "Unmark kept" and no "Mark kept" at all. The click then
-// waits thirty seconds for a menu item that cannot appear.
-// Commitments run oldest first, so the newest is the one with work
-// still in flight.
-async function landLatestCommitment(row: Locator) {
-  await row
-    .getByRole("button", { name: /open actions/i })
-    .last()
-    .click();
-  await row
+// Land ONE NAMED commitment, by finding its own row.
+//
+// Every ordering guess here has been wrong in turn. `.first()`
+// reached the commitment that was already kept once #126 removed the
+// "show N finished" collapse, and `.last()` then reached the kept one
+// anyway — measured on a two-commitment issue, the open row's
+// actions button is not in the accessibility tree while the kept
+// row's is, so Playwright sees exactly one opener and it is never
+// the one with work left in it.
+//
+// Position was the wrong handle from the start. A commitment is
+// identified by what it says, and each renders as its own
+// data-testid="commitment-row", so the row is addressable directly
+// and the menu opened is unambiguously that row's.
+async function landCommitment(row: Locator, description: string) {
+  const line = row
+    .getByTestId("commitment-row")
+    .filter({ hasText: description });
+  await expect(line).toBeVisible({ timeout: 30_000 });
+  await line.getByRole("button", { name: /open actions/i }).click();
+  await line
     // Three spellings, because the menu offers a different one
     // depending on the due date: "Mark kept", "Mark kept (late)" and
-    // "Mark kept (on time)". The last was added after this spec was
-    // written and the old pattern excluded it, so the click waited
-    // for a menu item that was sitting right there under a longer
-    // name.
+    // "Mark kept (on time)".
     .getByRole("menuitem", {
       name: /^mark kept( \((on time|late)\))?$/i,
     })
@@ -79,13 +83,16 @@ test.describe("issue commitment thread", () => {
   // Left as fixme so it reads as known-broken rather than as
   // coverage. Deleting it would quietly drop the only end-to-end
   // walk of the resolve path.
-  test.fixme("land, review, add next, land, resolve", async ({ page }) => {
+  test("land, review, add next, land, resolve", async ({ page }) => {
     await signIn(page, users.admin());
 
     // Scope in: /issues is company-scoped and the admin has no company
     // of their own.
     await page.goto("/admin/companies");
-    await page.getByTestId("scope-into-company").first().click();
+    await page
+      .getByTestId("scope-into-company")
+      .filter({ hasText: /^E2E Fixture Co$/ })
+      .click();
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
 
     await page.goto("/issues");
@@ -107,7 +114,7 @@ test.describe("issue commitment thread", () => {
     });
 
     // ---- Land it -------------------------------------------
-    await landLatestCommitment(row);
+    await landCommitment(row, "First attempt");
 
     // NOTHING APPEARS WHEN IT LANDS, and that is the current design.
     // This test used to wait here for a review prompt ("Did this
@@ -133,7 +140,7 @@ test.describe("issue commitment thread", () => {
     });
 
     // ---- Land the second, and resolve ----------------------
-    await landLatestCommitment(row);
+    await landCommitment(row, "Second attempt");
 
     // The circle never resolves on the click: the confirm dialog is
     // the second gesture, the same shape the commitment circle uses.
@@ -142,10 +149,23 @@ test.describe("issue commitment thread", () => {
     await expect(dialog).toBeVisible({ timeout: 10_000 });
     await dialog.getByRole("button", { name: "Resolve", exact: true }).click();
 
-    // Resolved issues leave the open list.
+    // A resolved issue LEAVES THE OPEN LIST AND APPEARS UNDER
+    // "Resolved issues" — it does not leave the page. Both sections
+    // render their issues as <article>, so an unscoped article count
+    // sees the resolved copy and never reaches zero; this spec waited
+    // out its timeout on exactly that. Scope to the section.
     await expect(
-      page.getByRole("article").filter({ hasText: title }),
+      page
+        .getByRole("region", { name: "Open issues" })
+        .getByRole("article")
+        .filter({ hasText: title }),
     ).toHaveCount(0, { timeout: 30_000 });
+    await expect(
+      page
+        .getByRole("region", { name: "Resolved issues" })
+        .getByRole("article")
+        .filter({ hasText: title }),
+    ).toHaveCount(1);
   });
 
   test("a second commitment can be added while the first is still open", async ({
@@ -157,7 +177,10 @@ test.describe("issue commitment thread", () => {
     // is open" was never exercised, and it was not possible.
     await signIn(page, users.admin());
     await page.goto("/admin/companies");
-    await page.getByTestId("scope-into-company").first().click();
+    await page
+      .getByTestId("scope-into-company")
+      .filter({ hasText: /^E2E Fixture Co$/ })
+      .click();
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
     await page.goto("/issues");
 
@@ -212,7 +235,10 @@ test.describe("issue commitment thread", () => {
     // The common case must not gain a marker, a badge or a toggle.
     await signIn(page, users.admin());
     await page.goto("/admin/companies");
-    await page.getByTestId("scope-into-company").first().click();
+    await page
+      .getByTestId("scope-into-company")
+      .filter({ hasText: /^E2E Fixture Co$/ })
+      .click();
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
     await page.goto("/issues");
 
