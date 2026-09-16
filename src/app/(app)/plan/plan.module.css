@@ -375,6 +375,10 @@
   background: var(--aims-cobalt-tint);
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-1);
+  /* The chip and the title sit on one line, and the chip's own
+     letter-spacing puts its trailing space INSIDE the tint, so
+     without this the title starts hard against the pill's edge. */
+  margin-right: var(--space-2);
 }
 
 .sfaBody {
@@ -535,51 +539,33 @@
   width: 100%;
 }
 
-/* A real control rather than a bare blue word. Same pill geometry
-   and hover rhythm as the toolbar's primary add buttons, in the
-   app's ghost vocabulary: these are secondary to what is already on
-   the card, and a second row of solid navy pills would compete with
-   it. Cobalt text and border keep them reading as create actions. */
+/* The app's standard button, not a variant of one.
+   
+   These were first drawn as ghost pills, on the reasoning that they
+   are secondary to the card they sit on. That put a third button
+   vocabulary on a page that already has two, and the answer to "what
+   should this look like" is the same as everywhere else: btnPrimary,
+   composed from the shared sheet rather than restated here, so it
+   cannot drift from the buttons it is supposed to match.
+   
+   Only the <summary>-specific bits stay local. A <details> marker is
+   not a button concern, so it does not belong in ui.module.css. */
 .addSummary {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
   list-style: none;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--control-h-sm);
-  padding: 0 var(--space-4);
-  color: var(--primary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  border-radius: var(--radius-pill);
-  transition: background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
 }
 
 .addSummary::-webkit-details-marker {
   display: none;
 }
 
-.addSummary:hover {
-  background: var(--aims-cobalt-tint);
-  border-color: var(--primary);
-  color: var(--primary-hover);
-}
-
-.addSummary:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
-}
-
-/* Open reads as pressed: filled, and the border matches so the pill
-   does not appear to grow. */
+/* Hover and focus come with btnPrimary. Open reads as pressed by
+   holding the hover shade while the panel is showing, so the button
+   does not snap back to rest under the cursor that opened it. */
 .addDetails[open] > .addSummary {
-  background: var(--aims-cobalt-tint);
-  border-color: var(--primary);
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 /* The panel an inline pill opens.
