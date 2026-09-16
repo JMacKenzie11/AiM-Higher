@@ -16,14 +16,14 @@ and change nothing that a company produces.
 
 ## Company admin access
 
-You read every company on this instance. That never changes and it
-does not depend on anything below.
+As a portfolio admin you always have full read access to every
+company on this instance. That never changes and it does not depend
+on anything below.
 
-What the **Company admin access** card adds is the ability to *run*
-a company: tick the ones you actively work in and press **Update**.
-In those companies you get the same rights a company admin has, and
-you appear on that company's team list with the role *company
-admin*, like anyone else there.
+Selecting a company on the **Company admin access** card gives you
+full company administrator access there, and you appear on that
+company's team list with the role *company admin*, like anyone else.
+Tick the ones you work in and press **Update**.
 
 **Unticking a company gives that access up**, and there is one thing
 worth knowing before you do it. If you own open commitments in that
