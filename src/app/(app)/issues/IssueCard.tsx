@@ -739,7 +739,7 @@ function IssueCommitmentAddInline({
             }
           }}
           className={`${styles.commitmentAddInput} ${styles.addDescription}`}
-          placeholder="What will move this forward this week?"
+          placeholder="What will we do this week?"
           required
           disabled={pending}
           aria-label="New commitment"
