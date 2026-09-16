@@ -120,7 +120,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 picker whenever the parent exists. Bulk Reset lives
                 in the dedicated danger zone at the bottom so it
                 can't be mistaken for a primary create action. */}
-            <details className={styles.toolbarAddDetails}>
+            <details
+              className={styles.toolbarAddDetails}
+              data-testid="add-sfa-panel"
+            >
               <summary className={styles.toolbarAddSummary}>
                 + Add Focus Area
               </summary>
@@ -128,7 +131,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 <AddSfaForm people={roster} />
               </div>
             </details>
-            <details className={styles.toolbarAddDetails}>
+            <details
+              className={styles.toolbarAddDetails}
+              data-testid="add-goal-panel"
+            >
               <summary className={styles.toolbarAddSummary}>
                 + Add Goal
               </summary>
@@ -141,7 +147,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
               </div>
             </details>
             {selectedQuarter ? (
-              <details className={styles.toolbarAddDetails}>
+              <details
+                className={styles.toolbarAddDetails}
+                data-testid="add-priority-panel"
+              >
                 <summary className={styles.toolbarAddSummary}>
                   + Add Quarterly Priority
                 </summary>
@@ -265,7 +274,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
                               )}
 
                               {isAdmin && selectedQuarter ? (
-                                <details className={styles.addDetails}>
+                                <details
+                                  className={styles.addDetails}
+                                  data-testid="goal-add-priority-panel"
+                                >
                                   <summary className={styles.addSummary}>
                                     + Add priority
                                   </summary>
@@ -295,7 +307,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
                   )}
 
                   {isAdmin ? (
-                    <details className={styles.addDetails}>
+                    <details
+                      className={styles.addDetails}
+                      data-testid="sfa-add-goal-panel"
+                    >
                       <summary className={styles.addSummary}>
                         + Add goal
                       </summary>
@@ -308,7 +323,10 @@ export default async function PlanPage({ searchParams }: PageProps) {
                   ) : null}
 
                   {isAdmin && selectedQuarter ? (
-                    <details className={styles.addDetails}>
+                    <details
+                      className={styles.addDetails}
+                      data-testid="sfa-add-priority-panel"
+                    >
                       <summary className={styles.addSummary}>
                         + Add quarterly priority
                       </summary>

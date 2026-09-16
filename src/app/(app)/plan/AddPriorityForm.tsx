@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 import {
   createPriorityAction,
   type PlanResult,
@@ -39,6 +39,16 @@ export function AddPriorityForm({
     PlanResult<Priority>,
     FormData
   >(createPriorityAction, INITIAL);
+
+  // Field ids are SCOPED PER FORM INSTANCE. These forms render many
+  // times on /plan — once in the toolbar, once inside every focus
+  // area, once under every goal — and a fixed id would put several
+  // elements with the same id in one document. That is invalid HTML,
+  // and it breaks the thing the id is for: <label htmlFor> resolves
+  // to the FIRST match, so clicking a field's own label focuses a
+  // different form's field. `useId` gives each instance its own.
+  const uid = useId();
+  const fieldId = (name: string) => `${name}-${uid}`;
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
   const { formRef, confirmationVisible } = useStayOpenForm(
@@ -53,11 +63,11 @@ export function AddPriorityForm({
       <input type="hidden" name="quarter_id" value={quarterId} />
 
       <div className={styles.fieldWide}>
-        <label htmlFor="priority-title" className={styles.label}>
+        <label htmlFor={fieldId("priority-title")} className={styles.label}>
           Title
         </label>
         <input
-          id="priority-title"
+          id={fieldId("priority-title")}
           name="title"
           required
           className={styles.input}
@@ -74,11 +84,11 @@ export function AddPriorityForm({
         <input type="hidden" name="parent" value={defaultParent} />
       ) : (
         <div className={styles.field}>
-          <label htmlFor="priority-parent" className={styles.label}>
+          <label htmlFor={fieldId("priority-parent")} className={styles.label}>
             Parent
           </label>
           <select
-            id="priority-parent"
+            id={fieldId("priority-parent")}
             name="parent"
             className={styles.select}
             defaultValue={defaultParent}
@@ -93,11 +103,11 @@ export function AddPriorityForm({
       )}
 
       <div className={styles.field}>
-        <label htmlFor="priority-owner" className={styles.label}>
+        <label htmlFor={fieldId("priority-owner")} className={styles.label}>
           Owner
         </label>
         <select
-          id="priority-owner"
+          id={fieldId("priority-owner")}
           name="owner_id"
           defaultValue=""
           className={styles.select}
@@ -113,11 +123,11 @@ export function AddPriorityForm({
       </div>
 
       <div className={styles.field}>
-        <label htmlFor="priority-due" className={styles.label}>
+        <label htmlFor={fieldId("priority-due")} className={styles.label}>
           Due date
         </label>
         <input
-          id="priority-due"
+          id={fieldId("priority-due")}
           name="due_date"
           type="date"
           className={styles.input}
@@ -126,11 +136,11 @@ export function AddPriorityForm({
       </div>
 
       <div className={styles.fieldWide}>
-        <label htmlFor="priority-description" className={styles.label}>
+        <label htmlFor={fieldId("priority-description")} className={styles.label}>
           Description
         </label>
         <textarea
-          id="priority-description"
+          id={fieldId("priority-description")}
           name="description"
           className={styles.textarea}
           rows={2}

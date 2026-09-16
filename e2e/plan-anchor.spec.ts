@@ -76,16 +76,18 @@ test("a back link lands on /plan with the goal revealed", async ({ page }) => {
   await sweepLeftovers(page);
 
   // Create a focus area.
-  await page.getByText("+ Add Focus Area").click();
-  await page.locator("#sfa-title").fill(sfaTitle);
-  await page.getByRole("button", { name: "Add Focus Area", exact: true }).click();
+  const addSfa = page.getByTestId("add-sfa-panel");
+  await addSfa.getByText("+ Add Focus Area").click();
+  await addSfa.getByLabel("Title").fill(sfaTitle);
+  await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const sfa = sfaCard(page, sfaTitle);
   await expect(sfa).toBeVisible({ timeout: 30_000 });
 
   // Create a goal under it.
-  await sfa.getByText("+ Add goal").click();
-  await sfa.locator("#goal-title").fill(goalTitle);
-  await sfa.getByRole("button", { name: "Add goal", exact: true }).click();
+  const addGoal = sfa.getByTestId("sfa-add-goal-panel");
+  await addGoal.getByText("+ Add goal").click();
+  await addGoal.getByLabel("Title").fill(goalTitle);
+  await addGoal.getByRole("button", { name: "Add goal", exact: true }).click();
   const goal = goalCard(page, goalTitle);
   await expect(goal).toBeVisible({ timeout: 30_000 });
   const goalId = await goal.getAttribute("data-goal-id");

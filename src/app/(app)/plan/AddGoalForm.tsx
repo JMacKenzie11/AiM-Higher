@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 import {
   createGoalAction,
   type PlanResult,
@@ -25,6 +25,16 @@ export function AddGoalForm({
     PlanResult<AnnualGoal>,
     FormData
   >(createGoalAction, INITIAL);
+
+  // Field ids are SCOPED PER FORM INSTANCE. These forms render many
+  // times on /plan — once in the toolbar, once inside every focus
+  // area, once under every goal — and a fixed id would put several
+  // elements with the same id in one document. That is invalid HTML,
+  // and it breaks the thing the id is for: <label htmlFor> resolves
+  // to the FIRST match, so clicking a field's own label focuses a
+  // different form's field. `useId` gives each instance its own.
+  const uid = useId();
+  const fieldId = (name: string) => `${name}-${uid}`;
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
   const { formRef, confirmationVisible } = useStayOpenForm(
@@ -37,11 +47,11 @@ export function AddGoalForm({
   return (
     <form action={formAction} className={styles.form} ref={formRef}>
       <div className={styles.field}>
-        <label htmlFor="goal-title" className={styles.label}>
+        <label htmlFor={fieldId("goal-title")} className={styles.label}>
           Title
         </label>
         <input
-          id="goal-title"
+          id={fieldId("goal-title")}
           name="title"
           required
           className={styles.input}
@@ -57,11 +67,11 @@ export function AddGoalForm({
         <input type="hidden" name="sfa_id" value={defaultSfaId} />
       ) : (
         <div className={styles.field}>
-          <label htmlFor="goal-sfa" className={styles.label}>
+          <label htmlFor={fieldId("goal-sfa")} className={styles.label}>
             Focus area
           </label>
           <select
-            id="goal-sfa"
+            id={fieldId("goal-sfa")}
             name="sfa_id"
             className={styles.select}
             defaultValue={defaultSfaId ?? ""}
@@ -78,11 +88,11 @@ export function AddGoalForm({
       )}
 
       <div className={styles.field}>
-        <label htmlFor="goal-owner" className={styles.label}>
+        <label htmlFor={fieldId("goal-owner")} className={styles.label}>
           Owner
         </label>
         <select
-          id="goal-owner"
+          id={fieldId("goal-owner")}
           name="owner_id"
           defaultValue=""
           className={styles.select}
@@ -98,11 +108,11 @@ export function AddGoalForm({
       </div>
 
       <div className={styles.field}>
-        <label htmlFor="goal-target" className={styles.label}>
+        <label htmlFor={fieldId("goal-target")} className={styles.label}>
           Target date
         </label>
         <input
-          id="goal-target"
+          id={fieldId("goal-target")}
           name="target_date"
           type="date"
           className={styles.input}
@@ -111,11 +121,11 @@ export function AddGoalForm({
       </div>
 
       <div className={styles.fieldWide}>
-        <label htmlFor="goal-description" className={styles.label}>
+        <label htmlFor={fieldId("goal-description")} className={styles.label}>
           Description
         </label>
         <textarea
-          id="goal-description"
+          id={fieldId("goal-description")}
           name="description"
           className={styles.textarea}
           rows={3}
