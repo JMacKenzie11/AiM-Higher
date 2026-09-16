@@ -16,7 +16,11 @@ As a team member, you can:
 - **See the cascade** — how the quarter's Priorities ladder up to
   Goals and Focus Areas.
 - **Open a Priority** by clicking its title to see the owner,
-  progress, and the commitments feeding it.
+  progress, and the commitments feeding it. The line under each
+  Priority counts the commitments still **open** on it, so it reads
+  as what is left to do. The bar beside it says how much is already
+  done, which is why a Priority can show "1 open commitment" and
+  50% at the same time.
 :::
 
 ::: role company_admin,aims_guide,system_admin

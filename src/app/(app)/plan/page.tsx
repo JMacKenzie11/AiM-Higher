@@ -25,6 +25,23 @@ type PageProps = {
   searchParams: Promise<{ q?: string }>;
 };
 
+// What is still to do under a priority, not how much has ever been
+// attached to it.
+//
+// This read "N commitments" and counted kept + open + missed, so a
+// finished priority said "3 commitments" forever and a live one gave
+// no sense of what was outstanding. The progress bar beside it
+// already says how much is done; the meta line is the better place
+// for what is left.
+//
+// The word "open" is load-bearing. "1 commitment" beside a bar
+// reading 50% looks like one of the two numbers is wrong, and only
+// the label tells you they are answering different questions.
+function openCommitmentsLabel(openCount: number): string {
+  if (openCount === 0) return "no open commitments";
+  return `${openCount} open commitment${openCount === 1 ? "" : "s"}`;
+}
+
 export default async function PlanPage({ searchParams }: PageProps) {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
@@ -249,8 +266,9 @@ export default async function PlanPage({ searchParams }: PageProps) {
                                             ? ` · Due ${priority.due_date}`
                                             : ""}
                                           {" · "}
-                                          {priority.commitment_count} commitment
-                                          {priority.commitment_count === 1 ? "" : "s"}
+                                          {openCommitmentsLabel(
+                                            priority.open_count
+                                          )}
                                         </span>
                                       </div>
                                       <div className={styles.summaryEnd}>
@@ -381,8 +399,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                           {priority.owner?.full_name ?? "Unassigned"}
                           {priority.due_date ? ` · Due ${priority.due_date}` : ""}
                           {" · "}
-                          {priority.commitment_count} commitment
-                          {priority.commitment_count === 1 ? "" : "s"}
+                          {openCommitmentsLabel(priority.open_count)}
                         </span>
                       </div>
                       <div className={styles.summaryEnd}>
