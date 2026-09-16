@@ -734,7 +734,17 @@
   margin: var(--space-2) calc(-1 * var(--space-4))
     calc(-1 * var(--space-3));
   padding: var(--space-1) 0 var(--space-2) calc(20px + var(--space-3));
-  background: var(--bg);
+  /* The app's fill for a content block nested inside a white card,
+     the same one carrying .sectionBody and .subcard on /foundation
+     and .outcomeBlock on /measures. This band is exactly that: the
+     commitments belonging to the issue above them, inside the issue's
+     own bordered block.
+     
+     It was flat --bg, which still read as inset but as a different
+     KIND of inset from every other nested block in the product. The
+     enclosure and proximity reasoning below is unchanged; only the
+     fill moves. */
+  background: var(--grad-secondary);
 
   /* A band rather than an inset card — full-bleed corners cannot be
      rounded without the fill pulling away from the card edge. */
