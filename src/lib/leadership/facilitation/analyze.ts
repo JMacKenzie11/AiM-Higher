@@ -38,6 +38,36 @@ type FacilitationInput = {
   model?: string;
 };
 
+// ONE RETRY, AND ONLY FOR AN UNSCORED ANSWER.
+//
+// About one review in ten comes back with a rich executive summary
+// and no `dimensions` object at all — 3 of 29 on production when this
+// was written. It is not an error, a refusal or a timeout: the call
+// succeeds and the model simply omits a block that the tool schema
+// already marks required. That is an intermittent formatting miss,
+// which is the one kind of failure a second attempt actually fixes.
+//
+// WHY RETRYING HERE IS SAFE, and it is a property of where this sits
+// rather than of this function. analyzeMeeting runs the facilitation
+// pass BEFORE its first database write: the summary and extracted
+// commitments are still in memory, meeting_analyses has not been
+// inserted, and no commitment rows exist yet even when Automated
+// Commitment Tracking is on. Retrying this call cannot duplicate any
+// of them because none of them exist to duplicate. Re-running the
+// WHOLE analysis is the dangerous version, and that is what the
+// Re-analyze control does — with deletes in front of it for exactly
+// this reason.
+//
+// ONE, not a loop. The cron route runs on maxDuration 300 and each
+// meeting is already two model calls; a third on the failures is
+// affordable, an unbounded retry on a busy pass is not.
+//
+// A second unscored answer changes nothing: the review is discarded
+// and the meeting reads as having no review, which is where this
+// stood before the retry existed. The retry can only improve the
+// odds.
+const FACILITATION_ATTEMPTS = 2;
+
 export async function analyzeMeetingFacilitation(
   client: Anthropic,
   { transcript, companyContextBlock, model }: FacilitationInput
@@ -46,6 +76,37 @@ export async function analyzeMeetingFacilitation(
   const useModel =
     model || process.env.ANTHROPIC_FACILITATION_MODEL || DEFAULT_MODEL;
 
+  for (let attempt = 1; attempt <= FACILITATION_ATTEMPTS; attempt += 1) {
+    const review = await requestFacilitationReview(client, {
+      systemPrompt,
+      useModel,
+      transcript,
+      companyContextBlock,
+      attempt,
+    });
+    if (review) return review;
+  }
+  return null;
+}
+
+// One attempt. Returns the review, or null when the model gave no
+// tool call or gave one that scored nothing.
+async function requestFacilitationReview(
+  client: Anthropic,
+  {
+    systemPrompt,
+    useModel,
+    transcript,
+    companyContextBlock,
+    attempt,
+  }: {
+    systemPrompt: string;
+    useModel: string;
+    transcript: string;
+    companyContextBlock: string;
+    attempt: number;
+  }
+): Promise<FacilitationReview | null> {
   const response = await client.messages.create({
     model: useModel,
     max_tokens: MAX_TOKENS,
@@ -66,7 +127,10 @@ export async function analyzeMeetingFacilitation(
       // point; the caller (analyzeMeeting) has it but doesn't pass
       // it here. Logging without attribution beats not logging.
       companyId: null,
-      purpose: "facilitation",
+      // TAGGED BY ATTEMPT so two entries for one meeting read as a
+      // retry rather than as a mystery. A cost review that cannot
+      // tell a retry from a double-charge learns the wrong lesson.
+      purpose: attempt === 1 ? "facilitation" : "facilitation_retry",
       model: useModel,
       usage: response.usage,
     });
@@ -75,7 +139,12 @@ export async function analyzeMeetingFacilitation(
   const toolUse = response.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
   );
-  if (!toolUse) return null;
+  if (!toolUse) {
+    console.error(
+      `[facilitation] attempt ${attempt}/${FACILITATION_ATTEMPTS}: no tool call`
+    );
+    return null;
+  }
 
   const raw = toolUse.input as Record<string, unknown>;
   const review = normalizeReview(raw);
@@ -90,7 +159,7 @@ export async function analyzeMeetingFacilitation(
   // schema's required list and was omitted anyway.
   if (!isScoredReview(review)) {
     console.error(
-      "[facilitation] model returned a review with no scores; discarding",
+      `[facilitation] attempt ${attempt}/${FACILITATION_ATTEMPTS}: review scored nothing; discarding`,
       {
         keys: Object.keys(raw).sort(),
         dimensionsType: typeof raw.dimensions,

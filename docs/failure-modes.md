@@ -1111,3 +1111,59 @@ surface's rendering condition.
 **Related.** E1, trusting an assumed response shape from an external
 API — the same trust, one layer further in: the shape was checked and
 the content was not.
+
+
+### E14. A fire-and-forget write whose failures nobody can hear
+
+**Situation.** A write is deliberately not awaited, so that a slow or
+failing side-effect cannot hold up the thing the user asked for.
+Telemetry, usage logging, audit breadcrumbs. The decision is correct.
+The consequence is that the write has no reader: if it starts failing
+for every row, the application behaves exactly as it did when the
+write worked.
+
+**Specimen.** `logCoachTokenUsage` is called as `void
+logCoachTokenUsage(...)` from every model call site, so a coaching
+turn never waits on cost accounting. `coach_token_usage.purpose`
+carries a CHECK constraint listing the allowed values. `memory` was
+added to `CoachUsagePurpose` in TypeScript when coach memory shipped
+and never added to the constraint, so every one of those inserts
+violated the check and vanished.
+
+Measured on production while investigating something else:
+
+```
+681 usage rows
+clarity 267 · brief 113 · analyzer 80 · turn 64
+insights_analysis 53 · facilitation 44 · themes 35
+title 14 · rd 11 · memory 0
+```
+
+Every other purpose represented; `memory` at zero. The cost of
+distilling a conversation had never reached the dashboard, for as
+long as the feature had existed, and nothing anywhere said so.
+
+**Why the usual guards missed it.** Typecheck was satisfied — the
+union is the type, and the constraint is a string in a `.sql` file.
+The RLS harness probes policies, not CHECK constraints. Unit tests
+mock the logger. The one place the two lists have to agree was a
+place nothing looked.
+
+**The guard.** A source-level test parses the union out of `usage.ts`
+and the allowed values out of the most recent migration that rewrites
+the constraint, and asserts the two sets are equal. It reads both
+lists rather than restating them, because a test that restates a list
+is a third copy to forget, and it carries its own falsification
+because comparing two parsed lists is exactly the shape that passes by
+parsing nothing.
+
+**The general shape.** Not-awaiting a write is a latency decision, and
+it silently becomes a correctness decision the moment the write can
+fail for a reason that is not transient. Where a fire-and-forget write
+has a schema-level contract — a CHECK, an enum, a NOT NULL — something
+has to compare the two ends, because the running system never will.
+
+**Related.** E13 sits one step away: there, a forgiving normalizer
+manufactured a complete-looking row; here, a deliberate silence let a
+row never arrive at all. Both were found by counting rows in
+production rather than by reading code.
