@@ -249,21 +249,7 @@
 }
 
 .actionButton {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  background: transparent;
-  color: var(--primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.actionButton:hover:not(:disabled) {
-  background: var(--aims-cobalt-tint);
-  border-color: var(--primary);
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .actionButton:disabled {

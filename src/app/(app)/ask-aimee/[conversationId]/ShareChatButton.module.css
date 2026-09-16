@@ -239,18 +239,7 @@
 }
 
 .primaryButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
+  composes: btnPrimary from "../../../../components/ui/ui.module.css";
 }
 
 .primaryButton:disabled {
@@ -342,18 +331,7 @@
 }
 
 .removeButton {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  border-radius: var(--radius-pill);
-  padding: 4px 12px;
-  font: var(--text-body-sm);
-  cursor: pointer;
-}
-
-.removeButton:hover {
-  border-color: var(--aims-danger);
-  color: var(--aims-danger);
+  composes: btnSecondary from "../../../../components/ui/ui.module.css";
 }
 
 .footerActions {
@@ -363,18 +341,7 @@
 }
 
 .leaveButton {
-  background: transparent;
-  border: 1px solid var(--aims-danger);
-  color: var(--aims-danger);
-  border-radius: var(--radius-pill);
-  padding: 6px 14px;
-  font: var(--text-body-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.leaveButton:hover:not(:disabled) {
-  background: var(--aims-danger-tint);
+  composes: btnDanger from "../../../../components/ui/ui.module.css";
 }
 
 .leaveButton:disabled {

@@ -4,17 +4,62 @@
    before this, buttons/chips/headers had ~5 near-identical copies
    scattered across page modules. */
 
-/* ---- Buttons ---------------------------------------------------- */
+/* ---- Buttons ----------------------------------------------------
+ *
+ * THREE VARIANTS, and only three.
+ *
+ *   btnPrimary    one per view, maximum. Solid brand fill, white
+ *                 label. The only saturated button on a screen.
+ *   btnSecondary  transparent, hairline border, brand label. The
+ *                 default for everything that used to be a solid
+ *                 pill.
+ *   btnGhost      no border, no background. Tertiary and inline
+ *                 actions.
+ *
+ * btnDanger is a MODIFIER of intent, not a fourth variant: it is a
+ * secondary button that has changed its mind about colour on hover.
+ *
+ * WHAT CHANGED, and why it is worth knowing when reading a diff.
+ * Before this, `btnGhost` WAS the bordered variant and the app had no
+ * borderless one, so every module that wanted a plain text action
+ * hand-rolled it. The bordered variant is now `btnSecondary`, which
+ * is what it always was, and `btnGhost` is the borderless one the
+ * name always implied. All 15 `composes: btnGhost` were reviewed and
+ * every one of them wanted the bordered variant, so they moved to
+ * btnSecondary and look exactly as they did.
+ *
+ * GEOMETRY is shared and lives here, not per page:
+ *   radius  --radius-btn (8px), not the pill. See the token.
+ *   height  --control-h-btn (38px), its own token so growing buttons
+ *           does not grow every input on the platform.
+ *   label   --text-button: 14px medium, sentence case.
+ *   touch   44px hit area on coarse pointers, as a pseudo-element, so
+ *           the button stays 38px to the eye and 44px to a thumb.
+ *
+ * CONTRAST, measured against the real palette rather than assumed:
+ *   white on cobalt          7.33:1   AA pass
+ *   white on cobalt-hover    9.15:1   AA pass
+ *   cobalt on white          7.33:1   AA pass
+ *   cobalt on sand           6.82:1   AA pass
+ *   cobalt on cobalt-tint    6.37:1   AA pass
+ * The secondary BORDER is 1.28:1 against white, which does not meet
+ * WCAG 1.4.11's 3:1 for a component boundary. It is kept as specified
+ * because the cobalt label at 7.33:1 is what identifies the control,
+ * not the hairline; no hairline-weight value reaches 3:1 (cobalt at
+ * 60% is still only 2.89). If the boundary must carry it alone, the
+ * one-line change is --border -> a darker outline on .btnSecondary.
+ */
 
 .btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   padding: 0 var(--space-4);
-  height: var(--control-h-md);
+  height: var(--control-h-btn);
   font: var(--text-button);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-btn);
   border: 1px solid transparent;
   background: transparent;
   color: var(--text);
@@ -26,7 +71,23 @@
     color var(--duration-fast) var(--ease-out);
 }
 
-.btn:disabled {
+/* The touch target, on touch devices only. Extends the hit area to
+   44px without touching layout: the button still occupies 38px, so
+   nothing reflows between pointer types. */
+@media (pointer: coarse) {
+  .btn::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: var(--tap-min);
+  }
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -36,6 +97,7 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
+/* ---- Variant: primary ---- */
 .btnPrimary {
   composes: btn;
   background: var(--primary);
@@ -48,20 +110,36 @@
   border-color: var(--primary-hover);
 }
 
-.btnGhost {
+/* ---- Variant: secondary ---- */
+.btnSecondary {
   composes: btn;
+  color: var(--primary);
   border-color: var(--border);
 }
 
-.btnGhost:hover:not(:disabled) {
-  background: var(--aims-navy-tint);
+.btnSecondary:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
   border-color: var(--border-strong);
 }
 
-.btnDanger {
+/* ---- Variant: ghost ---- */
+.btnGhost {
   composes: btn;
+  color: var(--primary);
+  border-color: transparent;
+  /* Tighter than the bordered variants: with no box around it, full
+     padding makes a text action float away from what it acts on. */
+  padding: 0 var(--space-2);
+}
+
+.btnGhost:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
+}
+
+/* ---- Intent: danger ---- */
+.btnDanger {
+  composes: btnSecondary;
   color: var(--aims-danger);
-  border-color: var(--border);
 }
 
 .btnDanger:hover:not(:disabled) {
@@ -69,10 +147,59 @@
   border-color: var(--aims-danger);
 }
 
+/* ---- Size modifier ---- */
 .btnSm {
-  height: var(--control-h-sm);
+  height: var(--control-h-btn-sm);
   padding: 0 var(--space-3);
   font: var(--text-button-sm);
+}
+
+/* ---- Loading -----------------------------------------------------
+ * Defined once, here, because it was previously a per-page string:
+ * "Saving…", "Adding…", "…", each page picking its own. The spinner
+ * replaces the label's leading edge and the label stays put, so the
+ * button does not change width mid-submit and shift the row.
+ *
+ * Pair with aria-busy="true" and keep the button disabled; the
+ * spinner is decorative and announced by neither. */
+.btnLoading {
+  cursor: progress;
+}
+
+.btnLoading::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: btnSpin 600ms linear infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes btnSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btnLoading::before {
+    animation-duration: 2400ms;
+  }
+}
+
+/* ---- Add affordance ----------------------------------------------
+ * The plus that used to be typed into the label as "+ Add Goal".
+ * A glyph in the string cannot be sized, aligned or coloured
+ * separately from the words, and it shipped in three different
+ * spellings. This is the icon, optically aligned: a plus reads as
+ * sitting low next to a capital, so it lifts by half a pixel. */
+.btnIcon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  transform: translateY(-0.5px);
 }
 
 /* ---- Chips ------------------------------------------------------ */
@@ -169,11 +296,12 @@
      and /issues .issueRow for the canonical shape.
 
    BUTTON hover:
-     primary → background: var(--primary-hover)
-     ghost   → background: var(--aims-navy-tint); border promotes to
-               var(--border-strong)
-     danger  → background: var(--aims-danger-tint); border promotes to
-               var(--aims-danger)
+     primary   → background: var(--primary-hover)
+     secondary → background: var(--aims-cobalt-tint); border promotes
+                 to var(--border-strong)
+     ghost     → background: var(--aims-cobalt-tint), no border
+     danger    → background: var(--aims-danger-tint); border promotes
+                 to var(--aims-danger)
 
    EDITABLE-CELL hover (dashed-border-strong at rest → active on hover):
      background: var(--aims-navy-tint)

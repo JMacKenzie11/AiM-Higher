@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PlusIcon } from "../../../../../components/ui/PlusIcon";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getGoalDetail } from "@/lib/plan/service";
@@ -74,7 +75,7 @@ export default async function GoalDetailPage({ params }: PageProps) {
           openQuarter ? (
             <details className={planStyles.addDetails}>
               <summary className={planStyles.addSummary}>
-                + Add priority
+                <PlusIcon />Add priority
               </summary>
               <AddPriorityForm
                 quarterId={openQuarter.id}

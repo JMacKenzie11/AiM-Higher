@@ -103,14 +103,14 @@ test("a commitment added from the plan toolbar lands on its priority", async ({
 
   // ---- Something to attach a commitment to -------------------
   const addSfa = page.getByTestId("add-sfa-panel");
-  await addSfa.getByText("+ Add Focus Area").click();
+  await addSfa.getByText("Add focus area").click();
   await addSfa.getByLabel("Title").fill(faTitle);
   await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const fa = sfaCard(page, faTitle);
   await expect(fa).toBeVisible({ timeout: 30_000 });
 
   const addPriority = fa.getByTestId("sfa-add-priority-panel");
-  await addPriority.getByText("+ Add quarterly priority", { exact: true }).click();
+  await addPriority.getByText("Add quarterly priority", { exact: true }).click();
   await addPriority.getByLabel("Title").fill(priTitle);
   await addPriority.getByRole("button", { name: /Add priority/i }).click();
   await expect(
@@ -119,7 +119,7 @@ test("a commitment added from the plan toolbar lands on its priority", async ({
 
   // ---- The toolbar panel -------------------------------------
   const panel = page.getByTestId("add-commitment-panel");
-  await panel.getByText("+ Add Commitment", { exact: true }).click();
+  await panel.getByText("Add commitment", { exact: true }).click();
   await panel.getByLabel("Commitment").fill(commitment);
 
   // The picker groups priorities by what they sit under, so a

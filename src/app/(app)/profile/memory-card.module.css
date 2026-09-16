@@ -242,6 +242,6 @@
 
 .pagerButton {
   composes: btn from "../../../components/ui/ui.module.css";
-  composes: btnGhost from "../../../components/ui/ui.module.css";
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
   composes: btnSm from "../../../components/ui/ui.module.css";
 }

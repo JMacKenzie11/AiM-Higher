@@ -109,21 +109,7 @@
 }
 
 .resetButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-4);
-  background: transparent;
-  color: var(--aims-danger);
-  border: 1px solid var(--aims-danger);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.resetButton:hover:not(:disabled) {
-  background: var(--aims-danger-tint);
+  composes: btnDanger from "../../../components/ui/ui.module.css";
 }
 
 .resetButton:focus-visible {
@@ -165,29 +151,12 @@
 }
 
 .toolbarAddSummary {
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
   list-style: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  height: var(--control-h-md);
-  padding: 0 var(--space-4);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  transition: background var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
 }
 
 .toolbarAddSummary::-webkit-details-marker {
   display: none;
-}
-
-.toolbarAddSummary:hover {
-  background: var(--primary-hover);
 }
 
 .toolbarAddPanel {
@@ -551,7 +520,7 @@
    Only the <summary>-specific bits stay local. A <details> marker is
    not a button concern, so it does not belong in ui.module.css. */
 .addSummary {
-  composes: btnPrimary from "../../../components/ui/ui.module.css";
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
   list-style: none;
   cursor: pointer;
 }

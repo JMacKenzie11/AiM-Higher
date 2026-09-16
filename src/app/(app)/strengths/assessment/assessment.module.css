@@ -261,6 +261,6 @@
 }
 
 .ghostButton {
-  composes: btnGhost from "../../../../components/ui/ui.module.css";
+  composes: btnSecondary from "../../../../components/ui/ui.module.css";
 }
 

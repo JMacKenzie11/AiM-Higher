@@ -428,18 +428,8 @@
 }
 
 .retryButton {
-  background: transparent;
-  border: 1px solid var(--aims-danger);
-  color: var(--aims-danger);
-  border-radius: var(--radius-pill);
-  padding: 4px 12px;
-  font-size: 13px;
-  cursor: pointer;
+  composes: btnDanger from "../../../components/ui/ui.module.css";
   margin-top: var(--space-2);
-}
-
-.retryButton:hover:not(:disabled) {
-  background: var(--aims-danger-tint);
 }
 
 /* Read-only fallback shown to a sharee whose access is 'read'.
@@ -517,18 +507,7 @@
 }
 
 .sendButton {
-  height: var(--control-h-md);
-  padding: 0 var(--space-4);
-  background: var(--primary);
-  color: var(--on-primary);
-  border: none;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.sendButton:hover:not(:disabled) {
-  background: var(--primary-hover);
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
 }
 
 .sendButton:disabled {
@@ -593,6 +572,6 @@
 }
 
 .ghostButton {
-  composes: btnGhost from "../../../components/ui/ui.module.css";
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 

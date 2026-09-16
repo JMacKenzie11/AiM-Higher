@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PlusIcon } from "../../../components/ui/PlusIcon";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
@@ -56,7 +57,7 @@ export default async function ChartPage() {
         {isAdmin ? (
           <div className={styles.chartCardHeader}>
             <details className={styles.addDetails}>
-              <summary className={styles.addSummary}>+ Add function</summary>
+              <summary className={styles.addSummary}><PlusIcon />Add function</summary>
               <AddFunctionForm people={roster} parentOptions={parentOptions} />
             </details>
           </div>
