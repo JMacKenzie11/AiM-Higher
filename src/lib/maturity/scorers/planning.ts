@@ -4,10 +4,19 @@ import { clampScore, type DisciplineScore } from "../types";
 // Planning score = the plan is populated AND it's actually being
 // closed on time.
 //
-//   - Cascade populated (SFAs + goals + priorities present in the
-//     open quarter): 2 pts baseline. Missing pieces knock this down
-//     to zero; a healthy cascade earns the floor but doesn't drive
-//     the score on its own.
+//   - Cascade populated: 2 pts baseline. Missing pieces knock this
+//     down to zero; a healthy cascade earns the floor but doesn't
+//     drive the score on its own.
+//
+//     "Populated" is FOCUS AREAS + PRIORITIES, and goals are not
+//     required. Until migration 0209 this demanded all three, which
+//     was fine while every priority had to hang off a goal. It is
+//     wrong now: a company whose focus area lives for one quarter
+//     hangs its priorities straight off the focus area and holds no
+//     goals at all — and that shape scored ZERO here, closure
+//     halves included, because they sit behind this gate. A company
+//     doing exactly what the product tells it to do was being told
+//     its planning discipline did not exist.
 //   - Goal closure — of goals whose target_date has passed,
 //     what fraction are `complete`? Up to 4 pts. When no goals have
 //     hit their date yet, we award full credit because there's
@@ -88,8 +97,8 @@ export async function scorePlanning(
     status: string;
   }>;
 
-  const cascadePopulated =
-    sfas.length > 0 && goals.length > 0 && priorities.length > 0;
+  // Goals are optional, not missing. See the header.
+  const cascadePopulated = sfas.length > 0 && priorities.length > 0;
 
   // Closure rate helper. Denominator = items whose due date has passed.
   // Nothing past due yet is "nothing to close" — full credit, since a
@@ -116,6 +125,11 @@ export async function scorePlanning(
     };
   }
 
+  // A company with no goals has nothing to close, which `closure`
+  // already reads as full credit — the same answer it gives a fresh
+  // plan whose targets are all in the future. That is the intended
+  // reading now that goals are an optional level: score what the
+  // company committed to, not what it declined to use.
   const goalClosure = closure(goals, (g) => g.target_date);
   const priorityClosure = closure(priorities, (p) => p.due_date);
 

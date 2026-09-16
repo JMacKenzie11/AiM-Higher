@@ -24,7 +24,7 @@ export {
   updatePriorityAction,
   updatePriorityStatusAction,
   archivePriorityAction,
-  setPriorityGoalAction,
+  setPriorityParentAction,
 } from "./priority-actions";
 
 export {

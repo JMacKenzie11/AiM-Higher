@@ -54,6 +54,13 @@ under them, then Priorities under those:
 2. Add Goals under each Focus Area.
 3. With a quarter open, add Quarterly Priorities under each Goal.
 
+**Goals are optional.** If a Focus Area's whole life is this quarter,
+use *+ Add quarterly priority* on the Focus Area itself and skip the
+Goal. Priorities added that way sit beside the Goals under their
+Focus Area, and count toward its progress the same way a Goal does.
+A priority has one parent: choosing a Focus Area for it clears any
+Goal it was under, and the other way round.
+
 Standalone rows (things added without a parent) are a landing pad
 for messy real-world sequencing — not the default shape. Link
 them later via the row's inline picker.

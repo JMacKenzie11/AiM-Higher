@@ -5,7 +5,13 @@ import {
   createPriorityAction,
   type PlanResult,
 } from "@/lib/plan/actions";
-import type { AnnualGoal, Priority, Profile } from "@/lib/types";
+import type {
+  AnnualGoal,
+  Priority,
+  Profile,
+  StrategicFocusArea,
+} from "@/lib/types";
+import { PriorityParentOptions } from "./PriorityParentOptions";
 import { useStayOpenForm } from "@/lib/hooks/use-stay-open-form";
 import { ConfirmationChip } from "@/components/ui/ConfirmationChip";
 import styles from "./plan.module.css";
@@ -14,13 +20,19 @@ const INITIAL: PlanResult<Priority> = { ok: false, message: "" };
 
 export function AddPriorityForm({
   quarterId,
-  defaultGoalId,
+  defaultParent,
   goalOptions,
+  sfaOptions,
   people,
 }: {
   quarterId: string;
-  defaultGoalId: string | null;
+  // The wire form of a parent ref ("goal:<id>", "sfa:<id>" or "").
+  // When this form is mounted UNDER a parent — inline in the cascade,
+  // or on a detail page — that parent is implied by where the reader
+  // clicked, so the picker is hidden and this is sent as-is.
+  defaultParent: string;
   goalOptions: Pick<AnnualGoal, "id" | "title">[];
+  sfaOptions: Pick<StrategicFocusArea, "id" | "title">[];
   people: Pick<Profile, "id" | "full_name">[];
 }) {
   const [state, formAction, pending] = useActionState<
@@ -53,30 +65,29 @@ export function AddPriorityForm({
         />
       </div>
 
-      {/* Goal picker is redundant when we've been mounted under a
-          specific goal (cascade inline add, or the Goal detail page).
-          Send it hidden and keep the visible form focused on what
-          isn't implied by context. */}
-      {defaultGoalId && goalOptions.length <= 1 ? (
-        <input type="hidden" name="annual_goal_id" value={defaultGoalId} />
+      {/* The parent picker is redundant when we've been mounted under
+          a specific parent (cascade inline add, or a detail page):
+          the reader already answered it by choosing where to click.
+          Send it hidden and keep the visible form on what context
+          does not imply. */}
+      {defaultParent ? (
+        <input type="hidden" name="parent" value={defaultParent} />
       ) : (
         <div className={styles.field}>
-          <label htmlFor="priority-goal" className={styles.label}>
-            Goal
+          <label htmlFor="priority-parent" className={styles.label}>
+            Parent
           </label>
           <select
-            id="priority-goal"
-            name="annual_goal_id"
+            id="priority-parent"
+            name="parent"
             className={styles.select}
-            defaultValue={defaultGoalId ?? ""}
+            defaultValue={defaultParent}
             disabled={pending}
           >
-            <option value="">Not linked (yet)</option>
-            {goalOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.title}
-              </option>
-            ))}
+            <PriorityParentOptions
+              goalOptions={goalOptions}
+              sfaOptions={sfaOptions}
+            />
           </select>
         </div>
       )}

@@ -79,13 +79,13 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
   {
     key: "planning",
     label: "Strategic plan",
-    blurb: "Cascade populated in the open quarter, and goals + quarterly priorities closing by their due dates.",
+    blurb: "Cascade populated in the open quarter, and goals + quarterly priorities closing by their due dates. Goals are optional.",
     weight: 2,
     href: "/plan",
     hrefLabel: "Open the plan",
     showsTrend: true,
     scoringNote:
-      "Populated cascade (SFAs + goals + priorities) is a 2-pt baseline. Goal closure by target date = up to 4 pts. Priority closure by due date = up to 4 pts. Nothing past due yet ⇒ full credit on the closure halves so a fresh plan isn't dragged down.",
+      "Populated cascade (focus areas + quarterly priorities) is a 2-pt baseline; goals are an optional level and their absence costs nothing. Goal closure by target date = up to 4 pts. Priority closure by due date = up to 4 pts. Nothing past due yet ⇒ full credit on the closure halves so a fresh plan isn't dragged down.",
   },
   {
     key: "execution",
