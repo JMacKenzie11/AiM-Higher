@@ -5,6 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import posthog from "posthog-js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  NAV_GROUPS_COOKIE,
+  serializeCollapsedGroups,
+} from "./nav-group-state";
 import { signOutAction } from "@/lib/auth/actions";
 import { exitCompanyScopeAction } from "@/lib/admin/scope-actions";
 import { NotificationBell } from "@/components/nav-band/NotificationBell";
@@ -401,16 +405,16 @@ export function Sidebar({
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
       else next.add(label);
-      // Same cookie-persistence rationale as `nav-collapsed`. Comma-
-      // separated list of collapsed group labels; empty string clears
-      // the cookie so future sessions start from the "all expanded"
-      // default without a stale header hanging around.
-      const value = Array.from(next).join(",");
-      if (value.length === 0) {
-        document.cookie = `nav-groups-collapsed=; path=/; max-age=0; samesite=lax`;
-      } else {
-        document.cookie = `nav-groups-collapsed=${encodeURIComponent(value)}; path=/; max-age=${MAX_AGE}; samesite=lax`;
-      }
+      // Same cookie-persistence rationale as `nav-collapsed`.
+      //
+      // ALWAYS WRITTEN, never cleared. Clearing it used to mean "all
+      // expanded", and since Guide HQ and Portfolio now start closed
+      // for somebody with no cookie, an absent cookie has to mean
+      // "no preference yet" instead. Somebody who opens every group
+      // gets the sentinel, so their choice survives the next page
+      // load rather than snapping shut again.
+      const value = serializeCollapsedGroups(next);
+      document.cookie = `${NAV_GROUPS_COOKIE}=${encodeURIComponent(value)}; path=/; max-age=${MAX_AGE}; samesite=lax`;
       return next;
     });
   }

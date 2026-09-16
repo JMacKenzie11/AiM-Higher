@@ -1,4 +1,8 @@
 import { cookies } from "next/headers";
+import {
+  NAV_GROUPS_COOKIE,
+  parseCollapsedGroups,
+} from "@/components/sidebar/nav-group-state";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { HelpWidget } from "@/components/help/HelpWidget";
 import { requireProfile } from "@/lib/auth/current-user";
@@ -147,13 +151,15 @@ export default async function AppLayout({
   const cookieStore = await cookies();
   const initialCollapsed = cookieStore.get("nav-collapsed")?.value === "1";
   // Comma-separated list of section-group labels the user has
-  // collapsed (e.g. "Disciplines,Strengths"). Empty/unset = all
-  // expanded, which is the intended default for a new user.
-  const groupsCookie = cookieStore.get("nav-groups-collapsed")?.value ?? "";
-  const initialCollapsedGroups = groupsCookie
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // collapsed (e.g. "Disciplines,Strengths").
+  //
+  // NO COOKIE means no preference yet, and gets the defaults — Guide
+  // HQ and Portfolio start closed. It does NOT mean "all expanded",
+  // which is a separate state the sentinel carries. See
+  // nav-group-state.ts for why the two have to be distinguishable.
+  const initialCollapsedGroups = parseCollapsedGroups(
+    cookieStore.get(NAV_GROUPS_COOKIE)?.value
+  );
 
   const analyticsUser: PostHogUser = {
     id: session.profile.id,
