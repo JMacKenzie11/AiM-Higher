@@ -905,6 +905,44 @@ E2E, which asserts provenance on the row's own `data-kind` attribute
 rather than on page text. Matching on text passed while the row was
 labelled an inference; only the attribute could tell the difference.
 
+### E10b. The scope cookie, and the fourth door
+
+**A postscript to the incident already recorded above**, added
+2026-09-16 because the same class produced a fourth instance and the
+count is the point.
+
+The scope cookie is `path=/` with an eight-hour life. Only certain
+code paths clear it, and every session-creating path that does not is
+a door through which a previous scope walks into a new session:
+
+```
+signInAction              clears
+signOutAction             clears
+completeAcceptInviteAction clears   ← the one that found the bug
+completeResetPasswordAction  DID NOT
+```
+
+`completeResetPasswordAction` calls `verifyOtp`, which creates a
+session in whatever browser opened the reset link, and never dropped
+the scope that browser was already carrying.
+
+**Why the binding did not cover it.** The fix for the original
+incident was to bind the cookie to the profile it was issued for —
+`<profileId>:<companyId>` — so a cookie belonging to somebody else
+cannot resolve. That closes the class where the NEXT session is a
+different person. A password reset is almost always the SAME person,
+and for them the binding is silent by design.
+
+**The general shape.** A cookie with a lifetime longer than a session
+needs an explicit list of everything that ends a session, and that
+list has to be maintained by hand every time an auth path is added.
+Three were found by incident, one by review. The structural answer is
+to make the lifetime the session — no `maxAge` — so the browser does
+the forgetting and no future auth path can forget for it.
+
+**Related.** E10 is the original incident. E14 is the same family one
+layer down: something that fails where nothing is listening.
+
 ### E11. A write policy that is correct and unreachable
 
 **Situation.** A role is widened by writing exactly the policy the
