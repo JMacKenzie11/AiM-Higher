@@ -64,6 +64,17 @@ type NavItem =
       label: string;
       feature: Feature | null;
       items: readonly NavLink[];
+      // Renders the group's heading in the brand accent instead of
+      // the muted caption colour. Exactly one group carries it: the
+      // one you are working inside all day. A second would make it
+      // decoration rather than a landmark.
+      //
+      // A FLAG, NOT A LABEL MATCH. Styling this by selecting on the
+      // word "Workspace" — in CSS or in a className ternary — is the
+      // same trap DEFAULT_COLLAPSED_GROUPS documents: a rename, or a
+      // capitalisation slip, silently stops matching and the only
+      // symptom is a heading that quietly goes grey.
+      accent?: boolean;
     };
 
 // Roles that see the admin-shaped navigation while scoped into a
@@ -87,6 +98,7 @@ const APP_ITEMS: readonly NavItem[] = [
     kind: "group",
     label: "Workspace",
     feature: "execution",
+    accent: true,
     items: [
       {
         kind: "link",
@@ -624,7 +636,11 @@ export function Sidebar({
                   <>
                     <button
                       type="button"
-                      className={styles.sectionLabel}
+                      className={
+                        item.accent
+                          ? `${styles.sectionLabel} ${styles.sectionLabelAccent}`
+                          : styles.sectionLabel
+                      }
                       onClick={() => toggleGroup(item.label)}
                       aria-expanded={!groupCollapsed}
                       aria-controls={panelId}

@@ -213,6 +213,31 @@
   color: var(--aims-white);
 }
 
+/* The one group you are inside all day, in the brand accent.
+   
+   Set from the nav config's `accent` flag, never by matching the
+   word "Workspace": a rename would silently drop the styling and the
+   only symptom would be a heading quietly going grey. Same reasoning
+   as the label-spelling guard on DEFAULT_COLLAPSED_GROUPS.
+   
+   Chartreuse on navy is the brand's own pairing and clears contrast
+   comfortably at this size and weight. Hover still lifts it, so the
+   heading does not look inert next to its muted siblings.
+   
+   MUST STAY BELOW the .sectionLabel rules above. Both are one class
+   deep, so the cascade is decided by order alone: written earlier,
+   .sectionLabel's own colour and :hover win and this does nothing at
+   all. */
+.sectionLabelAccent {
+  color: var(--aims-chartreuse);
+}
+
+.sectionLabelAccent:hover {
+  color: var(--aims-chartreuse);
+  background: color-mix(in srgb, var(--aims-chartreuse) 10%, transparent);
+}
+
+
 /* Chevron is an SVG so it renders crisp at any weight; unicode ▾
    was tiny and disappeared against the muted label color. Setting
    color explicitly to full white here overrides the parent label's
