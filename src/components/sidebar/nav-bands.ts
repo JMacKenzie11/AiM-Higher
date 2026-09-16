@@ -12,7 +12,16 @@
 // that changes whenever a page is added.
 
 export type NavBand =
-  // Guide HQ: Overview + the fleet list. aims_guide and system_admin.
+  // The fleet list, on its own at the very top. Every cross-tenant
+  // role gets it: a system_admin, an aims_guide and a portfolio
+  // admin all work across companies and all need the way in.
+  //
+  // It used to live INSIDE the Guide HQ group, which hid it from a
+  // portfolio admin twice over — that band is not theirs, and the
+  // link's own role list left them out as well. They had no route to
+  // a company's settings page except by already being scoped into it.
+  | "companies"
+  // Guide HQ: Overview. aims_guide and system_admin.
   | "guideHq"
   // Portfolio: the portfolio owner's single home link.
   | "portfolio"
@@ -45,10 +54,12 @@ export function navBandsFor(ctx: NavContext): NavBand[] {
   // neither of which is theirs.
   if (ctx.role === "portfolio_admin") {
     // Unscoped, or standing on /portfolio itself: the portfolio and
-    // nothing else. Company-scoped links with no company behind them
-    // are links to an error.
-    if (!ctx.scopedIntoCompany || ctx.onPortfolioSurface) return ["portfolio"];
-    return ["portfolio", "app", "portfolioBottom"];
+    // nothing else beyond the fleet list. Company-scoped links with
+    // no company behind them are links to an error.
+    if (!ctx.scopedIntoCompany || ctx.onPortfolioSurface) {
+      return ["companies", "portfolio"];
+    }
+    return ["companies", "portfolio", "app", "portfolioBottom"];
   }
 
   if (ctx.role === "system_admin") {
@@ -65,12 +76,14 @@ export function navBandsFor(ctx: NavContext): NavBand[] {
     // instance read across every company, which is worth having and
     // is not where they work.
     return ctx.scopedIntoCompany && !ctx.onAdminPicker && !ctx.onHqSurface
-      ? ["guideHq", "portfolio", "app", "systemAdminBottom"]
-      : ["guideHq", "portfolio", "systemAdminBottom"];
+      ? ["companies", "guideHq", "portfolio", "app", "systemAdminBottom"]
+      : ["companies", "guideHq", "portfolio", "systemAdminBottom"];
   }
 
   if (ctx.role === "aims_guide") {
-    return ctx.onHqSurface ? ["guideHq"] : ["guideHq", "app"];
+    return ctx.onHqSurface
+      ? ["companies", "guideHq"]
+      : ["companies", "guideHq", "app"];
   }
 
   if (ctx.role === "company_admin") return ["app", "companyAdminBottom"];

@@ -5,9 +5,10 @@ roles: [system_admin, aims_guide, portfolio_admin]
 
 # Companies
 
-The fleet view. System admins see every company on the platform;
-AiMS Guides see only the companies they're assigned to. Click a
-company name to scope into it — the top nav flips to that
+The fleet view, reached from **Companies** at the top of the
+sidebar. System admins and portfolio admins see every company on the
+instance; AiMS Guides see only the companies they're assigned to.
+Click a company name to scope into it — the top nav flips to that
 company's context. Company admins don't have a list view — they're
 redirected straight to their own company's settings page.
 

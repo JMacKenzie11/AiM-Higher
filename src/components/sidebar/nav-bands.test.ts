@@ -19,8 +19,14 @@ const ctx = (over: Partial<NavContext>): NavContext => ({
 });
 
 describe("portfolio_admin", () => {
-  it("sees only the portfolio when unscoped", () => {
+  it("sees the fleet list and the portfolio when unscoped", () => {
+    // Companies was added to every cross-tenant role, so "only the
+    // portfolio" became "the portfolio and the way into a company".
+    // What the claim still holds is the absence of `app`: a
+    // company-scoped link with no company behind it is a link to an
+    // error, which is asserted below and in the next test.
     expect(navBandsFor(ctx({ role: "portfolio_admin" }))).toEqual([
+      "companies",
       "portfolio",
     ]);
   });
@@ -36,13 +42,13 @@ describe("portfolio_admin", () => {
           onPortfolioSurface: true,
         })
       )
-    ).toEqual(["portfolio"]);
+    ).toEqual(["companies", "portfolio"]);
   });
 
   it("adds the company's surfaces and settings once scoped in", () => {
     expect(
       navBandsFor(ctx({ role: "portfolio_admin", scopedIntoCompany: true }))
-    ).toEqual(["portfolio", "app", "portfolioBottom"]);
+    ).toEqual(["companies", "portfolio", "app", "portfolioBottom"]);
   });
 
   it("never sees Guide HQ or the platform tools", () => {
@@ -81,8 +87,9 @@ describe("the roles that already existed", () => {
     // home, not their first.
     expect(
       navBandsFor(ctx({ role: "system_admin", scopedIntoCompany: true }))
-    ).toEqual(["guideHq", "portfolio", "app", "systemAdminBottom"]);
+    ).toEqual(["companies", "guideHq", "portfolio", "app", "systemAdminBottom"]);
     expect(navBandsFor(ctx({ role: "system_admin" }))).toEqual([
+      "companies",
       "guideHq",
       "portfolio",
       "systemAdminBottom",
@@ -91,7 +98,7 @@ describe("the roles that already existed", () => {
       navBandsFor(
         ctx({ role: "system_admin", scopedIntoCompany: true, onHqSurface: true })
       )
-    ).toEqual(["guideHq", "portfolio", "systemAdminBottom"]);
+    ).toEqual(["companies", "guideHq", "portfolio", "systemAdminBottom"]);
     expect(
       navBandsFor(
         ctx({
@@ -100,17 +107,32 @@ describe("the roles that already existed", () => {
           onAdminPicker: true,
         })
       )
-    ).toEqual(["guideHq", "portfolio", "systemAdminBottom"]);
+    ).toEqual(["companies", "guideHq", "portfolio", "systemAdminBottom"]);
   });
 
-  it("leaves aims_guide exactly as it was", () => {
+  it("gives aims_guide the fleet list, and otherwise leaves them be", () => {
     expect(navBandsFor(ctx({ role: "aims_guide" }))).toEqual([
+      "companies",
       "guideHq",
       "app",
     ]);
     expect(
       navBandsFor(ctx({ role: "aims_guide", onHqSurface: true }))
-    ).toEqual(["guideHq"]);
+    ).toEqual(["companies", "guideHq"]);
+  });
+
+  it("gives no company-bound role the fleet list", () => {
+    // The other half of the change. Companies went to every
+    // cross-tenant role and to nobody else: /admin/companies lists
+    // every company on the instance, which is not a thing a company
+    // admin or a team member has any business seeing.
+    for (const role of ["company_admin", "team_member"]) {
+      for (const scoped of [true, false]) {
+        expect(
+          navBandsFor(ctx({ role, scopedIntoCompany: scoped }))
+        ).not.toContain("companies");
+      }
+    }
   });
 
   it("leaves company_admin and team_member exactly as they were", () => {

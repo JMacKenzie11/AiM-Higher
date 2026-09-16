@@ -170,10 +170,33 @@ const APP_ITEMS: readonly NavItem[] = [
   },
 ];
 
+// THE FLEET LIST, ON ITS OWN, AT THE VERY TOP.
+//
+// It used to sit inside the Guide HQ group, which hid it from a
+// portfolio admin twice: that band is not theirs, and the link's own
+// role list left them out too. They had no route to a company's
+// settings page unless they were already scoped into it.
+//
+// A plain link rather than a group, because a group of one is a
+// disclosure triangle in front of a single destination. Its band is
+// decided in nav-bands.ts like every other.
+const COMPANIES_ITEMS: readonly NavItem[] = [
+  {
+    kind: "link",
+    label: "Companies",
+    href: "/admin/companies",
+    icon: "building",
+    // No feature gate. The fleet list is not a module a company
+    // subscribes to; it is how a cross-tenant role gets anywhere.
+    feature: null,
+    roles: ["system_admin", "aims_guide", "portfolio_admin"],
+  },
+];
+
 // Cross-tenant top items shown for aims_guide + system_admin. Guide
-// HQ is the guide's home base; Companies is the fleet list. Week in
-// Review used to live here too but now sits inside Workspace along
-// with everything else the currently-scoped company sees.
+// HQ is the guide's home base. Week in Review used to live here too
+// but now sits inside Workspace along with everything else the
+// currently-scoped company sees.
 const GUIDE_HQ_ITEMS: readonly NavItem[] = [
   {
     kind: "group",
@@ -187,13 +210,7 @@ const GUIDE_HQ_ITEMS: readonly NavItem[] = [
         icon: "dashboard",
         roles: ["system_admin", "aims_guide"],
       },
-      {
-        kind: "link",
-        label: "Companies",
-        href: "/admin/companies",
-        icon: "building",
-        roles: ["system_admin", "aims_guide"],
-      },
+
     ],
   },
 ];
@@ -461,6 +478,11 @@ export function Sidebar({
     if (filteredChildren.length === 0) return [];
     return [{ ...item, items: filteredChildren }];
   });
+  // Filtered by role the same way every other band is, so the
+  // constant above cannot be the only thing deciding who sees it.
+  const companiesItems = COMPANIES_ITEMS.flatMap<NavItem>((item) =>
+    item.kind === "link" && linkVisible(item) ? [item] : []
+  );
   // The portfolio band, filtered by role the same way the guide band
   // is, so the constant above cannot be the only thing deciding who
   // sees it.
@@ -482,6 +504,7 @@ export function Sidebar({
     onAdminPicker,
   });
   const byBand: Record<NavBand, readonly NavItem[]> = {
+    companies: companiesItems,
     guideHq: guideHqItems,
     portfolio: portfolioItems,
     app: subscribedApp,
