@@ -582,6 +582,33 @@
   border-color: var(--primary);
 }
 
+/* The panel an inline pill opens.
+   
+   The pill's open state is already cobalt tint (see above). The panel
+   continues it, so the two read as one object rather than a button
+   with an unrelated form underneath — which is what a bare form on
+   the card's white surface looked like. No border: the tint is doing
+   the separating, and a border here would be a third edge beside the
+   pill's own and the card's.
+   
+   Scoped to `> .form` so it reaches only the INLINE forms. The
+   toolbar's version of this form already sits inside
+   .toolbarAddPanel, a floating white panel with its own padding and
+   shadow, and is not a direct child of its <details>. */
+.addDetails[open] > .form {
+  margin-top: var(--space-3);
+  padding: var(--space-5);
+  background: var(--aims-cobalt-tint);
+  border-radius: var(--radius-md);
+}
+
+/* An opened panel takes the whole row, so the form below has its full
+   width back rather than being squeezed into the pill's column. */
+.addRow > .addDetails[open] {
+  flex: 1 1 100%;
+}
+
+
 /* ---- Forms ---- */
 .form {
   display: grid;

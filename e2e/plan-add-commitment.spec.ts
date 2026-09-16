@@ -38,20 +38,22 @@ async function sweep(page: Page) {
   }
 }
 
+// Clicks the bin and confirms.
+//
 // Deleting a commitment goes through the app's own ConfirmDialog —
-// role="dialog", aria-modal — and NOT window.confirm. A
+// role="dialog", aria-modal — and NOT window.confirm, so a
 // page.on("dialog") handler is useless against it: the first version
 // of this cleanup used one, clicked the bin, and waited thirty
 // seconds for a row that was never going anywhere. The same mistake
 // is written up in e2e/reorder.spec.ts, which is where the pattern
 // below comes from.
-// Clicks the bin and confirms. It does NOT assert the row went away:
-// the caller knows whether its locator identifies one row or many,
-// and that difference is the whole reason this is split. A
-// `.first()` locator still resolves to something after its match is
-// deleted, so `toHaveCount(0)` against one is unsatisfiable while any
-// sibling remains — which is exactly how the sweep below hung for
-// thirty seconds against four leftovers from earlier runs.
+//
+// It deliberately does NOT assert the row went away. The caller knows
+// whether its locator names one row or many, and that difference
+// matters: a `.first()` locator still resolves to something after its
+// match is deleted, so `toHaveCount(0)` against one is unsatisfiable
+// while any sibling remains. That is how the sweep below stalled
+// against a backlog of four left by earlier runs.
 async function confirmDelete(page: Page, row: Locator) {
   await row.getByRole("button", { name: /Delete this commitment/i }).click();
   const dialog = page.getByRole("dialog");
