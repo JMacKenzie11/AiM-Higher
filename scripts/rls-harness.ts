@@ -710,6 +710,283 @@ values ('${PA}', null, 'Harness Portfolio Admin', 'portfolio_admin', 'active');`
   };
 }
 
+// Decision 7, and the only non-additive step in the portfolio
+// sequence (0201). A company admin may end a guide's engagement
+// without asking anybody, because a guide may stop working with a
+// company that carries on using AiMS HQ.
+//
+// This is a ROLE WIDENING against 17 live assignment rows, so it gets
+// the treatment every widening gets: the delete that must now
+// succeed, and the deletes that must still be refused. Three of the
+// four claims are refusals, and the third is the one to read twice.
+//
+//   1. company_admin deletes a guide assignment in their own company
+//      -> succeeds (the feature)
+//   2. ... in ANOTHER company -> refused (it is their company, not
+//      the role, that admits them)
+//   3. company_admin deletes a PORTFOLIO assignment in their own
+//      company -> refused. Decision 5, and the clause somebody will
+//      be tempted to add because it reads as symmetric with this
+//      one. It is not symmetric: the portfolio owns the company, so
+//      a company cannot evict its owner's operator.
+//   4. a team_member of the same company -> refused. The widening is
+//      to company_admin, not to "anybody who works here".
+async function guideAssignmentRevocation(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const CO = ids.companyAdminCompany;
+
+  // Seeded per run and rolled back. The clone's own 17 rows belong to
+  // real guides on real companies, and a probe that deletes one of
+  // those to prove it can is a probe that has to be trusted not to
+  // leak out of its transaction. This one only ever touches a row it
+  // made.
+  const seedGuideRow = (company: string) => `
+insert into public.guide_assignments (guide_id, company_id)
+values ('${ids.guide}', '${company}')
+on conflict do nothing;`;
+
+  const seedPortfolioRow = `
+insert into public.portfolio_assignments (portfolio_admin_id, company_id)
+values ('${ids.systemAdmin}', '${CO}')
+on conflict do nothing;`;
+
+  // THE COUNT RUNS WITH THE ROLE RESET, AND THAT IS NOT A DETAIL.
+  //
+  // The first version of this case counted as the caller and read 0
+  // everywhere, including the three probes whose whole claim is that
+  // a row SURVIVED. guide_assignments_select admits the system_admin
+  // and the guide themselves, so a company admin counting this table
+  // sees nothing whether or not their delete was refused — every
+  // claim passed through a read that could only ever answer zero.
+  //
+  // `reset role` puts the connection back before the count, so what
+  // is measured is what is in the table rather than what the caller
+  // is allowed to notice. The delete still runs as the caller, which
+  // is the only part the policy is being asked about.
+  const remaining = async (
+    setup: string,
+    sub: string,
+    del: string,
+    where: string
+  ): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        [
+          "begin;", pending, setup,
+          "set local role authenticated;", claims(sub),
+          del,
+          "reset role;",
+          `select count(*)::int as n ${where};`,
+          "rollback;",
+        ].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      // A statement-level refusal leaves the row in place, which for
+      // a DELETE probe is the same answer as "deleted nothing".
+      return -2;
+    }
+  };
+
+  const guideWhere = (company: string) =>
+    `from public.guide_assignments
+      where guide_id = '${ids.guide}' and company_id = '${company}'`;
+  const guideDelete = (company: string) =>
+    `delete from public.guide_assignments
+      where guide_id = '${ids.guide}' and company_id = '${company}';`;
+
+  // Claim -1, and it is here because failure mode E8 is a policy
+  // that is correct and a privilege that was never granted. A DELETE
+  // policy cannot admit anybody if `authenticated` holds no DELETE on
+  // the table, and the symptom is identical to a policy that refuses:
+  // zero rows deleted, no error.
+  const [priv] = await run<{ ok: boolean }>(
+    [
+      "begin;", pending,
+      `select has_table_privilege('authenticated', 'public.guide_assignments', 'delete') as ok;`,
+      "rollback;",
+    ].join("\n")
+  );
+  const deletePriv = priv?.ok === true;
+
+  // Claim 0. Does the fixture exist at all? Without this the four
+  // claims below are unfalsifiable in the direction that matters: a
+  // seed that silently inserted nothing reads exactly like a delete
+  // that succeeded.
+  const seeded = await remaining(
+    seedGuideRow(CO),
+    ids.companyAdmin,
+    "select 1;",
+    guideWhere(CO)
+  );
+
+  // Claim 0b, and it is load-bearing rather than decorative. A
+  // `delete ... where` reads the columns it filters on, so the SELECT
+  // policy decides which rows the DELETE policy is ever asked about.
+  // The first version of 0201 widened only the delete and changed
+  // nothing: the row was invisible to the company admin, so there was
+  // nothing for the new policy to admit. Asserting the visibility
+  // here means a future narrowing of guide_assignments_select breaks
+  // this claim loudly, instead of silently disarming the revocation
+  // below it.
+  //
+  // Counted AS THE CALLER, deliberately: this is the one claim in the
+  // case that asks what the company admin can see rather than what is
+  // in the table.
+  const visible = await (async () => {
+    try {
+      const [r] = await run<{ n: number }>(
+        [
+          "begin;", pending, seedGuideRow(CO),
+          "set local role authenticated;", claims(ids.companyAdmin),
+          `select count(*)::int as n ${guideWhere(CO)};`,
+          "rollback;",
+        ].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return -2;
+    }
+  })();
+
+  const ownCompany = await remaining(
+    seedGuideRow(CO),
+    ids.companyAdmin,
+    guideDelete(CO),
+    guideWhere(CO)
+  );
+
+  const otherCompany = await remaining(
+    seedGuideRow(ids.otherCompany),
+    ids.companyAdmin,
+    guideDelete(ids.otherCompany),
+    guideWhere(ids.otherCompany)
+  );
+
+  const portfolioRow = await remaining(
+    seedPortfolioRow,
+    ids.companyAdmin,
+    `delete from public.portfolio_assignments
+      where portfolio_admin_id = '${ids.systemAdmin}' and company_id = '${CO}';`,
+    `from public.portfolio_assignments
+      where portfolio_admin_id = '${ids.systemAdmin}' and company_id = '${CO}'`
+  );
+
+  const asMember = await remaining(
+    seedGuideRow(ids.memberCompany),
+    ids.member,
+    guideDelete(ids.memberCompany),
+    guideWhere(ids.memberCompany)
+  );
+
+  const ok =
+    deletePriv &&
+    seeded === 1 &&
+    visible === 1 &&
+    ownCompany === 0 &&
+    otherCompany === 1 &&
+    portfolioRow === 1 &&
+    asMember === 1;
+
+  return {
+    name: "guide-assignment-revocation",
+    hazard:
+      "A company cannot end a guide's engagement, or can end things that are not theirs to end",
+    wrong: `rows left after the company admin's own-company delete: ${ownCompany} (want 0)`,
+    right: `fixture seeded (${seeded}) and visible to the company admin (${visible}), own company removed, other company kept (${otherCompany}), portfolio assignment kept (${portfolioRow}), member refused (${asMember})`,
+    ok,
+    detail: ok
+      ? "A company admin sees the assignment and ends it, in their own company and nowhere else. A portfolio admin's assignment survives them, which is decision 5. A team member of the same company is refused."
+      : `authenticated holds DELETE on guide_assignments: ${deletePriv} (want true), seeded ${seeded} (want 1), visible-to-company-admin ${visible} (want 1; a delete cannot reach a row the SELECT policy hides), own-company ${ownCompany} (want 0), other-company ${otherCompany} (want 1), portfolio-assignment ${portfolioRow} (want 1), as-member ${asMember} (want 1).`,
+  };
+}
+
+// The card's read (0201). assigned_access() is SECURITY DEFINER, so
+// it sees guide_assignments, portfolio_assignments and profiles
+// regardless of who calls it — which makes its own guard the entire
+// boundary, and makes it worth probing as three different callers
+// rather than trusting the `if` at the top of the function.
+//
+// It returns EMPTY rather than raising for a caller it does not
+// admit, so every claim here is a row count.
+async function assignedAccessRead(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;", pending,
+      `select count(*) > 0 as ok from pg_proc
+        where proname = 'assigned_access'
+          and pronamespace = 'public'::regnamespace;`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name: "assigned-access-read",
+      hazard: "The assigned-access card names people to callers who may not ask",
+      wrong: "function not on this schema",
+      right: "function not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0201 has not landed here yet. Runs for real under --pending 0201_assigned_access.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const CO = ids.companyAdminCompany;
+  const seed = `
+insert into public.guide_assignments (guide_id, company_id)
+values ('${ids.guide}', '${CO}')
+on conflict do nothing;`;
+
+  const count = async (sub: string, company: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        [
+          "begin;", pending, seed,
+          "set local role authenticated;", claims(sub),
+          `select count(*)::int as n from public.assigned_access('${company}');`,
+          "rollback;",
+        ].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return -2;
+    }
+  };
+
+  const asCompanyAdmin = await count(ids.companyAdmin, CO);
+  const asMember = await count(ids.member, CO);
+  const asOtherCompanyAdmin = await count(ids.companyAdmin, ids.otherCompany);
+  const asGuide = await count(ids.guide, CO);
+
+  const ok =
+    asCompanyAdmin >= 1 &&
+    asMember === 0 &&
+    asOtherCompanyAdmin === 0 &&
+    asGuide === 0;
+
+  return {
+    name: "assigned-access-read",
+    hazard: "The assigned-access card names people to callers who may not ask",
+    wrong: `an ordinary member read the list: ${asMember} row(s)`,
+    right: `company admin sees ${asCompanyAdmin}; member ${asMember}, other company's admin ${asOtherCompanyAdmin}, assigned guide ${asGuide}`,
+    ok,
+    detail: ok
+      ? "The company's own admin sees who is assigned. An ordinary member of that company sees nothing, another company's admin sees nothing, and the assigned guide sees nothing — decision 9 keeps the card off the guide's copy of this page."
+      : `company-admin ${asCompanyAdmin} (want >=1), member ${asMember} (want 0), other-company admin ${asOtherCompanyAdmin} (want 0), guide ${asGuide} (want 0).`,
+  };
+}
+
 async function coachMemoryDirected(
   run: Runner,
   ids: Identities,
@@ -5450,6 +5727,14 @@ async function main(): Promise<void> {
     [
       "portfolio-assignment-boundary",
       (r: Runner, i: Identities) => portfolioAssignmentBoundary(r, i, pendingSql),
+    ],
+    [
+      "guide-assignment-revocation",
+      (r: Runner, i: Identities) => guideAssignmentRevocation(r, i, pendingSql),
+    ],
+    [
+      "assigned-access-read",
+      (r: Runner, i: Identities) => assignedAccessRead(r, i, pendingSql),
     ],
   ] as const;
 

@@ -904,3 +904,86 @@ softening edit fails even with a regenerated SHA — and the about-mode
 E2E, which asserts provenance on the row's own `data-kind` attribute
 rather than on page text. Matching on text passed while the row was
 labelled an inference; only the attribute could tell the difference.
+
+### E11. A write policy that is correct and unreachable
+
+**Situation.** A role is widened by writing exactly the policy the
+widening needs. The policy is correct: it names the right role, tests
+the right company, and reads as a faithful transcription of the
+decision it implements. The write still does nothing, because the
+rows it would act on are hidden from the caller by a policy for a
+different verb. The two produce the same observable result — zero
+rows affected, no error — so the investigation starts at the policy
+that was just written and stays there.
+
+**The rule underneath it.** A `DELETE ... WHERE` or `UPDATE ... WHERE`
+has to read the columns it filters on. Postgres therefore applies the
+SELECT policies to find candidate rows, and applies the write policy
+only to what survives that. The SELECT policy is part of the write
+path, and a write policy can only ever admit a subset of what SELECT
+already shows the caller.
+
+**Specimen.** Migration 0201 gives a `company_admin` the right to end
+a guide's engagement (spec §1a, decision 7). The first version widened
+`guide_assignments_delete` and nothing else:
+
+```sql
+create policy guide_assignments_delete on public.guide_assignments
+for delete to authenticated
+using (
+  (select public.auth_role()) = 'system_admin'
+  or ((select public.auth_role()) = 'company_admin'
+      and (select public.auth_company_id()) = public.guide_assignments.company_id)
+);
+```
+
+`guide_assignments_select` admitted the `system_admin` and the guide
+themselves. A company admin could not see the row, so there was
+nothing for the new DELETE policy to be asked about. Measured against
+the clone, with everything else identical:
+
+```
+delete policy only        rows remaining = 1
+delete + select policy    rows remaining = 0
+```
+
+**How it was found, and what nearly hid it.** The harness probe, which
+was written before the migration and shown failing first. That is the
+only reason it surfaced at all — the SQL reads correctly and no amount
+of re-reading it would have helped.
+
+Two wrong turns on the way, both worth naming:
+
+- **The first version of the probe read zero for every claim**,
+  including three whose whole point is that a row *survives*. It
+  counted the table as the caller, and `guide_assignments_select` hides
+  those rows from a company admin, so the count could only ever answer
+  zero whether the delete was refused or not. Every claim passed
+  through a read that could not distinguish them. The fix is `reset
+  role` before counting: run the write as the caller, measure the
+  table as the connection.
+- **E8 was the first suspect** and was innocent here.
+  `has_table_privilege('authenticated', 'public.guide_assignments',
+  'delete')` was already true. That check is now a permanent claim on
+  the case, because ruling it out took a round trip and should not
+  need a second one.
+
+**The guard.** `guide-assignment-revocation` asserts the visibility
+directly, as its own claim, ahead of the deletes:
+
+```
+visible-to-company-admin 1 (want 1; a delete cannot reach a row the
+SELECT policy hides)
+```
+
+A future narrowing of `guide_assignments_select` now breaks a claim
+that says what it broke, instead of silently disarming the revocation
+underneath it. This is the same shape as E4: the probe that is never
+shown failing is not evidence, and here the probe had to be shown
+failing for the *right reason* before the green meant anything.
+
+**Related.** E8 is its twin — a policy that is correct and a privilege
+that was never granted, with the identical symptom. Whenever a write
+affects zero rows with no error, there are now three candidates and
+they are cheap to separate: the write policy, the table privilege, and
+the SELECT policy standing in front of both.
