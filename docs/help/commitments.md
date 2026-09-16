@@ -133,8 +133,17 @@ late keeps and misses land in the denominator. Late keeps still
 show as "did the work" in every other view.
 
 **What's the clarity dot next to the resolve circle?** It shows
-whether the commitment has a stated timeline and a well-defined
-finish line. Click it to open the quick clarity editor.
+whether the commitment has a deadline somebody actually agreed to
+and a well-defined finish line. Three states:
+
+- **Green** — both hold.
+- **Red** — at least one does not, and it is worth a look. The due
+  date turns red too when the deadline is the half that failed:
+  the date is a placeholder the analyzer filled in because nobody
+  named one, not a date anyone committed to.
+- **Hollow** — nobody has judged it yet.
+
+Click the dot to open the quick clarity editor and set either half.
 
 **Can I change which priority a resolved commitment links to?**
 No — priority linking is frozen once a commitment resolves, so

@@ -889,17 +889,22 @@ a.fromMeetingChip:hover {
 
 /* Signals that clarity_timeline === false — the analyzer defaulted
    this row to "this Friday" because no deadline was actually agreed
-   in the meeting, so the date is a placeholder awaiting a real one. */
+   in the meeting, so the date is a placeholder awaiting a real one.
+   
+   RED, matching the clarity dot, because it is the same fact shown
+   in a second place. Two renderings of one failed criterion in two
+   colours is the thing that made the amber hard to read: you could
+   not tell whether they meant the same thing. */
 .rowDueAssigned {
-  border-color: var(--aims-warning);
-  color: var(--aims-warning);
+  border-color: var(--aims-danger);
+  color: var(--aims-danger);
 }
 
 .rowDueAssignedDot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--aims-warning);
+  background: var(--aims-danger);
   display: inline-block;
 }
 
@@ -1115,9 +1120,18 @@ a.fromMeetingChip:hover {
   color: var(--aims-success);
   background: var(--aims-success);
 }
+/* RED, NOT AMBER. Unclear means a human judged a criterion and said
+   no, which is a thing to fix rather than a thing to note. Amber sat
+   too close to the hollow "not yet assessed" dot at a glance, so the
+   two states that mean opposite things — "somebody looked and it is
+   wrong" and "nobody has looked" — read as the same kind of quiet.
+
+   It shares --aims-danger with Delete and with a missed commitment,
+   deliberately: at a glance this is the same register of "needs
+   attention", and that is the point of the dot. */
 .clarityDotUnclear {
-  color: var(--aims-warning);
-  background: var(--aims-warning);
+  color: var(--aims-danger);
+  background: var(--aims-danger);
 }
 .clarityDotUnassessed {
   color: var(--border-strong);
@@ -1147,10 +1161,13 @@ a.fromMeetingChip:hover {
   color: var(--aims-white);
   border-color: var(--aims-success);
 }
+/* Matches the dot. A NO here is what turns the dot red, so the two
+   reading as different colours would make the editor look like it
+   was setting something else. */
 .clarityBtnNo {
-  background: var(--aims-warning);
+  background: var(--aims-danger);
   color: var(--aims-white);
-  border-color: var(--aims-warning);
+  border-color: var(--aims-danger);
 }
 .clarityBtnUnset {
   background: transparent;
