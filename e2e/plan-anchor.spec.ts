@@ -1,6 +1,14 @@
 import { test, expect, signIn, users } from "./fixtures";
 import type { Page } from "@playwright/test";
 
+// A DISCLOSURE IS SELECTED AS A <summary>, NEVER BY ITS TEXT.
+//
+// Every add panel has a summary that opens it and a submit button
+// that commits it, and since the labels lost their typed "+" the two
+// differ only by capitalisation — which getByText ignores. Selecting
+// the element type says which one is meant and survives the next
+// copy change.
+
 // The /plan cascade is linkable BY ROW: a detail page's back link
 // carries `#goal-<id>`, and landing there opens whatever is
 // collapsed above that row before scrolling to it.
@@ -77,7 +85,7 @@ test("a back link lands on /plan with the goal revealed", async ({ page }) => {
 
   // Create a focus area.
   const addSfa = page.getByTestId("add-sfa-panel");
-  await addSfa.getByText("Add focus area").click();
+  await addSfa.locator("summary").click();
   await addSfa.getByLabel("Title").fill(sfaTitle);
   await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const sfa = sfaCard(page, sfaTitle);
@@ -85,7 +93,7 @@ test("a back link lands on /plan with the goal revealed", async ({ page }) => {
 
   // Create a goal under it.
   const addGoal = sfa.getByTestId("sfa-add-goal-panel");
-  await addGoal.getByText("Add goal").click();
+  await addGoal.locator("summary").click();
   await addGoal.getByLabel("Title").fill(goalTitle);
   await addGoal.getByRole("button", { name: "Add goal", exact: true }).click();
   const goal = goalCard(page, goalTitle);
