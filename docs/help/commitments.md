@@ -113,6 +113,12 @@ the row menu.
    the row itself — it converts back to a one-shot commitment
    due at its current date.
 
+**Every week counts on its own.** An ongoing commitment is one row,
+but Follow-Through and the priority's progress bar count each week
+you resolve it, not the row. Keep it on time for six weeks and that
+is six on-time keeps; miss one and that week counts against you while
+the others still stand.
+
 ## How to park a commitment
 
 Pick *Park* from the resolve menu. The row moves to the Parking
@@ -131,6 +137,10 @@ the same set.
 Follow-Through Rate counts only *on-time keeps* in the numerator;
 late keeps and misses land in the denominator. Late keeps still
 show as "did the work" in every other view.
+
+**How does an ongoing commitment count?** Once per week resolved,
+not once per row. The week currently outstanding counts against you
+only if it is past its due date.
 
 **What's the clarity dot next to the resolve circle?** It shows
 whether the commitment has a deadline somebody actually agreed to

@@ -40,7 +40,7 @@ redirected straight to their own company's settings page.
 - **Archive or reactivate a company** — row-level actions. Archive
   hides the company from picker lists and stops sign-ins;
   reactivate restores it.
-- **Delete an archived company** — the *Delete* pill only appears
+- **Delete an archived company** — the *Delete* button only appears
   on rows that are already archived (the archive step is the
   safety on "delete a live tenant by accident"). See *Deleting an
   archived company* below for what happens under the hood.
@@ -71,7 +71,7 @@ redirected straight to their own company's settings page.
 
 ## Deleting an archived company
 
-The *Delete* pill on an archived row is a soft delete. The
+The *Delete* button on an archived row is a soft delete. The
 company disappears from every list, picker, and scoped surface,
 but nothing is actually removed from the database:
 
@@ -81,7 +81,7 @@ but nothing is actually removed from the database:
 - **Recovery is SQL-only.** There's no in-app restore. If a
   company needs to come back, an engineer clears the delete
   timestamp on the row and it reappears on the list.
-- **Two-step by design.** The Delete pill only shows on archived
+- **Two-step by design.** The Delete button only shows on archived
   rows, so an active tenant can't be soft-deleted in one click.
   Archive first, confirm the tenant really is done, then delete.
 

@@ -41,7 +41,7 @@ sections may have been edited, the underlying chart entities may
 have changed, or the AI draft may have been regenerated.
 
 **Can I download the current live version instead?** Yes — the
-live role description page has its own *Download* pill.
+live role description page has its own *Download* button.
 
 **A version was deleted — can I recover it?** No. Version delete
 is permanent; the snapshot goes with it. Other versions and the

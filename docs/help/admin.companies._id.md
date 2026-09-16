@@ -92,7 +92,7 @@ this card. Guides do not.
 
 ### System admins only
 
-- **Delete the company** — the *Delete* pill, which only appears
+- **Delete the company** — the *Delete* button, which only appears
   once a company is archived. Portfolio admins can archive and
   cannot delete.
 

@@ -34,14 +34,14 @@ As an admin or guide, you can:
   feature on) with the same inline pattern.
 - **Get suggestions** for any list (Responsibilities, Critical Success
   Factors, Key Performance Indicators, Decision Rights, Competency
-  Indicators) via the *Suggest…* pill under the add-row.
+  Indicators) via the *Suggest…* button under the add-row.
 - **Publish a Role Description** — the panel at the bottom of the
   function page assembles the sections into a shareable doc.
 :::
 
 ## How to add a function
 
-1. On the chart, click *+ Add function* at the top of the chart card.
+1. On the chart, click *Add function* at the top of the chart card.
 2. New companies start with **Visionary** and **Integrator** seed boxes
    at the top — build under them.
 
