@@ -175,7 +175,15 @@ function SortableIssue({
   };
 
   return (
-    <li ref={setNodeRef} style={style} className={styles.issueListItem}>
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={styles.issueListItem}
+      // The stylesheet lifts the block while it travels. Kept as an
+      // attribute rather than a second className so the CSS holds the
+      // whole appearance of a dragging block in one place.
+      data-dragging={isDragging ? "true" : undefined}
+    >
       <IssueCard
         issue={issue}
         roster={roster}
