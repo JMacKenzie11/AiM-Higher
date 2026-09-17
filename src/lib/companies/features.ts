@@ -30,7 +30,11 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "external_measures",
     label: "External Measures",
-    hint: "Take a measure's weekly value from the company's own spreadsheet instead of typing it.",
+    // "an external data source", not "the company's own spreadsheet".
+    // A spreadsheet is the phase 1 connector, not the feature: phase
+    // 3 adds HubSpot, and a flag hint that has to be rewritten every
+    // time a connector lands was describing the wrong thing.
+    hint: "Take a measure's weekly value from an external data source instead of typing it.",
   },
   {
     value: "meeting_facilitation_review",
