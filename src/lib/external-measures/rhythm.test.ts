@@ -140,26 +140,97 @@ describe("the unrecorded-measure nudge covers mapped measures", () => {
     path.join(ROOT, "src/app/api/cron/performance/route.ts"),
     "utf8"
   );
+  // COMMENTS STRIPPED, and that is the whole point of this variable.
+  // The first version of this matched the raw file, so the moment the
+  // cron grew a comment EXPLAINING that it deliberately knows nothing
+  // about external measures, the guard failed. A guard that cannot
+  // tell code from prose punishes the documentation it depends on.
+  const code = sweep
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("//"))
+    .join("\n");
 
   it("does not know external sources exist", () => {
-    expect(sweep).not.toMatch(/external_source/);
-    expect(sweep).not.toMatch(/external-measures/);
-    expect(sweep).not.toMatch(/\borigin\b/);
+    expect(code).not.toMatch(/external_source/);
+    expect(code).not.toMatch(/external-measures/);
+    expect(code).not.toMatch(/\borigin\b/);
   });
 
   it("decides 'missing' on the presence of an entry and nothing else", () => {
     // `if (!entry) { missing.push(m); continue; }` — no second
     // condition, no exclusion list. A pulled entry and a typed entry
     // are the same entry to this code, which is the point.
-    expect(sweep).toMatch(/if\s*\(!entry\)\s*\{\s*missing\.push\(m\);/);
+    expect(code).toMatch(/if\s*\(!entry\)\s*\{\s*missing\.push\(m\);/);
   });
 
   it("selects entries for the week without filtering on how they arrived", () => {
-    const select = sweep.slice(
-      sweep.indexOf('.from("success_measure_entries")'),
-      sweep.indexOf('.eq("week_ending", weekEnding)')
+    const select = code.slice(
+      code.indexOf('.from("success_measure_entries")'),
+      code.indexOf('.eq("week_ending", weekJustClosed)')
     );
     expect(select).toContain("measure_id, value_number, value_text");
     expect(select).not.toContain("origin");
+  });
+});
+
+// ---- Which week the sweep judges --------------------------------
+//
+// The bug this fixed: both branches read thisFriday() on a Saturday,
+// which is the week that has just BEGUN. Off-target could therefore
+// never fire (no entry exists yet) and the nudge fired for everything
+// every week (no entry exists yet). Two opposite-looking symptoms,
+// one cause.
+//
+// Source-level, because the cron needs a database. The RULE it feeds
+// is covered properly in off-target.test.ts, including the dedupe
+// that stops a second run stacking a duplicate. What is left to pin
+// is the WIRING, which is exactly what was wrong.
+describe("the Saturday sweep judges the week that closed", () => {
+  const sweep = readFileSync(
+    path.join(ROOT, "src/app/api/cron/performance/route.ts"),
+    "utf8"
+  );
+  const code = sweep
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("//"))
+    .join("\n");
+
+  it("takes the week from lastFriday, not thisFriday", () => {
+    expect(code).toMatch(/weekJustClosed\s*=\s*lastFriday\(timezone\)/);
+  });
+
+  it("reads entries for that week", () => {
+    expect(code).toMatch(/\.eq\("week_ending",\s*weekJustClosed\)/);
+  });
+
+  it("judges due-ness against that week too", () => {
+    // A fortnightly measure has to be judged on a week it was
+    // actually expected to report, or it is chased on the wrong one.
+    expect(code).toMatch(/weekEndingFriday:\s*weekJustClosed/);
+  });
+
+  it("files the commitment against that week", () => {
+    expect(code).toMatch(/week_ending:\s*weekJustClosed/);
+  });
+
+  it("but makes it DUE the coming Friday, not a date already gone", () => {
+    // Otherwise every nudge is born overdue, which is accurate and
+    // useless: there is nothing a person can do about a date that has
+    // passed except carry a red row around.
+    expect(code).toMatch(/dueDate\s*=\s*thisFriday\(timezone\)/);
+    expect(code).toMatch(/due_date:\s*dueDate/);
+  });
+
+  it("says last week in the commitment, because that is the week", () => {
+    expect(code).toContain("Log last week's value for");
+    expect(code).not.toContain("Log this week's value for");
+  });
+
+  it("leaves nothing pointing at thisFriday except the due date", () => {
+    // The specific regression. One stray thisFriday() feeding the
+    // entry read would put the whole thing back where it started, and
+    // nothing would throw.
+    const calls = code.match(/thisFriday\(timezone\)/g) ?? [];
+    expect(calls).toHaveLength(1);
   });
 });

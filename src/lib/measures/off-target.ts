@@ -74,15 +74,46 @@ export function offTargetIssueTitle(
   return `Off target: ${measure.description} (${shown} vs. target ${arrow} ${measure.target})`;
 }
 
+// The part of the title that identifies the MEASURE, without the
+// value. This is what one open issue per measure is keyed on.
+//
+// The title carries the value, which reads well and dedupes badly:
+// keyed on the whole title, a measure that stays off target with a
+// drifting number raises a NEW issue every week — 42 one week, 40 the
+// next, 41 the next, three issues about one problem. For a company
+// with ten struggling measures that is ten new issues a week forever,
+// which is how a list people act on becomes a list people scroll
+// past.
+//
+// So the match is on this prefix. The value in the title is then the
+// value WHEN IT WAS FIRST RAISED, and it is deliberately not rewritten
+// later: an issue is a record of a moment the team was asked to look
+// at something, and editing its title under them loses that.
+export function offTargetIssuePrefix(measure: MeasureForOffTarget): string {
+  return `Off target: ${measure.description} (`;
+}
+
+// LIKE treats % and _ as wildcards, and a measure called "Win % by
+// region" is not hypothetical. Unescaped, its prefix would match
+// open issues belonging to other measures and silently suppress
+// them — a bug that only appears for companies whose measure names
+// happen to contain punctuation, which is the worst kind.
+export function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 export type RaiseResult = { raised: boolean; reason?: string };
 
 // Raises an issue for an off-target value, or does nothing.
 //
-// Idempotent by (company, title, open). Re-running the cron in the
-// same week, or a sync writing the same value twice, must not stack
-// duplicate issues on a leader's list. Deliberately keyed on OPEN
-// issues only: if the team resolved this last month and it has gone
-// off target again, that is a new problem and deserves a new issue.
+// ONE OPEN ISSUE PER MEASURE. Re-running the cron, a sync writing the
+// same value twice, or a measure that stays off target for six weeks
+// with a different number each week all produce one issue, not six.
+//
+// Deliberately keyed on OPEN issues only: if the team resolved this
+// last month and it has gone off target again, that is a new problem
+// and deserves a new issue. That is the one case where a second issue
+// about the same measure is right.
 export async function raiseOffTargetIssue(
   admin: SupabaseClient,
   args: {
@@ -99,14 +130,21 @@ export async function raiseOffTargetIssue(
 
   const title = offTargetIssueTitle(args.measure, args.value);
 
+  // limit(1) rather than maybeSingle(): a prefix can legitimately
+  // match more than one row — anything raised before this dedupe
+  // existed — and maybeSingle treats a second row as an error. The
+  // question here is "is there one at all", and more than one is a
+  // reason to raise nothing, not to fail.
   const { data: existing } = await admin
     .from("issues")
     .select("id")
     .eq("company_id", args.companyId)
-    .eq("title", title)
     .eq("status", "open")
-    .maybeSingle<{ id: string }>();
-  if (existing) return { raised: false, reason: "already open" };
+    .like("title", `${escapeLike(offTargetIssuePrefix(args.measure))}%`)
+    .limit(1);
+  if ((existing ?? []).length > 0) {
+    return { raised: false, reason: "already open" };
+  }
 
   const { error } = await admin.from("issues").insert({
     company_id: args.companyId,
