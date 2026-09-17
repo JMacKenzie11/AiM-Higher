@@ -100,10 +100,16 @@ You are only asked about a week that has ended, and only when the
 number really is missing. If somebody logged it, or it came in from a
 connected spreadsheet, nobody is chased.
 
-**A value below target** raises an **issue**: *"Off target:
-[measure]."* Missing a target is a business problem, not an admin
-task. It belongs where the team discusses problems, not on someone's
-to-do list.
+**A value below target** raises an **issue**: *"Off target: [measure]
+(42 vs. target 55)."* Missing a target is a business problem, not an
+admin task. It belongs where the team discusses problems, not on
+someone's to-do list. The desired outcome is left blank for the team
+to fill in.
+
+You get **one issue per measure**, not one a week. A measure that
+stays below target keeps the same issue open, showing the number from
+when it was first raised. Resolve it and it can be raised again later
+if the measure slips back.
 
 Both apply to critical success factors and KPIs.
 
@@ -165,8 +171,9 @@ single-measure page asked you to open a whole screen to type one
 number that already had a box on this one.
 
 What still tells you when something is outstanding: the notification
-bell counts what you have left, and the Saturday job opens a
-commitment for anything set to remind its owner.
+bell counts what you have left this week, and the Saturday job opens
+a commitment for anything that was still missing when last week
+ended.
 
 ## Common questions
 
