@@ -141,15 +141,21 @@
   composes: btnPrimary from "../../../../../../components/ui/ui.module.css";
 }
 
+/* Every state spelled out so a global a:hover / a:visited rule
+   cannot repaint a link that is meant to look like a button.
+   
+   The colours are btnSecondary's. This used to fill dark and switch
+   the text to --on-primary, which was correct while btnPrimary was a
+   filled button: now it is an outlined button that turns solid navy
+   under the cursor and back again, which is the only button in the
+   app that does that. */
 .downloadButton:hover,
 .downloadButton:focus,
 .downloadButton:active,
 .downloadButton:visited {
-  /* Explicit color + text-decoration on every state so a global
-     a:hover / a:visited rule can't nuke the white text against
-     the dark-blue background. */
-  background: var(--primary-hover, var(--primary));
-  color: var(--on-primary);
+  background: var(--aims-cobalt-tint);
+  border-color: var(--border-strong);
+  color: var(--primary);
   text-decoration: none;
 }
 

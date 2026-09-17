@@ -139,8 +139,12 @@
   border-color: var(--border-interactive);
 }
 
+/* The active pill is already tinted, so hovering it deepens the
+   BORDER rather than the fill. Setting `--primary-hover` here put a
+   dark background behind `--primary` text and made the selected
+   filter unreadable for as long as the pointer was on it. */
 .filterPillActive:hover {
-  background: var(--primary-hover);
+  border-color: var(--border-strong);
 }
 
 .filterSelect {

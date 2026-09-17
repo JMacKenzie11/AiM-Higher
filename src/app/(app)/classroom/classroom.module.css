@@ -232,8 +232,17 @@
   composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
+/* The row hovering lights its own button, so the whole step reads as
+   one target. It takes btnSecondary's hover, not a fill.
+   
+   It used to set `background: var(--primary-hover)`, which was right
+   when this was a filled primary button and became wrong when the app
+   settled on one outlined appearance: a dark fill behind text that is
+   still `--primary` leaves "Open" navy on navy, all but unreadable
+   for as long as the pointer is anywhere on the row. */
 .sequenceStep:hover .sequenceAction {
-  background: var(--primary-hover);
+  background: var(--aims-cobalt-tint);
+  border-color: var(--border-strong);
 }
 
 @media (max-width: 560px) {

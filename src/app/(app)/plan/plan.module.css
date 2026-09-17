@@ -660,12 +660,19 @@
   display: none;
 }
 
-/* Hover and focus come with btnPrimary. Open reads as pressed by
-   holding the hover shade while the panel is showing, so the button
-   does not snap back to rest under the cursor that opened it. */
+/* Open reads as pressed by holding the hover shade while the panel
+   is showing, so the button does not snap back to rest under the
+   cursor that opened it.
+   
+   The shade is btnSecondary's, not a fill. It used to hold
+   `--primary-hover` on both background and border, which was right
+   while btnPrimary was a filled button and became wrong when the app
+   settled on one outlined appearance: an OPEN pill turned dark behind
+   text that is still `--primary`, so the label of the panel you had
+   just opened was navy on navy. */
 .addDetails[open] > .addSummary {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
+  background: var(--aims-cobalt-tint);
+  border-color: var(--border-strong);
 }
 
 /* The panel an open pill reveals.
