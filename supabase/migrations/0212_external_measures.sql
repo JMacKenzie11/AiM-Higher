@@ -285,11 +285,29 @@ create index if not exists external_pull_log_company_created_idx
   on public.external_pull_log (company_id, created_at desc);
 
 alter table public.external_pull_log enable row level security;
--- FORCE so the owner is inside the rules too. Load-bearing here for
--- the same reason it is on coach_memories: record_external_pull()
--- runs as the owner, and FORCE is what keeps the definer function
--- subject to the same policies as everybody else rather than above
--- them.
+-- FORCE so a future owner-role path is inside the rules too.
+--
+-- IT DOES NOT CONSTRAIN THE DEFINER FUNCTION BELOW, and an earlier
+-- draft of this comment claimed it did. Measured on the clone before
+-- phase 2 was designed: `postgres` carries rolbypassrls, this table
+-- is owned by postgres, and BYPASSRLS beats FORCE. A definer function
+-- owned by postgres with no auth.uid() guard at all inserted a row
+-- here with no JWT present.
+--
+-- So the wall around this table is NOT policy-plus-privilege. It is:
+--
+--   * authenticated holds no INSERT privilege, so no browser client
+--     can write a row (probed: 42501);
+--   * service_role holds no INSERT privilege and no EXECUTE on
+--     record_external_pull (probed: 42501);
+--   * record_external_pull's OWN checks, which are the only thing
+--     standing between a caller and a forged receipt.
+--
+-- That is one wall in the definer path, not two, and it is worth
+-- saying plainly: the function's checks are load-bearing on their
+-- own. The policies below still govern SELECT for real, and still
+-- govern INSERT for any non-definer path a later migration might
+-- grant, which is why they stay.
 alter table public.external_pull_log force row level security;
 
 -- ---- Privileges ------------------------------------------------
@@ -330,11 +348,15 @@ for select to authenticated
 using (public.is_guide_for(public.external_pull_log.company_id));
 
 -- ---- INSERT ----------------------------------------------------
--- authenticated holds no INSERT privilege, so this policy governs
--- the definer function's own write and nothing else. Both walls say
--- the same thing on purpose: the privilege stops the direct path,
--- and the policy stops the function from being talked into writing a
--- receipt for a company the caller has no business pulling for.
+-- authenticated holds no INSERT privilege, so nothing reaches this
+-- policy today.
+--
+-- IT IS NOT A SECOND WALL AROUND THE DEFINER FUNCTION. See the note
+-- on FORCE above: postgres bypasses RLS, so the function's write is
+-- not filtered by this. Kept because it is the rule any future
+-- non-definer INSERT path would have to satisfy, and because writing
+-- it down is how the intended shape survives the next migration.
+-- Not kept as evidence of anything.
 drop policy if exists external_pull_log_insert on public.external_pull_log;
 create policy external_pull_log_insert on public.external_pull_log
 for insert to authenticated
