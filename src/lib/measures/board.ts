@@ -61,17 +61,31 @@ export type BoardData = {
   weeks: string[];
   currentWeekEnding: string;
   functions: BoardFunction[];
+  // Has ANY value been recorded in the window this board covers?
+  //
+  // Not derivable from the cells, which is why it is carried. A cell's
+  // status is `no_target` before it is anything else, so a measure
+  // with a year of values and no target looks identical to one nobody
+  // has ever logged. Asking the rows directly is the only honest
+  // answer, and the board is the only thing that wants it.
+  //
+  // This is what decides whether the board appears at all: a frame of
+  // empty weeks teaches nobody anything, while one real point is
+  // sparse and true.
+  hasEntries: boolean;
 };
 
 // The Board, shaped from rows already in hand. Pure: see
-// loadMeasuresSpine for the reads and getMeasuresPageData for the
-// path the page takes.
+// loadMeasuresSpine for the reads and getBoardData below, which is
+// the path /dashboard takes.
 export function buildBoardData(spine: MeasuresSpine): BoardData {
   const { weeks, weekEnding: currentWeekEnding } = spine;
 
+  const hasEntries = spine.entryRows.length > 0;
+
   const functions = spine.functions;
   if (functions.length === 0) {
-    return { weeks, currentWeekEnding, functions: [] };
+    return { weeks, currentWeekEnding, functions: [], hasEntries };
   }
   const rosterById = new Map(spine.roster.map((r) => [r.id, r.full_name]));
 
@@ -222,15 +236,16 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
     };
   });
 
-  return { weeks, currentWeekEnding, functions: boardFunctions };
+  return { weeks, currentWeekEnding, functions: boardFunctions, hasEntries };
 }
 
-// Convenience wrapper: load the spine and shape the board from it.
+// Load the spine and shape the board from it. This is what
+// /dashboard calls.
 //
-// The page does NOT take this path — it uses getMeasuresPageData so
-// the board and the tree share one spine. This exists for a caller
-// that wants the board alone, and it is what the characterisation
-// tests drive.
+// It used to be a convenience wrapper nothing in the product took,
+// because /measures loaded the tree and the board together. The board
+// moved, so each page loads its own spine and this is the ordinary
+// path rather than the road not taken.
 export async function getBoardData(
   companyId: string,
   timezone: string

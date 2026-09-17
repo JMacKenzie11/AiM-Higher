@@ -238,7 +238,7 @@ Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coac
 | Flag | Turns on |
 | --- | --- |
 | `execution` | Core: commitments, plan cascade, chart, coaching, dashboard |
-| `performance_tracking` (labelled **Success Tracking**) | Requires a target on every KPI (a critical success factor may go without one); turns on the tracking columns (recent pills, this-week input or read-only value, status dot, filter chips) on `/measures`; enables the Board view; enables the AI target-quality check on measure creation, the AI measure-draft critique panel, and the four generative dashboard insight cards. When off, `/measures` collapses to a pure authoring surface |
+| `performance_tracking` (labelled **Success Tracking**) | Requires a target on every KPI (a critical success factor may go without one); turns on the tracking columns (recent pills, this-week input or read-only value, status dot, filter chips) on `/measures`; enables the 13-week Board on `/dashboard` once at least one value has been recorded; enables the AI target-quality check on measure creation, the AI measure-draft critique panel, and the four generative dashboard insight cards. When off, `/measures` collapses to a pure authoring surface |
 | `external_measures` | **PHASE 2 SHIPPED.** A critical success factor or KPI can take its weekly value from the company's own Google Sheet instead of a typed entry, either on demand or on a weekly schedule. Adds a per-measure "Pull now" for the company's admins, a system_admin-only mapping surface, a receipt on every pulled entry, and a daily cron that fills the week that just closed. Off everywhere but the one client it was built for. See Section 10b |
 | `meeting_facilitation_review` | Second LLM pass on every ingested meeting scoring how the meeting was run against the AiMS Weekly Leadership Meeting framework; renders as a coaching-tone panel on the meeting detail page + a signal chip on the Leadership list |
 | `automated_commitment_tracking` (default ON at create) | Auto-create commitments extracted from meeting transcripts as rows on `/commitments`. When OFF, the analyzer + facilitation review still run but the team authors commitments manually — extractions surface only in the meeting analysis, not on the Commitments board |
@@ -549,10 +549,13 @@ Nav label: **Critical Success Factors**, under *Workspace*. The tracking columns
 - One save button per function card, shown only on functions the caller can write to. `MeasuresManager` tracks which function is saving so only that card shows a spinner.
 - **Outstanding line** — "2 of 6 still to log for the week ending 4 Sep." Counts both kinds across functions the caller can log, read from the live inputs. Silent when there is nothing to log. Adds "on your functions" when the page shows functions the caller cannot log.
 
-**Board** (`BoardView`, top of the page)
+**Board** (`BoardView`) — **lives on `/dashboard`**, not here (moved 2026-09-17)
 
-- 13 weeks across every function. Hidden when Success Tracking is off.
-- **Open by default** (changed 2026-09-17). It was collapsed behind its summary line, which was defensible reasoning and the wrong outcome: understated, at the top of a page people scroll past, it read as a header rather than a control and went unfound. The summary line ("3 functions off target this week") is still the toggle, and the choice persists per person in `localStorage` (`measures-board-open`) in both directions, so closing it keeps it closed.
+- 13 weeks across every function, rendered directly under the *What's worth knowing today* brief. The brief says what happened this week; the board says what the last thirteen look like.
+- It was at the top of `/measures`, above the value inputs people open that page to use weekly — so it was collapsed to stay out of the way, and collapsed at the top of a page people scroll past is indistinguishable from absent.
+- **Shown only when Success Tracking is on AND at least one value has ever been recorded** in the window (`BoardData.hasEntries`). Sparse is fine; empty is not, because thirteen columns of blank teach nobody anything. `hasEntries` is carried on the board rather than derived from its cells: a cell's status is `no_target` before it is anything else, so a measure with a year of values and no target draws identically to one nobody has ever logged.
+- `/measures` and `/dashboard` each load their own spine. `getMeasuresPageData`, which existed only because the two surfaces shared a page, is retired.
+- **Open by default.** The summary line ("3 functions off target this week") is the toggle, and the choice persists per person in `localStorage` (`measures-board-open`) in both directions, so closing it keeps it closed.
 - Opens on **Timeline**; **Grid** is the second view.
 - Plots both kinds. A CSF is a row grouped under itself, ordered ahead of its KPIs, so the Timeline's per-function rollup includes it. Rows carry `kind`; the Grid marks CSF rows.
 

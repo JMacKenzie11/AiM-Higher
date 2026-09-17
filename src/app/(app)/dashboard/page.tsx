@@ -16,6 +16,8 @@ import { CardAccent } from "@/components/ui/CardAccent";
 import { BriefSection, BriefLoading } from "./BriefSection";
 import { HeroStat } from "./HeroStat";
 import { MeasureInsightsCards } from "./MeasureInsightsCards";
+import { getBoardData } from "@/lib/measures/board";
+import { BoardView } from "../measures/board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./dashboard.module.css";
@@ -67,6 +69,23 @@ export default async function DashboardPage() {
   // the flag is on; the cards render nothing when there's no data.
   const measureInsights = perfTrackingOn
     ? await getMeasureInsights(companyId, data.company.timezone)
+    : null;
+
+  // The 13-week board, which used to sit on /measures.
+  //
+  // It moved here because that is where it was looked for. On
+  // /measures it sat above the value inputs — the thing people open
+  // that page to use every week — so it was collapsed to stay out of
+  // the way, and collapsed at the top of a page people scroll past is
+  // indistinguishable from absent. The dashboard is the standing
+  // "how are we doing" surface, which is the question this answers.
+  //
+  // Loaded only when the flag is on, and rendered only when some
+  // value has actually been recorded: see hasEntries in board.ts. A
+  // frame of empty weeks teaches nobody anything. One real point is
+  // sparse and true, and shows.
+  const board = perfTrackingOn
+    ? await getBoardData(companyId, data.company.timezone)
     : null;
   // Managers get the Coach column for rows they own via
   // profiles.reports_to — same rule as the coaching_conversations
@@ -192,6 +211,11 @@ export default async function DashboardPage() {
             />
           </Suspense>
         ) : null}
+
+        {/* Directly under the brief, which is where it was asked
+            for: the brief says what happened this week, and this says
+            what the last thirteen look like. */}
+        {board && board.hasEntries ? <BoardView data={board} /> : null}
 
         {measureInsights ? (
           <MeasureInsightsCards insights={measureInsights} />

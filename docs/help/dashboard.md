@@ -52,6 +52,20 @@ many you have left.
 Log this week's numbers on **Workspace → Critical Success Factors**.
 The notification bell will tell you when you have some outstanding.
 
+## The 13-week board
+
+Under *What's worth knowing today*, when Success Tracking is on and
+at least one value has been logged. Every measure against its target
+across every function, thirteen weeks at a time.
+
+Two views. *Timeline* rolls each function's week into a single cell,
+so you can see which functions have been drifting. *Grid* breaks each
+function into a sparkline per measure, for when you want the detail.
+
+The line at the top summarises what is inside, *"3 functions off
+target this week."* Click it to close the board; whether you leave it
+open or closed is remembered for next time.
+
 ## How to interpret the hero stats
 
 - **Follow-Through Rate** — kept-on-time as a % of resolved commitments

@@ -24,18 +24,16 @@ own critical success factors and the KPIs beneath them.
 
 ## What is on the page
 
-**The board**, open at the top. 13 weeks of every measure against its
-target across every function, in two views. *Timeline* rolls each
+**The function list.** Each function is one card. Inside a card, a
+critical success factor is the first row and the KPIs that drive it
+follow, shaded so the two read apart.
+
+**The 13-week board is on the Dashboard**, not here. It sits under
+*What's worth knowing today* and shows every measure against its
+target across every function, in two views: *Timeline* rolls each
 function's week into a single cell so you can see who has been
-drifting. *Grid* breaks each function into per-measure sparklines.
-
-The line above it summarises what is inside, *"3 functions off target
-this week,"* and clicking it closes the board. Whether you leave it
-open or closed is remembered for next time.
-
-**The function list**, below it. Each function is one card. Inside a
-card, a critical success factor is the first row and the KPIs that
-drive it follow, shaded so the two read apart.
+drifting, and *Grid* breaks each function into per-measure
+sparklines. It appears once at least one value has been logged.
 
 ## Who sees what
 
@@ -152,7 +150,7 @@ Nothing hard-deletes from this page, so past weekly values survive.
 
 ## When Success Tracking is off
 
-- The board is hidden.
+- The board on the Dashboard is hidden.
 - The list drops the filter chips, the *Recent* column, the *This
   week* values, the status dots and the save buttons.
 - What is left is a place to write down critical success factors and

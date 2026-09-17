@@ -4,13 +4,12 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getMeasuresPageData } from "@/lib/measures/page-data";
+import { getMeasuresTree } from "@/lib/measures/service";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { formatShortDate } from "@/lib/dates";
 import { loadExternalPanel } from "@/lib/external-measures/service";
 import { ExternalMeasuresProvider } from "./external/ExternalMeasuresContext";
 import { MeasuresManager } from "./MeasuresManager";
-import { BoardView } from "./board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "../admin/companies/admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -40,13 +39,15 @@ export default async function MeasuresPage() {
     .maybeSingle<{ timezone: string }>();
   const timezone = company?.timezone ?? "America/Anchorage";
 
-  // One pass for both surfaces. The Board and the Manager read the
-  // same functions, critical success factors, links and KPIs; loading
-  // them separately fetched four of five reads twice on every page
-  // load. See getMeasuresPageData.
-  const [{ tree, board }, trackingEnabled, rdEnabled, externalEnabled] =
+  // The tree only. The Board moved to /dashboard, so this page no
+  // longer loads it — which also retires getMeasuresPageData, whose
+  // whole reason for existing was that these two surfaces sat on one
+  // page and would otherwise have fetched the same five reads twice.
+  // They are on two pages now and each loads its own spine, which is
+  // the correct shape for that and was the wrong one before.
+  const [tree, trackingEnabled, rdEnabled, externalEnabled] =
     await Promise.all([
-      getMeasuresPageData(companyId, session.profile.id, timezone, isAdmin),
+      getMeasuresTree(companyId, session.profile.id, timezone, isAdmin),
       companyHasFeature(companyId, "performance_tracking"),
       companyHasFeature(companyId, "role_descriptions"),
       companyHasFeature(companyId, "external_measures"),
@@ -71,9 +72,6 @@ export default async function MeasuresPage() {
   const externalPanel = externalEnabled
     ? await loadExternalPanel(supabase, measureIds, weekEnding, timezone)
     : null;
-  const boardHasContent =
-    board.functions.length > 0 &&
-    board.functions.some((f) => f.metrics.length > 0);
   const hasAnyMeasure = functions.some((f) =>
     f.outcomes.some((o) => o.measures.length > 0)
   );
@@ -98,8 +96,6 @@ export default async function MeasuresPage() {
         )
       }
     >
-      {trackingEnabled && boardHasContent ? <BoardView data={board} /> : null}
-
       {functions.length === 0 ? (
         <EmptyState isAdmin={isAdmin} />
       ) : !hasAnyMeasure && !isAdmin ? (
