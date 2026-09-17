@@ -78,7 +78,7 @@ export function QuarterCard({
           </>
         ) : null}
         Completed priorities stay where they were finished, so the closed
-        quarter remains an honest record of what the team landed.
+        quarter remains a record of how the team performed.
       </p>
 
       <form action={formAction} className={styles.quarterRollForm}>
