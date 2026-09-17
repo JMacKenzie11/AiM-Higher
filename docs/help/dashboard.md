@@ -52,10 +52,10 @@ many you have left.
 Log this week's numbers on **Workspace → Critical Success Factors**.
 The notification bell will tell you when you have some outstanding.
 
-## The 13-week board
+## Measure performance
 
-Under *What's worth knowing today*, when Success Tracking is on and
-at least one value has been logged. Every measure against its target
+The 13-week board, under *What's worth knowing today*, when Success
+Tracking is on and at least one value has been logged. Every measure against its target
 across every function, thirteen weeks at a time.
 
 Two views. *Timeline* rolls each function's week into a single cell,

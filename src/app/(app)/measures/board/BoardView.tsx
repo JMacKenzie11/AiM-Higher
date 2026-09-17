@@ -77,31 +77,39 @@ export function BoardView({ data }: { data: BoardData }) {
   );
 
   return (
-    <div className={styles.boardStage}>
-      <button
-        type="button"
-        className={styles.boardSummary}
-        onClick={toggle}
-        aria-expanded={open}
-      >
-        <span className={styles.boardSummaryCaret} aria-hidden>
-          {open ? "▾" : "▸"}
-        </span>
-        <span className={styles.boardSummaryTitle}>Last 13 weeks</span>
-        <span
-          className={
-            offFunctions > 0
-              ? styles.boardSummaryAlert
-              : styles.boardSummaryCalm
-          }
+    // A titled card, like every other block on the dashboard. The
+    // title says what this is; the toggle beside it says which window
+    // and how it is doing. Everything the board is made of is inside.
+    <section className={styles.boardStage} aria-labelledby="board-card">
+      <div className={styles.boardCardHead}>
+        <h2 id="board-card" className={styles.boardCardTitle}>
+          Measure performance
+        </h2>
+        <button
+          type="button"
+          className={styles.boardSummary}
+          onClick={toggle}
+          aria-expanded={open}
         >
-          {offFunctions > 0
-            ? `${offFunctions} function${offFunctions === 1 ? "" : "s"} off target this week`
-            : headline.currentUnlogged > 0
-              ? `${headline.currentUnlogged} not logged this week`
-              : "Everything on target this week"}
-        </span>
-      </button>
+          <span className={styles.boardSummaryCaret} aria-hidden>
+            {open ? "▾" : "▸"}
+          </span>
+          <span className={styles.boardSummaryTitle}>Last 13 weeks</span>
+          <span
+            className={
+              offFunctions > 0
+                ? styles.boardSummaryAlert
+                : styles.boardSummaryCalm
+            }
+          >
+            {offFunctions > 0
+              ? `${offFunctions} function${offFunctions === 1 ? "" : "s"} off target this week`
+              : headline.currentUnlogged > 0
+                ? `${headline.currentUnlogged} not logged this week`
+                : "Everything on target this week"}
+          </span>
+        </button>
+      </div>
 
       {open ? (
       <>
@@ -163,7 +171,7 @@ export function BoardView({ data }: { data: BoardData }) {
       )}
       </>
       ) : null}
-    </div>
+    </section>
   );
 }
 
