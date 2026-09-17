@@ -70,8 +70,6 @@ export default async function PriorityDetailPage({ params }: PageProps) {
           roster={rosterMinimal}
           currentUserId={session.profile.id}
           isAdmin={isAdmin}
-          quarterCoversThisWeek={panel.quarterCoversThisWeek}
-          noQuarterMessage={panel.noQuarterMessage}
           fixedPriorityId={detail.priority.id}
         />
 

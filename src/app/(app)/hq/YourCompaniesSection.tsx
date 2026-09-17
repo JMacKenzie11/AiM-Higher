@@ -75,7 +75,16 @@ export function YourCompaniesSection({
                     ? "—"
                     : `${row.followThroughRate}%`}
                 </td>
-                <td>{row.openQuarterLabel ?? "—"}</td>
+                <td>
+                  {row.openQuarterLabel ?? "—"}
+                  {/* A lapsed quarter is not a failure and is not
+                      styled as one. It is a nudge: the priorities in
+                      it have stopped matching the period the team is
+                      working. */}
+                  {row.openQuarterLapsed ? (
+                    <span className={styles.quarterLapsed}> ended</span>
+                  ) : null}
+                </td>
                 <td>{row.lastMet ? formatDateShort(row.lastMet) : "—"}</td>
                 <td className={styles.actionsCell}>
                   <button

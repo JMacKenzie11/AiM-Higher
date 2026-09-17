@@ -53,21 +53,25 @@ export function BulkResetButton({
         title={
           hasAnything
             ? undefined
-            : "Nothing to reset — no active plan items."
+            : "Nothing to reset. There are no active plan items."
         }
       >
-        Start new planning session
+        Start the strategy again
       </button>
 
       <CompleteConfirmDialog
         open={confirming}
-        title="Start a new planning cycle?"
+        title="Start the whole strategy again?"
         destructive
         body={
           <>
             <p>
-              These active items move to the archive so you can build the
-              next cycle from a clean canvas:
+              This is not how you move to the next quarter. Rolling the
+              quarter does that, and carries unfinished priorities with it.
+            </p>
+            <p>
+              These active items move to the archive so the team can write a
+              new strategy from a clean canvas:
             </p>
             <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
               <li>
@@ -84,7 +88,7 @@ export function BulkResetButton({
               </li>
             </ul>
             <p style={{ margin: 0, color: "var(--text-muted)" }}>
-              Nothing is deleted — every record stays on file. Open
+              Nothing is deleted. Every record stays on file. Open
               commitments that were linked to these priorities become
               Operational (unlinked); resolved commitments keep their
               historical link so past-quarter progress stays intact.

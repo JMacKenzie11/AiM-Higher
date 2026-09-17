@@ -881,3 +881,14 @@
   border-top: 1px solid var(--border);
   padding-top: var(--space-4);
 }
+
+/* The quarter roll form. Four controls on one line where there is
+   room, stacking on a narrow screen rather than squeezing the date
+   inputs, which have a minimum width of their own and will overflow
+   before they shrink. */
+.quarterRollForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+}

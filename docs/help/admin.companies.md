@@ -26,6 +26,22 @@ redirected straight to their own company's settings page.
   appears when there is more than one company.
 - **Open a company's settings** — the per-row *Settings* link
   goes to `/admin/companies/[id]` for that company.
+- **Roll the quarter** — on the company's settings page, in the
+  **Quarter** card. It closes the open quarter, opens the next, and
+  moves every priority that is not complete into it, so nobody has
+  to retype unfinished work. Completed priorities stay where they
+  were finished, so the closed quarter keeps saying what the team
+  actually landed.
+
+  The label and dates are suggested and you can change them. A
+  quarter holds this company's priorities and nothing else depends
+  on it, so rolling late costs nothing: commitments, measures and
+  the weekly rhythm all carry on regardless.
+
+  **This is not the same as "Start the strategy again"** further
+  down that page. That one archives Focus Areas and Goals as well,
+  and is for after an annual planning session when the team is
+  rewriting the strategy rather than continuing it.
 
 ### System admins only
 

@@ -80,3 +80,63 @@ export function nextCalendarQuarter(after: CalendarQuarter): CalendarQuarter {
   dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
   return calendarQuarterOf(dayAfter);
 }
+
+// What the Quarter card on a company's settings page needs.
+//
+// One place, because the card shows three things that have to agree:
+// the quarter that is open, the dates it would suggest for the next
+// one, and how many priorities would move. Computed apart, the count
+// could describe a different quarter from the one named above it.
+export type QuarterCardData = {
+  openQuarter: Pick<Quarter, "id" | "label" | "start_date" | "end_date"> | null;
+  suggestion: CalendarQuarter;
+  carryCount: number;
+};
+
+export async function getQuarterCardData(
+  companyId: string
+): Promise<QuarterCardData> {
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+
+  const { data: open } = await supabase
+    .from("quarters")
+    .select("id, label, start_date, end_date")
+    .eq("company_id", companyId)
+    .eq("status", "open")
+    .maybeSingle<Pick<Quarter, "id" | "label" | "start_date" | "end_date">>();
+
+  // The suggestion follows the LATEST quarter by start date, not the
+  // open one. A company that closed Q3 by hand and never opened Q4
+  // should still be offered Q4, not the quarter after whatever
+  // happens to be open.
+  const { data: latest } = await supabase
+    .from("quarters")
+    .select("start_date, end_date, label")
+    .eq("company_id", companyId)
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle<Pick<Quarter, "start_date" | "end_date" | "label">>();
+
+  const suggestion = latest
+    ? nextCalendarQuarter({
+        label: latest.label,
+        startDate: latest.start_date,
+        endDate: latest.end_date,
+      })
+    : calendarQuarterOf(new Date());
+
+  // Only what would actually move. 'complete' stays behind, which is
+  // the whole rule, so the count has to apply it rather than count
+  // every priority in the quarter.
+  let carryCount = 0;
+  if (open) {
+    const { count } = await supabase
+      .from("priorities")
+      .select("id", { count: "exact", head: true })
+      .eq("quarter_id", open.id)
+      .neq("status", "complete");
+    carryCount = count ?? 0;
+  }
+
+  return { openQuarter: open ?? null, suggestion, carryCount };
+}

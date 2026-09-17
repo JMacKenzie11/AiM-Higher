@@ -174,6 +174,11 @@ export type CompanyRollup = {
   scorecardOverall: number | null;
   followThroughRate: number | null;
   openQuarterLabel: string | null;
+  // The open quarter's end date has passed. Nothing breaks when it
+  // does, but its priorities have stopped matching the period the
+  // team is working, and across a caseload nobody would otherwise
+  // notice.
+  openQuarterLapsed: boolean;
   lastMet: string | null;
 };
 
@@ -196,7 +201,10 @@ export async function loadCompanyRollups(
     supabase.from("companies").select("id, name").in("id", companyIds),
     supabase
       .from("quarters")
-      .select("id, company_id, label")
+      // end_date so a LAPSED quarter can be told apart from a live
+      // one. Across a caseload this is the only place a guide would
+      // notice a company still carrying last quarter's priorities.
+      .select("id, company_id, label, end_date")
       .in("company_id", companyIds)
       .eq("status", "open"),
     supabase
@@ -217,12 +225,20 @@ export async function loadCompanyRollups(
       (c) => [c.id, c.name] as const
     )
   );
-  const openQuarterByCompany = new Map<string, Pick<Quarter, "label">>();
+  const today = new Date().toISOString().slice(0, 10);
+  const openQuarterByCompany = new Map<
+    string,
+    { label: string; lapsed: boolean }
+  >();
   for (const q of (quarters ?? []) as Array<{
     company_id: string;
     label: string;
+    end_date: string;
   }>) {
-    openQuarterByCompany.set(q.company_id, { label: q.label });
+    openQuarterByCompany.set(q.company_id, {
+      label: q.label,
+      lapsed: q.end_date < today,
+    });
   }
 
   const ftrTallies = new Map<
@@ -282,6 +298,7 @@ export async function loadCompanyRollups(
         scorecardOverall,
         followThroughRate: ftr,
         openQuarterLabel: openQuarterByCompany.get(cid)?.label ?? null,
+        openQuarterLapsed: openQuarterByCompany.get(cid)?.lapsed ?? false,
         lastMet: lastMetByCompany.get(cid) ?? null,
       };
     })

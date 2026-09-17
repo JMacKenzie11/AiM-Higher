@@ -22,6 +22,8 @@ import { TimezoneForm } from "./TimezoneForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
+import { QuarterCard } from "./QuarterCard";
+import { getQuarterCardData } from "@/lib/quarters/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // One row of company_settings_events, narrowed to the timezone
@@ -128,6 +130,12 @@ export default async function CompanyDetailPage({
     isSystemAdmin || isCompanyAdmin
       ? await getBulkResetImpact(company.id)
       : { sfaCount: 0, goalCount: 0, priorityCount: 0 };
+  // Same audience as the Planning cycle card above it, so the same
+  // guard: a guide never sees either and skips both queries.
+  const quarterCard =
+    isSystemAdmin || isCompanyAdmin
+      ? await getQuarterCardData(company.id)
+      : null;
   // The last few times this company's clock moved, and who moved it.
   //
   // The record exists so a scorecard that reads differently this week
@@ -310,6 +318,19 @@ export default async function CompanyDetailPage({
           flashError={flash.oauth_error ?? null}
         />
 
+        {/* The quarter, ABOVE Planning cycle deliberately. The two
+            read as alternatives otherwise and they are not: this is
+            the routine quarterly act, and Planning cycle is the
+            annual one that clears focus areas and goals too. */}
+        {quarterCard ? (
+          <QuarterCard
+            companyId={company.id}
+            openQuarter={quarterCard.openQuarter}
+            suggestion={quarterCard.suggestion}
+            carryCount={quarterCard.carryCount}
+          />
+        ) : null}
+
         {/* Planning cycle — open to system admins and company admins.
             hasResettable is currently only fetched for system admins
             (see getBulkResetImpact guard above); do the fetch for
@@ -317,17 +338,24 @@ export default async function CompanyDetailPage({
         {(isSystemAdmin || isCompanyAdmin) && hasResettable ? (
           <section className={styles.card} aria-labelledby="planning-cycle">
             <h2 id="planning-cycle" className={styles.h2}>
-              Planning cycle
+              Start the strategy again
             </h2>
             <p className={styles.subtitleInline}>
-              Archives every active Focus Area, Goal, and
-              Quarterly Priority in this company so the team can build the next
-              cycle from a clean canvas. Nothing is deleted — records stay
-              on file. Open commitments become Operational (unlinked);
-              resolved commitments keep their historical link so past-quarter
-              progress stays intact. Prefer closing individual items? Every
-              Focus Area, Goal, and Priority has its own Archive / Mark complete
-              controls on its detail page.
+              <strong>
+                This is not how you move to the next quarter.
+              </strong>{" "}
+              Rolling the quarter above does that, and carries unfinished
+              priorities with it. This clears the whole plan: every Focus
+              Area and Goal as well as every Quarterly Priority. It is what
+              you do after an annual planning session, when the team is
+              rewriting the strategy rather than continuing it.
+            </p>
+            <p className={styles.subtitleInline}>
+              Nothing is deleted and records stay on file. Open commitments
+              become Operational (unlinked); resolved commitments keep their
+              historical link so past progress stays intact. Closing a few
+              items instead? Every Focus Area, Goal and Priority has its own
+              Archive and Mark complete controls on its detail page.
             </p>
             <div>
               <BulkResetButton

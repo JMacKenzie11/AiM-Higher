@@ -45,10 +45,6 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
 
-  const noQuarterMessage = isAdmin
-    ? "No quarter is open for this week — open one to start adding commitments."
-    : "No quarter is open for this week. Ask your company admin to open one.";
-
   return (
     <PageShell
       eyebrow="Company"
@@ -243,8 +239,6 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                 }))}
                 currentUserId={session.profile.id}
                 isAdmin={isAdmin}
-                quarterCoversThisWeek={data.quarterCoversThisWeek}
-                noQuarterMessage={noQuarterMessage}
               />
             </section>
           </>
