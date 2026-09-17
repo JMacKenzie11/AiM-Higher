@@ -48,6 +48,11 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
     label: "Role Descriptions",
     hint: "Generate role descriptions for each function.",
   },
+  {
+    value: "external_measures",
+    label: "External Measures",
+    hint: "Let a critical success factor or KPI take its weekly value from a cell or a column in the company's own spreadsheet, instead of somebody typing it. A system admin sets up the mapping; a typed value always wins over a pulled one.",
+  },
 ];
 
 export const VALID_COMPANY_FEATURES = new Set(

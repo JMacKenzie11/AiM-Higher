@@ -876,6 +876,12 @@ export async function upsertMeasureEntryAction(
           value_number,
           value_text,
           entered_by: session.profile.id,
+          // A hand-typed value clears any pulled origin on the week.
+          // See the longer note on logMeasureEntriesAction; an
+          // upsert leaves omitted columns alone, so this has to be
+          // said rather than implied. Migration 0212.
+          origin: null,
+          pulled_at: null,
         },
         { onConflict: "measure_id,week_ending" }
       )

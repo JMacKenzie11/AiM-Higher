@@ -155,6 +155,48 @@ twice, and the fix is a written procedure rather than a note in a PR.
 |---|---|---|
 | `coach-history.spec.ts` | `ANTHROPIC_API_KEY` | nothing |
 | `coach-memory.spec.ts` | `ANTHROPIC_API_KEY` | **real `coach_memories` rows** |
+| `external-measures.spec.ts` | a real Google Sheet, a connected Google account, the flag | `success_measure_entries` + `external_pull_log` on the fixture company |
+
+### `external-measures.spec.ts`
+
+The only spec whose fixture cannot be seeded, because it is somebody
+else's spreadsheet. It **skips** when the setup is absent, naming the
+missing variables, rather than failing — a red suite nobody can turn
+green is a suite people stop reading. What it must never do is pass
+without having run, which is why the skip names what is missing.
+
+The setup is a genuine obstacle and worth stating plainly: **the dev
+clone has no Google credentials by design.** `npm run scrub:dev`
+deletes every `oauth_credentials` row after a refresh and that is not
+optional, because a clone of production carries live client refresh
+tokens. So a person has to connect a Google account to the fixture
+company on purpose before this spec can run, and that connection dies
+at the next refresh.
+
+```bash
+# 1. Copy the client's workbook STRUCTURE into a sheet of your own.
+#    Never point this at the client's actual workbook.
+#      - a tab with a "Week Ending" column and a numeric column,
+#        filled in for the last four Fridays
+#      - a second tab with one numeric value cell, dashboard style
+# 2. Share it as Viewer with the account connected to "E2E Fixture Co".
+# 3. Turn on the external_measures flag for that company.
+# 4. Add to .env.local:
+#      E2E_SHEET_ID=...
+#      E2E_SHEET_TAB=Dashboard Data
+#      E2E_SHEET_KEY_COLUMN=Week Ending
+#      E2E_SHEET_VALUE_COLUMN=Pounds Shipped
+#      E2E_SHEET_SNAPSHOT_TAB=Summary
+#      E2E_SHEET_SNAPSHOT_CELL=B7
+
+npx playwright test e2e/external-measures.spec.ts
+```
+
+It leaves rows behind on the fixture company: pulled entries and their
+receipts. The receipts are append-only by design and cannot be
+deleted through the app, which is correct and means the fixture
+company accumulates them. `npm run seed:e2e` clears what earlier runs
+left.
 
 ### One-time setup
 

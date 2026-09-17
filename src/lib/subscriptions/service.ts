@@ -33,6 +33,13 @@ export type ModuleFeature =
   // recommend a training in conversation. Content is shared across
   // every flag-enabled company — there is no per-company copy.
   | "classroom"
+  // Opt-in external measures. When on, a system_admin can map a
+  // critical success factor or KPI to a cell or a column in the
+  // client's own spreadsheet, and an admin of the company can pull
+  // that week's value instead of typing it. Phase 1 is one client
+  // and one connector; off everywhere else, and the pull action
+  // refuses before it reads anything when the flag is off.
+  | "external_measures"
   // Opt-in AiMS role-description generator. When on, /chart/function/[id]
   // exposes a "Complete this function" interview that walks any gaps
   // in the Function's outcomes / measures / decision rights /

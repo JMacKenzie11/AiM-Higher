@@ -2326,6 +2326,292 @@ export type WriteProbe = {
 };
 
 export const BATCHES: readonly Batch[] = [
+  // ---- external_pull_log: the receipt, and who may write one ----
+  //
+  // A new table whose claims are half positive and half negative, and
+  // the negative half is the part that passes by accident:
+  //
+  //   POSITIVE  a system_admin or the company's admin CAN record a
+  //             pull, and the value lands on the entry.
+  //   NEGATIVE  an admin of another company cannot. A team member of
+  //             this company cannot. Nobody can insert a receipt
+  //             directly, and nobody at all can edit or delete one.
+  //
+  // The positive probes are not decoration. Every refusal below is
+  // only evidence because the same statement, run by an admitted
+  // caller in the same transaction, wrote a row — which is the
+  // empty-set rule applied to a write path rather than to a read.
+  //
+  // MANUAL WINS IS PROBED AS A DATABASE FACT, not as an app rule. The
+  // action could be rewritten tomorrow; the probe asserts that the
+  // function itself downgrades its outcome and leaves the typed
+  // number alone.
+  {
+    n: "external-measures",
+    tables: ["external_pull_log"],
+    migration: "0212_external_measures.sql",
+    newTables: ["external_pull_log"],
+    // The table is created empty, so every standard check here has
+    // nothing to measure until something is in it. Deterministic:
+    // the same company is chosen for the scope pick and again inside
+    // each measurement.
+    seedRows: {
+      external_pull_log: `
+        insert into public.external_pull_log
+          (measure_id, company_id, week_ending, mapping_kind, outcome,
+           failure_reason, detail)
+        select m.id, f.company_id, current_date, 'week_keyed', 'failed',
+               'week_row_absent', '{}'::jsonb
+          from public.success_measures m
+          join public.functions f on f.id = m.function_id
+         where exists (
+                 select 1 from public.profiles p
+                  where p.company_id = f.company_id
+                    and p.role = 'company_admin' and p.status = 'active')
+         order by f.company_id, m.id
+         limit 1;`,
+    },
+    // A second tenant with a row, so "sees 0 of the other company" is
+    // a denial rather than a description of an empty table. Picks any
+    // company that is not the one seeded above.
+    isolationSeed: {
+      external_pull_log: `
+        insert into public.external_pull_log
+          (measure_id, company_id, week_ending, mapping_kind, outcome,
+           failure_reason, detail)
+        select m.id, f.company_id, current_date - 7, 'snapshot', 'failed',
+               'sheet_unreachable', '{}'::jsonb
+          from public.success_measures m
+          join public.functions f on f.id = m.function_id
+         where f.company_id <> (
+                 select f2.company_id
+                   from public.success_measures m2
+                   join public.functions f2 on f2.id = m2.function_id
+                  where exists (
+                          select 1 from public.profiles p
+                           where p.company_id = f2.company_id
+                             and p.role = 'company_admin'
+                             and p.status = 'active')
+                  order by f2.company_id, m2.id
+                  limit 1)
+         order by f.company_id, m.id
+         limit 1;`,
+    },
+    writeProbes: {
+      fixtures: `
+        select
+          m.id as measure,
+          f.company_id as company,
+          (select id from public.profiles
+            where role = 'system_admin' and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles
+            where role = 'company_admin' and status = 'active'
+              and company_id = f.company_id limit 1) as admin,
+          (select p.id from public.profiles p
+            where p.role = 'company_admin' and p.status = 'active'
+              and p.company_id is not null
+              and p.company_id <> f.company_id limit 1) as other_admin,
+          (select id from public.profiles
+            where role = 'team_member' and status = 'active'
+              and company_id = f.company_id limit 1) as member
+        from public.success_measures m
+        join public.functions f on f.id = m.function_id
+        where exists (
+                select 1 from public.profiles p
+                 where p.company_id = f.company_id
+                   and p.role = 'company_admin' and p.status = 'active')
+          and exists (
+                select 1 from public.profiles p
+                 where p.company_id = f.company_id
+                   and p.role = 'team_member' and p.status = 'active')
+        order by m.id
+        limit 1;`,
+      probes: [
+        // ---- The positive side, first. Everything below it is only
+        // a denial because these two are not.
+        {
+          name: "system_admin records a pull",
+          caller: "sysadmin",
+          // TWO STATEMENTS, NOT A CTE, and this cost a red run to
+          // learn. A row inserted by a volatile function is not
+          // visible to the rest of the statement that called it —
+          // same snapshot, same command id — so the CTE form counted
+          // zero and read exactly like a denial. The refusal probes
+          // below passed either way, which is precisely why the
+          // positive ones have to be here.
+          sql: `select * from public.record_external_pull(
+                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  null, 'week_row_absent');
+                select count(*)::int as n from public.external_pull_log
+                 where measure_id = '$measure'::uuid
+                   and week_ending = current_date;`,
+          expect: "1",
+        },
+        {
+          name: "company_admin of the company records a pull",
+          caller: "admin",
+          sql: `select * from public.record_external_pull(
+                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  null, 'week_row_absent');
+                select count(*)::int as n from public.external_pull_log
+                 where measure_id = '$measure'::uuid
+                   and week_ending = current_date;`,
+          expect: "1",
+        },
+        {
+          name: "a written pull lands on the entry, tagged",
+          caller: "admin",
+          // The week is cleared first so this measures a write rather
+          // than whatever the clone happens to hold. The entry check
+          // is joined to the log row on purpose: it asserts the value
+          // AND the receipt in one statement, so neither can pass
+          // while the other is missing.
+          setup: `delete from public.success_measure_entries
+                   where measure_id = '$measure'::uuid
+                     and week_ending = current_date;`,
+          sql: `select * from public.record_external_pull(
+                  '$measure'::uuid, current_date, 'week_keyed', 'written', 777);
+                select count(*)::int as n
+                  from public.success_measure_entries e
+                 where e.measure_id = '$measure'::uuid
+                   and e.week_ending = current_date
+                   and e.value_number = 777
+                   and e.origin = 'google_sheet'
+                   and e.pulled_at is not null
+                   and exists (select 1 from public.external_pull_log l
+                                where l.measure_id = e.measure_id
+                                  and l.week_ending = e.week_ending
+                                  and l.outcome = 'written');`,
+          expect: "1",
+        },
+        {
+          name: "the receipt lands in the measure's company",
+          caller: "sysadmin",
+          // There is no company parameter to pass, which is the whole
+          // design. What can be measured is the consequence: the row
+          // carries the company the MEASURE belongs to.
+          sql: `select * from public.record_external_pull(
+                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  null, 'week_row_absent');
+                select count(*)::int as n from public.external_pull_log
+                 where measure_id = '$measure'::uuid
+                   and week_ending = current_date
+                   and company_id = '$company'::uuid;`,
+          expect: "1",
+        },
+
+        // ---- Manual wins, as a database fact -------------------
+        {
+          name: "a pull over a typed value is downgraded, not written",
+          caller: "sysadmin",
+          setup: `insert into public.success_measure_entries
+                    (measure_id, week_ending, value_number, entered_by,
+                     origin, pulled_at)
+                  values ('$measure'::uuid, current_date, 111,
+                          '$admin'::uuid, null, null)
+                  on conflict (measure_id, week_ending) do update
+                    set value_number = 111, origin = null, pulled_at = null;`,
+          sql: `select * from public.record_external_pull(
+                  '$measure'::uuid, current_date, 'week_keyed', 'written', 999);
+                select count(*)::int as n from public.external_pull_log
+                 where measure_id = '$measure'::uuid
+                   and week_ending = current_date
+                   and outcome = 'skipped_manual_exists'
+                   and value_written is null;`,
+          expect: "1",
+        },
+        {
+          name: "the typed value survives the pull untouched",
+          caller: "sysadmin",
+          setup: `insert into public.success_measure_entries
+                    (measure_id, week_ending, value_number, entered_by,
+                     origin, pulled_at)
+                  values ('$measure'::uuid, current_date, 111,
+                          '$admin'::uuid, null, null)
+                  on conflict (measure_id, week_ending) do update
+                    set value_number = 111, origin = null, pulled_at = null;`,
+          sql: `select * from public.record_external_pull(
+                  '$measure'::uuid, current_date, 'week_keyed', 'written', 999);
+                select count(*)::int as n
+                  from public.success_measure_entries e
+                 where e.measure_id = '$measure'::uuid
+                   and e.week_ending = current_date
+                   and e.value_number = 111
+                   and e.origin is null
+                   and exists (select 1 from public.external_pull_log l
+                                where l.measure_id = e.measure_id
+                                  and l.week_ending = e.week_ending
+                                  and l.outcome = 'skipped_manual_exists');`,
+          expect: "1",
+        },
+
+        // ---- The refusals ---------------------------------------
+        {
+          name: "company_admin of ANOTHER company is refused",
+          caller: "other_admin",
+          sql: `select * from public.record_external_pull(
+                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  null, 'week_row_absent');
+                select count(*)::int as n from public.external_pull_log
+                 where measure_id = '$measure'::uuid;`,
+          expect: "42501",
+        },
+        {
+          name: "a team member of the company is refused",
+          caller: "member",
+          // A function's lead may TYPE a value here. Pulling one is an
+          // administrative act and is not the same permission, which
+          // is worth probing precisely because the two look alike.
+          sql: `select * from public.record_external_pull(
+                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  null, 'week_row_absent');
+                select count(*)::int as n from public.external_pull_log
+                 where measure_id = '$measure'::uuid;`,
+          expect: "42501",
+        },
+        {
+          name: "a receipt cannot be inserted directly",
+          caller: "sysadmin",
+          // The privilege, not the policy. authenticated holds no
+          // INSERT, so this raises rather than matching zero rows —
+          // and a raise is the only refusal that cannot be confused
+          // with an empty table. E8.
+          sql: `with i as (
+                  insert into public.external_pull_log
+                    (measure_id, company_id, week_ending, mapping_kind,
+                     outcome, failure_reason)
+                  values ('$measure'::uuid, '$company'::uuid, current_date,
+                          'week_keyed', 'failed', 'forged')
+                  returning id)
+                select count(*)::int as n from i;`,
+          expect: "42501",
+        },
+        {
+          name: "a receipt cannot be edited by anyone",
+          caller: "sysadmin",
+          // No seed row is needed and none would help. The privilege
+          // is checked before any row is considered, so this raises
+          // whether the table holds one row or none — which is the
+          // whole reason the verb is withheld at the grant rather
+          // than merely left without a policy.
+          sql: `with u as (
+                  update public.external_pull_log set outcome = 'written'
+                   where company_id = '$company'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "42501",
+        },
+        {
+          name: "a receipt cannot be deleted by anyone",
+          caller: "sysadmin",
+          sql: `with d as (
+                  delete from public.external_pull_log
+                   where company_id = '$company'::uuid returning id)
+                select count(*)::int as n from d;`,
+          expect: "42501",
+        },
+      ],
+    },
+  },
   // ---- coach_memories: the access wall --------------------------
   //
   // Not an F8 hoist and not a widening. A new table whose entire
@@ -4765,6 +5051,141 @@ async function coachMemoryWallCheck(
   };
 }
 
+// PERMANENT COVERAGE for external_pull_log. Runs on every
+// invocation, for the same reason the memory wall does: a guard you
+// have to remember to ask for is not a guard.
+//
+// The batch above proves the wall held on the day it was built. This
+// is what keeps it holding. Its claims are the ones a later migration
+// could quietly undo without any test noticing:
+//
+//   1. NO UPDATE OR DELETE POLICY EXISTS. The table is a receipt.
+//      A policy appearing here is the first step of making one
+//      editable, and it should be a visible act rather than a line in
+//      a larger migration.
+//   2. authenticated holds no INSERT, UPDATE or DELETE PRIVILEGE.
+//      Distinct from claim 1 and the entire lesson of E8: a policy
+//      says which rows a verb may touch, a grant says whether the
+//      verb runs at all, and the absence of a policy looks exactly
+//      like the absence of a grant from the client (0 rows) while
+//      only one of them refuses with an error.
+//   3. service_role cannot write it either. BYPASSRLS bypasses
+//      policies, not grants, so without this "the log is written by
+//      the pull path" degrades to "the log is written by whatever
+//      holds the service key".
+//   4. service_role CAN still read it. Asserted rather than assumed,
+//      because a later blanket revoke would break fleet tooling in a
+//      way that looks like a query bug.
+//
+// Canary: a planted UPDATE policy must be caught. If it is not, the
+// matcher is broken and a clean result proves nothing.
+const PULL_LOG_CANARY_POLICY = `
+create policy zz_pull_log_canary on public.external_pull_log
+  for update to authenticated
+  using (true);`;
+
+export function pullLogMutationPolicies(rows: readonly PolicyRow[]): string[] {
+  return rows
+    .filter((r) => r.tablename === "external_pull_log")
+    .filter((r) => r.cmd === "UPDATE" || r.cmd === "DELETE" || r.cmd === "ALL")
+    .map((r) => `${r.tablename}.${r.policyname} (${r.cmd})`);
+}
+
+async function externalPullLogCheck(
+  run: Runner,
+  pending: string
+): Promise<BatchCheck> {
+  const POLICY_QUERY = `
+    select tablename, policyname, cmd, qual, with_check
+      from pg_policies where schemaname = 'public'
+     order by tablename, policyname;`;
+
+  const live = await run<PolicyRow>(
+    ["begin;", pending, POLICY_QUERY, "rollback;"].join("\n")
+  );
+  const mine = live.filter((r) => r.tablename === "external_pull_log");
+
+  const canaryRows = await run<PolicyRow>(
+    [
+      "begin;",
+      pending,
+      mine.length > 0 ? PULL_LOG_CANARY_POLICY : "",
+      POLICY_QUERY,
+      "rollback;",
+    ].join("\n")
+  );
+  const caught = pullLogMutationPolicies(canaryRows).includes(
+    "external_pull_log.zz_pull_log_canary (UPDATE)"
+  );
+
+  if (mine.length === 0) {
+    return {
+      name: "external_pull_log append-only",
+      before: "table not on this schema",
+      after: "not applicable: external_pull_log has not landed here yet",
+      ok: true,
+      detail:
+        "nothing to police; the check activates with the table and the matcher is exercised the moment it does",
+    };
+  }
+
+  const offenders = pullLogMutationPolicies(mine);
+
+  const [priv] = await run<{
+    no_insert: boolean;
+    no_update: boolean;
+    no_delete: boolean;
+    service_no_write: boolean;
+    service_reads: boolean;
+  }>(
+    [
+      "begin;",
+      pending,
+      `select
+         not has_table_privilege('authenticated', 'public.external_pull_log', 'insert')
+           as no_insert,
+         not has_table_privilege('authenticated', 'public.external_pull_log', 'update')
+           as no_update,
+         not has_table_privilege('authenticated', 'public.external_pull_log', 'delete')
+           as no_delete,
+         not (
+           has_table_privilege('service_role', 'public.external_pull_log', 'insert')
+           or has_table_privilege('service_role', 'public.external_pull_log', 'update')
+           or has_table_privilege('service_role', 'public.external_pull_log', 'delete')
+         ) as service_no_write,
+         has_table_privilege('service_role', 'public.external_pull_log', 'select')
+           as service_reads;`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const faults = [
+    offenders.length > 0
+      ? `a mutation policy exists: ${offenders.join(", ")}`
+      : null,
+    priv?.no_insert ? null : "authenticated can INSERT directly, bypassing record_external_pull",
+    priv?.no_update ? null : "authenticated still HOLDS the UPDATE privilege",
+    priv?.no_delete ? null : "authenticated still HOLDS the DELETE privilege",
+    priv?.service_no_write ? null : "service_role can write the log",
+    priv?.service_reads ? null : "service_role has lost its SELECT, which breaks fleet tooling",
+    caught ? null : "CHECK IS BROKEN: a planted UPDATE policy was NOT caught",
+  ].filter(Boolean) as string[];
+
+  return {
+    name: "external_pull_log append-only",
+    before: `${mine.length} policies on the table (${mine.map((r) => r.cmd).join(", ")})`,
+    after:
+      faults.length === 0
+        ? "no UPDATE or DELETE policy, no write privilege for authenticated or service_role, reads intact"
+        : faults.join(" | "),
+    ok: faults.length === 0,
+    detail:
+      faults.length === 0
+        ? "a pull receipt cannot be forged, edited or erased, and a planted UPDATE policy is caught"
+        : "the append-only claim does not hold",
+  };
+}
+
 async function staticCheck(run: Runner): Promise<BatchCheck> {
   const rows = await run<PolicyRow>(`
     select tablename, policyname, qual, with_check
@@ -4847,6 +5268,23 @@ function migrationSql(batch: Batch): string {
 // tables and bypasses RLS, so its plan carries no policy filter at
 // all — that is the baseline the other two are read against, not a
 // tenant check.
+// A query against a table the batch CREATES, with the batch's
+// migration applied inside a transaction and rolled back with it.
+//
+// Needed because every "which caller can read this" query here runs
+// against the live schema, where a new table does not exist yet — not
+// empty, ABSENT, so the query errors rather than returning nothing.
+// coach_memories dodged this by declaring itself personScoped, which
+// replaces those queries wholesale; a new table that IS company-
+// scoped has no such escape and would take the whole batch down with
+// a "relation does not exist".
+//
+// Rolled back like everything else here, so the clone is untouched.
+function scopedQuery(batch: Batch, table: string, sql: string): string {
+  if (!(batch.newTables ?? []).includes(table)) return sql;
+  return ["begin;", migrationSql(batch), sql, "rollback;"].join("\n");
+}
+
 function asPostgres(setup: string, assertion: string): string {
   return ["begin;", setup, assertion, "rollback;"].join("\n");
 }
@@ -4882,7 +5320,7 @@ async function deletedUserChecks(
           ["begin;", sql, person.control, "rollback;"].join("\n")
         )
       : await run<{ id: string; role: string }>(
-          controlCandidatesSql(batch, table)
+          scopedQuery(batch, table, controlCandidatesSql(batch, table))
         );
     // If the batch knows how to make a row here, use it: a table that
     // happens to be empty on this clone would otherwise report every
@@ -4964,9 +5402,24 @@ async function isolationChecks(
     // Where no such role may read the table at all — the audit log is
     // system_admin only — tenant isolation is not the mechanism
     // protecting it, and the case says so instead of failing.
+    const isNew = batch.newTables?.includes(table) ?? false;
+    // A table the batch creates has no rows on the live schema, so the
+    // candidate query has to see the migration AND the batch's seed:
+    // otherwise there is nobody whose company holds a row and the case
+    // reports "does not apply" — a green from a check that never asked
+    // its question.
+    const seedForScope = batch.seedRows?.[table] ?? "";
     const candidates = (
       await run<{ id: string; role: string; company_id: string | null }>(
-        controlCandidatesSql(batch, table)
+        isNew
+          ? [
+              "begin;",
+              migrationSql(batch),
+              seedForScope,
+              controlCandidatesSql(batch, table),
+              "rollback;",
+            ].join("\n")
+          : controlCandidatesSql(batch, table)
       )
     ).filter((c) => c.role !== "system_admin" && c.company_id);
     let caller: string | null = null;
@@ -4974,7 +5427,9 @@ async function isolationChecks(
     let callerRole = "none";
     for (const candidate of candidates) {
       const probe = `select (select count(*) from public.${table})::int as n;`;
-      const [seen] = await run<{ n: number }>(asCaller(candidate.id, sql, probe));
+      const [seen] = await run<{ n: number }>(
+        asCaller(candidate.id, [sql, seedForScope].filter(Boolean).join("\n"), probe)
+      );
       if (seen.n > 0) {
         caller = candidate.id;
         callerCompany = candidate.company_id;
@@ -4998,12 +5453,14 @@ async function isolationChecks(
     // The seed runs inside a rolled-back transaction for the pick and
     // again inside the measurement; being deterministic is what makes
     // those the same company.
-    const isoSeed = batch.isolationSeed?.[table] ?? "";
+    const isoSeed = [seedForScope, batch.isolationSeed?.[table] ?? ""]
+      .filter(Boolean)
+      .join("\n");
     const pickSql = otherCompanySql(batch, table, callerCompany);
     const [pick] = await run<{ other: string | null; n: number }>(
       isoSeed
         ? ["begin;", sql, isoSeed, pickSql, "rollback;"].join("\n")
-        : pickSql
+        : scopedQuery(batch, table, pickSql)
     );
     if (!pick?.other) {
       out.push({
@@ -5023,16 +5480,25 @@ async function isolationChecks(
       callerCompany,
       pick.other
     );
-    const [before] = await run<{ own: number; other_: number }>(
-      asCaller(caller, [isoSeed, setup].filter(Boolean).join("\n"), counts)
-    );
+    // No before side for a table that did not exist. Reported as that
+    // rather than as a pass: "0 of the other company" measured
+    // against a missing table is not a denial, and the two must not
+    // read alike.
+    const [before] = isNew
+      ? [{ own: 0, other_: 0 }]
+      : await run<{ own: number; other_: number }>(
+          asCaller(caller, [isoSeed, setup].filter(Boolean).join("\n"), counts)
+        );
     const [after] = await run<{ own: number; other_: number }>(
       asCaller(caller, [sql, isoSeed, setup].filter(Boolean).join("\n"), counts)
     );
-    const ok = after.other_ === 0 && after.own > 0 && before.other_ === 0;
+    const ok =
+      after.other_ === 0 && after.own > 0 && (isNew || before.other_ === 0);
     out.push({
       name: `isolation · ${table}`,
-      before: `own ${before.own}, other ${before.other_}`,
+      before: isNew
+        ? "table did not exist"
+        : `own ${before.own}, other ${before.other_}`,
       after: `own ${after.own}, other ${after.other_} (of ${pick.n} that exist)`,
       ok,
       detail: ok
@@ -6529,9 +6995,10 @@ async function main(): Promise<void> {
   const staticResult = await staticCheck(run);
   const portfolioResult = await portfolioAllowlistCheck(run, pendingSql);
   const memoryResult = await coachMemoryWallCheck(run, pendingSql);
+  const pullLogResult = await externalPullLogCheck(run, pendingSql);
   console.log(
     batchSummaryLines(
-      [staticResult, portfolioResult, memoryResult],
+      [staticResult, portfolioResult, memoryResult, pullLogResult],
       "Static checks over live policy text"
     ).join("\n")
   );

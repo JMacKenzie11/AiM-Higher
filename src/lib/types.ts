@@ -471,6 +471,13 @@ export type SuccessMeasure = {
   // worth tracking but shouldn't fire "you didn't update" commitments.
   auto_track: boolean;
   update_frequency: UpdateFrequency;
+  // Where this measure's weekly value comes from when it is not
+  // typed. Null for an ordinary measure. Shape is checked by the
+  // database (0212) and again by parseMapping; see
+  // src/lib/external-measures/mapping.ts. Left as `unknown` here on
+  // purpose — a caller that wants the mapping has to go through the
+  // parser rather than trusting the column.
+  external_source: unknown;
   // Short AI-generated coaching hint about the target. Populated
   // when Performance Tracking is on and the model thinks the target
   // could be sharper (vague, not time-bound, not measurable, or
@@ -499,6 +506,12 @@ export type SuccessMeasureEntry = {
   value_number: number | null;
   value_text: string | null;
   entered_by: string | null;
+  // Null means a person typed it. 'google_sheet' means a pull wrote
+  // it and external_pull_log holds the receipt (migration 0212).
+  // Constrained to move with pulled_at, so a caller reading one can
+  // rely on the other.
+  origin: string | null;
+  pulled_at: string | null;
   created_at: string;
   updated_at: string;
 };

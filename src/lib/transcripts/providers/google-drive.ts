@@ -124,6 +124,20 @@ export async function exchangeCodeAndPersist(
 // Loads the stored refresh token for a company and returns an
 // OAuth2Client with credentials set. google-auth-library refreshes
 // the access token automatically when the SDK detects expiry.
+//
+// EXPORTED for the external-measures Sheets reader (0212), which
+// needs the same company's connection and must not have a second
+// one. A second credential would mean a client sharing a workbook
+// with one address and a transcript folder with another, and a
+// support question nobody can answer from the app. The scope
+// already granted (drive.readonly) is one the Sheets API accepts,
+// so this costs no re-consent.
+export async function googleAuthForCompany(
+  companyId: string
+): Promise<OAuth2Client> {
+  return authenticatedClient(companyId);
+}
+
 async function authenticatedClient(companyId: string): Promise<OAuth2Client> {
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data } = await admin

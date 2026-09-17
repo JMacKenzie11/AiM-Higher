@@ -243,6 +243,7 @@ Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coac
 | `automated_commitment_tracking` (default ON at create) | Auto-create commitments extracted from meeting transcripts as rows on `/commitments`. When OFF, the analyzer + facilitation review still run but the team authors commitments manually — extractions surface only in the meeting analysis, not on the Commitments board |
 | `classroom` | Adds the shared training library (top-level nav item, consumer surfaces at `/classroom`) + a `search_classroom` tool for the coach + Ask Aimee |
 | `role_descriptions` | Adds Decision Rights + Competency Indicators to functions, a per-section *Suggest…* helper, and the assembled Role Description document at `/chart/function/[id]/role-description` with publish + version history + `.docx` export |
+| `external_measures` | **PHASE 1.** A critical success factor or KPI can take its weekly value from the company's own Google Sheet instead of a typed entry. Adds a per-measure "Pull now" for the company's admins, a system_admin-only mapping surface, and a receipt on every pulled entry. Off everywhere but the one client it was built for. See Section 10b |
 | `strengths` | *(out of scope for this spec — noted for completeness only)* |
 
 ---
@@ -569,6 +570,58 @@ Nav label: **Critical Success Factors**, under *Workspace*. The tracking columns
 **`/measures` is the only place values are entered.** There is no dashboard card and no single-measure page.
 
 **Permissions.** Authoring actions in `src/lib/chart/actions.ts` admit `system_admin`, `company_admin`, and `aims_guide`. Weekly value writes (`upsertMeasureEntryAction`, `logMeasureEntriesAction`) admit those three or the function's Lead / Track holder. App-layer checks go through `isAdminForCompany`. RLS on `success_measures` and `success_measure_entries` is keyed on `function_id`, with `_guide` mirrors.
+
+---
+
+## 10b. External Measures (`external_measures`) — PHASE 1
+
+A measure's weekly value can be pulled from the client's own spreadsheet instead of typed. Built for one client (Benson Seafood) and flag-gated off everywhere else. Storage and rules: migration 0212.
+
+**What phase 1 is, and is not.** Phase 1 is the spine: stored mappings, a pull a person presses, origin-tagged entries, receipts, and the audit table. It does **not** include a scheduler (phase 2), a HubSpot connector and credential vault (phase 3), or a client-facing mapping UI (phase 4). Mapping is configured by a system_admin on the measure.
+
+**Where the mapping lives.** `success_measures.external_source`, nullable `jsonb`. `success_measures` is the measure-level table `/measures` reads and holds both levels since 0166, so a mapping works on a critical success factor and on a KPI without a second column. The shape is a discriminated union and the database checks it, so a mapping the reader cannot parse cannot be stored — including by a script or a psql session.
+
+| Kind | Shape | What a pull does |
+| --- | --- | --- |
+| `week_keyed` | `{file_id, tab, key_column, value_column}` | Finds the row whose key column holds the target week, reads the value column |
+| `snapshot` | `{file_id, tab, cell, freshness?}` | Reads that cell as it stands now and records it as the target week |
+
+Columns are matched by **heading text**, case-insensitively, not by column letter. A letter survives an inserted column and then reads the wrong column forever; a heading that stops matching finds nothing and writes nothing.
+
+**The week is the platform's, never the sheet's.** The target week comes from `thisFriday(company.timezone)`. A caller may name a different week, and it is checked against the thirteen week-endings the board already plots — so a pull can only ever target a week the platform recognises. `Pull last 4 weeks` (system_admin) walks those weeks one at a time, each with its own receipt.
+
+**Freshness is in the shape but NOT on the surface.** `snapshot` accepts an optional `freshness: {tab, cell}` naming a cell that says when the sheet was last brought up to date; when present, the pull refuses to record the value against any week that date does not describe (the week itself, or the six days after it). The reader, the parser and the log all support it, and the unit tests cover the stale case.
+
+The two inputs were **removed from the admin panel**, decided by the product owner after using it: two boxes about spreadsheet staleness are a riddle to anybody who did not design the feature, and phase 1 has one person configuring mappings. So a phase-1 snapshot means exactly what it says — whatever is in the cell when you pull, recorded against the week you choose.
+
+The capability is kept rather than deleted because the argument for it lands in **phase 2**. A person pressing the button notices a stale number; a cron running unattended files last week's number against this week, every week, and nothing looks wrong. Revisit when the scheduler is built. Until then nothing in the product can set it, and the panel carries any existing value through untouched rather than silently dropping it.
+
+**The four ways a pull writes nothing.** The sheet is unreachable; `week_keyed` finds no row for the week; a snapshot's freshness date does not cover the week (not reachable from the UI in phase 1, see above); the cell does not read as a number (blank included). In every case **nothing** is written, one log row is written, and the reason reaches the person who pressed the button. A week with no entry keeps rendering as unlogged, which is the truthful picture of "we do not know". A zero would be a lie in the shape of data.
+
+**A typed value always wins.** If a person has already logged the week by hand, the pull records `skipped_manual_exists` and changes nothing. This is enforced inside `record_external_pull()`, not in the action — the only race-free place, and it holds for callers that do not exist yet. In the other direction, a manual entry over a pulled week **clears** `origin` and `pulled_at`, so the receipt tag never sits on a number somebody typed.
+
+**Setup, once per Google Cloud project.** The **Google Sheets API must be enabled** on the project behind `GOOGLE_OAUTH_CLIENT_ID`, in addition to the Drive API the transcript pipeline already uses. Enabling Drive does not enable Sheets, and the failure is a `sheet_unreachable` receipt on every pull rather than anything at setup time. Google's message names the project id and links the page that turns it on. No re-consent is involved and no client is affected; it is a one-time switch on the AiMS project.
+
+**Reading the sheet.** Through the company's existing Google Drive credential (the transcript connection). No second Drive client, so the client shares the workbook with the same address they already share the transcript folder with. Reads go through the Sheets API rather than `drive.files.export`, which returns only the first tab silently and has no parameter to choose another. Cells are read as **displayed text**: a percent cell shows "45%" where its underlying value is 0.45, and this platform stores 45.
+
+**Who may do what**
+
+- **Pull**: system_admin, the company's company_admin, and an assigned guide or portfolio_admin (`isAdminForCompany`). A team member who leads the function may type a value here but may not pull one; pulling is an administrative act.
+- **Configure or verify a mapping**: system_admin only, in phase 1.
+- **Read a receipt**: system_admin, the company's company_admin, assigned guides. `external_pull_log` carries its own `company_id`, derived from the measure inside the write function and never passed by a caller.
+- **Edit or delete a receipt**: nobody. There are no UPDATE or DELETE policies and neither verb is granted, to `authenticated` or to `service_role`. INSERT arrives only through `record_external_pull()`. Asserted permanently by the `external_pull_log append-only` check in `npm run rls:hazards`, which runs on every invocation.
+
+**Verify writes nothing.** The mapping surface has a *Verify* action that reads the sheet and shows what it found — the last four dated weeks for `week_keyed`, the current value for `snapshot`. It does not call `record_external_pull`, so there is no path from it to an entry or a log row.
+
+**On the page.** An entry that came from a pull carries an understated caption beside the measure name, "Pulled · Sun 6:04am", in the company's timezone. Opening it shows the receipt: what was read, from where, when, and the mapping in plain words rebuilt from what that pull recorded rather than from the mapping as it stands now. A pull that recorded nothing shows "Not pulled" and the reason. Nothing else on `/measures` changes.
+
+**Help content is deferred, deliberately.** `docs/help/*.md` covers what a user does in the application, and in phase 1 no client-facing user configures or presses any of this: the mapping surface is system_admin-only and the pull button appears only for a company whose flag is on. Help arrives with the phase 4 client-facing UI, which is the first version an ordinary user meets.
+
+**Phases 2 to 4**
+
+- **Phase 2 — scheduler.** A cron pulls every mapped measure weekly. It has no `auth.uid()`, so it cannot use `record_external_pull()` as written and cannot insert directly (the privilege is revoked from `service_role`). It has to come back to a migration and say what it wants, which is the point.
+- **Phase 3 — HubSpot connector and credential vault.** A third mapping `kind`, added to the database's CHECK constraint and to `parseMapping`, plus per-connector credentials that are not the Drive OAuth row.
+- **Phase 4 — client-facing mapping UI.** A file picker, a tab list, a heading list, and an explanation of what a pull is allowed to overwrite. Help content ships with it.
 
 ---
 

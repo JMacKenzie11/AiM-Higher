@@ -1,0 +1,230 @@
+/* External measures: the receipt note and the admin surface.
+ *
+ * Design-system only. Every colour, radius and space below is a
+ * token the page already uses, and the note deliberately takes the
+ * same caption type as .measureFreq beside it — a value that arrived
+ * from a spreadsheet is still just this week's number, and a badge
+ * that outshouts the number would be describing the mechanism rather
+ * than the measure. */
+
+.noteWrap {
+  display: inline;
+}
+
+/* list-style:none on both selectors: Safari needs the
+   ::-webkit-details-marker form and everything else needs the
+   standard one. Without both, a disclosure triangle appears inside
+   the caption row and the tag stops looking like a tag. */
+.noteTag,
+.noteTagQuiet {
+  font: var(--text-caption);
+  cursor: pointer;
+  list-style: none;
+  display: inline;
+}
+
+.noteTag::-webkit-details-marker,
+.noteTagQuiet::-webkit-details-marker {
+  display: none;
+}
+
+.noteTag {
+  color: var(--text-muted);
+}
+
+/* A pull that recorded nothing. Warning-toned rather than danger:
+   the usual cause is a client who has not filled the week in yet,
+   which is not an error, and colouring it red would train the reader
+   to ignore red. */
+.noteTagQuiet {
+  color: var(--aims-warning);
+}
+
+.noteTag:focus-visible,
+.noteTagQuiet:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.receipt {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--aims-navy-tint);
+  /* The receipt can carry a Google error string, which is long and
+     unbroken. Without this it pushes the measure column wide and
+     every row on the page shifts. */
+  overflow-wrap: anywhere;
+}
+
+.receiptHeadline {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.receiptProblem {
+  margin: var(--space-1) 0 0;
+  font: var(--text-body-sm);
+  color: var(--aims-warning);
+}
+
+.receiptMapping {
+  margin: var(--space-1) 0 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.receiptList {
+  margin: var(--space-2) 0 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.receiptRow {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.receiptLabel {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-faint);
+}
+
+.receiptValue {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- The admin surface ---------------------------------------- */
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.adminWrap {
+  width: 100%;
+}
+
+.adminSummary {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.adminPanel {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  display: grid;
+  gap: var(--space-2);
+  min-width: 18rem;
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.fieldNote {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-faint);
+}
+
+.input {
+  font: var(--text-body-sm);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-height: var(--control-h-md);
+  padding: 0 var(--space-2);
+}
+
+.input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.adminActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.verify {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.verifyDescription {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.verifyNote {
+  margin: var(--space-2) 0 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.messageOk,
+.messageBad {
+  margin: 0;
+  font: var(--text-caption);
+}
+
+.messageOk {
+  color: var(--aims-success);
+}
+
+.messageBad {
+  color: var(--aims-danger);
+}
+
+/* The pull control and its week picker, side by side. Wraps on a
+   narrow row rather than pushing the measure column wider. */
+.pullRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.weekPick {
+  display: inline-flex;
+}
+
+/* Visible to a screen reader, not on screen. The select sits beside
+   a button that already says what it does, so a visible label would
+   be noise; a missing one leaves the control unnamed. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
