@@ -28,8 +28,8 @@ own critical success factors and the KPIs beneath them.
 critical success factor is the first row and the KPIs that drive it
 follow, shaded so the two read apart.
 
-**The 13-week board is on the Dashboard**, not here, in a card called
-*Measure performance*. It sits under *What's worth knowing today* and shows every measure against its
+**The 13-week board is on the Dashboard**, not here, in a card with
+the same name as this page. It sits under *What's worth knowing today* and shows every measure against its
 target across every function, in two views: *Timeline* rolls each
 function's week into a single cell so you can see who has been
 drifting, and *Grid* breaks each function into per-measure
