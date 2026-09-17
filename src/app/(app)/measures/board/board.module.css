@@ -4,10 +4,43 @@
    header (headline chips + view toggle) and the same status colour
    vocabulary. */
 
+/* THE CARD. Everything the board is made of lives inside it.
+ *
+ * It used to be loose elements on the dashboard's background: the
+ * toggle line, the headline chips and the view switcher all floating
+ * above a white box that held only the chart. On a page where every
+ * other block is a titled card, that read as three stray controls
+ * and an untitled panel rather than as one thing with a name.
+ *
+ * Matches .card in dashboard.module.css by token rather than by
+ * import: this component is imported BY the dashboard, and a
+ * stylesheet reaching the other way would tie /measures' board to
+ * /dashboard's sheet. Same tokens, same result, no coupling. */
 .boardStage {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
+}
+
+/* Title and toggle on one line. The title says what the card is; the
+   toggle says which window and how it is doing, and opens it. */
+.boardCardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.boardCardTitle {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
 }
 
 /* ---- Header (chips + view toggle) ---------------------------- */
@@ -138,11 +171,15 @@
   gap: var(--space-4);
 }
 
+/* A block nested inside the board's card, so it takes the app's
+   nested-block fill — the same one on .sectionBody and .subcard on
+   /foundation and .outcomeBlock on /measures. It was white with a
+   shadow, which was right when it sat on the page's own background
+   and is white-on-white now. */
 .cockpitCard {
-  background: var(--surface);
+  background: var(--grad-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
   padding: var(--space-4) var(--space-5) var(--space-5);
   display: flex;
   flex-direction: column;
@@ -436,13 +473,12 @@
 
 /* ---- Story timeline (view C) --------------------------------- */
 
+/* Inside the card now, so it is no longer a card itself. It kept
+   its own surface, border and shadow while the chips and the view
+   toggle floated outside it, which is what made the board look like
+   a panel with controls scattered above rather than one card. */
 .timelineScroll {
   overflow-x: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -616,8 +652,11 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-3) var(--space-4);
+  /* Was width: 100% and generously padded, because it was the only
+     thing on its row and had to look like a bar. It sits beside the
+     card's title now and is sized by its own text. */
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
   background: none;
   border: none;
   border-radius: var(--radius-md);
