@@ -24,12 +24,14 @@ own critical success factors and the KPIs beneath them.
 
 ## What is on the page
 
-**The board**, collapsed at the top. One line tells you whether to
-open it: *"3 functions off target this week."* Inside is 13 weeks of
-every measure against its target across every function, in two views.
-*Timeline* rolls each function's week into a single cell so you can
-see who has been drifting. *Grid* breaks each function into
-per-measure sparklines. Whether you leave it open is remembered.
+**The board**, open at the top. 13 weeks of every measure against its
+target across every function, in two views. *Timeline* rolls each
+function's week into a single cell so you can see who has been
+drifting. *Grid* breaks each function into per-measure sparklines.
+
+The line above it summarises what is inside, *"3 functions off target
+this week,"* and clicking it closes the board. Whether you leave it
+open or closed is remembered for next time.
 
 **The function list**, below it. Each function is one card. Inside a
 card, a critical success factor is the first row and the KPIs that
