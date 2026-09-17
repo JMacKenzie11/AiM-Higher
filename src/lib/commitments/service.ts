@@ -56,8 +56,6 @@ export type PriorityCommitmentPanelData = {
   history: WeekGroup[];
   todayIso: string;
   thisFriday: string;
-  quarterCoversThisWeek: boolean;
-  noQuarterMessage: string;
   roster: Array<Pick<Profile, "id" | "full_name" | "position">>;
 };
 
@@ -89,15 +87,31 @@ export async function getPriorityCommitmentPanelData(
   const { iso: todayIso } = todayInTimezone(timezone);
   const thisFri = thisFriday(timezone);
 
+  // Still loaded: the quarter labels the page and feeds the keep-rate
+  // below. It no longer DECIDES anything.
+  //
+  // It used to gate adding a commitment at all: the open quarter's
+  // date range had to cover this week, or the add row was replaced
+  // with "No quarter is open for this week". That was wrong in three
+  // ways and has been removed.
+  //
+  // A commitment does not need a priority. priority_id is nullable
+  // and plenty have none, so the quarterly planning cycle was
+  // blocking weekly work it has no claim over.
+  //
+  // The gate was not even applied consistently. The Saturday
+  // performance cron inserts commitments through the admin client
+  // with no quarter check at all, so a lapsed quarter left the SYSTEM
+  // able to add commitments to people's lists while the people could
+  // not add their own.
+  //
+  // And nothing validates a quarter's dates beyond end >= start. The
+  // gate was testing this week against a range that means whatever
+  // somebody typed six months ago, with no warning when it lapsed.
+  //
+  // A quarter holds priorities. That is the whole job. Forgetting to
+  // roll one is now a stale keep-rate window and nothing else.
   const openQuarter = await getCurrentQuarter(companyId);
-  const quarterCoversThisWeek = Boolean(
-    openQuarter &&
-      openQuarter.start_date <= thisFri &&
-      openQuarter.end_date >= thisFri
-  );
-  const noQuarterMessage = viewerIsAdmin
-    ? "No quarter is open for this week — open one to start adding commitments."
-    : "No quarter is open for this week. Ask your company admin to open one.";
 
   // Active company members plus the people ASSIGNED to work with this
   // company. This used to append `role = 'system_admin'` profiles "so
@@ -144,8 +158,6 @@ export async function getPriorityCommitmentPanelData(
     history,
     todayIso,
     thisFriday: thisFri,
-    quarterCoversThisWeek,
-    noQuarterMessage,
     roster,
   };
 }
@@ -198,7 +210,6 @@ export type CommitmentsPageData = {
   todayIso: string;
   thisFriday: string;
   openQuarter: Quarter | null;
-  quarterCoversThisWeek: boolean;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
   functionalAreaOptions: Array<{ id: string; title: string }>;
   roster: Array<Pick<Profile, "id" | "full_name" | "position">>;
@@ -329,12 +340,6 @@ export async function getCommitmentsPageData(
   const timezone = company?.timezone ?? "America/Anchorage";
   const { iso: todayIso } = todayInTimezone(timezone);
   const thisFri = thisFriday(timezone);
-
-  const quarterCoversThisWeek = Boolean(
-    openQuarter &&
-      openQuarter.start_date <= thisFri &&
-      openQuarter.end_date >= thisFri
-  );
 
   const rosterById = new Map(roster.map((p) => [p.id, p]));
 
@@ -597,7 +602,6 @@ export async function getCommitmentsPageData(
     todayIso,
     thisFriday: thisFri,
     openQuarter,
-    quarterCoversThisWeek,
     priorityOptions,
     functionalAreaOptions,
     roster,

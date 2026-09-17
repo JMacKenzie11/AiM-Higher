@@ -496,7 +496,6 @@ describe("getCommitmentsPageData — header stats and enrichment", () => {
 
     expect(data.thisFriday).toBe(THIS_FRIDAY);
     expect(data.timezone).toBe("America/Anchorage");
-    expect(data.quarterCoversThisWeek).toBe(true);
     expect(data.priorityOptions).toEqual([
       { id: "p_1", title: "Ship the thing" },
     ]);

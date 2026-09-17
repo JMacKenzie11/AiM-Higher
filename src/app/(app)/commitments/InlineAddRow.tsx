@@ -26,8 +26,6 @@ export type InlineAddRowProps = {
   roster: Array<Pick<Profile, "id" | "full_name">>;
   currentUserId: string;
   isAdmin: boolean;
-  quarterCoversThisWeek: boolean;
-  noQuarterMessage: string;
   // On a priority detail page the priority is implicit — pass the
   // id here to pin it and hide the picker. Reset keeps the pinned
   // id after save so the row stays scoped to this priority.
@@ -41,8 +39,6 @@ export function InlineAddRow({
   roster,
   currentUserId,
   isAdmin,
-  quarterCoversThisWeek,
-  noQuarterMessage,
   fixedPriorityId,
 }: InlineAddRowProps) {
   const pinnedPriority = fixedPriorityId ?? null;
@@ -83,14 +79,6 @@ export function InlineAddRow({
 
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
-
-  if (!quarterCoversThisWeek) {
-    return (
-      <div className={styles.inlineAddRow}>
-        <p className={styles.addDisabled}>{noQuarterMessage}</p>
-      </div>
-    );
-  }
 
   const formClasses = [styles.addForm];
   if (pinnedPriority) formClasses.push(styles.addFormNoPriority);

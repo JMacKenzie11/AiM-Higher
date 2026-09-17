@@ -96,13 +96,38 @@ export default async function DashboardPage() {
   );
   const showCoachColumn = isAdmin || managesAnyone;
 
+  // A LAPSED quarter has to say so. It used to read "Current quarter
+  // · Q3 2026" with no link, because the link only appeared when
+  // there was NO open quarter — and a quarter whose end date passed
+  // in September is still open. So the one line an admin would glance
+  // at showed a company as healthy for as long as nobody rolled it.
+  //
+  // Nothing breaks any more when a quarter lapses, which is the point
+  // of this change. But the priorities inside it stop matching the
+  // period the team is actually working, and that is worth a word.
+  const today = new Date().toISOString().slice(0, 10);
+  const quarterLapsed =
+    data.openQuarter !== null && data.openQuarter.end_date < today;
+  const settingsHref = `/admin/companies/${companyId}`;
+
   const eyebrow = data.openQuarter ? (
-    <>Current quarter · {data.openQuarter.label}</>
+    quarterLapsed ? (
+      <>
+        {data.openQuarter.label} ended {formatShortDate(data.openQuarter.end_date)}{" "}
+        {canManageCompany ? (
+          <Link href={settingsHref} className={styles.eyebrowLink}>
+            · Roll the quarter
+          </Link>
+        ) : null}
+      </>
+    ) : (
+      <>Current quarter · {data.openQuarter.label}</>
+    )
   ) : (
     <>
       No open quarter{" "}
-      {isAdmin ? (
-        <Link href="/quarters" className={styles.eyebrowLink}>
+      {canManageCompany ? (
+        <Link href={settingsHref} className={styles.eyebrowLink}>
           · Open one
         </Link>
       ) : null}

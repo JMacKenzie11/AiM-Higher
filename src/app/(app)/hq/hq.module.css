@@ -642,3 +642,14 @@
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* A quarter whose end date has passed. Warning-toned rather than
+   danger: nothing is broken, the priorities in it have simply
+   stopped matching the period the team is working, and colouring it
+   red would train a guide to ignore red. */
+.quarterLapsed {
+  font: var(--text-caption);
+  color: var(--aims-warning);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}

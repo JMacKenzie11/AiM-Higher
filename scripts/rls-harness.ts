@@ -5418,6 +5418,196 @@ async function externalMeasurePathsChecks(
   return out;
 }
 
+// PERMANENT COVERAGE for roll_quarter (0214).
+//
+// Rolling closes a quarter, opens the next and moves the unfinished
+// priorities into it. Three writes that must be one transaction,
+// because every half-state is worse than not rolling: a company with
+// no quarter, priorities orphaned in a closed one, or two quarters
+// holding the same work.
+//
+// The claims, each with a control beside it:
+//
+//   1. It rolls. Without this, every assertion below is about a
+//      function that does nothing.
+//   2. Unfinished priorities MOVE. Same row, new quarter, so the
+//      commitments pointing at them still point at them.
+//   3. COMPLETE priorities stay behind, which is what keeps the
+//      closed quarter an honest record of what the team landed.
+//   4. It is ATOMIC. A duplicate label fails the insert, and the
+//      quarter that was open must still be open afterwards.
+//   5. A caller with no business in the company is refused.
+async function rollQuarterChecks(
+  run: Runner,
+  pending: string
+): Promise<BatchCheck[]> {
+  const [present] = await run<{ yes: boolean }>(
+    ["begin;", pending,
+     `select count(*) > 0 as yes from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'roll_quarter';`,
+     "rollback;"].join("\n")
+  );
+  if (!present?.yes) {
+    return [{
+      name: "roll_quarter",
+      before: "not on this schema",
+      after: "not applicable: roll_quarter has not landed here yet",
+      ok: true,
+      detail: "nothing to police; the check activates with the function",
+    }];
+  }
+
+  // A company that has an open quarter with priorities in it, and an
+  // admin of that company. Everything below is measured against real
+  // rows rather than seeded ones where it can be.
+  const [fx] = await run<Record<string, string | null>>(`
+    select q.company_id as company, q.id as quarter, q.label as label,
+      (select id from public.profiles where role = 'system_admin'
+         and status = 'active' limit 1) as sysadmin,
+      (select p.id from public.profiles p
+        where p.role = 'company_admin' and p.status = 'active'
+          and p.company_id is not null
+          and p.company_id <> q.company_id limit 1) as outsider
+      from public.quarters q
+     where q.status = 'open'
+       and exists (select 1 from public.priorities pr where pr.quarter_id = q.id)
+     order by q.id limit 1;`);
+  if (!fx?.company || !fx?.sysadmin) {
+    return [{
+      name: "roll_quarter",
+      before: "not run",
+      after: "not run",
+      ok: false,
+      detail: "NOT PROVEN: this clone has no open quarter holding priorities, so a zero here would not be evidence",
+    }];
+  }
+
+  const attempt = async (sql: string) => {
+    try {
+      return { rows: await run<Record<string, unknown>>(sql), code: null as string | null };
+    } catch (err) {
+      const text = String((err as Error).message ?? err);
+      const m = text.match(/ERROR:\s+([0-9A-Z]{5})/);
+      return { rows: [] as Record<string, unknown>[], code: m ? m[1] : "ERROR" };
+    }
+  };
+
+  const NEW_LABEL = "ZZ Harness Roll";
+  const roll = `select * from public.roll_quarter('${fx.company}', '${NEW_LABEL}', current_date, current_date + 89);`;
+
+  const out: BatchCheck[] = [];
+  const say = (name: string, after: string, ok: boolean, detail: string) =>
+    out.push({ name, before: "n/a (new function)", after, ok, detail });
+
+  // ---- 1, 2, 3 in one transaction ------------------------------
+  // The complete-priority count is taken BEFORE the roll as well as
+  // after, and that is the difference between a check and a
+  // decoration. Asserting only "0 unfinished left behind" passes just
+  // as happily when the function moves EVERYTHING, complete included
+  // — the exact bug that would quietly rewrite what a closed quarter
+  // says the team landed. A count with nothing to compare against is
+  // not evidence.
+  const rolled = await attempt(
+    asCaller(fx.sysadmin, pending,
+      `-- One priority marked complete, so "completed work stays" has
+       -- something to be true ABOUT. The clone's open quarters happen
+       -- to hold none, and a check whose subject does not exist
+       -- reports NOT PROVEN rather than passing — correctly, and
+       -- uselessly. Seeded inside the rolled-back transaction like
+       -- every other fixture here.
+       update public.priorities set status = 'complete'
+        where id = (select id from public.priorities
+                     where quarter_id = '${fx.quarter}' order by id limit 1);
+       create temp table _roll_before as
+         select count(*)::int as complete_before
+           from public.priorities
+          where quarter_id = '${fx.quarter}' and status = 'complete';
+       ${roll}
+       select
+         (select count(*)::int from public.quarters
+           where company_id = '${fx.company}' and status = 'open'
+             and label = '${NEW_LABEL}') as opened,
+         (select count(*)::int from public.quarters
+           where id = '${fx.quarter}' and status = 'closed') as closed,
+         (select count(*)::int from public.priorities
+           where quarter_id = '${fx.quarter}' and status <> 'complete') as left_behind,
+         (select complete_before from _roll_before) as complete_before,
+         (select count(*)::int from public.priorities
+           where quarter_id = '${fx.quarter}' and status = 'complete') as complete_after;`)
+  );
+  const r = rolled.rows?.[0] ?? {};
+  const opened = Number(r.opened ?? 0);
+  const closed = Number(r.closed ?? 0);
+  const leftBehind = Number(r.left_behind ?? -1);
+  say("the roll closes one quarter and opens the next",
+      rolled.code ? `refused with ${rolled.code}` : `opened ${opened}, closed ${closed}`,
+      opened === 1 && closed === 1,
+      opened === 1 && closed === 1
+        ? "the control: everything below is about a function that demonstrably works"
+        : "the roll did not happen, so nothing else here is evidence");
+  say("no unfinished priority is left in the closed quarter",
+      rolled.code ? `errored with ${rolled.code}` : `${leftBehind} left behind`,
+      leftBehind === 0,
+      leftBehind === 0
+        ? "every priority that was not complete moved, which is the orphaning this ended"
+        : "a priority was orphaned in the closed quarter");
+
+  const completeBefore = Number(r.complete_before ?? 0);
+  const completeAfter = Number(r.complete_after ?? -1);
+  say("every COMPLETE priority stays in the quarter it was finished in",
+      rolled.code
+        ? `errored with ${rolled.code}`
+        : `${completeBefore} before, ${completeAfter} after`,
+      completeBefore > 0 && completeAfter === completeBefore,
+      completeBefore === 0
+        ? "NOT PROVEN: the fixture quarter holds no completed priority, so 'none moved' is a statement about an empty set"
+        : completeAfter === completeBefore
+          ? "the closed quarter still says what the team actually landed"
+          : "completed work was dragged into the new quarter, rewriting what the closed one records");
+
+  // ---- 4. Atomic ----------------------------------------------
+  // A duplicate label fails the insert. If the close is not in the
+  // same transaction, the quarter it closed stays closed and the
+  // company is left with none.
+  const atomic = await attempt(
+    asCaller(fx.sysadmin, pending,
+      `do $$ begin
+         begin
+           perform public.roll_quarter('${fx.company}', '${(fx.label ?? "").replace(/'/g, "''")}', current_date, current_date + 89);
+         exception when others then null;
+         end;
+       end $$;
+       select (select count(*)::int from public.quarters
+                where id = '${fx.quarter}' and status = 'open') as still_open;`)
+  );
+  const stillOpen = Number(atomic.rows?.[0]?.still_open ?? 0);
+  say("a failed roll leaves the old quarter open",
+      atomic.code ? `errored with ${atomic.code}` : `old quarter still open: ${stillOpen}`,
+      stillOpen === 1,
+      stillOpen === 1
+        ? "the close and the insert are one transaction, so a duplicate label costs nothing"
+        : "the close survived a failed insert, leaving the company with no open quarter");
+
+  // ---- 5. The refusal ------------------------------------------
+  if (fx.outsider) {
+    const refused = await attempt(asCaller(fx.outsider, pending, roll));
+    say("an admin of another company cannot roll this one",
+        refused.code ? `refused with ${refused.code}` : "SUCCEEDED, which it must not",
+        refused.code === "42501",
+        refused.code === "42501"
+          ? "refused at the function's own check, which is an error rather than a silent no-op"
+          : "a company_admin rolled a quarter in a company they do not administer");
+  } else {
+    say("an admin of another company cannot roll this one",
+        "not run",
+        false,
+        "NOT PROVEN: this clone has no company_admin outside the fixture company");
+  }
+
+  return out;
+}
+
 async function staticCheck(run: Runner): Promise<BatchCheck> {
   const rows = await run<PolicyRow>(`
     select tablename, policyname, qual, with_check
@@ -7229,9 +7419,17 @@ async function main(): Promise<void> {
   const memoryResult = await coachMemoryWallCheck(run, pendingSql);
   const pullLogResult = await externalPullLogCheck(run, pendingSql);
   const pathResults = await externalMeasurePathsChecks(run, pendingSql);
+  const rollResults = await rollQuarterChecks(run, pendingSql);
   console.log(
     batchSummaryLines(
-      [staticResult, portfolioResult, memoryResult, pullLogResult, ...pathResults],
+      [
+        staticResult,
+        portfolioResult,
+        memoryResult,
+        pullLogResult,
+        ...pathResults,
+        ...rollResults,
+      ],
       "Static checks over live policy text"
     ).join("\n")
   );
