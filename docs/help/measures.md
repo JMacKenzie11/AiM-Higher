@@ -88,13 +88,17 @@ three weeks out of four.
 
 ## What happens when a number is late or bad
 
-A job runs on Saturday morning and looks at every measure that was
-due that week.
+A job runs on Saturday morning and looks back at the week that just
+finished, at every measure that was due in it.
 
 **No value logged** creates a **commitment** for the person who owns
-the function: *"Log this week's value for [measure]."* Due at the end
-of the same week, so it closes as soon as the number is in. This is
-an administrative nudge, so it is a commitment.
+the function: *"Log last week's value for [measure]."* Due the coming
+Friday, so there is time to put it right. This is an administrative
+nudge, so it is a commitment.
+
+You are only asked about a week that has ended, and only when the
+number really is missing. If somebody logged it, or it came in from a
+connected spreadsheet, nobody is chased.
 
 **A value below target** raises an **issue**: *"Off target:
 [measure]."* Missing a target is a business problem, not an admin

@@ -2,7 +2,7 @@ import "server-only";
 
 import { NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fridayOf, thisFriday } from "@/lib/dates";
+import { fridayOf, lastFriday, thisFriday } from "@/lib/dates";
 import type {
   MetricValueType,
   TargetDirection,
@@ -14,11 +14,50 @@ import { forEachActiveInstance } from "@/lib/instances/for-each";
 
 // Saturday cron for companies on `performance_tracking`.
 //
+// ---- WHICH WEEK, AND WHY IT WAS WRONG -------------------------
+//
+// This read thisFriday(timezone). It runs on a Saturday, and on a
+// Saturday thisFriday() is the Friday SIX DAYS AHEAD: the week that
+// has just begun, not the one that just closed, despite everything
+// below saying otherwise. Two consequences, both measured on the
+// clone before this was changed:
+//
+//   Off-target NEVER FIRED. Not once, on any instance, since the
+//   branch was written — `select count(*) from issues where title
+//   like 'Off target:%'` returned 0, with no first and no last. The
+//   branch runs only when an entry exists, and no entry can exist
+//   for a week that is one day old.
+//
+//   The nudge fired UNCONDITIONALLY. 26 commitments for the week
+//   ending 18 Sep, created on the Saturday that week began, when
+//   nobody could have logged anything yet. That is not a reminder,
+//   it is a weekly chore list that cannot be satisfied at the moment
+//   it is created.
+//
+// Both now read the week that JUST CLOSED, which is the only week
+// either question means anything about: a value is final, and
+// "did anybody log it" has a real answer.
+//
+// ---- WHAT THIS DOES NOT KNOW ABOUT ----------------------------
+//
+// External measures. Deliberately, and it must stay that way.
+//
+// The external-measures cron runs at 14:00 UTC, an hour before this
+// one, and fills the same closed week where it can. So a pulled
+// measure has a value here and is not nudged — without this file
+// containing a single line about mappings. It looks for a VALUE.
+//
+// Skipping mapped measures outright would be the obvious shortcut
+// and is the opposite of what anybody wants: when a client's sheet
+// breaks, the value is absent, and the person accountable has to be
+// chased exactly as if they had forgotten. Pinned by
+// src/lib/external-measures/rhythm.test.ts.
+//
 // Two very different things happen when a measure needs attention,
 // and they are no longer treated the same way:
 //
 //   1. NO VALUE LOGGED → a commitment on the function leader.
-//      "Log this week's value for X". This is an administrative
+//      "Log last week's value for X". This is an administrative
 //      reminder about data entry, not a problem with the business.
 //      Routing it to the issues list would fill that list with
 //      clerical noise and devalue it.
@@ -123,8 +162,15 @@ async function runForCompany(
   companyId: string,
   timezone: string
 ): Promise<{ createdMissing: number; createdOffTarget: number }> {
-  const weekEnding = thisFriday(timezone);
-  const cutoffFriday = fridayOf(weekEnding);
+  // The week that just closed. Both branches below judge it: its
+  // numbers are final and "did anybody log this" has a real answer.
+  const weekJustClosed = lastFriday(timezone);
+  // The commitment is ABOUT last week and DUE this Friday. Pointing
+  // the due date at the closed week too would create every nudge
+  // already overdue, which is accurate and useless: there is nothing
+  // a person can do about a date that has passed except carry a red
+  // row around.
+  const dueDate = thisFriday(timezone);
 
   const { data: fnRows } = await admin
     .from("functions")
@@ -175,7 +221,7 @@ async function runForCompany(
   const due = measures.filter((m) =>
     isDueForWeek({
       frequency: m.update_frequency ?? "weekly",
-      weekEndingFriday: weekEnding,
+      weekEndingFriday: weekJustClosed,
       anchorFriday: fridayOf(m.created_at.slice(0, 10)),
     })
   );
@@ -184,6 +230,8 @@ async function runForCompany(
   }
 
   // Entries for the just-closed week (missing + values in one query).
+  // This is where a pulled value arrives: the external-measures cron
+  // wrote it an hour ago, and to this code it is simply an entry.
   const { data: entryRows } = await admin
     .from("success_measure_entries")
     .select("measure_id, value_number, value_text")
@@ -191,7 +239,7 @@ async function runForCompany(
       "measure_id",
       due.map((m) => m.id)
     )
-    .eq("week_ending", weekEnding);
+    .eq("week_ending", weekJustClosed);
   const entryByMeasure = new Map(
     ((entryRows ?? []) as Array<{
       measure_id: string;
@@ -229,7 +277,7 @@ async function runForCompany(
     .from("commitments")
     .select("description, week_ending")
     .eq("company_id", companyId)
-    .eq("week_ending", cutoffFriday);
+    .eq("week_ending", weekJustClosed);
   const existingKeys = new Set(
     ((existingRows ?? []) as Array<{
       description: string;
@@ -252,8 +300,8 @@ async function runForCompany(
 
   for (const m of missing) {
     const fn = m.function_id ? fnById.get(m.function_id) : null;
-    const description = `Log this week's value for "${m.description}"`;
-    if (existingKeys.has(`${cutoffFriday}::${description}`)) continue;
+    const description = `Log last week's value for "${m.description}"`;
+    if (existingKeys.has(`${weekJustClosed}::${description}`)) continue;
     rowsToInsert.push({
       company_id: companyId,
       priority_id: null,
@@ -264,8 +312,8 @@ async function runForCompany(
       functional_area_id: m.function_id ?? null,
       owner_id: fn?.lead_id ?? null,
       description,
-      week_ending: cutoffFriday,
-      due_date: cutoffFriday,
+      week_ending: weekJustClosed,
+      due_date: dueDate,
       status: "open",
       source_meeting_id: null,
     });
