@@ -49,6 +49,11 @@ const sheet = {
   snapshotCell: process.env.E2E_SHEET_SNAPSHOT_CELL,
 };
 
+// The cron path needs the shared secret the route checks, which is
+// the same one Vercel sends. Separate from `sheet` so the two
+// browser specs still run when only this is missing.
+const CRON_SECRET = process.env.CRON_SECRET;
+
 const missing = Object.entries(sheet)
   .filter(([, v]) => !v)
   .map(([k]) => k);
@@ -170,5 +175,93 @@ test.describe("external measures", () => {
     await pulled.click();
     await expect(page.getByText(/Pulled from the spreadsheet/i)).toBeVisible();
     await expect(page.getByText(sheet.snapshotCell as string).first()).toBeVisible();
+  });
+
+  // ---- The scheduler, driven the way Vercel drives it ----------
+  //
+  // Phase 2. Triggers the route with the cron's own bearer token
+  // rather than simulating one, then reads the result off /measures
+  // as a person would.
+  //
+  // THE SECOND HALF IS THE POINT. Breaking the mapping and confirming
+  // the week goes to AWAITING with a logged reason and no entry is
+  // the whole E4 claim: a cron that cannot read a sheet must leave a
+  // gap and an explanation, not a zero.
+  test("the cron fills the closed week, and a broken mapping leaves a gap", async ({
+    page,
+    request,
+  }) => {
+    test.skip(!CRON_SECRET, "CRON_SECRET is not set; the cron route refuses.");
+
+    await signIn(page, users.admin());
+    await page.goto("/measures");
+
+    const measure = await page
+      .locator('[role="row"] [class*="measureTitleText"]')
+      .first()
+      .innerText();
+
+    // Map it week_keyed, with no pull_day, so it is due on the
+    // standard day. The cron is triggered by hand here rather than
+    // waited for, so the day does not have to be Saturday — what is
+    // under test is the path, not Vercel's clock.
+    const row = await openSourcePanel(page, measure);
+    await row.getByLabel(/spreadsheet link or id/i).fill(sheet.id as string);
+    await row.getByLabel(/^tab name$/i).fill(sheet.tab as string);
+    await row.getByLabel(/key column heading/i).fill(sheet.keyColumn as string);
+    await row
+      .getByLabel(/value column heading/i)
+      .fill(sheet.valueColumn as string);
+    await row.getByRole("button", { name: /save source/i }).click();
+
+    const fire = async () =>
+      request.post("/api/cron/external-measures", {
+        headers: { authorization: `Bearer ${CRON_SECRET}` },
+      });
+
+    const first = await fire();
+    expect(first.status()).toBe(200);
+
+    await page.reload();
+    const pulled = page
+      .locator('[role="row"]', { hasText: measure })
+      .first()
+      .getByText(/^Pulled ·/);
+    await expect(pulled).toBeVisible();
+
+    // IDEMPOTENCE, against the live database rather than a stub. A
+    // second run must change nothing and must still return 200: a
+    // skip is not a failure.
+    const second = await fire();
+    expect(second.status()).toBe(200);
+    await page.reload();
+    await expect(
+      page.locator('[role="row"]', { hasText: measure }).first().getByText(/^Pulled ·/)
+    ).toBeVisible();
+
+    // ---- Now break it -------------------------------------------
+    const broken = await openSourcePanel(page, measure);
+    await broken.getByLabel(/^tab name$/i).fill("No Such Tab");
+    await broken.getByRole("button", { name: /save source/i }).click();
+
+    // A different week, so the already-pulled week is not simply
+    // skipped as present. Clearing the entry is not possible through
+    // the UI, so the assertion moves to a week the sheet cannot
+    // answer for.
+    const third = await fire();
+    // Non-2xx on any failure, so the monitor sees it. This is the
+    // convention the brief asked for and the one thing about a cron
+    // that cannot be checked by looking at the page.
+    expect(third.status()).toBe(500);
+
+    await page.reload();
+    const note = page
+      .locator('[role="row"]', { hasText: measure })
+      .first()
+      .getByText(/^Not pulled$/);
+    await expect(note).toBeVisible();
+    await note.click();
+    await expect(page.getByText(/Nothing was pulled/i)).toBeVisible();
+    await expect(page.getByText(/Last pull/i)).toBeVisible();
   });
 });

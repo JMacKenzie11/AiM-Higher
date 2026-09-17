@@ -14,10 +14,26 @@
 // Either one alone leaves the pull discovering the problem halfway
 // through, against a live sheet.
 
+// Which day the scheduler pulls this mapping on. Absent means the
+// rhythm's standard day, which is Saturday and is decided by the
+// cron rather than stored on every mapping.
+//
+// It exists for sources that refresh late. Benson's dashboard closes
+// a week on Saturday and is brought up to date by hand afterwards; a
+// source updated on a Monday would be read empty every Saturday
+// forever, and the receipt would say so every week without anybody
+// being able to do much about it.
+export type PullDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+export const PULL_DAYS: readonly PullDay[] = [
+  "sun", "mon", "tue", "wed", "thu", "fri", "sat",
+];
+
 export type WeekKeyedMapping = {
   kind: "week_keyed";
   file_id: string;
   tab: string;
+  pull_day?: PullDay;
   // Matched against the sheet's HEADER ROW, case-insensitively and
   // trimmed — not a column letter. A letter survives nothing: insert
   // a column in front of it and the mapping still resolves, to the
@@ -33,6 +49,7 @@ export type SnapshotMapping = {
   kind: "snapshot";
   file_id: string;
   tab: string;
+  pull_day?: PullDay;
   // A1 notation relative to the tab: "B7".
   cell: string;
   // Optional. A cell holding the date the sheet was last brought up
@@ -65,17 +82,41 @@ export function parseMapping(raw: unknown): ExternalMapping | null {
   const tab = str(o.tab);
   if (!file_id || !tab) return null;
 
+  // An unrecognised pull_day is a REFUSAL, not a fallback to the
+  // default. Silently treating "monday" as Saturday would pull a
+  // late source early, every week, and the receipt would blame the
+  // sheet. The database refuses the same set.
+  let pull_day: PullDay | undefined;
+  if (o.pull_day !== undefined && o.pull_day !== null) {
+    const raw = str(o.pull_day)?.toLowerCase();
+    if (!raw || !(PULL_DAYS as readonly string[]).includes(raw)) return null;
+    pull_day = raw as PullDay;
+  }
+
   if (o.kind === "week_keyed") {
     const key_column = str(o.key_column);
     const value_column = str(o.value_column);
     if (!key_column || !value_column) return null;
-    return { kind: "week_keyed", file_id, tab, key_column, value_column };
+    return {
+      kind: "week_keyed",
+      file_id,
+      tab,
+      key_column,
+      value_column,
+      ...(pull_day ? { pull_day } : {}),
+    };
   }
 
   if (o.kind === "snapshot") {
     const cell = str(o.cell);
     if (!cell) return null;
-    const mapping: SnapshotMapping = { kind: "snapshot", file_id, tab, cell };
+    const mapping: SnapshotMapping = {
+      kind: "snapshot",
+      file_id,
+      tab,
+      cell,
+      ...(pull_day ? { pull_day } : {}),
+    };
     const f = o.freshness;
     if (f !== undefined && f !== null) {
       if (typeof f !== "object" || Array.isArray(f)) return null;

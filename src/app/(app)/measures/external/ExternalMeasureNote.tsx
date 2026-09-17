@@ -22,17 +22,30 @@ export function ExternalMeasureNote({ measureId }: { measureId: string }) {
   const info = useExternalMeasure(measureId);
   const { timezone } = useExternalMeasures();
   if (!info) return null;
-  const { receipt, pulledAt } = info;
+  const { receipt, pulledAt, lastPull } = info;
 
-  // No pull has ever touched this week. A measure with a mapping and
-  // no pull yet says nothing at all: the row's existing "not yet
-  // logged" treatment is already the right answer and a second empty
-  // state beside it would be noise.
-  if (!receipt && !pulledAt) return null;
+  // A failing SCHEDULED pull has to be visible on a week it did not
+  // touch. Phase 1 only ever asked about the current week, which was
+  // right while a person pressed the button — they had just pressed
+  // it, and the answer was on screen. Once a cron presses it, a
+  // measure whose last three runs failed showed nothing at all.
+  //
+  // Only a FAILURE earns the note on another week. A healthy measure
+  // whose last pull was a fortnight ago says nothing, because the
+  // row's own "not yet logged" treatment is already the right
+  // answer and a second empty state beside it is noise.
+  const staleFailure =
+    !receipt && !pulledAt && lastPull?.receipt.outcome === "failed"
+      ? lastPull
+      : null;
+
+  if (!receipt && !pulledAt && !staleFailure) return null;
 
   const label = pulledAt
     ? `Pulled · ${formatPulledAt(pulledAt, timezone)}`.replace(/ · $/, "")
     : "Not pulled";
+
+  const shown = receipt ?? staleFailure?.receipt ?? null;
 
   return (
     <details className={styles.noteWrap}>
@@ -46,22 +59,35 @@ export function ExternalMeasureNote({ measureId }: { measureId: string }) {
       >
         {label}
       </summary>
-      {receipt ? (
+      {shown ? (
         <div className={styles.receipt}>
-          <p className={styles.receiptHeadline}>{receipt.headline}</p>
-          {receipt.problem ? (
-            <p className={styles.receiptProblem}>{receipt.problem}</p>
+          <p className={styles.receiptHeadline}>{shown.headline}</p>
+          {shown.problem ? (
+            <p className={styles.receiptProblem}>{shown.problem}</p>
           ) : null}
-          {receipt.mapping ? (
-            <p className={styles.receiptMapping}>{receipt.mapping}</p>
+          {shown.mapping ? (
+            <p className={styles.receiptMapping}>{shown.mapping}</p>
           ) : null}
           <dl className={styles.receiptList}>
-            {receipt.lines.map((line) => (
+            {shown.lines.map((line) => (
               <div key={line.label} className={styles.receiptRow}>
                 <dt className={styles.receiptLabel}>{line.label}</dt>
                 <dd className={styles.receiptValue}>{line.value}</dd>
               </div>
             ))}
+            {/* THE ONE LINE PHASE 2 ADDS. Where the rest of the
+                receipt describes this week, this says what the last
+                attempt did whenever it ran, which is the question a
+                scheduled pull makes people ask. */}
+            {lastPull ? (
+              <div className={styles.receiptRow}>
+                <dt className={styles.receiptLabel}>Last pull</dt>
+                <dd className={styles.receiptValue}>
+                  {lastPull.receipt.headline} (week ending{" "}
+                  {lastPull.weekEnding})
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
       ) : (

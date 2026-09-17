@@ -16,7 +16,12 @@ import { failureSentence } from "./pull";
 export type ReceiptLine = { label: string; value: string };
 
 export type ReceiptView = {
-  outcome: "written" | "skipped_manual_exists" | "skipped_stale" | "failed";
+  outcome:
+    | "written"
+    | "skipped_manual_exists"
+    | "skipped_exists"
+    | "skipped_stale"
+    | "failed";
   // The headline, in the past tense, because a receipt is a record of
   // something that already happened.
   headline: string;
@@ -35,6 +40,9 @@ export type ReceiptView = {
 const HEADLINES: Record<ReceiptView["outcome"], string> = {
   written: "Pulled from the spreadsheet",
   skipped_manual_exists: "Not pulled. A typed value was already here",
+  // The scheduler being idempotent, which is a non-event and reads
+  // as one. It appears when a week is re-run, not when it fails.
+  skipped_exists: "Not pulled again. This week was already recorded",
   skipped_stale: "Not pulled. The sheet was not up to date for this week",
   failed: "Nothing was pulled",
 };
@@ -65,9 +73,13 @@ export function buildReceipt(row: {
 }): ReceiptView {
   const d = row.detail ?? {};
   const outcome = (
-    ["written", "skipped_manual_exists", "skipped_stale", "failed"].includes(
-      row.outcome
-    )
+    [
+      "written",
+      "skipped_manual_exists",
+      "skipped_exists",
+      "skipped_stale",
+      "failed",
+    ].includes(row.outcome)
       ? row.outcome
       : "failed"
   ) as ReceiptView["outcome"];
