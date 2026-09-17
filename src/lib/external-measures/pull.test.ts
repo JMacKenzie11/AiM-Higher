@@ -132,16 +132,36 @@ describe("decideWeekKeyed", () => {
 });
 
 describe("freshnessCovers", () => {
-  it("accepts the week's own Friday and anything later", () => {
+  it("accepts the week's own Friday and the days just after it", () => {
     expect(freshnessCovers("2026-09-18", WEEK)).toBe(true);
     expect(freshnessCovers("2026-09-21", WEEK)).toBe(true);
+    expect(freshnessCovers("2026-09-24", WEEK)).toBe(true);
   });
 
   it("refuses a date inside the week but before it ends", () => {
-    // The strict reading, chosen deliberately: a sheet last touched
-    // on Monday is not evidence for a week that runs to Friday.
+    // A sheet last touched on Monday is not evidence for a week that
+    // runs to Friday.
     expect(freshnessCovers("2026-09-14", WEEK)).toBe(false);
     expect(freshnessCovers("2026-08-01", WEEK)).toBe(false);
+  });
+
+  it("REFUSES a date far newer than the week, which a floor rule would accept", () => {
+    // The bug this pins. A snapshot holds one value describing one
+    // period, so under "is the sheet at least as new as the week"
+    // every OLDER week passes too — and a walk over four weeks would
+    // write today's number into all four, identically. A flat line
+    // that looks like data.
+    expect(freshnessCovers("2026-09-25", WEEK)).toBe(false);
+    expect(freshnessCovers("2026-11-01", WEEK)).toBe(false);
+  });
+
+  it("puts the real client caption's date on the right week, and no other", () => {
+    // "Latest completed week: Sep 6, 2026 to Sep 12, 2026" reads as
+    // 2026-09-12, a Saturday. Platform weeks end Friday, so it
+    // belongs to the week ending Sep 11 and to nothing else.
+    expect(freshnessCovers("2026-09-12", "2026-09-11")).toBe(true);
+    expect(freshnessCovers("2026-09-12", "2026-09-18")).toBe(false);
+    expect(freshnessCovers("2026-09-12", "2026-09-04")).toBe(false);
   });
 });
 
@@ -175,6 +195,26 @@ describe("decideSnapshot", () => {
     // The number is reported without being recorded: "stale and
     // unchanged" is a different conversation from "stale and moved".
     expect(d.detail.value_seen).toBe(42);
+  });
+
+  it("reads a freshness cell written as a sentence", () => {
+    // The whole reason parseFreshnessDate exists: the real cell is a
+    // caption, not a date cell, and refusing it would mean declining
+    // every pull forever.
+    const mapping: SnapshotMapping = {
+      ...snapshot,
+      freshness: { tab: "Dashboard", cell: "B2" },
+    };
+    const d = decideSnapshot(
+      "58.26",
+      "Latest completed week: Sep 6, 2026 to Sep 12, 2026",
+      mapping,
+      "2026-09-11"
+    );
+    expect(d.outcome).toBe("written");
+    if (d.outcome !== "written") return;
+    expect(d.value).toBe(58.26);
+    expect(d.detail.freshness_date).toBe("2026-09-12");
   });
 
   it("declines when the freshness cell is not a date at all", () => {

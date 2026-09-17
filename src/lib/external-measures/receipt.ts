@@ -34,8 +34,8 @@ export type ReceiptView = {
 
 const HEADLINES: Record<ReceiptView["outcome"], string> = {
   written: "Pulled from the spreadsheet",
-  skipped_manual_exists: "Not pulled — a typed value was already here",
-  skipped_stale: "Not pulled — the sheet was not up to date for this week",
+  skipped_manual_exists: "Not pulled. A typed value was already here",
+  skipped_stale: "Not pulled. The sheet was not up to date for this week",
   failed: "Nothing was pulled",
 };
 

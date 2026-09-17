@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { parseSheetNumber, parseSheetDate } from "./parse";
+import { parseSheetNumber, parseSheetDate, parseFreshnessDate } from "./parse";
 
 // The only place in this feature where a wrong answer is silent, so
 // the cases below are mostly about what must be REFUSED. A parser
@@ -102,5 +102,43 @@ describe("parseSheetDate", () => {
     expect(parseSheetDate("Week 38")).toBeNull();
     expect(parseSheetDate("")).toBeNull();
     expect(parseSheetDate(null)).toBeNull();
+  });
+});
+
+describe("parseFreshnessDate", () => {
+  it("reads the real client caption, and takes the END of the range", () => {
+    // Benson's operations dashboard, verbatim, in one merged cell
+    // across the top. The end of the period is what a week has to be
+    // checked against; taking the start would treat the numbers as a
+    // week older than they are.
+    expect(
+      parseFreshnessDate("Latest completed week: Sep 6, 2026 to Sep 12, 2026")
+    ).toBe("2026-09-12");
+  });
+
+  it("takes the latest date however the sentence is ordered", () => {
+    expect(parseFreshnessDate("Week of Sep 12, 2026, updated Sep 8, 2026")).toBe(
+      "2026-09-12"
+    );
+  });
+
+  it("reads the spellings a person actually types", () => {
+    expect(parseFreshnessDate("September 12, 2026")).toBe("2026-09-12");
+    expect(parseFreshnessDate("12 Sept 2026")).toBe("2026-09-12");
+    expect(parseFreshnessDate("As of 9/12/2026")).toBe("2026-09-12");
+    expect(parseFreshnessDate("Data through 2026-09-12")).toBe("2026-09-12");
+  });
+
+  it("still refuses a cell that names no date", () => {
+    // The point of the freshness field is that it can decline. A
+    // parser that finds a date in anything cannot.
+    expect(parseFreshnessDate("Updated whenever")).toBeNull();
+    expect(parseFreshnessDate("Week 38")).toBeNull();
+    expect(parseFreshnessDate("")).toBeNull();
+    expect(parseFreshnessDate("Sepulchre 12, 2026")).toBeNull();
+  });
+
+  it("refuses a date that does not exist, inside a sentence too", () => {
+    expect(parseFreshnessDate("Week ending Feb 30, 2026")).toBeNull();
   });
 });

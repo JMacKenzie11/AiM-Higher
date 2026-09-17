@@ -26,10 +26,8 @@ import { test, expect, signIn, users } from "./fixtures";
 //    It needs a tab named by E2E_SHEET_TAB with a "Week Ending"
 //    column and a numeric column named by E2E_SHEET_VALUE_COLUMN,
 //    filled in for the last four platform weeks (Fridays).
-// 2. Add a second tab named by E2E_SHEET_SNAPSHOT_TAB holding a value
-//    cell and a freshness date cell. Set the freshness date to
-//    something OLD — last quarter — because the case being tested is
-//    that a stale sheet declines.
+// 2. Add a second tab named by E2E_SHEET_SNAPSHOT_TAB holding one
+//    numeric value cell — a dashboard-style figure, not a table.
 // 3. Share the workbook, as Viewer, with the Google account connected
 //    to the fixture company on the dev instance.
 // 4. Turn on the external_measures flag for the fixture company.
@@ -41,7 +39,6 @@ import { test, expect, signIn, users } from "./fixtures";
 //      E2E_SHEET_VALUE_COLUMN=Pounds Shipped
 //      E2E_SHEET_SNAPSHOT_TAB=Summary
 //      E2E_SHEET_SNAPSHOT_CELL=B7
-//      E2E_SHEET_FRESHNESS_CELL=B2
 
 const sheet = {
   id: process.env.E2E_SHEET_ID,
@@ -50,7 +47,6 @@ const sheet = {
   valueColumn: process.env.E2E_SHEET_VALUE_COLUMN,
   snapshotTab: process.env.E2E_SHEET_SNAPSHOT_TAB,
   snapshotCell: process.env.E2E_SHEET_SNAPSHOT_CELL,
-  freshnessCell: process.env.E2E_SHEET_FRESHNESS_CELL,
 };
 
 const missing = Object.entries(sheet)
@@ -130,7 +126,7 @@ test.describe("external measures", () => {
     await expect(page.getByText(sheet.tab as string).first()).toBeVisible();
   });
 
-  test("snapshot: a stale freshness date declines, and records why", async ({
+  test("snapshot: reads the cell as it stands and files it against the chosen week", async ({
     page,
   }) => {
     await signIn(page, users.admin());
@@ -148,28 +144,31 @@ test.describe("external measures", () => {
     await row.getByLabel(/spreadsheet link or id/i).fill(sheet.id as string);
     await row.getByLabel(/^tab name$/i).fill(sheet.snapshotTab as string);
     await row.getByLabel(/^cell$/i).fill(sheet.snapshotCell as string);
-    await row.getByLabel(/freshness tab/i).fill(sheet.snapshotTab as string);
-    await row.getByLabel(/freshness cell/i).fill(sheet.freshnessCell as string);
+
+    // Verify first, and it must write nothing.
+    await row.getByRole("button", { name: /^verify$/i }).click();
+    await expect(row.getByText(/read cell/i)).toBeVisible({ timeout: 30_000 });
+    await expect(row.getByText(/^Pulled ·/)).toHaveCount(0);
 
     await row.getByRole("button", { name: /save source/i }).click();
-    await expect(row.getByText(/only record it when the date/i)).toBeVisible();
+    await expect(row.getByText(/read cell/i)).toBeVisible();
 
+    // THE WEEK IS CHOSEN, NOT ASSUMED. A snapshot has no idea which
+    // week it belongs to, so the picker is how a person says. There
+    // are no freshness inputs on this panel by design — the stale
+    // case is a unit test, because the UI can no longer configure it.
     await row.getByRole("button", { name: /pull now/i }).click();
-    await expect(
-      row.getByText(/freshness date does not cover this week/i)
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(row.getByText(/recorded/i)).toBeVisible({ timeout: 60_000 });
 
-    // THE POINT OF THE WHOLE TEST: nothing was written. Not a zero,
-    // not last week's number carried forward, not an empty entry. The
-    // week stays unlogged and the log says why.
     await page.reload();
-    const again = page.locator('[role="row"]', { hasText: measure }).first();
-    await expect(again.getByText(/^Pulled ·/)).toHaveCount(0);
-    await expect(again.getByText(/^Not pulled$/)).toBeVisible();
+    const pulled = page
+      .locator('[role="row"]', { hasText: measure })
+      .first()
+      .getByText(/^Pulled ·/);
+    await expect(pulled).toBeVisible();
 
-    await again.getByText(/^Not pulled$/).click();
-    await expect(
-      page.getByText(/the sheet was not up to date for this week/i)
-    ).toBeVisible();
+    await pulled.click();
+    await expect(page.getByText(/Pulled from the spreadsheet/i)).toBeVisible();
+    await expect(page.getByText(sheet.snapshotCell as string).first()).toBeVisible();
   });
 });

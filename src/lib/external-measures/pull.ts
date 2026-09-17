@@ -1,5 +1,6 @@
 import type { ExternalMapping, WeekKeyedMapping, SnapshotMapping } from "./mapping";
-import { parseSheetDate, parseSheetNumber } from "./parse";
+import { addDays } from "@/lib/dates";
+import { parseFreshnessDate, parseSheetDate, parseSheetNumber } from "./parse";
 import type { SheetReader } from "./sheets";
 
 // What a pull decides, before anything is written.
@@ -52,8 +53,16 @@ export type PullDecision =
 // cannot be added without a sentence, and exported because both the
 // action's response and the receipt render it.
 export const FAILURE_SENTENCES: Record<FailureCode, string> = {
+  // Deliberately points at the receipt rather than guessing. This
+  // one code covers several unrelated causes — an unshared file, a
+  // misspelled tab, a Cloud project with the Sheets API switched off
+  // — and the first version of this sentence confidently named only
+  // the first of them. Naming the wrong cause sends a person to check
+  // something that was never the problem, which is worse than saying
+  // less. Google's own message is on the receipt and is better than
+  // anything worth writing here.
   sheet_unreachable:
-    "The spreadsheet could not be read. Check the file is still shared with the connected Google account and that the tab name is right.",
+    "The spreadsheet could not be read. The receipt carries Google's own explanation: usually the file is not shared with the connected account, the tab name does not match, or the Sheets API is not enabled for this project.",
   week_row_absent:
     "No row on that tab has this week in its key column. The week may not be filled in yet.",
   key_column_missing:
@@ -84,19 +93,34 @@ function headerIndex(header: readonly string[], name: string): number {
 
 // Does the sheet's freshness date cover the week we are recording?
 //
-// THE STRICT READING, CHOSEN DELIBERATELY: the sheet must have been
-// brought up to date on or after the day the week ends. The looser
-// reading — any date falling inside the week — would accept a sheet
-// last touched on Monday as evidence for a week that runs to Friday,
-// which is exactly the number a client would not want recorded.
+// A WINDOW, NOT A FLOOR, and the difference is the whole correctness
+// of a snapshot pull.
 //
-// The cost is real and is the right cost to pay: a client who updates
-// their dashboard on Thursday gets a decline, sees it on the receipt,
-// and either moves their update or drops the freshness field. A
-// decline that is visible is recoverable; a stale number written as
-// fact is not.
+// The first version of this asked only "is the sheet at least as new
+// as the week", which guards staleness in one direction and nothing
+// in the other. A snapshot holds ONE value describing ONE period, so
+// under a floor rule every week OLDER than the sheet also passes —
+// and a backfill would have written today's number into all of them,
+// identically, as though the measure had not moved in a month. That
+// is worse than a stale number: it is a flat line that looks like
+// data.
+//
+// So the as-of date has to land in the target week or in the few days
+// after it: a weekly dashboard is brought up to date shortly after the
+// week it reports on. Benson's says "Latest completed week: Sep 6,
+// 2026 to Sep 12, 2026" — a Saturday — which lands in the window of
+// the platform week ending Friday Sep 11 and in no other.
+//
+// The cost is a client who updates more than a week late getting a
+// decline. Visible on the receipt, and recoverable; a wrong number
+// written as fact is not.
+const FRESHNESS_GRACE_DAYS = 6;
+
 export function freshnessCovers(freshness: string, weekEnding: string): boolean {
-  return freshness >= weekEnding;
+  return (
+    freshness >= weekEnding &&
+    freshness <= addDays(weekEnding, FRESHNESS_GRACE_DAYS)
+  );
 }
 
 export function decideWeekKeyed(
@@ -198,7 +222,9 @@ export function decideSnapshot(
       freshness_cell: mapping.freshness.cell,
       freshness_raw: freshnessCell ?? null,
     };
-    const date = parseSheetDate(freshnessCell ?? "");
+    // parseFreshnessDate, not parseSheetDate: a freshness cell is a
+    // caption a person wrote, and the real one is a sentence.
+    const date = parseFreshnessDate(freshnessCell ?? "");
     if (!date) {
       return {
         outcome: "failed",

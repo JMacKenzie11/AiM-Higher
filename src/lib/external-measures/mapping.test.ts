@@ -162,7 +162,9 @@ describe("describeMapping", () => {
     expect(words).toContain("Shipped");
   });
 
-  it("says when a snapshot has no freshness check, rather than staying quiet about it", () => {
+  it("describes a plain snapshot without mentioning freshness at all", () => {
+    // The form has no freshness field, so naming its absence only
+    // raises a question about a control the reader cannot find.
     const words = describeMapping({
       kind: "snapshot",
       file_id: "F",
@@ -170,7 +172,7 @@ describe("describeMapping", () => {
       cell: "b7",
     });
     expect(words).toContain("B7");
-    expect(words).toContain("No freshness date");
+    expect(words).not.toMatch(/freshness/i);
   });
 
   it("names the freshness cell when there is one", () => {

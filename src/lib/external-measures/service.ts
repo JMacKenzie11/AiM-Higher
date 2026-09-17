@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { boardWeeks } from "@/lib/measures/spine";
 import { parseMapping, type ExternalMapping } from "./mapping";
 import { buildReceipt, type ReceiptView } from "./receipt";
 
@@ -143,6 +144,11 @@ export type ExternalMeasureInfo = {
 
 export type ExternalPanel = {
   timezone: string;
+  // The thirteen week-endings the board already plots, oldest first.
+  // The pull's week selector offers exactly these, which is what
+  // keeps "which week is this" the platform's answer while still
+  // letting a person say which one they mean.
+  weeks: string[];
   byMeasureId: Record<string, ExternalMeasureInfo>;
 };
 
@@ -152,7 +158,8 @@ export async function loadExternalPanel(
   weekEnding: string,
   timezone: string
 ): Promise<ExternalPanel> {
-  if (measureIds.length === 0) return { timezone, byMeasureId: {} };
+  const weeks = boardWeeks(weekEnding);
+  if (measureIds.length === 0) return { timezone, weeks, byMeasureId: {} };
 
   const [sourcesRes, entriesRes, logRows] = await Promise.all([
     supabase
@@ -202,5 +209,5 @@ export async function loadExternalPanel(
     ensure(measureId).receipt = buildReceipt(row);
   }
 
-  return { timezone, byMeasureId };
+  return { timezone, weeks, byMeasureId };
 }

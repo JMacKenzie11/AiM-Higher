@@ -27,6 +27,7 @@ export type ExternalMeasuresValue = {
   // Mapping administration is system_admin only in phase 1.
   canAdminister: boolean;
   timezone: string;
+  weeks: string[];
   byMeasureId: Record<string, ExternalMeasureInfo>;
 };
 
@@ -35,6 +36,7 @@ const OFF: ExternalMeasuresValue = {
   canPull: false,
   canAdminister: false,
   timezone: "UTC",
+  weeks: [],
   byMeasureId: {},
 };
 
@@ -60,6 +62,7 @@ export function ExternalMeasuresProvider({
         canPull,
         canAdminister,
         timezone: panel.timezone,
+        weeks: panel.weeks,
         byMeasureId: panel.byMeasureId,
       }
     : OFF;

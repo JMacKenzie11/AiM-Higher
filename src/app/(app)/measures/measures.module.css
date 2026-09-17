@@ -866,3 +866,17 @@
     border-left: none;
   }
 }
+
+/* The external-source strip, under the measure row it configures.
+ *
+ * Spans every column so it cannot widen one. The panel inside it
+ * carries a min-width, and while it lived in the narrow actions cell
+ * that min-width was pushing the track wide enough to squash the
+ * measure name down to one word per line.
+ *
+ * `1 / -1` works in both column sets: six tracks with tracking on,
+ * two in author-only mode. */
+.externalStrip {
+  grid-column: 1 / -1;
+  align-items: flex-start;
+}

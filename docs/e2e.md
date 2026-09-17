@@ -178,9 +178,7 @@ at the next refresh.
 #    Never point this at the client's actual workbook.
 #      - a tab with a "Week Ending" column and a numeric column,
 #        filled in for the last four Fridays
-#      - a second tab with a value cell and a freshness date cell,
-#        the date set to something OLD — the case under test is that
-#        a stale sheet declines
+#      - a second tab with one numeric value cell, dashboard style
 # 2. Share it as Viewer with the account connected to "E2E Fixture Co".
 # 3. Turn on the external_measures flag for that company.
 # 4. Add to .env.local:
@@ -190,7 +188,6 @@ at the next refresh.
 #      E2E_SHEET_VALUE_COLUMN=Pounds Shipped
 #      E2E_SHEET_SNAPSHOT_TAB=Summary
 #      E2E_SHEET_SNAPSHOT_CELL=B7
-#      E2E_SHEET_FRESHNESS_CELL=B2
 
 npx playwright test e2e/external-measures.spec.ts
 ```

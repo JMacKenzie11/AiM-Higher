@@ -13,10 +13,20 @@ import { boardWeeks } from "@/lib/measures/spine";
 import {
   describeMapping,
   isCellRef,
+  missingMappingFields,
   parseMapping,
   type ExternalMapping,
 } from "./mapping";
-import { parseSheetDate, parseSheetNumber } from "./parse";
+// Both parsers, and the split matters. The week_keyed preview below
+// uses the STRICT one, because it has to show exactly the weeks a
+// pull would match — a preview that is more generous than the pull
+// is a preview that lies. The freshness preview uses the lenient one
+// for the same reason, in the other direction.
+import {
+  parseFreshnessDate,
+  parseSheetDate,
+  parseSheetNumber,
+} from "./parse";
 import { failureSentence, runPull, type PullDecision } from "./pull";
 import { googleSheetReader } from "./sheets";
 import { loadMeasureContext, type MeasureContext } from "./service";
@@ -277,6 +287,20 @@ export async function backfillExternalMeasureAction(
   const g = await adminGate(measureId);
   if (!g.ok) return g;
 
+  // NOT FOR A SNAPSHOT, and this is a correctness rule rather than a
+  // restriction. A snapshot holds one value describing one period.
+  // Walking it over four weeks would write today's number into all
+  // four, identically — a flat line that looks like data. The
+  // freshness window already refuses most of that; this refuses the
+  // rest, including a snapshot with no freshness field at all.
+  if (g.context.mapping?.kind === "snapshot") {
+    return {
+      ok: false,
+      message:
+        "A snapshot reads one cell as it stands now, so it can only fill the one week that cell describes. Use Pull now and pick the week.",
+    };
+  }
+
   const count = Math.min(Math.max(Math.trunc(weeks), 1), 13);
   const window = boardWeeks(thisFriday(g.context.timezone)).slice(-count);
 
@@ -322,10 +346,13 @@ export async function setExternalSourceAction(
 
   const mapping = parseMapping(raw);
   if (!mapping) {
+    const gaps = missingMappingFields(raw);
     return {
       ok: false,
       message:
-        "That mapping is missing something. week_keyed needs a file, a tab, a key column and a value column; snapshot needs a file, a tab and a cell.",
+        gaps.length > 0
+          ? `Still needed: ${gaps.join(", ")}.`
+          : "That mapping is not a shape the reader understands.",
     };
   }
   if (mapping.kind === "snapshot") {
@@ -347,7 +374,11 @@ export async function setExternalSourceAction(
   if (error) return { ok: false, message: error.message };
 
   revalidatePath("/measures");
-  return { ok: true, message: describeMapping(mapping) };
+  // NOT the mapping description. That sentence is already on screen
+  // in the verify panel directly above, and printing it again as the
+  // success message read as two different statements that happened to
+  // match. What a person wants to know here is that it saved.
+  return { ok: true, message: "External source saved." };
 }
 
 export async function clearExternalSourceAction(
@@ -388,7 +419,14 @@ export async function verifyExternalSourceAction(
   // mapping BEFORE saving it. Otherwise verify what is stored.
   const mapping = raw === undefined ? context.mapping : parseMapping(raw);
   if (!mapping) {
-    return { ok: false, message: "There is no usable mapping to verify." };
+    const gaps = raw === undefined ? [] : missingMappingFields(raw);
+    return {
+      ok: false,
+      message:
+        gaps.length > 0
+          ? `Fill these in first: ${gaps.join(", ")}.`
+          : "There is no usable mapping to verify.",
+    };
   }
 
   const reader = googleSheetReader(context.companyId);
@@ -416,12 +454,16 @@ export async function verifyExternalSourceAction(
       : null;
     const rows = [{ label: "Current value", value: cell ?? "(empty)" }];
     if (mapping.freshness) {
-      const parsed = parseSheetDate(freshness ?? "");
+      const parsed = parseFreshnessDate(freshness ?? "");
       rows.push({
-        label: "Freshness date",
+        label: "Freshness cell reads",
+        value: freshness ?? "(empty)",
+      });
+      rows.push({
+        label: "Understood as",
         value: parsed
           ? parsed
-          : `${freshness ?? "(empty)"} — not a date this reader understands`,
+          : "no date found in that cell, so a pull would decline",
       });
     }
     const parsedValue = parseSheetNumber(cell);

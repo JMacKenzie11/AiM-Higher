@@ -195,11 +195,6 @@ export function ManagedMeasureRow({
       {/* Always rendered, empty when not authoring. See the note on
           the header row: a short row shifts every row beneath it. */}
       <div className={styles.measureCellActions} role="cell">
-        {/* Outside the `authoring` branch deliberately. Pulling a
-            week is logging a value, not editing the measure, so it
-            belongs to whoever may log — the same people the action
-            and the database will check again. */}
-        <ExternalSourceControls measureId={measure.id} />
         {authoring ? (
           <>
           <button
@@ -230,6 +225,22 @@ export function ManagedMeasureRow({
           </>
         ) : null}
       </div>
+      {/* A FULL-WIDTH STRIP BENEATH THE ROW, not a seventh cell.
+          The actions cell is a narrow auto track holding two icon
+          buttons; a settings panel inside it stretched that track
+          until the measure's name wrapped one word per line. So this
+          spans every column and takes an implicit row of its own,
+          which is also where it belongs visually: it configures the
+          measure, it is not an action on it.
+
+          Outside the `authoring` branch deliberately. Pulling a week
+          is logging a value, not editing the measure, so it belongs
+          to whoever may log — the same people the action and the
+          database will check again. */}
+      <ExternalSourceControls
+        measureId={measure.id}
+        className={styles.externalStrip}
+      />
     </div>
   );
 }

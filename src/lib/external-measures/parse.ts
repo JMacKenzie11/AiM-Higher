@@ -144,9 +144,104 @@ export function parseSheetDate(raw: unknown): string | null {
   }
 
   // "Sep 18, 2026" and "18 September 2026" and the rest are not
-  // handled, deliberately. Date.parse would accept them and also
-  // accept a great deal else, with results that vary by runtime.
-  // An unrecognised key cell finds no row; an unrecognised freshness
-  // cell declines the write. Both are the safe direction.
+  // handled HERE, deliberately. Date.parse would accept them and also
+  // accept a great deal else, with results that vary by runtime. A
+  // key cell holding prose finds no row, which declines the write.
+  //
+  // parseFreshnessDate below is the exception, and it is an exception
+  // because a freshness cell is a different kind of thing: it is a
+  // label a person wrote for other people to read, not a data cell.
   return null;
+}
+
+// ---- Freshness: a date inside a sentence ----------------------
+//
+// The real client dashboard this was built for says:
+//
+//   "Latest completed week: Sep 6, 2026 to Sep 12, 2026"
+//
+// in one merged cell across the top. That is not a date cell and it
+// never will be — it is a caption, written for the people who open
+// the workbook. Refusing it would mean the freshness check declines
+// every pull forever, which is not "safe", it is broken.
+//
+// So this scans for dates inside text, and takes the LAST one. A
+// freshness caption that names a range names the period the numbers
+// below it describe, and the END of that period is the thing a week
+// has to be checked against. Taking the first would treat a week's
+// data as a week older than it is.
+//
+// Still no Date.parse: month names are matched against a closed list,
+// so a cell reading "Updated whenever" yields nothing and declines,
+// which is the right answer for a cell that says nothing useful.
+
+// WHOLE TOKENS, not prefixes. The first version matched on the first
+// three letters, which made "Sepulchre 12, 2026" a date in September.
+// Funny in a test, not funny in a freshness cell: the caption would
+// have been read as a date it does not contain, and the staleness
+// check would have passed on a sentence that says nothing.
+const MONTHS: Record<string, number> = {
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
+  may: 5,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12,
+};
+
+// "Sep 12, 2026", "September 12 2026", "12 Sep 2026".
+const NAMED_MDY =
+  /\b([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gi;
+const NAMED_DMY =
+  /\b(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,9})\.?,?\s+(\d{4})\b/gi;
+const BARE_ISO = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
+const BARE_SLASHED = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
+
+function monthNumber(name: string): number | null {
+  return MONTHS[name.toLowerCase()] ?? null;
+}
+
+export function parseFreshnessDate(raw: unknown): string | null {
+  // A cell that really is a date still goes through the strict
+  // parser first. Nothing below should get a chance to reinterpret
+  // an unambiguous value.
+  const exact = parseSheetDate(raw);
+  if (exact) return exact;
+  if (typeof raw !== "string") return null;
+
+  const found: string[] = [];
+
+  for (const m of raw.matchAll(NAMED_MDY)) {
+    const month = monthNumber(m[1]);
+    if (month === null) continue;
+    const iso = valid(Number(m[3]), month, Number(m[2]));
+    if (iso) found.push(iso);
+  }
+  for (const m of raw.matchAll(NAMED_DMY)) {
+    const month = monthNumber(m[2]);
+    if (month === null) continue;
+    const iso = valid(Number(m[3]), month, Number(m[1]));
+    if (iso) found.push(iso);
+  }
+  for (const m of raw.matchAll(BARE_ISO)) {
+    const iso = valid(Number(m[1]), Number(m[2]), Number(m[3]));
+    if (iso) found.push(iso);
+  }
+  for (const m of raw.matchAll(BARE_SLASHED)) {
+    const iso = valid(Number(m[3]), Number(m[1]), Number(m[2]));
+    if (iso) found.push(iso);
+  }
+
+  if (found.length === 0) return null;
+  // The latest date mentioned, not the last one written. A caption
+  // reading "week of Sep 12, updated Sep 8" means the same thing
+  // whichever order a person typed it in.
+  found.sort();
+  return found[found.length - 1];
 }

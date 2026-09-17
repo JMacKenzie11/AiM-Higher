@@ -92,6 +92,40 @@ export function parseMapping(raw: unknown): ExternalMapping | null {
   return null;
 }
 
+// Which fields a would-be mapping is missing, by the name the form
+// puts on them.
+//
+// parseMapping answers yes or no, which is the right answer for a
+// reader and a useless one for a person filling in a form. "There is
+// no usable mapping to verify" is a true sentence that tells somebody
+// staring at six boxes nothing at all about which box is empty.
+export function missingMappingFields(raw: unknown): string[] {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return ["kind"];
+  }
+  const o = raw as Record<string, unknown>;
+  const gaps: string[] = [];
+  if (!str(o.file_id)) gaps.push("Spreadsheet link or id");
+  if (!str(o.tab)) gaps.push("Tab name");
+
+  if (o.kind === "week_keyed") {
+    if (!str(o.key_column)) gaps.push("Key column heading");
+    if (!str(o.value_column)) gaps.push("Value column heading");
+  } else if (o.kind === "snapshot") {
+    if (!str(o.cell)) gaps.push("Cell");
+    const f = o.freshness;
+    if (f && typeof f === "object" && !Array.isArray(f)) {
+      const r = f as Record<string, unknown>;
+      // Half a freshness field is rejected, so say which half.
+      if (str(r.tab) && !str(r.cell)) gaps.push("Freshness cell");
+      if (!str(r.tab) && str(r.cell)) gaps.push("Freshness tab");
+    }
+  } else {
+    gaps.push("Kind");
+  }
+  return gaps;
+}
+
 // A1 notation for a single cell, relative to a tab. Deliberately
 // strict: no ranges, no sheet prefix, no $ anchors. The cell is
 // concatenated into a Sheets range, so anything that is not plainly
@@ -115,7 +149,11 @@ export function describeMapping(mapping: ExternalMapping): string {
   }
   const base = `Read cell ${mapping.cell.toUpperCase()} on the "${mapping.tab}" tab.`;
   if (!mapping.freshness) {
-    return `${base} No freshness date, so the value is taken as current.`;
+    // Says nothing about freshness, because the form no longer has a
+    // freshness field and describing the absence of something a
+    // reader has never seen only raises a question. The sentence is
+    // complete as it stands: it reads that cell.
+    return base;
   }
   return (
     `${base} Only record it when the date in ` +

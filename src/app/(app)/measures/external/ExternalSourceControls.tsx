@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -40,8 +40,15 @@ type Draft = {
   keyColumn: string;
   valueColumn: string;
   cell: string;
-  freshnessTab: string;
-  freshnessCell: string;
+  // CARRIED, NOT EDITED. There are no freshness inputs on this panel
+  // — removed on the product owner's call, because two boxes about
+  // spreadsheet staleness are a riddle to anybody who did not design
+  // the feature. The mapping shape still supports it and the pull
+  // still enforces it, so a mapping that has one (set by a script, or
+  // by the phase 2 scheduler) must survive an admin opening this
+  // panel and pressing Save. A form that silently deletes
+  // configuration it does not display is a trap.
+  freshness?: { tab: string; cell: string };
 };
 
 function draftFrom(mapping: ExternalMapping | null): Draft {
@@ -53,8 +60,6 @@ function draftFrom(mapping: ExternalMapping | null): Draft {
       keyColumn: "",
       valueColumn: "",
       cell: "",
-      freshnessTab: "",
-      freshnessCell: "",
     };
   }
   return {
@@ -64,8 +69,7 @@ function draftFrom(mapping: ExternalMapping | null): Draft {
     keyColumn: mapping.kind === "week_keyed" ? mapping.key_column : "",
     valueColumn: mapping.kind === "week_keyed" ? mapping.value_column : "",
     cell: mapping.kind === "snapshot" ? mapping.cell : "",
-    freshnessTab: mapping.kind === "snapshot" ? (mapping.freshness?.tab ?? "") : "",
-    freshnessCell: mapping.kind === "snapshot" ? (mapping.freshness?.cell ?? "") : "",
+    freshness: mapping.kind === "snapshot" ? mapping.freshness : undefined,
   };
 }
 
@@ -85,39 +89,95 @@ function toMapping(draft: Draft): unknown | null {
       value_column: draft.valueColumn,
     };
   }
-  const hasFreshness =
-    draft.freshnessTab.trim().length > 0 && draft.freshnessCell.trim().length > 0;
   return {
     kind: "snapshot",
     file_id,
     tab: draft.tab,
     cell: draft.cell,
-    ...(hasFreshness
-      ? { freshness: { tab: draft.freshnessTab, cell: draft.freshnessCell } }
-      : {}),
+    // Passed straight back out if it was there. See the note on Draft.
+    ...(draft.freshness ? { freshness: draft.freshness } : {}),
   };
 }
 
-export function ExternalSourceControls({ measureId }: { measureId: string }) {
+export function ExternalSourceControls({
+  measureId,
+  className,
+}: {
+  measureId: string;
+  // Supplied by the row so this can span the measures grid. It has to
+  // arrive as a prop rather than be wrapped by the caller: the row is
+  // `display: contents`, so a wrapper would be a grid item in its own
+  // right and would draw an empty full-width strip under every
+  // measure on the page, feature off or on.
+  className?: string;
+}) {
   const info = useExternalMeasure(measureId);
-  const { enabled, canPull, canAdminister } = useExternalMeasures();
+  const { enabled, canPull, canAdminister, weeks } = useExternalMeasures();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null
   );
   const [verify, setVerify] = useState<VerifyResponse | null>(null);
+  // A REF, NOT STATE. The disclosure stays uncontrolled — React never
+  // sets its `open` prop, so it keeps owning whether it is open and a
+  // server refresh cannot reopen it behind the user's back. Closing
+  // it after a save is one imperative nudge, which is a different
+  // thing from owning the state: the last attempt to own a panel's
+  // open state on this page threw away an in-flight router.refresh()
+  // and the saved row never appeared.
+  const panelRef = useRef<HTMLDetailsElement>(null);
   const [draft, setDraft] = useState<Draft>(() => draftFrom(info?.mapping ?? null));
+  // Which week a pull targets. Always one of the platform's own
+  // week-endings; the select below offers those and nothing else.
+  //
+  // THE DEFAULT FOLLOWS THE MAPPING, and there are three cases rather
+  // than two:
+  //
+  //   week_keyed            this week. The sheet has a row per week
+  //                         and this week's is the one being filled.
+  //   snapshot, no freshness  this week. The mapping means "whatever
+  //                         is in that cell right now", so now is the
+  //                         week it belongs to.
+  //   snapshot + freshness  the last COMPLETED week. A dashboard that
+  //                         carries an as-of date is reporting a
+  //                         closed period, so the current week is the
+  //                         one week its number is certainly not
+  //                         about, and defaulting there would hand a
+  //                         new user a decline on their first press.
+  const mappingForWeek = info?.mapping ?? null;
+  const reportsAClosedPeriod =
+    mappingForWeek?.kind === "snapshot" && !!mappingForWeek.freshness;
+  const defaultWeek =
+    reportsAClosedPeriod && weeks.length > 1
+      ? weeks[weeks.length - 2]
+      : (weeks[weeks.length - 1] ?? "");
+  const [week, setWeek] = useState<string>(defaultWeek);
 
   if (!enabled) return null;
   const mapping = info?.mapping ?? null;
   if (!mapping && !canAdminister) return null;
 
-  function run(fn: () => Promise<{ ok: boolean; message: string }>) {
+  // `closeOnSuccess` is for the two actions that END a task. Saving
+  // or clearing a mapping is finished business and the panel should
+  // get out of the way; pulling a week is not, and leaves everything
+  // where it was so the button can be pressed again for another week.
+  function run(
+    fn: () => Promise<{ ok: boolean; message: string }>,
+    closeOnSuccess = false
+  ) {
     setMessage(null);
     startTransition(async () => {
       const result = await fn();
       setMessage({ ok: result.ok, text: result.message });
+      if (result.ok && closeOnSuccess) {
+        if (panelRef.current) panelRef.current.open = false;
+        // The read that verify printed described the mapping as it
+        // was being edited. Once saved, leaving it on screen means
+        // reopening the panel later shows a result from a session
+        // that ended.
+        setVerify(null);
+      }
       // A pull writes an entry, so the row's value has to come back
       // from the server. router.refresh rather than local state: the
       // input's value, the status dot, the trend pills and the
@@ -128,20 +188,40 @@ export function ExternalSourceControls({ measureId }: { measureId: string }) {
   }
 
   return (
-    <div className={styles.controls}>
+    <div className={className ? `${styles.controls} ${className}` : styles.controls}>
       {mapping && canPull ? (
-        <button
-          type="button"
-          className={uiStyles.btnSecondary}
-          disabled={pending}
-          onClick={() => run(() => pullExternalMeasureAction(measureId))}
-        >
-          {pending ? "Pulling…" : "Pull now"}
-        </button>
+        <div className={styles.pullRow}>
+          <button
+            type="button"
+            className={uiStyles.btnSecondary}
+            disabled={pending}
+            onClick={() => run(() => pullExternalMeasureAction(measureId, week))}
+          >
+            {pending ? "Pulling…" : "Pull now"}
+          </button>
+          {/* The weeks the platform recognises, and only those. The
+              action re-checks the choice against the same list, so
+              this select is a convenience rather than the boundary. */}
+          <label className={styles.weekPick}>
+            <span className={styles.srOnly}>Week to pull</span>
+            <select
+              className={styles.input}
+              value={week}
+              onChange={(e) => setWeek(e.target.value)}
+              disabled={pending}
+            >
+              {[...weeks].reverse().map((w, i) => (
+                <option key={w} value={w}>
+                  {i === 0 ? `${w} (this week)` : w}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       ) : null}
 
       {canAdminister ? (
-        <details className={styles.adminWrap}>
+        <details className={styles.adminWrap} ref={panelRef}>
           <summary className={styles.adminSummary}>
             {mapping ? "External source" : "Add external source"}
           </summary>
@@ -159,10 +239,10 @@ export function ExternalSourceControls({ measureId }: { measureId: string }) {
                 }
               >
                 <option value="week_keyed">
-                  Week keyed — find the row for the week
+                  Week keyed: find the row for the week
                 </option>
                 <option value="snapshot">
-                  Snapshot — read one cell as it stands
+                  Snapshot: read one cell in real time
                 </option>
               </select>
             </label>
@@ -224,31 +304,9 @@ export function ExternalSourceControls({ measureId }: { measureId: string }) {
                   />
                 </label>
                 <p className={styles.fieldNote}>
-                  Freshness is optional. Fill both boxes and the pull records
-                  nothing unless that date is on or after the week&rsquo;s
-                  Friday.
+                  Reads whatever is in that cell at the moment you pull, and
+                  records it against the week you choose.
                 </p>
-                <label className={styles.field}>
-                  <span className={styles.fieldLabel}>Freshness tab</span>
-                  <input
-                    className={styles.input}
-                    value={draft.freshnessTab}
-                    onChange={(e) =>
-                      setDraft({ ...draft, freshnessTab: e.target.value })
-                    }
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.fieldLabel}>Freshness cell</span>
-                  <input
-                    className={styles.input}
-                    value={draft.freshnessCell}
-                    onChange={(e) =>
-                      setDraft({ ...draft, freshnessCell: e.target.value })
-                    }
-                    placeholder="B2"
-                  />
-                </label>
               </>
             )}
 
@@ -289,16 +347,19 @@ export function ExternalSourceControls({ measureId }: { measureId: string }) {
                     });
                     return;
                   }
-                  run(() => setExternalSourceAction(measureId, candidate));
+                  run(() => setExternalSourceAction(measureId, candidate), true);
                 }}
               >
                 Save source
               </button>
               {mapping ? (
                 <>
-                  {/* Onboarding, not routine. The client's sheet holds
-                      history the platform does not, and without this
-                      a new measure has no trend line for a month. */}
+                  {/* Onboarding, not routine, and week_keyed only: a
+                      snapshot has one value for one period, so
+                      walking it over four weeks would write the same
+                      number into all four. The action refuses it too;
+                      this just does not offer it. */}
+                  {mapping.kind === "week_keyed" ? (
                   <button
                     type="button"
                     className={uiStyles.btnSecondary}
@@ -329,11 +390,14 @@ export function ExternalSourceControls({ measureId }: { measureId: string }) {
                   >
                     Pull last 4 weeks
                   </button>
+                  ) : null}
                   <button
                     type="button"
                     className={uiStyles.btnSecondary}
                     disabled={pending}
-                    onClick={() => run(() => clearExternalSourceAction(measureId))}
+                    onClick={() =>
+                      run(() => clearExternalSourceAction(measureId), true)
+                    }
                   >
                     Clear
                   </button>
