@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { rollQuarterAction, type RollResult } from "@/lib/quarters/actions";
-import styles from "./admin.module.css";
+import styles from "../admin.module.css";
 
 // Rolling the quarter, on the company's settings page.
 //

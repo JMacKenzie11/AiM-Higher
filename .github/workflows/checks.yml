@@ -63,3 +63,21 @@ jobs:
 
       - name: Help coverage
         run: npm run check:help
+
+      # LAST, because it is the slowest, and PRESENT because without
+      # it a whole class of failure reached production untouched.
+      #
+      # Typecheck does not resolve a CSS module import: `import styles
+      # from "./admin.module.css"` satisfies TypeScript through a
+      # wildcard declaration whether or not the file is there. So a
+      # component importing a stylesheet one directory away passed
+      # typecheck, lint, 1874 tests and help coverage, merged, and
+      # failed at deploy with "Module not found". Every gate was green
+      # and none of them compiled the app.
+      #
+      # It needs no environment. Measured before adding it: `env -i
+      # npx next build` succeeds with nothing set, because every route
+      # that touches a database is dynamic and none of them run at
+      # build time. So this costs a couple of minutes and no secrets.
+      - name: Build
+        run: npm run build
