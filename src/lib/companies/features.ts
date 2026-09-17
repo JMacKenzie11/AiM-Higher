@@ -28,6 +28,11 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
     hint: "Requires a target on every KPI and turns on the weekly performance sweep.",
   },
   {
+    value: "external_measures",
+    label: "External Measures",
+    hint: "Take a measure's weekly value from the company's own spreadsheet instead of typing it.",
+  },
+  {
     value: "meeting_facilitation_review",
     label: "Meeting Facilitation Review",
     hint: "After each meeting is analyzed, generate a coaching-tone review of how the meeting was run against the AiMS Weekly Leadership Meeting framework.",
@@ -47,11 +52,6 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
     value: "role_descriptions",
     label: "Role Descriptions",
     hint: "Generate role descriptions for each function.",
-  },
-  {
-    value: "external_measures",
-    label: "External Measures",
-    hint: "Let a critical success factor or KPI take its weekly value from a cell or a column in the company's own spreadsheet, instead of somebody typing it. A system admin sets up the mapping; a typed value always wins over a pulled one.",
   },
 ];
 
