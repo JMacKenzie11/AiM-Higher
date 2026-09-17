@@ -17,21 +17,32 @@ export function BoardView({ data }: { data: BoardData }) {
   // detail view you go to second.
   const [view, setView] = useState<ViewMode>("timeline");
 
-  // Collapsed by default. Thirteen weeks across every function plus a
-  // five-item legend is genuinely valuable once a month in a meeting,
-  // and it sat above the thing people open this page for every week.
-  // The summary line below has to earn the click on its own.
+  // OPEN by default, changed on the product owner's call after
+  // watching somebody look for it.
   //
-  // The choice is remembered per person in this browser. Someone who
-  // lives in the board keeps it open; someone logging numbers gets
-  // their inputs at the top of the page. Reads can throw in a private
-  // window or with site data blocked, so a failure just means closed.
-  const [open, setOpen] = useState(false);
+  // It was collapsed, on the reasoning that thirteen weeks across
+  // every function is a once-a-month meeting artefact sitting above
+  // the thing people open this page for weekly. That reasoning was
+  // sound and the outcome was not: collapsed, understated, and at the
+  // top of a page people scroll straight past, it read as a header
+  // rather than a control. A chart nobody finds is worth less than
+  // the inches it costs.
+  //
+  // This only renders when Success Tracking is on AND some function
+  // has a metric, so open-by-default cannot greet anybody with an
+  // empty frame.
+  //
+  // The choice is still remembered per person in this browser, in
+  // both directions now: someone who closes it keeps it closed.
+  // Reads can throw in a private window or with site data blocked,
+  // and a failure then means open, which is the new default rather
+  // than a surprise.
+  const [open, setOpen] = useState(true);
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(STORAGE_KEY) === "open") setOpen(true);
+      if (window.localStorage.getItem(STORAGE_KEY) === "closed") setOpen(false);
     } catch {
-      // Storage unavailable. Closed is the right default anyway.
+      // Storage unavailable. Open is the right default anyway.
     }
   }, []);
 

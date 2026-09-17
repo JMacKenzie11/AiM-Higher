@@ -552,7 +552,7 @@ Nav label: **Critical Success Factors**, under *Workspace*. The tracking columns
 **Board** (`BoardView`, top of the page)
 
 - 13 weeks across every function. Hidden when Success Tracking is off.
-- Collapsed by default behind a summary line ("3 functions off target this week"). The open/closed choice persists per person in `localStorage` (`measures-board-open`).
+- **Open by default** (changed 2026-09-17). It was collapsed behind its summary line, which was defensible reasoning and the wrong outcome: understated, at the top of a page people scroll past, it read as a header rather than a control and went unfound. The summary line ("3 functions off target this week") is still the toggle, and the choice persists per person in `localStorage` (`measures-board-open`) in both directions, so closing it keeps it closed.
 - Opens on **Timeline**; **Grid** is the second view.
 - Plots both kinds. A CSF is a row grouped under itself, ordered ahead of its KPIs, so the Timeline's per-function rollup includes it. Rows carry `kind`; the Grid marks CSF rows.
 
