@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { PlusIcon } from "@/components/ui/PlusIcon";
+import { AddPanels } from "./AddPanels";
 import styles from "./plan.module.css";
 
 // The four add buttons in the plan toolbar, behind one Add on a phone.
@@ -41,12 +42,10 @@ export function MobileAddMenu({ children }: { children: ReactNode }) {
         <PlusIcon />
         Add
       </button>
-      <div
-        className={styles.toolbarActions}
-        data-mobile-open={open ? "true" : undefined}
-      >
-        {children}
-      </div>
+      {/* The row itself, and when a panel inside it closes, is
+          AddPanels' job. This component decides only whether the row
+          is on screen at all on a phone. */}
+      <AddPanels mobileOpen={open}>{children}</AddPanels>
     </>
   );
 }
