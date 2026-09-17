@@ -86,8 +86,8 @@ export type MeasureTreeFunction = {
 // The /measures Manager tree, shaped from rows already in hand.
 //
 // Pure: every read this used to do lives in loadMeasuresSpine, which
-// the board shares. See getMeasuresTree below for the convenience
-// wrapper, and getMeasuresPageData for the path the page takes.
+// the board shares. See getMeasuresTree below, which is the path
+// /measures takes.
 export function buildMeasuresTree(
   spine: MeasuresSpine,
   userId: string,
@@ -248,12 +248,13 @@ export function buildMeasuresTree(
   return { functions: tree, weekEnding };
 }
 
-// Convenience wrapper: load the spine and shape the tree from it.
+// Load the spine and shape the tree from it. This is what /measures
+// calls.
 //
-// The page does NOT take this path — it uses getMeasuresPageData so
-// the board and the tree share one spine. This exists for a caller
-// that wants the tree alone, and it is what the characterisation
-// tests drive.
+// It used to be a convenience wrapper nothing in the product took,
+// because the page loaded the tree and the board together. The board
+// moved to /dashboard, so each page loads its own spine and this is
+// the ordinary path rather than the road not taken.
 export async function getMeasuresTree(
   companyId: string,
   userId: string,

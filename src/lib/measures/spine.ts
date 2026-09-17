@@ -36,10 +36,13 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // five-week trail in memory. Fetching the narrower window would have
 // meant two reads again.
 //
-// No caching here beyond what the caller does. getMeasuresPageData
-// loads the spine once per render and hands the same object to both
-// builders; nothing is memoized at module scope, which would be a
-// cross-tenant leak (see the note in src/lib/instances/registry.ts).
+// No caching here beyond what the caller does. Nothing is memoized
+// at module scope, which would be a cross-tenant leak (see the note
+// in src/lib/instances/registry.ts).
+//
+// Loaded once per page. /measures builds the tree from it and
+// /dashboard builds the board from it; they are separate pages and
+// each loads its own.
 
 export const BOARD_WEEKS = 13;
 
