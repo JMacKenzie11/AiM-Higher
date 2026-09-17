@@ -27,7 +27,8 @@ import {
   parseSheetDate,
   parseSheetNumber,
 } from "./parse";
-import { failureSentence, runPull, type PullDecision } from "./pull";
+import { failureSentence } from "./pull";
+import { pullMeasureWeek } from "./run";
 import { googleSheetReader } from "./sheets";
 import { loadMeasureContext, type MeasureContext } from "./service";
 
@@ -48,7 +49,11 @@ import { loadMeasureContext, type MeasureContext } from "./service";
 export type PullResponse =
   | {
       ok: true;
-      outcome: "written" | "skipped_manual_exists" | "skipped_stale";
+      outcome:
+        | "written"
+        | "skipped_manual_exists"
+        | "skipped_exists"
+        | "skipped_stale";
       message: string;
       value: number | null;
     }
@@ -149,120 +154,32 @@ export async function pullExternalMeasureAction(
   if (!week.ok) return { ok: false, message: week.message };
   const weekEnding = week.weekEnding;
 
-  // A mapping that will not parse never reaches the sheet. It is
-  // still logged: "this measure is configured wrongly" is exactly
-  // the kind of thing that otherwise goes unnoticed until somebody
-  // asks why a chart stopped moving. The kind is recorded as
-  // whatever the stored shape claims, falling back to week_keyed so
-  // the log's own constraint is satisfiable.
-  if (!context.mapping) {
-    const claimed = (context.rawSource as { kind?: unknown } | null)?.kind;
-    const kind = claimed === "snapshot" ? "snapshot" : "week_keyed";
-    await record(supabase, {
-      measureId,
-      weekEnding,
-      kind,
-      decision: {
-        outcome: "failed",
-        reason: "mapping_invalid",
-        detail: { stored: context.rawSource ?? null, week_ending: weekEnding },
-      },
-    });
-    revalidatePath("/measures");
-    return { ok: false, message: failureSentence("mapping_invalid") };
-  }
-
-  const decision = await runPull(
-    googleSheetReader(context.companyId),
-    context.mapping,
-    weekEnding
-  );
-
-  const recorded = await record(supabase, {
+  // THE PULL ITSELF LIVES IN run.ts NOW, and takes this caller's
+  // client. The cron calls the same function with the instance's
+  // admin client, so the E4 rules and manual-wins are one copy of one
+  // rule rather than two that drift. See the header there.
+  const result = await pullMeasureWeek(supabase, {
+    path: "caller",
     measureId,
+    companyId: context.companyId,
     weekEnding,
-    kind: context.mapping.kind,
-    decision,
+    mapping: context.mapping,
+    rawSource: context.rawSource,
   });
-  if (!recorded.ok) return { ok: false, message: recorded.message };
 
   revalidatePath("/measures");
   revalidatePath("/dashboard");
   revalidatePath("/chart");
 
-  // The outcome reported is the one the DATABASE took, not the one
-  // this process decided. record_external_pull downgrades a write to
-  // skipped_manual_exists when a person's entry already holds the
-  // week, and saying "written" here because that is what we asked
-  // for would be the app telling the user something the database
-  // just refused.
-  if (recorded.outcome === "failed") {
-    return {
-      ok: false,
-      message:
-        decision.outcome === "failed"
-          ? failureSentence(decision.reason)
-          : "The pull did not complete.",
-    };
-  }
-  if (recorded.outcome === "skipped_manual_exists") {
-    return {
-      ok: true,
-      outcome: "skipped_manual_exists",
-      message:
-        "Nothing was changed. Somebody had already logged this week by hand, and a typed value always wins.",
-      value: null,
-    };
-  }
-  if (recorded.outcome === "skipped_stale") {
-    return {
-      ok: true,
-      outcome: "skipped_stale",
-      message:
-        "Nothing was recorded. The sheet's own freshness date does not cover this week yet.",
-      value: null,
-    };
+  if (result.outcome === "failed") {
+    return { ok: false, message: result.message };
   }
   return {
     ok: true,
-    outcome: "written",
-    message: `Recorded ${decision.outcome === "written" ? decision.value : ""} for the week.`.trim(),
-    value: decision.outcome === "written" ? decision.value : null,
+    outcome: result.outcome,
+    message: result.message,
+    value: result.value,
   };
-}
-
-type RecordResult =
-  | { ok: true; outcome: string }
-  | { ok: false; message: string };
-
-async function record(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  args: {
-    measureId: string;
-    weekEnding: string;
-    kind: "week_keyed" | "snapshot";
-    decision: PullDecision;
-  }
-): Promise<RecordResult> {
-  const { decision } = args;
-  const { data, error } = await supabase.rpc("record_external_pull", {
-    p_measure_id: args.measureId,
-    p_week_ending: args.weekEnding,
-    p_mapping_kind: args.kind,
-    p_outcome: decision.outcome,
-    p_value: decision.outcome === "written" ? decision.value : null,
-    p_failure_reason: decision.outcome === "failed" ? decision.reason : null,
-    p_detail: decision.detail,
-  });
-  if (error) {
-    return {
-      ok: false,
-      message: `The pull could not be recorded: ${error.message}`,
-    };
-  }
-  const row = Array.isArray(data) ? data[0] : data;
-  const outcome = (row as { outcome?: string } | null)?.outcome;
-  return { ok: true, outcome: outcome ?? decision.outcome };
 }
 
 // ---- Backfill ---------------------------------------------------

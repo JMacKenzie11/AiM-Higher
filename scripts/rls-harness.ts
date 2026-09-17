@@ -5186,6 +5186,238 @@ async function externalPullLogCheck(
   };
 }
 
+// PERMANENT COVERAGE for the two write paths (0213).
+//
+// Phase 2 gave the scheduler a path into the same table a person's
+// Pull now uses. Everything worth asserting about that is a NEGATIVE
+// claim about one path or a POSITIVE control on the other, and both
+// kinds pass by accident if nobody looks:
+//
+//   1. The scheduled path works at all. Without this control, every
+//      refusal below is the refusal of a function that does nothing.
+//   2. It writes NO ACTOR. A cron-written entry that carried a
+//      person's id would put their name on a number they never saw.
+//   3. It is IDEMPOTENT. A second run of the same week writes
+//      nothing. This is what makes a double fire, a retry and a hand
+//      re-trigger safe, and it is enforced in the database rather
+//      than by the cron checking first.
+//   4. It never overwrites a TYPED value. The rule phase 1 made a
+//      database fact must survive a path phase 1 did not have.
+//   5. A browser client cannot reach it. It skips the role check by
+//      design, so authenticated must be refused at the grant.
+//   6. The service key cannot reach the CALLER path, which is where
+//      the role check lives.
+//   7. Nobody at all can reach the inner function both wrappers
+//      delegate to.
+//
+// Runs on every invocation rather than under --batch, for the reason
+// every check here does: a guard you have to remember to ask for is
+// not a guard.
+async function externalMeasurePathsChecks(
+  run: Runner,
+  pending: string
+): Promise<BatchCheck[]> {
+  const [present] = await run<{ yes: boolean }>(
+    ["begin;", pending,
+     `select count(*) > 0 as yes from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public'
+         and p.proname = 'record_external_pull_scheduled';`,
+     "rollback;"].join("\n")
+  );
+  if (!present?.yes) {
+    return [{
+      name: "external measures write paths",
+      before: "not on this schema",
+      after: "not applicable: record_external_pull_scheduled has not landed here yet",
+      ok: true,
+      detail: "nothing to police; the check activates with the function",
+    }];
+  }
+
+  const [fx] = await run<Record<string, string | null>>(`
+    select m.id as measure, f.company_id as company,
+      (select id from public.profiles where role = 'system_admin'
+         and status = 'active' limit 1) as sysadmin
+    from public.success_measures m
+    join public.functions f on f.id = m.function_id
+    order by m.id limit 1;`);
+  const measure = fx?.measure;
+  const sysadmin = fx?.sysadmin;
+  if (!measure || !sysadmin) {
+    return [{
+      name: "external measures write paths",
+      before: "not run",
+      after: "not run",
+      ok: false,
+      detail: "NOT PROVEN: this clone has no measure or no system_admin, and a probe against a missing row reads like a denial",
+    }];
+  }
+
+  const WEEK = "current_date - 21";
+  const clear = `delete from public.success_measure_entries
+                   where measure_id = '${measure}' and week_ending = ${WEEK};`;
+
+  // As service_role, with no JWT at all. This is the cron's shape.
+  const asService = (setup: string, stmt: string) =>
+    ["begin;", pending, setup, "set local role service_role;", stmt, "rollback;"].join("\n");
+
+  const attempt = async (sql: string): Promise<{ rows: Record<string, unknown>[]; code: string | null }> => {
+    try {
+      return { rows: await run<Record<string, unknown>>(sql), code: null };
+    } catch (err) {
+      const text = String((err as Error).message ?? err);
+      const m = text.match(/ERROR:\s+([0-9A-Z]{5})/);
+      return { rows: [], code: m ? m[1] : "ERROR" };
+    }
+  };
+
+  const out: BatchCheck[] = [];
+  const say = (name: string, before: string, after: string, ok: boolean, detail: string) =>
+    out.push({ name, before, after, ok, detail });
+
+  // ---- 1 + 2. The positive control, and the NULL actor ----------
+  const wrote = await attempt(asService(
+    clear,
+    `select * from public.record_external_pull_scheduled(
+       '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
+     select (count(*) filter (where value_number = 777 and origin = 'google_sheet'
+             and entered_by is null))::int as n
+       from public.success_measure_entries
+      where measure_id = '${measure}' and week_ending = ${WEEK};`
+  ));
+  const wroteN = Number(wrote.rows?.[0]?.n ?? 0);
+  say("scheduled path writes, with no actor",
+      "n/a (new path)",
+      wrote.code ? `refused with ${wrote.code}` : `${wroteN} entry with entered_by NULL`,
+      wroteN === 1,
+      wroteN === 1
+        ? "the cron's path works and attributes the value to nobody, which is the truth"
+        : "NOT PROVEN: the control failed, so every refusal below is the refusal of a function that does nothing");
+
+  // ---- 3. Idempotent -------------------------------------------
+  const twice = await attempt(asService(
+    clear,
+    `select * from public.record_external_pull_scheduled(
+       '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
+     select * from public.record_external_pull_scheduled(
+       '${measure}', ${WEEK}, 'week_keyed', 'written', 999);
+     select (select count(*)::int from public.success_measure_entries
+              where measure_id = '${measure}' and week_ending = ${WEEK}
+                and value_number = 777) as kept,
+            (select count(*)::int from public.external_pull_log
+              where measure_id = '${measure}' and week_ending = ${WEEK}
+                and outcome = 'skipped_exists') as skipped;`
+  ));
+  const kept = Number(twice.rows?.[0]?.kept ?? 0);
+  const skipped = Number(twice.rows?.[0]?.skipped ?? 0);
+  say("a second scheduled run writes nothing",
+      "n/a (new path)",
+      twice.code ? `errored with ${twice.code}` : `first value kept: ${kept}, skipped_exists logged: ${skipped}`,
+      kept === 1 && skipped === 1,
+      kept === 1 && skipped === 1
+        ? "a re-run leaves the week alone and says so, so a double fire and a retry are both safe"
+        : "the scheduler is not idempotent");
+
+  // ---- 4. A typed value survives -------------------------------
+  const manual = await attempt(asService(
+    `${clear}
+     insert into public.success_measure_entries
+       (measure_id, week_ending, value_number, entered_by, origin, pulled_at)
+     values ('${measure}', ${WEEK}, 111, '${sysadmin}', null, null);`,
+    `select * from public.record_external_pull_scheduled(
+       '${measure}', ${WEEK}, 'week_keyed', 'written', 999);
+     select (select count(*)::int from public.success_measure_entries
+              where measure_id = '${measure}' and week_ending = ${WEEK}
+                and value_number = 111 and origin is null) as survived,
+            (select count(*)::int from public.external_pull_log
+              where measure_id = '${measure}' and week_ending = ${WEEK}
+                and outcome = 'skipped_manual_exists') as logged;`
+  ));
+  const survived = Number(manual.rows?.[0]?.survived ?? 0);
+  const loggedManual = Number(manual.rows?.[0]?.logged ?? 0);
+  say("the cron never overwrites a typed value",
+      "n/a (new path)",
+      manual.code ? `errored with ${manual.code}` : `typed value survived: ${survived}, skipped_manual_exists logged: ${loggedManual}`,
+      survived === 1 && loggedManual === 1,
+      survived === 1 && loggedManual === 1
+        ? "manual-wins holds on the path phase 1 did not have, because it is enforced below both wrappers"
+        : "a scheduled pull replaced a number a person typed");
+
+  // ---- 7. The caller path DOES replace its own earlier pull -----
+  // The one behaviour that differs by path, measured rather than
+  // asserted in a comment. Without this the two paths could have
+  // quietly converged and nothing would have noticed.
+  const replaced = await attempt(
+    asCaller(sysadmin, [pending, clear].join("\n"),
+      `select * from public.record_external_pull(
+         '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
+       select * from public.record_external_pull(
+         '${measure}', ${WEEK}, 'week_keyed', 'written', 999);
+       select count(*)::int as n from public.success_measure_entries
+        where measure_id = '${measure}' and week_ending = ${WEEK}
+          and value_number = 999;`)
+  );
+  const replacedN = Number(replaced.rows?.[0]?.n ?? 0);
+  say("Pull now replaces its own earlier pull",
+      "n/a (new path)",
+      replaced.code ? `refused with ${replaced.code}` : `${replacedN} entry at the newer value`,
+      replacedN === 1,
+      replacedN === 1
+        ? "a person asking for a fresh read gets one, which is the single behaviour that differs between the two paths"
+        : "the caller path stopped refreshing its own value");
+
+  // ---- 5 + 6 + 7. The refusals ---------------------------------
+  const refusals: Array<[string, string, string]> = [
+    ["a browser client cannot reach the scheduled path", "authenticated",
+     `select * from public.record_external_pull_scheduled('${measure}', ${WEEK}, 'week_keyed', 'failed', null, 'x');`],
+    ["the service key cannot reach the caller path", "service_role",
+     `select * from public.record_external_pull('${measure}', ${WEEK}, 'week_keyed', 'failed', null, 'x');`],
+  ];
+  for (const [name, who, stmt] of refusals) {
+    const r = await attempt(
+      who === "service_role"
+        ? asService("", stmt)
+        : asCaller(sysadmin, pending, stmt)
+    );
+    const ok = r.code === "42501";
+    say(name, "n/a (new path)",
+        r.code ? `refused with ${r.code}` : "SUCCEEDED, which it must not",
+        ok,
+        ok
+          ? "refused at the grant, which is an error rather than a silent zero"
+          : "this path is reachable by a caller that must not have it");
+  }
+
+  // ---- The inner function's grant, measured as a GRANT ---------
+  //
+  // CALLING it and expecting a refusal was the first version of this
+  // check, and it was broken in the way that matters: it passed even
+  // after EXECUTE had been handed to authenticated, because the call
+  // then failed at the TABLE privilege instead. A true refusal, for a
+  // reason the check's own name does not claim. Caught by planting
+  // the grant and watching this stay green.
+  //
+  // has_function_privilege answers the question the name asks, and
+  // flips the moment somebody grants it.
+  const SIG = "public._record_external_pull(uuid,date,text,text,numeric,text,jsonb,uuid,boolean)";
+  const [grants] = await run<{ auth_denied: boolean; svc_denied: boolean }>(
+    ["begin;", pending,
+     `select not has_function_privilege('authenticated', '${SIG}', 'execute') as auth_denied,
+             not has_function_privilege('service_role', '${SIG}', 'execute') as svc_denied;`,
+     "rollback;"].join("\n")
+  );
+  say("nobody holds EXECUTE on the inner function",
+      "n/a (new path)",
+      `authenticated denied: ${grants?.auth_denied === true}, service_role denied: ${grants?.svc_denied === true}`,
+      grants?.auth_denied === true && grants?.svc_denied === true,
+      grants?.auth_denied === true && grants?.svc_denied === true
+        ? "both wrappers reach it as the owner; a third caller has to be granted it deliberately"
+        : "a role holds EXECUTE on the function both wrappers delegate to, which is the path around every rule");
+
+  return out;
+}
+
 async function staticCheck(run: Runner): Promise<BatchCheck> {
   const rows = await run<PolicyRow>(`
     select tablename, policyname, qual, with_check
@@ -6996,9 +7228,10 @@ async function main(): Promise<void> {
   const portfolioResult = await portfolioAllowlistCheck(run, pendingSql);
   const memoryResult = await coachMemoryWallCheck(run, pendingSql);
   const pullLogResult = await externalPullLogCheck(run, pendingSql);
+  const pathResults = await externalMeasurePathsChecks(run, pendingSql);
   console.log(
     batchSummaryLines(
-      [staticResult, portfolioResult, memoryResult, pullLogResult],
+      [staticResult, portfolioResult, memoryResult, pullLogResult, ...pathResults],
       "Static checks over live policy text"
     ).join("\n")
   );

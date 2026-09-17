@@ -140,6 +140,14 @@ export type ExternalMeasureInfo = {
   // did. Present even when nothing was written, because a refusal is
   // the thing worth reading.
   receipt: ReceiptView | null;
+  // The most recent pull for this measure in ANY week, and the week
+  // it was for. Phase 1 only knew about the current week, which was
+  // right while a person pressed the button: they had just pressed
+  // it. Once a cron does the pressing the question changes to "did
+  // the last scheduled run work", and a measure whose last three
+  // runs failed showed nothing at all if none of them were this
+  // week.
+  lastPull: { weekEnding: string; receipt: ReceiptView } | null;
 };
 
 export type ExternalPanel = {
@@ -161,7 +169,7 @@ export async function loadExternalPanel(
   const weeks = boardWeeks(weekEnding);
   if (measureIds.length === 0) return { timezone, weeks, byMeasureId: {} };
 
-  const [sourcesRes, entriesRes, logRows] = await Promise.all([
+  const [sourcesRes, entriesRes, logRows, lastPulls] = await Promise.all([
     supabase
       .from("success_measures")
       .select("id, external_source")
@@ -174,6 +182,7 @@ export async function loadExternalPanel(
       .eq("week_ending", weekEnding)
       .not("origin", "is", null),
     loadReceipts(supabase, measureIds, weekEnding, weekEnding),
+    loadLastPulls(supabase, measureIds),
   ]);
 
   const byMeasureId: Record<string, ExternalMeasureInfo> = {};
@@ -184,6 +193,7 @@ export async function loadExternalPanel(
       mapping: null,
       pulledAt: null,
       receipt: null,
+      lastPull: null,
     };
     byMeasureId[id] = fresh;
     return fresh;
@@ -209,5 +219,81 @@ export async function loadExternalPanel(
     ensure(measureId).receipt = buildReceipt(row);
   }
 
+  for (const [measureId, row] of lastPulls) {
+    ensure(measureId).lastPull = {
+      weekEnding: row.week_ending,
+      receipt: buildReceipt(row),
+    };
+  }
+
   return { timezone, weeks, byMeasureId };
+}
+
+// ---- What the scheduler iterates -------------------------------
+
+export type MappedMeasure = {
+  measureId: string;
+  description: string;
+  mapping: ExternalMapping | null;
+  rawSource: unknown;
+};
+
+// Every measure in a company that has an external source set.
+//
+// Reaches the company through functions, the same traversal every
+// policy on success_measures performs. Called with the instance's
+// admin client from the cron, so RLS filters nothing and the
+// company_id clause is the whole scope — which is why it is a clause
+// and not an assumption.
+//
+// A mapping that will not parse comes back with mapping: null and is
+// still returned, deliberately. The cron logs it as a failure rather
+// than skipping it silently, because "configured wrongly" and "not
+// configured" look identical from a chart that stopped moving.
+export async function loadMappedMeasures(
+  db: SupabaseClient,
+  companyId: string
+): Promise<MappedMeasure[]> {
+  const { data } = await db
+    .from("success_measures")
+    .select("id, description, external_source, functions!inner(company_id)")
+    .eq("functions.company_id", companyId)
+    .eq("archived", false)
+    .not("external_source", "is", null);
+
+  return ((data ?? []) as Array<{
+    id: string;
+    description: string;
+    external_source: unknown;
+  }>).map((row) => ({
+    measureId: row.id,
+    description: row.description,
+    mapping: parseMapping(row.external_source),
+    rawSource: row.external_source ?? null,
+  }));
+}
+
+// The most recent receipt for a measure, whatever week it was for.
+//
+// Phase 1's panel only ever showed the CURRENT week, which was right
+// while a person pressed the button and wrong the moment a cron
+// started doing it: the interesting question became "did the last
+// scheduled run work", and a measure whose last three pulls failed
+// showed nothing at all if none of them were this week.
+export async function loadLastPulls(
+  db: SupabaseClient,
+  measureIds: readonly string[]
+): Promise<Map<string, PullLogRow>> {
+  const out = new Map<string, PullLogRow>();
+  if (measureIds.length === 0) return out;
+  const { data } = await db
+    .from("external_pull_log")
+    .select(LOG_COLS)
+    .in("measure_id", measureIds)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  for (const row of (data ?? []) as PullLogRow[]) {
+    if (!out.has(row.measure_id)) out.set(row.measure_id, row);
+  }
+  return out;
 }

@@ -156,6 +156,7 @@ twice, and the fix is a written procedure rather than a note in a PR.
 | `coach-history.spec.ts` | `ANTHROPIC_API_KEY` | nothing |
 | `coach-memory.spec.ts` | `ANTHROPIC_API_KEY` | **real `coach_memories` rows** |
 | `external-measures.spec.ts` | a real Google Sheet, a connected Google account, the flag | `success_measure_entries` + `external_pull_log` on the fixture company |
+| `external-measures.spec.ts` (cron case) | the above, plus `CRON_SECRET` | the same, written by the scheduler rather than a person |
 
 ### `external-measures.spec.ts`
 
@@ -191,6 +192,11 @@ at the next refresh.
 
 npx playwright test e2e/external-measures.spec.ts
 ```
+
+The third case drives `/api/cron/external-measures` with the cron's own
+bearer token rather than waiting for Saturday, so it needs
+`CRON_SECRET` in `.env.local` as well. It skips separately from the
+other two, so an absent secret does not hide the browser cases.
 
 It leaves rows behind on the fixture company: pulled entries and their
 receipts. The receipts are append-only by design and cannot be

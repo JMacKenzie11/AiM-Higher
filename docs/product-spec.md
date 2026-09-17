@@ -243,7 +243,7 @@ Per-tenant entitlements gate module visibility everywhere (nav, dashboards, coac
 | `automated_commitment_tracking` (default ON at create) | Auto-create commitments extracted from meeting transcripts as rows on `/commitments`. When OFF, the analyzer + facilitation review still run but the team authors commitments manually — extractions surface only in the meeting analysis, not on the Commitments board |
 | `classroom` | Adds the shared training library (top-level nav item, consumer surfaces at `/classroom`) + a `search_classroom` tool for the coach + Ask Aimee |
 | `role_descriptions` | Adds Decision Rights + Competency Indicators to functions, a per-section *Suggest…* helper, and the assembled Role Description document at `/chart/function/[id]/role-description` with publish + version history + `.docx` export |
-| `external_measures` | **PHASE 1.** A critical success factor or KPI can take its weekly value from the company's own Google Sheet instead of a typed entry. Adds a per-measure "Pull now" for the company's admins, a system_admin-only mapping surface, and a receipt on every pulled entry. Off everywhere but the one client it was built for. See Section 10b |
+| `external_measures` | **PHASE 2 SHIPPED.** A critical success factor or KPI can take its weekly value from the company's own Google Sheet instead of a typed entry, either on demand or on a weekly schedule. Adds a per-measure "Pull now" for the company's admins, a system_admin-only mapping surface, a receipt on every pulled entry, and a daily cron that fills the week that just closed. Off everywhere but the one client it was built for. See Section 10b |
 | `strengths` | *(out of scope for this spec — noted for completeness only)* |
 
 ---
@@ -573,11 +573,11 @@ Nav label: **Critical Success Factors**, under *Workspace*. The tracking columns
 
 ---
 
-## 10b. External Measures (`external_measures`) — PHASE 1
+## 10b. External Measures (`external_measures`) — PHASE 2 SHIPPED
 
 A measure's weekly value can be pulled from the client's own spreadsheet instead of typed. Built for one client (Benson Seafood) and flag-gated off everywhere else. Storage and rules: migration 0212.
 
-**What phase 1 is, and is not.** Phase 1 is the spine: stored mappings, a pull a person presses, origin-tagged entries, receipts, and the audit table. It does **not** include a scheduler (phase 2), a HubSpot connector and credential vault (phase 3), or a client-facing mapping UI (phase 4). Mapping is configured by a system_admin on the measure.
+**What has shipped.** Phase 1 is the spine: stored mappings, a pull a person presses, origin-tagged entries, receipts, and the audit table. Phase 2 is the scheduler: the same pull, on the weekly rhythm, with no person pressing anything. Still to come: a HubSpot connector and credential vault (phase 3), and a client-facing mapping UI (phase 4). Mapping is configured by a system_admin on the measure.
 
 **Where the mapping lives.** `success_measures.external_source`, nullable `jsonb`. `success_measures` is the measure-level table `/measures` reads and holds both levels since 0166, so a mapping works on a critical success factor and on a KPI without a second column. The shape is a discriminated union and the database checks it, so a mapping the reader cannot parse cannot be stored — including by a script or a psql session.
 
@@ -617,9 +617,51 @@ The capability is kept rather than deleted because the argument for it lands in 
 
 **Help content is deferred, deliberately.** `docs/help/*.md` covers what a user does in the application, and in phase 1 no client-facing user configures or presses any of this: the mapping surface is system_admin-only and the pull button appears only for a company whose flag is on. Help arrives with the phase 4 client-facing UI, which is the first version an ordinary user meets.
 
-**Phases 2 to 4**
+### The scheduler (phase 2)
 
-- **Phase 2 — scheduler.** A cron pulls every mapped measure weekly. It has no `auth.uid()`, so it cannot use `record_external_pull()` as written and cannot insert directly (the privilege is revoked from `service_role`). It has to come back to a migration and say what it wants, which is the point.
+`/api/cron/external-measures`, **daily at 14:00 UTC**, fanned out per instance through `forEachActiveInstance` like every other cron. Each pass takes the companies with the flag on, their mapped measures, and pulls the ones whose pull day is today.
+
+**Daily, because `pull_day` exists.** A mapping may name the day it is pulled on (`mon`…`sun`, default `sat`) for a source that refreshes late. A weekly job cannot serve a Monday mapping whatever day it runs.
+
+**The week is the one that just closed.** `lastFriday()` in the company's timezone, which gives the same answer every day from Saturday through the following Friday — so a `pull_day` override fills exactly the week the standard day would have, later. Not `thisFriday()`, which the manual Pull now uses and which on a Saturday is the week that has just *begun*, whose numbers do not exist yet.
+
+**Sequencing, and why 14:00 UTC.** Two jobs read entries afterwards:
+
+| | |
+| --- | --- |
+| `external-measures` | Sat 14:00 UTC |
+| `performance` (turns a missing value into a commitment on a person) | Sat 15:00 UTC |
+| `scorecard` (counts entries from the last 7 days) | Sun 07:00 UTC |
+
+The scorecard requirement is met by sixteen hours. The hour in front of the performance sweep is the tighter margin and is not a hope: every cron route sets `maxDuration = 300`, so a run cannot exceed five minutes and cannot overrun into it.
+
+A `pull_day` later than Saturday necessarily lands after that week's Sunday snapshot. `/scorecard` computes live on every load so the page is never wrong; the trend line shows one dip that recovers the following week. That is the cost of choosing a late pull day and should be a client's informed choice.
+
+**A separate cron rather than a step inside the sweep** was chosen on the `pull_day` requirement alone, and it also keeps a Sheets outage away from the nudges: a third party's API being down must not stop a company's leaders being reminded to log their own numbers.
+
+**The seam.** The pull core takes its Supabase client as an argument, following `computeCompanyScorecard(companyId, admin)`. The action passes the caller's client; the cron passes the instance's admin client. Exactly one thing differs by path and it is decided in the database, not the caller:
+
+| Path | Function | Actor | May replace |
+| --- | --- | --- | --- |
+| caller | `record_external_pull` | `auth.uid()` | a value a previous pull wrote |
+| scheduled | `record_external_pull_scheduled` | always NULL | nothing at all |
+
+Both delegate to `_record_external_pull`, which is granted to nobody and holds manual-wins, the company resolution and the no-write rules. Neither wrapper can skip them and a third wrapper could not either.
+
+Under the caller's client, RLS still filters what the action can see, so a caller cannot pull a measure they cannot read. Under the admin client RLS filters nothing, and the only thing between the cron and the wrong company is that the inner function resolves the company from the measure itself.
+
+**`success_measure_entries.entered_by` is now nullable.** A cron-written entry has no author, and inventing one would put a person's name on a number they never saw. `origin` and the receipt answer where it came from.
+
+**Idempotent, in the database.** The scheduled path refuses to replace *any* existing entry for the week — typed or previously pulled — and logs `skipped_exists`. A double fire, a retry and a hand re-trigger are all safe without the cron checking first.
+
+**Failure.** One retry, and only for a transient failure (timeouts, resets, rate limits, 5xx). A misspelled tab answers identically a second later and is not retried. After that the week stays awaiting, which the accountable person's existing unrecorded-measure reminder already covers: the performance sweep decides "missing" on the presence of an entry and knows nothing about mappings, so a mapped-but-empty week is treated exactly like any other empty week. Pinned by test rather than left to habit.
+
+**What the service key can now do.** Granting `record_external_pull_scheduled` to `service_role` is a real widening: any code holding the service key can write a pull receipt. What survives it — the company is still resolved from the measure, manual-wins still holds, and the actor cannot be forged — is probed on every `rls:hazards` run, alongside the refusals (a browser client cannot reach the scheduled path, the service key cannot reach the caller path, nobody holds EXECUTE on the inner function).
+
+**Admin visibility.** No new surface. The phase 1 receipt gains one line, "Last pull", showing the most recent attempt for that measure in any week. A measure whose last scheduled run failed shows the note even on a week it never touched, because otherwise a broken source is invisible until somebody notices a flat chart.
+
+**Phases 3 and 4**
+
 - **Phase 3 — HubSpot connector and credential vault.** A third mapping `kind`, added to the database's CHECK constraint and to `parseMapping`, plus per-connector credentials that are not the Drive OAuth row.
 - **Phase 4 — client-facing mapping UI.** A file picker, a tab list, a heading list, and an explanation of what a pull is allowed to overwrite. Help content ships with it.
 
