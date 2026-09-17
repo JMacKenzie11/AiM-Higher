@@ -17,6 +17,7 @@ import {
 import { critiqueMeasureDraftAction } from "@/lib/measures/actions";
 import { FREQUENCY_LABELS } from "@/lib/measures/frequency";
 import { ruleBasedCritique } from "@/lib/measures/critique-rules";
+import { shouldCritiqueOnBlur } from "@/lib/measures/critique-blur";
 import type { MeasureCritique } from "@/lib/measures/critique-rules";
 import type { MeasureTreeMeasure } from "@/lib/measures/service";
 import type {
@@ -355,7 +356,14 @@ function EditMeasureForm({
     }
   }, [description, target, valueType, direction]);
 
-  async function runAiCritique() {
+  // The event is read, not ignored: a blur caused by reaching for
+  // Save or Cancel must not re-render the form, because the critique
+  // panel sits above the buttons and moving them mid-click eats the
+  // click. See shouldCritiqueOnBlur.
+  async function runAiCritique(
+    event?: Pick<React.FocusEvent<HTMLElement>, "relatedTarget">
+  ) {
+    if (event && !shouldCritiqueOnBlur(event)) return;
     // Target critique is meaningless without tracking on — skip the
     // AI call entirely so we don't burn tokens or write a stale
     // target_hint that would linger past a tracking flip.
@@ -411,7 +419,7 @@ function EditMeasureForm({
           name="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          onBlur={runAiCritique}
+          onBlur={(e) => runAiCritique(e)}
           required
           disabled={pending}
           autoFocus
@@ -427,7 +435,7 @@ function EditMeasureForm({
             name="target"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            onBlur={runAiCritique}
+            onBlur={(e) => runAiCritique(e)}
             placeholder="e.g. 0.95, 90%, Yes"
             disabled={pending}
           />

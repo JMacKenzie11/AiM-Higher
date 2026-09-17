@@ -9,6 +9,10 @@ build/
 # env files
 .env
 .env.local
+# Any copy of one, however it was named. A backup of an env file is
+# still an env file, and `git add -A` does not know the difference.
+.env*.bak*
+.env.local.*
 .env.provisioning
 
 # Provisioning state: database passwords and service-role keys for
