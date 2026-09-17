@@ -7,6 +7,7 @@ import {
 } from "@/lib/chart/actions";
 import { critiqueMeasureDraftAction } from "@/lib/measures/actions";
 import { ruleBasedCritique } from "@/lib/measures/critique-rules";
+import { shouldCritiqueOnBlur } from "@/lib/measures/critique-blur";
 import type { MeasureCritique } from "@/lib/measures/critique-rules";
 import type {
   MetricValueType,
@@ -124,7 +125,14 @@ export function AddMetricRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
-  async function runAiCritique() {
+  // The event is read, not ignored: a blur caused by reaching for
+  // Save or Cancel must not re-render the form, because the critique
+  // panel sits above the buttons and moving them mid-click eats the
+  // click. See shouldCritiqueOnBlur.
+  async function runAiCritique(
+    event?: Pick<React.FocusEvent<HTMLElement>, "relatedTarget">
+  ) {
+    if (event && !shouldCritiqueOnBlur(event)) return;
     // Target critique is meaningless without a weekly log to
     // compare against — skip the AI call when tracking is off so
     // we don't burn tokens or leave a stale target_hint on the row.
@@ -182,7 +190,7 @@ export function AddMetricRow({
           name="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          onBlur={runAiCritique}
+          onBlur={(e) => runAiCritique(e)}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.preventDefault();
@@ -205,7 +213,7 @@ export function AddMetricRow({
             name="target"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            onBlur={runAiCritique}
+            onBlur={(e) => runAiCritique(e)}
             className={styles.addMetricTarget}
             placeholder={
               valueType === "percent"
@@ -240,7 +248,7 @@ export function AddMetricRow({
             onChange={(e) =>
               setDirection(e.target.value as TargetDirection)
             }
-            onBlur={runAiCritique}
+            onBlur={(e) => runAiCritique(e)}
             className={styles.addMetricType}
             disabled={pending}
             aria-label="Direction"
