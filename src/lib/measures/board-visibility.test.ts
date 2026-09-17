@@ -164,3 +164,48 @@ describe("the board lives on the dashboard, under the brief", () => {
     expect(measures).not.toContain("board/BoardView");
   });
 });
+
+// ---- The measure's name is readable ----------------------------
+//
+// It was truncated with an ellipsis in the Grid view: "Raw Processing
+// lbs per labo…". The name is the only thing on that row saying what
+// is being plotted, and the part that got cut is usually the part
+// that tells it apart from the next measure.
+//
+// A title attribute was carrying the rest, which is a hover tooltip:
+// nothing on a phone, nothing to somebody scanning the card rather
+// than pointing at it.
+describe("the board does not truncate a measure's name", () => {
+  const ROOT = path.resolve(__dirname, "../../..");
+  const css = readFileSync(
+    path.join(ROOT, "src/app/(app)/measures/board/board.module.css"),
+    "utf8"
+  );
+  const grid = readFileSync(
+    path.join(ROOT, "src/app/(app)/measures/board/CockpitGrid.tsx"),
+    "utf8"
+  );
+
+  function rule(selector: string): string {
+    const start = css.indexOf(`${selector} {`);
+    expect(start, `${selector} not found`).toBeGreaterThan(-1);
+    return css.slice(start, css.indexOf("}", start));
+  }
+
+  it("lets the name wrap", () => {
+    const body = rule(".sparkName");
+    expect(body).not.toContain("text-overflow");
+    expect(body).not.toContain("white-space: nowrap");
+    expect(body).toContain("overflow-wrap");
+  });
+
+  it("keeps the CSF chip on the line it labels", () => {
+    // It sits inside the name, so a wrap can strand it above the
+    // text it belongs to, where it reads as a heading.
+    expect(rule(".sparkKindChip")).toContain("white-space: nowrap");
+  });
+
+  it("no longer hides the name behind a hover tooltip", () => {
+    expect(grid).not.toMatch(/sparkName\}\s+title=/);
+  });
+});

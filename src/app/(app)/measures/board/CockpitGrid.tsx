@@ -108,7 +108,11 @@ function MetricSparklineRow({
   return (
     <div className={styles.sparkRow}>
       <div className={styles.sparkLabel}>
-        <span className={styles.sparkName} title={metric.description}>
+        {/* No title attribute. It used to carry the full name past
+            the ellipsis, which is a hover tooltip: nothing on a
+            phone, nothing to a reader scanning the card. The name
+            wraps now, so the text is the text. */}
+        <span className={styles.sparkName}>
           {metric.kind === "csf" ? (
             // The lag measure the function is accountable for. Marked
             // because it now sits in the same list as the lead

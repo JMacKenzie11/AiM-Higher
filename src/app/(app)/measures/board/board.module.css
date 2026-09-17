@@ -252,6 +252,10 @@
 
 .sparkKindChip {
   display: inline-block;
+  /* Never alone on a line. It labels the name it precedes, and a
+     wrapped name that leaves "CSF" stranded above it reads as a
+     heading rather than a tag. */
+  white-space: nowrap;
   margin-right: 0.4rem;
   padding: 0.05rem 0.32rem;
   border-radius: 3px;
@@ -263,13 +267,25 @@
   vertical-align: 0.05em;
 }
 
+/* WRAPS, does not truncate. A measure's name is the only thing on
+   this row that says what is being plotted, and "Raw Processing lbs
+   per labo…" says almost nothing — the part that distinguishes it
+   from the next measure is usually the part that got cut.
+   
+   The title attribute was carrying the full text, which is a hover
+   tooltip: no use on a phone, no use to a screen reader following
+   the visible text, and no use to anybody scanning the card rather
+   than pointing at it.
+
+   The column is capped at 42% of the row by .sparkRow, so wrapping
+   grows the row's height rather than squeezing the sparkline beside
+   it. overflow-wrap handles the measure name that is one long word,
+   which a target like a URL or an identifier can be. */
 .sparkName {
   font: var(--text-body-sm);
   color: var(--text-heading);
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .sparkTarget {
