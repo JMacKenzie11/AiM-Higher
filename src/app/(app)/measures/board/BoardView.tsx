@@ -82,8 +82,20 @@ export function BoardView({ data }: { data: BoardData }) {
     // and how it is doing. Everything the board is made of is inside.
     <section className={styles.boardStage} aria-labelledby="board-card">
       <div className={styles.boardCardHead}>
+        {/* The app's own term, and the nav label for the page where
+            these are logged — so the card and the place you go to act
+            on it share a name.
+            
+            It was "Measure performance", which has a verb sitting
+            where a noun should be: it reads as an instruction to
+            measure something rather than a label for what is below.
+
+            The card plots KPIs as well, which makes this slightly
+            narrow. Accepted: a KPI is shown under the critical
+            success factor it drives and is marked as a KPI, so the
+            heading names the level somebody came looking for. */}
         <h2 id="board-card" className={styles.boardCardTitle}>
-          Measure performance
+          Critical Success Factors
         </h2>
         <button
           type="button"

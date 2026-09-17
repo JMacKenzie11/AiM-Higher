@@ -551,7 +551,7 @@ Nav label: **Critical Success Factors**, under *Workspace*. The tracking columns
 
 **Board** (`BoardView`) — **lives on `/dashboard`**, not here (moved 2026-09-17)
 
-- A titled card, **Measure performance**, rendered directly under the *What's worth knowing today* brief. 13 weeks across every function.
+- A titled card, **Critical Success Factors** — the same name as the nav item for the page where these are logged, so the card and the place you act on it agree. Rendered directly under the *What's worth knowing today* brief. 13 weeks across every function.
 - Everything it is made of is inside the card: the toggle line, the headline chips, the Grid/Timeline switcher, the chart and the legend. They used to float on the dashboard's background above a white box holding only the chart, which read as three stray controls and an untitled panel rather than one named thing. The brief says what happened this week; the board says what the last thirteen look like.
 - It was at the top of `/measures`, above the value inputs people open that page to use weekly — so it was collapsed to stay out of the way, and collapsed at the top of a page people scroll past is indistinguishable from absent.
 - **Shown only when Success Tracking is on AND at least one value has ever been recorded** in the window (`BoardData.hasEntries`). Sparse is fine; empty is not, because thirteen columns of blank teach nobody anything. `hasEntries` is carried on the board rather than derived from its cells: a cell's status is `no_target` before it is anything else, so a measure with a year of values and no target draws identically to one nobody has ever logged.
