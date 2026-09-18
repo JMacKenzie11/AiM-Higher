@@ -2326,6 +2326,291 @@ export type WriteProbe = {
 };
 
 export const BATCHES: readonly Batch[] = [
+  // ---- 0215: a target has a history --------------------------
+  //
+  // The claim is a trigger, not a policy, which changes what has to
+  // be proved. A policy is tested by asking who can reach a row. A
+  // trigger is tested by asking whether a row APPEARED when something
+  // else was written, and by asking whether it stayed away when
+  // nothing relevant changed.
+  //
+  //   POSITIVE  changing a target writes exactly one history row,
+  //             dated the Friday of the week in progress IN THE
+  //             COMPANY'S TIMEZONE, and a second change the same day
+  //             replaces it rather than stacking.
+  //   NEGATIVE  the table is append-only to everyone. Nobody inserts,
+  //             updates or deletes a row directly, system_admin
+  //             included, because neither the policy nor the grant
+  //             admits the verb.
+  //
+  // THE ZEROES HERE NEED THEIR CONTROL AND HAVE ONE. "a measure with
+  // no target writes no history" and "editing a description writes
+  // nothing" both pass on a clone where the trigger never fires at
+  // all. The probe between them inserts a measure WITH a target and
+  // demands a row, in the same transaction, as the same caller. If
+  // that one ever goes to 0 the two zeroes beside it mean nothing,
+  // and the run says so rather than reporting three greens.
+  {
+    n: "measure-target-history",
+    tables: ["success_measure_targets"],
+    migration: "0215_measure_target_history.sql",
+    newTables: ["success_measure_targets"],
+    // Company is reached through the measure's function, exactly as
+    // success_measure_entries reaches it. Without this the standard
+    // checks look for a company_id column that is deliberately not
+    // there: the company lives on functions, and duplicating it here
+    // would be a second copy to keep in step.
+    indirectScope: {
+      success_measure_targets: {
+        key: "id",
+        rows:
+          "select t.id as key, f.company_id from public.success_measure_targets t " +
+          "join public.success_measures m on m.id = t.measure_id " +
+          "join public.functions f on f.id = m.function_id",
+      },
+    },
+    // Created empty by the migration's backfill on a clone whose
+    // measures mostly have no target, so the standard checks need a
+    // row of their own to measure against.
+    seedRows: {
+      success_measure_targets: `
+        insert into public.success_measure_targets
+          (measure_id, target, value_type, target_direction, effective_from)
+        select m.id, '60', 'number', 'higher_is_better', public.friday_of(current_date)
+          from public.success_measures m
+          join public.functions f on f.id = m.function_id
+         where exists (
+                 select 1 from public.profiles p
+                  where p.company_id = f.company_id
+                    and p.role = 'company_admin' and p.status = 'active')
+         order by f.company_id, m.id
+         limit 1
+        on conflict do nothing;`,
+    },
+    // A second tenant with a row, so "sees 0 of the other company" is
+    // a denial and not a description of an empty table.
+    isolationSeed: {
+      success_measure_targets: `
+        insert into public.success_measure_targets
+          (measure_id, target, value_type, target_direction, effective_from)
+        select m.id, '99', 'number', 'lower_is_better', public.friday_of(current_date - 7)
+          from public.success_measures m
+          join public.functions f on f.id = m.function_id
+         where f.company_id <> (
+                 select f2.company_id
+                   from public.success_measures m2
+                   join public.functions f2 on f2.id = m2.function_id
+                  where exists (
+                          select 1 from public.profiles p
+                           where p.company_id = f2.company_id
+                             and p.role = 'company_admin'
+                             and p.status = 'active')
+                  order by f2.company_id, m2.id
+                  limit 1)
+         order by f.company_id, m.id
+         limit 1
+        on conflict do nothing;`,
+    },
+    writeProbes: {
+      fixtures: `
+        select
+          m.id as measure,
+          f.id as fn,
+          f.company_id as company,
+          (select id from public.profiles
+            where role = 'system_admin' and status = 'active' limit 1) as sysadmin,
+          (select id from public.profiles
+            where role = 'company_admin' and status = 'active'
+              and company_id = f.company_id limit 1) as admin,
+          (select p.id from public.profiles p
+            where p.role = 'company_admin' and p.status = 'active'
+              and p.company_id is not null
+              and p.company_id <> f.company_id limit 1) as other_admin,
+          (select id from public.profiles
+            where role = 'team_member' and status = 'active'
+              and company_id = f.company_id limit 1) as member
+        from public.success_measures m
+        join public.functions f on f.id = m.function_id
+        where exists (
+                select 1 from public.profiles p
+                 where p.company_id = f.company_id
+                   and p.role = 'company_admin' and p.status = 'active')
+          and exists (
+                select 1 from public.profiles p
+                 where p.company_id = f.company_id
+                   and p.role = 'team_member' and p.status = 'active')
+        order by m.id
+        limit 1;`,
+      probes: [
+        // ---- The mechanism works at all ----------------------
+        {
+          name: "changing a target writes a history row",
+          caller: "admin",
+          // TWO STATEMENTS. The trigger's insert is not visible to the
+          // statement that fired it, so a CTE form would count zero
+          // and read exactly like a denial. 0212 paid for this lesson.
+          sql: `update public.success_measures
+                   set target = '1234'
+                 where id = '$measure'::uuid;
+                select count(*)::int as n
+                  from public.success_measure_targets
+                 where measure_id = '$measure'::uuid
+                   and target = '1234';`,
+          expect: "1",
+        },
+        {
+          name: "the row is dated this week's Friday, in company time",
+          caller: "admin",
+          // Two independent claims in one count: it is a Friday, and
+          // it is THIS week's Friday where the company lives rather
+          // than where the server does. A UTC answer passes the first
+          // and fails the second every Friday evening west of UTC.
+          sql: `update public.success_measures
+                   set target = '4321'
+                 where id = '$measure'::uuid;
+                select count(*)::int as n
+                  from public.success_measure_targets t
+                  join public.companies c on c.id = '$company'::uuid
+                 where t.measure_id = '$measure'::uuid
+                   and t.target = '4321'
+                   and extract(dow from t.effective_from) = 5
+                   and t.effective_from = public.friday_of(
+                         ((now() at time zone c.timezone)::date));`,
+          expect: "1",
+        },
+        {
+          name: "a second change the same day replaces, not stacks",
+          caller: "admin",
+          // One decision a day, not an audit trail of keystrokes. The
+          // count is of ALL rows at that date, so a second row would
+          // read 2 and a lost update would read 0.
+          sql: `update public.success_measures set target = '111' where id = '$measure'::uuid;
+                update public.success_measures set target = '222' where id = '$measure'::uuid;
+                select count(*)::int as n
+                  from public.success_measure_targets
+                 where measure_id = '$measure'::uuid
+                   and effective_from = public.friday_of(current_date)
+                   and target = '222';`,
+          expect: "1",
+        },
+        {
+          name: "clearing a target is recorded as a clearing",
+          caller: "admin",
+          // The state this exists for. Without a row saying the target
+          // went away, the lookup keeps finding the old number and
+          // keeps judging new weeks against it.
+          sql: `update public.success_measures set target = '777' where id = '$measure'::uuid;
+                update public.success_measures set target = null where id = '$measure'::uuid;
+                select count(*)::int as n
+                  from public.success_measure_targets
+                 where measure_id = '$measure'::uuid
+                   and effective_from = public.friday_of(current_date)
+                   and target is null;`,
+          expect: "1",
+        },
+        // ---- The control for the two zeroes below --------------
+        {
+          name: "a new measure WITH a target gets a row",
+          caller: "admin",
+          sql: `insert into public.success_measures
+                  (id, function_id, kind, description, target, value_type, sort_order)
+                values ('55555555-5555-4555-8555-555555555551'::uuid,
+                        '$fn'::uuid, 'csf', '_probe with target', '42', 'number', 9990);
+                select count(*)::int as n
+                  from public.success_measure_targets
+                 where measure_id = '55555555-5555-4555-8555-555555555551'::uuid;`,
+          expect: "1",
+        },
+        {
+          name: "a new measure with NO target gets none",
+          caller: "admin",
+          // Absence already reads as no target. A row asserting it
+          // would be noise, and would make "has this ever had a
+          // target" unanswerable.
+          sql: `insert into public.success_measures
+                  (id, function_id, kind, description, target, value_type, sort_order)
+                values ('55555555-5555-4555-8555-555555555552'::uuid,
+                        '$fn'::uuid, 'csf', '_probe no target', null, 'number', 9991);
+                select count(*)::int as n
+                  from public.success_measure_targets
+                 where measure_id = '55555555-5555-4555-8555-555555555552'::uuid;`,
+          expect: "0",
+        },
+        {
+          name: "editing only the description writes nothing",
+          caller: "admin",
+          sql: `insert into public.success_measures
+                  (id, function_id, kind, description, target, value_type, sort_order)
+                values ('55555555-5555-4555-8555-555555555553'::uuid,
+                        '$fn'::uuid, 'csf', '_probe rename', null, 'number', 9992);
+                update public.success_measures
+                   set description = '_probe renamed', sort_order = 9993
+                 where id = '55555555-5555-4555-8555-555555555553'::uuid;
+                select count(*)::int as n
+                  from public.success_measure_targets
+                 where measure_id = '55555555-5555-4555-8555-555555555553'::uuid;`,
+          expect: "0",
+        },
+        // ---- Append-only, to everyone --------------------------
+        //
+        // system_admin is the caller on all three deliberately. If the
+        // wall holds for the widest role in the system it holds, and a
+        // refusal measured against company_admin would leave open the
+        // reading that somebody more privileged gets through.
+        {
+          name: "system_admin cannot insert a history row directly",
+          caller: "sysadmin",
+          sql: `with i as (
+                  insert into public.success_measure_targets
+                    (measure_id, target, value_type, target_direction, effective_from)
+                  values ('$measure'::uuid, '13', 'number', 'higher_is_better', current_date)
+                  returning id)
+                select count(*)::int as n from i;`,
+          expect: "42501",
+        },
+        {
+          name: "system_admin cannot edit a history row",
+          caller: "sysadmin",
+          setup: `update public.success_measures set target = '500' where id = '$measure'::uuid;`,
+          sql: `with u as (
+                  update public.success_measure_targets set target = '0'
+                   where measure_id = '$measure'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "42501",
+        },
+        {
+          name: "system_admin cannot delete a history row",
+          caller: "sysadmin",
+          setup: `update public.success_measures set target = '500' where id = '$measure'::uuid;`,
+          sql: `with d as (
+                  delete from public.success_measure_targets
+                   where measure_id = '$measure'::uuid returning id)
+                select count(*)::int as n from d;`,
+          expect: "42501",
+        },
+        // ---- Reads follow success_measure_entries ---------------
+        {
+          name: "a team member of the company reads its history",
+          caller: "member",
+          setup: `update public.success_measures set target = '600' where id = '$measure'::uuid;`,
+          sql: `select count(*)::int as n
+                  from public.success_measure_targets
+                 where measure_id = '$measure'::uuid and target = '600';`,
+          expect: "1",
+        },
+        {
+          name: "company_admin of ANOTHER company reads none of it",
+          caller: "other_admin",
+          setup: `update public.success_measures set target = '600' where id = '$measure'::uuid;`,
+          sql: `select count(*)::int as n
+                  from public.success_measure_targets
+                 where measure_id = '$measure'::uuid and target = '600';`,
+          expect: "0",
+          provenBy: "admin",
+        },
+      ],
+    },
+  },
   // ---- external_pull_log: the receipt, and who may write one ----
   //
   // A new table whose claims are half positive and half negative, and
