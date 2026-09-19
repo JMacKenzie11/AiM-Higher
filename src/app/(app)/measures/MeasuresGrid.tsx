@@ -9,6 +9,7 @@ import {
 import type { GridData, GridRow } from "@/lib/measures/grid";
 import { EditMeasureForm, ArchiveMeasureButton } from "./EditMeasureForm";
 import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
+import { ExternalSourceControls } from "./external/ExternalSourceControls";
 import { PencilIcon } from "@/components/ui/PencilIcon";
 import { PlusIcon } from "@/components/ui/PlusIcon";
 import { formatShortDate } from "@/lib/dates";
@@ -62,13 +63,26 @@ import styles from "./measures.module.css";
 // in a footer, so the panel can grow to any height and the buttons do
 // not move a pixel.
 //
-// ---- THIS WEEK IS THE ONLY EDITABLE COLUMN -------------------
+// ---- TWO COLUMNS TAKE INPUT, NOT ONE -------------------------
 //
-// Deliberate, and a departure from a real spreadsheet. The save
-// action takes one week_ending, and a grid where any of 26 cells is
-// editable invites somebody to correct a number from April with no
-// record that it was corrected. Past weeks are read-only here;
-// fixing one is a conversation, not a keystroke.
+// A week stays open until the end of the following one. The current
+// column and the one that just closed both accept a value; everything
+// older is read to.
+//
+// It was the current column alone, which put the page at odds with
+// the Saturday nudge. That runs on a Saturday, asks for the week that
+// has just CLOSED, and makes it due the coming Friday. By then this
+// page had already locked that week, so the only box on offer was the
+// new one and following the nudge recorded the number against the
+// wrong week.
+//
+// A week locks when the next Saturday comes round, which is the same
+// moment the nudge stops asking for it. One rule, stated once, in two
+// places that now agree.
+//
+// Older weeks stay read-only. A grid where any of fifty-two cells is
+// editable invites somebody to quietly correct a number from April;
+// fixing one of those is a conversation, not a keystroke.
 
 // THE PINNED COLUMNS' WIDTHS.
 //
@@ -103,7 +117,7 @@ function pinnedColumns(authoring: boolean) {
 // fill whatever is left, so the open month lands exactly against the
 // pinned block.
 const CLOSED_MONTH_WIDTH = 44;
-const MIN_WEEK_WIDTH = 60;
+const MIN_WEEK_WIDTH = 72;
 
 // A new measure, before anything is typed. The column defaults,
 // restated here so the form has something to control.
@@ -148,18 +162,38 @@ export function MeasuresGrid({
     () => new Set(data.months.filter((m) => m.isCurrent).map((m) => m.key))
   );
 
+  // The weeks that accept input: the one that just closed, and the
+  // current one. Oldest first, so the grid reads left to right.
+  const editableWeeks = useMemo(
+    () =>
+      [data.previousWeekEnding, weekEnding].filter(
+        (w): w is string => w !== null
+      ),
+    [data.previousWeekEnding, weekEnding]
+  );
+
+  // WHAT THE COUNT CHASES IS THE WEEK THAT JUST CLOSED, not the
+  // current one, because that is the week with a deadline and the one
+  // the Saturday nudge asks about. Two numbers describing one job
+  // have to count the same things; the nudge counts the closed week,
+  // so this does too. The current week is there to type into as you
+  // go and is not late yet.
+  const chasedWeek = data.previousWeekEnding ?? weekEnding;
   const writableRows = useMemo(
     () =>
       data.groups
         .filter((g) => g.canLog)
-        .flatMap((g) => g.rows.filter((r) => isDueThisWeek(r, weekEnding))),
-    [data.groups, weekEnding]
+        .flatMap((g) => g.rows.filter((r) => isDueInWeek(r, chasedWeek))),
+    [data.groups, chasedWeek]
   );
 
+  // Keyed by measure AND week, because two weeks are editable.
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       data.groups.flatMap((g) =>
-        g.rows.map((r) => [r.id, currentValueOf(r, weekEnding)])
+        g.rows.flatMap((r) =>
+          editableWeeks.map((w) => [cellKey(r.id, w), valueAt(r, w)])
+        )
       )
     )
   );
@@ -213,7 +247,7 @@ export function MeasuresGrid({
   // the stylesheet and a test; a third copy here would be the one
   // that goes stale.
   const outstanding = writableRows.filter(
-    (r) => !(values[r.id] ?? "").trim()
+    (r) => !(values[cellKey(r.id, chasedWeek)] ?? "").trim()
   ).length;
 
   function toggleMonth(key: string) {
@@ -227,11 +261,23 @@ export function MeasuresGrid({
 
   function save() {
     setMessage(null);
-    const entries: MeasureEntryInput[] = writableRows.map((r) => ({
-      measureId: r.id,
-      valueType: r.valueType,
-      rawValue: values[r.id] ?? "",
-    }));
+    // Every editable cell this caller owns, across both open weeks.
+    // A blank is skipped by the action, so sending them all is how a
+    // value typed into either column gets saved by one button.
+    const entries: MeasureEntryInput[] = data.groups
+      .filter((g) => g.canLog)
+      .flatMap((g) =>
+        g.rows.flatMap((r) =>
+          editableWeeks
+            .filter((w) => isDueInWeek(r, w))
+            .map((w) => ({
+              measureId: r.id,
+              valueType: r.valueType,
+              rawValue: values[cellKey(r.id, w)] ?? "",
+              weekEnding: w,
+            }))
+        )
+      );
     startTransition(async () => {
       const result = await logMeasureEntriesAction(entries, weekEnding);
       if (result.ok) {
@@ -553,8 +599,8 @@ export function MeasuresGrid({
             }
           >
             {outstanding === 0
-              ? `All ${writableRows.length} logged for the week ending ${formatShortDate(weekEnding)}.`
-              : `${outstanding} of ${writableRows.length} still to log for the week ending ${formatShortDate(weekEnding)}.`}
+              ? `All ${writableRows.length} logged for the week ending ${formatShortDate(chasedWeek)}.`
+              : `${outstanding} of ${writableRows.length} still to log for the week ending ${formatShortDate(chasedWeek)}.`}
           </p>
           <div className={styles.gridToolbarActions}>
             <button
@@ -778,7 +824,14 @@ export function MeasuresGrid({
                       className={
                         w === weekEnding
                           ? `${styles.gridWeekHead} ${styles.gridWeekHeadCurrent}`
-                          : styles.gridWeekHead
+                          : editableWeeks.includes(w)
+                            ? `${styles.gridWeekHead} ${styles.gridWeekHeadOpen}`
+                            : styles.gridWeekHead
+                      }
+                      title={
+                        editableWeeks.includes(w) && w !== weekEnding
+                          ? "Still open: closes when the next week does"
+                          : undefined
                       }
                     >
                       {w.slice(8)}
@@ -883,10 +936,14 @@ export function MeasuresGrid({
                           row={row}
                           week={col.key}
                           isCurrent={col.key === weekEnding}
+                          editable={editableWeeks.includes(col.key)}
                           canLog={group.canLog && trackingEnabled}
-                          value={values[row.id] ?? ""}
+                          value={values[cellKey(row.id, col.key)] ?? ""}
                           onChange={(v) =>
-                            setValues((prev) => ({ ...prev, [row.id]: v }))
+                            setValues((prev) => ({
+                              ...prev,
+                              [cellKey(row.id, col.key)]: v,
+                            }))
                           }
                           disabled={pending}
                         />
@@ -968,6 +1025,14 @@ export function MeasuresGrid({
                   setEditing(null);
                   setAdding(null);
                 }}
+                onCreated={(id) => {
+                  // Stay open on the row that was just created, so
+                  // the external source fields below are live against
+                  // it. Nothing about them is required: close the
+                  // drawer and the measure is already saved.
+                  setAdding(null);
+                  setEditing(id);
+                }}
                 createIn={editingRow ? undefined : adding ?? undefined}
                 functionChoices={addableGroups.map((g) => ({
                   id: g.functionId,
@@ -975,6 +1040,31 @@ export function MeasuresGrid({
                 }))}
                 onFunctionChange={setAdding}
               />
+
+              {/* CONNECTING A MEASURE TO A SPREADSHEET, back where it
+                  can be reached.
+ 
+                  It used to live in the row's settings strip, and
+                  deleting ManagedMeasureRow for the grid took it with
+                  it: the import survived in this form and nothing
+                  rendered it, so for several commits a company with
+                  external_measures on had no way to map a measure at
+                  all. Same shape as the add control disappearing.
+ 
+                  Edit only. A mapping needs a measure to hang off,
+                  and there is no id until the row exists.
+ 
+                  It gates itself on the flag through the provider
+                  this drawer already sits inside, so nothing here
+                  needs to know whether the company has it. */}
+              {editingRow ? (
+                <ExternalSourceControls measureId={editingRow.id} />
+              ) : (
+                <p className={styles.drawerHint}>
+                  Connecting this to a spreadsheet becomes available as
+                  soon as you add it.
+                </p>
+              )}
             </div>
           </aside>
         </>
@@ -987,6 +1077,7 @@ function GridCellView({
   row,
   week,
   isCurrent,
+  editable,
   canLog,
   value,
   onChange,
@@ -995,6 +1086,9 @@ function GridCellView({
   row: GridRow;
   week: string;
   isCurrent: boolean;
+  // Whether this week still accepts a value: the current one and the
+  // one that just closed.
+  editable: boolean;
   canLog: boolean;
   value: string;
   onChange: (v: string) => void;
@@ -1014,6 +1108,10 @@ function GridCellView({
     styles.gridCell,
     styles[`gridCell_${cell.status}`],
     isCurrent ? styles.gridCellCurrent : "",
+    // The just-closed week reads as open too, more quietly than this
+    // week: it is the one with a deadline, not the one you are
+    // filling in as you go.
+    editable && !isCurrent ? styles.gridCellOpen : "",
     change ? styles.gridCellTargetMoved : "",
   ]
     .filter(Boolean)
@@ -1025,7 +1123,7 @@ function GridCellView({
       ? `Target ${cell.target} this week`
       : undefined;
 
-  if (isCurrent && canLog) {
+  if (editable && canLog) {
     return (
       <td className={className} title={title}>
         <input
@@ -1049,12 +1147,16 @@ function GridCellView({
   );
 }
 
-function isDueThisWeek(row: GridRow, weekEnding: string): boolean {
-  return row.cells.find((c) => c.weekEnding === weekEnding)?.expected ?? false;
+function cellKey(measureId: string, week: string): string {
+  return `${measureId}|${week}`;
 }
 
-function currentValueOf(row: GridRow, weekEnding: string): string {
-  const cell = row.cells.find((c) => c.weekEnding === weekEnding);
+function isDueInWeek(row: GridRow, week: string): boolean {
+  return row.cells.find((c) => c.weekEnding === week)?.expected ?? false;
+}
+
+function valueAt(row: GridRow, week: string): string {
+  const cell = row.cells.find((c) => c.weekEnding === week);
   if (!cell?.value) return "";
   if (row.valueType === "text") return cell.value.text ?? "";
   if (cell.value.number == null || !Number.isFinite(cell.value.number)) return "";

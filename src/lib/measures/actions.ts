@@ -21,6 +21,16 @@ export type MeasureEntryInput = {
   measureId: string;
   valueType: MetricValueType;
   rawValue: string;
+  // Which week this value belongs to. Defaults to the batch's week.
+  //
+  // A WEEK STAYS OPEN UNTIL THE END OF THE FOLLOWING ONE, so a save
+  // can carry two weeks at once: the current one and the one that
+  // just closed. Before this, a batch was one week and the page only
+  // offered the current column, which put it at odds with the
+  // Saturday nudge: that asks for the week that just CLOSED, due the
+  // coming Friday, and following it typed the number into the wrong
+  // week because the right one was already read-only.
+  weekEnding?: string;
 };
 
 export async function logMeasureEntriesAction(
@@ -46,6 +56,10 @@ export async function logMeasureEntriesAction(
   for (const e of entries) {
     const raw = e.rawValue.trim();
     if (raw.length === 0) continue; // blank = skip, no clear
+    const week = e.weekEnding ?? weekEnding;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) {
+      return { ok: false, message: "Missing or invalid week." };
+    }
     let value_number: number | null = null;
     let value_text: string | null = null;
     if (e.valueType === "text") {
@@ -63,7 +77,7 @@ export async function logMeasureEntriesAction(
     }
     rows.push({
       measure_id: e.measureId,
-      week_ending: weekEnding,
+      week_ending: week,
       value_number,
       value_text,
       entered_by: session.profile.id,

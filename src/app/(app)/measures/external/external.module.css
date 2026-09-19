@@ -115,21 +115,42 @@
   width: 100%;
 }
 
-.adminSummary {
-  font: var(--text-caption);
+/* Matches the measure form's field labels, because the two sit in
+   one panel and read as one form. They were caption-case here and
+   uppercase subheads there, which made the lower half look like a
+   different screen. */
+.adminHeading {
+  /* A rule and real space above it. The two halves are one panel and
+     were running together, so the external fields read as more of the
+     measure form rather than as a separate thing you may or may not
+     want. */
+  margin: var(--space-6) 0 var(--space-3);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
   color: var(--text-muted);
-  cursor: pointer;
 }
 
+/* The same auto-fit grid the measure form above it uses, so the two
+   halves line up instead of one being a single stacked column beside
+   a two-column one. */
 .adminPanel {
-  margin-top: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
   display: grid;
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
   min-width: 18rem;
+}
+
+.fieldFull {
+  grid-column: 1 / -1;
+}
+
+.verify,
+.messageOk,
+.messageBad {
+  grid-column: 1 / -1;
 }
 
 .field {
@@ -138,7 +159,9 @@
 }
 
 .fieldLabel {
-  font: var(--text-caption);
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
   color: var(--text-muted);
 }
 
@@ -163,10 +186,15 @@
   outline-offset: 1px;
 }
 
+/* Its own line, across the grid. Sitting in a single column it
+   landed beside "Value column heading" and read as that field's
+   controls rather than the panel's. */
 .adminActions {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .verify {

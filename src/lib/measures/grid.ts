@@ -114,6 +114,13 @@ export type GridData = {
   weeks: string[];
   months: GridMonth[];
   currentWeekEnding: string;
+  // The week that just closed, and the other one still open for
+  // entry. A WEEK STAYS OPEN UNTIL THE END OF THE FOLLOWING ONE,
+  // which is exactly the window the Saturday nudge gives: it asks for
+  // this week on the Saturday it closes and makes it due the coming
+  // Friday. Before, the page offered only the current column, so
+  // acting on that nudge recorded the number against the wrong week.
+  previousWeekEnding: string | null;
   groups: GridGroup[];
   hasRows: boolean;
 };
@@ -327,6 +334,7 @@ export function buildGridData(
     weeks,
     months,
     currentWeekEnding,
+    previousWeekEnding: weeks.length >= 2 ? weeks[weeks.length - 2] : null,
     // Functions with nothing on them still render, so an admin has
     // somewhere to add the first row.
     groups,

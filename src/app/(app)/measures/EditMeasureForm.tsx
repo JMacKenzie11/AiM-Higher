@@ -21,7 +21,6 @@ import type { MeasureCritique } from "@/lib/measures/critique-rules";
 import type { MetricValueType, SuccessMeasure, TargetDirection } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import uiStyles from "@/components/ui/ui.module.css";
-import { ExternalSourceControls } from "./external/ExternalSourceControls";
 import styles from "./measures.module.css";
 import chartStyles from "../chart/chart.module.css";
 
@@ -72,6 +71,7 @@ export function EditMeasureForm({
   outcomeDescription,
   trackingEnabled,
   onDone,
+  onCreated,
   createIn,
   functionChoices,
   onFunctionChange,
@@ -81,6 +81,10 @@ export function EditMeasureForm({
   outcomeDescription: string | null;
   trackingEnabled: boolean;
   onDone: () => void;
+  // Called with the new measure's id after a create. The drawer uses
+  // it to stay open on the row that was just made, so the external
+  // source fields become live without a second trip.
+  onCreated?: (id: string) => void;
   // The function a new measure belongs to. Absent means edit.
   createIn?: string;
   // Offered in create mode so the area is chosen in the same panel
@@ -129,7 +133,15 @@ export function EditMeasureForm({
   };
 
   useEffect(() => {
-    if (state && "ok" in state && state.ok) onDone();
+    if (!state || !("ok" in state) || !state.ok) return;
+    // A CREATE HANDS BACK ITS ROW rather than closing. Connecting a
+    // spreadsheet needs a measure to attach to, and there is no id
+    // until this moment: closing here would mean adding the measure,
+    // finding it in the table and opening it again to do the half of
+    // the job the panel was already showing.
+    const created = creating ? (state.item as { id?: string })?.id : null;
+    if (created && onCreated) onCreated(created);
+    else onDone();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
@@ -366,9 +378,14 @@ export function EditMeasureForm({
         >
           {pending ? "Saving…" : creating ? "Add" : "Save"}
         </button>
+        {/* Bordered, like Save beside it. btnGhost drops the border
+            so a text action does not float away from what it acts on,
+            which is right in a table row and wrong in a footer where
+            it sits next to an outlined button and reads as unfinished
+            next to it. */}
         <button
           type="button"
-          className={uiStyles.btnGhost}
+          className={uiStyles.btnSecondary}
           disabled={pending}
           onClick={onDone}
         >

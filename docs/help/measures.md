@@ -38,8 +38,18 @@ A collapsed month shows its name and nothing else. Any summary it
 could show, the last week or an average, would be a number nobody
 entered sitting in a row of numbers people did.
 
-**Only this week takes a value.** Earlier weeks are there to read.
-Correcting an old number is a conversation rather than a keystroke.
+**Two weeks take a value: this one and the one that just closed.**
+A week stays open until the end of the following week, so a number
+you were asked for on Saturday can still be entered any time up to
+the next Friday. That is exactly the window the reminder gives you.
+
+Once the next Saturday comes round, the older week locks and is there
+to read. Correcting one after that is a conversation rather than a
+keystroke.
+
+The count above the table chases **the week that just closed**, since
+that is the one with a deadline. The current week is there to fill in
+as you go and is not late yet.
 
 **The scrollbar sits above the table**, starting where the week
 columns do. It moves only the weeks, which is the only part that
@@ -105,6 +115,16 @@ target is a row somebody has to come back to.
 
 Each row has a **pencil** and a **bin** in their own column, to the
 left of the name. They appear only on functions you can write to.
+
+**Connecting a measure to a spreadsheet** sits at the bottom of that
+same panel, when the company has the external data entitlement on.
+The fields are laid out like the ones above them and are there
+without opening anything.
+
+It is on the add panel too, and it is never required. A connection
+needs a measure to attach to, so the panel stays open on the row you
+just added and the fields become live at that point. Close it and the
+measure is already saved.
 
 The panel slides in from the right and leaves the table readable
 behind it. Close it with **Cancel**, the **✕**, the Escape key, or by

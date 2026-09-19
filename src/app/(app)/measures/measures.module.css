@@ -1190,6 +1190,18 @@
 /* This week's column head. Chartreuse reads well on the dark band,
    and it is the accent the rest of the app uses to mark the thing you
    are meant to act on. */
+/* The week that just closed. Still open for entry, until the next
+   Saturday, which is the same moment the Saturday nudge stops asking
+   for it. Marked more quietly than this week: it is the one with a
+   deadline, not the one being filled in as it goes. */
+.gridWeekHeadOpen {
+  color: color-mix(in srgb, var(--aims-chartreuse) 70%, var(--aims-white));
+}
+
+.gridCellOpen {
+  background: color-mix(in srgb, var(--aims-chartreuse-tint) 45%, transparent);
+}
+
 .gridWeekHeadCurrent {
   color: var(--aims-chartreuse);
   font-weight: 700;
@@ -1242,7 +1254,19 @@
   color: var(--text-faint);
 }
 
+/* NO SPINNER. The stepper arrows on a number input eat about
+   sixteen pixels of a seventy-pixel cell, which is why a two-digit
+   value looked cramped against them, and nobody nudges a weekly
+   figure up by one. The field still accepts only numbers. */
+.gridInput::-webkit-outer-spin-button,
+.gridInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .gridInput {
+  appearance: textfield;
+  -moz-appearance: textfield;
   width: 100%;
   box-sizing: border-box;
   /* No min-width. The cell is 76px with padding either side, and a
@@ -1250,7 +1274,7 @@
      right edge, where the card clipped it. */
   min-width: 0;
   height: var(--control-h-sm);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-1);
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
@@ -1387,6 +1411,14 @@
 
 .drawerClose:hover {
   background: color-mix(in srgb, var(--aims-white) 14%, transparent);
+}
+
+.drawerHint {
+  margin: var(--space-5) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
 }
 
 .drawerBody {
