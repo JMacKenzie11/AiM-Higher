@@ -572,6 +572,26 @@
   color: var(--text);
 }
 
+/* ON A PHONE THE ROW STACKS AND THE CHIP WRAPS.
+ 
+   The row is `grid-template-columns: auto auto 1fr`, and an `auto`
+   track sizes to its content — which here is a nowrap chip carrying a
+   whole sentence. It measured 361px inside a 393px screen and took
+   the page to 488px. Stacked and wrapping, the same text reads fine
+   and nothing sets a floor the container cannot meet. */
+@media (max-width: 768px) {
+  .frictionRow {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+  .frictionChipLow,
+  .frictionChipMed,
+  .frictionChipHigh {
+    white-space: normal;
+    justify-self: start;
+  }
+}
+
 .frictionChipMed {
   background: color-mix(in srgb, var(--aims-warning, #f4a017) 22%, transparent);
   color: var(--text);
