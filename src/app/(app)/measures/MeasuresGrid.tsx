@@ -69,6 +69,41 @@ import styles from "./measures.module.css";
 // record that it was corrected. Past weeks are read-only here;
 // fixing one is a conversation, not a keystroke.
 
+// THE PINNED COLUMNS' WIDTHS.
+//
+// Applied through a <colgroup> on a `table-layout: fixed` table, so
+// the browser sizes the columns from these rather than from their
+// content.
+//
+// THE STICKY OFFSETS ARE NOT COMPUTED FROM THEM. That was the second
+// attempt and it was still wrong by a few pixels per column: cell
+// borders sit outside the column width the colgroup declares, so the
+// running sum of these numbers is not where the next column actually
+// starts. The pinned block drifted as the weeks scrolled under it,
+// by one pixel at Owner and thirty by Target.
+//
+// So the offsets are MEASURED from the rendered header, once, in the
+// same frame that sizes the weeks. Whatever borders and padding
+// actually do, the sticky positions agree with them by construction.
+const PINNED: ReadonlyArray<{ key: string; width: number }> = [
+  { key: "area", width: 150 },
+  { key: "owner", width: 100 },
+  { key: "actions", width: 64 },
+  { key: "name", width: 240 },
+  { key: "freq", width: 96 },
+  { key: "target", width: 84 },
+];
+
+function pinnedColumns(authoring: boolean) {
+  return PINNED.filter((c) => authoring || c.key !== "actions");
+}
+
+// A collapsed month is one narrow column; a week is sized on mount to
+// fill whatever is left, so the open month lands exactly against the
+// pinned block.
+const CLOSED_MONTH_WIDTH = 44;
+const MIN_WEEK_WIDTH = 60;
+
 export function MeasuresGrid({
   data,
   weekEnding,
@@ -140,30 +175,6 @@ export function MeasuresGrid({
   // pinned widths in CSS. Those widths are already duplicated between
   // the stylesheet and a test; a third copy here would be the one
   // that goes stale.
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    // Scroll to the end, which is where this week is: the current
-    // month is always the last one and its last column is always the
-    // week you are filling in.
-    //
-    // IN A FRAME, not on mount. Setting scrollLeft before the
-    // stylesheet has settled measures a table that is still
-    // content-sized, and the scroll clamps to a maximum that is about
-    // to change. That was the bug behind three rounds of widening
-    // columns and adding a spacer to chase 30px that were never about
-    // width at all: the grid simply was not scrolling to the end.
-    //
-    // Done once. After this the scroll position belongs to the
-    // reader, and yanking it back when they open a month would be
-    // worse than opening in the wrong place.
-    const id = requestAnimationFrame(() => {
-      el.scrollLeft = el.scrollWidth;
-    });
-    return () => cancelAnimationFrame(id);
-  }, []);
-
   const outstanding = writableRows.filter(
     (r) => !(values[r.id] ?? "").trim()
   ).length;
@@ -215,6 +226,75 @@ export function MeasuresGrid({
     [data.months, openMonths]
   );
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Measure the pinned offsets, size the open month to the track,
+  // then scroll to the end. In that order, and all in one frame,
+  // because each step depends on the layout the one before it
+  // settles.
+  //
+  // Re-runs when a month opens or closes, because the number of week
+  // columns sharing the track changes with it.
+  //
+  // IN A FRAME. Measuring on mount reads a table the stylesheet has
+  // not finished sizing, which is what made the first attempts at
+  // this chase a gap that was never about column width.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      const table = el.querySelector("table");
+      if (!table) return;
+      const tableLeft = table.getBoundingClientRect().left;
+
+      // 1. Where each pinned column actually starts, read from the
+      //    header row while the table sits at scroll zero.
+      let pinnedRight = 0;
+      for (const col of pinnedColumns(authoring)) {
+        const head = el.querySelector<HTMLElement>(
+          `thead [data-pin="${col.key}"]`
+        );
+        if (!head) continue;
+        const box = head.getBoundingClientRect();
+        const left = Math.round(box.left - tableLeft);
+        for (const cell of Array.from(
+          el.querySelectorAll<HTMLElement>(`[data-pin="${col.key}"]`)
+        )) {
+          cell.style.left = `${left}px`;
+        }
+        pinnedRight = Math.round(box.right - tableLeft);
+      }
+
+      // 2. Share the whole track beside the pinned block among the
+      //    open month's weeks.
+      //
+      //    NOT minus the collapsed months. They are the thing being
+      //    scrolled out of sight, so counting them against the track
+      //    makes the open month narrower by exactly the width it
+      //    needed to push them off, and they stay on screen. That
+      //    left a 39px sliver of the previous month showing.
+      const weekCols = Array.from(
+        el.querySelectorAll<HTMLElement>("col[data-week-col]")
+      );
+      if (weekCols.length > 0) {
+        const track = el.clientWidth - pinnedRight;
+        const width = Math.max(
+          MIN_WEEK_WIDTH,
+          Math.floor(track / weekCols.length)
+        );
+        for (const col of weekCols) col.style.width = `${width}px`;
+      }
+
+      // 3. The open month now fills the track, so the end of the
+      //    scroll puts it flush against the pinned columns with every
+      //    earlier month off the left edge.
+      requestAnimationFrame(() => {
+        el.scrollLeft = el.scrollWidth;
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [columns, authoring]);
+
   if (!data.hasRows) return null;
 
   return (
@@ -249,6 +329,27 @@ export function MeasuresGrid({
 
       <div className={styles.gridScroll} ref={scrollRef}>
         <table className={styles.grid}>
+          {/* `table-layout: fixed` honours these exactly, which is
+              what makes the sticky offsets above correct. Week
+              columns carry no width here: the effect sizes them to
+              fill the track so the open month lands flush against the
+              pinned block. */}
+          <colgroup>
+            {pinnedColumns(authoring).map((c) => (
+              <col key={c.key} style={{ width: c.width }} />
+            ))}
+            {columns.map((col) => (
+              <col
+                key={`${col.kind}-${col.key}`}
+                data-week-col={col.kind === "week" ? "" : undefined}
+                style={
+                  col.kind === "month"
+                    ? { width: CLOSED_MONTH_WIDTH }
+                    : undefined
+                }
+              />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               {/* rowSpan, so the week-label row below carries only
@@ -258,6 +359,7 @@ export function MeasuresGrid({
                 scope="col"
                 rowSpan={2}
                 className={`${styles.gridPin} ${styles.gridPinArea}`}
+                      data-pin="area"
               >
                 Functional Area
               </th>
@@ -265,6 +367,7 @@ export function MeasuresGrid({
                 scope="col"
                 rowSpan={2}
                 className={`${styles.gridPin} ${styles.gridPinOwner}`}
+                      data-pin="owner"
               >
                 Owner
               </th>
@@ -273,6 +376,7 @@ export function MeasuresGrid({
                   scope="col"
                   rowSpan={2}
                   className={`${styles.gridPin} ${styles.gridPinActions}`}
+                      data-pin="actions"
                 >
                   <span className={styles.visuallyHidden}>Actions</span>
                 </th>
@@ -281,6 +385,7 @@ export function MeasuresGrid({
                 scope="col"
                 rowSpan={2}
                 className={`${styles.gridPin} ${styles.gridPinName}`}
+                      data-pin="name"
               >
                 Critical Success Factor
               </th>
@@ -288,6 +393,7 @@ export function MeasuresGrid({
                 scope="col"
                 rowSpan={2}
                 className={`${styles.gridPin} ${styles.gridPinFreq}`}
+                      data-pin="freq"
               >
                 Frequency
               </th>
@@ -295,6 +401,7 @@ export function MeasuresGrid({
                 scope="col"
                 rowSpan={2}
                 className={`${styles.gridPin} ${styles.gridPinTarget}`}
+                      data-pin="target"
                 data-last-pinned=""
               >
                 Target
@@ -375,6 +482,7 @@ export function MeasuresGrid({
                           scope="rowgroup"
                           rowSpan={group.rows.length}
                           className={`${styles.gridPin} ${styles.gridPinArea} ${styles.gridAreaCell}`}
+                      data-pin="area"
                         >
                           <Link
                             href={`/chart/function/${group.functionId}`}
@@ -386,6 +494,7 @@ export function MeasuresGrid({
                         <td
                           rowSpan={group.rows.length}
                           className={`${styles.gridPin} ${styles.gridPinOwner} ${styles.gridOwnerCell}`}
+                      data-pin="owner"
                         >
                           {group.ownerName ?? (
                             <span className={styles.gridNoOwner}>No Lead</span>
@@ -396,6 +505,7 @@ export function MeasuresGrid({
                     {authoring ? (
                       <td
                         className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
+                      data-pin="actions"
                       >
                         <button
                           type="button"
@@ -412,14 +522,17 @@ export function MeasuresGrid({
                     <th
                       scope="row"
                       className={`${styles.gridPin} ${styles.gridPinName} ${styles.gridNameCell}`}
+                      data-pin="name"
                     >
                       {row.description}
                       <ExternalMeasureNote measureId={row.id} />
                     </th>
-                    <td className={`${styles.gridPin} ${styles.gridPinFreq} ${styles.gridFreqCell}`}>
+                    <td className={`${styles.gridPin} ${styles.gridPinFreq} ${styles.gridFreqCell}`}
+                      data-pin="freq">
                       {row.frequencyLabel}
                     </td>
-                    <td className={`${styles.gridPin} ${styles.gridPinTarget} ${styles.gridTargetCell}`}>
+                    <td className={`${styles.gridPin} ${styles.gridPinTarget} ${styles.gridTargetCell}`}
+                      data-pin="target">
                       {row.target ? (
                         <>
                           <span className={styles.gridDir} aria-hidden>

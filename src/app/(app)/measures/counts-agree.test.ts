@@ -74,3 +74,37 @@ describe("the outstanding line and the save count one population", () => {
     expect(code).toContain("writableRows.length > 0");
   });
 });
+
+// ---- What a reader can type into -------------------------------
+//
+// A function's owner sees every function on this page, and must be
+// able to type into exactly one of them.
+//
+// The worry worth guarding is not that the save would write somebody
+// else's row: it would not, because `writableRows` is filtered above
+// and RLS on success_measure_entries admits only the lead, an admin
+// or a guide. It is that the page might INVITE the typing. An input
+// you can fill in and then quietly lose on save is worse than no
+// input, and it is the shape of bug that survives review because
+// everything behind it is correct.
+describe("only your own functions get an input", () => {
+  it("renders an input only on the current week AND with canLog", () => {
+    expect(code).toContain("if (isCurrent && canLog) {");
+  });
+
+  it("passes canLog down per function, not per page", () => {
+    // `group.canLog`, not the page-wide `authoring`. An admin gets
+    // every function because their canLog is true everywhere, which
+    // is the same rule reaching a different answer rather than a
+    // second rule.
+    expect(code).toContain("canLog={group.canLog && trackingEnabled}");
+  });
+
+  it("falls back to reading the value, not to a disabled box", () => {
+    // A greyed-out input is a tease and leaves a dead column. The
+    // cell shows the number instead, which is what a reader came for.
+    const cellView = code.slice(code.indexOf("function GridCellView"));
+    expect(cellView).toContain("cell.displayValue");
+    expect(cellView).not.toContain("disabled={!canLog}");
+  });
+});

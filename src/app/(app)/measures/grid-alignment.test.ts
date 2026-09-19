@@ -122,24 +122,43 @@ describe("the pinned columns line up with their offsets", () => {
     return css.slice(start, css.indexOf("}", start));
   }
 
-  it("offsets each pinned column by the widths before it", () => {
-    // sticky `left` is absolute, not cumulative, so these three
-    // numbers have to be kept in step by hand. Wrong, and two columns
-    // sit on top of each other while a gap opens beside them.
-    expect(rule(".gridPinArea")).toContain("left: 0");
-    expect(rule(".gridPinArea")).toContain("width: 150px");
-    expect(rule(".gridPinOwner")).toContain("left: 150px");
-    expect(rule(".gridPinOwner")).toContain("width: 100px");
-    expect(rule(".gridPinActions")).toContain("left: 250px");
-    expect(rule(".gridPinActions")).toContain("width: 64px");
-    expect(rule(".gridPinName")).toContain("left: 314px");
-    expect(rule(".gridPinName")).toContain("width: 240px");
-    expect(rule(".gridPinFreq")).toContain("left: 554px");
-    expect(rule(".gridPinFreq")).toContain("width: 96px");
-    // Target is pinned on purpose: it scrolled away with the weeks in
-    // the first cut, and a grid of numbers with the target off-screen
-    // is a grid of numbers you cannot read.
-    expect(rule(".gridPinTarget")).toContain("left: 650px");
+  it("declares the widths once, in the component", () => {
+    // They lived in the stylesheet with their cumulative `left`
+    // offsets written out beside them by hand. Two sets of numbers
+    // that have to agree, and under `table-layout: auto` they could
+    // not: the browser sizes a column to its content, the real widths
+    // drift from the declared ones, and the pinned block shivers as
+    // the weeks scroll under it.
+    expect(src).toContain("const PINNED");
+    expect(src).toContain("<colgroup>");
+    // And nowhere else. A `left` in the stylesheet would be the copy
+    // that goes stale.
+    expect(rule(".gridPinArea")).not.toContain("left:");
+    expect(rule(".gridPinName")).not.toContain("left:");
+  });
+
+  it("MEASURES the sticky offsets rather than computing them", () => {
+    // Summing the declared widths was still wrong by a few pixels a
+    // column: cell borders sit outside the width a colgroup declares,
+    // so the running sum is not where the next column starts. The
+    // pinned block drifted as the weeks scrolled under it, by one
+    // pixel at Owner and thirty by Target.
+    expect(src).toContain('thead [data-pin=');
+    expect(src).toContain("cell.style.left");
+  });
+
+  it("fixes the table layout, so those widths are honoured", () => {
+    expect(rule(".grid")).toContain("table-layout: fixed");
+  });
+
+  it("sizes the open month to the track rather than to a constant", () => {
+    // A fixed week width cannot both fill the track and fit inside
+    // it: too narrow and the previous month stays on screen, too wide
+    // and this week's column falls off the right edge. Three rounds
+    // of picking a number went this way before the width became a
+    // measurement.
+    expect(src).toContain("col[data-week-col]");
+    expect(src).toContain("track / weekCols.length");
   });
 
   it("lets the measure name wrap rather than truncate", () => {

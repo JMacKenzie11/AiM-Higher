@@ -924,7 +924,14 @@
 .grid {
   border-collapse: separate;
   border-spacing: 0;
-  width: 100%;
+  /* FIXED, so the widths in the colgroup are honoured exactly. Under
+     `auto` the browser sizes each column to its content, the real
+     widths drift from the declared ones, and every sticky `left`
+     offset lands a few pixels out: the pinned block shivered as the
+     weeks scrolled under it. */
+  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
   font: var(--text-body-sm);
   font-variant-numeric: tabular-nums;
 }
@@ -992,46 +999,24 @@
    a grid of numbers with the target off-screen is a grid of numbers
    you cannot read. */
 .gridPinArea {
-  left: 0;
-  width: 150px;
-  min-width: 150px;
 }
 
 .gridPinOwner {
-  left: 150px;
-  width: 100px;
-  min-width: 100px;
 }
 
 .gridPinActions {
-  left: 250px;
-  width: 64px;
-  min-width: 64px;
 }
 
 .gridPinName {
-  left: 314px;
-  width: 240px;
-  min-width: 240px;
-  /* The name is the only thing saying what the row plots. It wraps
-     rather than truncating, for the reason board.module.css gives:
-     the part that gets cut is usually the part that tells one
-     measure from the next. */
   white-space: normal;
   overflow-wrap: anywhere;
   border-right: 1px solid var(--border);
 }
 
 .gridPinFreq {
-  left: 554px;
-  width: 96px;
-  min-width: 76px;
 }
 
 .gridPinTarget {
-  left: 650px;
-  width: 84px;
-  min-width: 76px;
   border-right: 1px solid var(--border-strong);
 }
 
@@ -1191,7 +1176,6 @@
    Showing the week you have to fill in wins over the last 16px. */
 .gridCell {
   text-align: center;
-  min-width: 76px;
   vertical-align: middle;
   padding-left: var(--space-2);
   padding-right: var(--space-2);
@@ -1237,7 +1221,6 @@
 /* Not due. No dash, no dot, no tint: a monthly row is blank three
    weeks in four and any mark here reads as a week somebody skipped. */
 .gridNotDue {
-  min-width: 76px;
   background: color-mix(in srgb, var(--border) 18%, transparent);
 }
 
