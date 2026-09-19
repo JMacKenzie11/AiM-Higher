@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import {
   useActionState,
   useEffect,
@@ -15,23 +14,26 @@ import {
   type ChartResult,
 } from "@/lib/chart/actions";
 import { critiqueMeasureDraftAction } from "@/lib/measures/actions";
-import { FREQUENCY_LABELS } from "@/lib/measures/frequency";
 import { ruleBasedCritique } from "@/lib/measures/critique-rules";
 import { shouldCritiqueOnBlur } from "@/lib/measures/critique-blur";
 import type { MeasureCritique } from "@/lib/measures/critique-rules";
-import type { MeasureRow } from "@/lib/measures/service";
-import type {
-  MetricValueType,
-  SuccessMeasure,
-  TargetDirection,
-} from "@/lib/types";
+import type { MetricValueType, SuccessMeasure, TargetDirection } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import uiStyles from "@/components/ui/ui.module.css";
-import { compareCellToTarget, computeStatus, type MeasureStatus } from "./MeasuresManager";
-import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
 import { ExternalSourceControls } from "./external/ExternalSourceControls";
 import styles from "./measures.module.css";
 import chartStyles from "../chart/chart.module.css";
+
+// The measure settings form, and the archive control beside it.
+//
+// Lifted out of ManagedMeasureRow so the grid can open it in an
+// expanded row without pulling in the row rendering it no longer
+// uses. One form, two callers, so a field cannot appear in one place
+// and not the other.
+//
+// `measure` is deliberately structural rather than the tree's row
+// type: this form reads six fields and nothing else, and typing it to
+// the shape of whatever page is calling is what made it hard to move.
 
 const INITIAL: ChartResult<SuccessMeasure> = { ok: false, message: "" };
 
@@ -41,245 +43,24 @@ const VALUE_TYPES: Array<{ value: MetricValueType; label: string }> = [
   { value: "text", label: "Text (yes/no)" },
 ];
 
-export function ManagedMeasureRow({
-  measure,
-  outcomeTitle,
-  outcomeDescription,
-  value,
-  onValueChange,
-  disabled,
-  authoring,
-  trackingEnabled,
-  weekEnding,
-  archiveSlot,
-  canLog,
-}: {
-  measure: MeasureRow;
-  outcomeTitle: string;
-  outcomeDescription: string | null;
-  value: string;
-  onValueChange: (v: string) => void;
-  disabled: boolean;
-  // Whether the authoring controls show. Not the same as being an
-  // admin: an admin logging this week's numbers does not want Edit
-  // and a delete on every row while they type.
-  authoring: boolean;
-  trackingEnabled: boolean;
-  weekEnding: string;
-  // The row rendered one of two kinds until 0216 and branched on
-  // which. There is one kind now, so the branches are gone and every
-  // row gets the same controls by construction rather than by two
-  // code paths being kept in step.
-  archiveSlot?: ReactNode;
-  // Whether this caller can write a value here. Read-only is not a
-  // disabled input: a greyed-out box is a tease and leaves a dead
-  // column. The cell shows the number instead, which is the thing a
-  // reader came for.
-  canLog: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const status = computeStatus(measure);
+export type EditableMeasure = {
+  id: string;
+  description: string;
+  target: string | null;
+  value_type: MetricValueType;
+  target_direction: TargetDirection;
+  update_frequency: string;
+  auto_track: boolean;
+};
 
-  if (editing) {
-    return (
-      <div className={styles.measureRowEditing} role="row">
-        <EditMeasureForm
-          measure={measure}
-          outcomeTitle={outcomeTitle}
-          outcomeDescription={outcomeDescription}
-          trackingEnabled={trackingEnabled}
-          onDone={() => setEditing(false)}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={
-        authoring
-          ? `${styles.measureRow} ${styles.measureRowEditable}`
-          : styles.measureRow
-      }
-      role="row"
-    >
-      <div className={styles.measureCellTitle} role="cell">
-        {/* No "Critical Success Factor" eyebrow. It distinguished this
-            row from the KPI rows indented beneath it, and since 0216
-            every row on the page is one, so the eyebrow would repeat
-            on all of them and label nothing. The page heading says
-            what these are. */}
-        <span className={styles.measureCsfName}>{measure.description}</span>
-        {trackingEnabled && measure.update_frequency &&
-        measure.update_frequency !== "weekly" ? (
-          <span className={styles.measureFreq}>
-            {FREQUENCY_LABELS[measure.update_frequency]}
-          </span>
-        ) : null}
-        {/* Renders nothing at all unless this company has external
-            measures on AND something has pulled this measure's
-            current week. Every other company's row is byte-identical
-            to what it was before. */}
-        <ExternalMeasureNote measureId={measure.id} />
-        {/* Only surface the coaching flag when the target is
-            actually being tracked — otherwise it's a stale nag from
-            a prior tracking-on period. */}
-        {trackingEnabled && measure.target_hint ? (
-          <span
-            className={styles.measureTargetHint}
-            title="Coaching hint — refine to clear it."
-          >
-            <span aria-hidden>⚑</span> {measure.target_hint}
-          </span>
-        ) : null}
-      </div>
-      {trackingEnabled ? (
-        <>
-          <div className={styles.measureCellTarget} role="cell">
-            {measure.target ? (
-              <>
-                <span className={styles.targetValue}>{measure.target}</span>
-                <span className={styles.targetDirection}>
-                  {measure.target_direction === "higher_is_better" ? "≥" : "≤"}
-                </span>
-              </>
-            ) : (
-              <span className={styles.targetMuted}>—</span>
-            )}
-          </div>
-          <div className={styles.measureCellRecent} role="cell">
-            <TrendPills measure={measure} weekEnding={weekEnding} />
-          </div>
-          <div className={styles.measureCellInput} role="cell">
-            {canLog ? (
-              <input
-                type={measure.value_type === "text" ? "text" : "number"}
-                step="any"
-                className={statusInputClass(status)}
-                value={value}
-                onChange={(e) => onValueChange(e.target.value)}
-                disabled={disabled}
-                placeholder={placeholderFor(measure.value_type)}
-                aria-label={`${measure.description} this week`}
-              />
-            ) : (
-              <span className={styles.measureReadValue}>
-                {value.trim() || "—"}
-              </span>
-            )}
-          </div>
-          <div className={styles.measureCellDot} role="cell">
-            <StatusDot status={status} />
-          </div>
-        </>
-      ) : null}
-      {/* Always rendered, empty when not authoring. See the note on
-          the header row: a short row shifts every row beneath it. */}
-      <div className={styles.measureCellActions} role="cell">
-        {authoring ? (
-          <>
-          <button
-            type="button"
-            className={styles.iconEditButton}
-            onClick={() => setEditing(true)}
-            aria-label={
-              "Edit this critical success factor"
-            }
-            title="Edit"
-          >
-            <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
-              <path
-                d="M11.5 2.5 a1.4 1.4 0 0 1 2 2 L6 12 L3 13 L4 10 z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-          {archiveSlot ?? <ArchiveMeasureButton measureId={measure.id} />}
-          </>
-        ) : null}
-      </div>
-      {/* A FULL-WIDTH STRIP BENEATH THE ROW, not a seventh cell.
-          The actions cell is a narrow auto track holding two icon
-          buttons; a settings panel inside it stretched that track
-          until the measure's name wrapped one word per line. So this
-          spans every column and takes an implicit row of its own,
-          which is also where it belongs visually: it configures the
-          measure, it is not an action on it.
-
-          Outside the `authoring` branch deliberately. Pulling a week
-          is logging a value, not editing the measure, so it belongs
-          to whoever may log — the same people the action and the
-          database will check again. */}
-      <ExternalSourceControls
-        measureId={measure.id}
-        className={styles.externalStrip}
-      />
-    </div>
-  );
-}
-
-function TrendPills({
-  measure,
-  weekEnding,
-}: {
-  measure: MeasureRow;
-  weekEnding: string;
-}) {
-  const rows = measure.recent
-    .filter((r) => r.weekEnding !== weekEnding)
-    .slice(0, 3);
-  if (rows.length === 0) {
-    return <span className={styles.trendEmpty}>—</span>;
-  }
-  return (
-    <div className={styles.trendPills}>
-      {rows.map((r) => {
-        const label = formatCellValue(measure.value_type, r.number, r.text);
-        const trendStatus = compareCellToTarget(measure, r.number, r.text);
-        return (
-          <span
-            key={r.weekEnding}
-            className={pillClass(trendStatus)}
-            title={`Week of ${r.weekEnding}`}
-          >
-            {label}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function StatusDot({ status }: { status: MeasureStatus }) {
-  const tone =
-    status === "good"
-      ? "good"
-      : status === "off"
-        ? "off"
-        : status === "unlogged"
-          ? "unlogged"
-          : "neutral";
-  return (
-    <span
-      className={`${styles.statusDot} ${styles[`statusDot_${tone}`]}`}
-      title={statusLabel(status)}
-      aria-label={statusLabel(status)}
-    />
-  );
-}
-
-function EditMeasureForm({
+export function EditMeasureForm({
   measure,
   outcomeTitle,
   outcomeDescription,
   trackingEnabled,
   onDone,
 }: {
-  measure: MeasureRow;
+  measure: EditableMeasure;
   outcomeTitle: string;
   outcomeDescription: string | null;
   trackingEnabled: boolean;
@@ -559,7 +340,7 @@ function EditMeasureForm({
   );
 }
 
-function ArchiveMeasureButton({ measureId }: { measureId: string }) {
+export function ArchiveMeasureButton({ measureId }: { measureId: string }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -610,44 +391,4 @@ function ArchiveMeasureButton({ measureId }: { measureId: string }) {
       ) : null}
     </>
   );
-}
-
-// ---- Local helpers ----------------------------------------------
-
-function formatCellValue(
-  valueType: MetricValueType,
-  n: number | null,
-  t: string | null
-): string {
-  if (valueType === "text") return t ?? "—";
-  if (n == null || !Number.isFinite(n)) return "—";
-  if (valueType === "percent") return `${n}%`;
-  return String(n);
-}
-
-function placeholderFor(valueType: MetricValueType): string {
-  if (valueType === "percent") return "0 – 100";
-  if (valueType === "text") return "Yes / No";
-  return "0";
-}
-
-function statusLabel(status: MeasureStatus): string {
-  if (status === "good") return "On target";
-  if (status === "off") return "Off target";
-  if (status === "unlogged") return "Not yet logged this week";
-  return "No target set";
-}
-
-function statusInputClass(status: MeasureStatus): string {
-  const base = styles.scoreboardInput ?? "";
-  if (status === "good") return `${base} ${styles.scoreboardInput_good ?? ""}`;
-  if (status === "off") return `${base} ${styles.scoreboardInput_off ?? ""}`;
-  return base;
-}
-
-function pillClass(status: MeasureStatus): string {
-  const base = styles.trendPill ?? "";
-  if (status === "good") return `${base} ${styles.trendPill_good ?? ""}`;
-  if (status === "off") return `${base} ${styles.trendPill_off ?? ""}`;
-  return base;
 }

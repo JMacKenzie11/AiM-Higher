@@ -1,6 +1,10 @@
 import "server-only";
 
-import { loadMeasuresSpine, type MeasuresSpine } from "@/lib/measures/spine";
+import {
+  BOARD_WEEKS,
+  loadMeasuresSpine,
+  type MeasuresSpine,
+} from "@/lib/measures/spine";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
 
 // Read model for the operational Success Tracking board — 13
@@ -73,7 +77,12 @@ export type BoardData = {
 // loadMeasuresSpine for the reads and getBoardData below, which is
 // the path /dashboard takes.
 export function buildBoardData(spine: MeasuresSpine): BoardData {
-  const { weeks, weekEnding: currentWeekEnding } = spine;
+  // THE BOARD NARROWS. The spine fetches the grid's six months now,
+  // because it is the widest window any consumer takes and one read
+  // serves them all. The board is still 13 weeks: it is a glance, and
+  // a sparkline with 26 points in the width of a card is a smudge.
+  const { weekEnding: currentWeekEnding } = spine;
+  const weeks = spine.weeks.slice(-BOARD_WEEKS);
 
   const hasEntries = spine.entryRows.length > 0;
 

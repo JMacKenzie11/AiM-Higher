@@ -22,9 +22,22 @@ numbers their function is held to.
 
 ## What is on the page
 
-**The function list.** Each function is one card holding one table:
-one row per critical success factor, with its target, its recent
-weeks, and a box for this week.
+**One table, laid out like the spreadsheet.** Functional Area, Owner,
+Critical Success Factor, Frequency, Target, then one column per week.
+Functional Area and Owner are written once per function and span its
+rows.
+
+**It opens on this week.** Six months of weeks are available; the
+current month is open and the earlier ones are collapsed to a single
+column each, showing the month's name. Click a month to open it, and
+click it again to fold it away.
+
+A collapsed month shows its name and nothing else. Any summary it
+could show, the last week or an average, would be a number nobody
+entered sitting in a row of numbers people did.
+
+**Only this week takes a value.** Earlier weeks are there to read.
+Correcting an old number is a conversation rather than a keystroke.
 
 **The 13-week board is on the Dashboard**, not here, in a card with
 the same name as this page. It sits under *What's worth knowing
@@ -53,22 +66,22 @@ their own function, at the same time.
 
 ## Saving
 
-Each function has its own save button, inside its own card, and it
-only appears on functions you can write to. There is no single save
-for the whole page, because there is no single person who fills the
-whole page in.
+One **Save this week** button above the table, and it only ever saves
+the functions you can write to. It used to be a button per function,
+which was the same guarantee expressed by putting a control on every
+card; with one table there is one button, and it covers exactly the
+rows that have a box on them for you.
 
-The line above the list counts only your own: *"2 of 6 still to log
-for the week ending 4 Sep."* If you have nothing to log, it says
+The line beside it counts only your own: *"2 of 6 still to log for
+the week ending 4 Sep."* If you have nothing to log, it says
 nothing.
 
 ## Adding and editing
 
-**Add a critical success factor** at the bottom of a function's card.
-
-Press **Edit** on any row to change its name, target, value type,
-direction, how often to update, and whether the owner is reminded
-when it is due.
+Press **Edit** beside a measure's name. Its settings open in a strip
+across the table, under the row: name, target, value type, direction,
+how often to update, and whether the owner is reminded when it is
+due. One at a time, so the grid stays on screen.
 
 ## Targets
 
@@ -88,18 +101,28 @@ already logged exactly as they were. A change takes effect from the
 week you are in: change it on Wednesday and the week ending that
 Friday uses the new number.
 
+The grid marks the week a target moved with a line down the left of
+the cell, so a step in a row has a stated reason rather than looking
+like the data changed. Hover it to see what it moved from and to.
+
 ## How often a measure is expected
 
 Every measure has an update frequency: **every week**, **every two
-weeks**, or **every month**. Anything other than weekly is shown on
-the row, so you do not have to open the form to see it.
+weeks**, or **every month**. It has its own column, so you can see a
+row's rhythm without opening anything.
 
-The clock starts from when the measure was created, not from the
-calendar. A monthly measure created in the second week of the month
-is expected in the second week of every month after that.
+**A monthly measure is expected in the last week of its month.**
+Monthly numbers close with the month, so that is where its box
+appears and where the system looks for it.
 
-This is what the system chases on. A monthly measure is not "missing"
-three weeks out of four.
+**Every two weeks counts from the measure**, not the calendar, since
+there is no calendar equivalent of a fortnight. It runs every second
+week from the one it was created in.
+
+**A week a measure was not due is left blank, not marked missing.** A
+monthly row is empty three weeks in four, and those cells are shaded
+rather than empty so it reads as "not this week" rather than "nobody
+did this". Nothing chases you for them.
 
 ## What happens when a number is late or bad
 
@@ -139,10 +162,10 @@ nothing hard-deletes, so past weekly values survive.
 ## When Success Tracking is off
 
 - The board on the Dashboard is hidden.
-- The list drops the filter chips, the *Recent* column, the *This
-  week* values, the status dots and the save buttons.
-- What is left is a place to write down what each function is held
-  to.
+- The table drops the week columns, the values and the save button.
+- What is left is Functional Area, Owner, Critical Success Factor,
+  Frequency and Target: a place to write down what each function is
+  held to.
 
 Turn the entitlement on from company settings and the tracking
 columns appear on the next load.

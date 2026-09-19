@@ -25,8 +25,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 const FROZEN_NOW = new Date("2026-09-02T18:00:00Z"); // a Wednesday
 const THIS_FRIDAY = "2026-09-04";
 const OLDEST = "2026-07-31"; // weekEnding - 35 days, the tree's trail
-// weekEnding - 12 weeks: what the shared spine actually fetches, since
-// the Board needs 13 columns and one read now serves both surfaces.
+// weekEnding - 25 weeks: what the shared spine fetches. It was the
+// board's 13 until the six-month grid arrived; the spine takes the
+// widest window any consumer wants and each narrows in memory.
+const GRID_OLDEST = "2026-03-13";
+// Still inside that window, outside the tree's five-week trail.
 const BOARD_OLDEST = "2026-06-12";
 
 const mocks = vi.hoisted(() => {
@@ -84,7 +87,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 // Column lists the loader uses, so fixtures can be keyed exactly.
 const CSF_COLS =
-  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order";
+  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);
@@ -133,6 +136,10 @@ function outcome(
     auto_track: false,
     update_frequency: "weekly",
     target_hint: null,
+    // Anchors the frequency rhythm. Old enough that every week in
+    // the window is inside the measure's life, so a weekly row is
+    // expected throughout and a monthly one lands on month ends.
+    created_at: "2026-01-02T00:00:00Z",
     ...overrides,
   };
 }
@@ -216,14 +223,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("getMeasuresTree — scoping", () => {
+describe("getGridData — scoping", () => {
   it("returns an empty tree and no further queries when the company has no functions", async () => {
     seed("functions", []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    const result = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
+    const result = await getGridData("co_1", "u_1", "America/Anchorage", true);
 
-    expect(result).toEqual({ functions: [], weekEnding: THIS_FRIDAY });
+    expect(result.groups).toEqual([]);
+    expect(result.hasRows).toBe(false);
+    expect(result.currentWeekEnding).toBe(THIS_FRIDAY);
     // Bails before touching measures at all.
     expect(mocks.calls.some((c) => c.table === "success_measures")).toBe(false);
   });
@@ -231,9 +240,9 @@ describe("getMeasuresTree — scoping", () => {
   it("filters to the caller's own functions when includeAll is false", async () => {
     seed("functions", [fn("f_1", "Sales")]);
     seed(`success_measures::${CSF_COLS}`, []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    await getMeasuresTree("co_1", "u_leader", "America/Anchorage", false);
+    await getGridData("co_1", "u_leader", "America/Anchorage", false);
 
     // Nothing is filtered out any more. Everyone in the company
     // reads every function; what narrows is writing, and that is
@@ -256,9 +265,9 @@ describe("getMeasuresTree — scoping", () => {
       fn("f_theirs", "Finance", 2, null, { lead_id: "u_other" }),
     ]);
     seed(`success_measures::${CSF_COLS}`, []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    const { functions } = await getMeasuresTree(
+    const { groups } = await getGridData(
       "co_1",
       "u_leader",
       "America/Anchorage",
@@ -268,7 +277,7 @@ describe("getMeasuresTree — scoping", () => {
     // Lead and Track both write, matching upsertMeasureEntryAction.
     // Everything else is readable and not writable.
     expect(
-      Object.fromEntries(functions.map((f) => [f.title, f.canLog]))
+      Object.fromEntries(groups.map((g) => [g.functionTitle, g.canLog]))
     ).toEqual({ Sales: true, Ops: true, Finance: false });
   });
 
@@ -280,39 +289,39 @@ describe("getMeasuresTree — scoping", () => {
       fn("f_z", "Warehouse", 1, null, { lead_id: "u_leader" }),
     ]);
     seed(`success_measures::${CSF_COLS}`, []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    const { functions } = await getMeasuresTree(
+    const { groups } = await getGridData(
       "co_1",
       "u_leader",
       "America/Anchorage",
       false
     );
 
-    expect(functions.map((f) => f.title)).toEqual(["Warehouse", "Admin"]);
+    expect(groups.map((g) => g.functionTitle)).toEqual(["Warehouse", "Admin"]);
   });
 
   it("marks every function writable for an admin", async () => {
     seed("functions", [fn("f_1", "Sales", 0, null, { lead_id: "u_other" })]);
     seed(`success_measures::${CSF_COLS}`, []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    const { functions } = await getMeasuresTree(
+    const { groups } = await getGridData(
       "co_1",
       "u_admin",
       "America/Anchorage",
       true
     );
 
-    expect(functions[0].canLog).toBe(true);
+    expect(groups[0].canLog).toBe(true);
   });
 
   it("does not filter by leader when includeAll is true", async () => {
     seed("functions", [fn("f_1", "Sales")]);
     seed(`success_measures::${CSF_COLS}`, []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    await getMeasuresTree("co_1", "u_admin", "America/Anchorage", true);
+    await getGridData("co_1", "u_admin", "America/Anchorage", true);
 
     const leaderFilter = mocks.calls.find(
       (c) => c.table === "functions" && c.op === "or"
@@ -323,16 +332,16 @@ describe("getMeasuresTree — scoping", () => {
   it("keeps functions that have no outcomes, so admins can author from scratch", async () => {
     seed("functions", [fn("f_1", "Sales"), fn("f_2", "Operations", 1)]);
     seed(`success_measures::${CSF_COLS}`, []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
+    const { groups } = await getGridData("co_1", "u_1", "America/Anchorage", true);
 
-    expect(functions.map((f) => f.id)).toEqual(["f_1", "f_2"]);
-    expect(functions[0].csfs).toEqual([]);
+    expect(groups.map((g) => g.functionId)).toEqual(["f_1", "f_2"]);
+    expect(groups[0].rows).toEqual([]);
   });
 });
 
-describe("getMeasuresTree — function ordering", () => {
+describe("getGridData — function ordering", () => {
   it("pins Visionary first and Integrator second, then walks depth-first", async () => {
     // Deliberately seeded out of order. Sales sorts before Operations
     // by sort_order, and each child follows its own parent rather than
@@ -344,11 +353,11 @@ describe("getMeasuresTree — function ordering", () => {
       fn("f_vis", "Visionary", 9, null),
     ]);
     seed(`success_measures::${CSF_COLS}`, []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
+    const { groups } = await getGridData("co_1", "u_1", "America/Anchorage", true);
 
-    expect(functions.map((f) => f.title)).toEqual([
+    expect(groups.map((g) => g.functionTitle)).toEqual([
       "Visionary",
       "Integrator",
       "Sales",
@@ -367,11 +376,11 @@ describe("getMeasuresTree — function ordering", () => {
       fn("f_a", "Assembly", 2, "f_vis"),
     ]);
     seed(`success_measures::${CSF_COLS}`, []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", false);
+    const { groups } = await getGridData("co_1", "u_1", "America/Anchorage", false);
 
-    expect(functions.map((f) => f.title)).toEqual([
+    expect(groups.map((g) => g.functionTitle)).toEqual([
       "Visionary",
       "Warehouse",
       "Assembly",
@@ -386,162 +395,35 @@ describe("getMeasuresTree — function ordering", () => {
       fn("f_orphan", "Detached", 1, "f_not_here"),
     ]);
     seed(`success_measures::${CSF_COLS}`, []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
 
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
+    const { groups } = await getGridData("co_1", "u_1", "America/Anchorage", true);
 
-    expect(functions.map((f) => f.id)).toContain("f_orphan");
-    expect(functions).toHaveLength(2);
+    expect(groups.map((g) => g.functionId)).toContain("f_orphan");
+    expect(groups).toHaveLength(2);
   });
 });
 
-describe("getMeasuresTree — outcome and measure shaping", () => {
-  beforeEach(() => {
-    seed("functions", [fn("f_1", "Sales")]);
-  });
-
-  it("sorts outcomes by sort_order, then by title as the tiebreak", async () => {
-    seed(`success_measures::${CSF_COLS}`, [
-      outcome("o_b", "Beta", "f_1", 2),
-      outcome("o_z", "Zulu", "f_1", 1),
-      outcome("o_a", "Alpha", "f_1", 1),
-    ]);
-    seedMeasures([], []);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-
-    expect(functions[0].csfs.map((o) => o.title)).toEqual([
-      "Alpha",
-      "Zulu",
-      "Beta",
-    ]);
-  });
-
-  it("places every measure in one flat list, in the company's order", async () => {
-    seed(`success_measures::${CSF_COLS}`, [
-      outcome("o_1", "Revenue", "f_1", 0),
-      outcome("o_2", "Retention", "f_1", 1),
-    ]);
-    seedMeasures(
-      [measure("m_1", "Closed won", "o_1"), measure("m_2", "Pipeline", "o_1")],
-      [
-        ["o_1", "m_1"],
-        ["o_1", "m_2"],
-      ]
-    );
-    seed("success_measure_entries", []);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-
-    // Revenue first, then the two rows added under it, then
-    // Retention. That is exactly the order 0216's renumbering
-    // produces, and nothing nests.
-    expect(functions[0].csfs.map((c) => c.id)).toEqual([
-      "o_1",
-      "m_1",
-      "m_2",
-      "o_2",
-    ]);
-    // A row that had nothing under it is just a row.
-    expect(functions[0].csfs.find((c) => c.id === "o_2")).toBeTruthy();
-    expect(functions[0].csfs[0]).not.toHaveProperty("measures");
-  });
-
-  it("carries every authoring field through to the shaped measure", async () => {
-    seed(`success_measures::${CSF_COLS}`, [outcome("o_1", "Revenue", "f_1")]);
-    seedMeasures(
-      [
-        measure("m_1", "Closed won", "o_1", {
-          target: "100",
-          value_type: "percent",
-          target_direction: "lower_is_better",
-          auto_track: false,
-          target_hint: "Consider a time bound",
-        }),
-      ],
-      [["o_1", "m_1"]]
-    );
-    seed("success_measure_entries", []);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-
-    // The row's name arrives in `title`. `description` is the longer
-    // detail text under it, which is the mapping this shape has
-    // carried since the outcome era and the one place a rename would
-    // silently blank a page.
-    expect(functions[0].csfs[1]).toEqual({
-      id: "m_1",
-      title: "Closed won",
-      description: null,
-      target: "100",
-      value_type: "percent",
-      target_direction: "lower_is_better",
-      auto_track: false,
-      update_frequency: "weekly",
-      target_hint: "Consider a time bound",
-      currentValue: null,
-      recent: [],
-    });
-  });
-});
-
-describe("getMeasuresTree — values and the five-week trail", () => {
+// ---- What it READS ---------------------------------------------
+//
+// The shaping is grid.test.ts's, against fixed rows and no database.
+// What only this file can see is the queries: how wide the entry
+// window is, and whose clock decides the week.
+describe("getGridData — the reads", () => {
   beforeEach(() => {
     seed("functions", [fn("f_1", "Sales")]);
     seed(`success_measures::${CSF_COLS}`, [outcome("o_1", "Revenue", "f_1")]);
-    seedMeasures([measure("m_1", "Closed won", "o_1")], [["o_1", "m_1"]]);
   });
 
-  it("sets currentValue only from an entry dated exactly this Friday", async () => {
-    seed("success_measure_entries", [
-      entry("m_1", THIS_FRIDAY, 42),
-      entry("m_1", "2026-08-28", 30),
-    ]);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-    const m = functions[0].csfs[1];
-
-    expect(m.currentValue).toEqual({ number: 42, text: null });
-    expect(m.recent).toHaveLength(2);
-  });
-
-  it("leaves currentValue null when the latest entry predates this week", async () => {
-    // A stale value must not read as this week's number.
-    seed("success_measure_entries", [entry("m_1", "2026-08-28", 30)]);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-
-    expect(functions[0].csfs[1].currentValue).toBeNull();
-  });
-
-  it("carries text values as well as numbers", async () => {
-    seed("success_measure_entries", [entry("m_1", THIS_FRIDAY, null, "On track")]);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-
-    expect(functions[0].csfs[1].currentValue).toEqual({
-      number: null,
-      text: "On track",
-    });
-  });
-
-  it("fetches the board's 13-week window, since both surfaces share one read", async () => {
-    // The entries read used to be five weeks, matching this tree's
-    // trail. It is now the wider of the two windows because the Board
-    // and the Manager share loadMeasuresSpine, and fetching the
-    // narrower one would have meant a second query for a subset of
-    // rows already in memory. The five-week trail is applied in
-    // shaping instead — pinned by the test below.
+  it("fetches the grid's six-month window, since every surface shares one read", async () => {
+    // The entries read was five weeks, matching the old tree's trail,
+    // then 13 for the board. It is the widest window any consumer
+    // takes, because fetching a narrower one would mean a second
+    // query for rows already in memory. Each consumer narrows in
+    // shaping instead: the board to 13 weeks.
     seed("success_measure_entries", []);
-    const { getMeasuresTree } = await import("./service");
-
-    await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
+    const { getGridData } = await import("./grid");
+    await getGridData("co_1", "u_1", "America/Anchorage", true);
 
     const gte = mocks.calls.find(
       (c) => c.table === "success_measure_entries" && c.op === "gte"
@@ -549,119 +431,39 @@ describe("getMeasuresTree — values and the five-week trail", () => {
     const lte = mocks.calls.find(
       (c) => c.table === "success_measure_entries" && c.op === "lte"
     );
-    expect(gte?.args).toEqual(["week_ending", BOARD_OLDEST]);
+    expect(gte?.args).toEqual(["week_ending", GRID_OLDEST]);
     expect(lte?.args).toEqual(["week_ending", THIS_FRIDAY]);
   });
 
-  it("still trails only five weeks, even though 13 were fetched", async () => {
-    // The behaviour the old query guaranteed, now guaranteed by the
-    // shaping. Without this the Manager's recent pills would quietly
-    // grow from five columns to thirteen.
-    seedMeasures([measure("m_1", "Revenue", "o_1")], [["o_1", "m_1"]]);
-    seed("success_measure_entries", [
-      entry("m_1", THIS_FRIDAY, 10),
-      entry("m_1", OLDEST, 20),
-      // One day outside the five-week trail, well inside the 13 weeks
-      // the spine fetched.
-      entry("m_1", "2026-07-30", 30),
-      entry("m_1", BOARD_OLDEST, 40),
-    ]);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree(
-      "co_1",
-      "u_1",
-      "America/Anchorage",
-      true
-    );
-
-    const recent = functions[0].csfs[1].recent;
-    expect(recent.map((r) => r.weekEnding)).toEqual([THIS_FRIDAY, OLDEST]);
-  });
-
-  it("computes weekEnding in the company's timezone", async () => {
+  it("reads target history for the measures it found", async () => {
+    // Without it every cell is judged against the CURRENT target and
+    // 0215 buys nothing. The read is unbounded by date on purpose:
+    // the row in force for the oldest week on screen is usually older
+    // than that week.
     seed("success_measure_entries", []);
-    const { getMeasuresTree } = await import("./service");
+    const { getGridData } = await import("./grid");
+    await getGridData("co_1", "u_1", "America/Anchorage", true);
 
-    const { weekEnding } = await getMeasuresTree(
+    const call = mocks.calls.find(
+      (c) => c.table === "success_measure_targets" && c.op === "in"
+    );
+    expect(call?.args?.[0]).toBe("measure_id");
+    expect(mocks.calls.some(
+      (c) => c.table === "success_measure_targets" && (c.op === "gte" || c.op === "lte")
+    )).toBe(false);
+  });
+
+  it("computes the week in the company's timezone", async () => {
+    seed("success_measure_entries", []);
+    const { getGridData } = await import("./grid");
+
+    const { currentWeekEnding } = await getGridData(
       "co_1",
       "u_1",
       "America/Anchorage",
       true
     );
 
-    expect(weekEnding).toBe(THIS_FRIDAY);
-  });
-});
-
-describe("getMeasuresTree — CSFs are measured (phase 4)", () => {
-  beforeEach(() => {
-    seed("functions", [fn("f_1", "Sales")]);
-  });
-
-  it("carries a CSF's own target, value and trail", async () => {
-    seed(`success_measures::${CSF_COLS}`, [
-      outcome("csf_1", "On-time delivery", "f_1", 0, "Why it matters", {
-        target: "95",
-        value_type: "percent",
-        target_direction: "higher_is_better",
-      }),
-    ]);
-    seedMeasures([], []);
-    seed("success_measure_entries", [
-      entry("csf_1", THIS_FRIDAY, 94),
-      entry("csf_1", "2026-08-28", 91),
-    ]);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-    const csf = functions[0].csfs[0];
-
-    expect(csf.title).toBe("On-time delivery");
-    expect(csf.description).toBe("Why it matters");
-    expect(csf.target).toBe("95");
-    expect(csf.value_type).toBe("percent");
-    expect(csf.currentValue).toEqual({ number: 94, text: null });
-    expect(csf.recent).toHaveLength(2);
-  });
-
-  it("leaves a CSF with no target null rather than treating it as a miss", async () => {
-    // Decided 2026-09-04: targets are optional on CSFs. A company may
-    // name them and set targets later, so this is a normal state and
-    // anything rendering it must say "no target", never "off target".
-    seed(`success_measures::${CSF_COLS}`, [
-      outcome("csf_1", "On-time delivery", "f_1"),
-    ]);
-    seedMeasures([], []);
-    seed("success_measure_entries", [entry("csf_1", THIS_FRIDAY, 94)]);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-
-    expect(functions[0].csfs[0].target).toBeNull();
-    expect(functions[0].csfs[0].currentValue).toEqual({
-      number: 94,
-      text: null,
-    });
-  });
-
-  it("keeps a CSF's values separate from its KPIs'", async () => {
-    seed(`success_measures::${CSF_COLS}`, [
-      outcome("csf_1", "On-time delivery", "f_1"),
-    ]);
-    seedMeasures([measure("kpi_1", "Schedule confirmed", "csf_1")], [
-      ["csf_1", "kpi_1"],
-    ]);
-    seed("success_measure_entries", [
-      entry("csf_1", THIS_FRIDAY, 94),
-      entry("kpi_1", THIS_FRIDAY, 5),
-    ]);
-    const { getMeasuresTree } = await import("./service");
-
-    const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-    const csf = functions[0].csfs[0];
-
-    expect(csf.currentValue?.number).toBe(94);
-    expect(functions[0].csfs[1].currentValue?.number).toBe(5);
+    expect(currentWeekEnding).toBe(THIS_FRIDAY);
   });
 });
