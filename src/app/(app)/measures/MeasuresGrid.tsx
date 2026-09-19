@@ -264,29 +264,123 @@ export function MeasuresGrid({
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollbarRef = useRef<HTMLDivElement>(null);
-  const scrollbarInnerRef = useRef<HTMLDivElement>(null);
-  const syncing = useRef(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const scrollbarRowRef = useRef<HTMLDivElement>(null);
 
+  // One arrow press moves about a month. Smooth, so the eye can
+  // follow which columns went by rather than being teleported.
+  function nudge(direction: -1 | 1) {
+    const grid = scrollRef.current;
+    if (!grid) return;
+    grid.scrollBy({
+      left: direction * Math.max(160, Math.round(grid.clientWidth * 0.4)),
+      behavior: "smooth",
+    });
+  }
+
+  // THE THUMB IS DRAWN, NOT A NATIVE SCROLLBAR.
+  //
+  // The first two attempts were a second scrolling element mirrored
+  // to this one, styled to look like a bar. Both failed the same way:
+  // the sync was perfect and the bar was invisible. macOS hides
+  // overlay scrollbars at rest, Chrome ignores ::-webkit-scrollbar
+  // entirely once scrollbar-width is set, and neither renders in a
+  // headless screenshot, so it could not even be checked.
+  //
+  // An affordance that cannot be seen is the same as no affordance,
+  // and one that cannot be verified is worse. This is a div whose
+  // width and offset are arithmetic on the grid's own scroll, which
+  // renders identically everywhere and can be dragged in a test.
   useEffect(() => {
     const grid = scrollRef.current;
-    const bar = scrollbarRef.current;
-    if (!grid || !bar) return;
-    const mirror = (from: HTMLElement, to: HTMLElement) => () => {
-      if (syncing.current) return;
-      syncing.current = true;
-      to.scrollLeft = from.scrollLeft;
-      requestAnimationFrame(() => {
-        syncing.current = false;
-      });
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!grid || !track || !thumb) return;
+
+    const paint = () => {
+      const visible = grid.clientWidth / grid.scrollWidth;
+      // Nothing to scroll: no bar, rather than a full-width thumb
+      // that does nothing when you pull it.
+      const row = scrollbarRowRef.current;
+      const nothingToScroll = visible >= 1;
+      if (row) row.hidden = nothingToScroll;
+      track.hidden = nothingToScroll;
+      if (nothingToScroll) return;
+      const trackW = track.clientWidth;
+      const thumbW = Math.max(48, Math.round(trackW * visible));
+      const maxScroll = grid.scrollWidth - grid.clientWidth;
+      const maxLeft = trackW - thumbW;
+      const left =
+        maxScroll > 0 ? Math.round((grid.scrollLeft / maxScroll) * maxLeft) : 0;
+      thumb.style.width = `${thumbW}px`;
+      thumb.style.transform = `translateX(${left}px)`;
+      thumb.setAttribute("aria-valuenow", String(Math.round(grid.scrollLeft)));
+      thumb.setAttribute("aria-valuemax", String(Math.round(maxScroll)));
     };
-    const a = mirror(grid, bar);
-    const b = mirror(bar, grid);
-    grid.addEventListener("scroll", a, { passive: true });
-    bar.addEventListener("scroll", b, { passive: true });
+
+    paint();
+    grid.addEventListener("scroll", paint, { passive: true });
+    const observer = new ResizeObserver(paint);
+    observer.observe(grid);
+    observer.observe(track);
     return () => {
-      grid.removeEventListener("scroll", a);
-      bar.removeEventListener("scroll", b);
+      grid.removeEventListener("scroll", paint);
+      observer.disconnect();
+    };
+  }, [columns, authoring, data]);
+
+  // Dragging it, and clicking the track to jump.
+  useEffect(() => {
+    const grid = scrollRef.current;
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!grid || !track || !thumb) return;
+
+    let startX = 0;
+    let startScroll = 0;
+    let dragging = false;
+
+    function onDown(event: PointerEvent) {
+      dragging = true;
+      startX = event.clientX;
+      startScroll = grid!.scrollLeft;
+      thumb!.setPointerCapture(event.pointerId);
+      // Or the pointer selects the table text behind it mid-drag.
+      event.preventDefault();
+    }
+
+    function onMove(event: PointerEvent) {
+      if (!dragging) return;
+      const maxLeft = track!.clientWidth - thumb!.offsetWidth;
+      const maxScroll = grid!.scrollWidth - grid!.clientWidth;
+      if (maxLeft <= 0) return;
+      // Pixels of thumb travel map onto pixels of content travel,
+      // which is what makes a short drag move a wide table.
+      grid!.scrollLeft =
+        startScroll + ((event.clientX - startX) / maxLeft) * maxScroll;
+    }
+
+    function onUp() {
+      dragging = false;
+    }
+
+    function onTrackClick(event: MouseEvent) {
+      if (event.target === thumb) return;
+      const box = track!.getBoundingClientRect();
+      const ratio = (event.clientX - box.left) / box.width;
+      grid!.scrollLeft = ratio * (grid!.scrollWidth - grid!.clientWidth);
+    }
+
+    thumb.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    track.addEventListener("click", onTrackClick);
+    return () => {
+      thumb.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      track.removeEventListener("click", onTrackClick);
     };
   }, []);
 
@@ -382,22 +476,16 @@ export function MeasuresGrid({
         for (const col of weekCols) col.style.width = `${width}px`;
       }
 
-      // 3. The proxy scrollbar: as wide as the content, inset to
-      //    begin where the weeks do, so it sits under the only part
-      //    of the table that actually moves.
-      const bar = scrollbarRef.current;
-      const inner = scrollbarInnerRef.current;
-      if (bar && inner) {
-        bar.style.marginLeft = `${pinnedRight}px`;
-        inner.style.width = `${el.scrollWidth - pinnedRight}px`;
-      }
+      // 3. The scrollbar track begins where the weeks do, so it sits
+      //    over the only part of the table that actually moves.
+      const row = scrollbarRowRef.current;
+      if (row) row.style.marginLeft = `${pinnedRight}px`;
 
       // 4. The open month now fills the track, so the end of the
       //    scroll puts it flush against the pinned columns with every
       //    earlier month off the left edge.
       requestAnimationFrame(() => {
         el.scrollLeft = el.scrollWidth;
-        if (bar) bar.scrollLeft = bar.scrollWidth;
       });
     });
     return () => cancelAnimationFrame(id);
@@ -476,11 +564,41 @@ export function MeasuresGrid({
           scroll handler sets the other's scrollLeft, which fires that
           one's handler, and without the flag the two chase each other
           for a frame. */}
-      <div className={styles.gridScrollbar} ref={scrollbarRef}>
-        <div className={styles.gridScrollbarInner} ref={scrollbarInnerRef} />
+      {/* Arrows on both ends, so the bar reads as a control rather
+          than as a decorative rule. They page by roughly a month of
+          columns, which is the unit this grid is organised in. */}
+      <div className={styles.gridScrollbarRow} ref={scrollbarRowRef}>
+        <button
+          type="button"
+          className={styles.gridScrollArrow}
+          onClick={() => nudge(-1)}
+          aria-label="Scroll the weeks left"
+          tabIndex={-1}
+        >
+          <ChevronIcon direction="left" />
+        </button>
+        <div className={styles.gridScrollbar} ref={trackRef}>
+          <div
+            className={styles.gridScrollbarThumb}
+            ref={thumbRef}
+            role="scrollbar"
+            aria-controls="measures-grid-scroll"
+            aria-orientation="horizontal"
+            aria-label="Scroll the weeks"
+          />
+        </div>
+        <button
+          type="button"
+          className={styles.gridScrollArrow}
+          onClick={() => nudge(1)}
+          aria-label="Scroll the weeks right"
+          tabIndex={-1}
+        >
+          <ChevronIcon direction="right" />
+        </button>
       </div>
 
-      <div className={styles.gridScroll} ref={scrollRef}>
+      <div className={styles.gridScroll} id="measures-grid-scroll" ref={scrollRef}>
         <table className={styles.grid}>
           {/* `table-layout: fixed` honours these exactly, which is
               what makes the sticky offsets above correct. Week
@@ -889,4 +1007,22 @@ function currentValueOf(row: GridRow, weekEnding: string): string {
   if (row.valueType === "text") return cell.value.text ?? "";
   if (cell.value.number == null || !Number.isFinite(cell.value.number)) return "";
   return String(cell.value.number);
+}
+
+function ChevronIcon({ direction }: { direction: "left" | "right" }) {
+  // Same geometry as PlusIcon and the row actions: a 16 viewbox drawn
+  // at 14px, 1.4 stroke, round caps. Anything else reads as a second
+  // icon set at the same size.
+  return (
+    <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden focusable="false">
+      <path
+        d={direction === "left" ? "M10 3.5 L5.5 8 L10 12.5" : "M6 3.5 L10.5 8 L6 12.5"}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }

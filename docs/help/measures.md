@@ -43,7 +43,8 @@ Correcting an old number is a conversation rather than a keystroke.
 **The scrollbar sits above the table**, starting where the week
 columns do. It moves only the weeks, which is the only part that
 scrolls, and it is at the top so you do not have to reach the bottom
-of a long list to use it.
+of a long list to use it. Drag it, click the track to jump, or use
+the arrow at either end to move about a month at a time.
 
 **The 13-week board is on the Dashboard**, not here, in a card with
 the same name as this page. It sits under *What's worth knowing

@@ -208,6 +208,47 @@ describe("the pinned columns line up with their offsets", () => {
     expect(rule(".gridScroll")).toContain("overflow-x: auto");
   });
 
+  it("draws its own scrollbar rather than styling a native one", () => {
+    // Two earlier attempts mirrored a second scrolling element and
+    // styled its bar. Both synced perfectly and both were invisible:
+    // macOS hides overlay scrollbars at rest, Chrome drops
+    // ::-webkit-scrollbar the moment scrollbar-width is set, and
+    // neither renders in a headless screenshot, so it could not be
+    // checked either. An affordance that cannot be seen is the same
+    // as none; one that cannot be verified is worse.
+    expect(src).toContain("gridScrollbarThumb");
+    expect(src).toContain("pointerdown");
+    // The grid's own bar is hidden, which is the half of this that
+    // does need the native properties. Searched across the file
+    // rather than through rule(): .gridScroll has more than one
+    // block and the helper returns the first.
+    expect(css).toContain("scrollbar-width: none");
+    // The drawn one styles no native bar at all: the moment it does,
+    // it is back to depending on what the browser feels like
+    // rendering.
+    expect(rule(".gridScrollbar")).not.toContain("scrollbar-width");
+    expect(rule(".gridScrollbarThumb")).toContain("cursor: grab");
+    // Cobalt, the product's interactive colour, which is what makes
+    // this read as a control rather than a rule.
+    expect(rule(".gridScrollbarThumb")).toContain("aims-cobalt");
+    expect(rule(".gridScrollArrow")).toContain("aims-cobalt");
+  });
+
+  it("hides the bar when there is nothing to scroll", () => {
+    // A full-width thumb that does nothing when you pull it is worse
+    // than no bar.
+    expect(src).toContain("const nothingToScroll = visible >= 1");
+    // The arrows go with it. A pair of buttons flanking nothing is
+    // worse than no bar.
+    expect(src).toContain("row.hidden = nothingToScroll");
+  });
+
+  it("starts the track where the week columns start", () => {
+    // Over the only part of the table that moves. Running the full
+    // width says the names scroll, and they do not.
+    expect(src).toContain("row.style.marginLeft = `${pinnedRight}px`");
+  });
+
   it("opens with the current month against the pinned columns", () => {
     // Not scrolled to the far right, which puts this week on screen
     // and leaves two or three collapsed months wedged between the

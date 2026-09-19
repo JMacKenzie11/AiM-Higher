@@ -1480,43 +1480,75 @@
   display: none;
 }
 
-/* STYLED, BECAUSE AN OVERLAY SCROLLBAR IS NOT THERE UNTIL YOU
-   SCROLL. macOS hides scrollbars at rest by default, so the proxy
-   rendered as an empty strip and the whole point of lifting it above
-   the table was lost. Drawing the track and thumb explicitly makes it
-   a visible affordance rather than a hidden one. */
-.gridScrollbar {
-  overflow-x: auto;
-  overflow-y: hidden;
-  height: 12px;
+/* A DRAWN SCROLLBAR, not a native one.
+ 
+   Two earlier attempts mirrored a second scrolling element and styled
+   its bar. Both synced perfectly and both were invisible: macOS hides
+   overlay scrollbars at rest, Chrome drops ::-webkit-scrollbar the
+   moment scrollbar-width is set, and neither renders in a headless
+   screenshot, so it could not be checked either.
+ 
+   Track, thumb and an arrow at each end, positioned by arithmetic on
+   the grid's own scroll. Cobalt is the product's interactive colour,
+   which is what makes this read as a control rather than a rule. */
+
+.gridScrollbarRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin-bottom: var(--space-2);
-  border-radius: 6px;
-  background: var(--aims-navy-tint);
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
 }
 
-.gridScrollbar::-webkit-scrollbar {
-  height: 12px;
-  -webkit-appearance: none;
+.gridScrollArrow {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--aims-cobalt) 30%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--aims-cobalt);
+  cursor: pointer;
+  transition:
+    background 150ms var(--ease-out),
+    border-color 150ms var(--ease-out);
 }
 
-.gridScrollbar::-webkit-scrollbar-track {
-  background: transparent;
+.gridScrollArrow:hover {
+  background: color-mix(in srgb, var(--aims-cobalt) 10%, transparent);
+  border-color: var(--aims-cobalt);
 }
 
-.gridScrollbar::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border: 3px solid transparent;
-  background-clip: content-box;
-  border-radius: 6px;
+.gridScrollbar {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--aims-cobalt) 10%, transparent);
 }
 
-.gridScrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--text-faint);
-  background-clip: content-box;
+.gridScrollbarThumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--aims-cobalt) 55%, transparent);
+  cursor: grab;
+  touch-action: none;
+  transition: background 150ms var(--ease-out);
 }
 
-.gridScrollbarInner {
-  height: 1px;
+.gridScrollbarThumb:hover {
+  background: var(--aims-cobalt);
 }
+
+.gridScrollbarThumb:active {
+  background: var(--aims-navy);
+  cursor: grabbing;
+}
+
+
