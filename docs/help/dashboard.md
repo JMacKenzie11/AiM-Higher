@@ -91,8 +91,8 @@ it stays visible once complete as a shared map of the operating
 disciplines.
 
 **Why is a generative card (Wins, Streaks, etc.) missing?** Those only
-appear when Success Tracking is on and there's real data behind them.
-Empty quarter → empty card, by design.
+appear when there's real data behind them. Empty quarter → empty card,
+by design.
 
 **The AI brief says "no brief yet".** Either the coach API key isn't
 configured for this environment, or there's not enough activity yet this

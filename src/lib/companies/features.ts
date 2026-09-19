@@ -25,17 +25,28 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "performance_tracking",
     label: "Success Tracking",
-    // The hint said "requires a target on every KPI". There are no
-    // KPIs since 0216 and a target has been optional since 0217, so
-    // it described neither the feature nor the product.
-    hint: "Weekly values against targets on Critical Success Factors, the dashboard card, and the Saturday sweep.",
-    // ON FOR EVERY NEW COMPANY. Decided once the KPI collapse
-    // landed: a critical success factor now IS the measurable thing,
-    // so a company set up without this gets a page it can write a
-    // list on and never record a number against. Every existing
-    // company was switched on at the same time, so this is not a new
-    // two-speed fleet, it is the end of one.
-    defaultOnCreate: true,
+    // WHAT THIS FLAG IS, AND WHAT IT STOPPED BEING.
+    //
+    // It used to gate the tracking surface itself: the week columns
+    // on /measures, the Target field on the measure form, the 13-week
+    // board, the scorecard discipline. A company without it got a
+    // page it could write a list on and never record a number
+    // against, which is not a product decision anybody made — it was
+    // the KPI-era gate outliving the KPIs.
+    //
+    // Recording a number is now part of the page, for everyone. What
+    // is left, and all this flag means, is whether the system acts on
+    // those numbers WITHOUT being asked:
+    //
+    //   the Friday nudge for a measure you lead and have not logged
+    //   an Issue raised from a below-target entry     (Saturday cron)
+    //   a commitment raised for an actual nobody entered  (same cron)
+    //
+    // OFF BY DEFAULT, and off across the fleet as of 2026-09-19: none
+    // of those three is in use with any company yet, and a flag that
+    // is on before the behaviour it governs is wanted only creates
+    // work nobody asked for.
+    hint: "Chase missing weekly values and act on them automatically: a Friday nudge, an Issue raised from a below-target entry, and a commitment raised for an actual nobody entered. Logging values does not need this.",
   },
   {
     value: "external_measures",

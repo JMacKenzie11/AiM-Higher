@@ -63,8 +63,10 @@ Eight disciplines, each 0–10:
   don't count toward either half. Priority linkage is deliberately
   not scored.
 - **Success tracking** — every measure has a target, has been logged in
-  the last 7 days, and auto-track measures aren't sitting empty. Only
-  scored when the Success Tracking feature is on.
+  the last 7 days, and auto-track measures aren't sitting empty. Scored
+  for every company. It used to be skipped unless the Success Tracking
+  setting was on; that setting is about automatic reminders now, not
+  about whether you track, so it no longer decides this.
 - **Weekly leadership meeting** — a meeting is happening most weeks
   (rolling 8) and the facilitation reviews are landing well. Only scored
   when Meeting Facilitation Review is on.

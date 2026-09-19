@@ -1,9 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clampScore, type DisciplineScore } from "../types";
 
-// Success tracking score. Only computed when the company has the
-// performance_tracking feature — otherwise the caller records a
-// null score so the discipline sits as a muted "not enabled" tile.
+// Success tracking score. Computed for every company.
+//
+// It used to run only for a company holding performance_tracking,
+// with the caller recording a null score so the discipline sat as a
+// muted "not enabled" tile. That flag stopped meaning "this company
+// tracks" on 2026-09-19 — it means "chase them about it" — so gating
+// the score on it would have dropped this discipline off every
+// scorecard on the fleet the moment it went off.
 //
 //   - % of active measures with a target set    → 3 pts
 //   - % of active measures with an entry in the

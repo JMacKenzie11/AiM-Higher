@@ -136,7 +136,6 @@ export function MeasuresGrid({
   data,
   weekEnding,
   isAdmin,
-  trackingEnabled,
 }: {
   data: GridData;
   weekEnding: string;
@@ -148,7 +147,6 @@ export function MeasuresGrid({
   // reader with no seat anywhere is not given a permanently empty
   // 64px of table.
   isAdmin: boolean;
-  trackingEnabled: boolean;
 }) {
   // The actions column shows if this caller can author anywhere.
   const authoring = isAdmin || data.groups.some((g) => g.canLog);
@@ -304,10 +302,7 @@ export function MeasuresGrid({
   // place to write down what each function is held to, which is what
   // the help has always said it degrades to; rendering a year of
   // empty columns nobody can type into is not that.
-  const visibleMonths = useMemo(
-    () => (trackingEnabled ? data.months : []),
-    [data.months, trackingEnabled]
-  );
+  const visibleMonths = data.months;
 
   const columns = useMemo<Column[]>(
     () =>
@@ -628,16 +623,15 @@ export function MeasuresGrid({
     <div className={styles.gridStack}>
       {/* ONE TOOLBAR, whichever half of it has anything in it.
  
-          The add button had a second placement for a company without
-          Success Tracking, because there was no toolbar to hang it
-          from then. That rendered it alone in a bare row above the
-          table, left-aligned, nothing like where it sits with the
-          flag on — which is exactly what Geo-Sci looks like in
-          production, where the flag is off and dev's is on. */}
-      {(trackingEnabled && writableRows.length > 0) ||
-      addableGroups.length > 0 ? (
+          Both halves used to be gated on Success Tracking as well,
+          which meant a company without the flag got a table it could
+          read and never type into. The flag says whether the Saturday
+          sweep chases you, not whether you may record a number, so
+          what shows here is only ever about what this caller may
+          write. */}
+      {writableRows.length > 0 || addableGroups.length > 0 ? (
         <div className={styles.gridToolbar}>
-          {trackingEnabled && writableRows.length > 0 ? (
+          {writableRows.length > 0 ? (
             <p
               className={
                 outstanding === 0 ? styles.outstandingDone : styles.outstanding
@@ -654,7 +648,7 @@ export function MeasuresGrid({
             <span />
           )}
           <div className={styles.gridToolbarActions}>
-            {trackingEnabled && writableRows.length > 0 ? (
+            {writableRows.length > 0 ? (
               <button
                 type="button"
                 className={uiStyles.btnPrimary}
@@ -975,7 +969,7 @@ export function MeasuresGrid({
                           week={col.key}
                           isCurrent={col.key === weekEnding}
                           editable={editableWeeks.includes(col.key)}
-                          canLog={group.canLog && trackingEnabled}
+                          canLog={group.canLog}
                           value={values[cellKey(row.id, col.key)] ?? ""}
                           onChange={(v) =>
                             setValues((prev) => ({
@@ -1059,7 +1053,6 @@ export function MeasuresGrid({
                 }
                 outcomeTitle={editingRow?.description ?? ""}
                 outcomeDescription={editingRow?.detail ?? null}
-                trackingEnabled={trackingEnabled}
                 onDone={() => {
                   setEditing(null);
                   setAdding(null);

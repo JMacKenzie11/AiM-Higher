@@ -79,12 +79,15 @@ export async function computeCompanyScorecard(
       getCompanyFeaturesWith(db, companyId),
     ]);
 
-  const measuresEnabled = features.includes("performance_tracking");
   const meetingsEnabled = features.includes("meeting_facilitation_review");
 
-  const measures: DisciplineScore = measuresEnabled
-    ? await scoreMeasures(db, companyId)
-    : { key: "measures", score: null, breakdown: { notEnabled: true } };
+  // Success Tracking is scored for every company, always. It used to
+  // be skipped when the performance_tracking flag was off, and the
+  // discipline was dropped from the overall average with it. The flag
+  // now governs only the Saturday sweep and the Friday nudge, so
+  // gating the SCORE on it would have quietly removed this discipline
+  // from every scorecard on the fleet the moment the flag went off.
+  const measures: DisciplineScore = await scoreMeasures(db, companyId);
   const [meetings, solutionSeeking, positiveFraming]: DisciplineScore[] =
     meetingsEnabled
       ? await Promise.all([

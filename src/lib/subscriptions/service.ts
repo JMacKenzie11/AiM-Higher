@@ -14,11 +14,14 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 export type ModuleFeature =
   | "execution"
   | "strengths"
-  // Opt-in performance tracking. When on:
-  //   - success-measure targets are required
-  //   - the Saturday cron fires "update the measure" commitments
-  //     for missed weekly logs
-  //   - dashboards surface generative operational-performance cards
+  // Opt-in performance tracking, which means AUTOMATION ONLY. Every
+  // company may set targets, log weekly values, and see the board and
+  // the insight cards without it. When on, and only then:
+  //   - the Friday nudge fires for a measure you lead and have not
+  //     logged
+  //   - the Saturday cron raises an Issue from a below-target entry
+  //   - the Saturday cron raises a commitment for an actual nobody
+  //     entered
   | "performance_tracking"
   // Opt-in facilitation review. When on, each new meeting transcript
   // gets a second LLM pass that scores how the meeting was run against

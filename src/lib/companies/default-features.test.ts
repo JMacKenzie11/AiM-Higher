@@ -3,17 +3,26 @@ import { describe, it, expect } from "vitest";
 import { defaultFeatures } from "./create-company";
 import { COMPANY_FEATURES } from "./features";
 
-// What a company starts with.
+// Which features a new company is created with.
 //
-// A new company set up without Success Tracking gets a /measures page
-// it can write a list on and never record a number against. That was
-// defensible when a critical success factor was a heading and the
-// measurable thing lived beneath it; since the KPI collapse the
-// factor IS the measurable thing.
+// Success Tracking is NOT one of them, and that is a reversal. It was
+// switched on by default when the KPI collapse landed, on the
+// reasoning that a critical success factor IS the measurable thing so
+// a company without the flag got a page it could never record a
+// number against.
+//
+// The gate was the problem, not the default. Recording a number no
+// longer needs the flag: it governs only the Friday nudge, the Issue
+// raised from a below-target entry, and the commitment raised for an
+// actual nobody entered. None of those three is in use with any
+// company yet, so switching it on at creation would only schedule
+// work nobody asked for.
 
 describe("defaultFeatures", () => {
-  it("includes Success Tracking", () => {
-    expect(defaultFeatures()).toContain("performance_tracking");
+  it("does NOT include Success Tracking", () => {
+    // Turning this on hands the company a Saturday cron that raises
+    // Issues and commitments against it. That is opt-in.
+    expect(defaultFeatures()).not.toContain("performance_tracking");
   });
 
   it("still includes the execution platform", () => {

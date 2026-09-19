@@ -77,8 +77,14 @@ function withFeatures(...features: string[]): SupabaseClient {
 }
 
 // The four feature-gated disciplines, and the feature each one needs.
+// Success Tracking left this table on 2026-09-19. The flag now
+// governs only the Friday nudge and the two things the Saturday
+// sweep creates; it no longer decides whether a company may record a
+// number, so scoring the discipline on it would have dropped Success
+// tracking off every scorecard on the fleet the moment the flag went
+// off. `measures` is scored for everyone now, like foundation and
+// chart, and the gated set is the meeting features alone.
 const GATED = [
-  ["measures", "performance_tracking"],
   ["meetings", "meeting_facilitation_review"],
   ["solution_seeking", "meeting_facilitation_review"],
   ["positive_framing", "meeting_facilitation_review"],
@@ -105,11 +111,8 @@ describe("the session-less guard itself", () => {
 });
 
 describe("computeCompanyScorecard — entitlements in a session-less context", () => {
-  it("scores every gated discipline when the company holds both features", async () => {
-    const db = withFeatures(
-      "performance_tracking",
-      "meeting_facilitation_review"
-    );
+  it("scores every gated discipline when the company holds the feature", async () => {
+    const db = withFeatures("meeting_facilitation_review");
 
     const result = await computeCompanyScorecard("co_1", db);
 
@@ -121,7 +124,7 @@ describe("computeCompanyScorecard — entitlements in a session-less context", (
     for (const [key] of GATED) {
       expect(breakdownFor(result, key)).not.toHaveProperty("notEnabled");
     }
-    expect(result.gating).toEqual({ enabled: 4, total: 4 });
+    expect(result.gating).toEqual({ enabled: 3, total: 3 });
   });
 
   it("still gates disciplines off when the company genuinely holds no features", async () => {
@@ -133,19 +136,17 @@ describe("computeCompanyScorecard — entitlements in a session-less context", (
       expect(breakdownFor(result, key)).toEqual({ notEnabled: true });
       expect(result.disciplines.find((d) => d.key === key)?.score).toBeNull();
     }
-    expect(result.gating).toEqual({ enabled: 0, total: 4 });
+    expect(result.gating).toEqual({ enabled: 0, total: 3 });
   });
 
-  it("resolves each feature independently rather than all-or-nothing", async () => {
-    const db = withFeatures("performance_tracking");
-
-    const result = await computeCompanyScorecard("co_1", db);
-
-    expect(breakdownFor(result, "measures")).not.toHaveProperty("notEnabled");
-    for (const key of ["meetings", "solution_seeking", "positive_framing"]) {
-      expect(breakdownFor(result, key)).toEqual({ notEnabled: true });
+  it("scores Success tracking whether or not the company holds the flag", async () => {
+    // The reversal, stated directly: holding performance_tracking
+    // must make no difference to this discipline in either direction.
+    for (const db of [withFeatures("performance_tracking"), withFeatures()]) {
+      const result = await computeCompanyScorecard("co_1", db);
+      expect(breakdownFor(result, "measures")).not.toHaveProperty("notEnabled");
+      expect(result.gating).toEqual({ enabled: 0, total: 3 });
     }
-    expect(result.gating).toEqual({ enabled: 1, total: 4 });
   });
 
   it("never gates the four ungated disciplines, whatever the entitlements", async () => {
@@ -174,26 +175,28 @@ describe("getCompanyFeaturesWith", () => {
 
 describe("gatingFrom", () => {
   it("counts the gated disciplines a feature set switches on", () => {
-    expect(gatingFrom([])).toEqual({ enabled: 0, total: 4 });
+    expect(gatingFrom([])).toEqual({ enabled: 0, total: 3 });
+    // Success Tracking gates nothing on the scorecard any more, so it
+    // counts for exactly as much as `classroom` does below.
     expect(gatingFrom(["performance_tracking"])).toEqual({
-      enabled: 1,
-      total: 4,
+      enabled: 0,
+      total: 3,
     });
     // One feature, three disciplines: meetings, solution_seeking and
     // positive_framing all hang off meeting_facilitation_review.
     expect(gatingFrom(["meeting_facilitation_review"])).toEqual({
       enabled: 3,
-      total: 4,
+      total: 3,
     });
     expect(
       gatingFrom(["performance_tracking", "meeting_facilitation_review"])
-    ).toEqual({ enabled: 4, total: 4 });
+    ).toEqual({ enabled: 3, total: 3 });
   });
 
   it("ignores features that gate nothing on the scorecard", () => {
     expect(gatingFrom(["classroom", "execution"])).toEqual({
       enabled: 0,
-      total: 4,
+      total: 3,
     });
   });
 });

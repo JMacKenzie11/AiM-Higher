@@ -66,13 +66,11 @@ export async function getHeaderNotifications({
   companyId,
   timezone,
   features,
-  hasChartMeasures,
 }: {
   userId: string;
   companyId: string | null;
   timezone: string;
   features: readonly ModuleFeature[];
-  hasChartMeasures: boolean;
 }): Promise<NotificationItem[]> {
   // Cross-company roles that haven't scoped into a company have no
   // company-level data to notify on. Bail early.
@@ -156,14 +154,17 @@ export async function getHeaderNotifications({
     }
   }
 
-  // Friday metrics gate — only fires on Friday in the company's tz,
-  // only for tenants using Success Tracking (paid entitlement, or a
-  // legacy company already logging metrics). Counts measures the
-  // caller leads that don't yet have a value for this week and
-  // aren't auto-tracked.
-  const hasMeasuresSurface =
-    features.includes("performance_tracking") || hasChartMeasures;
-  if (isFriday && hasMeasuresSurface) {
+  // Friday metrics nudge — only on Friday in the company's tz, and
+  // only for a company on Success Tracking. This IS what the flag is
+  // for: being chased about a number you have not logged. Anyone may
+  // log one without it; nobody is nudged about it without it.
+  //
+  // It used to also fire for a company that merely had measures on
+  // the chart, so that a tenant exploring the surface still got the
+  // reminder. That reading is gone with the flag's: the surface is
+  // open to everyone now, so "has measures" says nothing about
+  // whether they asked to be chased.
+  if (isFriday && features.includes("performance_tracking")) {
     const pending = await getPendingMeasuresForUser({
       supabase,
       companyId,
