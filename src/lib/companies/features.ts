@@ -25,7 +25,17 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
   {
     value: "performance_tracking",
     label: "Success Tracking",
-    hint: "Requires a target on every KPI and turns on the weekly performance sweep.",
+    // The hint said "requires a target on every KPI". There are no
+    // KPIs since 0216 and a target has been optional since 0217, so
+    // it described neither the feature nor the product.
+    hint: "Weekly values against targets on Critical Success Factors, the dashboard card, and the Saturday sweep.",
+    // ON FOR EVERY NEW COMPANY. Decided once the KPI collapse
+    // landed: a critical success factor now IS the measurable thing,
+    // so a company set up without this gets a page it can write a
+    // list on and never record a number against. Every existing
+    // company was switched on at the same time, so this is not a new
+    // two-speed fleet, it is the end of one.
+    defaultOnCreate: true,
   },
   {
     value: "external_measures",

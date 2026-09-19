@@ -892,3 +892,21 @@
   align-items: flex-end;
   gap: var(--space-4);
 }
+
+/* An Edit that sits inside a sentence. Not a button-shaped button:
+   it interrupts the line it belongs to, and a box there would read as
+   the card's main action rather than as a way to correct the dates
+   just named beside it. */
+.inlineEditButton {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.inlineEditButton:hover {
+  color: var(--aims-navy);
+}

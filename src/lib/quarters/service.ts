@@ -81,6 +81,51 @@ export function nextCalendarQuarter(after: CalendarQuarter): CalendarQuarter {
   return calendarQuarterOf(dayAfter);
 }
 
+// The quarter that FOLLOWS this one.
+//
+// CALENDAR-ALIGNED, STAY CALENDAR-ALIGNED. A company whose quarter
+// runs 1 Jul to 30 Sep is offered 1 Oct to 31 Dec, exactly as before.
+// "The day after, for the same number of days" is NOT the same thing
+// at a year boundary: Q4 is 92 days and Q1 is 90, so same-length
+// would have offered 1 Jan to 2 April and quietly walked every
+// calendar company off the calendar one roll at a time. Caught by a
+// test, after that rule had already been written down as safe.
+//
+// ANYTHING ELSE starts the day after this one ends and runs for the
+// same number of days. That is the case the change exists for: now
+// that a company can move its end date, snapping back to a calendar
+// boundary undoes the edit they just made. Push the end of Q3 out to
+// 15 October and the next quarter would still have been offered from
+// 1 October, overlapping by a fortnight.
+//
+// The label comes from the calendar quarter the new start falls in
+// either way, because that is what people call it regardless of where
+// the company chose to draw its line.
+export function quarterAfter(current: CalendarQuarter): CalendarQuarter {
+  const calendar = calendarQuarterOf(new Date(`${current.startDate}T00:00:00Z`));
+  if (
+    calendar.startDate === current.startDate &&
+    calendar.endDate === current.endDate
+  ) {
+    return nextCalendarQuarter(current);
+  }
+
+  const start = new Date(`${current.startDate}T00:00:00Z`);
+  const end = new Date(`${current.endDate}T00:00:00Z`);
+  const days = Math.round((end.getTime() - start.getTime()) / 86400000);
+
+  const nextStart = new Date(end);
+  nextStart.setUTCDate(nextStart.getUTCDate() + 1);
+  const nextEnd = new Date(nextStart);
+  nextEnd.setUTCDate(nextEnd.getUTCDate() + days);
+
+  return {
+    label: calendarQuarterOf(nextStart).label,
+    startDate: nextStart.toISOString().slice(0, 10),
+    endDate: nextEnd.toISOString().slice(0, 10),
+  };
+}
+
 // What the Quarter card on a company's settings page needs.
 //
 // One place, because the card shows three things that have to agree:
@@ -118,7 +163,7 @@ export async function getQuarterCardData(
     .maybeSingle<Pick<Quarter, "start_date" | "end_date" | "label">>();
 
   const suggestion = latest
-    ? nextCalendarQuarter({
+    ? quarterAfter({
         label: latest.label,
         startDate: latest.start_date,
         endDate: latest.end_date,

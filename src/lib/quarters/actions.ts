@@ -80,6 +80,65 @@ export async function openQuarterAction(
   return { ok: true, quarter: data };
 }
 
+// Edit the quarter that is open: its label and its dates.
+//
+// NO CONSTRAINT ON THE END DATE beyond it not preceding the start.
+// A quarter is a container for priorities and nothing else depends on
+// it, so a company running a 14-week cycle, or pushing the end out
+// because the planning session slipped a fortnight, is doing a normal
+// thing rather than a wrong one. The only rules left are the ones a
+// date range cannot do without.
+export async function updateQuarterAction(
+  _prev: QuarterResult | undefined,
+  formData: FormData
+): Promise<QuarterResult> {
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+
+  const id = String(formData.get("quarter_id") ?? "").trim();
+  const label = String(formData.get("label") ?? "").trim();
+  const startDate = String(formData.get("start_date") ?? "").trim();
+  const endDate = String(formData.get("end_date") ?? "").trim();
+  const companyId = requireCompanyContext(
+    session,
+    String(formData.get("company_id") ?? "")
+  );
+
+  if (!companyId) {
+    return { ok: false, message: "Pick a company for this quarter first." };
+  }
+  if (!id) return { ok: false, message: "Missing quarter." };
+  if (!label || !startDate || !endDate) {
+    return { ok: false, message: "Label, start date, and end date are all required." };
+  }
+  if (endDate < startDate) {
+    return { ok: false, message: "End date can't come before start date." };
+  }
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase
+    .from("quarters")
+    .update({ label, start_date: startDate, end_date: endDate })
+    // Scoped to the company as well as the id. RLS decides, and this
+    // says out loud which company's quarter is being edited rather
+    // than trusting an id from a form.
+    .eq("id", id)
+    .eq("company_id", companyId)
+    .select("*")
+    .single<Quarter>();
+
+  if (error || !data) {
+    if (error?.code === "23505") {
+      return { ok: false, message: "Another quarter already has that label." };
+    }
+    return { ok: false, message: "Couldn't save those changes." };
+  }
+
+  revalidatePath("/quarters");
+  revalidatePath("/dashboard");
+  revalidatePath(`/admin/companies/${companyId}`);
+  return { ok: true, quarter: data };
+}
+
 export async function closeQuarterAction(
   quarterId: string
 ): Promise<QuarterResult> {
