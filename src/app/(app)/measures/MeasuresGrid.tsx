@@ -524,7 +524,20 @@ export function MeasuresGrid({
 
       const tableLeft = table.getBoundingClientRect().left;
 
-      // 1. Where each pinned column actually starts. Measured rather
+      // 1a. IS THERE ROOM TO PIN AT ALL?
+      //
+      //     The pinned block is about 770px. On a phone that is two
+      //     and a half screens: sticking it leaves no room for a
+      //     single week beside it, and insetting the scrollbar by it
+      //     pushed a button to x=828 on a 393px viewport, which made
+      //     the whole PAGE scroll sideways. That is what was wrong on
+      //     mobile, and it took the hero and the drawer with it.
+      //
+      //     So below a threshold nothing is pinned and the table
+      //     scrolls as one piece, which is what a phone wants anyway.
+      const roomToPin = el.clientWidth - 160;
+
+      // 1b. Where each pinned column actually starts. Measured rather
       //    than summed from the declared widths: cell borders sit
       //    outside the width a colgroup gives a column, so a running
       //    sum is not where the next one begins and the block drifted
@@ -537,11 +550,16 @@ export function MeasuresGrid({
         if (!head) continue;
         const box = head.getBoundingClientRect();
         const left = Math.round(box.left - tableLeft);
+        pinnedRight = Math.round(box.right - tableLeft);
+        if (pinnedRight > roomToPin) break;
         for (const cell of pinnedCells) {
           if (cell.dataset.pin === col.key) cell.style.left = `${left}px`;
         }
-        pinnedRight = Math.round(box.right - tableLeft);
       }
+      // Nothing was pinned, so nothing is to the left of the weeks.
+      const pinning = pinnedRight <= roomToPin;
+      el.dataset.pinned = pinning ? "true" : "false";
+      if (!pinning) pinnedRight = 0;
 
       // 2. Share the whole track beside the pinned block among the
       //    open month's weeks.
@@ -569,12 +587,19 @@ export function MeasuresGrid({
       //    FIRST TIME: the end, which is this week, with every
       //    earlier month off the left edge.
       //
+      //    EXCEPT WITH NOTHING PINNED, which is the phone. The names
+      //    scroll away with everything else there, so opening at the
+      //    end opens on a column of numbers with no row labels beside
+      //    them. Start at the names instead and let the reader swipe
+      //    to the week; the other way round there is nothing on
+      //    screen to say what is being read.
+      //
       //    EVERY TIME AFTER: back where the reader was. Opening a
       //    month used to throw them to the current week and closing
       //    one did it again, so exploring the history fought back.
       requestAnimationFrame(() => {
         if (!openedRef.current || !anchor) {
-          el.scrollLeft = el.scrollWidth;
+          el.scrollLeft = pinning ? el.scrollWidth : 0;
           openedRef.current = true;
           return;
         }

@@ -22,7 +22,15 @@
   max-width: 1280px;
   width: 100%;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-6);
+  /* The page gutter is published as a custom property because
+     PageShell's full-bleed hero has to cancel it exactly. `.stage`
+     pulls itself out by this much to reach the window edges, so the
+     two numbers are one number: when they drifted apart (24px pull
+     against 16px padding on a phone) every page overflowed
+     horizontally by 8px a side, and any fixed panel anchored to
+     `right: 0` was pushed off the screen by it. */
+  --page-gutter: var(--space-6);
+  padding: var(--space-6) var(--page-gutter);
 }
 
 @media (max-width: 768px) {
@@ -34,6 +42,7 @@
     padding-left: 0;
   }
   .main {
-    padding: var(--space-5) var(--space-4);
+    --page-gutter: var(--space-4);
+    padding: var(--space-5) var(--page-gutter);
   }
 }

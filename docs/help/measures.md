@@ -57,6 +57,13 @@ scrolls, and it is at the top so you do not have to reach the bottom
 of a long list to use it. Drag it, click the track to jump, or use
 the arrow at either end to move about a month at a time.
 
+**On a phone the whole table slides.** There is no room to hold
+Functional Area, Owner and the name still while the weeks move past
+them: those five columns are wider than the screen on their own. So
+the table scrolls in one piece, and it opens on the names rather than
+on this week, because a screen of numbers with no row labels beside
+them tells you nothing. Swipe left to reach the current week.
+
 **The 13-week board is on the Dashboard**, not here, in a card with
 the same name as this page. It sits under *What's worth knowing
 today* and shows every measure against its target across every
