@@ -112,16 +112,11 @@ function MetricSparklineRow({
             the ellipsis, which is a hover tooltip: nothing on a
             phone, nothing to a reader scanning the card. The name
             wraps now, so the text is the text. */}
-        <span className={styles.sparkName}>
-          {metric.kind === "csf" ? (
-            // The lag measure the function is accountable for. Marked
-            // because it now sits in the same list as the lead
-            // measures that drive it, and the two read very
-            // differently at a glance.
-            <span className={styles.sparkKindChip}>CSF</span>
-          ) : null}
-          {metric.description}
-        </span>
+        {/* No CSF chip. It marked the lag measure apart from the lead
+            measures beside it, and since 0216 every row is the same
+            kind, so the chip would sit on all of them saying
+            nothing. */}
+        <span className={styles.sparkName}>{metric.description}</span>
         <span className={styles.sparkTarget}>
           {metric.target ? (
             <>

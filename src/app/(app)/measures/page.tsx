@@ -45,13 +45,15 @@ export default async function MeasuresPage() {
   // page and would otherwise have fetched the same five reads twice.
   // They are on two pages now and each loads its own spine, which is
   // the correct shape for that and was the wrong one before.
-  const [tree, trackingEnabled, rdEnabled, externalEnabled] =
-    await Promise.all([
-      getMeasuresTree(companyId, session.profile.id, timezone, isAdmin),
-      companyHasFeature(companyId, "performance_tracking"),
-      companyHasFeature(companyId, "role_descriptions"),
-      companyHasFeature(companyId, "external_measures"),
-    ]);
+  // role_descriptions is no longer read here. It gated the KPI add
+  // form's "draft from the role description" affordance, and 0216
+  // removed the KPI add form; the flag still gates the role
+  // description surfaces on /chart, which is where it belongs.
+  const [tree, trackingEnabled, externalEnabled] = await Promise.all([
+    getMeasuresTree(companyId, session.profile.id, timezone, isAdmin),
+    companyHasFeature(companyId, "performance_tracking"),
+    companyHasFeature(companyId, "external_measures"),
+  ]);
 
   const { functions, weekEnding } = tree;
 
@@ -66,15 +68,11 @@ export default async function MeasuresPage() {
   // The ids are taken from the tree the page already built, so the
   // panel needs no traversal of its own and cannot disagree with
   // what is on screen about which measures exist.
-  const measureIds = functions.flatMap((f) =>
-    f.outcomes.flatMap((o) => [o.id, ...o.measures.map((m) => m.id)])
-  );
+  const measureIds = functions.flatMap((f) => f.csfs.map((c) => c.id));
   const externalPanel = externalEnabled
     ? await loadExternalPanel(supabase, measureIds, weekEnding, timezone)
     : null;
-  const hasAnyMeasure = functions.some((f) =>
-    f.outcomes.some((o) => o.measures.length > 0)
-  );
+  const hasAnyMeasure = functions.some((f) => f.csfs.length > 0);
 
   return (
     <PageShell
@@ -83,15 +81,14 @@ export default async function MeasuresPage() {
       subtitle={
         trackingEnabled ? (
           <>
-            Every function&rsquo;s critical success factors and the KPIs
-            that drive them. Log the week ending{" "}
-            {formatShortDate(weekEnding)} for the functions you lead.
+            Every function&rsquo;s critical success factors. Log the week
+            ending {formatShortDate(weekEnding)} for the functions you
+            lead.
           </>
         ) : (
           <>
-            Every critical success factor and the KPIs that drive it, by
-            function. Weekly logging turns on when Success Tracking is
-            enabled for the company.
+            Every critical success factor, by function. Weekly logging
+            turns on when Success Tracking is enabled for the company.
           </>
         )
       }
@@ -117,7 +114,6 @@ export default async function MeasuresPage() {
             weekEnding={weekEnding}
             isAdmin={isAdmin}
             trackingEnabled={trackingEnabled}
-            rdEnabled={rdEnabled}
           />
         </ExternalMeasuresProvider>
       )}

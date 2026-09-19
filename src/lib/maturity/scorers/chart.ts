@@ -2,11 +2,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { clampScore, type DisciplineScore } from "../types";
 
 // Chart score = how populated the accountability chart is.
-// Each non-archived function contributes to three ratios:
-//   - has lead_id                  → 5 pts
-//   - has ≥1 outcome               → 3 pts
-//   - has ≥1 measure (via outcome) → 2 pts
+// Each non-archived function contributes to two ratios:
+//   - has lead_id                        → 5 pts
+//   - has ≥1 critical success factor     → 5 pts
 // Ratios are computed as (functions passing / total non-archived).
+//
+// ---- THE TWO MEASURE BANDS MERGED IN 0216 -------------------
+//
+// They were 3 points for "has a CSF" and 2 for "has a KPI". With one
+// kind those are the same test, and keeping them apart would have
+// awarded a function 5 points for one row counted twice.
+//
+// SCORES MOVE, and upward. A function that had critical success
+// factors and no KPIs was losing the 2-point band; one that had KPIs
+// filed under no CSF was losing the 3. Both now score the full 5.
+// That is a real change in a number people watch, not a rounding
+// artefact, and it belongs in the release note rather than being
+// discovered on a Monday.
 //
 // Track / Decide (the T and D of LTD) used to be scored separately
 // against their own columns, but in practice there's no UI to assign
@@ -30,7 +42,7 @@ type FnRow = {
 export type ChartFunctionIssue = {
   id: string;
   name: string;
-  missing: readonly ("lead" | "outcome" | "measure")[];
+  missing: readonly ("lead" | "measure")[];
 };
 
 export async function scoreChart(
@@ -53,7 +65,6 @@ export async function scoreChart(
       breakdown: {
         totalFunctions: 0,
         withLead: 0,
-        withOutcome: 0,
         withMeasure: 0,
         issues: [],
       },
@@ -64,45 +75,29 @@ export async function scoreChart(
 
   const fnIds = functions.map((f) => f.id);
 
-  // Which functions have at least one CSF + at least one KPI?
-  // Both come from success_measures now (migration 0166), split by
-  // kind, so this is one query where it used to be two plus a join
-  // through function_outcomes.
+  // Which functions have at least one measure. One query, no kind
+  // filter, and no second set to keep in step with the first.
   const { data: allMeasureRows } = await admin
     .from("success_measures")
-    .select("id, function_id, kind")
-    .in("function_id", fnIds);
+    .select("id, function_id")
+    .in("function_id", fnIds)
+    .eq("archived", false);
   const allMeasures = (allMeasureRows ?? []) as Array<{
     id: string;
     function_id: string | null;
-    kind: "csf" | "kpi";
   }>;
-  const fnsWithOutcome = new Set(
+  const fnsWithMeasure = new Set(
     allMeasures
-      .filter((m) => m.kind === "csf" && m.function_id)
+      .filter((m) => m.function_id)
       .map((m) => m.function_id as string)
   );
 
-  let fnsWithMeasure = new Set<string>();
-  {
-    // function_id is on the row now, so no lookup map is needed.
-    fnsWithMeasure = new Set(
-      allMeasures
-        .filter((m) => m.kind === "kpi" && m.function_id)
-        .map((m) => m.function_id as string)
-    );
-  }
-
-  const points =
-    (withLead / total) * 5 +
-    (fnsWithOutcome.size / total) * 3 +
-    (fnsWithMeasure.size / total) * 2;
+  const points = (withLead / total) * 5 + (fnsWithMeasure.size / total) * 5;
 
   const issues: ChartFunctionIssue[] = functions
     .map((f) => {
       const missing: ChartFunctionIssue["missing"][number][] = [];
       if (!f.lead_id) missing.push("lead");
-      if (!fnsWithOutcome.has(f.id)) missing.push("outcome");
       if (!fnsWithMeasure.has(f.id)) missing.push("measure");
       return { id: f.id, name: f.title, missing };
     })
@@ -114,7 +109,6 @@ export async function scoreChart(
     breakdown: {
       totalFunctions: total,
       withLead,
-      withOutcome: fnsWithOutcome.size,
       withMeasure: fnsWithMeasure.size,
       issues,
     },

@@ -14,11 +14,13 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // The page renders two things from the same data: the Board (13 weeks
 // across every function) and the Manager (the authoring and
 // value-entry tree). They were built by two loaders that each walked
-// the same chain — functions, critical success factors, csf_kpi_links,
-// the linked KPIs — and then read entries over different windows. Four
-// of five reads were the same rows fetched twice per page load, and
-// each chain was five round trips deep because every step needs the
-// previous step's ids.
+// the same chain and then read entries over different windows, so
+// four of five reads were the same rows fetched twice per page load.
+//
+// 0216 collapsed the two measure kinds into one, which took the chain
+// with it. There is no link table to walk and no second read for the
+// rows the first read pointed at: a function's measures are one
+// select, and the tree and the board both shape that same list.
 //
 // So the reads live here and the shaping lives in two pure builders
 // (buildMeasuresTree, buildBoardData). Neither builder touches the
@@ -73,18 +75,6 @@ export type SpineCsf = {
   sort_order: number;
 };
 
-export type SpineKpi = {
-  id: string;
-  description: string;
-  target: string | null;
-  value_type: MetricValueType;
-  target_direction: TargetDirection;
-  auto_track: boolean;
-  update_frequency: UpdateFrequency;
-  target_hint: string | null;
-  sort_order: number;
-};
-
 export type SpineEntry = {
   measure_id: string;
   week_ending: string;
@@ -100,8 +90,6 @@ export type MeasuresSpine = {
   functions: SpineFunction[];
   roster: Array<{ id: string; full_name: string }>;
   csfRows: SpineCsf[];
-  linkRows: Array<{ csf_id: string; kpi_id: string }>;
-  kpiRows: SpineKpi[];
   // The full 13-week window, week_ending descending. The tree's
   // "recent" trail is a slice of this, not a second query.
   entryRows: SpineEntry[];
@@ -111,8 +99,6 @@ const FUNCTION_COLS =
   "id, title, sort_order, parent_function_id, lead_id, track_id";
 const CSF_COLS =
   "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order";
-const KPI_COLS =
-  "id, description, target, value_type, target_direction, auto_track, update_frequency, target_hint, sort_order";
 const ENTRY_COLS = "measure_id, week_ending, value_number, value_text";
 
 export function boardWeeks(weekEnding: string): string[] {
@@ -137,8 +123,6 @@ export async function loadMeasuresSpine(
     functions: [],
     roster: [],
     csfRows: [],
-    linkRows: [],
-    kpiRows: [],
     entryRows: [],
   };
 
@@ -168,49 +152,19 @@ export async function loadMeasuresSpine(
   const roster = (rosterRows ?? []) as Array<{ id: string; full_name: string }>;
   const functionIds = functions.map((f) => f.id);
 
-  // CSF measures ARE the outcomes (migration 0166). Same rows, reached
-  // by function + kind. The name mapping matters: a CSF's
-  // `description` holds what the outcome called `title`, and `detail`
-  // holds what it called `description`.
+  // Every live measure on these functions. There is one kind since
+  // 0216, so there is no kind filter and no second read: the tree and
+  // the board both walk this one list.
   const { data: csfRaw } = await supabase
     .from("success_measures")
     .select(CSF_COLS)
     .in("function_id", functionIds)
-    .eq("kind", "csf")
     .eq("archived", false)
     .order("sort_order");
   const csfRows = (csfRaw ?? []) as SpineCsf[];
   const csfIds = csfRows.map((c) => c.id);
 
-  // Which KPIs hang off those CSFs. Read as a list per CSF: the
-  // authoring UI allows one CSF per KPI today, but the link table is
-  // many-to-many by design and a row driving two must not crash.
-  const linkRows =
-    csfIds.length === 0
-      ? []
-      : (((
-          await supabase
-            .from("csf_kpi_links")
-            .select("csf_id, kpi_id")
-            .in("csf_id", csfIds)
-        ).data ?? []) as Array<{ csf_id: string; kpi_id: string }>);
-
-  const kpiIds = Array.from(new Set(linkRows.map((l) => l.kpi_id)));
-  const kpiRows =
-    kpiIds.length === 0
-      ? []
-      : (((
-          await supabase
-            .from("success_measures")
-            .select(KPI_COLS)
-            .in("id", kpiIds)
-            .eq("archived", false)
-            .order("sort_order")
-        ).data ?? []) as SpineKpi[]);
-
-  // CSF ids ride along: a CSF is measured now, so it has its own
-  // weekly entries and its own trail, exactly like a KPI.
-  const measureIds = [...csfIds, ...kpiRows.map((m) => m.id)];
+  const measureIds = csfIds;
   const entryRows =
     measureIds.length === 0
       ? []
@@ -230,8 +184,6 @@ export async function loadMeasuresSpine(
     functions,
     roster,
     csfRows,
-    linkRows,
-    kpiRows,
     entryRows,
   };
 }

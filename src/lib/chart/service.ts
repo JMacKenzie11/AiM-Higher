@@ -3,7 +3,6 @@ import "server-only";
 import {
   CSF_AS_OUTCOME_COLUMNS,
   csfAsOutcome,
-  kpisByCsf,
   type CsfRow,
 } from "@/lib/measures/csf-as-outcome";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -25,13 +24,10 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // so the tree page can show current values without a per-measure
 // fetch.
 
-export type ChartMeasureWithLatest = SuccessMeasure & {
-  latestEntry: SuccessMeasureEntry | null;
-};
-
-export type ChartOutcome = FunctionOutcome & {
-  measures: ChartMeasureWithLatest[];
-};
+// A critical success factor as the chart shows it. It carried the
+// KPIs beneath it until 0216; there is nothing beneath one now, so
+// the field is gone rather than always empty.
+export type ChartOutcome = FunctionOutcome;
 
 // Kept as a type alias for the detail page which still surfaces
 // the LTD split when set explicitly. The org-chart page only shows
@@ -89,26 +85,17 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
 
   const functionIds = functions.map((f) => f.id);
 
-  const [{ data: outcomesRaw }, { data: measuresRaw }, { data: rolesRaw }] = await Promise.all([
+  const [{ data: outcomesRaw }, { data: rolesRaw }] = await Promise.all([
     // Outcomes are critical success factors now (migration 0166), so
     // they come from success_measures like everything else and get
     // mapped back to the chart's shape.
     supabase
       .from("success_measures")
       .select(CSF_AS_OUTCOME_COLUMNS)
-      .eq("kind", "csf")
       .in("function_id", functionIds)
       .eq("archived", false)
       .order("sort_order"),
-    // KPIs reach their function directly now rather than through an
-    // outcome join, which is both simpler and one fewer table.
-    supabase
-      .from("success_measures")
-      .select("*")
-      .eq("kind", "kpi")
-      .eq("archived", false)
-      .in("function_id", functionIds)
-      .order("sort_order"),
+
     // Roles & Responsibilities for the chart tree boxes. Sort is
     // is_default first (default row = sort_order 0), then by
     // sort_order — user-added items follow after the L/T/D baseline.
@@ -123,38 +110,11 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
   const outcomes = ((outcomesRaw ?? []) as unknown as CsfRow[]).map(
     csfAsOutcome
   );
-  const measures = (measuresRaw ?? []) as SuccessMeasure[];
-
-  // Which KPI drives which CSF. One read for the whole company; the
-  // table is small (one row per pairing) and the alternative is a
-  // join that has to be repeated on every query touching measures.
-  const outcomeIds = outcomes.map((o) => o.id);
-  const links =
-    outcomeIds.length === 0
-      ? []
-      : (((
-          await supabase
-            .from("csf_kpi_links")
-            .select("csf_id, kpi_id")
-            .in("csf_id", outcomeIds)
-        ).data ?? []) as Array<{ csf_id: string; kpi_id: string }>);
-
-  // Latest entry per measure — one round-trip, then bucket in memory.
-  const measureIds = measures.map((m) => m.id);
-  const latestByMeasure = new Map<string, SuccessMeasureEntry>();
-  if (measureIds.length > 0) {
-    const { data: entriesRaw } = await supabase
-      .from("success_measure_entries")
-      .select("*")
-      .in("measure_id", measureIds)
-      .order("week_ending", { ascending: false });
-    const entries = (entriesRaw ?? []) as SuccessMeasureEntry[];
-    for (const entry of entries) {
-      if (!latestByMeasure.has(entry.measure_id)) {
-        latestByMeasure.set(entry.measure_id, entry);
-      }
-    }
-  }
+  // No entry read here any more. It existed to hang the latest value
+  // off each KPI in the chart tree, and the chart tree shows critical
+  // success factors, not values: /measures and the dashboard board
+  // are where weekly numbers are read. Two queries and a bucketing
+  // pass per chart load went with it.
 
   const rosterById = new Map(roster.map((p) => [p.id, p]));
 
@@ -167,26 +127,10 @@ export async function getChartTree(companyId: string): Promise<ChartTree> {
   }
 
   const outcomesByFunction = new Map<string, ChartOutcome[]>();
-  const measuresByOutcome = new Map<string, ChartMeasureWithLatest[]>();
-
-  // Which CSF each KPI drives lives in its own table now. A KPI with
-  // no link is not filed anywhere, which is the same outcome the old
-  // null-parent guard produced, without a null column to check.
-  const grouped = kpisByCsf(
-    measures.map((m) => ({
-      ...m,
-      latestEntry: latestByMeasure.get(m.id) ?? null,
-    })),
-    links
-  );
-  for (const [csfId, arr] of grouped) measuresByOutcome.set(csfId, arr);
 
   for (const outcome of outcomes) {
     const arr = outcomesByFunction.get(outcome.function_id) ?? [];
-    arr.push({
-      ...outcome,
-      measures: measuresByOutcome.get(outcome.id) ?? [],
-    });
+    arr.push(outcome);
     outcomesByFunction.set(outcome.function_id, arr);
   }
 
@@ -232,10 +176,11 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
   roles: FunctionRole[];
   decisionRights: FunctionDecisionRight[];
   competencies: FunctionCompetency[];
+  // The function's critical success factors, each with its own weekly
+  // entries. They carried a nested `measures` list until 0216; a CSF
+  // has nothing under it now, so the entries hang off the CSF itself.
   outcomes: Array<
-    FunctionOutcome & {
-      measures: Array<SuccessMeasure & { entries: SuccessMeasureEntry[] }>;
-    }
+    FunctionOutcome & { target: string | null; entries: SuccessMeasureEntry[] }
   >;
   roster: Array<Pick<Profile, "id" | "full_name">>;
 } | null> {
@@ -273,7 +218,6 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
     supabase
       .from("success_measures")
       .select(CSF_AS_OUTCOME_COLUMNS)
-      .eq("kind", "csf")
       .eq("function_id", fn.id)
       .eq("archived", false)
       .order("sort_order"),
@@ -304,34 +248,11 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
   const outcomes = ((outcomesRaw ?? []) as unknown as CsfRow[]).map(
     csfAsOutcome
   );
-  const outcomeIds = outcomes.map((o) => o.id);
-
-  // KPIs are reached through the link table now, not an outcome_id
-  // column. Read the links first so the second query asks for exactly
-  // the measures this function's CSFs drive.
-  const links =
-    outcomeIds.length === 0
-      ? []
-      : (((
-          await supabase
-            .from("csf_kpi_links")
-            .select("csf_id, kpi_id")
-            .in("csf_id", outcomeIds)
-        ).data ?? []) as Array<{ csf_id: string; kpi_id: string }>);
-
-  const measures: SuccessMeasure[] = [];
-  const kpiIds = Array.from(new Set(links.map((l) => l.kpi_id)));
-  if (kpiIds.length > 0) {
-    const { data: measuresRaw } = await supabase
-      .from("success_measures")
-      .select("*")
-      .in("id", kpiIds)
-      .eq("archived", false)
-      .order("sort_order");
-    measures.push(...((measuresRaw ?? []) as SuccessMeasure[]));
-  }
-
-  const measureIds = measures.map((m) => m.id);
+  // The function's measures ARE its critical success factors since
+  // 0216. This used to read the link table and then fetch whatever it
+  // pointed at, which was two round trips to arrive at rows the first
+  // query had already selected.
+  const measureIds = outcomes.map((o) => o.id);
   const entriesByMeasure = new Map<string, SuccessMeasureEntry[]>();
   if (measureIds.length > 0) {
     const { data: entriesRaw } = await supabase
@@ -353,13 +274,9 @@ export async function getChartFunctionDetail(functionId: string): Promise<{
   const rosterById = new Map(roster.map((p) => [p.id, p]));
   const seatHolder = fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null;
 
-  const measuresByCsf = kpisByCsf(
-    measures.map((m) => ({ ...m, entries: entriesByMeasure.get(m.id) ?? [] })),
-    links
-  );
   const outcomesWithMeasures = outcomes.map((o) => ({
     ...o,
-    measures: measuresByCsf.get(o.id) ?? [],
+    entries: entriesByMeasure.get(o.id) ?? [],
   }));
 
   return {

@@ -370,14 +370,13 @@ function buildUserMessage(
     lines.push("");
     lines.push("<outcomes>");
     for (const o of detail.outcomes) {
-      lines.push(`- ${o.title}${o.description ? ` — ${o.description}` : ""}`);
-      if (o.measures.length > 0) {
-        for (const m of o.measures) {
-          lines.push(
-            `  · ${m.description}${m.target ? ` (target ${m.target})` : ""}`
-          );
-        }
-      }
+      // The target belongs on the factor itself since 0216. It used
+      // to be listed under it, one indented line per KPI, which is
+      // why the prompt had a nesting level the model had to be told
+      // how to read.
+      const detailText = o.description ? `, ${o.description}` : "";
+      const targetText = o.target ? ` (target ${o.target})` : "";
+      lines.push(`- ${o.title}${targetText}${detailText}`);
     }
     lines.push("</outcomes>");
   }

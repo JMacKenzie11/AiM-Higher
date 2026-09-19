@@ -122,29 +122,16 @@ export async function buildRoleDescriptionDocx(input: {
     });
   }
 
-  // 4 · Outcomes and their Key Success Measures
-  if (detail.outcomes.some((o) => o.measures.length > 0)) {
-    paragraphs.push(sectionHeading("Outcomes"));
-    for (const o of detail.outcomes) {
-      if (o.measures.length === 0) continue;
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: o.title,
-              bold: true,
-              allCaps: true,
-              size: 20,
-              color: "374151",
-            }),
-          ],
-          spacing: { before: 160, after: 40 },
-        })
-      );
-      for (const m of o.measures) {
-        const text = m.target
-          ? `${m.description} — target ${m.target}`
-          : m.description;
+  // 4 · The function's critical success factors.
+  //
+  // This printed a heading per critical success factor and bulleted
+  // the KPIs beneath it. With one level the heading and its single
+  // bullet were the same row twice, so the factors are the list.
+  if (detail.outcomes.length > 0) {
+    paragraphs.push(sectionHeading("Critical success factors"));
+    {
+      for (const o of detail.outcomes) {
+        const text = o.target ? `${o.title}, target ${o.target}` : o.title;
         paragraphs.push(bullet(text));
       }
     }

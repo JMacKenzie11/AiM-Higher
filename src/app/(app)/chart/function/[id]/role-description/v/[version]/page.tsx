@@ -169,31 +169,24 @@ export default async function RoleDescriptionVersionPage({
         </Section>
       ) : null}
 
-      {detail.outcomes.some((o) => o.measures.length > 0) ? (
-        <Section id="rd-measures" title="Outcomes">
+      {/* 4 · The function's critical success factors, from the chart.
+          This grouped each factor's KPIs beneath a heading carrying
+          the factor's name. With one level the heading and its single
+          bullet said the same thing twice, so the factors are the
+          list and their targets sit on them. */}
+      {detail.outcomes.length > 0 ? (
+        <Section id="rd-measures" title="Critical success factors">
           <div className={styles.rdMeasuresBlock}>
-            {detail.outcomes.map((o) =>
-              o.measures.length > 0 ? (
-                <div key={o.id} className={styles.rdMeasureGroup}>
-                  <p className={styles.rdMeasureGroupHeading}>{o.title}</p>
-                  <ol className={styles.rdSimpleList}>
-                    {o.measures.map((m) => (
-                      <li key={m.id} className={styles.rdSimpleItem}>
-                        <span className={styles.rdSimpleTitle}>
-                          {m.description}
-                        </span>
-                        {m.target ? (
-                          <span className={styles.rdSimpleBody}>
-                            {" "}
-                            — target {m.target}
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              ) : null
-            )}
+            <ol className={styles.rdSimpleList}>
+              {detail.outcomes.map((o) => (
+                <li key={o.id} className={styles.rdSimpleItem}>
+                  <span className={styles.rdSimpleTitle}>{o.title}</span>
+                  {o.target ? (
+                    <span className={styles.rdSimpleBody}> target {o.target}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
           </div>
         </Section>
       ) : null}

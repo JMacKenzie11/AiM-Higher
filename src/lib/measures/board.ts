@@ -35,12 +35,6 @@ export type BoardMetric = {
   targetNumeric: number | null;
   valueType: MetricValueType;
   direction: TargetDirection;
-  outcomeTitle: string;
-  // Which half of the model this row is. A critical success factor is
-  // the result the function is accountable for; a KPI is a lead
-  // measure someone moves weekly to get there. The timeline shows
-  // both, so a row has to say which it is.
-  kind: "csf" | "kpi";
   cells: BoardCell[];
 };
 
@@ -92,69 +86,18 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
   // CSF measures supply the grouping label each metric row shows
   // (migration 0166). A CSF's `description` is what the outcome
   // called `title`.
-  const csfRows = spine.csfRows;
-  const outcomes = csfRows.map((c) => ({
+  // One kind since 0216, so a row is a row. This used to build two
+  // lists and stitch them through csf_kpi_links so a KPI could show
+  // the CSF it belonged to; there is no belonging any more.
+  const measures = spine.csfRows.map((c) => ({
     id: c.id,
-    title: c.description,
+    description: c.description,
+    target: c.target,
+    value_type: c.value_type,
+    target_direction: c.target_direction,
+    sort_order: c.sort_order,
     function_id: c.function_id,
   }));
-  const outcomeById = new Map(outcomes.map((o) => [o.id, o]));
-  const outcomeIds = outcomes.map((o) => o.id);
-
-  // Which KPI drives which CSF, so each row can still show the group
-  // it belongs to. Take the first link for the label: the UI allows
-  // one CSF per KPI today, but the data model does not, and a row that
-  // drives two should not crash the board.
-  const linkRows = spine.linkRows;
-  const csfIdByKpi = new Map<string, string>();
-  for (const link of linkRows) {
-    if (!csfIdByKpi.has(link.kpi_id)) csfIdByKpi.set(link.kpi_id, link.csf_id);
-  }
-
-  const measures: Array<{
-    id: string;
-    csfId: string;
-    description: string;
-    target: string | null;
-    value_type: MetricValueType;
-    target_direction: TargetDirection;
-    sort_order: number;
-    kind: "csf" | "kpi";
-  }> = [];
-
-  // Critical success factors are plotted rows in their own right,
-  // not just group headings. They carry a target and a weekly value
-  // like any KPI does (migration 0166 made them measurable), so a
-  // board that only drew KPIs was hiding the very numbers the
-  // function is held to. Each CSF groups under itself, which puts it
-  // at the head of its own set of lead measures.
-  measures.push(
-    ...csfRows.map((c) => ({
-      id: c.id,
-      description: c.description,
-      target: c.target,
-      value_type: c.value_type,
-      target_direction: c.target_direction,
-      sort_order: c.sort_order,
-      csfId: c.id,
-      kind: "csf" as const,
-    }))
-  );
-
-  if (outcomeIds.length > 0) {
-    measures.push(
-      ...spine.kpiRows.map((m) => ({
-        id: m.id,
-        description: m.description,
-        target: m.target,
-        value_type: m.value_type,
-        target_direction: m.target_direction,
-        sort_order: m.sort_order,
-        csfId: csfIdByKpi.get(m.id) ?? "",
-        kind: "kpi" as const,
-      }))
-    );
-  }
 
   const entriesByMeasureWeek = new Map<
     string,
@@ -186,19 +129,12 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
   };
 
   const boardFunctions: BoardFunction[] = functions.map((fn) => {
-    const fnOutcomeIds = outcomes
-      .filter((o) => o.function_id === fn.id)
-      .map((o) => o.id);
-    // Group by CSF, and inside each group put the CSF row first so
-    // the lag measure reads above the lead measures that drive it.
-    const fnMeasures = fnOutcomeIds.flatMap((outcomeId) => {
-      const inGroup = measures.filter((m) => m.csfId === outcomeId);
-      const csf = inGroup.filter((m) => m.kind === "csf");
-      const kpis = inGroup
-        .filter((m) => m.kind === "kpi")
-        .sort((a, b) => a.sort_order - b.sort_order);
-      return [...csf, ...kpis];
-    });
+    // Straight down the function's list. 0216 renumbered sort_order
+    // so a measure still sits where its company left it, which is why
+    // this needs no grouping pass of its own.
+    const fnMeasures = measures
+      .filter((m) => m.function_id === fn.id)
+      .sort((a, b) => a.sort_order - b.sort_order);
     return {
       id: fn.id,
       title: fn.title,
@@ -219,8 +155,6 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
           targetNumeric,
           valueType: m.value_type,
           direction: m.target_direction,
-          outcomeTitle: outcomeById.get(m.csfId)?.title ?? "—",
-          kind: m.kind,
           cells: weeks.map((w) => {
             const entry = entriesByMeasureWeek.get(`${m.id}|${w}`) ?? null;
             const status = computeStatus(m, entry);

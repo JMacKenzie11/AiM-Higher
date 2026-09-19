@@ -17,7 +17,6 @@ export type FunctionContextSnapshot = {
   parentTitle: string | null;
   existingResponsibilities: string[]; // non-default function_roles
   existingOutcomes: Array<{ title: string; description: string | null }>;
-  existingMeasureCounts: Record<string, number>; // outcome_id -> metric count
   existingDecisionRights: string[];
   existingCompetencies: string[];
 };
@@ -60,7 +59,6 @@ export async function loadFunctionContext(
     { data: parent },
     { data: rolesRaw },
     { data: outcomesRaw },
-    { data: measuresRaw },
     { data: decisionRightsRaw },
     { data: competenciesRaw },
   ] = await Promise.all([
@@ -91,21 +89,15 @@ export async function loadFunctionContext(
       .select("title, is_default")
       .eq("function_id", fn.id)
       .order("sort_order"),
-    // CSF measures are the outcomes now (migration 0166). A CSF's
-    // `description` holds the name and `detail` the longer text, which
-    // is the reverse of what function_outcomes called them.
+    // A CSF's `description` holds the name and `detail` the longer
+    // text, which is the reverse of what function_outcomes called
+    // them. No kind filter since 0216: there is one kind.
     supabase
       .from("success_measures")
       .select("id, description, detail")
       .eq("function_id", fn.id)
-      .eq("kind", "csf")
       .eq("archived", false)
       .order("sort_order"),
-    // How many KPIs drive each CSF, so the prompt knows which CSFs
-    // already have leading measures and which are still bare.
-    supabase
-      .from("csf_kpi_links")
-      .select("csf_id"),
     supabase
       .from("function_decision_rights")
       .select("title")
@@ -124,11 +116,6 @@ export async function loadFunctionContext(
     description: string;
     detail: string | null;
   }>).map((c) => ({ id: c.id, title: c.description, description: c.detail }));
-  const measureCounts: Record<string, number> = {};
-  for (const row of (measuresRaw ?? []) as Array<{ csf_id: string }>) {
-    measureCounts[row.csf_id] = (measureCounts[row.csf_id] ?? 0) + 1;
-  }
-
   return {
     company: {
       companyName: company?.name ?? "(unnamed company)",
@@ -150,7 +137,6 @@ export async function loadFunctionContext(
         title: o.title,
         description: o.description,
       })),
-      existingMeasureCounts: measureCounts,
       existingDecisionRights: (
         (decisionRightsRaw ?? []) as Array<{ title: string }>
       ).map((r) => r.title),

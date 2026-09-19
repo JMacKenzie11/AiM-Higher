@@ -4,36 +4,35 @@ title: Critical Success Factors
 
 # Critical Success Factors
 
-Two levels, one page.
+One list per function.
 
-A **Critical Success Factor** is a result a function is accountable
-for. It is a lagging measure: by the time it moves, the work that
-moved it is already done. "All jobs invoiced by month end."
+A **Critical Success Factor** is something a function is held to, week
+by week. "Total factored pipeline." "Zero lost time incidents."
+"Percentage of reports accepted first submission." It has a name, a
+target, and a number you put in each week.
 
-A **Key Performance Indicator** is a leading measure that drives it.
-It is something a person can act on this week. "Jobs closed out
-within two days of completion."
+There used to be a second level underneath, called a KPI. It is gone.
+We never worked with anyone at both levels, and in practice one
+company's critical success factors were measurable weekly items while
+another's were aspirations with the measurable part filed beneath
+them. One level, one column of targets, one row per thing you track.
 
-Both carry a target and a weekly value. The difference is not how
-they are tracked, it is what they tell you. A CSF tells you where you
-ended up. A KPI tells you whether you are going to like where you end
-up.
-
-Everything is grouped by function, because a function head owns their
-own critical success factors and the KPIs beneath them.
+Everything is grouped by function, because a function head owns the
+numbers their function is held to.
 
 ## What is on the page
 
-**The function list.** Each function is one card. Inside a card, a
-critical success factor is the first row and the KPIs that drive it
-follow, shaded so the two read apart.
+**The function list.** Each function is one card holding one table:
+one row per critical success factor, with its target, its recent
+weeks, and a box for this week.
 
 **The 13-week board is on the Dashboard**, not here, in a card with
-the same name as this page. It sits under *What's worth knowing today* and shows every measure against its
-target across every function, in two views: *Timeline* rolls each
-function's week into a single cell so you can see who has been
-drifting, and *Grid* breaks each function into per-measure
-sparklines. It appears once at least one value has been logged.
+the same name as this page. It sits under *What's worth knowing
+today* and shows every measure against its target across every
+function, in two views: *Timeline* rolls each function's week into a
+single cell so you can see who has been drifting, and *Grid* breaks
+each function into per-measure sparklines. It appears once at least
+one value has been logged.
 
 ## Who sees what
 
@@ -43,14 +42,14 @@ function is held to cannot align to it.
 
 Writing is narrower, and it works per function rather than per person:
 
-- **The Lead or the Track** on a function types this week's values for
-  it. On every other function they see the numbers, not input boxes.
+- **The function's owner** types this week's values for it. On every
+  other function they see the numbers, not input boxes.
 - **Admins and guides** type on any function, and can switch to *Edit
   setup* to add, edit and archive.
 - **Everyone else** reads. No inputs, no save, no edit controls.
 
 So a function head is a reader on most of this page and a writer on
-their own seats, at the same time.
+their own function, at the same time.
 
 ## Saving
 
@@ -63,15 +62,31 @@ The line above the list counts only your own: *"2 of 6 still to log
 for the week ending 4 Sep."* If you have nothing to log, it says
 nothing.
 
-## Editing a measure
+## Adding and editing
 
-Press **Edit** on any row, critical success factor or KPI. Both open
-the same form: name, target, value type, direction, how often to
-update, and whether the owner is reminded when it is due.
+**Add a critical success factor** at the bottom of a function's card.
 
-A critical success factor is edited the same way as a KPI because it
-is the same kind of thing. That is also why it is the first row of
-the table rather than a heading above it.
+Press **Edit** on any row to change its name, target, value type,
+direction, how often to update, and whether the owner is reminded
+when it is due.
+
+## Targets
+
+**A target is optional.** Some results are named before anyone has
+worked out what good looks like, and forcing a number at that point
+produces a made-up one. A measure with no target still collects
+values and still appears on the board; its cells read as *no target
+set* rather than on or off.
+
+The Target column makes those rows easy to spot, which is the point.
+A list with several blank targets is usually a list worth pruning.
+
+**Changing a target does not rewrite the past.** A week is judged
+against the target that was in force when that week closed, so
+lowering a target changes this week forward and leaves the weeks
+already logged exactly as they were. A change takes effect from the
+week you are in: change it on Wednesday and the week ending that
+Friday uses the new number.
 
 ## How often a measure is expected
 
@@ -111,50 +126,23 @@ stays below target keeps the same issue open, showing the number from
 when it was first raised. Resolve it and it can be raised again later
 if the measure slips back.
 
-Both apply to critical success factors and KPIs.
-
 Turn off *remind the owner when this is due* in the measure's edit
 form for numbers you track as context rather than as a target, like
 headcount.
 
-## Targets
-
-A KPI needs a target. A leading measure with no target is not telling
-anyone anything.
-
-A **critical success factor does not have to have one**. Some results
-are named before anyone has worked out what good looks like, and
-forcing a number at that point produces a made-up one. A CSF with no
-target still collects values and still appears on the board; its
-cells read as *no target set* rather than on or off.
-
-## How many KPIs
-
-Two or three per critical success factor is usually right. Past three
-the page tells you so.
-
-It is a nudge, not a limit. Some functions genuinely need a fourth,
-and a hard cap would only push people into vaguer KPIs that bundle
-two things together.
-
 ## Archiving
 
-Archiving a critical success factor archives the KPIs under it. A KPI
-that outlives the result it was there to move keeps collecting values
-and keeps chasing its owner while pointing at nothing.
-
-Restoring a CSF does **not** restore its KPIs, since some of them
-were probably archived deliberately beforehand.
-
-Nothing hard-deletes from this page, so past weekly values survive.
+Archiving takes a measure off the page and keeps it on file. Nothing
+cascades, because nothing sits underneath a measure any more, and
+nothing hard-deletes, so past weekly values survive.
 
 ## When Success Tracking is off
 
 - The board on the Dashboard is hidden.
 - The list drops the filter chips, the *Recent* column, the *This
   week* values, the status dots and the save buttons.
-- What is left is a place to write down critical success factors and
-  the KPIs beneath them.
+- What is left is a place to write down what each function is held
+  to.
 
 Turn the entitlement on from company settings and the tracking
 columns appear on the next load.
@@ -165,8 +153,8 @@ Here, on this page, in the row itself. That is the only place.
 
 There used to be two others: a card on the dashboard and a
 single-measure page you reached by clicking a measure's name. Both
-have gone. The dashboard card listed KPIs only, so filling it in left
-every critical success factor outstanding without saying so, and the
+have gone. The dashboard card listed only part of the list, so
+filling it in left the rest outstanding without saying so, and the
 single-measure page asked you to open a whole screen to type one
 number that already had a box on this one.
 
@@ -177,14 +165,21 @@ ended.
 
 ## Common questions
 
-**Are these the old Outcomes and Key Success Measures?** Yes. An
-outcome became a critical success factor and a key success measure
-became a KPI. The rename came with a real change: a critical success
-factor is now measured itself, where before it was only a heading.
+**What happened to my KPIs?** They became critical success factors,
+keeping their name, their target and every week already logged. They
+sit in the same list, in the same order, directly under whatever they
+used to sit beneath.
 
-**Can one KPI drive more than one critical success factor?** The data
-allows it. The screen does not, yet. A KPI is attached to one CSF
-today, and that can be opened up later without a migration.
+**Some of my rows disappeared.** A statement was removed only where a
+measure underneath it was already saying the same thing in a form you
+can put a number against, and only when the statement itself had no
+target, no logged week and no connected spreadsheet. Nothing was
+deleted; anything removed is archived and can be brought back.
+
+**Are these the old Outcomes and Key Success Measures?** Yes, by way
+of two renames. An outcome became a critical success factor, a key
+success measure became a KPI, and now there is one level holding
+both.
 
 **Where did the add-measure flow on the chart page go?** Here. The
 chart function page shows a summary and links back. The chart stays a
@@ -192,8 +187,8 @@ chart.
 
 **Why can I see functions I have nothing to do with?** Because the
 numbers a company holds itself to are not private to the person who
-reports them. You can read every function; you can only type into the
-ones you lead or track.
+reports them. You can read every function; you can only type into
+your own.
 
 **Do guides have admin access?** Yes, on their assigned companies.
 They can add, rename and archive, and log values for anyone.

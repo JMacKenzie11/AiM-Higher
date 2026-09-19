@@ -307,7 +307,7 @@ function ChartIssuesList({ issues }: { issues: ChartFunctionIssue[] }) {
   const visible = issues.slice(0, 5);
   const remaining = issues.length - visible.length;
   const missingLabel = (m: ChartFunctionIssue["missing"][number]) =>
-    m === "lead" ? "Lead" : m === "outcome" ? "outcome" : "measure";
+    m === "lead" ? "Lead" : "critical success factor";
   return (
     <details className={styles.issues}>
       <summary className={styles.issuesSummary}>
@@ -356,8 +356,7 @@ function evidenceLines(
         : [
             `${n("totalFunctions")} functions`,
             `${n("withLead")} have a Lead assigned`,
-            `${n("withOutcome")} have at least one outcome`,
-            `${n("withMeasure")} have at least one measure`,
+            `${n("withMeasure")} have at least one critical success factor`,
           ];
     case "planning":
       if (!bool("openQuarter")) {

@@ -23,7 +23,7 @@ import { join } from "node:path";
 
 const DIR = join(process.cwd(), "src/app/(app)/measures");
 const row = readFileSync(join(DIR, "ManagedMeasureRow.tsx"), "utf8");
-const section = readFileSync(join(DIR, "OutcomeSection.tsx"), "utf8");
+const section = readFileSync(join(DIR, "FunctionSection.tsx"), "utf8");
 const css = readFileSync(join(DIR, "measures.module.css"), "utf8");
 
 // The header row's JSX, from its class name to the first row that
@@ -90,49 +90,52 @@ describe("the measures grid keeps its columns", () => {
 //
 // That happened. The "No KPIs yet" message was the first branch of a
 // ternary whose else-branch was the whole grid, and a newly created
-// CSF has no KPIs by definition — so every new CSF rendered as a
-// nameless block with an "Add a KPI" button under it. The page looked
-// like the save had failed. It had not: the row was in the element
-// the message replaced.
+// ---- The grid is not a ternary branch ------------------------
 //
-// Read from source for the same reason as the alignment check above:
-// nothing throws, nothing fails, and the only symptom is a missing
-// name on a page that otherwise works.
-describe("the critical success factor row survives an empty KPI list", () => {
-  const src = readFileSync(
-    join(process.cwd(), "src", "app", "(app)", "measures", "OutcomeSection.tsx"),
-    "utf8"
-  );
+// A critical success factor used to live inside a block whose empty
+// state REPLACED the grid, and a factor with no KPIs took that branch
+// every time: you added one and got a card with an "Add a KPI" button
+// and no name on it, because the row carrying the name was in the
+// element the message had replaced.
+//
+// 0216 removed the KPI list, so that exact bug cannot recur. The
+// shape that caused it can: an empty state that replaces the grid
+// rather than standing in for it when there is genuinely nothing.
+// This pins the ordering so the grid cannot slide back inside a
+// branch that something else can take.
+describe("the measures grid is reached before any empty state", () => {
+  const src = readFileSync(join(DIR, "FunctionSection.tsx"), "utf8");
+  // COMMENTS STRIPPED. The file explains what 0216 removed, and it
+  // names the things it removed to do so, so a search of the raw text
+  // finds "Add a KPI" in the sentence saying there is no longer one.
+  // This has bitten once before, in rhythm.test.ts, for exactly the
+  // same reason: a guard that reads source has to read the code.
+  const code = src
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("//") && !line.trim().startsWith("*"))
+    .join("\n");
 
-  it("renders the CSF row before the empty-KPI note, not inside it", () => {
-    const csfRow = src.indexOf('kind="csf"');
-    const emptyNote = src.indexOf("No KPIs yet");
-    expect(csfRow, 'expected a ManagedMeasureRow with kind="csf"').toBeGreaterThan(-1);
-    expect(emptyNote, "expected the empty-KPI note").toBeGreaterThan(-1);
-    // The note is a footnote under the grid. If it moves back above
-    // the row, it is replacing the grid again.
-    expect(
-      csfRow,
-      "the CSF row now sits after the empty-KPI note, which means the note can replace it again"
-    ).toBeLessThan(emptyNote);
+  it("has no KPI vocabulary left to render", () => {
+    expect(code).not.toContain("Add a KPI");
+    expect(code).not.toContain("No KPIs yet");
+    expect(code).not.toContain("o.measures");
   });
 
-  it("opens the grid before the empty-KPI note can be reached", () => {
-    // The first test guards the ROW; this one guards the GRID that
-    // holds it. Both matter: the row could be moved out of the grid,
-    // or the grid could go back to being a ternary branch, and either
-    // one loses the name.
-    //
-    // Asserted as ordering rather than by matching the old ternary,
-    // because the note is still a ternary — it just sits underneath
-    // now. A regex for its shape matches the correct code too, which
-    // is how the first version of this test failed against the fix.
-    const grid = src.indexOf("styles.measureGrid");
-    const emptyNote = src.indexOf("No KPIs yet");
-    expect(grid).toBeGreaterThan(-1);
+  it("renders the grid from the function's own list, not a nested one", () => {
+    expect(code).toContain("fn.csfs");
+    expect(code).toContain("visibleRows.map");
+  });
+
+  it("shows the empty message only when there are no rows at all", () => {
+    // `visibleRows.length === 0` is the only thing that may stand in
+    // for the grid. Anything else replacing it is the old bug.
+    const emptyBranch = code.indexOf("visibleRows.length === 0 ? (");
+    const grid = code.indexOf("styles.measureGrid");
+    expect(emptyBranch, "expected the empty branch").toBeGreaterThan(-1);
+    expect(grid, "expected the grid").toBeGreaterThan(-1);
     expect(
-      grid,
-      "the grid is rendered after the empty-KPI note, so the note can replace it"
-    ).toBeLessThan(emptyNote);
+      code.indexOf("No critical success factors yet"),
+      "the empty message should sit in that branch"
+    ).toBeGreaterThan(emptyBranch);
   });
 });

@@ -11,9 +11,15 @@ import type {
 
 // The read behind /measures.
 //
-// Nested functions → critical success factors → KPIs, with recent
-// entries attached. One surface for both authoring the structure and
-// logging the week.
+// Functions, each with its critical success factors and their recent
+// entries. One surface for both authoring the structure and logging
+// the week.
+//
+// FLAT SINCE 0216. This was functions → CSFs → KPIs, and the nesting
+// was the model's, not the client's: the spreadsheet every company
+// actually keeps has one row per measure. Collapsing the two kinds
+// took the middle level out, and with it the link walking that made
+// this function most of its length.
 //
 // Everyone in the company reads every function. Writing is per
 // function: `canLog` on each one mirrors what
@@ -27,32 +33,16 @@ import type {
 // filled it in still had every critical success factor outstanding
 // with nothing saying so.
 
-export type MeasureTreeMeasure = {
-  id: string;
-  description: string;
-  target: string | null;
-  value_type: MetricValueType;
-  target_direction: TargetDirection;
-  auto_track: boolean;
-  update_frequency: UpdateFrequency;
-  target_hint: string | null;
-  currentValue: { number: number | null; text: string | null } | null;
-  recent: Array<{
-    weekEnding: string;
-    number: number | null;
-    text: string | null;
-  }>;
-};
-
-// A CSF is a measure now, so it carries everything a measure does:
-// a target, a value type, a direction, this week's value and the
-// recent trail. Phase 4 of the CSF/KPI migration.
+// One critical success factor: a target, a value type, a direction,
+// this week's value and the recent trail.
 //
 // `target` stays nullable on purpose. Decided 2026-09-04: a company
 // may name its CSFs and come back to set targets later, so a CSF
 // without one is a normal state, not a failure. Anything reading
-// this must render it as "no target set", never as off target.
-export type MeasureTreeOutcome = {
+// this must render it as "no target set", never as off target. The
+// flat page makes those rows easy to find, which is how a company
+// prunes a list it has outgrown.
+export type MeasureTreeCsf = {
   id: string;
   title: string;
   description: string | null;
@@ -68,8 +58,12 @@ export type MeasureTreeOutcome = {
     number: number | null;
     text: string | null;
   }>;
-  measures: MeasureTreeMeasure[];
 };
+
+// What the row component renders. A CSF keeps its name in `title`
+// for the chart's sake, and the row reads `description`, so callers
+// map it at the boundary and the row stays one shape.
+export type MeasureRow = MeasureTreeCsf & { description: string };
 
 export type MeasureTreeFunction = {
   id: string;
@@ -80,7 +74,7 @@ export type MeasureTreeFunction = {
   // everywhere. Mirrors upsertMeasureEntryAction exactly, which is
   // the rule the server will actually enforce.
   canLog: boolean;
-  outcomes: MeasureTreeOutcome[];
+  csfs: MeasureTreeCsf[];
 };
 
 // The /measures Manager tree, shaped from rows already in hand.
@@ -117,11 +111,10 @@ export function buildMeasuresTree(
         ),
       ];
 
-  // CSF measures ARE the outcomes now (migration 0166). The name
-  // mapping matters: a CSF's `description` holds what the outcome
-  // called `title`, and its `detail` holds what the outcome called
-  // `description`.
-  const outcomes = spine.csfRows.map((c) => ({
+  // The name mapping is the one leftover from the outcome era: a
+  // measure's `description` holds what the UI calls the title, and
+  // `detail` holds the longer text under it.
+  const csfs = spine.csfRows.map((c) => ({
     id: c.id,
     title: c.description,
     description: c.detail,
@@ -134,11 +127,6 @@ export function buildMeasuresTree(
     function_id: c.function_id,
     sort_order: c.sort_order,
   }));
-  const outcomeIds = outcomes.map((o) => o.id);
-
-  const linkRows = spine.linkRows;
-  const measureRows = spine.kpiRows;
-
   // The spine fetches the board's 13-week window, which is the wider
   // of the two. The Manager's trail is five weeks, so it narrows here
   // rather than issuing a second read for a subset of rows already in
@@ -166,74 +154,30 @@ export function buildMeasuresTree(
     entriesByMeasure.set(row.measure_id, list);
   }
 
-  const shapedById = new Map<string, MeasureTreeMeasure>();
-  for (const m of measureRows) {
-    const recent = entriesByMeasure.get(m.id) ?? [];
-    const current = recent.find((r) => r.weekEnding === weekEnding) ?? null;
-    shapedById.set(m.id, {
-      id: m.id,
-      description: m.description,
-      target: m.target,
-      value_type: m.value_type,
-      target_direction: m.target_direction,
-      auto_track: m.auto_track,
-      update_frequency: m.update_frequency ?? "weekly",
-      target_hint: m.target_hint,
-      currentValue: current
-        ? { number: current.number, text: current.text }
-        : null,
-      recent,
-    });
-  }
-
-  // Walk the links rather than a parent column. measureRows is
-  // already ordered by sort_order, so filtering it per CSF preserves
-  // that order without re-sorting.
-  const kpiIdsByCsf = new Map<string, Set<string>>();
-  for (const link of linkRows) {
-    const set = kpiIdsByCsf.get(link.csf_id) ?? new Set<string>();
-    set.add(link.kpi_id);
-    kpiIdsByCsf.set(link.csf_id, set);
-  }
-  const measuresByOutcome = new Map<string, MeasureTreeMeasure[]>();
-  for (const csfId of outcomeIds) {
-    const ids = kpiIdsByCsf.get(csfId);
-    if (!ids || ids.size === 0) continue;
-    const ordered = measureRows
-      .filter((m) => ids.has(m.id))
-      .map((m) => shapedById.get(m.id))
-      .filter((m): m is MeasureTreeMeasure => Boolean(m));
-    if (ordered.length > 0) measuresByOutcome.set(csfId, ordered);
-  }
-
-  const outcomesByFunction = new Map<string, MeasureTreeOutcome[]>();
-  outcomes.sort((a, b) => {
+  const csfsByFunction = new Map<string, MeasureTreeCsf[]>();
+  csfs.sort((a, b) => {
     if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
     return a.title.localeCompare(b.title);
   });
-  for (const o of outcomes) {
-    const csfRecent = entriesByMeasure.get(o.id) ?? [];
-    const csfCurrent =
-      csfRecent.find((r) => r.weekEnding === weekEnding) ?? null;
-    const shaped: MeasureTreeOutcome = {
-      id: o.id,
-      title: o.title,
-      description: o.description,
-      target: o.target,
-      value_type: o.value_type,
-      target_direction: o.target_direction,
-      auto_track: o.auto_track,
-      update_frequency: o.update_frequency,
-      target_hint: o.target_hint,
-      currentValue: csfCurrent
-        ? { number: csfCurrent.number, text: csfCurrent.text }
-        : null,
-      recent: csfRecent,
-      measures: measuresByOutcome.get(o.id) ?? [],
+  for (const c of csfs) {
+    const recent = entriesByMeasure.get(c.id) ?? [];
+    const current = recent.find((r) => r.weekEnding === weekEnding) ?? null;
+    const shaped: MeasureTreeCsf = {
+      id: c.id,
+      title: c.title,
+      description: c.description,
+      target: c.target,
+      value_type: c.value_type,
+      target_direction: c.target_direction,
+      auto_track: c.auto_track,
+      update_frequency: c.update_frequency,
+      target_hint: c.target_hint,
+      currentValue: current ? { number: current.number, text: current.text } : null,
+      recent,
     };
-    const list = outcomesByFunction.get(o.function_id) ?? [];
+    const list = csfsByFunction.get(c.function_id) ?? [];
     list.push(shaped);
-    outcomesByFunction.set(o.function_id, list);
+    csfsByFunction.set(c.function_id, list);
   }
 
   const tree: MeasureTreeFunction[] = orderedFunctions.map((f) => ({
@@ -242,7 +186,7 @@ export function buildMeasuresTree(
     // Same rule upsertMeasureEntryAction enforces. Computed here so
     // the page never renders an input the server would refuse.
     canLog: includeAll || f.lead_id === userId || f.track_id === userId,
-    outcomes: outcomesByFunction.get(f.id) ?? [],
+    csfs: csfsByFunction.get(f.id) ?? [],
   }));
 
   return { functions: tree, weekEnding };

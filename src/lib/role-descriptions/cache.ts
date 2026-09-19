@@ -241,10 +241,7 @@ export function isCacheStale(
   const cachedAt = new Date(cached.generatedAt).getTime();
   const timestamps: string[] = [detail.fn.updated_at];
   for (const r of detail.roles) timestamps.push(r.updated_at);
-  for (const o of detail.outcomes) {
-    timestamps.push(o.updated_at);
-    for (const m of o.measures) timestamps.push(m.updated_at);
-  }
+  for (const o of detail.outcomes) timestamps.push(o.updated_at);
   for (const d of detail.decisionRights) timestamps.push(d.updated_at);
   for (const c of detail.competencies) timestamps.push(c.updated_at);
   for (const ts of timestamps) {

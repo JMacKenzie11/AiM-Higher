@@ -18,7 +18,7 @@ As a team member, you can:
   Streaks, Where a conversation could help) — anyone in the company sees
   these.
 - **See what you still owe this week** — the notification bell counts
-  the critical success factors and KPIs you have not logged, and links
+  the critical success factors you have not logged, and links
   straight to them. Logging itself happens on Critical Success Factors,
   not here.
 - **Close the loop on your commitments** — the *This week* strip links
@@ -43,9 +43,9 @@ the operating disciplines.
 The dashboard used to carry a *This week's numbers* card with inline
 inputs. It was removed on 4 September 2026.
 
-It listed KPIs only, so someone who filled it in and saved still had
-every critical success factor outstanding, with nothing on the card
-saying so. It also duplicated a job that **Critical Success Factors**
+It listed only part of the list, so someone who filled it in and saved
+still had the rest outstanding, with nothing on the card saying so. It
+also duplicated a job that **Critical Success Factors**
 now does better, with a save per function and a line telling you how
 many you have left.
 
