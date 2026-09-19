@@ -45,14 +45,19 @@ A collapsed month shows its name and nothing else. Any summary it
 could show, the last week or an average, would be a number nobody
 entered sitting in a row of numbers people did.
 
+**An admin can edit any week on the page.** Company admins, system
+admins and guides get an input on every column, not just the open
+ones, so correcting an old number is something you do rather than
+something you ask for. The tinting still marks the two weeks everyone
+is working to.
+
 **Two weeks take a value: this one and the one that just closed.**
 A week stays open until the end of the following week, so a number
 you were asked for on Saturday can still be entered any time up to
 the next Friday. That is exactly the window the reminder gives you.
 
 Once the next Saturday comes round, the older week locks and is there
-to read. Correcting one after that is a conversation rather than a
-keystroke.
+to read, for everyone except an admin.
 
 The count above the table chases **the week that just closed**, since
 that is the one with a deadline. The current week is there to fill in
