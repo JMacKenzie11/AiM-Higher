@@ -171,14 +171,19 @@
   color: var(--text-faint);
 }
 
+/* The same as .formInput in chart.module.css, because the two sit in
+   one panel. It was --text-body-sm against --text-body, one pixel
+   smaller, with tighter padding: not obviously wrong on its own and
+   obviously wrong directly under the other. */
 .input {
-  font: var(--text-body-sm);
+  font: var(--text-body);
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  min-height: var(--control-h-md);
-  padding: 0 var(--space-2);
+  height: var(--control-h-md);
+  width: 100%;
+  padding: 0 var(--space-3);
 }
 
 .input:focus-visible {

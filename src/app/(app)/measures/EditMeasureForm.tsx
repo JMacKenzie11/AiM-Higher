@@ -51,6 +51,7 @@ export type EditableMeasure = {
   target_direction: TargetDirection;
   update_frequency: string;
   auto_track: boolean;
+  show_on_dashboard: boolean;
 };
 
 // ONE FORM FOR ADD AND EDIT.
@@ -330,6 +331,21 @@ export function EditMeasureForm({
                   reading it, and hard-coded weekly now that frequency
                   is a choice. */}
               Remind the owner when this is due
+            </span>
+          </label>
+
+          <label
+            className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
+          >
+            <span className={chartStyles.formLabel}>
+              <input
+                type="checkbox"
+                name="show_on_dashboard"
+                defaultChecked={measure.show_on_dashboard}
+                disabled={pending}
+                style={{ marginRight: "8px" }}
+              />
+              Show on company dashboard
             </span>
           </label>
         </>

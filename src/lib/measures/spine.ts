@@ -98,6 +98,9 @@ export type SpineCsf = {
   // Anchors the frequency rhythm: nothing is expected before the
   // measure existed. A fortnightly measure also counts from here.
   created_at: string;
+  // Stored and shown on the settings panel. Nothing filters on it
+  // yet; see 0218.
+  show_on_dashboard: boolean;
 };
 
 export type SpineEntry = {
@@ -131,7 +134,7 @@ export type MeasuresSpine = {
 const FUNCTION_COLS =
   "id, title, sort_order, parent_function_id, lead_id, track_id";
 const CSF_COLS =
-  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at";
+  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at, show_on_dashboard";
 const ENTRY_COLS = "measure_id, week_ending, value_number, value_text";
 const TARGET_COLS =
   "measure_id, target, value_type, target_direction, effective_from";

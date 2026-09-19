@@ -212,3 +212,45 @@ describe("the external-source controls are reachable", () => {
     expect(form).not.toContain("ExternalSourceControls");
   });
 });
+
+// ---- Show on company dashboard ---------------------------------
+//
+// Stored and set from the settings panel, and read by nothing yet.
+// What the dashboard does with it is a decision that has not been
+// made; landing the storage on its own means a later change reads
+// data people have curated rather than a column full of defaults.
+describe("show on company dashboard", () => {
+  it("is on the settings panel, under the reminder", () => {
+    const form = readFileSync(
+      join(process.cwd(), "src/app/(app)/measures/EditMeasureForm.tsx"),
+      "utf8"
+    );
+    const reminder = form.indexOf('name="auto_track"');
+    const dash = form.indexOf('name="show_on_dashboard"');
+    expect(dash).toBeGreaterThan(-1);
+    expect(dash).toBeGreaterThan(reminder);
+  });
+
+  it("defaults to on, so nothing that reads it later blanks a card", () => {
+    // Every live measure is on the dashboard's card today. An opt-in
+    // default would empty it for every company the moment something
+    // filters on this, and the card hides itself when there is
+    // nothing to plot, so the failure is a screen going quietly
+    // blank.
+    const migration = readFileSync(
+      join(process.cwd(), "supabase/migrations/0218_show_on_dashboard.sql"),
+      "utf8"
+    );
+    expect(migration).toContain("not null default true");
+  });
+
+  it("is written by both the create and the update path", () => {
+    const actions = readFileSync(
+      join(process.cwd(), "src/lib/chart/actions.ts"),
+      "utf8"
+    );
+    expect(
+      (actions.match(/show_on_dashboard: showOnDashboard/g) ?? []).length
+    ).toBe(2);
+  });
+});

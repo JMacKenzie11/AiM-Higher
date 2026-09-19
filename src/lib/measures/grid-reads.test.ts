@@ -87,7 +87,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 // Column lists the loader uses, so fixtures can be keyed exactly.
 const CSF_COLS =
-  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at";
+  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at, show_on_dashboard";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);

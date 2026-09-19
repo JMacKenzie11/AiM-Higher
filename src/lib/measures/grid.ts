@@ -85,6 +85,7 @@ export type GridRow = {
   valueType: MetricValueType;
   direction: TargetDirection;
   autoTrack: boolean;
+  showOnDashboard: boolean;
   targetHint: string | null;
   cells: GridCell[];
   // Keyed by the week the change takes effect on.
@@ -286,6 +287,7 @@ export function buildGridData(
       valueType: csf.value_type,
       direction: csf.target_direction,
       autoTrack: csf.auto_track,
+      showOnDashboard: csf.show_on_dashboard ?? true,
       targetHint: csf.target_hint,
       cells,
       targetChanges: targetChangesWithin(history, weeks),

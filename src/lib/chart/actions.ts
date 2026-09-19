@@ -432,6 +432,9 @@ export async function createOutcomeAction(
   const autoTrack = formData.get("auto_track_present")
     ? formData.get("auto_track") !== null
     : true;
+  const showOnDashboard = formData.get("auto_track_present")
+    ? formData.get("show_on_dashboard") !== null
+    : true;
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
@@ -443,6 +446,7 @@ export async function createOutcomeAction(
       target_direction: direction,
       update_frequency: updateFrequency,
       auto_track: autoTrack,
+      show_on_dashboard: showOnDashboard,
       ...outcomeFieldsToCsf({ title, description }),
     })
     .select(CSF_AS_OUTCOME_COLUMNS)
@@ -777,6 +781,7 @@ export async function updateMeasureAction(
     String(formData.get("target_direction") ?? "higher_is_better")
   );
   const autoTrack = formData.get("auto_track") !== null;
+  const showOnDashboard = formData.get("show_on_dashboard") !== null;
   const updateFrequency = parseUpdateFrequency(
     String(formData.get("update_frequency") ?? "weekly")
   );
@@ -815,6 +820,7 @@ export async function updateMeasureAction(
       value_type: valueType,
       target_direction: direction,
       auto_track: autoTrack,
+      show_on_dashboard: showOnDashboard,
       update_frequency: updateFrequency,
     })
     .eq("id", id)

@@ -2326,6 +2326,70 @@ export type WriteProbe = {
 };
 
 export const BATCHES: readonly Batch[] = [
+  // ---- 0218: show on company dashboard -----------------------
+  //
+  // One column, no policy change, nothing reading it yet. There is no
+  // role boundary to probe here and pretending otherwise would be
+  // decoration; what there IS to establish is the two things a column
+  // with a default can get wrong.
+  //
+  //   It applies at all, against the real schema.
+  //   Every existing row comes out TRUE, so whatever reads it later
+  //   does not blank a dashboard card that currently shows every
+  //   measure.
+  //
+  // The before/after is the whole test: the column does not exist,
+  // and then it does, on every row.
+  {
+    n: "show-on-dashboard",
+    tables: ["success_measures"],
+    migration: "0218_show_on_dashboard.sql",
+    indirectScope: {
+      success_measures: {
+        key: "id",
+        rows:
+          "select m.id as key, f.company_id from public.success_measures m " +
+          "join public.functions f on f.id = m.function_id",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        select (select id from public.profiles
+                 where role = 'system_admin' and status = 'active' limit 1) as sysadmin;`,
+      probes: [
+        {
+          name: "the column arrives",
+          caller: "sysadmin",
+          sql: `select count(*)::int as n from information_schema.columns
+                 where table_schema = 'public'
+                   and table_name = 'success_measures'
+                   and column_name = 'show_on_dashboard';`,
+          expectBefore: "0",
+          expect: "1",
+        },
+        {
+          name: "every existing measure comes out visible, and there are some",
+          caller: "sysadmin",
+          // ONE STATEMENT, carrying its own control. "No row is
+          // false" passes on an empty table, and a row count would be
+          // a number that drifts every time the clone is refreshed.
+          // So this answers both at once: 1 only when there is at
+          // least one measure AND every one of them is true.
+          //
+          // Before, the column does not exist and the query raises
+          // 42703. That IS the before: the honest answer to "how many
+          // are visible" on a schema with nowhere to record it.
+          sql: `select (case
+                          when count(*) > 0
+                           and count(*) filter (where show_on_dashboard) = count(*)
+                          then 1 else 0 end)::int as n
+                  from public.success_measures;`,
+          expectBefore: "42703",
+          expect: "1",
+        },
+      ],
+    },
+  },
   // ---- 0217: the Lead authors their own function's measures ----
   //
   // A role widening, which CLAUDE.md says ships with its probe in the
