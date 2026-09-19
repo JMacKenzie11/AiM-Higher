@@ -28,9 +28,10 @@ Functional Area and Owner are written once per function and span its
 rows.
 
 **It opens on this week.** Six months of weeks are available; the
-current month is open and the earlier ones are collapsed to a single
-column each, showing the month's name. Click a month to open it, and
-click it again to fold it away.
+current month is open and scrolled into view, with the earlier ones
+collapsed to a single column each and pushed off to the left. Click a
+month to open it, and click it again to fold it away. This week's
+column is tinted, because it is the only one that takes a value.
 
 A collapsed month shows its name and nothing else. Any summary it
 could show, the last week or an average, would be a number nobody
@@ -78,10 +79,14 @@ nothing.
 
 ## Adding and editing
 
-Press **Edit** beside a measure's name. Its settings open in a strip
-across the table, under the row: name, target, value type, direction,
-how often to update, and whether the owner is reminded when it is
-due. One at a time, so the grid stays on screen.
+Each row has a **pencil** and a **bin** in their own column, to the
+left of the name.
+
+The pencil opens that measure's settings in a panel at the side of
+the screen: name, target, value type, direction, how often to update,
+and whether the owner is reminded when it is due. The table stays
+readable behind it. Close it with **Cancel**, the **✕**, the Escape
+key, or by clicking anywhere outside it.
 
 ## Targets
 

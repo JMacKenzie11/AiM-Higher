@@ -150,16 +150,6 @@ export function EditMeasureForm({
   return (
     <form action={formAction} className={chartStyles.addForm}>
       <input type="hidden" name="id" value={measure.id} />
-
-      <p
-        className={`${chartStyles.addMetricAnchor} ${chartStyles.formFieldFull}`}
-      >
-        Drives progress on:{" "}
-        <span className={chartStyles.addMetricAnchorTitle}>
-          {outcomeTitle}
-        </span>
-      </p>
-
       <label
         className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
       >
@@ -281,6 +271,48 @@ export function EditMeasureForm({
         </>
       )}
 
+      {errorMessage ? (
+        <p role="alert" className={chartStyles.errorMessage}>
+          {errorMessage}
+        </p>
+      ) : null}
+
+      {/* THE BUTTONS SIT ABOVE THE CRITIQUE, and that ordering is
+          the fix for a bug with a long tail.
+
+          The panel used to be above this row. It grows when the
+          critique arrives, which moves the buttons between mousedown
+          and mouseup, and the click never lands: Save and Cancel both
+          needed pressing twice. `shouldCritiqueOnBlur` was written to
+          dodge it by skipping the critique when focus moves to a
+          button, and it cannot always tell: a browser that does not
+          focus a button on mousedown reports a null relatedTarget,
+          which is indistinguishable from an ordinary blur.
+
+          critique-blur.ts named this fix when it was written: "the
+          durable fix is for the critique panel to not occupy layout
+          above the action row". Nothing above these buttons changes
+          size now, so nothing can move them.
+
+          The hints read second, which is right for advisory text. */}
+      <div className={`${chartStyles.formSubmit} ${styles.formFooter}`}>
+        <button
+          type="submit"
+          className={uiStyles.btnPrimary}
+          disabled={pending}
+        >
+          {pending ? "Saving…" : "Save"}
+        </button>
+        <button
+          type="button"
+          className={uiStyles.btnGhost}
+          disabled={pending}
+          onClick={onDone}
+        >
+          Cancel
+        </button>
+      </div>
+
       {trackingEnabled &&
       (hasAnyHint || critiqueLoading) &&
       description.trim().length > 0 ? (
@@ -312,30 +344,6 @@ export function EditMeasureForm({
           ) : null}
         </div>
       ) : null}
-
-      {errorMessage ? (
-        <p role="alert" className={chartStyles.errorMessage}>
-          {errorMessage}
-        </p>
-      ) : null}
-
-      <div className={chartStyles.formSubmit}>
-        <button
-          type="submit"
-          className={uiStyles.btnPrimary}
-          disabled={pending}
-        >
-          {pending ? "Saving…" : "Save"}
-        </button>
-        <button
-          type="button"
-          className={uiStyles.btnGhost}
-          disabled={pending}
-          onClick={onDone}
-        >
-          Cancel
-        </button>
-      </div>
     </form>
   );
 }

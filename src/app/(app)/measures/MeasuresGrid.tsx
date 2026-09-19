@@ -9,6 +9,7 @@ import {
 import type { GridData, GridRow } from "@/lib/measures/grid";
 import { EditMeasureForm, ArchiveMeasureButton } from "./EditMeasureForm";
 import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
+import { PencilIcon } from "@/components/ui/PencilIcon";
 import { formatShortDate } from "@/lib/dates";
 import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./measures.module.css";
@@ -38,6 +39,27 @@ import styles from "./measures.module.css";
 // row never appeared. Nothing here is a form submission: opening a
 // month is local, and the save below goes through useTransition,
 // which preserves this component's state across the refresh.
+//
+// ---- SETTINGS OPEN IN A DRAWER, NOT IN THE TABLE -------------
+//
+// They opened in a full-width row beneath the measure, and that row
+// had a bug with a long history: Cancel needed clicking twice.
+//
+// The critique panel sits ABOVE the button row, so anything that
+// makes it grow between mousedown and mouseup moves the buttons out
+// from under the pointer and the click never lands.
+// `shouldCritiqueOnBlur` was written to stop that by skipping the
+// critique when focus moves to a button, and it does not always get
+// the chance: a browser that does not focus a button on mousedown
+// reports `relatedTarget` as null, which is an ordinary blur as far
+// as that guard can tell.
+//
+// critique-blur.ts said as much when it was written: "this fixes the
+// trigger, not the underlying fragility... the durable fix is for the
+// critique panel to not occupy layout above the action row." This is
+// that fix. The drawer scrolls its own body and pins Save and Cancel
+// in a footer, so the panel can grow to any height and the buttons do
+// not move a pixel.
 //
 // ---- THIS WEEK IS THE ONLY EDITABLE COLUMN -------------------
 //
@@ -84,22 +106,62 @@ export function MeasuresGrid({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null
   );
-  // Which row's settings are open. One at a time: the form spans the
-  // whole table and two of them would push the grid off the screen.
+  // Which measure's settings are open in the drawer. One at a time,
+  // by construction: it is one drawer.
   const [editing, setEditing] = useState<string | null>(null);
+  const editingRow = useMemo(
+    () =>
+      data.groups.flatMap((g) => g.rows).find((r) => r.id === editing) ?? null,
+    [data.groups, editing]
+  );
 
-  // Open at the right-hand edge, where this week is.
+  // Escape closes it, like every other dismissible surface in the
+  // app. The drawer traps nothing else: the table behind it stays
+  // readable, which is the point of a drawer over a modal here.
+  useEffect(() => {
+    if (!editing) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setEditing(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [editing]);
+
+  // Open with the CURRENT MONTH against the pinned columns, and
+  // every earlier month scrolled off to the left.
   //
-  // The current month is the last one and the week you are filling in
-  // is its last column, so a table that opens scrolled to zero opens
-  // on April. Done once on mount rather than on every render: after
-  // that the scroll position is the reader's, and yanking it back
-  // when they open a month would be worse than opening in the wrong
-  // place.
+  // Scrolling to the far right is not the same thing and was the
+  // first attempt: it puts this week on screen but leaves two or
+  // three collapsed months sitting between the measure names and the
+  // weeks, which is exactly the history the collapse was supposed to
+  // get out of the way.
+  //
+  // Measured from the rendered element rather than summed from the
+  // pinned widths in CSS. Those widths are already duplicated between
+  // the stylesheet and a test; a third copy here would be the one
+  // that goes stale.
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollLeft = el.scrollWidth;
+    if (!el) return;
+    // Scroll to the end, which is where this week is: the current
+    // month is always the last one and its last column is always the
+    // week you are filling in.
+    //
+    // IN A FRAME, not on mount. Setting scrollLeft before the
+    // stylesheet has settled measures a table that is still
+    // content-sized, and the scroll clamps to a maximum that is about
+    // to change. That was the bug behind three rounds of widening
+    // columns and adding a spacer to chase 30px that were never about
+    // width at all: the grid simply was not scrolling to the end.
+    //
+    // Done once. After this the scroll position belongs to the
+    // reader, and yanking it back when they open a month would be
+    // worse than opening in the wrong place.
+    const id = requestAnimationFrame(() => {
+      el.scrollLeft = el.scrollWidth;
+    });
+    return () => cancelAnimationFrame(id);
   }, []);
 
   const outstanding = writableRows.filter(
@@ -206,6 +268,15 @@ export function MeasuresGrid({
               >
                 Owner
               </th>
+              {authoring ? (
+                <th
+                  scope="col"
+                  rowSpan={2}
+                  className={`${styles.gridPin} ${styles.gridPinActions}`}
+                >
+                  <span className={styles.visuallyHidden}>Actions</span>
+                </th>
+              ) : null}
               <th
                 scope="col"
                 rowSpan={2}
@@ -224,6 +295,7 @@ export function MeasuresGrid({
                 scope="col"
                 rowSpan={2}
                 className={`${styles.gridPin} ${styles.gridPinTarget}`}
+                data-last-pinned=""
               >
                 Target
               </th>
@@ -234,6 +306,7 @@ export function MeasuresGrid({
                     scope="colgroup"
                     colSpan={m.weeks.length}
                     className={styles.gridMonthOpen}
+                    data-current-month={m.isCurrent ? "" : undefined}
                   >
                     <button
                       type="button"
@@ -250,6 +323,7 @@ export function MeasuresGrid({
                     scope="col"
                     rowSpan={2}
                     className={styles.gridMonthClosed}
+                    data-current-month={m.isCurrent ? "" : undefined}
                   >
                     <button
                       type="button"
@@ -268,7 +342,15 @@ export function MeasuresGrid({
                 .filter((m) => openMonths.has(m.key))
                 .flatMap((m) =>
                   m.weeks.map((w) => (
-                    <th key={w} scope="col" className={styles.gridWeekHead}>
+                    <th
+                      key={w}
+                      scope="col"
+                      className={
+                        w === weekEnding
+                          ? `${styles.gridWeekHead} ${styles.gridWeekHeadCurrent}`
+                          : styles.gridWeekHead
+                      }
+                    >
                       {w.slice(8)}
                     </th>
                   ))
@@ -280,7 +362,10 @@ export function MeasuresGrid({
               .filter((g) => g.rows.length > 0)
               .map((group) =>
                 group.rows.map((row, i) => (
-                  <tr key={row.id}>
+                  <tr
+                    key={row.id}
+                    className={i === 0 ? styles.gridGroupStart : undefined}
+                  >
                     {/* Written once per group, spanning its rows, the
                         way the merged Owner and Functional Area cells
                         in the spreadsheet already read. */}
@@ -308,27 +393,28 @@ export function MeasuresGrid({
                         </td>
                       </>
                     ) : null}
+                    {authoring ? (
+                      <td
+                        className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
+                      >
+                        <button
+                          type="button"
+                          className={styles.gridIconButton}
+                          onClick={() => setEditing(row.id)}
+                          aria-label={`Edit ${row.description}`}
+                          title="Edit"
+                        >
+                          <PencilIcon />
+                        </button>
+                        <ArchiveMeasureButton measureId={row.id} />
+                      </td>
+                    ) : null}
                     <th
                       scope="row"
                       className={`${styles.gridPin} ${styles.gridPinName} ${styles.gridNameCell}`}
                     >
                       {row.description}
                       <ExternalMeasureNote measureId={row.id} />
-                      {authoring ? (
-                        <span className={styles.gridRowActions}>
-                          <button
-                            type="button"
-                            className={styles.gridEditLink}
-                            onClick={() =>
-                              setEditing((cur) => (cur === row.id ? null : row.id))
-                            }
-                            aria-expanded={editing === row.id}
-                          >
-                            {editing === row.id ? "Close" : "Edit"}
-                          </button>
-                          <ArchiveMeasureButton measureId={row.id} />
-                        </span>
-                      ) : null}
                     </th>
                     <td className={`${styles.gridPin} ${styles.gridPinFreq} ${styles.gridFreqCell}`}>
                       {row.frequencyLabel}
@@ -367,42 +453,72 @@ export function MeasuresGrid({
                       )
                     )}
                   </tr>
-                )).flatMap((tr, i) => {
-                  const row = group.rows[i];
-                  if (editing !== row.id) return [tr];
-                  return [
-                    tr,
-                    // A FULL-WIDTH ROW, not a cell inside the name
-                    // column. The pinned columns are narrow by design
-                    // and a form inside one of them stretches the
-                    // track until every measure's name wraps a word
-                    // per line, which is the bug the old row's
-                    // settings strip was written to avoid.
-                    <tr key={`${row.id}-edit`} className={styles.gridEditRow}>
-                      <td colSpan={5 + columns.length}>
-                        <EditMeasureForm
-                          measure={{
-                            id: row.id,
-                            description: row.description,
-                            target: row.target,
-                            value_type: row.valueType,
-                            target_direction: row.direction,
-                            update_frequency: row.frequency,
-                            auto_track: row.autoTrack,
-                          }}
-                          outcomeTitle={row.description}
-                          outcomeDescription={row.detail}
-                          trackingEnabled={trackingEnabled}
-                          onDone={() => setEditing(null)}
-                        />
-                      </td>
-                    </tr>,
-                  ];
-                })
+                ))
               )}
           </tbody>
         </table>
       </div>
+
+      {editingRow ? (
+        <>
+          {/* A scrim, so a click anywhere else closes it. The third
+              dismissal, beside Escape and Cancel, and the one people
+              reach for without being taught. */}
+          <div
+            className={styles.drawerScrim}
+            onClick={() => setEditing(null)}
+            aria-hidden
+          />
+          <aside
+            className={styles.drawer}
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="measure-drawer-title"
+          >
+            <header className={styles.drawerHead}>
+              <div>
+                <p className={styles.drawerEyebrow}>Critical success factor</p>
+                <h2 id="measure-drawer-title" className={styles.drawerTitle}>
+                  {editingRow.description}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className={styles.drawerClose}
+                onClick={() => setEditing(null)}
+                aria-label="Close"
+              >
+                <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+                  <path
+                    d="M4 4 l8 8 M12 4 l-8 8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.4}
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </header>
+            <div className={styles.drawerBody}>
+              <EditMeasureForm
+                measure={{
+                  id: editingRow.id,
+                  description: editingRow.description,
+                  target: editingRow.target,
+                  value_type: editingRow.valueType,
+                  target_direction: editingRow.direction,
+                  update_frequency: editingRow.frequency,
+                  auto_track: editingRow.autoTrack,
+                }}
+                outcomeTitle={editingRow.description}
+                outcomeDescription={editingRow.detail}
+                trackingEnabled={trackingEnabled}
+                onDone={() => setEditing(null)}
+              />
+            </div>
+          </aside>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -437,6 +553,7 @@ function GridCellView({
   const className = [
     styles.gridCell,
     styles[`gridCell_${cell.status}`],
+    isCurrent ? styles.gridCellCurrent : "",
     change ? styles.gridCellTargetMoved : "",
   ]
     .filter(Boolean)

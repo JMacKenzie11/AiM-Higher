@@ -51,19 +51,24 @@ describe("one source decides how many week columns there are", () => {
     expect(code).toContain("{columns.map((col) =>");
   });
 
-  it("spans the edit row across the pinned columns AND that list", () => {
-    // Five pinned columns: Functional Area, Owner, name, Frequency,
-    // Target. If a sixth is added and this is not, the settings form
-    // stops reaching the right edge and the row below it shifts.
-    expect(code).toContain("colSpan={5 + columns.length}");
-    // Five pinned columns declared once each, spanning both header
-    // rows. Declaring them twice left a tall blank band across the
-    // top of the table.
-    const head = code.slice(code.indexOf("<thead>"), code.indexOf("</thead>"));
+  it("declares each pinned column once, spanning both header rows", () => {
+    // Declaring them in both rows left a tall blank band across the
+    // top of the table, so each is declared once with rowSpan.
+    //
     // `styles.gridPin}` with the brace: `gridPinArea` also contains
     // "styles.gridPin" and would double every count.
-    expect((head.match(/styles\.gridPin\}/g) ?? []).length).toBe(5);
-    expect((head.match(/rowSpan=\{2\}/g) ?? []).length).toBeGreaterThanOrEqual(5);
+    const head = code.slice(code.indexOf("<thead>"), code.indexOf("</thead>"));
+    // Area, Owner, Actions, Name, Frequency, Target.
+    expect((head.match(/styles\.gridPin\}/g) ?? []).length).toBe(6);
+    expect((head.match(/rowSpan=\{2\}/g) ?? []).length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("has no full-width row left to keep in step with the columns", () => {
+    // The settings form was a <tr> spanning the whole table, and its
+    // colSpan was hand-written arithmetic over the pinned count. It
+    // opens in a drawer now, so that arithmetic is gone rather than
+    // merely kept correct.
+    expect(code).not.toContain("colSpan={5");
   });
 
   it("gives an open month a colSpan equal to its weeks", () => {
@@ -125,14 +130,16 @@ describe("the pinned columns line up with their offsets", () => {
     expect(rule(".gridPinArea")).toContain("width: 150px");
     expect(rule(".gridPinOwner")).toContain("left: 150px");
     expect(rule(".gridPinOwner")).toContain("width: 100px");
-    expect(rule(".gridPinName")).toContain("left: 250px");
+    expect(rule(".gridPinActions")).toContain("left: 250px");
+    expect(rule(".gridPinActions")).toContain("width: 64px");
+    expect(rule(".gridPinName")).toContain("left: 314px");
     expect(rule(".gridPinName")).toContain("width: 240px");
-    expect(rule(".gridPinFreq")).toContain("left: 490px");
+    expect(rule(".gridPinFreq")).toContain("left: 554px");
     expect(rule(".gridPinFreq")).toContain("width: 96px");
     // Target is pinned on purpose: it scrolled away with the weeks in
     // the first cut, and a grid of numbers with the target off-screen
     // is a grid of numbers you cannot read.
-    expect(rule(".gridPinTarget")).toContain("left: 586px");
+    expect(rule(".gridPinTarget")).toContain("left: 650px");
   });
 
   it("lets the measure name wrap rather than truncate", () => {
@@ -146,5 +153,27 @@ describe("the pinned columns line up with their offsets", () => {
 
   it("scrolls the weeks without scrolling the page", () => {
     expect(rule(".gridScroll")).toContain("overflow-x: auto");
+  });
+
+  it("opens with the current month against the pinned columns", () => {
+    // Not scrolled to the far right, which puts this week on screen
+    // and leaves two or three collapsed months wedged between the
+    // measure names and the weeks.
+    const src2 = readFileSync(join(DIR, "MeasuresGrid.tsx"), "utf8");
+    // Scrolled to the end, and IN A FRAME. Doing it on mount measures
+    // a table the stylesheet has not finished sizing, so the scroll
+    // clamps to a maximum that is about to change and the grid stops
+    // short. That cost three rounds of chasing it as if it were a
+    // column-width problem.
+    expect(src2).toContain("requestAnimationFrame");
+    expect(src2).toContain("el.scrollLeft = el.scrollWidth");
+  });
+
+  it("puts the drawer and its scrim above the navigation", () => {
+    // The sidebar sits at 30, its mobile drawer at 40. A scrim below
+    // those dims the table and leaves the rail bright, which reads as
+    // a rendering fault rather than a focused panel.
+    expect(rule(".drawerScrim")).toContain("z-index: 60");
+    expect(rule(".drawer")).toContain("z-index: 61");
   });
 });

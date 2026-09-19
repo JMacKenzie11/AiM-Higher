@@ -175,10 +175,6 @@ export function AddMetricRow({
 
   return (
     <div className={styles.addMetricGroup}>
-      <p className={styles.addMetricAnchor}>
-        Drives progress on:{" "}
-        <span className={styles.addMetricAnchorTitle}>{outcomeTitle}</span>
-      </p>
       <form action={formAction} className={styles.addMetricRow}>
         <input type="hidden" name="outcome_id" value={outcomeId} />
         <input type="hidden" name="target_direction" value={direction} />
