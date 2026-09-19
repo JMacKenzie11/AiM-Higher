@@ -393,14 +393,36 @@ export function MeasuresGrid({
     () => new Set(data.months.filter((m) => m.isCurrent).map((m) => m.key))
   );
 
-  // The weeks that accept input: the one that just closed, and the
-  // current one. Oldest first, so the grid reads left to right.
-  const editableWeeks = useMemo(
+  // THE WEEKS THAT ARE STILL OPEN, which is not the same question as
+  // the weeks this caller may type into.
+  //
+  // Open means open to everyone: the week that just closed and the
+  // current one. That is what the column tint and its tooltip
+  // describe, and it is the window the Friday nudge and the Saturday
+  // sweep work to. Oldest first, so the grid reads left to right.
+  const openWeeks = useMemo(
     () =>
       [data.previousWeekEnding, weekEnding].filter(
         (w): w is string => w !== null
       ),
     [data.previousWeekEnding, weekEnding]
+  );
+
+  // AN ADMIN MAY EDIT ANY WEEK ON THE PAGE, decided 2026-09-19.
+  //
+  // Correcting a number from two months ago was "a conversation
+  // rather than a keystroke" — meaning somebody had to ask an
+  // engineer. That is not a rule anybody chose, it is the absence of
+  // a control, and the lock was never a boundary anyway: the entry
+  // action has no week check at all, so the window was a disabled
+  // input and nothing more.
+  //
+  // The window still exists for everyone else. It is what makes a
+  // closed week a record rather than a running draft, and a Lead
+  // quietly revising an old number is the thing it prevents.
+  const editableWeeks = useMemo(
+    () => (isAdmin ? data.weeks : openWeeks),
+    [isAdmin, data.weeks, openWeeks]
   );
 
   // WHAT THE COUNT CHASES IS THE WEEK THAT JUST CLOSED, not the
@@ -492,15 +514,23 @@ export function MeasuresGrid({
 
   function save() {
     setMessage(null);
-    // Every editable cell this caller owns, across both open weeks.
-    // A blank is skipped by the action, so sending them all is how a
-    // value typed into either column gets saved by one button.
+    // ONLY WHAT CHANGED, compared against what the server currently
+    // holds rather than against a remembered baseline — `data` is
+    // refreshed after every save, so this corrects itself and there
+    // is no second copy of the truth to keep in step.
+    //
+    // It used to send every editable cell, which was harmless while
+    // that meant two columns. An admin can now edit a year of them,
+    // and a save that posted a thousand unchanged cells would be
+    // slow, would report a meaningless "Saved N values", and would
+    // rewrite rows nobody touched.
     const entries: MeasureEntryInput[] = data.groups
       .filter((g) => g.canLog)
       .flatMap((g) =>
         g.rows.flatMap((r) =>
           editableWeeks
             .filter((w) => isDueInWeek(r, w))
+            .filter((w) => (values[cellKey(r.id, w)] ?? "") !== valueAt(r, w))
             .map((w) => ({
               measureId: r.id,
               valueType: r.valueType,
@@ -1110,12 +1140,12 @@ export function MeasuresGrid({
                       className={
                         w === weekEnding
                           ? `${styles.gridWeekHead} ${styles.gridWeekHeadCurrent}`
-                          : editableWeeks.includes(w)
+                          : openWeeks.includes(w)
                             ? `${styles.gridWeekHead} ${styles.gridWeekHeadOpen}`
                             : styles.gridWeekHead
                       }
                       title={
-                        editableWeeks.includes(w) && w !== weekEnding
+                        openWeeks.includes(w) && w !== weekEnding
                           ? "Still open: closes when the next week does"
                           : undefined
                       }

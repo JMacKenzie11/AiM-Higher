@@ -100,13 +100,35 @@ describe("the outstanding line and the save count one population", () => {
 // input, and it is the shape of bug that survives review because
 // everything behind it is correct.
 describe("only your own functions get an input", () => {
-  it("renders an input only on an open week AND with canLog", () => {
+  it("renders an input only on an editable week AND with canLog", () => {
     expect(code).toContain("if (editable && canLog) {");
-    // Two weeks are open: the current one and the one that just
-    // closed. Everything older is read-only, because a grid where any
-    // of fifty-two cells is editable invites a quiet correction to
-    // April.
-    expect(block("editableWeeks")).toContain("data.previousWeekEnding");
+  });
+
+  it("opens two weeks to everyone, and the whole page to an admin", () => {
+    // The window is what makes a closed week a record rather than a
+    // running draft: a Lead quietly revising April is the thing it
+    // prevents, and it still does.
+    expect(block("openWeeks")).toContain("data.previousWeekEnding");
+    // An admin is exempt, decided 2026-09-19. Correcting an old
+    // number was "a conversation rather than a keystroke", which is
+    // not a rule anybody chose — it is the absence of a control.
+    expect(block("editableWeeks")).toContain("isAdmin ? data.weeks : openWeeks");
+  });
+
+  it("tints and captions the OPEN weeks, not the editable ones", () => {
+    // Otherwise an admin sees every column in a year tinted "still
+    // open", which says something false about the deadline everyone
+    // else is working to.
+    expect(code).toContain("openWeeks.includes(w) && w !== weekEnding");
+    expect(code).not.toContain("editableWeeks.includes(w)");
+  });
+
+  it("saves only the cells that actually changed", () => {
+    // Sending every editable cell was harmless while that meant two
+    // columns. An admin can now edit a year of them.
+    expect(code).toContain(
+      '(values[cellKey(r.id, w)] ?? "") !== valueAt(r, w)'
+    );
   });
 
   it("passes canLog down per function, not per page", () => {
