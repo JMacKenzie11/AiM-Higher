@@ -1599,3 +1599,78 @@
 }
 
 
+
+/* ---- Drag to reorder ------------------------------------------
+   Two handles, two scopes: one moves a functional area among its
+   siblings, one moves a critical success factor inside its area.
+   Both are real <button>s so the keyboard sensor can reach them,
+   which is also the gesture the e2e suite drives. */
+
+.gridPinDrag {
+  text-align: center;
+}
+
+.gridDragCell {
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.rowDragHandle,
+.areaDragHandle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  /* grab, not pointer: this thing is dragged, not clicked, and the
+     cursor is the only thing that says so before you try. */
+  cursor: grab;
+  touch-action: none;
+}
+
+.rowDragHandle:hover,
+.areaDragHandle:hover {
+  background: color-mix(in srgb, var(--aims-cobalt) 12%, transparent);
+  color: var(--aims-cobalt);
+}
+
+.rowDragHandle:active,
+.areaDragHandle:active {
+  cursor: grabbing;
+}
+
+/* The area handle sits beside the function's name rather than in a
+   column of its own: an area is a block of rows, so a handle in the
+   row-handle column would read as belonging to the first row. */
+.areaCellInner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.areaDragHandle {
+  flex: none;
+}
+
+/* A dragged area keeps its ground while it moves, so the rows under
+   it stay readable rather than showing the page through them. */
+.grid tbody[data-dragging="true"],
+.grid tr[data-dragging="true"] {
+  position: relative;
+  z-index: 2;
+  background: var(--surface);
+}
+
+.reorderError {
+  margin: 0 0 var(--space-3);
+  font: var(--text-body-sm);
+  color: var(--danger, #b3261e);
+}

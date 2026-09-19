@@ -191,6 +191,10 @@ export async function reorderFunctionsAction(
     return { ok: false, message: "Couldn't save the new order." };
   }
   revalidatePath("/chart");
+  // /measures groups by function and renders them in the same
+  // hierarchy order, so a drag on either page has to invalidate both
+  // or the other one keeps serving the order from before the move.
+  revalidatePath("/measures");
   return { ok: true };
 }
 
