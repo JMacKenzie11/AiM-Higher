@@ -1,12 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import {
   logMeasureEntriesAction,
   type MeasureEntryInput,
 } from "@/lib/measures/actions";
-import type { GridData, GridRow } from "@/lib/measures/grid";
+import type { GridData, GridRow,
+  GridGroup,
+} from "@/lib/measures/grid";
 import { EditMeasureForm, ArchiveMeasureButton } from "./EditMeasureForm";
 import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
 import { ExternalSourceControls } from "./external/ExternalSourceControls";
@@ -14,6 +26,25 @@ import { PencilIcon } from "@/components/ui/PencilIcon";
 import { PlusIcon } from "@/components/ui/PlusIcon";
 import { formatShortDate } from "@/lib/dates";
 import uiStyles from "@/components/ui/ui.module.css";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { reorderMeasuresAction } from "@/lib/measures/reorder-actions";
+import { reorderFunctionsAction } from "@/lib/chart/actions";
 import styles from "./measures.module.css";
 
 // The /measures grid.
@@ -103,6 +134,11 @@ import styles from "./measures.module.css";
 const PINNED: ReadonlyArray<{ key: string; width: number }> = [
   { key: "area", width: 150 },
   { key: "owner", width: 100 },
+  // The row's drag handle, asked for in this position: "between the
+  // owner and the CSF description". It travels with the authoring
+  // columns, so a reader with no seat anywhere is not given 36px of
+  // permanently empty table.
+  { key: "drag", width: 36 },
   { key: "actions", width: 64 },
   { key: "name", width: 240 },
   { key: "freq", width: 96 },
@@ -110,7 +146,9 @@ const PINNED: ReadonlyArray<{ key: string; width: number }> = [
 ];
 
 function pinnedColumns(authoring: boolean) {
-  return PINNED.filter((c) => authoring || c.key !== "actions");
+  return PINNED.filter(
+    (c) => authoring || (c.key !== "actions" && c.key !== "drag")
+  );
 }
 
 // A collapsed month is one narrow column; a week is sized on mount to
@@ -150,6 +188,200 @@ export function MeasuresGrid({
 }) {
   // The actions column shows if this caller can author anywhere.
   const authoring = isAdmin || data.groups.some((g) => g.canLog);
+
+  // ---- DRAG TO REORDER ------------------------------------------
+  //
+  // Two levels, and they are two different permissions.
+  //
+  //   A FUNCTIONAL AREA moves among its SIBLINGS. This page renders
+  //   the chart's hierarchy flattened, so a drag across parents would
+  //   be a chart edit wearing a grid's clothes and the next render
+  //   would undo it. In practice it reads as a flat reorder: every
+  //   company on the fleet nests nearly every function under one
+  //   parent, so the areas people reorder are already siblings.
+  //   It writes through reorderFunctionsAction, which is admin and
+  //   guide only — arranging the chart is not a Lead's call.
+  //
+  //   A CRITICAL SUCCESS FACTOR moves within its own area, and that
+  //   is open to whoever may author it: admin, guide, or the
+  //   function's Lead. Same rule as the pencil beside it, asked
+  //   through `canLog` rather than restated.
+  //
+  // Both orders are OPTIMISTIC and revert on refusal, and both take
+  // the server's order verbatim whenever nothing is in flight —
+  // `data` changes on every unrelated edit to this page.
+  const [groupOrder, setGroupOrder] = useState(data.groups);
+  const [rowOverrides, setRowOverrides] = useState<Record<string, GridRow[]>>(
+    {}
+  );
+  const [reorderPending, startReorder] = useTransition();
+  const [reorderError, setReorderError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (reorderPending) return;
+    setGroupOrder(data.groups);
+    setRowOverrides({});
+  }, [data.groups, reorderPending]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  // Only groups that render. An empty area has no rows to drag and
+  // no row to hang an area handle on.
+  const areaIds = groupOrder.filter((g) => g.rows.length > 0).map((g) => g.functionId);
+
+  // COLLISIONS ARE CONFINED TO THE LEVEL BEING DRAGGED, and this is
+  // not a refinement — without it the area drag does nothing at all.
+  //
+  // Both levels register droppables in the same DndContext, so plain
+  // closestCenter answers a dragging <tbody> with whichever <tr> is
+  // nearest its centre, which is always one of its own rows. The drop
+  // handler then looks that id up among the groups, finds nothing,
+  // and returns. Measured: six areas, six handles, and not one of
+  // them moved.
+  //
+  // Filtering the candidates by what is being dragged makes each
+  // gesture see only its own kind.
+  const groupIdSet = new Set(groupOrder.map((g) => g.functionId));
+  const collisionDetection = useCallback(
+    (args: Parameters<typeof closestCenter>[0]) => {
+      const activeIsGroup = groupIdSet.has(String(args.active.id));
+      return closestCenter({
+        ...args,
+        droppableContainers: args.droppableContainers.filter((container) =>
+          activeIsGroup
+            ? groupIdSet.has(String(container.id))
+            : !groupIdSet.has(String(container.id))
+        ),
+      });
+    },
+    // groupIdSet is rebuilt each render from groupOrder, which is the
+    // only thing that changes what is a group.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [groupOrder]
+  );
+
+  function siblingIds(group: GridGroup): string[] {
+    return groupOrder
+      .filter(
+        (g) =>
+          g.rows.length > 0 && g.parentFunctionId === group.parentFunctionId
+      )
+      .map((g) => g.functionId);
+  }
+
+  function rowOrder(group: GridGroup): GridRow[] {
+    return rowOverrides[group.functionId] ?? group.rows;
+  }
+
+  // Moving an area, once something has decided where it goes. The
+  // pointer drag and the arrow keys both land here, so there is one
+  // description of what a move means and one place it is saved.
+  function moveArea(activeId: string, toIndex: number) {
+    const from = groupOrder.findIndex((g) => g.functionId === activeId);
+    if (from < 0 || toIndex < 0 || toIndex >= groupOrder.length) return;
+    const group = groupOrder[from];
+    if (groupOrder[toIndex].parentFunctionId !== group.parentFunctionId) return;
+
+    const previous = groupOrder;
+    const next = arrayMove(groupOrder, from, toIndex);
+    setGroupOrder(next);
+    setReorderError(null);
+    // Only this parent's children are renumbered. The action takes
+    // "one parent's children in their new order", so handing it a
+    // flattened whole-page order would renumber cousins against each
+    // other and scramble the chart.
+    const siblings = next.filter(
+      (g) => g.parentFunctionId === group.parentFunctionId
+    );
+    startReorder(async () => {
+      const result = await reorderFunctionsAction(
+        siblings.map((g, index) => ({ id: g.functionId, sort_order: index }))
+      );
+      if (!result.ok) {
+        setGroupOrder(previous);
+        setReorderError(result.message);
+      }
+    });
+  }
+
+  // THE ARROW KEYS ARE NOT A CONVENIENCE, they are the only keyboard
+  // path this control has.
+  //
+  // dnd-kit's KeyboardSensor cannot navigate between <tbody>
+  // droppables: picking an area up and pressing Down reports "moved
+  // over" the area it started on, every time, on all six. The
+  // pointer drag works — measured, an area moved from first to third
+  // — so the gesture is sound and only its keyboard half is not.
+  // Rather than ship a control a keyboard cannot reach, Up and Down
+  // move the area directly while its handle has focus.
+  function handleAreaKeyDown(
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    functionId: string
+  ) {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const from = groupOrder.findIndex((g) => g.functionId === functionId);
+    if (from < 0) return;
+    event.preventDefault();
+    moveArea(functionId, from + (event.key === "ArrowDown" ? 1 : -1));
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    setReorderError(null);
+
+    // A group id or a measure id? The grid's own data answers it,
+    // rather than a prefix that would have to be parsed back off.
+    const activeGroup = groupOrder.find((g) => g.functionId === activeId);
+    if (activeGroup) {
+      const overGroup =
+        groupOrder.find((g) => g.functionId === overId) ??
+        // Belt and braces: if a drop ever resolves onto a row rather
+        // than its body, take the area that row belongs to.
+        groupOrder.find((g) => rowOrder(g).some((r) => r.id === overId));
+      if (!overGroup) return;
+      // Siblings only. A drop onto another parent's area is refused
+      // silently: the row springs back, which is the truthful
+      // outcome, and saying "that is a chart edit" over a table is
+      // more noise than the gesture deserves.
+      if (overGroup.parentFunctionId !== activeGroup.parentFunctionId) return;
+
+      moveArea(
+        activeId,
+        groupOrder.findIndex((g) => g.functionId === overGroup.functionId)
+      );
+      return;
+    }
+
+    // A measure, then. It may only move inside the area it started
+    // in; anything else is a different function's list.
+    const owner = groupOrder.find((g) =>
+      rowOrder(g).some((r) => r.id === activeId)
+    );
+    if (!owner) return;
+    const rows = rowOrder(owner);
+    const from = rows.findIndex((r) => r.id === activeId);
+    const to = rows.findIndex((r) => r.id === overId);
+    if (from < 0 || to < 0) return;
+
+    const next = arrayMove(rows, from, to);
+    setRowOverrides((prev) => ({ ...prev, [owner.functionId]: next }));
+    startReorder(async () => {
+      const result = await reorderMeasuresAction(
+        owner.functionId,
+        next.map((r) => r.id)
+      );
+      if (!result.ok) {
+        setRowOverrides((prev) => ({ ...prev, [owner.functionId]: rows }));
+        setReorderError(result.message);
+      }
+    });
+  }
   // The functions this caller may add to. An admin gets all of them;
   // a Lead gets their own, which is the same rule reaching a
   // different answer rather than a second rule.
@@ -621,6 +853,12 @@ export function MeasuresGrid({
 
   return (
     <div className={styles.gridStack}>
+      {reorderError ? (
+        <p role="alert" className={styles.reorderError}>
+          {reorderError}
+        </p>
+      ) : null}
+
       {/* ONE TOOLBAR, whichever half of it has anything in it.
  
           Both halves used to be gated on Success Tracking as well,
@@ -655,7 +893,7 @@ export function MeasuresGrid({
                 onClick={save}
                 disabled={pending}
               >
-                {pending ? "Saving…" : "Save this week"}
+                {pending ? "Saving…" : "Save"}
               </button>
             ) : null}
             {addableGroups.length > 0 ? (
@@ -727,6 +965,12 @@ export function MeasuresGrid({
       </div>
 
       <div className={styles.gridScroll} id="measures-grid-scroll" ref={scrollRef}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetection}
+          onDragEnd={handleDragEnd}
+        >
+        <SortableContext items={areaIds} strategy={verticalListSortingStrategy}>
         <table className={styles.grid}>
           {/* `table-layout: fixed` honours these exactly, which is
               what makes the sticky offsets above correct. Week
@@ -771,14 +1015,24 @@ export function MeasuresGrid({
                 Owner
               </th>
               {authoring ? (
-                <th
-                  scope="col"
-                  rowSpan={2}
-                  className={`${styles.gridPin} ${styles.gridPinActions}`}
-                      data-pin="actions"
-                >
-                  <span className={styles.visuallyHidden}>Actions</span>
-                </th>
+                <>
+                  <th
+                    scope="col"
+                    rowSpan={2}
+                    className={`${styles.gridPin} ${styles.gridPinDrag}`}
+                    data-pin="drag"
+                  >
+                    <span className={styles.visuallyHidden}>Reorder</span>
+                  </th>
+                  <th
+                    scope="col"
+                    rowSpan={2}
+                    className={`${styles.gridPin} ${styles.gridPinActions}`}
+                    data-pin="actions"
+                  >
+                    <span className={styles.visuallyHidden}>Actions</span>
+                  </th>
+                </>
               ) : null}
               <th
                 scope="col"
@@ -872,120 +1126,151 @@ export function MeasuresGrid({
                 )}
             </tr>
           </thead>
-          <tbody>
-            {data.groups
-              .filter((g) => g.rows.length > 0)
-              .map((group) =>
-                group.rows.map((row, i) => (
-                  <tr
+          {/* One SortableContext per level. The group one lists every
+              rendered area; the sibling rule is enforced on drop
+              rather than by splitting this into a context per parent,
+              because dnd-kit will not drag between contexts at all
+              and the useful half of the gesture — seeing the row lift
+              and follow the pointer — should still happen when
+              somebody tries. */}
+          {groupOrder
+            .filter((g) => g.rows.length > 0)
+            .map((group) => {
+            const rows = rowOrder(group);
+            return (
+              <SortableGroupBody
+                key={group.functionId}
+                id={group.functionId}
+                enabled={areaIds.length > 1 && siblingIds(group).length > 1}
+                rowIds={rows.map((r) => r.id)}
+                onKeyDown={(e) => handleAreaKeyDown(e, group.functionId)}
+              >
+                {rows.map((row, i) => (
+                  <SortableMeasureRow
                     key={row.id}
-                    className={i === 0 ? styles.gridGroupStart : undefined}
-                  >
-                    {/* Written once per group, spanning its rows, the
-                        way the merged Owner and Functional Area cells
-                        in the spreadsheet already read. */}
-                    {i === 0 ? (
-                      <>
-                        <th
-                          scope="rowgroup"
-                          rowSpan={group.rows.length}
-                          className={`${styles.gridPin} ${styles.gridPinArea} ${styles.gridAreaCell}`}
-                      data-pin="area"
-                        >
-                          <Link
-                            href={`/chart/function/${group.functionId}`}
-                            className={styles.fnTitleLink}
-                          >
-                            {group.functionTitle}
-                          </Link>
-                        </th>
-                        <td
-                          rowSpan={group.rows.length}
-                          className={`${styles.gridPin} ${styles.gridPinOwner} ${styles.gridOwnerCell}`}
-                      data-pin="owner"
-                        >
-                          {group.ownerName ?? (
-                            <span className={styles.gridNoOwner}>No Lead</span>
-                          )}
-                        </td>
-                      </>
-                    ) : null}
-                    {authoring ? (
-                      <td
-                        className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
-                      data-pin="actions"
-                      >
-                        {group.canLog ? (
+                    id={row.id}
+                    enabled={authoring && group.canLog && rows.length > 1}
+                    first={i === 0}
+                    label={row.description}
+                    showDragCell={authoring}
+                    lead={
+                      i === 0 ? (
+                        <>
+                        {/* Written once per group, spanning its rows, the
+                            way the merged Owner and Functional Area cells
+                            in the spreadsheet already read. */}
+                        {i === 0 ? (
                           <>
-                            <button
-                              type="button"
-                              className={styles.gridIconButton}
-                              onClick={() => setEditing(row.id)}
-                              aria-label={`Edit ${row.description}`}
-                              title="Edit"
+                            <th
+                              scope="rowgroup"
+                              rowSpan={group.rows.length}
+                              className={`${styles.gridPin} ${styles.gridPinArea} ${styles.gridAreaCell}`}
+                          data-pin="area"
                             >
-                              <PencilIcon />
-                            </button>
-                            <ArchiveMeasureButton measureId={row.id} />
+                              <span className={styles.areaCellInner}>
+                                <AreaDragHandle title={group.functionTitle} />
+                                <Link
+                                  href={`/chart/function/${group.functionId}`}
+                                  className={styles.fnTitleLink}
+                                >
+                                  {group.functionTitle}
+                                </Link>
+                              </span>
+                            </th>
+                            <td
+                              rowSpan={group.rows.length}
+                              className={`${styles.gridPin} ${styles.gridPinOwner} ${styles.gridOwnerCell}`}
+                          data-pin="owner"
+                            >
+                              {group.ownerName ?? (
+                                <span className={styles.gridNoOwner}>No Lead</span>
+                              )}
+                            </td>
                           </>
                         ) : null}
-                      </td>
-                    ) : null}
-                    <th
-                      scope="row"
-                      className={`${styles.gridPin} ${styles.gridPinName} ${styles.gridNameCell}`}
-                      data-pin="name"
-                    >
-                      {row.description}
-                      <ExternalMeasureNote measureId={row.id} />
-                    </th>
-                    <td className={`${styles.gridPin} ${styles.gridPinFreq} ${styles.gridFreqCell}`}
-                      data-pin="freq">
-                      {row.frequencyLabel}
-                    </td>
-                    <td className={`${styles.gridPin} ${styles.gridPinTarget} ${styles.gridTargetCell}`}
-                      data-pin="target">
-                      {row.target ? (
-                        <>
-                          <span className={styles.gridDir} aria-hidden>
-                            {row.direction === "higher_is_better" ? "≥" : "≤"}
-                          </span>{" "}
-                          {row.target}
                         </>
-                      ) : (
-                        <span className={styles.gridNoTarget}>Not set</span>
-                      )}
-                    </td>
-                    {columns.map((col) =>
-                      col.kind === "month" ? (
+                      ) : null
+                    }
+                  >
+                      {authoring ? (
                         <td
-                          key={`${row.id}-${col.key}`}
-                          className={styles.gridClosedCell}
-                        />
-                      ) : (
-                        <GridCellView
-                          key={`${row.id}-${col.key}`}
-                          row={row}
-                          week={col.key}
-                          isCurrent={col.key === weekEnding}
-                          editable={editableWeeks.includes(col.key)}
-                          canLog={group.canLog}
-                          value={values[cellKey(row.id, col.key)] ?? ""}
-                          onChange={(v) =>
-                            setValues((prev) => ({
-                              ...prev,
-                              [cellKey(row.id, col.key)]: v,
-                            }))
-                          }
-                          disabled={pending}
-                        />
-                      )
-                    )}
-                  </tr>
-                ))
-              )}
-          </tbody>
+                          className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
+                        data-pin="actions"
+                        >
+                          {group.canLog ? (
+                            <>
+                              <button
+                                type="button"
+                                className={styles.gridIconButton}
+                                onClick={() => setEditing(row.id)}
+                                aria-label={`Edit ${row.description}`}
+                                title="Edit"
+                              >
+                                <PencilIcon />
+                              </button>
+                              <ArchiveMeasureButton measureId={row.id} />
+                            </>
+                          ) : null}
+                        </td>
+                      ) : null}
+                      <th
+                        scope="row"
+                        className={`${styles.gridPin} ${styles.gridPinName} ${styles.gridNameCell}`}
+                        data-pin="name"
+                      >
+                        {row.description}
+                        <ExternalMeasureNote measureId={row.id} />
+                      </th>
+                      <td className={`${styles.gridPin} ${styles.gridPinFreq} ${styles.gridFreqCell}`}
+                        data-pin="freq">
+                        {row.frequencyLabel}
+                      </td>
+                      <td className={`${styles.gridPin} ${styles.gridPinTarget} ${styles.gridTargetCell}`}
+                        data-pin="target">
+                        {row.target ? (
+                          <>
+                            <span className={styles.gridDir} aria-hidden>
+                              {row.direction === "higher_is_better" ? "≥" : "≤"}
+                            </span>{" "}
+                            {row.target}
+                          </>
+                        ) : (
+                          <span className={styles.gridNoTarget}>Not set</span>
+                        )}
+                      </td>
+                      {columns.map((col) =>
+                        col.kind === "month" ? (
+                          <td
+                            key={`${row.id}-${col.key}`}
+                            className={styles.gridClosedCell}
+                          />
+                        ) : (
+                          <GridCellView
+                            key={`${row.id}-${col.key}`}
+                            row={row}
+                            week={col.key}
+                            isCurrent={col.key === weekEnding}
+                            editable={editableWeeks.includes(col.key)}
+                            canLog={group.canLog}
+                            value={values[cellKey(row.id, col.key)] ?? ""}
+                            onChange={(v) =>
+                              setValues((prev) => ({
+                                ...prev,
+                                [cellKey(row.id, col.key)]: v,
+                              }))
+                            }
+                            disabled={pending}
+                          />
+                        )
+                      )}
+                  </SortableMeasureRow>
+                ))}
+                </SortableGroupBody>
+              );
+            })}
         </table>
+        </SortableContext>
+        </DndContext>
       </div>
 
       {editingRow || adding ? (
@@ -1210,5 +1495,159 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+// ---- The two sortable shells ------------------------------------
+//
+// A <tbody> per functional area, and a sortable <tr> inside it. The
+// grouping is what makes an AREA draggable at all: an area is a run
+// of rows, and a run of rows is only a DOM node if it has its own
+// tbody. A table may carry as many as it likes.
+//
+// THE AREA HANDLE LIVES IN THE AREA CELL, which the parent renders
+// as `lead`, so its drag props have to reach across. A context is
+// the cheapest way that does not turn every cell into a render prop.
+const GroupDragContext = createContext<{
+  enabled: boolean;
+  attributes: Record<string, unknown>;
+  listeners: Record<string, unknown>;
+  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
+}>({ enabled: false, attributes: {}, listeners: {}, onKeyDown: () => {} });
+
+export function AreaDragHandle({ title }: { title: string }) {
+  const { enabled, attributes, listeners, onKeyDown } =
+    useContext(GroupDragContext);
+  if (!enabled) return null;
+  return (
+    <button
+      type="button"
+      className={styles.areaDragHandle}
+      aria-label={`Reorder ${title}`}
+      title="Drag to reorder this functional area, or use the arrow keys"
+      {...attributes}
+      {...listeners}
+      // AFTER the spread, deliberately: dnd-kit's own onKeyDown is
+      // what starts a pointer-style drag, and it ignores the arrows
+      // unless one is already running. Ours moves the area outright,
+      // which is the only keyboard path that works here.
+      onKeyDown={onKeyDown}
+    >
+      <span aria-hidden="true">⠿</span>
+    </button>
+  );
+}
+
+function SortableGroupBody({
+  id,
+  enabled,
+  rowIds,
+  onKeyDown,
+  children,
+}: {
+  id: string;
+  enabled: boolean;
+  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
+  // The measures in this area, as their own sortable context.
+  //
+  // NOT OPTIONAL, and not merely tidy. Without it the rows register
+  // in the DndContext with no container of their own, and the
+  // keyboard sensor cannot tell the two levels apart: picking up an
+  // AREA and pressing Down reported "moved over" the area it started
+  // on, every time, because sortableKeyboardCoordinates was choosing
+  // among droppables belonging to both levels at once. Six areas,
+  // six handles, and not one of them moved.
+  rowIds: string[];
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id, disabled: !enabled });
+
+  return (
+    <GroupDragContext.Provider
+      value={{
+        enabled,
+        attributes: attributes as unknown as Record<string, unknown>,
+        listeners: (listeners ?? {}) as unknown as Record<string, unknown>,
+        onKeyDown,
+      }}
+    >
+      <tbody
+        ref={setNodeRef}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition,
+          // Not `opacity: 0`: the row has to stay legible while it
+          // moves, because what you are aiming at is the area name.
+          opacity: isDragging ? 0.6 : 1,
+        }}
+        data-dragging={isDragging ? "true" : undefined}
+      >
+        <SortableContext items={rowIds} strategy={verticalListSortingStrategy}>
+          {children}
+        </SortableContext>
+      </tbody>
+    </GroupDragContext.Provider>
+  );
+}
+
+function SortableMeasureRow({
+  id,
+  enabled,
+  first,
+  label,
+  showDragCell,
+  lead,
+  children,
+}: {
+  id: string;
+  enabled: boolean;
+  first: boolean;
+  label: string;
+  // Whether the column exists at all. It travels with the authoring
+  // columns, so a reader is not given 36px of permanently empty
+  // table — but a cell still has to be emitted for every row when it
+  // does exist, or the row runs a column short and every cell after
+  // it slides one place left.
+  showDragCell: boolean;
+  lead: ReactNode;
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id, disabled: !enabled });
+
+  return (
+    <tr
+      ref={setNodeRef}
+      className={first ? styles.gridGroupStart : undefined}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+      }}
+      data-dragging={isDragging ? "true" : undefined}
+    >
+      {lead}
+      {showDragCell ? (
+        <td
+          className={`${styles.gridPin} ${styles.gridPinDrag} ${styles.gridDragCell}`}
+          data-pin="drag"
+        >
+          {enabled ? (
+            <button
+              type="button"
+              className={styles.rowDragHandle}
+              aria-label={`Reorder ${label}`}
+              title="Drag to reorder"
+              {...attributes}
+              {...listeners}
+            >
+              <span aria-hidden="true">⠿</span>
+            </button>
+          ) : null}
+        </td>
+      ) : null}
+      {children}
+    </tr>
   );
 }

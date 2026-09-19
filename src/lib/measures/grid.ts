@@ -95,6 +95,18 @@ export type GridRow = {
 export type GridGroup = {
   functionId: string;
   functionTitle: string;
+  // The function's parent, carried so the page knows which groups are
+  // SIBLINGS. Reordering functional areas moves a function among its
+  // siblings and nowhere else: the order this page renders in is the
+  // chart's hierarchy, so a drag that crossed parents would be a
+  // chart edit wearing a grid's clothes, and the next render would
+  // put the row back where it started.
+  //
+  // In practice this reads as a flat reorder, because that is the
+  // shape of the data: every company on the fleet nests nearly every
+  // function under one parent, so the areas people actually reorder
+  // are already siblings of each other.
+  parentFunctionId: string | null;
   // The function's Lead. Decided: owner is the seat, not a column on
   // the measure, which is how the spreadsheet's merged Owner cells
   // already work.
@@ -314,17 +326,20 @@ export function buildGridData(
   // every other function following its parent. The grid reads as the
   // org does, and `includeAll` decides only whose functions come
   // first so a leader lands on their own without scrolling.
-  const ordered = orderFunctionsByHierarchy(spine.functions);
-  const orderedFunctions = includeAll
-    ? ordered
-    : [
-        ...ordered.filter((f) => f.lead_id === userId),
-        ...ordered.filter((f) => f.lead_id !== userId),
-      ];
+  //
+  // ONE ORDER, THE SAME FOR EVERYONE. This used to float a viewer's
+  // own functions to the top when they were not an admin, so a Lead
+  // landed on their own row without scrolling. That was a good idea
+  // for a page nobody could arrange; it is the wrong one now the
+  // order is something a person sets and expects to hold. Two people
+  // comparing the same page have to be looking at the same page, and
+  // a drag whose result only some viewers see is not a saved order.
+  const orderedFunctions = orderFunctionsByHierarchy(spine.functions);
 
   const groups: GridGroup[] = orderedFunctions.map((fn) => ({
     functionId: fn.id,
     functionTitle: fn.title,
+    parentFunctionId: fn.parent_function_id,
     ownerName: fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null,
     // Same rule upsertMeasureEntryAction enforces, so the page never
     // draws an input the server would refuse.

@@ -540,7 +540,9 @@ The functional chart at `/chart` (nav label: **Functional Chart**). Distinct fro
 
 One level. A **critical success factor** is what a function is held to, week by week: a name, a target, and a number each week. The second level (a KPI beneath a CSF) was removed in migration 0216. Data model in Section 9.
 
-Nav label: **Critical Success Factors**, under *Workspace*. Nothing on the page is gated by `performance_tracking` since 2026-09-19 — the week columns, the Target field and the Save this week button are there for every company, and what a given person may type is decided by `canLog` per function, not by a company flag.
+Nav label: **Critical Success Factors**, under *Workspace*.
+
+**Ordering.** Both levels are drag-reorderable and both persist to the database, shared by every viewer. A measure moves within its function (`success_measures.sort_order`, via `reorderMeasuresAction`, open to anyone `success_measures_write_by_function` admits — admin, guide, or the function's Lead). A functional area moves among its **siblings** (`functions.sort_order`, via `reorderFunctionsAction`, admin and guide only); cross-parent drops are refused because the page renders the chart's hierarchy flattened. The area handle also takes ArrowUp/ArrowDown, which is not a convenience: dnd-kit's keyboard sensor cannot navigate between `<tbody>` droppables, so that is the control's only keyboard path. Until 2026-09-19 a non-admin's own functions were floated to the top of this page; that per-viewer reshuffle is gone, because an order only some viewers see is not a saved order. Nothing on the page is gated by `performance_tracking` since 2026-09-19 — the week columns, the Target field and the Save button are there for every company, and what a given person may type is decided by `canLog` per function, not by a company flag.
 
 **Access**
 

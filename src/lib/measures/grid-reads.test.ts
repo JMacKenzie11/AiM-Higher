@@ -289,9 +289,16 @@ describe("getGridData — scoping", () => {
     ).toEqual({ Sales: true, Ops: false, Finance: false });
   });
 
-  it("puts the caller's own seats first", async () => {
-    // A leader still lands on their own functions rather than
-    // scrolling past everyone else's to reach them.
+  it("gives every viewer the SAME order, seats or not", async () => {
+    // This used to float the caller's own functions to the top, so a
+    // Lead landed on their own row without scrolling. Good idea for a
+    // page nobody could arrange; wrong one now the order is something
+    // a person drags into place and expects to hold.
+    //
+    // Two people comparing the same page have to be looking at the
+    // same page, and an order only some viewers see is not a saved
+    // order. So sort_order decides it for everybody, and the leader
+    // below sees their own Warehouse second, exactly as an admin does.
     seed("functions", [
       fn("f_a", "Admin", 0, null, { lead_id: "u_other" }),
       fn("f_z", "Warehouse", 1, null, { lead_id: "u_leader" }),
@@ -299,14 +306,31 @@ describe("getGridData — scoping", () => {
     seed(`success_measures::${CSF_COLS}`, []);
     const { getGridData } = await import("./grid");
 
-    const { groups } = await getGridData(
+    const asLeader = await getGridData(
       "co_1",
       "u_leader",
       "America/Anchorage",
       false
     );
+    const asAdmin = await getGridData(
+      "co_1",
+      "u_admin",
+      "America/Anchorage",
+      true
+    );
 
-    expect(groups.map((g) => g.functionTitle)).toEqual(["Warehouse", "Admin"]);
+    expect(asLeader.groups.map((g) => g.functionTitle)).toEqual([
+      "Admin",
+      "Warehouse",
+    ]);
+    expect(asAdmin.groups.map((g) => g.functionTitle)).toEqual(
+      asLeader.groups.map((g) => g.functionTitle)
+    );
+    // And the seat still shows, which is what canLog is for — the
+    // reshuffle was never how a Lead knew which rows were theirs.
+    expect(
+      Object.fromEntries(asLeader.groups.map((g) => [g.functionTitle, g.canLog]))
+    ).toEqual({ Admin: false, Warehouse: true });
   });
 
   it("marks every function writable for an admin", async () => {

@@ -57,10 +57,24 @@ describe("one source decides how many week columns there are", () => {
     //
     // `styles.gridPin}` with the brace: `gridPinArea` also contains
     // "styles.gridPin" and would double every count.
+    //
+    // COUNTED FROM THE PINNED TABLE, not written down again. This
+    // read `toBe(6)` and went red the moment a seventh column was
+    // added, which is a test reporting its own staleness rather than
+    // a defect — the thing worth pinning is that the header and the
+    // column list agree, whatever the number is today.
+    const pinned = (
+      code.slice(
+        code.indexOf("const PINNED"),
+        code.indexOf("];", code.indexOf("const PINNED"))
+      ).match(/key: "/g) ?? []
+    ).length;
+    expect(pinned).toBeGreaterThan(0);
     const head = code.slice(code.indexOf("<thead>"), code.indexOf("</thead>"));
-    // Area, Owner, Actions, Name, Frequency, Target.
-    expect((head.match(/styles\.gridPin\}/g) ?? []).length).toBe(6);
-    expect((head.match(/rowSpan=\{2\}/g) ?? []).length).toBeGreaterThanOrEqual(6);
+    expect((head.match(/styles\.gridPin\}/g) ?? []).length).toBe(pinned);
+    expect(
+      (head.match(/rowSpan=\{2\}/g) ?? []).length
+    ).toBeGreaterThanOrEqual(pinned);
   });
 
   it("has no full-width row left to keep in step with the columns", () => {

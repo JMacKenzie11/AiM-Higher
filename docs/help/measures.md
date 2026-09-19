@@ -97,7 +97,7 @@ could fix it.
 
 ## Saving
 
-One **Save this week** button above the table, and it only ever saves
+One **Save** button above the table, and it only ever saves
 the functions you can write to. It used to be a button per function,
 which was the same guarantee expressed by putting a control on every
 card; with one table there is one button, and it covers exactly the
@@ -212,6 +212,27 @@ if the measure slips back.
 Turn off *remind the owner when this is due* in the measure's edit
 form for numbers you track as context rather than as a target, like
 headcount.
+
+## Putting things in order
+
+**Drag a critical success factor by the handle** between the Owner
+and its description to move it within its functional area. Anyone who
+can edit that area's measures can reorder them: an admin, a guide, or
+the function's Lead.
+
+**Drag a functional area by the handle beside its name** to move the
+whole block. That one is for admins and guides, because the order of
+the areas is the shape of the chart rather than a property of one
+team's list. The keyboard works here too: focus the handle and press
+the up or down arrow.
+
+A functional area moves among the areas that sit alongside it in the
+chart. It cannot be dragged to a different level, because that is a
+change to the chart rather than to this page.
+
+**The order is saved and it is everyone's.** It is not a per-person
+view: what you drag into place is what the next person sees, on every
+device, until somebody moves it again.
 
 ## Archiving
 
