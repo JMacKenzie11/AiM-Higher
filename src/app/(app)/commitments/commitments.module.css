@@ -1319,6 +1319,40 @@ a.fromMeetingChip:hover {
   background: var(--primary);
 }
 
+/* THE SUMMARY ROW MUST FIT A PHONE.
+ 
+   Its children are a fixed 120px bar and text that does not wrap, and
+   a flex item defaults to min-width: auto — its MIN-CONTENT width —
+   so the row could not shrink below 407px and the whole page scrolled
+   sideways at 393px. Found by e2e/mobile-sideways-scroll.spec.ts,
+   which is the fourth instance of this exact shape.
+ 
+   Wrapping rather than truncating: every part of this row is a number
+   somebody is reading, so moving one to a second line is better than
+   clipping it. */
+@media (max-width: 768px) {
+  .summaryRow {
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+  }
+  .summaryRow > * {
+    min-width: 0;
+  }
+
+  /* The filter bar, for the same reason. An inline-flex group holding
+     a label and a 225px <select> shrink-wraps to its content and then
+     refuses to go under it, so the group sat 26px wider than the
+     screen. Wrapping, and a select allowed to shrink. */
+  .filterGroup {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .filterSelect {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
 .summaryExpandedList {
   border-top: 1px solid var(--border);
 }

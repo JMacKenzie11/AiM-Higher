@@ -861,6 +861,36 @@
   }
   .summaryEnd {
     justify-content: flex-start;
+    /* A FLEX ITEM DEFAULTS TO min-width: auto, which is its
+       MIN-CONTENT width, and the min-content width of the row below
+       is a <select> sized to its longest <option>. Those options are
+       priority titles: Benson's longest is 157 characters, which
+       rendered the control 961px wide and pushed the whole PAGE to
+       1088px against a 393px screen. Not the row — the page, hero
+       and all, because nothing in the chain was allowed to shrink.
+
+       It comes and goes with the content, which is why it was missed:
+       a company with short priority titles looks fine. Six of the
+       nine companies in production have titles over 80 characters.
+
+       e2e/mobile-sideways-scroll.spec.ts is the durable half of this
+       fix. Measured here: 1088px before, 393px after. */
+    min-width: 0;
+    width: 100%;
+  }
+  .rowMeta {
+    min-width: 0;
+  }
+  /* Its own row on a phone, rather than a 200px control squeezed
+     beside its label. The select stops sizing to its content, so it
+     no longer sets a floor nothing above it can get under. */
+  .linkSelect {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+  .linkSelect .select {
+    min-width: 0;
+    width: 100%;
   }
 }
 
