@@ -38,28 +38,40 @@ function block(name: string): string {
 }
 
 describe("the outstanding line and the save count one population", () => {
-  it("derives the writable set once", () => {
+  it("derives the chased set once", () => {
     const rows = block("writableRows");
     expect(rows).toContain("g.canLog");
-    // And only rows actually due this week. A fortnightly measure in
-    // an off week is not outstanding, and saving a blank for it would
-    // be writing a number nobody owed.
-    expect(rows).toContain("isDueThisWeek");
+    // And only rows actually due in the week being chased. A
+    // fortnightly measure in an off week is not outstanding.
+    expect(rows).toContain("isDueInWeek");
+  });
+
+  it("chases the week that just closed, which is the one with a deadline", () => {
+    // The Saturday nudge asks about the closed week and makes it due
+    // the coming Friday. Two numbers describing one job must count
+    // the same things, so this counts that week too. The current week
+    // is there to type into as you go and is not late yet.
+    expect(code).toContain(
+      "const chasedWeek = data.previousWeekEnding ?? weekEnding"
+    );
+    expect(block("writableRows")).toContain("chasedWeek");
+    expect(block("outstanding")).toContain("chasedWeek");
   });
 
   it("counts outstanding from that same set", () => {
     expect(block("outstanding")).toContain("writableRows");
   });
 
-  it("saves that same set, and nothing wider", () => {
+  it("saves every editable cell it owns, across both open weeks", () => {
+    // Wider than the chased set on purpose, and only in one
+    // direction: a value typed into the current column has to save
+    // too, or the box lies. Still filtered to canLog, so it never
+    // reaches another function.
     const save = code.slice(code.indexOf("function save()"));
-    expect(save).toContain("writableRows.map");
-    // Not the whole grid. `data.groups` here would mean saving other
-    // people's functions, which is what the per-function buttons
-    // existed to prevent.
-    expect(save.slice(0, save.indexOf("startTransition"))).not.toContain(
-      "data.groups"
-    );
+    const upToTransition = save.slice(0, save.indexOf("startTransition"));
+    expect(upToTransition).toContain("filter((g) => g.canLog)");
+    expect(upToTransition).toContain("editableWeeks");
+    expect(upToTransition).toContain("isDueInWeek");
   });
 
   it("scopes the line to what the caller can write", () => {
@@ -88,8 +100,13 @@ describe("the outstanding line and the save count one population", () => {
 // input, and it is the shape of bug that survives review because
 // everything behind it is correct.
 describe("only your own functions get an input", () => {
-  it("renders an input only on the current week AND with canLog", () => {
-    expect(code).toContain("if (isCurrent && canLog) {");
+  it("renders an input only on an open week AND with canLog", () => {
+    expect(code).toContain("if (editable && canLog) {");
+    // Two weeks are open: the current one and the one that just
+    // closed. Everything older is read-only, because a grid where any
+    // of fifty-two cells is editable invites a quiet correction to
+    // April.
+    expect(block("editableWeeks")).toContain("data.previousWeekEnding");
   });
 
   it("passes canLog down per function, not per page", () => {
@@ -106,5 +123,134 @@ describe("only your own functions get an input", () => {
     const cellView = code.slice(code.indexOf("function GridCellView"));
     expect(cellView).toContain("cell.displayValue");
     expect(cellView).not.toContain("disabled={!canLog}");
+  });
+});
+
+// ---- What a reader with no seat sees ---------------------------
+//
+// A team member who leads no function is a reader of this page:
+// every value, no inputs, no pencil, no bin, and no way to add. That
+// is three separate controls that each have to be gated, and the one
+// most likely to be forgotten is the add button, because it lives in
+// the toolbar rather than on a row.
+describe("someone who owns no function gets no authoring controls", () => {
+  it("derives authoring from the same canLog the rows use", () => {
+    // Not a separate isAdmin check. An admin reaches it because their
+    // canLog is true everywhere, which is one rule giving a different
+    // answer rather than a second rule to keep in step.
+    expect(code).toContain(
+      "const authoring = isAdmin || data.groups.some((g) => g.canLog)"
+    );
+  });
+
+  it("offers only the functions this caller may add to", () => {
+    expect(code).toContain(
+      "const addableGroups = data.groups.filter((g) => g.canLog)"
+    );
+  });
+
+  it("hides the add control when there are none", () => {
+    // Two placements, one with Success Tracking on and one without,
+    // and both have to carry the gate.
+    const gates = code.match(/addableGroups\.length > 0/g) ?? [];
+    expect(gates.length).toBeGreaterThanOrEqual(2);
+    expect(code).not.toMatch(/\{\s*authoring \?\s*\(\s*<button[^>]*Add a critical/);
+  });
+
+  it("hides the pencil and the bin per function", () => {
+    // The actions COLUMN exists if the caller can author anywhere, so
+    // the table does not gain and lose a track as you scroll. What
+    // goes in it is decided per row.
+    expect(code).toContain("{group.canLog ? (");
+  });
+});
+
+// ---- Connecting a measure to a spreadsheet ---------------------
+//
+// It lived in the row's settings strip, and deleting ManagedMeasureRow
+// for the grid took it with it. The import survived in EditMeasureForm
+// and nothing rendered it, so a company with external_measures on had
+// no way to map a measure at all. The same shape as the add control
+// disappearing, and just as invisible: nothing throws, the flag is
+// still on, and the surface is simply not there.
+describe("the external-source controls are reachable", () => {
+  it("renders them in the drawer", () => {
+    expect(code).toContain("<ExternalSourceControls measureId={editingRow.id} />");
+  });
+
+  it("stays open on a new measure so the fields go live", () => {
+    // A mapping needs a measure to attach to and there is no id until
+    // the create returns. Closing the drawer there would mean adding
+    // the measure, finding it in the table and opening it again to do
+    // the half of the job the panel was already showing.
+    expect(code).toContain("onCreated={(id) =>");
+    expect(code).toContain("setEditing(id)");
+    // And it says so while adding, rather than leaving a gap where
+    // the fields will be.
+    expect(code).toContain("drawerHint");
+  });
+
+  it("is flat, not behind a disclosure", () => {
+    const ext = readFileSync(
+      join(process.cwd(), "src/app/(app)/measures/external/ExternalSourceControls.tsx"),
+      "utf8"
+    );
+    // The disclosure earned its place on a table row, under every
+    // measure on the page. In a drawer holding one measure, a click
+    // to reach half its settings is a click for nothing.
+    expect(ext).not.toContain("<details");
+    expect(ext).not.toContain("<summary");
+  });
+
+  it("is not imported anywhere that does not render it", () => {
+    // The dead import is how this went unnoticed: the symbol was
+    // still referenced, so nothing flagged it as unused.
+    const form = readFileSync(
+      join(process.cwd(), "src/app/(app)/measures/EditMeasureForm.tsx"),
+      "utf8"
+    );
+    expect(form).not.toContain("ExternalSourceControls");
+  });
+});
+
+// ---- Show on company dashboard ---------------------------------
+//
+// Stored and set from the settings panel, and read by nothing yet.
+// What the dashboard does with it is a decision that has not been
+// made; landing the storage on its own means a later change reads
+// data people have curated rather than a column full of defaults.
+describe("show on company dashboard", () => {
+  it("is on the settings panel, under the reminder", () => {
+    const form = readFileSync(
+      join(process.cwd(), "src/app/(app)/measures/EditMeasureForm.tsx"),
+      "utf8"
+    );
+    const reminder = form.indexOf('name="auto_track"');
+    const dash = form.indexOf('name="show_on_dashboard"');
+    expect(dash).toBeGreaterThan(-1);
+    expect(dash).toBeGreaterThan(reminder);
+  });
+
+  it("defaults to on, so nothing that reads it later blanks a card", () => {
+    // Every live measure is on the dashboard's card today. An opt-in
+    // default would empty it for every company the moment something
+    // filters on this, and the card hides itself when there is
+    // nothing to plot, so the failure is a screen going quietly
+    // blank.
+    const migration = readFileSync(
+      join(process.cwd(), "supabase/migrations/0218_show_on_dashboard.sql"),
+      "utf8"
+    );
+    expect(migration).toContain("not null default true");
+  });
+
+  it("is written by both the create and the update path", () => {
+    const actions = readFileSync(
+      join(process.cwd(), "src/lib/chart/actions.ts"),
+      "utf8"
+    );
+    expect(
+      (actions.match(/show_on_dashboard: showOnDashboard/g) ?? []).length
+    ).toBe(2);
   });
 });

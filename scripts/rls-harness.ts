@@ -2326,6 +2326,274 @@ export type WriteProbe = {
 };
 
 export const BATCHES: readonly Batch[] = [
+  // ---- 0218: show on company dashboard -----------------------
+  //
+  // One column, no policy change, nothing reading it yet. There is no
+  // role boundary to probe here and pretending otherwise would be
+  // decoration; what there IS to establish is the two things a column
+  // with a default can get wrong.
+  //
+  //   It applies at all, against the real schema.
+  //   Every existing row comes out TRUE, so whatever reads it later
+  //   does not blank a dashboard card that currently shows every
+  //   measure.
+  //
+  // The before/after is the whole test: the column does not exist,
+  // and then it does, on every row.
+  {
+    n: "show-on-dashboard",
+    tables: ["success_measures"],
+    migration: "0218_show_on_dashboard.sql",
+    indirectScope: {
+      success_measures: {
+        key: "id",
+        rows:
+          "select m.id as key, f.company_id from public.success_measures m " +
+          "join public.functions f on f.id = m.function_id",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        select (select id from public.profiles
+                 where role = 'system_admin' and status = 'active' limit 1) as sysadmin;`,
+      probes: [
+        {
+          name: "the column arrives",
+          caller: "sysadmin",
+          sql: `select count(*)::int as n from information_schema.columns
+                 where table_schema = 'public'
+                   and table_name = 'success_measures'
+                   and column_name = 'show_on_dashboard';`,
+          expectBefore: "0",
+          expect: "1",
+        },
+        {
+          name: "every existing measure comes out visible, and there are some",
+          caller: "sysadmin",
+          // ONE STATEMENT, carrying its own control. "No row is
+          // false" passes on an empty table, and a row count would be
+          // a number that drifts every time the clone is refreshed.
+          // So this answers both at once: 1 only when there is at
+          // least one measure AND every one of them is true.
+          //
+          // Before, the column does not exist and the query raises
+          // 42703. That IS the before: the honest answer to "how many
+          // are visible" on a schema with nowhere to record it.
+          sql: `select (case
+                          when count(*) > 0
+                           and count(*) filter (where show_on_dashboard) = count(*)
+                          then 1 else 0 end)::int as n
+                  from public.success_measures;`,
+          expectBefore: "42703",
+          expect: "1",
+        },
+      ],
+    },
+  },
+  // ---- 0217: the Lead authors their own function's measures ----
+  //
+  // A role widening, which CLAUDE.md says ships with its probe in the
+  // same PR, shown failing against the pre-change schema before its
+  // green is believed. Every positive below therefore carries an
+  // expectBefore of 0 or 42501: the claim is not "a lead can write
+  // this" but "a lead could not write this and now can".
+  //
+  //   POSITIVE  the function's Lead inserts, updates and archives a
+  //             measure on their OWN function.
+  //   NEGATIVE  the same Lead cannot touch another function in the
+  //             same company. A team member who leads nothing cannot
+  //             touch anything. Neither moves across the migration,
+  //             which is the half that would be easy to widen by
+  //             accident.
+  //
+  // THE FIXTURE IS A REAL TEAM MEMBER WHO LEADS A FUNCTION, chosen in
+  // SQL rather than by id so a clone refresh does not silently turn
+  // this into a probe against a missing row. A missing caller returns
+  // 0 and reads exactly like a denial, which the runner refuses
+  // rather than reports.
+  {
+    n: "lead-authoring",
+    tables: ["success_measures"],
+    migration: "0217_lead_authors_own_measures.sql",
+    indirectScope: {
+      success_measures: {
+        key: "id",
+        rows:
+          "select m.id as key, f.company_id from public.success_measures m " +
+          "join public.functions f on f.id = m.function_id",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        select
+          lead.id            as lead,
+          own.id             as own_function,
+          own_m.id           as own_measure,
+          other.id           as other_function,
+          other_m.id         as other_measure,
+          (select p.id from public.profiles p
+            where p.role = 'team_member' and p.status = 'active'
+              and p.company_id = c.id and p.id <> lead.id
+              and not exists (select 1 from public.functions f3
+                               where f3.company_id = c.id and f3.lead_id = p.id)
+            limit 1)          as bystander,
+          (select p.id from public.profiles p
+            where p.role = 'company_admin' and p.status = 'active'
+              and p.company_id = c.id limit 1) as admin
+        from public.functions own
+        join public.profiles lead on lead.id = own.lead_id
+        join public.companies c on c.id = own.company_id
+        join public.success_measures own_m
+          on own_m.function_id = own.id and own_m.archived = false
+        join public.functions other
+          on other.company_id = c.id and other.id <> own.id
+        join public.success_measures other_m
+          on other_m.function_id = other.id and other_m.archived = false
+        where lead.role = 'team_member' and lead.status = 'active'
+          -- EVERY ROLE THE PROBES NEED, or none of them. The first
+          -- version required only the lead and landed on a company
+          -- where every active team member leads a function, so the
+          -- bystander resolved to nothing. The runner refused it
+          -- rather than reporting a zero as a denial, which is the
+          -- rule working; this is the fixture catching up with it.
+          and exists (
+            select 1 from public.profiles b
+             where b.role = 'team_member' and b.status = 'active'
+               and b.company_id = c.id and b.id <> lead.id
+               and not exists (select 1 from public.functions f3
+                                where f3.company_id = c.id and f3.lead_id = b.id))
+          and exists (
+            select 1 from public.profiles a
+             where a.role = 'company_admin' and a.status = 'active'
+               and a.company_id = c.id)
+        order by own.id, own_m.id, other.id, other_m.id
+        limit 1;`,
+      probes: [
+        // ---- The widening itself -----------------------------
+        {
+          name: "the Lead renames a measure on their own function",
+          caller: "lead",
+          expectBefore: "0",
+          sql: `with u as (
+                  update public.success_measures set description = description
+                   where id = '$own_measure'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "1",
+        },
+        {
+          name: "the Lead sets a target on their own function",
+          caller: "lead",
+          // The one that matters most: the person who knows the
+          // target is wrong is now the person who can change it.
+          expectBefore: "0",
+          sql: `with u as (
+                  update public.success_measures set target = '77'
+                   where id = '$own_measure'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "1",
+        },
+        {
+          name: "and that target change still writes history",
+          caller: "lead",
+          // 0215's trigger runs as the definer, so it was never gated
+          // on who the writer is. This asserts the consequence rather
+          // than the mechanism: a lead's edit is as recorded as an
+          // admin's, or the history has a hole exactly where the new
+          // writers are.
+          expectBefore: "0",
+          sql: `update public.success_measures set target = '4242'
+                 where id = '$own_measure'::uuid;
+                select count(*)::int as n
+                  from public.success_measure_targets
+                 where measure_id = '$own_measure'::uuid and target = '4242';`,
+          expect: "1",
+        },
+        {
+          name: "the Lead adds a measure to their own function",
+          caller: "lead",
+          expectBefore: "42501",
+          sql: `with i as (
+                  insert into public.success_measures
+                    (function_id, description, value_type, sort_order)
+                  values ('$own_function'::uuid, '_probe lead add', 'number', 9900)
+                  returning id)
+                select count(*)::int as n from i;`,
+          expect: "1",
+        },
+        {
+          name: "the Lead archives a measure on their own function",
+          caller: "lead",
+          expectBefore: "0",
+          sql: `with u as (
+                  update public.success_measures set archived = true
+                   where id = '$own_measure'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "1",
+        },
+        // ---- The boundary, which must NOT move ----------------
+        {
+          name: "the Lead cannot touch another function's measure",
+          caller: "lead",
+          sql: `with u as (
+                  update public.success_measures set description = description
+                   where id = '$other_measure'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "0",
+          provenBy: "admin",
+        },
+        {
+          name: "the Lead cannot add a measure to another function",
+          caller: "lead",
+          sql: `with i as (
+                  insert into public.success_measures
+                    (function_id, description, value_type, sort_order)
+                  values ('$other_function'::uuid, '_probe cross', 'number', 9901)
+                  returning id)
+                select count(*)::int as n from i;`,
+          expect: "42501",
+        },
+        {
+          name: "a team member who leads nothing writes nothing",
+          caller: "bystander",
+          // The control that stops "the Lead can write" from being
+          // read as "anyone in the company can write". Same company,
+          // same measure, no seat.
+          sql: `with u as (
+                  update public.success_measures set description = description
+                   where id = '$own_measure'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "0",
+          provenBy: "lead",
+        },
+        {
+          name: "a team member who leads nothing cannot add one",
+          caller: "bystander",
+          sql: `with i as (
+                  insert into public.success_measures
+                    (function_id, description, value_type, sort_order)
+                  values ('$own_function'::uuid, '_probe bystander', 'number', 9902)
+                  returning id)
+                select count(*)::int as n from i;`,
+          expect: "42501",
+        },
+        // ---- And nothing else widened ------------------------
+        {
+          name: "the Lead still cannot write the target history table",
+          caller: "lead",
+          // It has no write policy and none of INSERT, UPDATE or
+          // DELETE is granted to anyone (0215). Widening a policy on
+          // success_measures must not have reached it.
+          sql: `with i as (
+                  insert into public.success_measure_targets
+                    (measure_id, target, value_type, target_direction, effective_from)
+                  values ('$own_measure'::uuid, '13', 'number', 'higher_is_better', current_date)
+                  returning id)
+                select count(*)::int as n from i;`,
+          expect: "42501",
+        },
+      ],
+    },
+  },
   // ---- 0216: two kinds become one ----------------------------
   //
   // Almost everything this migration does is a data move, and a data

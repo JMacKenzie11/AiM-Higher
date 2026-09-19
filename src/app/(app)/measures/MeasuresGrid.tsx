@@ -9,7 +9,9 @@ import {
 import type { GridData, GridRow } from "@/lib/measures/grid";
 import { EditMeasureForm, ArchiveMeasureButton } from "./EditMeasureForm";
 import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
+import { ExternalSourceControls } from "./external/ExternalSourceControls";
 import { PencilIcon } from "@/components/ui/PencilIcon";
+import { PlusIcon } from "@/components/ui/PlusIcon";
 import { formatShortDate } from "@/lib/dates";
 import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./measures.module.css";
@@ -17,7 +19,7 @@ import styles from "./measures.module.css";
 // The /measures grid.
 //
 // Functional Area | Owner | Critical Success Factor | Frequency |
-// Target | one column per week, six months of them.
+// Target | one column per week, a rolling year of them.
 //
 // ---- WHY A TABLE AND NOT THE CSS GRID THAT WAS HERE ----------
 //
@@ -61,13 +63,26 @@ import styles from "./measures.module.css";
 // in a footer, so the panel can grow to any height and the buttons do
 // not move a pixel.
 //
-// ---- THIS WEEK IS THE ONLY EDITABLE COLUMN -------------------
+// ---- TWO COLUMNS TAKE INPUT, NOT ONE -------------------------
 //
-// Deliberate, and a departure from a real spreadsheet. The save
-// action takes one week_ending, and a grid where any of 26 cells is
-// editable invites somebody to correct a number from April with no
-// record that it was corrected. Past weeks are read-only here;
-// fixing one is a conversation, not a keystroke.
+// A week stays open until the end of the following one. The current
+// column and the one that just closed both accept a value; everything
+// older is read to.
+//
+// It was the current column alone, which put the page at odds with
+// the Saturday nudge. That runs on a Saturday, asks for the week that
+// has just CLOSED, and makes it due the coming Friday. By then this
+// page had already locked that week, so the only box on offer was the
+// new one and following the nudge recorded the number against the
+// wrong week.
+//
+// A week locks when the next Saturday comes round, which is the same
+// moment the nudge stops asking for it. One rule, stated once, in two
+// places that now agree.
+//
+// Older weeks stay read-only. A grid where any of fifty-two cells is
+// editable invites somebody to quietly correct a number from April;
+// fixing one of those is a conversation, not a keystroke.
 
 // THE PINNED COLUMNS' WIDTHS.
 //
@@ -102,38 +117,84 @@ function pinnedColumns(authoring: boolean) {
 // fill whatever is left, so the open month lands exactly against the
 // pinned block.
 const CLOSED_MONTH_WIDTH = 44;
-const MIN_WEEK_WIDTH = 60;
+const MIN_WEEK_WIDTH = 72;
+
+// A new measure, before anything is typed. The column defaults,
+// restated here so the form has something to control.
+const BLANK_MEASURE = {
+  id: "",
+  description: "",
+  target: null,
+  value_type: "number" as const,
+  target_direction: "higher_is_better" as const,
+  update_frequency: "weekly",
+  auto_track: true,
+  show_on_dashboard: true,
+};
 
 export function MeasuresGrid({
   data,
   weekEnding,
-  authoring,
+  isAdmin,
   trackingEnabled,
 }: {
   data: GridData;
   weekEnding: string;
-  authoring: boolean;
+  // Whether this caller administers the whole company. It no longer
+  // decides whether the authoring controls appear: 0217 admits a
+  // function's Lead to their own measures, so that question is asked
+  // per function through `canLog`, which carries the same answer.
+  // This only decides whether the actions COLUMN exists at all, so a
+  // reader with no seat anywhere is not given a permanently empty
+  // 64px of table.
+  isAdmin: boolean;
   trackingEnabled: boolean;
 }) {
-  // Open on the current month, with the rest closed. Six months of
-  // Fridays is 26 columns and nobody needs 26 at once; the week you
-  // are filling in should be on screen without scrolling to it.
+  // The actions column shows if this caller can author anywhere.
+  const authoring = isAdmin || data.groups.some((g) => g.canLog);
+  // The functions this caller may add to. An admin gets all of them;
+  // a Lead gets their own, which is the same rule reaching a
+  // different answer rather than a second rule.
+  const addableGroups = data.groups.filter((g) => g.canLog);
+  // Open on the current month, with the rest closed. A rolling year
+  // is 52 columns and nobody needs 52 at once; the week you are
+  // filling in should be on screen without scrolling to it.
   const [openMonths, setOpenMonths] = useState<Set<string>>(
     () => new Set(data.months.filter((m) => m.isCurrent).map((m) => m.key))
   );
 
+  // The weeks that accept input: the one that just closed, and the
+  // current one. Oldest first, so the grid reads left to right.
+  const editableWeeks = useMemo(
+    () =>
+      [data.previousWeekEnding, weekEnding].filter(
+        (w): w is string => w !== null
+      ),
+    [data.previousWeekEnding, weekEnding]
+  );
+
+  // WHAT THE COUNT CHASES IS THE WEEK THAT JUST CLOSED, not the
+  // current one, because that is the week with a deadline and the one
+  // the Saturday nudge asks about. Two numbers describing one job
+  // have to count the same things; the nudge counts the closed week,
+  // so this does too. The current week is there to type into as you
+  // go and is not late yet.
+  const chasedWeek = data.previousWeekEnding ?? weekEnding;
   const writableRows = useMemo(
     () =>
       data.groups
         .filter((g) => g.canLog)
-        .flatMap((g) => g.rows.filter((r) => isDueThisWeek(r, weekEnding))),
-    [data.groups, weekEnding]
+        .flatMap((g) => g.rows.filter((r) => isDueInWeek(r, chasedWeek))),
+    [data.groups, chasedWeek]
   );
 
+  // Keyed by measure AND week, because two weeks are editable.
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       data.groups.flatMap((g) =>
-        g.rows.map((r) => [r.id, currentValueOf(r, weekEnding)])
+        g.rows.flatMap((r) =>
+          editableWeeks.map((w) => [cellKey(r.id, w), valueAt(r, w)])
+        )
       )
     )
   );
@@ -144,6 +205,15 @@ export function MeasuresGrid({
   // Which measure's settings are open in the drawer. One at a time,
   // by construction: it is one drawer.
   const [editing, setEditing] = useState<string | null>(null);
+  // Which function the add panel is open on, or null.
+  //
+  // ADDING WAS LOST IN THE GRID REWRITE. Deleting FunctionSection
+  // took its "Add a critical success factor" row with it and nothing
+  // replaced it, so for one commit nobody could add a measure on this
+  // page at all, admins included. This is that, restored: one panel
+  // rather than a row per function, opened from a single control,
+  // with the function chosen in it.
+  const [adding, setAdding] = useState<string | null>(null);
   const editingRow = useMemo(
     () =>
       data.groups.flatMap((g) => g.rows).find((r) => r.id === editing) ?? null,
@@ -154,13 +224,15 @@ export function MeasuresGrid({
   // app. The drawer traps nothing else: the table behind it stays
   // readable, which is the point of a drawer over a modal here.
   useEffect(() => {
-    if (!editing) return;
+    if (!editing && !adding) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setEditing(null);
+      if (e.key !== "Escape") return;
+      setEditing(null);
+      setAdding(null);
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [editing]);
+  }, [editing, adding]);
 
   // Open with the CURRENT MONTH against the pinned columns, and
   // every earlier month scrolled off to the left.
@@ -176,7 +248,7 @@ export function MeasuresGrid({
   // the stylesheet and a test; a third copy here would be the one
   // that goes stale.
   const outstanding = writableRows.filter(
-    (r) => !(values[r.id] ?? "").trim()
+    (r) => !(values[cellKey(r.id, chasedWeek)] ?? "").trim()
   ).length;
 
   function toggleMonth(key: string) {
@@ -190,11 +262,23 @@ export function MeasuresGrid({
 
   function save() {
     setMessage(null);
-    const entries: MeasureEntryInput[] = writableRows.map((r) => ({
-      measureId: r.id,
-      valueType: r.valueType,
-      rawValue: values[r.id] ?? "",
-    }));
+    // Every editable cell this caller owns, across both open weeks.
+    // A blank is skipped by the action, so sending them all is how a
+    // value typed into either column gets saved by one button.
+    const entries: MeasureEntryInput[] = data.groups
+      .filter((g) => g.canLog)
+      .flatMap((g) =>
+        g.rows.flatMap((r) =>
+          editableWeeks
+            .filter((w) => isDueInWeek(r, w))
+            .map((w) => ({
+              measureId: r.id,
+              valueType: r.valueType,
+              rawValue: values[cellKey(r.id, w)] ?? "",
+              weekEnding: w,
+            }))
+        )
+      );
     startTransition(async () => {
       const result = await logMeasureEntriesAction(entries, weekEnding);
       if (result.ok) {
@@ -227,17 +311,162 @@ export function MeasuresGrid({
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const scrollbarRowRef = useRef<HTMLDivElement>(null);
+  // Whether the opening scroll has happened. After it has, the
+  // position belongs to the reader.
+  const openedRef = useRef(false);
+
+  // One arrow press moves about a month. Smooth, so the eye can
+  // follow which columns went by rather than being teleported.
+  function nudge(direction: -1 | 1) {
+    const grid = scrollRef.current;
+    if (!grid) return;
+    grid.scrollBy({
+      left: direction * Math.max(160, Math.round(grid.clientWidth * 0.4)),
+      behavior: "smooth",
+    });
+  }
+
+  // THE THUMB IS DRAWN, NOT A NATIVE SCROLLBAR.
+  //
+  // The first two attempts were a second scrolling element mirrored
+  // to this one, styled to look like a bar. Both failed the same way:
+  // the sync was perfect and the bar was invisible. macOS hides
+  // overlay scrollbars at rest, Chrome ignores ::-webkit-scrollbar
+  // entirely once scrollbar-width is set, and neither renders in a
+  // headless screenshot, so it could not even be checked.
+  //
+  // An affordance that cannot be seen is the same as no affordance,
+  // and one that cannot be verified is worse. This is a div whose
+  // width and offset are arithmetic on the grid's own scroll, which
+  // renders identically everywhere and can be dragged in a test.
+  useEffect(() => {
+    const grid = scrollRef.current;
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!grid || !track || !thumb) return;
+
+    const paint = () => {
+      const visible = grid.clientWidth / grid.scrollWidth;
+      // Nothing to scroll: no bar, rather than a full-width thumb
+      // that does nothing when you pull it.
+      const row = scrollbarRowRef.current;
+      const nothingToScroll = visible >= 1;
+      if (row) row.hidden = nothingToScroll;
+      track.hidden = nothingToScroll;
+      if (nothingToScroll) return;
+      const trackW = track.clientWidth;
+      const thumbW = Math.max(48, Math.round(trackW * visible));
+      const maxScroll = grid.scrollWidth - grid.clientWidth;
+      const maxLeft = trackW - thumbW;
+      const left =
+        maxScroll > 0 ? Math.round((grid.scrollLeft / maxScroll) * maxLeft) : 0;
+      thumb.style.width = `${thumbW}px`;
+      thumb.style.transform = `translateX(${left}px)`;
+      thumb.setAttribute("aria-valuenow", String(Math.round(grid.scrollLeft)));
+      thumb.setAttribute("aria-valuemax", String(Math.round(maxScroll)));
+    };
+
+    paint();
+    grid.addEventListener("scroll", paint, { passive: true });
+    const observer = new ResizeObserver(paint);
+    observer.observe(grid);
+    observer.observe(track);
+    return () => {
+      grid.removeEventListener("scroll", paint);
+      observer.disconnect();
+    };
+  }, [columns, authoring, data]);
+
+  // Dragging it, and clicking the track to jump.
+  useEffect(() => {
+    const grid = scrollRef.current;
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!grid || !track || !thumb) return;
+
+    let startX = 0;
+    let startScroll = 0;
+    let dragging = false;
+
+    function onDown(event: PointerEvent) {
+      dragging = true;
+      startX = event.clientX;
+      startScroll = grid!.scrollLeft;
+      thumb!.setPointerCapture(event.pointerId);
+      // Or the pointer selects the table text behind it mid-drag.
+      event.preventDefault();
+    }
+
+    function onMove(event: PointerEvent) {
+      if (!dragging) return;
+      const maxLeft = track!.clientWidth - thumb!.offsetWidth;
+      const maxScroll = grid!.scrollWidth - grid!.clientWidth;
+      if (maxLeft <= 0) return;
+      // Pixels of thumb travel map onto pixels of content travel,
+      // which is what makes a short drag move a wide table.
+      grid!.scrollLeft =
+        startScroll + ((event.clientX - startX) / maxLeft) * maxScroll;
+    }
+
+    function onUp() {
+      dragging = false;
+    }
+
+    function onTrackClick(event: MouseEvent) {
+      if (event.target === thumb) return;
+      const box = track!.getBoundingClientRect();
+      const ratio = (event.clientX - box.left) / box.width;
+      grid!.scrollLeft = ratio * (grid!.scrollWidth - grid!.clientWidth);
+    }
+
+    thumb.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    track.addEventListener("click", onTrackClick);
+    return () => {
+      thumb.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      track.removeEventListener("click", onTrackClick);
+    };
+  }, []);
 
   // Measure the pinned offsets, size the open month to the track,
   // then scroll to the end. In that order, and all in one frame,
   // because each step depends on the layout the one before it
   // settles.
   //
-  // Re-runs when a month opens or closes, because the number of week
-  // columns sharing the track changes with it.
+  // Re-runs whenever the rows or the open months change, which
+  // includes the router.refresh() after a measure is added.
   //
-  // IN A FRAME. Measuring on mount reads a table the stylesheet has
-  // not finished sizing, which is what made the first attempts at
+  // ---- IT RESETS BEFORE IT MEASURES ---------------------------
+  //
+  // Running a second time, after adding a critical success factor,
+  // tore the table apart: the pinned block marched off to the right
+  // leaving a white gap where the names had been, and every collapsed
+  // month vanished.
+  //
+  // Two faults, both from measuring a table this effect had already
+  // changed, and both pushing the same way, which is why a single
+  // extra pass was enough to wreck it.
+  //
+  //   The inline `left` values from the previous run were still on
+  //   the cells, so reading a cell's position returned the ADJUSTED
+  //   position and the new offset came out as the old one plus
+  //   itself.
+  //
+  //   And the grid was scrolled to the end by then, so the sticky
+  //   cells were STUCK: their box was where the scroll had pinned
+  //   them rather than where the layout puts them.
+  //
+  // So every run starts from nothing: clear what the last one wrote,
+  // put the scroll back to zero, and only then look.
+  //
+  // IN A FRAME. Measuring synchronously reads a table the stylesheet
+  // has not finished sizing, which is what made the first attempts at
   // this chase a gap that was never about column width.
   useEffect(() => {
     const el = scrollRef.current;
@@ -245,10 +474,52 @@ export function MeasuresGrid({
     const id = requestAnimationFrame(() => {
       const table = el.querySelector("table");
       if (!table) return;
+
+      // 0a. REMEMBER WHERE THE READER IS, by month rather than by
+      //     pixel. Opening a month inserts four or five columns to
+      //     the left of wherever they are looking, so restoring a raw
+      //     scrollLeft would slide the table under them. Anchoring on
+      //     the leftmost month still on screen keeps the thing they
+      //     clicked where they clicked it.
+      const anchor = (() => {
+        if (!openedRef.current) return null;
+        const box0 = el.getBoundingClientRect();
+        const lastPinned = el.querySelector<HTMLElement>("[data-last-pinned]");
+        const edge = lastPinned
+          ? lastPinned.getBoundingClientRect().right
+          : box0.left;
+        for (const head of Array.from(
+          el.querySelectorAll<HTMLElement>("thead [data-month-key]")
+        )) {
+          const r = head.getBoundingClientRect();
+          if (r.right > edge + 1) {
+            return { key: head.dataset.monthKey!, offset: r.left - edge };
+          }
+        }
+        return null;
+      })();
+
+      // 0b. Back to a clean slate. Reading scrollLeft after setting it
+      //     forces the reflow, so what follows sees the unstuck
+      //     layout rather than the one that was on screen.
+      const pinnedCells = Array.from(
+        el.querySelectorAll<HTMLElement>("[data-pin]")
+      );
+      for (const cell of pinnedCells) cell.style.left = "";
+      const weekCols = Array.from(
+        el.querySelectorAll<HTMLElement>("col[data-week-col]")
+      );
+      for (const col of weekCols) col.style.width = "";
+      el.scrollLeft = 0;
+      void el.scrollLeft;
+
       const tableLeft = table.getBoundingClientRect().left;
 
-      // 1. Where each pinned column actually starts, read from the
-      //    header row while the table sits at scroll zero.
+      // 1. Where each pinned column actually starts. Measured rather
+      //    than summed from the declared widths: cell borders sit
+      //    outside the width a colgroup gives a column, so a running
+      //    sum is not where the next one begins and the block drifted
+      //    as the weeks scrolled under it.
       let pinnedRight = 0;
       for (const col of pinnedColumns(authoring)) {
         const head = el.querySelector<HTMLElement>(
@@ -257,10 +528,8 @@ export function MeasuresGrid({
         if (!head) continue;
         const box = head.getBoundingClientRect();
         const left = Math.round(box.left - tableLeft);
-        for (const cell of Array.from(
-          el.querySelectorAll<HTMLElement>(`[data-pin="${col.key}"]`)
-        )) {
-          cell.style.left = `${left}px`;
+        for (const cell of pinnedCells) {
+          if (cell.dataset.pin === col.key) cell.style.left = `${left}px`;
         }
         pinnedRight = Math.round(box.right - tableLeft);
       }
@@ -271,11 +540,7 @@ export function MeasuresGrid({
       //    NOT minus the collapsed months. They are the thing being
       //    scrolled out of sight, so counting them against the track
       //    makes the open month narrower by exactly the width it
-      //    needed to push them off, and they stay on screen. That
-      //    left a 39px sliver of the previous month showing.
-      const weekCols = Array.from(
-        el.querySelectorAll<HTMLElement>("col[data-week-col]")
-      );
+      //    needed to push them off, and they stay on screen.
       if (weekCols.length > 0) {
         const track = el.clientWidth - pinnedRight;
         const width = Math.max(
@@ -285,15 +550,43 @@ export function MeasuresGrid({
         for (const col of weekCols) col.style.width = `${width}px`;
       }
 
-      // 3. The open month now fills the track, so the end of the
-      //    scroll puts it flush against the pinned columns with every
+      // 3. The scrollbar track begins where the weeks do, so it sits
+      //    over the only part of the table that actually moves.
+      const row = scrollbarRowRef.current;
+      if (row) row.style.marginLeft = `${pinnedRight}px`;
+
+      // 4. Where to leave it.
+      //
+      //    FIRST TIME: the end, which is this week, with every
       //    earlier month off the left edge.
+      //
+      //    EVERY TIME AFTER: back where the reader was. Opening a
+      //    month used to throw them to the current week and closing
+      //    one did it again, so exploring the history fought back.
       requestAnimationFrame(() => {
-        el.scrollLeft = el.scrollWidth;
+        if (!openedRef.current || !anchor) {
+          el.scrollLeft = el.scrollWidth;
+          openedRef.current = true;
+          return;
+        }
+        const head = el.querySelector<HTMLElement>(
+          `thead [data-month-key="${anchor.key}"]`
+        );
+        if (!head) {
+          el.scrollLeft = el.scrollWidth;
+          return;
+        }
+        const box1 = el.getBoundingClientRect();
+        const lastPinned = el.querySelector<HTMLElement>("[data-last-pinned]");
+        const edge = lastPinned
+          ? lastPinned.getBoundingClientRect().right
+          : box1.left;
+        el.scrollLeft +=
+          head.getBoundingClientRect().left - edge - anchor.offset;
       });
     });
     return () => cancelAnimationFrame(id);
-  }, [columns, authoring]);
+  }, [columns, authoring, data]);
 
   if (!data.hasRows) return null;
 
@@ -307,16 +600,42 @@ export function MeasuresGrid({
             }
           >
             {outstanding === 0
-              ? `All ${writableRows.length} logged for the week ending ${formatShortDate(weekEnding)}.`
-              : `${outstanding} of ${writableRows.length} still to log for the week ending ${formatShortDate(weekEnding)}.`}
+              ? `All ${writableRows.length} logged for the week ending ${formatShortDate(chasedWeek)}.`
+              : `${outstanding} of ${writableRows.length} still to log for the week ending ${formatShortDate(chasedWeek)}.`}
           </p>
+          <div className={styles.gridToolbarActions}>
+            <button
+              type="button"
+              className={uiStyles.btnPrimary}
+              onClick={save}
+              disabled={pending}
+            >
+              {pending ? "Saving…" : "Save this week"}
+            </button>
+            {addableGroups.length > 0 ? (
+              <button
+                type="button"
+                className={uiStyles.btnSecondary}
+                onClick={() => setAdding(addableGroups[0].functionId)}
+              >
+                <PlusIcon />Add a critical success factor
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* The add control again, for a company without Success
+          Tracking on: there is no toolbar to hang it from then, and
+          authoring the list is the whole of what the page does. */}
+      {!trackingEnabled && addableGroups.length > 0 ? (
+        <div className={styles.gridToolbarActions}>
           <button
             type="button"
-            className={uiStyles.btnPrimary}
-            onClick={save}
-            disabled={pending}
+            className={uiStyles.btnSecondary}
+            onClick={() => setAdding(addableGroups[0].functionId)}
           >
-            {pending ? "Saving…" : "Save this week"}
+            <PlusIcon />Add a critical success factor
           </button>
         </div>
       ) : null}
@@ -327,7 +646,56 @@ export function MeasuresGrid({
         </p>
       ) : null}
 
-      <div className={styles.gridScroll} ref={scrollRef}>
+      {/* THE SCROLLBAR, LIFTED OUT OF THE TABLE.
+ 
+          The native one spans the whole container, including the
+          pinned columns, which says the names scroll and they do not.
+          It also sits below a table that can be twenty rows tall, so
+          reaching it means scrolling the page first.
+ 
+          This is the same scroll, proxied: an empty strip as wide as
+          the table's content, inset to start where the weeks do,
+          synced both ways. The container's own bar is hidden in CSS.
+ 
+          `syncing` is a plain ref rather than state: each element's
+          scroll handler sets the other's scrollLeft, which fires that
+          one's handler, and without the flag the two chase each other
+          for a frame. */}
+      {/* Arrows on both ends, so the bar reads as a control rather
+          than as a decorative rule. They page by roughly a month of
+          columns, which is the unit this grid is organised in. */}
+      <div className={styles.gridScrollbarRow} ref={scrollbarRowRef}>
+        <button
+          type="button"
+          className={styles.gridScrollArrow}
+          onClick={() => nudge(-1)}
+          aria-label="Scroll the weeks left"
+          tabIndex={-1}
+        >
+          <ChevronIcon direction="left" />
+        </button>
+        <div className={styles.gridScrollbar} ref={trackRef}>
+          <div
+            className={styles.gridScrollbarThumb}
+            ref={thumbRef}
+            role="scrollbar"
+            aria-controls="measures-grid-scroll"
+            aria-orientation="horizontal"
+            aria-label="Scroll the weeks"
+          />
+        </div>
+        <button
+          type="button"
+          className={styles.gridScrollArrow}
+          onClick={() => nudge(1)}
+          aria-label="Scroll the weeks right"
+          tabIndex={-1}
+        >
+          <ChevronIcon direction="right" />
+        </button>
+      </div>
+
+      <div className={styles.gridScroll} id="measures-grid-scroll" ref={scrollRef}>
         <table className={styles.grid}>
           {/* `table-layout: fixed` honours these exactly, which is
               what makes the sticky offsets above correct. Week
@@ -414,6 +782,7 @@ export function MeasuresGrid({
                     colSpan={m.weeks.length}
                     className={styles.gridMonthOpen}
                     data-current-month={m.isCurrent ? "" : undefined}
+                    data-month-key={m.key}
                   >
                     <button
                       type="button"
@@ -431,6 +800,7 @@ export function MeasuresGrid({
                     rowSpan={2}
                     className={styles.gridMonthClosed}
                     data-current-month={m.isCurrent ? "" : undefined}
+                    data-month-key={m.key}
                   >
                     <button
                       type="button"
@@ -455,7 +825,14 @@ export function MeasuresGrid({
                       className={
                         w === weekEnding
                           ? `${styles.gridWeekHead} ${styles.gridWeekHeadCurrent}`
-                          : styles.gridWeekHead
+                          : editableWeeks.includes(w)
+                            ? `${styles.gridWeekHead} ${styles.gridWeekHeadOpen}`
+                            : styles.gridWeekHead
+                      }
+                      title={
+                        editableWeeks.includes(w) && w !== weekEnding
+                          ? "Still open: closes when the next week does"
+                          : undefined
                       }
                     >
                       {w.slice(8)}
@@ -507,16 +884,20 @@ export function MeasuresGrid({
                         className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
                       data-pin="actions"
                       >
-                        <button
-                          type="button"
-                          className={styles.gridIconButton}
-                          onClick={() => setEditing(row.id)}
-                          aria-label={`Edit ${row.description}`}
-                          title="Edit"
-                        >
-                          <PencilIcon />
-                        </button>
-                        <ArchiveMeasureButton measureId={row.id} />
+                        {group.canLog ? (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.gridIconButton}
+                              onClick={() => setEditing(row.id)}
+                              aria-label={`Edit ${row.description}`}
+                              title="Edit"
+                            >
+                              <PencilIcon />
+                            </button>
+                            <ArchiveMeasureButton measureId={row.id} />
+                          </>
+                        ) : null}
                       </td>
                     ) : null}
                     <th
@@ -556,10 +937,14 @@ export function MeasuresGrid({
                           row={row}
                           week={col.key}
                           isCurrent={col.key === weekEnding}
+                          editable={editableWeeks.includes(col.key)}
                           canLog={group.canLog && trackingEnabled}
-                          value={values[row.id] ?? ""}
+                          value={values[cellKey(row.id, col.key)] ?? ""}
                           onChange={(v) =>
-                            setValues((prev) => ({ ...prev, [row.id]: v }))
+                            setValues((prev) => ({
+                              ...prev,
+                              [cellKey(row.id, col.key)]: v,
+                            }))
                           }
                           disabled={pending}
                         />
@@ -572,14 +957,17 @@ export function MeasuresGrid({
         </table>
       </div>
 
-      {editingRow ? (
+      {editingRow || adding ? (
         <>
           {/* A scrim, so a click anywhere else closes it. The third
               dismissal, beside Escape and Cancel, and the one people
               reach for without being taught. */}
           <div
             className={styles.drawerScrim}
-            onClick={() => setEditing(null)}
+            onClick={() => {
+              setEditing(null);
+              setAdding(null);
+            }}
             aria-hidden
           />
           <aside
@@ -592,13 +980,16 @@ export function MeasuresGrid({
               <div>
                 <p className={styles.drawerEyebrow}>Critical success factor</p>
                 <h2 id="measure-drawer-title" className={styles.drawerTitle}>
-                  {editingRow.description}
+                  {editingRow ? editingRow.description : "Add a new one"}
                 </h2>
               </div>
               <button
                 type="button"
                 className={styles.drawerClose}
-                onClick={() => setEditing(null)}
+                onClick={() => {
+                  setEditing(null);
+                  setAdding(null);
+                }}
                 aria-label="Close"
               >
                 <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
@@ -614,20 +1005,68 @@ export function MeasuresGrid({
             </header>
             <div className={styles.drawerBody}>
               <EditMeasureForm
-                measure={{
-                  id: editingRow.id,
-                  description: editingRow.description,
-                  target: editingRow.target,
-                  value_type: editingRow.valueType,
-                  target_direction: editingRow.direction,
-                  update_frequency: editingRow.frequency,
-                  auto_track: editingRow.autoTrack,
-                }}
-                outcomeTitle={editingRow.description}
-                outcomeDescription={editingRow.detail}
+                key={editingRow ? editingRow.id : `new-${adding}`}
+                measure={
+                  editingRow
+                    ? {
+                        id: editingRow.id,
+                        description: editingRow.description,
+                        target: editingRow.target,
+                        value_type: editingRow.valueType,
+                        target_direction: editingRow.direction,
+                        update_frequency: editingRow.frequency,
+                        auto_track: editingRow.autoTrack,
+                        show_on_dashboard: editingRow.showOnDashboard,
+                      }
+                    : BLANK_MEASURE
+                }
+                outcomeTitle={editingRow?.description ?? ""}
+                outcomeDescription={editingRow?.detail ?? null}
                 trackingEnabled={trackingEnabled}
-                onDone={() => setEditing(null)}
+                onDone={() => {
+                  setEditing(null);
+                  setAdding(null);
+                }}
+                onCreated={(id) => {
+                  // Stay open on the row that was just created, so
+                  // the external source fields below are live against
+                  // it. Nothing about them is required: close the
+                  // drawer and the measure is already saved.
+                  setAdding(null);
+                  setEditing(id);
+                }}
+                createIn={editingRow ? undefined : adding ?? undefined}
+                functionChoices={addableGroups.map((g) => ({
+                  id: g.functionId,
+                  title: g.functionTitle,
+                }))}
+                onFunctionChange={setAdding}
               />
+
+              {/* CONNECTING A MEASURE TO A SPREADSHEET, back where it
+                  can be reached.
+ 
+                  It used to live in the row's settings strip, and
+                  deleting ManagedMeasureRow for the grid took it with
+                  it: the import survived in this form and nothing
+                  rendered it, so for several commits a company with
+                  external_measures on had no way to map a measure at
+                  all. Same shape as the add control disappearing.
+ 
+                  Edit only. A mapping needs a measure to hang off,
+                  and there is no id until the row exists.
+ 
+                  It gates itself on the flag through the provider
+                  this drawer already sits inside, so nothing here
+                  needs to know whether the company has it. */}
+              {editingRow ? (
+                <ExternalSourceControls measureId={editingRow.id} />
+              ) : (
+                <p className={styles.drawerHint}>
+                  Connecting this to a spreadsheet becomes available as
+                  soon as you add it.
+                </p>
+              )}
             </div>
           </aside>
         </>
@@ -640,6 +1079,7 @@ function GridCellView({
   row,
   week,
   isCurrent,
+  editable,
   canLog,
   value,
   onChange,
@@ -648,6 +1088,9 @@ function GridCellView({
   row: GridRow;
   week: string;
   isCurrent: boolean;
+  // Whether this week still accepts a value: the current one and the
+  // one that just closed.
+  editable: boolean;
   canLog: boolean;
   value: string;
   onChange: (v: string) => void;
@@ -667,6 +1110,10 @@ function GridCellView({
     styles.gridCell,
     styles[`gridCell_${cell.status}`],
     isCurrent ? styles.gridCellCurrent : "",
+    // The just-closed week reads as open too, more quietly than this
+    // week: it is the one with a deadline, not the one you are
+    // filling in as you go.
+    editable && !isCurrent ? styles.gridCellOpen : "",
     change ? styles.gridCellTargetMoved : "",
   ]
     .filter(Boolean)
@@ -678,7 +1125,7 @@ function GridCellView({
       ? `Target ${cell.target} this week`
       : undefined;
 
-  if (isCurrent && canLog) {
+  if (editable && canLog) {
     return (
       <td className={className} title={title}>
         <input
@@ -702,14 +1149,36 @@ function GridCellView({
   );
 }
 
-function isDueThisWeek(row: GridRow, weekEnding: string): boolean {
-  return row.cells.find((c) => c.weekEnding === weekEnding)?.expected ?? false;
+function cellKey(measureId: string, week: string): string {
+  return `${measureId}|${week}`;
 }
 
-function currentValueOf(row: GridRow, weekEnding: string): string {
-  const cell = row.cells.find((c) => c.weekEnding === weekEnding);
+function isDueInWeek(row: GridRow, week: string): boolean {
+  return row.cells.find((c) => c.weekEnding === week)?.expected ?? false;
+}
+
+function valueAt(row: GridRow, week: string): string {
+  const cell = row.cells.find((c) => c.weekEnding === week);
   if (!cell?.value) return "";
   if (row.valueType === "text") return cell.value.text ?? "";
   if (cell.value.number == null || !Number.isFinite(cell.value.number)) return "";
   return String(cell.value.number);
+}
+
+function ChevronIcon({ direction }: { direction: "left" | "right" }) {
+  // Same geometry as PlusIcon and the row actions: a 16 viewbox drawn
+  // at 14px, 1.4 stroke, round caps. Anything else reads as a second
+  // icon set at the same size.
+  return (
+    <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden focusable="false">
+      <path
+        d={direction === "left" ? "M10 3.5 L5.5 8 L10 12.5" : "M6 3.5 L10.5 8 L6 12.5"}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }

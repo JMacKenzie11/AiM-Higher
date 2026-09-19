@@ -23,10 +23,10 @@ import type {
 //
 // ---- WHY THE WEEKS ARE GROUPED BY MONTH ----------------------
 //
-// Six months is 26 columns and nobody needs 26 at once. The current
-// month is open and the rest are one column each, carrying their
-// name, so the page opens on the week you are filling in and the
-// history is a click away rather than a scroll away.
+// A rolling year is 52 columns and nobody needs 52 at once. The
+// current month is open and the rest are one column each, carrying
+// their name, so the page opens on the week you are filling in and
+// the history is a click away rather than a scroll away.
 //
 // A collapsed month shows its name and nothing else. Deliberately:
 // any summary value it could show (the last week, an average) would
@@ -85,6 +85,7 @@ export type GridRow = {
   valueType: MetricValueType;
   direction: TargetDirection;
   autoTrack: boolean;
+  showOnDashboard: boolean;
   targetHint: string | null;
   cells: GridCell[];
   // Keyed by the week the change takes effect on.
@@ -114,6 +115,13 @@ export type GridData = {
   weeks: string[];
   months: GridMonth[];
   currentWeekEnding: string;
+  // The week that just closed, and the other one still open for
+  // entry. A WEEK STAYS OPEN UNTIL THE END OF THE FOLLOWING ONE,
+  // which is exactly the window the Saturday nudge gives: it asks for
+  // this week on the Saturday it closes and makes it due the coming
+  // Friday. Before, the page offered only the current column, so
+  // acting on that nudge recorded the number against the wrong week.
+  previousWeekEnding: string | null;
   groups: GridGroup[];
   hasRows: boolean;
 };
@@ -279,6 +287,7 @@ export function buildGridData(
       valueType: csf.value_type,
       direction: csf.target_direction,
       autoTrack: csf.auto_track,
+      showOnDashboard: csf.show_on_dashboard ?? true,
       targetHint: csf.target_hint,
       cells,
       targetChanges: targetChangesWithin(history, weeks),
@@ -288,6 +297,19 @@ export function buildGridData(
     rowsByFunction.set(csf.function_id, list);
   }
 
+// THE TRACK SEAT IS NOT CONSULTED, and that is not an oversight.
+//
+// `functions.track_id` has no input anywhere in src/app or
+// src/components. chart/actions.ts reads it from FormData that no
+// form submits, so every function written through the application
+// sets it null. Fleet-wide on production: 60 functions, 34 with a
+// Lead, three with a track_id, two of which differ from the lead.
+//
+// Reading a column nothing populates is a branch that cannot be
+// tested and cannot be trusted, so it comes out here. The columns
+// stay: dropping them is a fleet migration for two rows and is
+// tracked on its own.
+
   // Chart order, not sort_order: Visionary first, Integrator second,
   // every other function following its parent. The grid reads as the
   // org does, and `includeAll` decides only whose functions come
@@ -296,8 +318,8 @@ export function buildGridData(
   const orderedFunctions = includeAll
     ? ordered
     : [
-        ...ordered.filter((f) => f.lead_id === userId || f.track_id === userId),
-        ...ordered.filter((f) => f.lead_id !== userId && f.track_id !== userId),
+        ...ordered.filter((f) => f.lead_id === userId),
+        ...ordered.filter((f) => f.lead_id !== userId),
       ];
 
   const groups: GridGroup[] = orderedFunctions.map((fn) => ({
@@ -306,7 +328,7 @@ export function buildGridData(
     ownerName: fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null,
     // Same rule upsertMeasureEntryAction enforces, so the page never
     // draws an input the server would refuse.
-    canLog: includeAll || fn.lead_id === userId || fn.track_id === userId,
+    canLog: includeAll || fn.lead_id === userId,
     rows: rowsByFunction.get(fn.id) ?? [],
   }));
 
@@ -314,6 +336,7 @@ export function buildGridData(
     weeks,
     months,
     currentWeekEnding,
+    previousWeekEnding: weeks.length >= 2 ? weeks[weeks.length - 2] : null,
     // Functions with nothing on them still render, so an admin has
     // somewhere to add the first row.
     groups,

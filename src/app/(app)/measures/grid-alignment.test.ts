@@ -151,6 +151,47 @@ describe("the pinned columns line up with their offsets", () => {
     expect(rule(".grid")).toContain("table-layout: fixed");
   });
 
+  it("RESETS what it wrote before it measures again", () => {
+    // This effect runs again after every router.refresh(), which
+    // includes adding a critical success factor. Measuring a table it
+    // has already adjusted compounds twice over: the inline `left`
+    // values from the last run make a cell report its adjusted
+    // position, and a grid scrolled to the end has its sticky cells
+    // STUCK, so their box is where the scroll pinned them rather than
+    // where the layout puts them. Both errors push the same way.
+    //
+    // The symptom was the pinned block marching off to the right
+    // after an add, leaving a white gap where the names had been,
+    // with every collapsed month gone.
+    const effect = src.slice(src.indexOf("Measure the pinned offsets"));
+    const body = effect.slice(0, effect.indexOf("}, ["));
+    const clearsLeft = body.indexOf('cell.style.left = ""');
+    const clearsWidth = body.indexOf('col.style.width = ""');
+    const resetsScroll = body.indexOf("el.scrollLeft = 0");
+    // The measurements that FEED the new offsets all start from
+    // tableLeft, so that is the line the clearing has to precede.
+    //
+    // Not "before any getBoundingClientRect at all": the anchor above
+    // reads the on-screen geometry deliberately, and has to, because
+    // its whole job is to record where the reader was BEFORE the
+    // reset moves everything.
+    const offsetsMeasuredFrom = body.indexOf("const tableLeft");
+    expect(clearsLeft, "should clear the left values it wrote").toBeGreaterThan(-1);
+    expect(clearsWidth, "should clear the widths it wrote").toBeGreaterThan(-1);
+    expect(resetsScroll, "should unstick the sticky cells").toBeGreaterThan(-1);
+    expect(offsetsMeasuredFrom).toBeGreaterThan(-1);
+    expect(clearsLeft).toBeLessThan(offsetsMeasuredFrom);
+    expect(clearsWidth).toBeLessThan(offsetsMeasuredFrom);
+    expect(resetsScroll).toBeLessThan(offsetsMeasuredFrom);
+  });
+
+  it("re-runs when the rows change, not only when a month toggles", () => {
+    // Adding a measure changes `data` and nothing else this effect
+    // depends on. Without it in the deps the new row renders into a
+    // table still sized for the old one.
+    expect(src).toContain("}, [columns, authoring, data]);");
+  });
+
   it("sizes the open month to the track rather than to a constant", () => {
     // A fixed week width cannot both fill the track and fit inside
     // it: too narrow and the previous month stays on screen, too wide
@@ -172,6 +213,62 @@ describe("the pinned columns line up with their offsets", () => {
 
   it("scrolls the weeks without scrolling the page", () => {
     expect(rule(".gridScroll")).toContain("overflow-x: auto");
+  });
+
+  it("draws its own scrollbar rather than styling a native one", () => {
+    // Two earlier attempts mirrored a second scrolling element and
+    // styled its bar. Both synced perfectly and both were invisible:
+    // macOS hides overlay scrollbars at rest, Chrome drops
+    // ::-webkit-scrollbar the moment scrollbar-width is set, and
+    // neither renders in a headless screenshot, so it could not be
+    // checked either. An affordance that cannot be seen is the same
+    // as none; one that cannot be verified is worse.
+    expect(src).toContain("gridScrollbarThumb");
+    expect(src).toContain("pointerdown");
+    // The grid's own bar is hidden, which is the half of this that
+    // does need the native properties. Searched across the file
+    // rather than through rule(): .gridScroll has more than one
+    // block and the helper returns the first.
+    expect(css).toContain("scrollbar-width: none");
+    // The drawn one styles no native bar at all: the moment it does,
+    // it is back to depending on what the browser feels like
+    // rendering.
+    expect(rule(".gridScrollbar")).not.toContain("scrollbar-width");
+    expect(rule(".gridScrollbarThumb")).toContain("cursor: grab");
+    // Cobalt, the product's interactive colour, which is what makes
+    // this read as a control rather than a rule.
+    expect(rule(".gridScrollbarThumb")).toContain("aims-cobalt");
+    expect(rule(".gridScrollArrow")).toContain("aims-cobalt");
+  });
+
+  it("hides the bar when there is nothing to scroll", () => {
+    // A full-width thumb that does nothing when you pull it is worse
+    // than no bar.
+    expect(src).toContain("const nothingToScroll = visible >= 1");
+    // The arrows go with it. A pair of buttons flanking nothing is
+    // worse than no bar.
+    expect(src).toContain("row.hidden = nothingToScroll");
+  });
+
+  it("starts the track where the week columns start", () => {
+    // Over the only part of the table that moves. Running the full
+    // width says the names scroll, and they do not.
+    expect(src).toContain("row.style.marginLeft = `${pinnedRight}px`");
+  });
+
+  it("scrolls to the end ONCE, then leaves the position to the reader", () => {
+    // Opening a month threw the reader back to the current week, and
+    // closing one did it again, so exploring the history fought back.
+    // The effect has to re-run on a toggle, because the sizing
+    // depends on how many weeks are open; what it must not do is
+    // scroll again.
+    const src2 = readFileSync(join(DIR, "MeasuresGrid.tsx"), "utf8");
+    expect(src2).toContain("openedRef");
+    // Restored by MONTH, not by pixel: opening one inserts columns to
+    // the left of wherever they are looking, so a raw scrollLeft
+    // would slide the table under them.
+    expect(src2).toContain("data-month-key");
+    expect(src2).toContain("anchor.offset");
   });
 
   it("opens with the current month against the pinned columns", () => {

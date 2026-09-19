@@ -27,9 +27,10 @@ Critical Success Factor, Frequency, Target, then one column per week.
 Functional Area and Owner are written once per function and span its
 rows.
 
-**It opens on this week.** Six months of weeks are available; the
-current month is open and scrolled into view, with the earlier ones
-collapsed to a single column each and pushed off to the left. Click a
+**It opens on this week.** A rolling twelve months of weeks are
+available; the current month is open and scrolled into view, with the
+earlier ones collapsed to a single column each and pushed off to the
+left. Click a
 month to open it, and click it again to fold it away. This week's
 column is tinted, because it is the only one that takes a value.
 
@@ -37,8 +38,24 @@ A collapsed month shows its name and nothing else. Any summary it
 could show, the last week or an average, would be a number nobody
 entered sitting in a row of numbers people did.
 
-**Only this week takes a value.** Earlier weeks are there to read.
-Correcting an old number is a conversation rather than a keystroke.
+**Two weeks take a value: this one and the one that just closed.**
+A week stays open until the end of the following week, so a number
+you were asked for on Saturday can still be entered any time up to
+the next Friday. That is exactly the window the reminder gives you.
+
+Once the next Saturday comes round, the older week locks and is there
+to read. Correcting one after that is a conversation rather than a
+keystroke.
+
+The count above the table chases **the week that just closed**, since
+that is the one with a deadline. The current week is there to fill in
+as you go and is not late yet.
+
+**The scrollbar sits above the table**, starting where the week
+columns do. It moves only the weeks, which is the only part that
+scrolls, and it is at the top so you do not have to reach the bottom
+of a long list to use it. Drag it, click the track to jump, or use
+the arrow at either end to move about a month at a time.
 
 **The 13-week board is on the Dashboard**, not here, in a card with
 the same name as this page. It sits under *What's worth knowing
@@ -56,14 +73,20 @@ function is held to cannot align to it.
 
 Writing is narrower, and it works per function rather than per person:
 
-- **The function's owner** types this week's values for it. On every
-  other function they see the numbers, not input boxes.
-- **Admins and guides** type on any function, and can switch to *Edit
-  setup* to add, edit and archive.
+- **The function's owner** runs their own function: they type this
+  week's values, add critical success factors, change targets and
+  archive rows they have outgrown. On every other function they see
+  the numbers, not input boxes, and no pencil or bin.
+- **Admins and guides** do all of that on any function.
 - **Everyone else** reads. No inputs, no save, no edit controls.
 
-So a function head is a reader on most of this page and a writer on
-their own function, at the same time.
+So a function head is a reader on most of this page and runs their
+own row of it, at the same time.
+
+Owners could always type the weekly value and could not change what
+was being measured, which is the practical reason these lists went
+stale: the person who knows a target is wrong was not the person who
+could fix it.
 
 ## Saving
 
@@ -79,8 +102,33 @@ nothing.
 
 ## Adding and editing
 
+**Add a critical success factor** from the button beside *Save this
+week*. It opens the same panel the pencil does, so the name, the
+target, the value type, the direction and how often it is expected
+are all set in one go. Admins choose any functional area from the
+list; an owner sees their own.
+
+It used to be two steps, a name first and the measurement afterwards.
+That made sense when a critical success factor was a heading with the
+measurable part underneath it. With one level, a row added without a
+target is a row somebody has to come back to.
+
 Each row has a **pencil** and a **bin** in their own column, to the
-left of the name.
+left of the name. They appear only on functions you can write to.
+
+**Connecting a measure to a spreadsheet** sits at the bottom of that
+same panel, when the company has the external data entitlement on.
+The fields are laid out like the ones above them and are there
+without opening anything.
+
+It is on the add panel too, and it is never required. A connection
+needs a measure to attach to, so the panel stays open on the row you
+just added and the fields become live at that point. Close it and the
+measure is already saved.
+
+The panel slides in from the right and leaves the table readable
+behind it. Close it with **Cancel**, the **✕**, the Escape key, or by
+clicking outside.
 
 The pencil opens that measure's settings in a panel at the side of
 the screen: name, target, value type, direction, how often to update,

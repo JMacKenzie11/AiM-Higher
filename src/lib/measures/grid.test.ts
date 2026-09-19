@@ -55,6 +55,7 @@ function spine(over: Partial<MeasuresSpine> = {}): MeasuresSpine {
         function_id: "f1",
         sort_order: 0,
         created_at: "2026-03-01T00:00:00Z",
+        show_on_dashboard: true,
       },
     ],
     targetRows: [],

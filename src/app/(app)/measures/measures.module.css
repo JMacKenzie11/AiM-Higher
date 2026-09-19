@@ -1190,6 +1190,18 @@
 /* This week's column head. Chartreuse reads well on the dark band,
    and it is the accent the rest of the app uses to mark the thing you
    are meant to act on. */
+/* The week that just closed. Still open for entry, until the next
+   Saturday, which is the same moment the Saturday nudge stops asking
+   for it. Marked more quietly than this week: it is the one with a
+   deadline, not the one being filled in as it goes. */
+.gridWeekHeadOpen {
+  color: color-mix(in srgb, var(--aims-chartreuse) 70%, var(--aims-white));
+}
+
+.gridCellOpen {
+  background: color-mix(in srgb, var(--aims-chartreuse-tint) 45%, transparent);
+}
+
 .gridWeekHeadCurrent {
   color: var(--aims-chartreuse);
   font-weight: 700;
@@ -1242,7 +1254,19 @@
   color: var(--text-faint);
 }
 
+/* NO SPINNER. The stepper arrows on a number input eat about
+   sixteen pixels of a seventy-pixel cell, which is why a two-digit
+   value looked cramped against them, and nobody nudges a weekly
+   figure up by one. The field still accepts only numbers. */
+.gridInput::-webkit-outer-spin-button,
+.gridInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .gridInput {
+  appearance: textfield;
+  -moz-appearance: textfield;
   width: 100%;
   box-sizing: border-box;
   /* No min-width. The cell is 76px with padding either side, and a
@@ -1250,7 +1274,7 @@
      right edge, where the card clipped it. */
   min-width: 0;
   height: var(--control-h-sm);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-1);
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
@@ -1389,6 +1413,14 @@
   background: color-mix(in srgb, var(--aims-white) 14%, transparent);
 }
 
+.drawerHint {
+  margin: var(--space-5) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
 .drawerBody {
   flex: 1;
   min-height: 0;
@@ -1408,3 +1440,147 @@
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
+
+
+/* ---- Toolbar ------------------------------------------------- */
+
+.gridToolbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* ---- The drawer slides ---------------------------------------- */
+/*
+   In from the right, with the scrim fading under it. Both honour
+   prefers-reduced-motion: the panel still appears, it just arrives
+   rather than travels.
+*/
+
+@keyframes drawerIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes scrimIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.drawer {
+  animation: drawerIn var(--duration-normal) var(--ease-out);
+  will-change: transform;
+}
+
+.drawerScrim {
+  animation: scrimIn var(--duration-normal) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawerScrim {
+    animation: none;
+  }
+}
+
+/* ---- The horizontal scrollbar, moved ------------------------- */
+/*
+   The native one ran the whole width of the table, under the pinned
+   columns as well, which says the names scroll and they do not. And
+   it sat at the bottom of a table that can be twenty rows tall, so
+   reaching it meant scrolling the page first.
+ 
+   So the real container's bar is hidden and a proxy sits above the
+   table, inset to start where the weeks do. Same element, two-way
+   synced, so dragging either moves the grid.
+*/
+
+.gridScroll {
+  scrollbar-width: none;
+}
+
+.gridScroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* A DRAWN SCROLLBAR, not a native one.
+ 
+   Two earlier attempts mirrored a second scrolling element and styled
+   its bar. Both synced perfectly and both were invisible: macOS hides
+   overlay scrollbars at rest, Chrome drops ::-webkit-scrollbar the
+   moment scrollbar-width is set, and neither renders in a headless
+   screenshot, so it could not be checked either.
+ 
+   Track, thumb and an arrow at each end, positioned by arithmetic on
+   the grid's own scroll. Cobalt is the product's interactive colour,
+   which is what makes this read as a control rather than a rule. */
+
+.gridScrollbarRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.gridScrollArrow {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--aims-cobalt) 30%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--aims-cobalt);
+  cursor: pointer;
+  transition:
+    background 150ms var(--ease-out),
+    border-color 150ms var(--ease-out);
+}
+
+.gridScrollArrow:hover {
+  background: color-mix(in srgb, var(--aims-cobalt) 10%, transparent);
+  border-color: var(--aims-cobalt);
+}
+
+.gridScrollbar {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--aims-cobalt) 10%, transparent);
+}
+
+.gridScrollbarThumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--aims-cobalt) 55%, transparent);
+  cursor: grab;
+  touch-action: none;
+  transition: background 150ms var(--ease-out);
+}
+
+.gridScrollbarThumb:hover {
+  background: var(--aims-cobalt);
+}
+
+.gridScrollbarThumb:active {
+  background: var(--aims-navy);
+  cursor: grabbing;
+}
+
+

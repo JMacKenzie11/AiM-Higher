@@ -386,7 +386,19 @@ export async function createOutcomeAction(
   _prev: ChartResult<FunctionOutcome> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionOutcome>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  // RLS DECIDES, NOT THIS LINE.
+  //
+  // This was requireRole(["system_admin","company_admin","aims_guide"]),
+  // which refused a function's Lead before the database was ever
+  // asked. 0217 admits the Lead to success_measures, and an app guard
+  // that is stricter than the policy is a guard that silently vetoes
+  // the widening it was never told about.
+  //
+  // Every write below goes through the caller's own client, so the
+  // policy is the boundary and this is only asking for a session.
+  // Same shape as logMeasureEntriesAction, which has worked this way
+  // since it was written. Failure mode E5.
+  await requireProfile();
 
   const functionId = String(formData.get("function_id") ?? "");
   if (!functionId) return { ok: false, message: "Missing parent function." };
@@ -396,14 +408,45 @@ export async function createOutcomeAction(
 
   const description = nullableString(formData.get("description"));
 
-  // An outcome is a critical success factor: one row in
-  // success_measures, tagged csf. There is no second table to keep in
-  // step any more.
+  // THE MEASUREMENT COMES WITH THE NAME.
+  //
+  // Adding a critical success factor was two steps: type a name here,
+  // then open its settings to say what good looks like. With one
+  // level there is no reason to separate them, and a row created
+  // without a target is a row somebody has to come back to.
+  //
+  // Every field is optional at this boundary. A caller that sends
+  // only a title still works, which is what the chart page does, so
+  // the column defaults carry the rest.
+  const target = nullableString(formData.get("target"));
+  const valueType = parseValueType(String(formData.get("value_type") ?? "number"));
+  const direction = parseTargetDirection(
+    String(formData.get("target_direction") ?? "higher_is_better")
+  );
+  const updateFrequency = parseUpdateFrequency(
+    String(formData.get("update_frequency") ?? "weekly")
+  );
+  // A checkbox absent from the payload is unchecked, and absent from
+  // a payload that never carried it is the old default of on. The
+  // hidden companion field tells the two apart.
+  const autoTrack = formData.get("auto_track_present")
+    ? formData.get("auto_track") !== null
+    : true;
+  const showOnDashboard = formData.get("auto_track_present")
+    ? formData.get("show_on_dashboard") !== null
+    : true;
+
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
     .insert({
       function_id: functionId,
+      target,
+      value_type: valueType,
+      target_direction: direction,
+      update_frequency: updateFrequency,
+      auto_track: autoTrack,
+      show_on_dashboard: showOnDashboard,
       ...outcomeFieldsToCsf({ title, description }),
     })
     .select(CSF_AS_OUTCOME_COLUMNS)
@@ -421,7 +464,19 @@ export async function updateOutcomeAction(
   _prev: ChartResult<FunctionOutcome> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionOutcome>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  // RLS DECIDES, NOT THIS LINE.
+  //
+  // This was requireRole(["system_admin","company_admin","aims_guide"]),
+  // which refused a function's Lead before the database was ever
+  // asked. 0217 admits the Lead to success_measures, and an app guard
+  // that is stricter than the policy is a guard that silently vetoes
+  // the widening it was never told about.
+  //
+  // Every write below goes through the caller's own client, so the
+  // policy is the boundary and this is only asking for a session.
+  // Same shape as logMeasureEntriesAction, which has worked this way
+  // since it was written. Failure mode E5.
+  await requireProfile();
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing outcome id." };
 
@@ -452,7 +507,19 @@ export async function renameOutcomeAction(
   outcomeId: string,
   newTitle: string
 ): Promise<ChartResult<FunctionOutcome>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  // RLS DECIDES, NOT THIS LINE.
+  //
+  // This was requireRole(["system_admin","company_admin","aims_guide"]),
+  // which refused a function's Lead before the database was ever
+  // asked. 0217 admits the Lead to success_measures, and an app guard
+  // that is stricter than the policy is a guard that silently vetoes
+  // the widening it was never told about.
+  //
+  // Every write below goes through the caller's own client, so the
+  // policy is the boundary and this is only asking for a session.
+  // Same shape as logMeasureEntriesAction, which has worked this way
+  // since it was written. Failure mode E5.
+  await requireProfile();
   const title = newTitle.trim();
   if (!outcomeId || !title) {
     return { ok: false, message: "Title can't be empty." };
@@ -481,7 +548,19 @@ export async function updateOutcomeDetailAction(
   outcomeId: string,
   newDetail: string
 ): Promise<ChartResult<FunctionOutcome>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  // RLS DECIDES, NOT THIS LINE.
+  //
+  // This was requireRole(["system_admin","company_admin","aims_guide"]),
+  // which refused a function's Lead before the database was ever
+  // asked. 0217 admits the Lead to success_measures, and an app guard
+  // that is stricter than the policy is a guard that silently vetoes
+  // the widening it was never told about.
+  //
+  // Every write below goes through the caller's own client, so the
+  // policy is the boundary and this is only asking for a session.
+  // Same shape as logMeasureEntriesAction, which has worked this way
+  // since it was written. Failure mode E5.
+  await requireProfile();
   if (!outcomeId) return { ok: false, message: "Missing id." };
 
   // Empty clears the note rather than failing. Unlike the title,
@@ -506,7 +585,19 @@ export async function archiveOutcomeAction(
   outcomeId: string,
   archived: boolean
 ): Promise<ChartResult<FunctionOutcome>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  // RLS DECIDES, NOT THIS LINE.
+  //
+  // This was requireRole(["system_admin","company_admin","aims_guide"]),
+  // which refused a function's Lead before the database was ever
+  // asked. 0217 admits the Lead to success_measures, and an app guard
+  // that is stricter than the policy is a guard that silently vetoes
+  // the widening it was never told about.
+  //
+  // Every write below goes through the caller's own client, so the
+  // policy is the boundary and this is only asking for a session.
+  // Same shape as logMeasureEntriesAction, which has worked this way
+  // since it was written. Failure mode E5.
+  await requireProfile();
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
@@ -535,7 +626,19 @@ export async function createMeasureAction(
   _prev: ChartResult<SuccessMeasure> | undefined,
   formData: FormData
 ): Promise<ChartResult<SuccessMeasure>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  // RLS DECIDES, NOT THIS LINE.
+  //
+  // This was requireRole(["system_admin","company_admin","aims_guide"]),
+  // which refused a function's Lead before the database was ever
+  // asked. 0217 admits the Lead to success_measures, and an app guard
+  // that is stricter than the policy is a guard that silently vetoes
+  // the widening it was never told about.
+  //
+  // Every write below goes through the caller's own client, so the
+  // policy is the boundary and this is only asking for a session.
+  // Same shape as logMeasureEntriesAction, which has worked this way
+  // since it was written. Failure mode E5.
+  await requireProfile();
 
   const outcomeId = String(formData.get("outcome_id") ?? "");
   if (!outcomeId) return { ok: false, message: "Missing parent outcome." };
@@ -653,7 +756,19 @@ export async function updateMeasureAction(
   _prev: ChartResult<SuccessMeasure> | undefined,
   formData: FormData
 ): Promise<ChartResult<SuccessMeasure>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  // RLS DECIDES, NOT THIS LINE.
+  //
+  // This was requireRole(["system_admin","company_admin","aims_guide"]),
+  // which refused a function's Lead before the database was ever
+  // asked. 0217 admits the Lead to success_measures, and an app guard
+  // that is stricter than the policy is a guard that silently vetoes
+  // the widening it was never told about.
+  //
+  // Every write below goes through the caller's own client, so the
+  // policy is the boundary and this is only asking for a session.
+  // Same shape as logMeasureEntriesAction, which has worked this way
+  // since it was written. Failure mode E5.
+  await requireProfile();
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing measure id." };
 
@@ -666,6 +781,7 @@ export async function updateMeasureAction(
     String(formData.get("target_direction") ?? "higher_is_better")
   );
   const autoTrack = formData.get("auto_track") !== null;
+  const showOnDashboard = formData.get("show_on_dashboard") !== null;
   const updateFrequency = parseUpdateFrequency(
     String(formData.get("update_frequency") ?? "weekly")
   );
@@ -704,6 +820,7 @@ export async function updateMeasureAction(
       value_type: valueType,
       target_direction: direction,
       auto_track: autoTrack,
+      show_on_dashboard: showOnDashboard,
       update_frequency: updateFrequency,
     })
     .eq("id", id)
@@ -753,7 +870,19 @@ export async function archiveMeasureAction(
   measureId: string,
   archived: boolean
 ): Promise<ChartResult<SuccessMeasure>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  // RLS DECIDES, NOT THIS LINE.
+  //
+  // This was requireRole(["system_admin","company_admin","aims_guide"]),
+  // which refused a function's Lead before the database was ever
+  // asked. 0217 admits the Lead to success_measures, and an app guard
+  // that is stricter than the policy is a guard that silently vetoes
+  // the widening it was never told about.
+  //
+  // Every write below goes through the caller's own client, so the
+  // policy is the boundary and this is only asking for a session.
+  // Same shape as logMeasureEntriesAction, which has worked this way
+  // since it was written. Failure mode E5.
+  await requireProfile();
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
@@ -787,7 +916,7 @@ export async function upsertMeasureEntryAction(
   const { data: measureRow } = await supabase
     .from("success_measures")
     .select(
-      "id, value_type, function:functions!inner(id, company_id, lead_id, track_id)"
+      "id, value_type, function:functions!inner(id, company_id, lead_id)"
     )
     .eq("id", measureId)
     .maybeSingle<{
@@ -798,13 +927,11 @@ export async function upsertMeasureEntryAction(
             id: string;
             company_id: string;
             lead_id: string | null;
-            track_id: string | null;
           }
         | Array<{
             id: string;
             company_id: string;
             lead_id: string | null;
-            track_id: string | null;
           }>;
     }>();
   if (!measureRow) return { ok: false, message: "Measure not found." };
@@ -815,7 +942,7 @@ export async function upsertMeasureEntryAction(
   if (!fn) return { ok: false, message: "Measure not found." };
   const isAdmin = isAdminForCompany(session.profile, fn.company_id);
   const isLtd =
-    fn.lead_id === session.profile.id || fn.track_id === session.profile.id;
+    fn.lead_id === session.profile.id;
   if (!isAdmin && !isLtd) {
     return {
       ok: false,

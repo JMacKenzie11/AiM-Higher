@@ -126,7 +126,6 @@ export function ExternalSourceControls({
   // thing from owning the state: the last attempt to own a panel's
   // open state on this page threw away an in-flight router.refresh()
   // and the saved row never appeared.
-  const panelRef = useRef<HTMLDetailsElement>(null);
   const [draft, setDraft] = useState<Draft>(() => draftFrom(info?.mapping ?? null));
   // Which week a pull targets. Always one of the platform's own
   // week-endings; the select below offers those and nothing else.
@@ -171,7 +170,6 @@ export function ExternalSourceControls({
       const result = await fn();
       setMessage({ ok: result.ok, text: result.message });
       if (result.ok && closeOnSuccess) {
-        if (panelRef.current) panelRef.current.open = false;
         // The read that verify printed described the mapping as it
         // was being edited. Once saved, leaving it on screen means
         // reopening the panel later shows a result from a session
@@ -221,10 +219,17 @@ export function ExternalSourceControls({
       ) : null}
 
       {canAdminister ? (
-        <details className={styles.adminWrap} ref={panelRef}>
-          <summary className={styles.adminSummary}>
-            {mapping ? "External source" : "Add external source"}
-          </summary>
+        <div className={styles.adminWrap}>
+          {/* NO DISCLOSURE. It earned its place on a table row, where
+              this sat under every measure and would otherwise have
+              buried the page in form fields. In the settings drawer
+              there is one measure and the reason you opened it is to
+              change its settings, so a click to reach half of them is
+              a click for nothing. */}
+          <p className={styles.adminHeading}>
+            {mapping ? "External source" : "Connect external data"}
+          </p>
+
           <div className={styles.adminPanel}>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Kind</span>
@@ -247,7 +252,10 @@ export function ExternalSourceControls({
               </select>
             </label>
 
-            <label className={styles.field}>
+            {/* Full width: a Google Sheets URL in a half column shows
+                its first forty characters, which are the same forty
+                on every link. */}
+            <label className={`${styles.field} ${styles.fieldFull}`}>
               <span className={styles.fieldLabel}>Spreadsheet link or id</span>
               <input
                 className={styles.input}
@@ -407,7 +415,7 @@ export function ExternalSourceControls({
 
             {verify ? <VerifyPanel result={verify} /> : null}
           </div>
-        </details>
+        </div>
       ) : null}
 
       {message ? (

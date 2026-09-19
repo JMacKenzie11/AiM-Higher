@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   archiveMeasureAction,
+  createOutcomeAction,
   updateMeasureAction,
   type ChartResult,
 } from "@/lib/chart/actions";
@@ -20,7 +21,6 @@ import type { MeasureCritique } from "@/lib/measures/critique-rules";
 import type { MetricValueType, SuccessMeasure, TargetDirection } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import uiStyles from "@/components/ui/ui.module.css";
-import { ExternalSourceControls } from "./external/ExternalSourceControls";
 import styles from "./measures.module.css";
 import chartStyles from "../chart/chart.module.css";
 
@@ -51,25 +51,61 @@ export type EditableMeasure = {
   target_direction: TargetDirection;
   update_frequency: string;
   auto_track: boolean;
+  show_on_dashboard: boolean;
 };
 
+// ONE FORM FOR ADD AND EDIT.
+//
+// Adding used to be two steps: type a name in a row under the table,
+// then find the row and open its settings to say what good looks
+// like. That made sense when a critical success factor was a heading
+// and the measurable thing lived underneath it. With one level there
+// is nothing to separate, and a row created without a target is a row
+// somebody has to come back to.
+//
+// `createIn` is the difference. Present, the form posts to
+// createOutcomeAction against that function and shows a functional
+// area picker; absent, it updates the measure it was given.
 export function EditMeasureForm({
   measure,
   outcomeTitle,
   outcomeDescription,
   trackingEnabled,
   onDone,
+  onCreated,
+  createIn,
+  functionChoices,
+  onFunctionChange,
 }: {
   measure: EditableMeasure;
   outcomeTitle: string;
   outcomeDescription: string | null;
   trackingEnabled: boolean;
   onDone: () => void;
+  // Called with the new measure's id after a create. The drawer uses
+  // it to stay open on the row that was just made, so the external
+  // source fields become live without a second trip.
+  onCreated?: (id: string) => void;
+  // The function a new measure belongs to. Absent means edit.
+  createIn?: string;
+  // Offered in create mode so the area is chosen in the same panel
+  // rather than before it opens.
+  functionChoices?: ReadonlyArray<{ id: string; title: string }>;
+  onFunctionChange?: (id: string) => void;
 }) {
+  const creating = createIn !== undefined;
   const [state, formAction, pending] = useActionState<
     ChartResult<SuccessMeasure>,
     FormData
-  >(updateMeasureAction, INITIAL);
+  >(
+    (creating
+      ? createOutcomeAction
+      : updateMeasureAction) as unknown as (
+      prev: ChartResult<SuccessMeasure> | undefined,
+      fd: FormData
+    ) => Promise<ChartResult<SuccessMeasure>>,
+    INITIAL
+  );
   const [description, setDescription] = useState(measure.description);
   const [target, setTarget] = useState(measure.target ?? "");
   const [valueType, setValueType] = useState<MetricValueType>(
@@ -98,7 +134,15 @@ export function EditMeasureForm({
   };
 
   useEffect(() => {
-    if (state && "ok" in state && state.ok) onDone();
+    if (!state || !("ok" in state) || !state.ok) return;
+    // A CREATE HANDS BACK ITS ROW rather than closing. Connecting a
+    // spreadsheet needs a measure to attach to, and there is no id
+    // until this moment: closing here would mean adding the measure,
+    // finding it in the table and opening it again to do the half of
+    // the job the panel was already showing.
+    const created = creating ? (state.item as { id?: string })?.id : null;
+    if (created && onCreated) onCreated(created);
+    else onDone();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
@@ -149,7 +193,39 @@ export function EditMeasureForm({
 
   return (
     <form action={formAction} className={chartStyles.addForm}>
-      <input type="hidden" name="id" value={measure.id} />
+      {creating ? (
+        <>
+          <input type="hidden" name="function_id" value={createIn} />
+          {/* The action reads `title` on create and `description` on
+              update. One input, named for whichever it is, so the
+              field below stays a single controlled value. */}
+          <input type="hidden" name="title" value={description} />
+        </>
+      ) : (
+        <input type="hidden" name="id" value={measure.id} />
+      )}
+      {/* Tells the action that this payload carries the checkbox at
+          all, so an unchecked box reads as off rather than as a
+          caller that never sent one. */}
+      <input type="hidden" name="auto_track_present" value="1" />
+
+      {creating && functionChoices && functionChoices.length > 1 ? (
+        <label className={chartStyles.formField}>
+          <span className={chartStyles.formLabel}>Functional area</span>
+          <select
+            className={chartStyles.formInput}
+            value={createIn}
+            onChange={(e) => onFunctionChange?.(e.target.value)}
+            disabled={pending}
+          >
+            {functionChoices.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label
         className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
       >
@@ -257,6 +333,21 @@ export function EditMeasureForm({
               Remind the owner when this is due
             </span>
           </label>
+
+          <label
+            className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
+          >
+            <span className={chartStyles.formLabel}>
+              <input
+                type="checkbox"
+                name="show_on_dashboard"
+                defaultChecked={measure.show_on_dashboard}
+                disabled={pending}
+                style={{ marginRight: "8px" }}
+              />
+              Show on company dashboard
+            </span>
+          </label>
         </>
       ) : (
         <>
@@ -301,11 +392,16 @@ export function EditMeasureForm({
           className={uiStyles.btnPrimary}
           disabled={pending}
         >
-          {pending ? "Saving…" : "Save"}
+          {pending ? "Saving…" : creating ? "Add" : "Save"}
         </button>
+        {/* Bordered, like Save beside it. btnGhost drops the border
+            so a text action does not float away from what it acts on,
+            which is right in a table row and wrong in a footer where
+            it sits next to an outlined button and reads as unfinished
+            next to it. */}
         <button
           type="button"
-          className={uiStyles.btnGhost}
+          className={uiStyles.btnSecondary}
           disabled={pending}
           onClick={onDone}
         >

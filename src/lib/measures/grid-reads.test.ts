@@ -25,10 +25,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 const FROZEN_NOW = new Date("2026-09-02T18:00:00Z"); // a Wednesday
 const THIS_FRIDAY = "2026-09-04";
 const OLDEST = "2026-07-31"; // weekEnding - 35 days, the tree's trail
-// weekEnding - 25 weeks: what the shared spine fetches. It was the
-// board's 13 until the six-month grid arrived; the spine takes the
-// widest window any consumer wants and each narrows in memory.
-const GRID_OLDEST = "2026-03-13";
+// weekEnding - 51 weeks: what the shared spine fetches. It was the
+// board's 13, then the grid's 26; the spine takes the widest window
+// any consumer wants and each narrows in memory.
+const GRID_OLDEST = "2025-09-12";
 // Still inside that window, outside the tree's five-week trail.
 const BOARD_OLDEST = "2026-06-12";
 
@@ -87,7 +87,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 // Column lists the loader uses, so fixtures can be keyed exactly.
 const CSF_COLS =
-  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at";
+  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at, show_on_dashboard";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);
@@ -259,6 +259,14 @@ describe("getGridData — scoping", () => {
   });
 
   it("marks only the caller's own seats as writable", async () => {
+    // THE TRACK SEAT IS NOT A SEAT. `f_tracked` names this caller in
+    // track_id and is not writable, which reverses what this test
+    // asserted before. No form in the app submits track_id, so it is
+    // null on every function written through it: fleet-wide there are
+    // three rows with one, two of which differ from the lead. A
+    // branch over a column nothing populates cannot be trusted, so it
+    // came out rather than being carried forward into the Lead
+    // authoring widening.
     seed("functions", [
       fn("f_mine", "Sales", 0, null, { lead_id: "u_leader" }),
       fn("f_tracked", "Ops", 1, null, { track_id: "u_leader" }),
@@ -278,7 +286,7 @@ describe("getGridData — scoping", () => {
     // Everything else is readable and not writable.
     expect(
       Object.fromEntries(groups.map((g) => [g.functionTitle, g.canLog]))
-    ).toEqual({ Sales: true, Ops: true, Finance: false });
+    ).toEqual({ Sales: true, Ops: false, Finance: false });
   });
 
   it("puts the caller's own seats first", async () => {
@@ -415,12 +423,16 @@ describe("getGridData — the reads", () => {
     seed(`success_measures::${CSF_COLS}`, [outcome("o_1", "Revenue", "f_1")]);
   });
 
-  it("fetches the grid's six-month window, since every surface shares one read", async () => {
+  it("fetches the grid's rolling year, since every surface shares one read", async () => {
     // The entries read was five weeks, matching the old tree's trail,
-    // then 13 for the board. It is the widest window any consumer
-    // takes, because fetching a narrower one would mean a second
-    // query for rows already in memory. Each consumer narrows in
-    // shaping instead: the board to 13 weeks.
+    // then 13 for the board, then 26 for the grid. It is the widest
+    // window any consumer takes, because fetching a narrower one
+    // would mean a second query for rows already in memory. Each
+    // consumer narrows in shaping instead: the board to 13 weeks.
+    //
+    // A year, not six months: six shows a season, twelve shows the
+    // same season last year, which is the comparison these numbers
+    // are read for.
     seed("success_measure_entries", []);
     const { getGridData } = await import("./grid");
     await getGridData("co_1", "u_1", "America/Anchorage", true);
