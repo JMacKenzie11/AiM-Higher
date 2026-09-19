@@ -19,7 +19,7 @@ import { MeasureInsightsCards } from "./MeasureInsightsCards";
 import { getBoardData } from "@/lib/measures/board";
 import { BoardView } from "../measures/board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
-import { formatShortDate } from "@/lib/dates";
+import { formatShortDate, formatWeekBeginning } from "@/lib/dates";
 import styles from "./dashboard.module.css";
 
 // Company Dashboard — Section 8.2.
@@ -264,7 +264,7 @@ export default async function DashboardPage() {
                     <span className={styles.successWhen}>
                       {win.completedAt
                         ? formatShortDate(win.completedAt.slice(0, 10))
-                        : `Week ending ${formatShortDate(win.weekEnding)}`}
+                        : `Week beginning ${formatWeekBeginning(win.weekEnding)}`}
                     </span>
                   </div>
                   <p className={styles.successDescription}>{win.description}</p>

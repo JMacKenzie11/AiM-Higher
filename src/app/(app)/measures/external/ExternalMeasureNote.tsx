@@ -83,7 +83,7 @@ export function ExternalMeasureNote({ measureId }: { measureId: string }) {
               <div className={styles.receiptRow}>
                 <dt className={styles.receiptLabel}>Last pull</dt>
                 <dd className={styles.receiptValue}>
-                  {lastPull.receipt.headline} (week ending{" "}
+                  {lastPull.receipt.headline} (week beginning{" "}
                   {lastPull.weekEnding})
                 </dd>
               </div>

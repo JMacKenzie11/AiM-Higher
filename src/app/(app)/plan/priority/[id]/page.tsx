@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { mondayOf } from "@/lib/dates";
 import { requireProfile } from "@/lib/auth/current-user";
 import { canWriteOwnedRow, isAdminForCompany } from "@/lib/auth/permissions";
 import { getPriorityDetail } from "@/lib/plan/service";
@@ -112,7 +113,9 @@ function HistoryWeek({
 }) {
   return (
     <div>
-      <div className={styles.weekGroup}>Week ending {group.weekEnding}</div>
+      <div className={styles.weekGroup}>
+        Week beginning {mondayOf(group.weekEnding)}
+      </div>
       <ul className={commitmentStyles.rowList}>
         {group.commitments.map((commitment) => (
           <CommitmentRow

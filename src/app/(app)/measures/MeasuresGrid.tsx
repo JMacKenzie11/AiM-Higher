@@ -24,7 +24,7 @@ import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
 import { ExternalSourceControls } from "./external/ExternalSourceControls";
 import { PencilIcon } from "@/components/ui/PencilIcon";
 import { PlusIcon } from "@/components/ui/PlusIcon";
-import { formatShortDate } from "@/lib/dates";
+import { formatWeekBeginning, mondayOf } from "@/lib/dates";
 import uiStyles from "@/components/ui/ui.module.css";
 import {
   DndContext,
@@ -876,8 +876,8 @@ export function MeasuresGrid({
               }
             >
               {outstanding === 0
-                ? `All ${writableRows.length} logged for the week ending ${formatShortDate(chasedWeek)}.`
-                : `${outstanding} of ${writableRows.length} still to log for the week ending ${formatShortDate(chasedWeek)}.`}
+                ? `All ${writableRows.length} logged for the week beginning ${formatWeekBeginning(chasedWeek)}.`
+                : `${outstanding} of ${writableRows.length} still to log for the week beginning ${formatWeekBeginning(chasedWeek)}.`}
             </p>
           ) : (
             // Holds the left half of the row so the actions stay
@@ -1120,7 +1120,11 @@ export function MeasuresGrid({
                           : undefined
                       }
                     >
-                      {w.slice(8)}
+                      {/* The MONDAY's day of the month. The column is
+                          still keyed by the Friday underneath — that is
+                          what every value is stored against — but a
+                          week is read by the day it starts on. */}
+                      {mondayOf(w).slice(8)}
                     </th>
                   ))
                 )}
@@ -1451,7 +1455,7 @@ function GridCellView({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          aria-label={`${row.description}, week ending ${week}`}
+          aria-label={`${row.description}, week beginning ${mondayOf(week)}`}
         />
       </td>
     );

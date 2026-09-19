@@ -6,7 +6,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getGridData } from "@/lib/measures/grid";
 import { companyHasFeature } from "@/lib/subscriptions/service";
-import { formatShortDate } from "@/lib/dates";
+import { formatWeekBeginning } from "@/lib/dates";
 import { loadExternalPanel } from "@/lib/external-measures/service";
 import { ExternalMeasuresProvider } from "./external/ExternalMeasuresContext";
 import { MeasuresGrid } from "./MeasuresGrid";
@@ -88,8 +88,8 @@ export default async function MeasuresPage() {
       subtitle={
         <>
           Every function&rsquo;s critical success factors. Log the week
-          ending {formatShortDate(weekEnding)} for the functions you
-          lead.
+          beginning {formatWeekBeginning(weekEnding)} for the functions
+          you lead.
         </>
       }
     >

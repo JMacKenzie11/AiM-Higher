@@ -5,7 +5,7 @@ import { getPersonScorecard } from "@/lib/people/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
-import { formatShortDate } from "@/lib/dates";
+import { formatShortDate, formatWeekBeginning } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserStrengths } from "@/lib/strengths/user-strengths";
@@ -259,7 +259,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
             data.history.map((group) => (
               <div key={group.weekEnding} className={styles.historyGroup}>
                 <div className={styles.weekLabel}>
-                  Week ending {formatShortDate(group.weekEnding)}
+                  Week beginning {formatWeekBeginning(group.weekEnding)}
                 </div>
                 <table className={styles.table}>
                   <thead>
