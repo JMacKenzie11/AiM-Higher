@@ -437,29 +437,20 @@ export type FunctionCompetency = {
 
 export type TargetDirection = "higher_is_better" | "lower_is_better";
 
-// Which side of the CSF/KPI split a measure sits on. Introduced in
-// migration 0166. 'csf' is the lagging result a function is
-// accountable for; 'kpi' is the leading activity that moves one.
-// The distinction cannot be positional because a KPI may drive more
-// than one CSF, so an unlinked KPI would otherwise be
-// indistinguishable from a CSF.
-export type MeasureKind = "csf" | "kpi";
-
 // How often a measure is expected to be logged (migration 0167).
-// Applies to both kinds: a CSF is often the slower number while the
-// KPIs driving it are weekly.
+// Weekly for most; monthly for the numbers that only close once a
+// month, which the flat grid shows against that month's last week.
 export type UpdateFrequency = "weekly" | "biweekly" | "monthly";
 
 export type SuccessMeasure = {
   id: string;
   // The function this measure belongs to. Required since 0168: it is
-  // how every measure of either kind reaches its company, and every
-  // RLS policy on this table is keyed on it.
+  // how every measure reaches its company, and every RLS policy on
+  // this table is keyed on it.
   function_id: string;
-  kind: MeasureKind;
   description: string;
-  // Longer descriptive text. On a critical success factor this is the
-  // why-this-matters copy; KPIs generally leave it null.
+  // Longer descriptive text: the why-this-matters copy under the
+  // name. Often null.
   detail: string | null;
   target: string | null;
   value_type: MetricValueType;

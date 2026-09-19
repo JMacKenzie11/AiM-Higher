@@ -27,8 +27,14 @@ export type ReadinessResult = {
 export function computeReadiness(detail: Detail): ReadinessResult {
   const userRoleCount = detail.roles.filter((r) => !r.is_default).length;
   const outcomeCount = detail.outcomes.length;
-  const outcomesAllHaveMetrics =
-    outcomeCount > 0 && detail.outcomes.every((o) => o.measures.length >= 1);
+  // "Each has at least one KPI under it" until 0216. With one level
+  // the equivalent question is whether each factor is actually
+  // measurable, which is whether it carries a target. A named factor
+  // with no number is the row this gate exists to catch, and it still
+  // catches it.
+  const outcomesAllHaveTargets =
+    outcomeCount > 0 &&
+    detail.outcomes.every((o) => !!o.target && o.target.trim() !== "");
 
   const gates: ReadinessGate[] = [
     {
@@ -48,10 +54,9 @@ export function computeReadiness(detail: Detail): ReadinessResult {
     },
     {
       key: "outcomes",
-      title: "Outcomes",
-      description:
-        "Three outcomes, each with at least one key success measure.",
-      ready: outcomeCount >= 3 && outcomesAllHaveMetrics,
+      title: "Critical success factors",
+      description: "Three critical success factors, each with a target.",
+      ready: outcomeCount >= 3 && outcomesAllHaveTargets,
       href: "#measures",
     },
     {

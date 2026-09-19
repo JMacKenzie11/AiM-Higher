@@ -21,8 +21,7 @@ export type TermKey =
   | "priority"
   | "strategicFocusArea"
   | "clarity"
-  | "outcome"
-  | "keySuccessMeasure";
+  | "outcome";
 
 export type Term = {
   label: string;
@@ -69,11 +68,6 @@ export const TERMS: Record<TermKey, Term> = {
     label: "Critical Success Factor",
     definition:
       "A result your function must deliver to be successful, tracked with its own target and value. Most functions have two or three. Sometimes shortened to CSF.",
-  },
-  keySuccessMeasure: {
-    label: "Key Performance Indicator",
-    definition:
-      "A leading measure of the activity that drives a Critical Success Factor. It moves before the result does, so it tells you early whether you're on track. Sometimes shortened to KPI.",
   },
 };
 

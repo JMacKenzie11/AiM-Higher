@@ -9,6 +9,12 @@ import { join } from "node:path";
 // chips counted KPIs; the line counted critical success factors as
 // well, which is what the page actually asks you to fill in.
 //
+// 0216 removed the second level, so the two populations cannot differ
+// by KIND any more. They can still differ by SCOPE, which is the half
+// of this that is still live: the chips count every row on screen and
+// the outstanding line counts only the rows this caller may write.
+// Both must come from the same list, walked the same way.
+//
 // This is the third time this shape has appeared in this codebase.
 // B&B Electric showed 100%, 62% and "13 for 13" follow-through on
 // three surfaces at once, each right over a different population —
@@ -35,18 +41,26 @@ function block(name: string): string {
 }
 
 describe("the chips and the outstanding line count one population", () => {
-  it("counts critical success factors in the chips, not only KPIs", () => {
-    // `o.outcomes.flatMap(o => o.measures)` alone is the bug: it
-    // walks straight past the CSF to the KPIs beneath it.
+  it("counts every critical success factor in the chips", () => {
     const chips = block("allMeasures");
-    expect(chips).toContain("o.measures");
-    expect(chips).toMatch(/description: o\.title/);
+    expect(chips).toContain("f.csfs");
+    // The name has to be mapped onto `description`, or status and
+    // filtering read undefined and every row looks untargeted.
+    expect(chips).toMatch(/description: c\.title/);
   });
 
   it("counts critical success factors in the outstanding line", () => {
     const line = block("myEntryTargets");
-    expect(line).toContain("o.id");
-    expect(line).toContain("o.measures.map");
+    expect(line).toContain("f.csfs");
+  });
+
+  it("walks the two populations the same way", () => {
+    // The whole point. Two different traversals of one tree is how
+    // the original bug arose, and it would arise again the moment one
+    // of these grew a filter the other did not.
+    expect(block("allMeasures")).toContain("f.csfs");
+    expect(block("myEntryTargets")).toContain("f.csfs");
+    expect(block("allEntryTargets")).toContain("f.csfs");
   });
 
   it("scopes the outstanding line to functions the caller can log", () => {

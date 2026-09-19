@@ -7,7 +7,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import {
   CSF_AS_OUTCOME_COLUMNS,
-  cascadeArchiveKpis,
   csfAsOutcome,
   outcomeFieldsToCsf,
   type CsfRow,
@@ -405,7 +404,6 @@ export async function createOutcomeAction(
     .from("success_measures")
     .insert({
       function_id: functionId,
-      kind: "csf",
       ...outcomeFieldsToCsf({ title, description }),
     })
     .select(CSF_AS_OUTCOME_COLUMNS)
@@ -436,7 +434,6 @@ export async function updateOutcomeAction(
     .from("success_measures")
     .update(outcomeFieldsToCsf({ title, description }))
     .eq("id", id)
-    .eq("kind", "csf")
     .select(CSF_AS_OUTCOME_COLUMNS)
     .single<CsfRow>();
   if (error || !data) return { ok: false, message: "Couldn't save changes." };
@@ -466,7 +463,6 @@ export async function renameOutcomeAction(
     .from("success_measures")
     .update(outcomeFieldsToCsf({ title }))
     .eq("id", outcomeId)
-    .eq("kind", "csf")
     .select(CSF_AS_OUTCOME_COLUMNS)
     .single<CsfRow>();
   if (error || !data) return { ok: false, message: "Couldn't rename." };
@@ -497,7 +493,6 @@ export async function updateOutcomeDetailAction(
     .from("success_measures")
     .update(outcomeFieldsToCsf({ description: detail }))
     .eq("id", outcomeId)
-    .eq("kind", "csf")
     .select(CSF_AS_OUTCOME_COLUMNS)
     .single<CsfRow>();
   if (error || !data) return { ok: false, message: "Couldn't save that." };
@@ -517,7 +512,6 @@ export async function archiveOutcomeAction(
     .from("success_measures")
     .update({ archived })
     .eq("id", outcomeId)
-    .eq("kind", "csf")
     .select(CSF_AS_OUTCOME_COLUMNS)
     .single<CsfRow>();
   if (error || !data) return { ok: false, message: "Couldn't archive." };
@@ -525,7 +519,10 @@ export async function archiveOutcomeAction(
   // Archiving a CSF archives the KPIs beneath it, so nothing is left
   // parentless and invisible while still collecting values. Only on
   // the way in: restoring a CSF does not restore its KPIs.
-  if (archived) await cascadeArchiveKpis(supabase, outcomeId);
+  // Nothing cascades. Archiving used to take the KPIs beneath the
+  // critical success factor with it, so a lead measure could not
+  // outlive the result it existed to move. There is nothing beneath a
+  // measure since 0216.
 
   revalidatePath("/chart");
   revalidatePath("/measures");
@@ -564,7 +561,6 @@ export async function createMeasureAction(
     .from("success_measures")
     .select("function_id, functions!inner(company_id)")
     .eq("id", outcomeId)
-    .eq("kind", "csf")
     .maybeSingle<{
       function_id: string;
       functions: { company_id: string } | { company_id: string }[];
@@ -579,34 +575,37 @@ export async function createMeasureAction(
   if (!outcome?.function_id) {
     return {
       ok: false,
-      message: "Couldn't find the critical success factor for this KPI.",
+      message: "Couldn't find the function for this measure.",
     };
   }
 
   const companyId = Array.isArray(outcome.functions)
     ? outcome.functions[0]?.company_id ?? null
     : outcome.functions?.company_id ?? null;
-  if (
-    companyId &&
-    (await companyHasFeature(companyId, "performance_tracking"))
-  ) {
-    if (!target) {
-      return {
-        ok: false,
-        message:
-          "Performance tracking is on for this company — every measure needs a target.",
-      };
-    }
-  }
+
+  // NO TARGET REQUIREMENT, and this is a change.
+  //
+  // Creating a KPI demanded a target when performance_tracking was
+  // on; creating a critical success factor never did, because of the
+  // 2026-09-04 decision that a company may name the results it owns
+  // before it knows what good looks like. Those were two rules for
+  // two kinds. There is one kind now, so there is one rule, and it is
+  // the CSF's: optional.
+  //
+  // Taking the stricter one instead would have locked Howard out of
+  // editing 20 of its 24 rows and Geo-Sci out of all 16, since those
+  // rows have no target today. An empty Target column on the flat
+  // page is a better prompt than a refusal at the point of typing.
 
   const { data, error } = await supabase
     .from("success_measures")
     .insert({
-      // A KPI belongs to a function directly and reaches its CSF
-      // through the link table below, which is many-to-many by
-      // design even though the UI allows one parent today.
+      // Adding a measure adds a critical success factor to the same
+      // function. It used to add a KPI and then link it to the
+      // critical success factor it was added under; with one level
+      // there is nothing to link it to and the function is where it
+      // belongs.
       function_id: outcome.function_id,
-      kind: "kpi",
       description,
       target,
       value_type: valueType,
@@ -617,20 +616,6 @@ export async function createMeasureAction(
     .select("*")
     .single<SuccessMeasure>();
   if (error || !data) return { ok: false, message: "Couldn't add that measure." };
-
-  // Record which CSF this KPI drives. Without the link the measure
-  // exists but hangs off nothing, so no read path finds it.
-  const { error: linkError } = await supabase
-    .from("csf_kpi_links")
-    .insert({ csf_id: outcomeId, kpi_id: data.id });
-  if (linkError) {
-    // Every read path finds a KPI through this link, so a measure
-    // without one is invisible: it would sit in the table collecting
-    // nothing while the leader who just created it sees no new row
-    // and adds it again. Remove it rather than leave that behind.
-    await supabase.from("success_measures").delete().eq("id", data.id);
-    return { ok: false, message: "Couldn't attach that KPI. Try again." };
-  }
 
   // Coaching hint on the target, only when the flag is on and a
   // target was provided. Best-effort — a null result silently
@@ -692,11 +677,10 @@ export async function updateMeasureAction(
   // than the two the old outcome hop needed.
   const { data: existing } = await supabase
     .from("success_measures")
-    .select("function_id, kind, functions!inner(company_id)")
+    .select("function_id, functions!inner(company_id)")
     .eq("id", id)
     .maybeSingle<{
       function_id: string;
-      kind: "csf" | "kpi";
       functions: { company_id: string } | { company_id: string }[];
     }>();
   const fnRow = existing
@@ -705,24 +689,12 @@ export async function updateMeasureAction(
       : existing.functions
     : null;
   const companyId = fnRow?.company_id ?? null;
-  // A KPI needs a target: a leading measure without one says nothing.
-  // A critical success factor does not. Decided 2026-09-04 — a
-  // company may name the results it owns before it knows what good
-  // looks like, and forcing a number there produces a made-up one.
-  // This action now edits both kinds, so the rule has to know which.
-  if (
-    existing?.kind !== "csf" &&
-    companyId &&
-    (await companyHasFeature(companyId, "performance_tracking"))
-  ) {
-    if (!target) {
-      return {
-        ok: false,
-        message:
-          "Performance tracking is on for this company — every KPI needs a target.",
-      };
-    }
-  }
+  // A target is not required. Decided 2026-09-04 for critical success
+  // factors, and since 0216 every measure is one: a company may name
+  // the results it owns before it knows what good looks like, and
+  // forcing a number there produces a made-up one. The flat page
+  // shows an empty Target column plainly, which is a better prompt
+  // than a refusal at the point of typing.
 
   const { data, error } = await supabase
     .from("success_measures")

@@ -2,18 +2,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // What the 13-week board plots.
 //
-// Before the CSF/KPI split, a critical success factor was only a
-// heading: it had a name and nothing else, so the board drew a row
-// per KPI and used the CSF's title as a group label. Migration 0166
-// made CSFs measurable — they carry a target, a value type and a
-// weekly entry exactly like a KPI does.
+// One row per critical success factor, in the function's own order.
 //
-// The board did not follow. It kept plotting KPIs only, which meant
-// the numbers a function is actually held to were absent from the
-// one screen built to show whether a function is on track. These
-// tests pin that a CSF is now a plotted row in its own right, that
-// it leads the KPIs beneath it, and that it is marked as a CSF so
-// the two kinds don't read as one flat list.
+// This file used to pin the two-level version: a CSF row leading the
+// KPIs beneath it, each row marked with its kind, and each group kept
+// together rather than interleaved. 0216 collapsed the kinds, so what
+// is left to guarantee is simpler and, it turns out, easier to get
+// wrong quietly: every measure appears, in sort_order, with its own
+// target and its own thirteen cells.
+//
+// THE ORDER MATTERS MORE NOW, not less. Grouping used to impose an
+// order regardless of what sort_order said. Nothing imposes one any
+// more, so a board that sorted by id, or by whatever the query
+// returned, would look perfectly reasonable and put a company's rows
+// in an order it never chose.
 
 const FROZEN_NOW = new Date("2026-09-02T18:00:00Z"); // a Wednesday
 const THIS_FRIDAY = "2026-09-04";
@@ -64,8 +66,6 @@ vi.mock("@/lib/supabase/server", () => ({
 // consumer or the other.
 const CSF_COLS =
   "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order";
-const KPI_COLS =
-  "id, description, target, value_type, target_direction, auto_track, update_frequency, target_hint, sort_order";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);
@@ -82,22 +82,6 @@ function csf(
     description,
     function_id,
     target: "90",
-    value_type: "number",
-    target_direction: "higher_is_better",
-    sort_order: 0,
-    ...overrides,
-  };
-}
-
-function kpi(
-  id: string,
-  description: string,
-  overrides: Record<string, unknown> = {}
-) {
-  return {
-    id,
-    description,
-    target: "5",
     value_type: "number",
     target_direction: "higher_is_better",
     sort_order: 0,
@@ -126,20 +110,29 @@ describe("getBoardData — critical success factors are plotted rows", () => {
     ]);
     seed("profiles", []);
     seed(`success_measures::${CSF_COLS}`, [
-      csf("c1", "Revenue growth", "f1"),
+      csf("c1", "Revenue growth", "f1", { sort_order: 0 }),
+      csf("c2", "Discovery calls booked", "f1", {
+        sort_order: 1,
+        target: "5",
+      }),
     ]);
-    seed("csf_kpi_links", [{ csf_id: "c1", kpi_id: "k1" }]);
-    seed(`success_measures::${KPI_COLS}`, [kpi("k1", "Discovery calls booked")]);
     seed("success_measure_entries", []);
   });
 
-  it("includes the CSF as a row, not only as a group label", async () => {
+  it("plots every measure the function has", async () => {
     const board = await getBoardData("co1", "America/Toronto");
     const names = board.functions[0].metrics.map((m) => m.description);
-    expect(names).toContain("Revenue growth");
+    expect(names).toEqual(["Revenue growth", "Discovery calls booked"]);
   });
 
-  it("puts the CSF above the KPIs that drive it", async () => {
+  it("orders rows by sort_order, not by the order they arrive", async () => {
+    // Seeded backwards on purpose. Nothing groups rows any more, so
+    // the only thing standing between a company and an arbitrary
+    // order is this sort.
+    seed(`success_measures::${CSF_COLS}`, [
+      csf("c2", "Discovery calls booked", "f1", { sort_order: 1 }),
+      csf("c1", "Revenue growth", "f1", { sort_order: 0 }),
+    ]);
     const board = await getBoardData("co1", "America/Toronto");
     expect(board.functions[0].metrics.map((m) => m.description)).toEqual([
       "Revenue growth",
@@ -147,71 +140,68 @@ describe("getBoardData — critical success factors are plotted rows", () => {
     ]);
   });
 
-  it("marks which kind each row is", async () => {
+  it("carries each measure's own target onto its row", async () => {
     const board = await getBoardData("co1", "America/Toronto");
-    expect(board.functions[0].metrics.map((m) => m.kind)).toEqual(["csf", "kpi"]);
+    const row = board.functions[0].metrics[0];
+    expect(row.target).toBe("90");
+    expect(row.targetNumeric).toBe(90);
   });
 
-  it("carries the CSF's own target onto its row", async () => {
-    const board = await getBoardData("co1", "America/Toronto");
-    const row = board.functions[0].metrics.find((m) => m.kind === "csf");
-    expect(row?.target).toBe("90");
-    expect(row?.targetNumeric).toBe(90);
-  });
-
-  it("groups the CSF under itself so it heads its own set", async () => {
-    const board = await getBoardData("co1", "America/Toronto");
-    const row = board.functions[0].metrics.find((m) => m.kind === "csf");
-    expect(row?.outcomeTitle).toBe("Revenue growth");
-  });
-
-  it("plots a CSF that has no KPIs beneath it yet", async () => {
-    // A function can name the result it owns before anyone has worked
-    // out the lead measures. That CSF still has to appear, or the
-    // board silently drops a function's only tracked number.
-    seed("csf_kpi_links", []);
-    seed(`success_measures::${KPI_COLS}`, []);
+  it("plots a measure with no target at all", async () => {
+    // Most rows on the fleet have none. A board that dropped them
+    // would hide most of a company's list.
+    seed(`success_measures::${CSF_COLS}`, [
+      csf("c1", "Zero lost time", "f1", { target: null }),
+    ]);
     const board = await getBoardData("co1", "America/Toronto");
     expect(board.functions[0].metrics.map((m) => m.description)).toEqual([
-      "Revenue growth",
+      "Zero lost time",
     ]);
+    expect(board.functions[0].metrics[0].targetNumeric).toBeNull();
   });
 
-  it("gives the CSF row a cell for every week on the board", async () => {
+  it("gives every row a cell for every week on the board", async () => {
     const board = await getBoardData("co1", "America/Toronto");
-    const row = board.functions[0].metrics.find((m) => m.kind === "csf");
-    expect(row?.cells).toHaveLength(13);
-    expect(row?.cells.at(-1)?.weekEnding).toBe(THIS_FRIDAY);
+    const row = board.functions[0].metrics[0];
+    expect(row.cells).toHaveLength(13);
+    expect(row.cells.at(-1)?.weekEnding).toBe(THIS_FRIDAY);
   });
 
-  it("reads a logged CSF value into its cell", async () => {
+  it("reads a logged value into its cell", async () => {
     seed("success_measure_entries", [
       { measure_id: "c1", week_ending: THIS_FRIDAY, value_number: 95, value_text: null },
     ]);
     const board = await getBoardData("co1", "America/Toronto");
-    const row = board.functions[0].metrics.find((m) => m.kind === "csf");
-    expect(row?.cells.at(-1)?.status).toBe("good");
-    expect(row?.cells.at(-1)?.numericValue).toBe(95);
+    const row = board.functions[0].metrics[0];
+    expect(row.cells.at(-1)?.status).toBe("good");
+    expect(row.cells.at(-1)?.numericValue).toBe(95);
+  });
+
+  it("no longer marks a row with a kind", async () => {
+    // The chip that read this is gone from CockpitGrid. If the field
+    // comes back, something has reintroduced a distinction the model
+    // does not have.
+    const board = await getBoardData("co1", "America/Toronto");
+    expect(board.functions[0].metrics[0]).not.toHaveProperty("kind");
+    expect(board.functions[0].metrics[0]).not.toHaveProperty("outcomeTitle");
   });
 });
 
-describe("getBoardData — several CSFs in one function", () => {
-  it("keeps each CSF with its own KPIs rather than interleaving them", async () => {
+describe("getBoardData — several measures in one function", () => {
+  it("keeps the company's own order across the whole list", async () => {
+    // This used to assert that each CSF stayed with its own KPIs
+    // rather than interleaving. There is nothing to interleave now,
+    // so what it guards is that 0216's renumbering is respected end
+    // to end rather than only within some group.
     seed("functions", [
       { id: "f1", title: "Ops", lead_id: null, parent_function_id: null, sort_order: 0 },
     ]);
     seed("profiles", []);
     seed(`success_measures::${CSF_COLS}`, [
       csf("c1", "On-time delivery", "f1", { sort_order: 0 }),
-      csf("c2", "Rework rate", "f1", { sort_order: 1 }),
-    ]);
-    seed("csf_kpi_links", [
-      { csf_id: "c1", kpi_id: "k1" },
-      { csf_id: "c2", kpi_id: "k2" },
-    ]);
-    seed(`success_measures::${KPI_COLS}`, [
-      kpi("k1", "Jobs scheduled a week out"),
-      kpi("k2", "Inspections passed first time"),
+      csf("k1", "Jobs scheduled a week out", "f1", { sort_order: 1 }),
+      csf("c2", "Rework rate", "f1", { sort_order: 2 }),
+      csf("k2", "Inspections passed first time", "f1", { sort_order: 3 }),
     ]);
     seed("success_measure_entries", []);
 
@@ -221,6 +211,27 @@ describe("getBoardData — several CSFs in one function", () => {
       "Jobs scheduled a week out",
       "Rework rate",
       "Inspections passed first time",
+    ]);
+  });
+
+  it("keeps each function's measures to that function", async () => {
+    seed("functions", [
+      { id: "f1", title: "Ops", lead_id: null, parent_function_id: null, sort_order: 0 },
+      { id: "f2", title: "Sales", lead_id: null, parent_function_id: null, sort_order: 1 },
+    ]);
+    seed("profiles", []);
+    seed(`success_measures::${CSF_COLS}`, [
+      csf("a", "Rework rate", "f1", { sort_order: 0 }),
+      csf("b", "Pipeline", "f2", { sort_order: 0 }),
+    ]);
+    seed("success_measure_entries", []);
+
+    const board = await getBoardData("co1", "America/Toronto");
+    expect(board.functions[0].metrics.map((m) => m.description)).toEqual([
+      "Rework rate",
+    ]);
+    expect(board.functions[1].metrics.map((m) => m.description)).toEqual([
+      "Pipeline",
     ]);
   });
 });

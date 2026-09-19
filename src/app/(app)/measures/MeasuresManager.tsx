@@ -7,7 +7,7 @@ import {
 } from "@/lib/measures/actions";
 import type {
   MeasureTreeFunction,
-  MeasureTreeMeasure,
+  MeasureTreeCsf,
 } from "@/lib/measures/service";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
 import { formatShortDate } from "@/lib/dates";
@@ -15,11 +15,16 @@ import styles from "../admin/companies/admin.module.css";
 import localStyles from "./measures.module.css";
 import { FunctionSection } from "./FunctionSection";
 
-// The /measures manager. One surface for both authoring (outcomes +
-// KPIs) and weekly logging, filtered by function and
-// outcome so the reader can find a row without a search. Filter
-// chips + tracking inputs disappear when the company doesn't have
-// performance_tracking on — the surface degrades to pure authoring.
+// The /measures manager. One surface for both authoring critical
+// success factors and logging the week, filtered by function so the
+// reader can find a row without a search. Filter chips and tracking
+// inputs disappear when the company doesn't have
+// performance_tracking on: the surface degrades to pure authoring.
+//
+// FLAT SINCE 0216. Every list here used to be built by walking a CSF
+// and then the KPIs beneath it, which is why so many of them read
+// `flatMap((o) => [o, ...o.measures])`. One kind, one level, one
+// map.
 
 export type MeasureStatus = "good" | "off" | "unlogged" | "no_target";
 
@@ -38,46 +43,28 @@ export function MeasuresManager({
   weekEnding,
   isAdmin,
   trackingEnabled,
-  rdEnabled,
 }: {
   functions: MeasureTreeFunction[];
   weekEnding: string;
   isAdmin: boolean;
   trackingEnabled: boolean;
-  rdEnabled: boolean;
 }) {
-  // Every measure with a value input on the page — the CSFs AND the
-  // KPIs beneath them. CSFs became measurable in phase 4 and got
-  // their own input on the card header; leaving them out of this list
-  // meant a leader could type a CSF value, press Save, and watch it
-  // vanish with no error.
-  // Every row the chips count and filter: critical success factors as
-  // well as their KPIs.
+  // Every row the chips count and filter.
   //
   // The chips used to count KPIs only, which put two different
-  // numbers for the same job side by side — "9 not yet logged" beside
+  // numbers for the same job side by side: "9 not yet logged" beside
   // "28 of 28 still to log". Both were arithmetically right over
   // different populations, which is exactly the shape of the
-  // follow-through bug on the companies page. One population now.
+  // follow-through bug on the companies page. One population now,
+  // and since 0216 only one population exists to get wrong.
   //
-  // A CSF's name lives in `title`; a measure row reads `description`.
-  // Mapped at the boundary so status and filtering see one shape.
+  // A CSF's name lives in `title`; status and filtering read
+  // `description`. Mapped at the boundary so both see one shape.
   const allMeasures = useMemo(
-    () =>
-      functions.flatMap((f) =>
-        f.outcomes.flatMap((o) => [
-          { ...o, description: o.title },
-          ...o.measures,
-        ])
-      ),
+    () => functions.flatMap((f) => f.csfs.map((c) => ({ ...c, description: c.title }))),
     [functions]
   );
 
-  // Everything with a value input on the page: the CSFs as well as
-  // their KPIs. CSFs became measurable in phase 4 and got their own
-  // input on the card header, and leaving them out of the save list
-  // meant a leader could type a CSF value, press Save, and watch it
-  // disappear with no error.
   // Only what this caller can actually write. A count that included
   // other people's functions would tell a reader they had six things
   // to do when they have none, and would never reach zero.
@@ -85,30 +72,18 @@ export function MeasuresManager({
     () =>
       functions
         .filter((f) => f.canLog)
-        .flatMap((f) =>
-          f.outcomes.flatMap((o) => [
-            o.id,
-            ...o.measures.map((m) => m.id),
-          ])
-        ),
+        .flatMap((f) => f.csfs.map((c) => c.id)),
     [functions]
   );
 
   const allEntryTargets = useMemo(
     () =>
       functions.flatMap((f) =>
-        f.outcomes.flatMap((o) => [
-          {
-            id: o.id,
-            value_type: o.value_type,
-            currentValue: o.currentValue,
-          },
-          ...o.measures.map((m) => ({
-            id: m.id,
-            value_type: m.value_type,
-            currentValue: m.currentValue,
-          })),
-        ])
+        f.csfs.map((c) => ({
+          id: c.id,
+          value_type: c.value_type,
+          currentValue: c.currentValue,
+        }))
       ),
     [functions]
   );
@@ -155,7 +130,7 @@ export function MeasuresManager({
   );
   const anyTargets = allMeasures.some((m) => !!m.target?.trim());
 
-  function isVisible(measure: MeasureTreeMeasure): boolean {
+  function isVisible(measure: MeasureTreeCsf & { description: string }): boolean {
     if (!trackingEnabled) return true;
     if (activeChips.size === 0) return true;
     return activeChips.has(computeStatus(measure));
@@ -174,27 +149,20 @@ export function MeasuresManager({
   //
   // This used to be a single page-level button. That implied one
   // person sits down and fills in the whole company, when in fact
-  // every function head manages their own critical success factors
-  // and the KPIs beneath them. A save control that spans other
-  // people's functions describes a workflow nobody actually follows.
+  // every function head manages their own critical success factors.
+  // A save control that spans other people's functions describes a
+  // workflow nobody actually follows.
   //
   // Admins and guides still see every function, so they can still
   // enter values on someone's behalf — they just do it one function
   // at a time, which is how the accountability actually sits.
   function saveFunction(fn: MeasureTreeFunction) {
     setMessage(null);
-    const entries: MeasureEntryInput[] = fn.outcomes.flatMap((o) => [
-      {
-        measureId: o.id,
-        valueType: o.value_type,
-        rawValue: values[o.id] ?? "",
-      },
-      ...o.measures.map((m) => ({
-        measureId: m.id,
-        valueType: m.value_type,
-        rawValue: values[m.id] ?? "",
-      })),
-    ]);
+    const entries: MeasureEntryInput[] = fn.csfs.map((c) => ({
+      measureId: c.id,
+      valueType: c.value_type,
+      rawValue: values[c.id] ?? "",
+    }));
     setSavingFunctionId(fn.id);
     startTransition(async () => {
       const result = await logMeasureEntriesAction(entries, weekEnding);
@@ -293,7 +261,6 @@ export function MeasuresManager({
           isAdmin={isAdmin}
           authoring={isAdmin}
           trackingEnabled={trackingEnabled}
-          rdEnabled={rdEnabled}
           weekEnding={weekEnding}
           onSave={() => saveFunction(fn)}
           saving={savingFunctionId === fn.id}
@@ -359,7 +326,18 @@ function FilterChip({
 
 // ---- Helpers -----------------------------------------------------
 
-export function computeStatus(measure: MeasureTreeMeasure): MeasureStatus {
+// Structural, not tied to the tree's shape. It takes the three
+// fields it reads, which is what lets ManagedMeasureRow call it on a
+// row and what kept it working when 0216 changed the row type
+// underneath it.
+export type StatusRow = {
+  value_type: MetricValueType;
+  target: string | null;
+  target_direction: TargetDirection;
+  currentValue: { number: number | null; text: string | null } | null;
+};
+
+export function computeStatus(measure: StatusRow): MeasureStatus {
   if (measure.currentValue == null) return "unlogged";
   if (!measure.target) return "no_target";
   return compareCellToTarget(
@@ -401,7 +379,7 @@ function parseTargetNumber(target: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function computeStats(measures: MeasureTreeMeasure[]) {
+function computeStats(measures: StatusRow[]) {
   let on = 0;
   let off = 0;
   let unlogged = 0;

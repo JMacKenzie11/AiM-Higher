@@ -1,5 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FunctionOutcome, SuccessMeasure } from "@/lib/types";
+import type { FunctionOutcome } from "@/lib/types";
 
 // The functional chart still talks about "outcomes". The database no
 // longer has them: migration 0166 turned every outcome into a
@@ -20,21 +19,26 @@ import type { FunctionOutcome, SuccessMeasure } from "@/lib/types";
 
 // The columns a CSF row needs for the mapping below. Kept as a
 // constant so a query and its cast can never disagree.
+// `target` rides along since 0216. With one level, a critical
+// success factor is the measurable thing, so anything rendering the
+// chart's outcomes — the role description most of all — needs the
+// number it is held to, and used to reach it through a KPI.
 export const CSF_AS_OUTCOME_COLUMNS =
-  "id, function_id, description, detail, sort_order, archived, created_at, updated_at";
+  "id, function_id, description, detail, target, sort_order, archived, created_at, updated_at";
 
 export type CsfRow = {
   id: string;
   function_id: string | null;
   description: string;
   detail: string | null;
+  target: string | null;
   sort_order: number;
   archived: boolean;
   created_at: string;
   updated_at: string;
 };
 
-export function csfAsOutcome(row: CsfRow): FunctionOutcome {
+export function csfAsOutcome(row: CsfRow): FunctionOutcome & { target: string | null } {
   return {
     id: row.id,
     // A CSF's function_id is set on every row 0166 wrote and every
@@ -43,6 +47,7 @@ export function csfAsOutcome(row: CsfRow): FunctionOutcome {
     function_id: row.function_id ?? "",
     title: row.description,
     description: row.detail,
+    target: row.target,
     sort_order: row.sort_order,
     archived: row.archived,
     created_at: row.created_at,
@@ -60,63 +65,4 @@ export function outcomeFieldsToCsf(fields: {
   if (fields.title !== undefined) patch.description = fields.title;
   if (fields.description !== undefined) patch.detail = fields.description;
   return patch;
-}
-
-// A measure carries no outcome_id since 0168. Which CSF a KPI drives
-// lives in `csf_kpi_links`, which is many-to-many by design even
-// though the UI allows one today. Callers that need the old
-// one-parent view take the first link.
-export function firstCsfIdByKpi(
-  links: Array<{ csf_id: string; kpi_id: string }>
-): Map<string, string> {
-  const byKpi = new Map<string, string>();
-  for (const link of links) {
-    if (!byKpi.has(link.kpi_id)) byKpi.set(link.kpi_id, link.csf_id);
-  }
-  return byKpi;
-}
-
-// Group KPIs under the CSF each one drives.
-export function kpisByCsf<T extends Pick<SuccessMeasure, "id">>(
-  measures: T[],
-  links: Array<{ csf_id: string; kpi_id: string }>
-): Map<string, T[]> {
-  const byCsf = new Map<string, T[]>();
-  const byId = new Map(measures.map((m) => [m.id, m]));
-  for (const link of links) {
-    const measure = byId.get(link.kpi_id);
-    if (!measure) continue;
-    const arr = byCsf.get(link.csf_id) ?? [];
-    arr.push(measure);
-    byCsf.set(link.csf_id, arr);
-  }
-  return byCsf;
-}
-
-// Archiving a critical success factor archives the lead measures
-// beneath it. Without this a KPI outlives the result it was there to
-// move: still collecting weekly values, still nagging its owner, no
-// longer attached to anything a leader looks at.
-//
-// One direction only. Restoring a CSF does not restore its KPIs,
-// because some of them were archived on purpose beforehand and
-// bringing those back would be a surprise.
-export async function cascadeArchiveKpis(
-  supabase: SupabaseClient,
-  csfId: string
-): Promise<number> {
-  const { data: links } = await supabase
-    .from("csf_kpi_links")
-    .select("kpi_id")
-    .eq("csf_id", csfId);
-  const kpiIds = ((links ?? []) as Array<{ kpi_id: string }>).map(
-    (l) => l.kpi_id
-  );
-  if (kpiIds.length === 0) return 0;
-
-  await supabase
-    .from("success_measures")
-    .update({ archived: true })
-    .in("id", kpiIds);
-  return kpiIds.length;
 }

@@ -2326,6 +2326,151 @@ export type WriteProbe = {
 };
 
 export const BATCHES: readonly Batch[] = [
+  // ---- 0216: two kinds become one ----------------------------
+  //
+  // Almost everything this migration does is a data move, and a data
+  // move has no policy to probe. What it has is a set of promises
+  // about which rows survive, and those are measurable: apply it
+  // inside the transaction, count, roll back.
+  //
+  // THE SHAPE OF EVERY PROBE HERE IS A DELTA, not an absolute. Each
+  // one counts a population that the migration MUST NOT change and
+  // asserts the same number before and after. A migration that
+  // archived a targeted row, or a row with a logged week, or the row
+  // the Benson sheet writes into, moves one of these numbers.
+  //
+  // That is what makes them real rather than decorative: the counts
+  // are non-zero going in, so "unchanged" is a measurement rather
+  // than the empty set agreeing with itself. The clone has 11
+  // archived rows carrying a target and 3 carrying entries before
+  // this runs, and both are still 11 and 3 afterwards.
+  //
+  // THESE NUMBERS TRACK THE CLONE and will move when it is
+  // refreshed. That is the standing trade-off for this harness: it
+  // is invoked by name, never in CI, and its output is pasted into
+  // the PR body.
+  {
+    n: "collapse-kpis",
+    tables: ["success_measures"],
+    migration: "0216_collapse_kpis_into_csfs.sql",
+    // Company is reached through the measure's function, as it has
+    // been since 0166. Without this the standard checks look for a
+    // company_id column that is deliberately not on this table.
+    indirectScope: {
+      success_measures: {
+        key: "id",
+        rows:
+          "select m.id as key, f.company_id from public.success_measures m " +
+          "join public.functions f on f.id = m.function_id",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        select
+          (select id from public.profiles
+            where role = 'system_admin' and status = 'active' limit 1) as sysadmin;`,
+      probes: [
+        // ---- The three clauses that spare a row -----------------
+        {
+          name: "archives nothing that carries a target",
+          caller: "sysadmin",
+          sql: `select count(*)::int as n from public.success_measures
+                 where archived and btrim(coalesce(target, '')) <> '';`,
+          expectBefore: "11",
+          expect: "11",
+        },
+        {
+          name: "archives nothing that has a logged week",
+          caller: "sysadmin",
+          sql: `select count(*)::int as n from public.success_measures m
+                 where m.archived
+                   and exists (select 1 from public.success_measure_entries e
+                                where e.measure_id = m.id);`,
+          expectBefore: "3",
+          expect: "3",
+        },
+        {
+          name: "archives nothing the sheet pull writes into",
+          caller: "sysadmin",
+          // Zero before and after, and the control for this zero is
+          // the probe below: something IS archived by this run, so a
+          // rule that archived everything would move this number.
+          sql: `select count(*)::int as n from public.success_measures
+                 where archived and external_source is not null;`,
+          expectBefore: "0",
+          expect: "0",
+        },
+        // ---- It does archive something --------------------------
+        {
+          name: "archives the statements a measure replaces",
+          caller: "sysadmin",
+          // 30 already archived, plus Geo-Sci 9, Meridian 9, B&B 6.
+          // Without this the three zeros above prove nothing.
+          sql: `select count(*)::int as n from public.success_measures where archived;`,
+          expectBefore: "30",
+          expect: "54",
+        },
+        // ---- Howard's guarantee ---------------------------------
+        {
+          name: "no function that had a measure is left with none",
+          caller: "sysadmin",
+          // The reason the rule was narrowed. Archiving every
+          // kind='csf' row would take this from 24 to 17: Howard
+          // Concrete Pumping's seven functions would all empty.
+          sql: `select count(*)::int as n from public.functions f
+                 where exists (select 1 from public.success_measures m
+                                where m.function_id = f.id and not m.archived);`,
+          expectBefore: "24",
+          expect: "24",
+        },
+        // ---- The structure -------------------------------------
+        {
+          name: "one ordering per function, with no collisions left",
+          caller: "sysadmin",
+          // 25 pairs of live measures share a (function, sort_order)
+          // before this runs, because the two kinds numbered
+          // independently. On a flat page that is an arbitrary order.
+          sql: `select count(*)::int as n from (
+                  select function_id, sort_order from public.success_measures
+                   where not archived and function_id is not null
+                   group by 1, 2 having count(*) > 1) t;`,
+          expectBefore: "25",
+          expect: "0",
+        },
+        {
+          name: "the kind column is gone",
+          caller: "sysadmin",
+          sql: `select count(*)::int as n from information_schema.columns
+                 where table_schema = 'public'
+                   and table_name = 'success_measures'
+                   and column_name = 'kind';`,
+          expectBefore: "1",
+          expect: "0",
+        },
+        {
+          name: "the link table is gone",
+          caller: "sysadmin",
+          sql: `select count(*)::int as n from information_schema.tables
+                 where table_schema = 'public' and table_name = 'csf_kpi_links';`,
+          expectBefore: "1",
+          expect: "0",
+        },
+        {
+          name: "the target history from 0215 is untouched",
+          caller: "sysadmin",
+          // Archiving and renumbering are both UPDATEs on
+          // success_measures, which now carries 0215's trigger. They
+          // change neither target nor value_type nor direction, so
+          // the trigger must return early. A migration that stamped
+          // 130 history rows with today's date would make the first
+          // day of that history a lie.
+          sql: `select count(*)::int as n from public.success_measure_targets;`,
+          expectBefore: "47",
+          expect: "47",
+        },
+      ],
+    },
+  },
   // ---- 0215: a target has a history --------------------------
   //
   // The claim is a trigger, not a policy, which changes what has to

@@ -85,8 +85,6 @@ vi.mock("@/lib/supabase/server", () => ({
 // Column lists the loader uses, so fixtures can be keyed exactly.
 const CSF_COLS =
   "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order";
-const KPI_COLS =
-  "id, description, target, value_type, target_direction, auto_track, update_frequency, target_hint, sort_order";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);
@@ -139,39 +137,62 @@ function outcome(
   };
 }
 
-// A measure is a KPI, reached through csf_kpi_links rather than a
-// parent column. seedMeasures below writes both the rows and links.
+// A measure is a critical success factor. `parent` used to name the
+// CSF it hung under; it now decides only where the row sorts, so a
+// test written against the old model keeps describing the same list
+// in the same order.
 function measure(
   id: string,
   description: string,
-  _outcome_id: string,
+  parent: string,
   overrides: Record<string, unknown> = {}
 ) {
   return {
     id,
     description,
+    detail: null,
     target: null,
     value_type: "number",
     target_direction: "higher_is_better",
     auto_track: true,
     update_frequency: "weekly",
     target_hint: null,
+    function_id: "f_1",
     sort_order: 0,
+    __parent: parent,
     ...overrides,
   };
 }
 
-// Seeds KPI rows and the links that attach them to their CSF, so a
-// test writes one call instead of remembering two tables.
+// Appends measures to the rows already seeded, placed after the row
+// they used to hang under.
+//
+// 0216 renumbered sort_order exactly this way, so what the tree
+// returns here is the order a real company sees. The second argument
+// is ignored: it named the links, and there are none.
 function seedMeasures(
   rows: Array<{ id: string } & Record<string, unknown>>,
-  linkPairs: Array<[string, string]>
+  _linkPairs: Array<[string, string]> = []
 ) {
-  seed(`success_measures::${KPI_COLS}`, rows);
-  seed(
-    "csf_kpi_links",
-    linkPairs.map(([csf_id, kpi_id]) => ({ csf_id, kpi_id }))
-  );
+  const key = `success_measures::${CSF_COLS}`;
+  const existing = (mocks.rows.get(key) ?? []) as Array<
+    Record<string, unknown>
+  >;
+  const placed = rows.map((row) => {
+    const { __parent, ...rest } = row as Record<string, unknown>;
+    const parent = existing.find((e) => e.id === __parent);
+    const base = ((parent?.sort_order as number) ?? 0) * 1000;
+    const offset = rows.filter((r) => r.__parent === __parent).indexOf(row) + 1;
+    return { ...rest, sort_order: base + offset };
+  });
+  const all = [
+    ...existing.map((e) => ({
+      ...e,
+      sort_order: ((e.sort_order as number) ?? 0) * 1000,
+    })),
+    ...placed,
+  ].sort((a, b) => (a.sort_order as number) - (b.sort_order as number));
+  seed(key, all);
 }
 
 function entry(
@@ -307,7 +328,7 @@ describe("getMeasuresTree — scoping", () => {
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
 
     expect(functions.map((f) => f.id)).toEqual(["f_1", "f_2"]);
-    expect(functions[0].outcomes).toEqual([]);
+    expect(functions[0].csfs).toEqual([]);
   });
 });
 
@@ -390,14 +411,14 @@ describe("getMeasuresTree — outcome and measure shaping", () => {
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
 
-    expect(functions[0].outcomes.map((o) => o.title)).toEqual([
+    expect(functions[0].csfs.map((o) => o.title)).toEqual([
       "Alpha",
       "Zulu",
       "Beta",
     ]);
   });
 
-  it("nests measures under their outcome and leaves outcomes with none empty", async () => {
+  it("places every measure in one flat list, in the company's order", async () => {
     seed(`success_measures::${CSF_COLS}`, [
       outcome("o_1", "Revenue", "f_1", 0),
       outcome("o_2", "Retention", "f_1", 1),
@@ -414,11 +435,18 @@ describe("getMeasuresTree — outcome and measure shaping", () => {
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
 
-    expect(functions[0].outcomes[0].measures.map((m) => m.id)).toEqual([
+    // Revenue first, then the two rows added under it, then
+    // Retention. That is exactly the order 0216's renumbering
+    // produces, and nothing nests.
+    expect(functions[0].csfs.map((c) => c.id)).toEqual([
+      "o_1",
       "m_1",
       "m_2",
+      "o_2",
     ]);
-    expect(functions[0].outcomes[1].measures).toEqual([]);
+    // A row that had nothing under it is just a row.
+    expect(functions[0].csfs.find((c) => c.id === "o_2")).toBeTruthy();
+    expect(functions[0].csfs[0]).not.toHaveProperty("measures");
   });
 
   it("carries every authoring field through to the shaped measure", async () => {
@@ -440,9 +468,14 @@ describe("getMeasuresTree — outcome and measure shaping", () => {
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
 
-    expect(functions[0].outcomes[0].measures[0]).toEqual({
+    // The row's name arrives in `title`. `description` is the longer
+    // detail text under it, which is the mapping this shape has
+    // carried since the outcome era and the one place a rename would
+    // silently blank a page.
+    expect(functions[0].csfs[1]).toEqual({
       id: "m_1",
-      description: "Closed won",
+      title: "Closed won",
+      description: null,
       target: "100",
       value_type: "percent",
       target_direction: "lower_is_better",
@@ -470,7 +503,7 @@ describe("getMeasuresTree — values and the five-week trail", () => {
     const { getMeasuresTree } = await import("./service");
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-    const m = functions[0].outcomes[0].measures[0];
+    const m = functions[0].csfs[1];
 
     expect(m.currentValue).toEqual({ number: 42, text: null });
     expect(m.recent).toHaveLength(2);
@@ -483,7 +516,7 @@ describe("getMeasuresTree — values and the five-week trail", () => {
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
 
-    expect(functions[0].outcomes[0].measures[0].currentValue).toBeNull();
+    expect(functions[0].csfs[1].currentValue).toBeNull();
   });
 
   it("carries text values as well as numbers", async () => {
@@ -492,7 +525,7 @@ describe("getMeasuresTree — values and the five-week trail", () => {
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
 
-    expect(functions[0].outcomes[0].measures[0].currentValue).toEqual({
+    expect(functions[0].csfs[1].currentValue).toEqual({
       number: null,
       text: "On track",
     });
@@ -542,7 +575,7 @@ describe("getMeasuresTree — values and the five-week trail", () => {
       true
     );
 
-    const recent = functions[0].outcomes[0].measures[0].recent;
+    const recent = functions[0].csfs[1].recent;
     expect(recent.map((r) => r.weekEnding)).toEqual([THIS_FRIDAY, OLDEST]);
   });
 
@@ -582,7 +615,7 @@ describe("getMeasuresTree — CSFs are measured (phase 4)", () => {
     const { getMeasuresTree } = await import("./service");
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-    const csf = functions[0].outcomes[0];
+    const csf = functions[0].csfs[0];
 
     expect(csf.title).toBe("On-time delivery");
     expect(csf.description).toBe("Why it matters");
@@ -605,8 +638,8 @@ describe("getMeasuresTree — CSFs are measured (phase 4)", () => {
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
 
-    expect(functions[0].outcomes[0].target).toBeNull();
-    expect(functions[0].outcomes[0].currentValue).toEqual({
+    expect(functions[0].csfs[0].target).toBeNull();
+    expect(functions[0].csfs[0].currentValue).toEqual({
       number: 94,
       text: null,
     });
@@ -626,9 +659,9 @@ describe("getMeasuresTree — CSFs are measured (phase 4)", () => {
     const { getMeasuresTree } = await import("./service");
 
     const { functions } = await getMeasuresTree("co_1", "u_1", "America/Anchorage", true);
-    const csf = functions[0].outcomes[0];
+    const csf = functions[0].csfs[0];
 
     expect(csf.currentValue?.number).toBe(94);
-    expect(csf.measures[0].currentValue?.number).toBe(5);
+    expect(functions[0].csfs[1].currentValue?.number).toBe(5);
   });
 });

@@ -56,11 +56,28 @@ vi.mock("@/lib/quarters/service", () => ({
 }));
 // Today is fixed so thisFriday and the overdue-open cutoff are
 // deterministic. 2026-09-14 is a Monday; that week ends Friday the 18th.
+//
+// THIS FRIDAY IS MOCKED TOO, and it has to be. Mocking only
+// todayInTimezone looks sufficient and is not: thisFriday calls
+// todayInTimezone from INSIDE the same module, so it reaches the real
+// implementation and the real clock no matter what the export is
+// replaced with.
+//
+// The test passed anyway, every day of the week this was written in,
+// because the hard-coded 2026-09-18 happened to be the real current
+// Friday. It went red on Saturday 2026-09-19 when the real clock
+// rolled to the next week. A test whose green depends on the day it
+// is run is not measuring the thing it names.
+//
+// The spy also lets the timezone claim actually be asserted, which is
+// what this file says it is checking and never was.
+const thisFridaySpy = vi.fn((_tz: string) => "2026-09-18");
 vi.mock("@/lib/dates", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/dates")>();
   return {
     ...actual,
     todayInTimezone: () => ({ iso: "2026-09-14", weekday: 1 }),
+    thisFriday: (tz: string) => thisFridaySpy(tz),
   };
 });
 
@@ -182,6 +199,10 @@ describe("loadPortfolioOverview", () => {
     const [card] = await loadPortfolioOverview();
 
     expect(card.weekEnding).toBe("2026-09-18");
+    // The actual claim: the company's zone was the one asked about.
+    // Asserting only the date above cannot tell a correct answer from
+    // one that read the server's clock and happened to agree.
+    expect(thisFridaySpy).toHaveBeenCalledWith("America/Anchorage");
   });
 
   it("degrades to no score when the scorecard compute throws", async () => {

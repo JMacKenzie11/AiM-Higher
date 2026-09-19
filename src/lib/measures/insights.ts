@@ -75,9 +75,11 @@ export async function getMeasureInsights(
   const functionTitleById = new Map(functions.map((f) => [f.id, f.title]));
 
 
-  // KPIs by function (migration 0166). function_id replaces the
-  // outcome hop, so the owning function comes back on the row itself
-  // instead of needing a lookup map.
+  // Every auto-tracked measure, by function. This read `kind = 'kpi'`
+  // until 0216, which meant the insights on the dashboard silently
+  // ignored every critical success factor a company was actually
+  // logging. One kind, one filter fewer, and the cards now cover the
+  // same rows the page does.
   const { data: measureRows } = await supabase
     .from("success_measures")
     .select(
@@ -87,7 +89,6 @@ export async function getMeasureInsights(
       "function_id",
       functions.map((f) => f.id)
     )
-    .eq("kind", "kpi")
     .eq("archived", false)
     .eq("auto_track", true);
   type Measure = {

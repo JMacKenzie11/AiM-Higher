@@ -80,14 +80,29 @@ const mocks = vi.hoisted(() => {
           measuresInsertPatch(patch);
           return { select: () => ({ single: measuresInsertSingle }) };
         },
-        select: () => ({
-          eq: () => ({
-            // measure lookup: .eq("id", …).maybeSingle()
-            maybeSingle: measuresJoinedMaybeSingle,
-            // CSF parent lookup: .eq("id", …).eq("kind","csf").maybeSingle()
-            eq: () => ({ maybeSingle: outcomesJoinedMaybeSingle }),
-          }),
-        }),
+        // ROUTED ON THE SELECT STRING, not on chain depth.
+        //
+        // These two lookups used to be told apart by how many .eq()
+        // calls followed: the parent lookup added .eq("kind","csf")
+        // and the measure lookup did not. 0216 removed the kind
+        // filter, both chains became one .eq deep, and every
+        // createMeasureAction test started resolving against the
+        // wrong mock and reporting "Couldn't find the function".
+        //
+        // The column lists differ and always have, so that is what
+        // distinguishes them. Chain shape was never the real
+        // difference, only a convenient proxy for it.
+        select: (cols?: string) => {
+          const target = String(cols ?? "").includes("function_id, functions")
+            ? outcomesJoinedMaybeSingle
+            : measuresJoinedMaybeSingle;
+          const node: Record<string, unknown> = {};
+          Object.assign(node, {
+            maybeSingle: target,
+            eq: () => node,
+          });
+          return { eq: () => node };
+        },
         update: (patch: unknown) => ({
           // Two shapes are live: the target-hint path chains
           // .select().single(), while the transition mirror just
@@ -372,7 +387,7 @@ describe("reorderFunctionsAction", () => {
 
     const res = await reorderFunctionsAction([]);
 
-    expect(res).toEqual({ ok: true });
+    expect(res.ok).toBe(true);
     expect(mocks.functionsUpdatePatch).not.toHaveBeenCalled();
   });
 
@@ -442,11 +457,20 @@ describe("createMeasureAction", () => {
     expect(mocks.measuresInsertPatch).not.toHaveBeenCalled();
   });
 
-  it("REQUIRES a target when the company has performance_tracking on", async () => {
-    // Contract: an untargetted measure under performance_tracking
-    // is silently ignored by the on-track/behind rollup. Making the
-    // target mandatory at the write path prevents that silent gap.
-    mocks.companyHasFeature.mockResolvedValueOnce(true);
+  it("does NOT require a target, even with performance_tracking on", async () => {
+    // THIS REVERSED IN 0216, deliberately.
+    //
+    // Creating a KPI demanded a target when the flag was on; creating
+    // a critical success factor never did, because a company may name
+    // the results it owns before it knows what good looks like. Those
+    // were two rules for two kinds, and there is one kind now.
+    //
+    // Taking the stricter rule instead would have locked Howard
+    // Concrete Pumping out of editing 20 of its 24 rows and Geo-Sci
+    // out of all 16, since none of those carry a target today. An
+    // empty Target column on the flat page is a better prompt than a
+    // refusal at the point of typing.
+    mocks.companyHasFeature.mockResolvedValue(true);
     const { createMeasureAction } = await import("./actions");
 
     const res = await createMeasureAction(
@@ -458,15 +482,13 @@ describe("createMeasureAction", () => {
       })
     );
 
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/every measure needs a target/);
-    expect(mocks.measuresInsertPatch).not.toHaveBeenCalled();
+    expect(res.ok).toBe(true);
+    expect(mocks.measuresInsertPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ target: null })
+    );
   });
 
-  it("allows an untargetted measure when performance_tracking is OFF", async () => {
-    // Same call, but flag off → allowed. Regression-guards the flag
-    // check itself: if the check accidentally becomes always-on, this
-    // test flips red.
+  it("adds the measure to the function, with no kind and no link", async () => {
     mocks.companyHasFeature.mockResolvedValue(false);
     const { createMeasureAction } = await import("./actions");
 
@@ -479,30 +501,29 @@ describe("createMeasureAction", () => {
     );
 
     expect(res.ok).toBe(true);
-    // The parent moved off the row and onto the link table in 0168,
-    // so the measure carries its function and its kind, and the
-    // pairing is asserted separately below.
+    // The row lands on the function, and that is the whole filing.
+    // It used to carry a kind and then a link row naming the CSF it
+    // drove; neither exists since 0216.
     expect(mocks.measuresInsertPatch).toHaveBeenCalledWith(
       expect.objectContaining({
         function_id: "fn_1",
-        kind: "kpi",
         description: "% on-time delivery",
         target: null,
       })
     );
-    // Which CSF it drives. Without the link the measure exists but
-    // hangs off nothing, and no read path finds it.
-    expect(mocks.linkUpsertPayload).toHaveBeenCalledWith(
-      expect.objectContaining({ csf_id: "o_1", kpi_id: "m_new" })
-    );
+    const patch = mocks.measuresInsertPatch.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(patch).not.toHaveProperty("kind");
+    expect(mocks.linkUpsertPayload).not.toHaveBeenCalled();
   });
 
-  it("refuses when the parent critical success factor can't be resolved", async () => {
-    // A stale id, an archived CSF, or a row RLS will not show this
-    // caller. Since migration 0168 function_id is NOT NULL, so
-    // carrying on would fail on the constraint and surface as the
-    // generic "Couldn't add that measure", which says nothing about
-    // what actually went wrong.
+  it("refuses when the function can't be resolved", async () => {
+    // A stale id, an archived row, or one RLS will not show this
+    // caller. function_id is NOT NULL, so carrying on would fail on
+    // the constraint and surface as the generic "Couldn't add that
+    // measure", which says nothing about what went wrong.
     mocks.outcomesJoinedMaybeSingle.mockResolvedValueOnce({
       data: null,
       error: null,
@@ -515,18 +536,17 @@ describe("createMeasureAction", () => {
     );
 
     expect(res.ok).toBe(false);
-    expect(res.ok === false && res.message).toMatch(
-      /critical success factor/i
-    );
+    expect(res.ok === false && res.message).toMatch(/function/i);
     // And nothing was written.
     expect(mocks.measuresInsertPatch).not.toHaveBeenCalled();
   });
 
-  it("removes the measure when its link can't be written", async () => {
-    // Every read path finds a KPI through csf_kpi_links. A measure
-    // with no link is invisible, so the leader who just created it
-    // sees no new row and adds it again. Leaving that behind is
-    // worse than failing the create.
+  it("no longer writes, or compensates for, a link row", async () => {
+    // There was a compensating delete here: a KPI whose link failed
+    // to write was invisible to every read path, so it was removed
+    // rather than left behind. With no link table there is nothing to
+    // fail and nothing to undo, and a create that still deleted its
+    // own row would be a silent data-loss path.
     mocks.linkInsertResult.mockReturnValueOnce({
       data: null,
       error: { message: "link failed" },
@@ -538,8 +558,8 @@ describe("createMeasureAction", () => {
       formDataFrom({ outcome_id: "o_1", description: "Calls booked" })
     );
 
-    expect(res.ok).toBe(false);
-    expect(mocks.measuresDeleteEq).toHaveBeenCalledWith("id", "m_new");
+    expect(res.ok).toBe(true);
+    expect(mocks.measuresDeleteEq).not.toHaveBeenCalled();
   });
 
   it("defaults an unknown value_type to 'number' and unknown direction to 'higher_is_better'", async () => {

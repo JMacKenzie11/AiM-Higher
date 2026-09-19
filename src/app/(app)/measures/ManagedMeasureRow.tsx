@@ -19,7 +19,7 @@ import { FREQUENCY_LABELS } from "@/lib/measures/frequency";
 import { ruleBasedCritique } from "@/lib/measures/critique-rules";
 import { shouldCritiqueOnBlur } from "@/lib/measures/critique-blur";
 import type { MeasureCritique } from "@/lib/measures/critique-rules";
-import type { MeasureTreeMeasure } from "@/lib/measures/service";
+import type { MeasureRow } from "@/lib/measures/service";
 import type {
   MetricValueType,
   SuccessMeasure,
@@ -51,11 +51,10 @@ export function ManagedMeasureRow({
   authoring,
   trackingEnabled,
   weekEnding,
-  kind = "kpi",
   archiveSlot,
   canLog,
 }: {
-  measure: MeasureTreeMeasure;
+  measure: MeasureRow;
   outcomeTitle: string;
   outcomeDescription: string | null;
   value: string;
@@ -67,15 +66,10 @@ export function ManagedMeasureRow({
   authoring: boolean;
   trackingEnabled: boolean;
   weekEnding: string;
-  // Critical success factors are measures too, and their settings
-  // (target, value type, direction, how often to update) are the
-  // same set. Rendering both kinds through this row means neither
-  // can quietly end up with a control the other has.
-  kind?: "csf" | "kpi";
-  // Archiving a critical success factor cascades to the KPIs beneath
-  // it, so it is a different action with a different consequence from
-  // archiving one measure. The caller supplies the right control
-  // rather than this row guessing from `kind`.
+  // The row rendered one of two kinds until 0216 and branched on
+  // which. There is one kind now, so the branches are gone and every
+  // row gets the same controls by construction rather than by two
+  // code paths being kept in step.
   archiveSlot?: ReactNode;
   // Whether this caller can write a value here. Read-only is not a
   // disabled input: a greyed-out box is a tease and leaves a dead
@@ -95,7 +89,6 @@ export function ManagedMeasureRow({
           outcomeDescription={outcomeDescription}
           trackingEnabled={trackingEnabled}
           onDone={() => setEditing(false)}
-          kind={kind}
         />
       </div>
     );
@@ -110,26 +103,13 @@ export function ManagedMeasureRow({
       }
       role="row"
     >
-      <div
-        className={
-          kind === "kpi"
-            ? `${styles.measureCellTitle} ${styles.measureCellTitleKpi}`
-            : styles.measureCellTitle
-        }
-        role="cell"
-      >
-        {kind === "csf" ? (
-          <span className={styles.measureCsfEyebrow}>
-            Critical Success Factor
-          </span>
-        ) : null}
-        <span
-          className={
-            kind === "csf" ? styles.measureCsfName : styles.measureTitleText
-          }
-        >
-          {measure.description}
-        </span>
+      <div className={styles.measureCellTitle} role="cell">
+        {/* No "Critical Success Factor" eyebrow. It distinguished this
+            row from the KPI rows indented beneath it, and since 0216
+            every row on the page is one, so the eyebrow would repeat
+            on all of them and label nothing. The page heading says
+            what these are. */}
+        <span className={styles.measureCsfName}>{measure.description}</span>
         {trackingEnabled && measure.update_frequency &&
         measure.update_frequency !== "weekly" ? (
           <span className={styles.measureFreq}>
@@ -203,7 +183,7 @@ export function ManagedMeasureRow({
             className={styles.iconEditButton}
             onClick={() => setEditing(true)}
             aria-label={
-              kind === "kpi" ? "Edit this KPI" : "Edit this critical success factor"
+              "Edit this critical success factor"
             }
             title="Edit"
           >
@@ -218,11 +198,7 @@ export function ManagedMeasureRow({
               />
             </svg>
           </button>
-          {kind === "kpi" ? (
-            <ArchiveMeasureButton measureId={measure.id} />
-          ) : (
-            archiveSlot
-          )}
+          {archiveSlot ?? <ArchiveMeasureButton measureId={measure.id} />}
           </>
         ) : null}
       </div>
@@ -250,7 +226,7 @@ function TrendPills({
   measure,
   weekEnding,
 }: {
-  measure: MeasureTreeMeasure;
+  measure: MeasureRow;
   weekEnding: string;
 }) {
   const rows = measure.recent
@@ -302,16 +278,12 @@ function EditMeasureForm({
   outcomeDescription,
   trackingEnabled,
   onDone,
-  kind,
 }: {
-  measure: MeasureTreeMeasure;
+  measure: MeasureRow;
   outcomeTitle: string;
   outcomeDescription: string | null;
   trackingEnabled: boolean;
   onDone: () => void;
-  // Same form for both kinds, so its labels have to say which one is
-  // open rather than name a level that no longer exists.
-  kind: "csf" | "kpi";
 }) {
   const [state, formAction, pending] = useActionState<
     ChartResult<SuccessMeasure>,
@@ -411,7 +383,7 @@ function EditMeasureForm({
         className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
       >
         <span className={chartStyles.formLabel}>
-          {kind === "csf" ? "Critical success factor" : "Key performance indicator"}
+          Critical success factor
         </span>
         <input
           className={chartStyles.formInput}
@@ -537,7 +509,7 @@ function EditMeasureForm({
           {shownHints.descriptionHint ? (
             <p className={chartStyles.critiqueLine}>
               <span className={chartStyles.critiqueLabel}>
-                {kind === "csf" ? "Factor" : "KPI"}
+                Factor
               </span>{" "}
               {shownHints.descriptionHint}
             </p>
