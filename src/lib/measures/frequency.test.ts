@@ -31,13 +31,46 @@ describe("isDueForWeek", () => {
     expect(due("2026-09-25")).toBe(false);
   });
 
-  it("says roughly every fourth week for a monthly measure", () => {
+  it("expects a monthly measure in its month's LAST week", () => {
+    // Changed from "every fourth Friday after the anchor". That kept
+    // the rhythm on Fridays and drifted off the calendar, so a
+    // monthly number landed in the second week of some months and the
+    // third of others. Monthly numbers close with the month.
     const due = (f: string) =>
       isDueForWeek({ frequency: "monthly", weekEndingFriday: f, anchorFriday: ANCHOR });
-    expect(due("2026-09-04")).toBe(true);
+    // September 2026 has Fridays on the 4th, 11th, 18th and 25th.
+    expect(due("2026-09-04")).toBe(false);
     expect(due("2026-09-11")).toBe(false);
-    expect(due("2026-09-25")).toBe(false);
-    expect(due("2026-10-02")).toBe(true);
+    expect(due("2026-09-18")).toBe(false);
+    expect(due("2026-09-25")).toBe(true);
+    // October's last Friday is the 30th.
+    expect(due("2026-10-02")).toBe(false);
+    expect(due("2026-10-30")).toBe(true);
+  });
+
+  it("handles a month with five Fridays", () => {
+    // January 2027: Fridays on the 1st, 8th, 15th, 22nd and 29th.
+    // A fixed four-week rhythm skips one of these every time it
+    // happens; the calendar rule cannot.
+    const due = (f: string) =>
+      isDueForWeek({
+        frequency: "monthly",
+        weekEndingFriday: f,
+        anchorFriday: "2026-01-02",
+      });
+    expect(due("2027-01-22")).toBe(false);
+    expect(due("2027-01-29")).toBe(true);
+    expect(due("2027-02-05")).toBe(false);
+  });
+
+  it("expects nothing before the measure existed", () => {
+    expect(
+      isDueForWeek({
+        frequency: "monthly",
+        weekEndingFriday: "2026-08-28",
+        anchorFriday: "2026-09-04",
+      })
+    ).toBe(false);
   });
 
   it("is anchored to the measure, not the calendar", () => {

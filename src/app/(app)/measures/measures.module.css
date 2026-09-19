@@ -880,3 +880,531 @@
   grid-column: 1 / -1;
   align-items: flex-start;
 }
+
+/* ---- The six-month grid ------------------------------------- */
+/*
+   A real table, not the CSS grid above it, because the column count
+   changes as months open and close. Rows stay aligned through
+   colspan, and the first three columns pin with position: sticky
+   while the weeks scroll under them.
+*/
+
+.gridStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* A card, like every other first child of PageShell. Its .content
+     wrapper pulls up 32px into the hero, so anything without a
+     surface of its own renders its text onto the dark gradient: the
+     save button was invisible there. */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+
+.gridToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+/* The only thing on the page that scrolls sideways. The body must
+   never, which is why this is its own container. */
+.gridScroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  /* FIXED, so the widths in the colgroup are honoured exactly. Under
+     `auto` the browser sizes each column to its content, the real
+     widths drift from the declared ones, and every sticky `left`
+     offset lands a few pixels out: the pinned block shivered as the
+     weeks scrolled under it. */
+  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
+  font: var(--text-body-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.grid th,
+.grid td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+/* THE HEADER BAND IS THE NAV BAR'S BLUE.
+ 
+   The nav rail and the hero both carry --grad-brand, a navy-to-indigo
+   gradient. It cannot be used directly here: a background on a table
+   cell restarts inside every cell, so a 135deg gradient across a
+   header of twenty of them stripes rather than sweeps.
+ 
+   So this is that gradient's own middle stop, #2A4478, as a solid.
+   It is the colour the rail reads as beside this table, which is what
+   makes them look like one surface. The first attempt used the
+   gradient's START, #1F3352, which is darker than anything visible on
+   the rail and read as a third blue. */
+.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #2a4478;
+  border-bottom: none;
+  font: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--aims-white) 82%, transparent);
+  white-space: nowrap;
+}
+
+/* The pinned header cells are sticky in both axes, so they need the
+   band's colour too or they read as a hole in it. */
+.grid thead .gridPin {
+  background: #2a4478;
+}
+
+.grid thead tr:last-child th {
+  box-shadow: inset 0 -2px 0 0 var(--aims-chartreuse);
+}
+
+/* The pinned columns. Widths are explicit because sticky offsets
+   have to be, and a name column that resizes with content would slide
+   the two beside it. */
+.gridPin {
+  position: sticky;
+  z-index: 3;
+  background: var(--surface);
+}
+
+.grid thead .gridPin {
+  z-index: 4;
+}
+
+/* FIVE PINNED COLUMNS, and their `left` offsets are cumulative sums
+   of the widths above them, kept in step by hand. Frequency and
+   Target are pinned because Target is the column this page exists
+   for: it scrolled out of view with the weeks in the first cut, and
+   a grid of numbers with the target off-screen is a grid of numbers
+   you cannot read. */
+.gridPinArea {
+}
+
+.gridPinOwner {
+}
+
+.gridPinActions {
+}
+
+.gridPinName {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  border-right: 1px solid var(--border);
+}
+
+.gridPinFreq {
+}
+
+.gridPinTarget {
+  border-right: 1px solid var(--border-strong);
+}
+
+.gridFreqCell {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.gridTargetCell {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gridAreaCell {
+  font: var(--text-body-sm);
+  font-weight: 600;
+  vertical-align: top;
+  border-right: 1px solid var(--border);
+  /* A chartreuse rail down each functional area, the same accent the
+     sidebar slides in on hover. It is what tells one group from the
+     next once the names stop repeating. */
+  box-shadow: inset 3px 0 0 0 var(--aims-chartreuse);
+  padding-left: var(--space-4);
+}
+
+/* The first row of each group gets the heavier rule, so the table
+   reads as a stack of functions rather than a wall of rows. */
+.gridGroupStart > * {
+  border-top: 1px solid var(--border-strong);
+}
+
+.grid tbody tr:hover .gridPin {
+  background: var(--aims-navy-tint);
+}
+
+.grid tbody tr:hover > td:not(.gridPin) {
+  background: color-mix(in srgb, var(--aims-navy) 3%, transparent);
+}
+
+.gridOwnerCell {
+  color: var(--text-muted);
+  border-right: 1px solid var(--border);
+}
+
+.gridNoOwner,
+.gridNoTarget {
+  color: var(--text-faint);
+}
+
+.gridNameCell {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.gridRowActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-2);
+}
+
+.gridEditLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary);
+  font: var(--text-body-xs);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.gridFreq,
+.gridTarget {
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.gridTarget {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.gridDir {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+/* ---- Month headers ------------------------------------------ */
+
+.gridMonthOpen,
+.gridMonthClosed {
+  text-align: center;
+  border-left: 1px solid var(--border-strong);
+}
+
+.gridMonthClosed {
+  width: 44px;
+  min-width: 44px;
+  vertical-align: middle;
+}
+
+.gridMonthButton {
+  background: none;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-muted);
+  font: var(--text-label);
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+}
+
+.gridMonthButton {
+  color: color-mix(in srgb, var(--aims-white) 82%, transparent);
+}
+
+.gridMonthButton:hover {
+  color: var(--aims-white);
+  background: color-mix(in srgb, var(--aims-white) 14%, transparent);
+}
+
+.gridMonthOpen,
+.gridMonthClosed {
+  border-left: 1px solid color-mix(in srgb, var(--aims-white) 20%, transparent);
+}
+
+.gridWeekHead {
+  color: color-mix(in srgb, var(--aims-white) 64%, transparent);
+}
+
+.gridMonthClosed .gridMonthButton {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.gridWeekHead {
+  text-align: center;
+  min-width: 44px;
+  color: var(--text-faint);
+}
+
+/* ---- Cells --------------------------------------------------- */
+
+/* 76px, and the number is a compromise between two asks that pull
+   against each other.
+ 
+   Wider columns push the earlier months out of sight, which is what
+   was wanted. Too wide and the current month stops fitting the track:
+   the pinned block is 747px of a card capped at 1160, leaving about
+   320px for weeks, so a four-Friday month gets 80px a column before
+   this week falls off the right-hand edge. 96px did exactly that, and
+   the column you type in was the one that went.
+ 
+   76px fits four columns with room to spare, leaves five Fridays
+   scrollable, and pushes all but a sliver of the previous month off.
+   Showing the week you have to fill in wins over the last 16px. */
+.gridCell {
+  text-align: center;
+  vertical-align: middle;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+/* THIS WEEK, marked. It is the only column that takes a value, and
+   on a grid 26 columns wide the eye needs telling where that is. */
+.gridCellCurrent {
+  background: var(--aims-chartreuse-tint);
+}
+
+/* This week's column head. Chartreuse reads well on the dark band,
+   and it is the accent the rest of the app uses to mark the thing you
+   are meant to act on. */
+.gridWeekHeadCurrent {
+  color: var(--aims-chartreuse);
+  font-weight: 700;
+}
+
+.gridCell_good {
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+  font-weight: 600;
+}
+
+.gridCell_off {
+  background: var(--aims-danger-tint);
+  color: var(--aims-danger);
+  font-weight: 600;
+}
+
+/* Unlogged carries no fill. A week nobody has got to yet is the
+   normal state of the right-hand edge of this table, and colouring
+   it makes an ordinary Monday look like a problem. */
+.gridCell_unlogged {
+  color: var(--text-faint);
+}
+
+.gridCell_no_target {
+  color: var(--text);
+}
+
+/* Not due. No dash, no dot, no tint: a monthly row is blank three
+   weeks in four and any mark here reads as a week somebody skipped. */
+.gridNotDue {
+  background: color-mix(in srgb, var(--border) 18%, transparent);
+}
+
+.gridClosedCell {
+  width: 44px;
+  min-width: 44px;
+  background: color-mix(in srgb, var(--border) 10%, transparent);
+  border-left: 1px solid var(--border-strong);
+}
+
+/* Where the target moved. A step in a trend gets a stated reason
+   rather than looking like the data changed. */
+.gridCellTargetMoved {
+  border-left: 2px solid var(--aims-warning);
+}
+
+.gridEmpty::after {
+  content: "·";
+  color: var(--text-faint);
+}
+
+.gridInput {
+  width: 100%;
+  box-sizing: border-box;
+  /* No min-width. The cell is 76px with padding either side, and a
+     floor wider than what is left pushed the box past the cell's
+     right edge, where the card clipped it. */
+  min-width: 0;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.gridInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+
+
+
+/* ---- Actions, in their own column ---------------------------- */
+
+.gridActionsCell {
+  white-space: nowrap;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+.gridIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition:
+    color 200ms var(--ease-out),
+    background 200ms var(--ease-out),
+    border-color 200ms var(--ease-out);
+}
+
+.gridIconButton:hover {
+  color: var(--aims-navy);
+  background: var(--aims-navy-tint);
+  border-color: var(--border);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- The settings drawer ------------------------------------- */
+/*
+   Off to the side rather than inline under the row, for two reasons.
+   The table stays readable while you change a target, and nothing
+   above the buttons can grow: the form's critique panel now sits
+   below them and this footer is pinned as well, so the click-eating
+   that made Cancel need two presses cannot come back by either route.
+*/
+
+/* Above the sidebar, which sits at 30 with a 40 on its mobile
+   drawer. A scrim underneath the navigation dims the table and
+   leaves the rail bright, which reads as a rendering fault rather
+   than a focused panel. */
+.drawerScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--aims-navy) 28%, transparent);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  width: min(560px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+}
+
+.drawerHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--grad-brand);
+  color: var(--aims-white);
+}
+
+.drawerEyebrow {
+  margin: 0 0 var(--space-1);
+  font: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--aims-chartreuse);
+}
+
+.drawerTitle {
+  margin: 0;
+  font: var(--text-h4);
+  color: var(--aims-white);
+  text-wrap: balance;
+}
+
+.drawerClose {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid color-mix(in srgb, var(--aims-white) 32%, transparent);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--aims-white);
+  cursor: pointer;
+}
+
+.drawerClose:hover {
+  background: color-mix(in srgb, var(--aims-white) 14%, transparent);
+}
+
+.drawerBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+
+/* Pinned to the bottom of the drawer, and pushed there by
+   margin-top when the form is shorter than the panel. Between this
+   and the critique panel moving below it, there is no path left by
+   which a button moves out from under a pointer mid-click. */
+.formFooter {
+  position: sticky;
+  bottom: calc(-1 * var(--space-5));
+  margin-top: auto;
+  padding: var(--space-4) 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}

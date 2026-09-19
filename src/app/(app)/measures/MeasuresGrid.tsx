@@ -1,0 +1,715 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
+import {
+  logMeasureEntriesAction,
+  type MeasureEntryInput,
+} from "@/lib/measures/actions";
+import type { GridData, GridRow } from "@/lib/measures/grid";
+import { EditMeasureForm, ArchiveMeasureButton } from "./EditMeasureForm";
+import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
+import { PencilIcon } from "@/components/ui/PencilIcon";
+import { formatShortDate } from "@/lib/dates";
+import uiStyles from "@/components/ui/ui.module.css";
+import styles from "./measures.module.css";
+
+// The /measures grid.
+//
+// Functional Area | Owner | Critical Success Factor | Frequency |
+// Target | one column per week, six months of them.
+//
+// ---- WHY A TABLE AND NOT THE CSS GRID THAT WAS HERE ----------
+//
+// The page was a CSS grid with `display: contents` rows, which places
+// every cell against the parent's tracks. That works when the column
+// count is fixed. Here it is not: a month collapses to one column and
+// expands to four or five, so the track list changes as you click.
+//
+// A table does the two things that then matter for free: rows stay
+// aligned however many cells a header spans, and the first columns
+// pin with `position: sticky` while the weeks scroll under them. The
+// old grid needed a test to catch a row emitting the wrong number of
+// cells (grid-alignment.test.ts); colspan is checked by the browser.
+//
+// ---- MONTH STATE IS REACT'S, AND THAT IS SAFE HERE -----------
+//
+// The plan toolbar keeps its panels as native <details> because React
+// state there discarded an in-flight router.refresh() and a created
+// row never appeared. Nothing here is a form submission: opening a
+// month is local, and the save below goes through useTransition,
+// which preserves this component's state across the refresh.
+//
+// ---- SETTINGS OPEN IN A DRAWER, NOT IN THE TABLE -------------
+//
+// They opened in a full-width row beneath the measure, and that row
+// had a bug with a long history: Cancel needed clicking twice.
+//
+// The critique panel sits ABOVE the button row, so anything that
+// makes it grow between mousedown and mouseup moves the buttons out
+// from under the pointer and the click never lands.
+// `shouldCritiqueOnBlur` was written to stop that by skipping the
+// critique when focus moves to a button, and it does not always get
+// the chance: a browser that does not focus a button on mousedown
+// reports `relatedTarget` as null, which is an ordinary blur as far
+// as that guard can tell.
+//
+// critique-blur.ts said as much when it was written: "this fixes the
+// trigger, not the underlying fragility... the durable fix is for the
+// critique panel to not occupy layout above the action row." This is
+// that fix. The drawer scrolls its own body and pins Save and Cancel
+// in a footer, so the panel can grow to any height and the buttons do
+// not move a pixel.
+//
+// ---- THIS WEEK IS THE ONLY EDITABLE COLUMN -------------------
+//
+// Deliberate, and a departure from a real spreadsheet. The save
+// action takes one week_ending, and a grid where any of 26 cells is
+// editable invites somebody to correct a number from April with no
+// record that it was corrected. Past weeks are read-only here;
+// fixing one is a conversation, not a keystroke.
+
+// THE PINNED COLUMNS' WIDTHS.
+//
+// Applied through a <colgroup> on a `table-layout: fixed` table, so
+// the browser sizes the columns from these rather than from their
+// content.
+//
+// THE STICKY OFFSETS ARE NOT COMPUTED FROM THEM. That was the second
+// attempt and it was still wrong by a few pixels per column: cell
+// borders sit outside the column width the colgroup declares, so the
+// running sum of these numbers is not where the next column actually
+// starts. The pinned block drifted as the weeks scrolled under it,
+// by one pixel at Owner and thirty by Target.
+//
+// So the offsets are MEASURED from the rendered header, once, in the
+// same frame that sizes the weeks. Whatever borders and padding
+// actually do, the sticky positions agree with them by construction.
+const PINNED: ReadonlyArray<{ key: string; width: number }> = [
+  { key: "area", width: 150 },
+  { key: "owner", width: 100 },
+  { key: "actions", width: 64 },
+  { key: "name", width: 240 },
+  { key: "freq", width: 96 },
+  { key: "target", width: 84 },
+];
+
+function pinnedColumns(authoring: boolean) {
+  return PINNED.filter((c) => authoring || c.key !== "actions");
+}
+
+// A collapsed month is one narrow column; a week is sized on mount to
+// fill whatever is left, so the open month lands exactly against the
+// pinned block.
+const CLOSED_MONTH_WIDTH = 44;
+const MIN_WEEK_WIDTH = 60;
+
+export function MeasuresGrid({
+  data,
+  weekEnding,
+  authoring,
+  trackingEnabled,
+}: {
+  data: GridData;
+  weekEnding: string;
+  authoring: boolean;
+  trackingEnabled: boolean;
+}) {
+  // Open on the current month, with the rest closed. Six months of
+  // Fridays is 26 columns and nobody needs 26 at once; the week you
+  // are filling in should be on screen without scrolling to it.
+  const [openMonths, setOpenMonths] = useState<Set<string>>(
+    () => new Set(data.months.filter((m) => m.isCurrent).map((m) => m.key))
+  );
+
+  const writableRows = useMemo(
+    () =>
+      data.groups
+        .filter((g) => g.canLog)
+        .flatMap((g) => g.rows.filter((r) => isDueThisWeek(r, weekEnding))),
+    [data.groups, weekEnding]
+  );
+
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      data.groups.flatMap((g) =>
+        g.rows.map((r) => [r.id, currentValueOf(r, weekEnding)])
+      )
+    )
+  );
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
+  // Which measure's settings are open in the drawer. One at a time,
+  // by construction: it is one drawer.
+  const [editing, setEditing] = useState<string | null>(null);
+  const editingRow = useMemo(
+    () =>
+      data.groups.flatMap((g) => g.rows).find((r) => r.id === editing) ?? null,
+    [data.groups, editing]
+  );
+
+  // Escape closes it, like every other dismissible surface in the
+  // app. The drawer traps nothing else: the table behind it stays
+  // readable, which is the point of a drawer over a modal here.
+  useEffect(() => {
+    if (!editing) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setEditing(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [editing]);
+
+  // Open with the CURRENT MONTH against the pinned columns, and
+  // every earlier month scrolled off to the left.
+  //
+  // Scrolling to the far right is not the same thing and was the
+  // first attempt: it puts this week on screen but leaves two or
+  // three collapsed months sitting between the measure names and the
+  // weeks, which is exactly the history the collapse was supposed to
+  // get out of the way.
+  //
+  // Measured from the rendered element rather than summed from the
+  // pinned widths in CSS. Those widths are already duplicated between
+  // the stylesheet and a test; a third copy here would be the one
+  // that goes stale.
+  const outstanding = writableRows.filter(
+    (r) => !(values[r.id] ?? "").trim()
+  ).length;
+
+  function toggleMonth(key: string) {
+    setOpenMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function save() {
+    setMessage(null);
+    const entries: MeasureEntryInput[] = writableRows.map((r) => ({
+      measureId: r.id,
+      valueType: r.valueType,
+      rawValue: values[r.id] ?? "",
+    }));
+    startTransition(async () => {
+      const result = await logMeasureEntriesAction(entries, weekEnding);
+      if (result.ok) {
+        setMessage({
+          ok: true,
+          text:
+            result.savedCount === 0
+              ? "Nothing to save. Enter values first."
+              : `Saved ${result.savedCount} value${result.savedCount === 1 ? "" : "s"}.`,
+        });
+      } else {
+        setMessage({ ok: false, text: result.message });
+      }
+    });
+  }
+
+  // Every column the body has to emit, in order, so a row and the
+  // header cannot disagree about how many cells there are.
+  type Column =
+    | { kind: "week"; key: string; month: string }
+    | { kind: "month"; key: string; month: string };
+  const columns = useMemo<Column[]>(
+    () =>
+      data.months.flatMap((m): Column[] =>
+        openMonths.has(m.key)
+          ? m.weeks.map((w) => ({ kind: "week", key: w, month: m.key }))
+          : [{ kind: "month", key: m.key, month: m.key }]
+      ),
+    [data.months, openMonths]
+  );
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Measure the pinned offsets, size the open month to the track,
+  // then scroll to the end. In that order, and all in one frame,
+  // because each step depends on the layout the one before it
+  // settles.
+  //
+  // Re-runs when a month opens or closes, because the number of week
+  // columns sharing the track changes with it.
+  //
+  // IN A FRAME. Measuring on mount reads a table the stylesheet has
+  // not finished sizing, which is what made the first attempts at
+  // this chase a gap that was never about column width.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      const table = el.querySelector("table");
+      if (!table) return;
+      const tableLeft = table.getBoundingClientRect().left;
+
+      // 1. Where each pinned column actually starts, read from the
+      //    header row while the table sits at scroll zero.
+      let pinnedRight = 0;
+      for (const col of pinnedColumns(authoring)) {
+        const head = el.querySelector<HTMLElement>(
+          `thead [data-pin="${col.key}"]`
+        );
+        if (!head) continue;
+        const box = head.getBoundingClientRect();
+        const left = Math.round(box.left - tableLeft);
+        for (const cell of Array.from(
+          el.querySelectorAll<HTMLElement>(`[data-pin="${col.key}"]`)
+        )) {
+          cell.style.left = `${left}px`;
+        }
+        pinnedRight = Math.round(box.right - tableLeft);
+      }
+
+      // 2. Share the whole track beside the pinned block among the
+      //    open month's weeks.
+      //
+      //    NOT minus the collapsed months. They are the thing being
+      //    scrolled out of sight, so counting them against the track
+      //    makes the open month narrower by exactly the width it
+      //    needed to push them off, and they stay on screen. That
+      //    left a 39px sliver of the previous month showing.
+      const weekCols = Array.from(
+        el.querySelectorAll<HTMLElement>("col[data-week-col]")
+      );
+      if (weekCols.length > 0) {
+        const track = el.clientWidth - pinnedRight;
+        const width = Math.max(
+          MIN_WEEK_WIDTH,
+          Math.floor(track / weekCols.length)
+        );
+        for (const col of weekCols) col.style.width = `${width}px`;
+      }
+
+      // 3. The open month now fills the track, so the end of the
+      //    scroll puts it flush against the pinned columns with every
+      //    earlier month off the left edge.
+      requestAnimationFrame(() => {
+        el.scrollLeft = el.scrollWidth;
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [columns, authoring]);
+
+  if (!data.hasRows) return null;
+
+  return (
+    <div className={styles.gridStack}>
+      {trackingEnabled && writableRows.length > 0 ? (
+        <div className={styles.gridToolbar}>
+          <p
+            className={
+              outstanding === 0 ? styles.outstandingDone : styles.outstanding
+            }
+          >
+            {outstanding === 0
+              ? `All ${writableRows.length} logged for the week ending ${formatShortDate(weekEnding)}.`
+              : `${outstanding} of ${writableRows.length} still to log for the week ending ${formatShortDate(weekEnding)}.`}
+          </p>
+          <button
+            type="button"
+            className={uiStyles.btnPrimary}
+            onClick={save}
+            disabled={pending}
+          >
+            {pending ? "Saving…" : "Save this week"}
+          </button>
+        </div>
+      ) : null}
+
+      {message ? (
+        <p className={message.ok ? styles.successMessage : styles.errorMessage}>
+          {message.text}
+        </p>
+      ) : null}
+
+      <div className={styles.gridScroll} ref={scrollRef}>
+        <table className={styles.grid}>
+          {/* `table-layout: fixed` honours these exactly, which is
+              what makes the sticky offsets above correct. Week
+              columns carry no width here: the effect sizes them to
+              fill the track so the open month lands flush against the
+              pinned block. */}
+          <colgroup>
+            {pinnedColumns(authoring).map((c) => (
+              <col key={c.key} style={{ width: c.width }} />
+            ))}
+            {columns.map((col) => (
+              <col
+                key={`${col.kind}-${col.key}`}
+                data-week-col={col.kind === "week" ? "" : undefined}
+                style={
+                  col.kind === "month"
+                    ? { width: CLOSED_MONTH_WIDTH }
+                    : undefined
+                }
+              />
+            ))}
+          </colgroup>
+          <thead>
+            <tr>
+              {/* rowSpan, so the week-label row below carries only
+                  week labels. Repeating these as empty cells left a
+                  tall blank band across the top of the table. */}
+              <th
+                scope="col"
+                rowSpan={2}
+                className={`${styles.gridPin} ${styles.gridPinArea}`}
+                      data-pin="area"
+              >
+                Functional Area
+              </th>
+              <th
+                scope="col"
+                rowSpan={2}
+                className={`${styles.gridPin} ${styles.gridPinOwner}`}
+                      data-pin="owner"
+              >
+                Owner
+              </th>
+              {authoring ? (
+                <th
+                  scope="col"
+                  rowSpan={2}
+                  className={`${styles.gridPin} ${styles.gridPinActions}`}
+                      data-pin="actions"
+                >
+                  <span className={styles.visuallyHidden}>Actions</span>
+                </th>
+              ) : null}
+              <th
+                scope="col"
+                rowSpan={2}
+                className={`${styles.gridPin} ${styles.gridPinName}`}
+                      data-pin="name"
+              >
+                Critical Success Factor
+              </th>
+              <th
+                scope="col"
+                rowSpan={2}
+                className={`${styles.gridPin} ${styles.gridPinFreq}`}
+                      data-pin="freq"
+              >
+                Frequency
+              </th>
+              <th
+                scope="col"
+                rowSpan={2}
+                className={`${styles.gridPin} ${styles.gridPinTarget}`}
+                      data-pin="target"
+                data-last-pinned=""
+              >
+                Target
+              </th>
+              {data.months.map((m) =>
+                openMonths.has(m.key) ? (
+                  <th
+                    key={m.key}
+                    scope="colgroup"
+                    colSpan={m.weeks.length}
+                    className={styles.gridMonthOpen}
+                    data-current-month={m.isCurrent ? "" : undefined}
+                  >
+                    <button
+                      type="button"
+                      className={styles.gridMonthButton}
+                      onClick={() => toggleMonth(m.key)}
+                      aria-expanded
+                    >
+                      <span aria-hidden>▾</span> {m.label}
+                    </button>
+                  </th>
+                ) : (
+                  <th
+                    key={m.key}
+                    scope="col"
+                    rowSpan={2}
+                    className={styles.gridMonthClosed}
+                    data-current-month={m.isCurrent ? "" : undefined}
+                  >
+                    <button
+                      type="button"
+                      className={styles.gridMonthButton}
+                      onClick={() => toggleMonth(m.key)}
+                      aria-expanded={false}
+                    >
+                      <span aria-hidden>▸</span> {m.label}
+                    </button>
+                  </th>
+                )
+              )}
+            </tr>
+            <tr>
+              {data.months
+                .filter((m) => openMonths.has(m.key))
+                .flatMap((m) =>
+                  m.weeks.map((w) => (
+                    <th
+                      key={w}
+                      scope="col"
+                      className={
+                        w === weekEnding
+                          ? `${styles.gridWeekHead} ${styles.gridWeekHeadCurrent}`
+                          : styles.gridWeekHead
+                      }
+                    >
+                      {w.slice(8)}
+                    </th>
+                  ))
+                )}
+            </tr>
+          </thead>
+          <tbody>
+            {data.groups
+              .filter((g) => g.rows.length > 0)
+              .map((group) =>
+                group.rows.map((row, i) => (
+                  <tr
+                    key={row.id}
+                    className={i === 0 ? styles.gridGroupStart : undefined}
+                  >
+                    {/* Written once per group, spanning its rows, the
+                        way the merged Owner and Functional Area cells
+                        in the spreadsheet already read. */}
+                    {i === 0 ? (
+                      <>
+                        <th
+                          scope="rowgroup"
+                          rowSpan={group.rows.length}
+                          className={`${styles.gridPin} ${styles.gridPinArea} ${styles.gridAreaCell}`}
+                      data-pin="area"
+                        >
+                          <Link
+                            href={`/chart/function/${group.functionId}`}
+                            className={styles.fnTitleLink}
+                          >
+                            {group.functionTitle}
+                          </Link>
+                        </th>
+                        <td
+                          rowSpan={group.rows.length}
+                          className={`${styles.gridPin} ${styles.gridPinOwner} ${styles.gridOwnerCell}`}
+                      data-pin="owner"
+                        >
+                          {group.ownerName ?? (
+                            <span className={styles.gridNoOwner}>No Lead</span>
+                          )}
+                        </td>
+                      </>
+                    ) : null}
+                    {authoring ? (
+                      <td
+                        className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
+                      data-pin="actions"
+                      >
+                        <button
+                          type="button"
+                          className={styles.gridIconButton}
+                          onClick={() => setEditing(row.id)}
+                          aria-label={`Edit ${row.description}`}
+                          title="Edit"
+                        >
+                          <PencilIcon />
+                        </button>
+                        <ArchiveMeasureButton measureId={row.id} />
+                      </td>
+                    ) : null}
+                    <th
+                      scope="row"
+                      className={`${styles.gridPin} ${styles.gridPinName} ${styles.gridNameCell}`}
+                      data-pin="name"
+                    >
+                      {row.description}
+                      <ExternalMeasureNote measureId={row.id} />
+                    </th>
+                    <td className={`${styles.gridPin} ${styles.gridPinFreq} ${styles.gridFreqCell}`}
+                      data-pin="freq">
+                      {row.frequencyLabel}
+                    </td>
+                    <td className={`${styles.gridPin} ${styles.gridPinTarget} ${styles.gridTargetCell}`}
+                      data-pin="target">
+                      {row.target ? (
+                        <>
+                          <span className={styles.gridDir} aria-hidden>
+                            {row.direction === "higher_is_better" ? "≥" : "≤"}
+                          </span>{" "}
+                          {row.target}
+                        </>
+                      ) : (
+                        <span className={styles.gridNoTarget}>Not set</span>
+                      )}
+                    </td>
+                    {columns.map((col) =>
+                      col.kind === "month" ? (
+                        <td
+                          key={`${row.id}-${col.key}`}
+                          className={styles.gridClosedCell}
+                        />
+                      ) : (
+                        <GridCellView
+                          key={`${row.id}-${col.key}`}
+                          row={row}
+                          week={col.key}
+                          isCurrent={col.key === weekEnding}
+                          canLog={group.canLog && trackingEnabled}
+                          value={values[row.id] ?? ""}
+                          onChange={(v) =>
+                            setValues((prev) => ({ ...prev, [row.id]: v }))
+                          }
+                          disabled={pending}
+                        />
+                      )
+                    )}
+                  </tr>
+                ))
+              )}
+          </tbody>
+        </table>
+      </div>
+
+      {editingRow ? (
+        <>
+          {/* A scrim, so a click anywhere else closes it. The third
+              dismissal, beside Escape and Cancel, and the one people
+              reach for without being taught. */}
+          <div
+            className={styles.drawerScrim}
+            onClick={() => setEditing(null)}
+            aria-hidden
+          />
+          <aside
+            className={styles.drawer}
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="measure-drawer-title"
+          >
+            <header className={styles.drawerHead}>
+              <div>
+                <p className={styles.drawerEyebrow}>Critical success factor</p>
+                <h2 id="measure-drawer-title" className={styles.drawerTitle}>
+                  {editingRow.description}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className={styles.drawerClose}
+                onClick={() => setEditing(null)}
+                aria-label="Close"
+              >
+                <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
+                  <path
+                    d="M4 4 l8 8 M12 4 l-8 8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.4}
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </header>
+            <div className={styles.drawerBody}>
+              <EditMeasureForm
+                measure={{
+                  id: editingRow.id,
+                  description: editingRow.description,
+                  target: editingRow.target,
+                  value_type: editingRow.valueType,
+                  target_direction: editingRow.direction,
+                  update_frequency: editingRow.frequency,
+                  auto_track: editingRow.autoTrack,
+                }}
+                outcomeTitle={editingRow.description}
+                outcomeDescription={editingRow.detail}
+                trackingEnabled={trackingEnabled}
+                onDone={() => setEditing(null)}
+              />
+            </div>
+          </aside>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function GridCellView({
+  row,
+  week,
+  isCurrent,
+  canLog,
+  value,
+  onChange,
+  disabled,
+}: {
+  row: GridRow;
+  week: string;
+  isCurrent: boolean;
+  canLog: boolean;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  const cell = row.cells.find((c) => c.weekEnding === week);
+  const change = row.targetChanges.get(week);
+
+  // Not expected: render nothing at all. Not a dash, not a zero, not
+  // a muted dot. A monthly row is blank three weeks in four and any
+  // mark in those cells reads as a week somebody skipped.
+  if (!cell || !cell.expected) {
+    return <td className={styles.gridNotDue} aria-hidden />;
+  }
+
+  const className = [
+    styles.gridCell,
+    styles[`gridCell_${cell.status}`],
+    isCurrent ? styles.gridCellCurrent : "",
+    change ? styles.gridCellTargetMoved : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const title = change
+    ? `Target changed from ${change.from ?? "none"} to ${change.to ?? "none"}`
+    : cell.target
+      ? `Target ${cell.target} this week`
+      : undefined;
+
+  if (isCurrent && canLog) {
+    return (
+      <td className={className} title={title}>
+        <input
+          className={styles.gridInput}
+          type={row.valueType === "text" ? "text" : "number"}
+          inputMode={row.valueType === "text" ? undefined : "decimal"}
+          step="any"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          aria-label={`${row.description}, week ending ${week}`}
+        />
+      </td>
+    );
+  }
+
+  return (
+    <td className={className} title={title}>
+      {cell.displayValue || <span className={styles.gridEmpty} aria-hidden />}
+    </td>
+  );
+}
+
+function isDueThisWeek(row: GridRow, weekEnding: string): boolean {
+  return row.cells.find((c) => c.weekEnding === weekEnding)?.expected ?? false;
+}
+
+function currentValueOf(row: GridRow, weekEnding: string): string {
+  const cell = row.cells.find((c) => c.weekEnding === weekEnding);
+  if (!cell?.value) return "";
+  if (row.valueType === "text") return cell.value.text ?? "";
+  if (cell.value.number == null || !Number.isFinite(cell.value.number)) return "";
+  return String(cell.value.number);
+}

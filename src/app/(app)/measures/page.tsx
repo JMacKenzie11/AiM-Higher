@@ -4,25 +4,27 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getMeasuresTree } from "@/lib/measures/service";
+import { getGridData } from "@/lib/measures/grid";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { formatShortDate } from "@/lib/dates";
 import { loadExternalPanel } from "@/lib/external-measures/service";
 import { ExternalMeasuresProvider } from "./external/ExternalMeasuresContext";
-import { MeasuresManager } from "./MeasuresManager";
+import { MeasuresGrid } from "./MeasuresGrid";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "../admin/companies/admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
-// Critical Success Factors — one surface for both authoring the CSF
-// / measure tree and logging weekly values. The chart page defers
-// the "what are we measuring" question here so it can stay a chart.
+// Critical Success Factors: the spreadsheet, in the app.
 //
-// Board (top) reads 13 weeks vs. target. Manager (bottom) is the
-// single source for adding outcomes, adding measures under them,
-// editing targets, and logging this week's value. The tracking
-// columns and filter chips disappear when the company doesn't have
-// Success Tracking on — the page becomes a pure authoring surface.
+// Functional Area, Owner, Critical Success Factor, Frequency, Target,
+// then six months of weeks with the current month open and the rest
+// collapsed. One surface for both authoring and logging the week. The
+// chart page defers the "what are we measuring" question here so it
+// can stay a chart.
+//
+// The tracking columns disappear when the company does not have
+// Success Tracking on, and the page becomes a pure authoring
+// surface.
 
 export default async function MeasuresPage() {
   const session = await requireProfile();
@@ -49,13 +51,13 @@ export default async function MeasuresPage() {
   // form's "draft from the role description" affordance, and 0216
   // removed the KPI add form; the flag still gates the role
   // description surfaces on /chart, which is where it belongs.
-  const [tree, trackingEnabled, externalEnabled] = await Promise.all([
-    getMeasuresTree(companyId, session.profile.id, timezone, isAdmin),
+  const [grid, trackingEnabled, externalEnabled] = await Promise.all([
+    getGridData(companyId, session.profile.id, timezone, isAdmin),
     companyHasFeature(companyId, "performance_tracking"),
     companyHasFeature(companyId, "external_measures"),
   ]);
 
-  const { functions, weekEnding } = tree;
+  const { groups, currentWeekEnding: weekEnding } = grid;
 
   // External measures, loaded only for a company that has them.
   //
@@ -68,11 +70,11 @@ export default async function MeasuresPage() {
   // The ids are taken from the tree the page already built, so the
   // panel needs no traversal of its own and cannot disagree with
   // what is on screen about which measures exist.
-  const measureIds = functions.flatMap((f) => f.csfs.map((c) => c.id));
+  const measureIds = groups.flatMap((g) => g.rows.map((r) => r.id));
   const externalPanel = externalEnabled
     ? await loadExternalPanel(supabase, measureIds, weekEnding, timezone)
     : null;
-  const hasAnyMeasure = functions.some((f) => f.csfs.length > 0);
+  const hasAnyMeasure = grid.hasRows;
 
   return (
     <PageShell
@@ -93,7 +95,7 @@ export default async function MeasuresPage() {
         )
       }
     >
-      {functions.length === 0 ? (
+      {groups.length === 0 ? (
         <EmptyState isAdmin={isAdmin} />
       ) : !hasAnyMeasure && !isAdmin ? (
         <section className={styles.card}>
@@ -109,10 +111,10 @@ export default async function MeasuresPage() {
           canPull={isAdmin}
           canAdminister={session.profile.role === "system_admin"}
         >
-          <MeasuresManager
-            functions={functions}
+          <MeasuresGrid
+            data={grid}
             weekEnding={weekEnding}
-            isAdmin={isAdmin}
+            authoring={isAdmin}
             trackingEnabled={trackingEnabled}
           />
         </ExternalMeasuresProvider>

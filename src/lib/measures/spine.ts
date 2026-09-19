@@ -8,6 +8,7 @@ import type {
   UpdateFrequency,
 } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import type { TargetHistoryRow } from "@/lib/measures/target-history";
 
 // The rows /measures reads, fetched once.
 //
@@ -33,10 +34,16 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // a column neither consumer reads. Kept explicit rather than "*" for
 // the reason in spec §19.
 //
-// THE ENTRY WINDOW IS THE BOARD'S. 13 weeks is the wider of the two,
-// so one read covers both and buildMeasuresTree narrows to its own
-// five-week trail in memory. Fetching the narrower window would have
-// meant two reads again.
+// THE ENTRY WINDOW IS THE GRID'S. Six months is the widest any
+// consumer wants, so one read covers all of them and each narrows in
+// memory: the board takes the last 13 weeks, the tree its five-week
+// trail. Fetching a narrower window would mean a second query for
+// rows already in hand.
+//
+// It was the board's 13 weeks until the grid arrived. Widening it
+// costs one predicate on an indexed column and roughly twice the
+// rows; a company with 30 measures and a full six months of history
+// is 780 entries, which is a small read by any measure on this page.
 //
 // No caching here beyond what the caller does. Nothing is memoized
 // at module scope, which would be a cross-tenant leak (see the note
@@ -47,6 +54,12 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // each loads its own.
 
 export const BOARD_WEEKS = 13;
+
+// How far back /measures scrolls. Six months of Fridays, current week
+// included. Everything on file across the fleet today sits inside it
+// (oldest entry 2026-04-24), so this is a window rather than paging;
+// the first company to pass six months will want more.
+export const GRID_WEEKS = 26;
 
 // How far back the Manager's "recent" pills reach. Five weeks plus the
 // current one, matching what the row renders.
@@ -73,6 +86,9 @@ export type SpineCsf = {
   target_hint: string | null;
   function_id: string;
   sort_order: number;
+  // Anchors the frequency rhythm: nothing is expected before the
+  // measure existed. A fortnightly measure also counts from here.
+  created_at: string;
 };
 
 export type SpineEntry = {
@@ -90,6 +106,14 @@ export type MeasuresSpine = {
   functions: SpineFunction[];
   roster: Array<{ id: string; full_name: string }>;
   csfRows: SpineCsf[];
+  // Every target that has ever applied to these measures, not only
+  // those inside the window. A week is judged against the row in
+  // force when it closed, and that row is usually older than the
+  // oldest week on screen: the backfill dated most of them to the
+  // measure's creation. Clipping to the window would leave the
+  // earliest columns reading "no target set" for measures that have
+  // always had one.
+  targetRows: TargetHistoryRow[];
   // The full 13-week window, week_ending descending. The tree's
   // "recent" trail is a slice of this, not a second query.
   entryRows: SpineEntry[];
@@ -98,15 +122,22 @@ export type MeasuresSpine = {
 const FUNCTION_COLS =
   "id, title, sort_order, parent_function_id, lead_id, track_id";
 const CSF_COLS =
-  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order";
+  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at";
 const ENTRY_COLS = "measure_id, week_ending, value_number, value_text";
+const TARGET_COLS =
+  "measure_id, target, value_type, target_direction, effective_from";
 
-export function boardWeeks(weekEnding: string): string[] {
+// `count` Fridays ending at weekEnding, oldest first.
+export function weeksBack(weekEnding: string, count: number): string[] {
   const weeks: string[] = [];
-  for (let i = BOARD_WEEKS - 1; i >= 0; i -= 1) {
+  for (let i = count - 1; i >= 0; i -= 1) {
     weeks.push(addDays(weekEnding, -7 * i));
   }
   return weeks;
+}
+
+export function boardWeeks(weekEnding: string): string[] {
+  return weeksBack(weekEnding, BOARD_WEEKS);
 }
 
 export async function loadMeasuresSpine(
@@ -115,7 +146,9 @@ export async function loadMeasuresSpine(
 ): Promise<MeasuresSpine> {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const weekEnding = thisFriday(timezone);
-  const weeks = boardWeeks(weekEnding);
+  // The widest window any consumer takes. Named for the board for
+  // historical reasons; it is the grid's now.
+  const weeks = weeksBack(weekEnding, GRID_WEEKS);
 
   const empty: MeasuresSpine = {
     weekEnding,
@@ -123,6 +156,7 @@ export async function loadMeasuresSpine(
     functions: [],
     roster: [],
     csfRows: [],
+    targetRows: [],
     entryRows: [],
   };
 
@@ -165,6 +199,17 @@ export async function loadMeasuresSpine(
   const csfIds = csfRows.map((c) => c.id);
 
   const measureIds = csfIds;
+
+  const targetRows =
+    measureIds.length === 0
+      ? []
+      : (((
+          await supabase
+            .from("success_measure_targets")
+            .select(TARGET_COLS)
+            .in("measure_id", measureIds)
+            .order("effective_from", { ascending: false })
+        ).data ?? []) as TargetHistoryRow[]);
   const entryRows =
     measureIds.length === 0
       ? []
@@ -184,6 +229,75 @@ export async function loadMeasuresSpine(
     functions,
     roster,
     csfRows,
+    targetRows,
     entryRows,
   };
+}
+
+// Depth-first pre-order over the function tree, with Visionary
+// pinned first and Integrator second at the top level. Anything at
+// the same level that isn't Visionary or Integrator falls through
+// to the standard sort_order / title ordering.
+export function orderFunctionsByHierarchy<
+  T extends {
+    id: string;
+    title: string;
+    sort_order: number;
+    parent_function_id: string | null;
+  },
+>(fns: T[]): T[] {
+  const childrenByParent = new Map<string | null, T[]>();
+  for (const fn of fns) {
+    const key = fn.parent_function_id;
+    const list = childrenByParent.get(key) ?? [];
+    list.push(fn);
+    childrenByParent.set(key, list);
+  }
+
+  function priorityAtTop(title: string): number {
+    const t = title.trim().toLowerCase();
+    if (t === "visionary") return 0;
+    if (t === "integrator") return 1;
+    return 2;
+  }
+
+  function sortSiblings(list: T[], atTop: boolean): T[] {
+    return [...list].sort((a, b) => {
+      if (atTop) {
+        const pa = priorityAtTop(a.title);
+        const pb = priorityAtTop(b.title);
+        if (pa !== pb) return pa - pb;
+      }
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return a.title.localeCompare(b.title);
+    });
+  }
+
+  const result: T[] = [];
+  const seen = new Set<string>();
+  function walk(parentId: string | null, atTop: boolean) {
+    const siblings = sortSiblings(
+      childrenByParent.get(parentId) ?? [],
+      atTop
+    );
+    for (const sib of siblings) {
+      if (seen.has(sib.id)) continue;
+      result.push(sib);
+      seen.add(sib.id);
+      walk(sib.id, false);
+    }
+  }
+  walk(null, true);
+
+  // Include orphans whose parent isn't in the working set (shouldn't
+  // happen in practice, but keep the surface honest so a broken
+  // parent pointer never silently drops a function).
+  for (const fn of fns) {
+    if (!seen.has(fn.id)) {
+      result.push(fn);
+      seen.add(fn.id);
+    }
+  }
+
+  return result;
 }

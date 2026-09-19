@@ -29,12 +29,34 @@ export function freshnessWindowDays(frequency: UpdateFrequency): number {
   return 7;
 }
 
+// The last Friday of the calendar month this Friday falls in.
+//
+// A month has four or five Fridays and the last is the one whose
+// following Friday has crossed into the next month. Exact, and it
+// needs no calendar arithmetic beyond a string compare, because a
+// week is filed by the month its Friday ends in and the grid groups
+// weeks the same way. The two cannot drift.
+export function isLastFridayOfMonth(friday: string): boolean {
+  return friday.slice(0, 7) !== addDays(friday, 7).slice(0, 7);
+}
+
 // Is a value expected for the week ending on this Friday?
 //
-// Anchored to the measure's first expected week rather than to the
-// calendar, so a fortnightly measure keeps its own rhythm instead of
-// jumping when a month has five Fridays. anchorFriday is normally the
-// Friday of the week the measure was created.
+// MONTHLY MEANS THE MONTH'S LAST WEEK, by product decision. It used
+// to mean "every fourth Friday from the one the measure was created
+// in", which kept the rhythm on Fridays but drifted away from the
+// calendar: a measure created mid-September reported in the second
+// week of some months and the third week of others, and never
+// reliably at month end. For a number that closes with the month,
+// which is what monthly measures are, that is the wrong week.
+//
+// FORTNIGHTLY STAYS ANCHORED. There is no calendar equivalent of
+// "every two weeks", and the anchor rhythm is the right answer for
+// it. Only monthly changed.
+//
+// anchorFriday is normally the Friday of the week the measure was
+// created. It still bounds both: nothing is expected before the
+// measure existed.
 export function isDueForWeek(args: {
   frequency: UpdateFrequency;
   weekEndingFriday: string;
@@ -43,17 +65,14 @@ export function isDueForWeek(args: {
   const { frequency, weekEndingFriday, anchorFriday } = args;
   if (frequency === "weekly") return true;
   if (weekEndingFriday < anchorFriday) return false;
+  if (frequency === "monthly") return isLastFridayOfMonth(weekEndingFriday);
 
   const weeksApart = Math.round(
     (Date.parse(`${weekEndingFriday}T00:00:00Z`) -
       Date.parse(`${anchorFriday}T00:00:00Z`)) /
       (7 * 24 * 60 * 60 * 1000)
   );
-  if (frequency === "biweekly") return weeksApart % 2 === 0;
-  // Monthly: expected on the anchor week and roughly every fourth
-  // week after it. Four weeks rather than a calendar month keeps the
-  // rhythm on Fridays, which is what every surface renders.
-  return weeksApart % 4 === 0;
+  return weeksApart % 2 === 0;
 }
 
 // The Fridays a measure is expected to report on, within a window.
@@ -88,9 +107,11 @@ export function lastExpectedFriday(args: {
   if (weekEndingFriday < anchorFriday) return null;
 
   let candidate = weekEndingFriday;
-  // A fortnightly measure is at most one week off an expected Friday,
-  // a monthly one at most three, so this walks back four at the most.
-  for (let i = 0; i < 4; i += 1) {
+  // A fortnightly measure is at most one week off an expected Friday.
+  // A monthly one is at most four, which happens on the fourth Friday
+  // of a five-Friday month: the month's own last Friday is still
+  // ahead, so the nearest behind is the previous month's.
+  for (let i = 0; i < 5; i += 1) {
     if (isDueForWeek({ frequency, weekEndingFriday: candidate, anchorFriday })) {
       return candidate;
     }

@@ -55,7 +55,7 @@ describe("shouldCritiqueOnBlur", () => {
 describe("both measure forms guard the blur", () => {
   const ROOT = path.resolve(__dirname, "../../..");
   const forms = [
-    "src/app/(app)/measures/ManagedMeasureRow.tsx",
+    "src/app/(app)/measures/EditMeasureForm.tsx",
     "src/app/(app)/chart/function/[id]/AddMetricRow.tsx",
   ];
 

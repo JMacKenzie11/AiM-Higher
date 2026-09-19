@@ -65,7 +65,7 @@ vi.mock("@/lib/supabase/server", () => ({
 // projection widened — nothing selected here goes unread by one
 // consumer or the other.
 const CSF_COLS =
-  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order";
+  "id, description, detail, target, value_type, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);
@@ -85,6 +85,7 @@ function csf(
     value_type: "number",
     target_direction: "higher_is_better",
     sort_order: 0,
+    created_at: "2026-01-02T00:00:00Z",
     ...overrides,
   };
 }
