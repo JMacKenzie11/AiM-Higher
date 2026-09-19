@@ -299,7 +299,7 @@ export function AddMeasureForm({ outcomeId }: { outcomeId: string }) {
             marginTop: "2px",
           }}
         >
-          Include this measure in the Saturday check that creates a
+          Include this measure in the Tuesday check that creates a
           commitment when the week&rsquo;s value wasn&rsquo;t logged.
           Turn off for context measures like headcount.
         </span>

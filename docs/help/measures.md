@@ -53,7 +53,7 @@ is working to.
 
 **Two weeks take a value: this one and the one that just closed.**
 A week stays open until the end of the following week, so a number
-you were asked for on Saturday can still be entered any time up to
+you were asked for on Tuesday can still be entered any time up to
 the next Friday. That is exactly the window the reminder gives you.
 
 Once the next Saturday comes round, the older week locks and is there
@@ -198,8 +198,12 @@ did this". Nothing chases you for them.
 
 ## What happens when a number is late or bad
 
-A job runs on Saturday morning and looks back at the week that just
-finished, at every measure that was due in it.
+A job runs on **Tuesday morning** and looks back at the week that
+just finished, at every measure that was due in it.
+
+Tuesday, not the weekend: the week closes on Friday, and you have
+through the end of Monday to put last week's numbers in before
+anything is raised. Nothing is created over a weekend.
 
 **No value logged** creates a **commitment** for the person who owns
 the function: *"Log last week's value for [measure]."* Due the coming
@@ -285,9 +289,8 @@ single-measure page asked you to open a whole screen to type one
 number that already had a box on this one.
 
 What still tells you when something is outstanding: the notification
-bell counts what you have left this week, and the Saturday job opens
-a commitment for anything that was still missing when last week
-ended.
+bell counts what you have left this week, and the Tuesday job opens
+a commitment for anything still missing by the end of Monday.
 
 ## Common questions
 

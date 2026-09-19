@@ -12,7 +12,26 @@ import { isDueForWeek } from "@/lib/measures/frequency";
 import { isOffTarget, raiseOffTargetIssue } from "@/lib/measures/off-target";
 import { forEachActiveInstance } from "@/lib/instances/for-each";
 
-// Saturday cron for companies on `performance_tracking`.
+// TUESDAY cron for companies on `performance_tracking`.
+//
+// ---- WHY TUESDAY AND NOT SATURDAY -----------------------------
+//
+// It ran Saturday 15:00 UTC, which is the first hour of the grace
+// period rather than the end of it. The week closes on Friday; by
+// Saturday afternoon nobody has had a working day to enter a number,
+// and the job that turns a missing value into a commitment on a
+// person was firing before that person had a chance. Decided
+// 2026-09-19: give them through the end of Monday.
+//
+// 12:00 UTC on Tuesday is past midnight Monday in every timezone the
+// fleet uses. The westernmost is America/Anchorage (UTC-9/-8), where
+// this lands 03:00–04:00 Tuesday; on the eastern side it is 08:00–
+// 09:00. All Tuesday morning, all after Monday has ended.
+//
+// THE TARGET WEEK IS UNCHANGED, and that is not luck. lastFriday()
+// gives the most recently completed week every day from Saturday
+// through the following Friday, so Saturday and Tuesday both resolve
+// to the same Friday. Only the moment of asking moved.
 //
 // ---- WHICH WEEK, AND WHY IT WAS WRONG -------------------------
 //

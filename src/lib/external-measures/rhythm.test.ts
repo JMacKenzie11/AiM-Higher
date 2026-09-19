@@ -54,23 +54,47 @@ describe("the pull is registered, and runs daily", () => {
 });
 
 describe("sequencing: the pull lands before what reads it", () => {
-  it("runs before the performance sweep on the shared Saturday", () => {
-    const pull = parseCron(scheduleOf("/api/cron/external-measures"));
+  it("sweeps on Tuesday, after Monday has ended everywhere", () => {
+    // Moved off Saturday on 2026-09-19. Saturday 15:00 UTC was the
+    // FIRST hour of the grace period, not the end of it: the week
+    // closes Friday, and the job that turns a missing value into a
+    // commitment on a person was firing before that person had had a
+    // working day to enter one.
+    //
+    // 12:00 UTC Tuesday is past midnight Monday in every timezone the
+    // fleet uses. The westernmost is America/Anchorage at UTC-9, so
+    // the earliest this can land anywhere is 03:00 Tuesday.
     const sweep = parseCron(scheduleOf("/api/cron/performance"));
-    expect(sweep.dow).toBe("6"); // Saturday
-    expect(pull.hour).toBeLessThan(sweep.hour);
+    expect(sweep.dow).toBe("2"); // Tuesday
+    const earliestLocalHour = sweep.hour - 9; // Anchorage, UTC-9
+    expect(earliestLocalHour).toBeGreaterThanOrEqual(0);
   });
 
-  it("keeps an hour of margin, which maxDuration makes sufficient", () => {
-    // Not a hope. Every cron route in this app sets
-    // maxDuration = 300, so a run cannot exceed five minutes and
-    // cannot overrun into the sweep. The margin is twelve times the
-    // hard ceiling.
+  it("still reads a week the pull has already filled", () => {
+    // THE REAL CONSTRAINT, and it survived the move with room to
+    // spare. The pull runs DAILY, so the one that matters is simply
+    // the most recent before the sweep: Monday 14:00 UTC against a
+    // Tuesday 12:00 UTC sweep, which is 22 hours rather than one.
+    //
+    // It is the same week either way. targetWeekEnding is lastFriday,
+    // which gives the most recently completed week every day from
+    // Saturday through the following Friday, so Monday's pull fills
+    // exactly the week Tuesday's sweep asks about.
     const pull = parseCron(scheduleOf("/api/cron/external-measures"));
     const sweep = parseCron(scheduleOf("/api/cron/performance"));
-    const minutes = (sweep.hour - pull.hour) * 60 + (sweep.minute - pull.minute);
-    expect(minutes).toBeGreaterThanOrEqual(60);
+    expect(pull.dow).toBe("*"); // daily, so there is always one the day before
 
+    const pullMinutes = pull.hour * 60 + pull.minute;
+    const sweepMinutes = sweep.hour * 60 + sweep.minute;
+    // Same day if the pull is earlier, otherwise yesterday's.
+    const margin =
+      pullMinutes < sweepMinutes
+        ? sweepMinutes - pullMinutes
+        : sweepMinutes + 24 * 60 - pullMinutes;
+    expect(margin).toBeGreaterThanOrEqual(60);
+
+    // Not a hope: every cron route sets maxDuration = 300, so a run
+    // cannot exceed five minutes and cannot overrun into the sweep.
     const route = readFileSync(
       path.join(ROOT, "src/app/api/cron/external-measures/route.ts"),
       "utf8"
