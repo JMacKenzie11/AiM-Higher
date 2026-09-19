@@ -288,6 +288,19 @@ export function buildGridData(
     rowsByFunction.set(csf.function_id, list);
   }
 
+// THE TRACK SEAT IS NOT CONSULTED, and that is not an oversight.
+//
+// `functions.track_id` has no input anywhere in src/app or
+// src/components. chart/actions.ts reads it from FormData that no
+// form submits, so every function written through the application
+// sets it null. Fleet-wide on production: 60 functions, 34 with a
+// Lead, three with a track_id, two of which differ from the lead.
+//
+// Reading a column nothing populates is a branch that cannot be
+// tested and cannot be trusted, so it comes out here. The columns
+// stay: dropping them is a fleet migration for two rows and is
+// tracked on its own.
+
   // Chart order, not sort_order: Visionary first, Integrator second,
   // every other function following its parent. The grid reads as the
   // org does, and `includeAll` decides only whose functions come
@@ -296,8 +309,8 @@ export function buildGridData(
   const orderedFunctions = includeAll
     ? ordered
     : [
-        ...ordered.filter((f) => f.lead_id === userId || f.track_id === userId),
-        ...ordered.filter((f) => f.lead_id !== userId && f.track_id !== userId),
+        ...ordered.filter((f) => f.lead_id === userId),
+        ...ordered.filter((f) => f.lead_id !== userId),
       ];
 
   const groups: GridGroup[] = orderedFunctions.map((fn) => ({
@@ -306,7 +319,7 @@ export function buildGridData(
     ownerName: fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null,
     // Same rule upsertMeasureEntryAction enforces, so the page never
     // draws an input the server would refuse.
-    canLog: includeAll || fn.lead_id === userId || fn.track_id === userId,
+    canLog: includeAll || fn.lead_id === userId,
     rows: rowsByFunction.get(fn.id) ?? [],
   }));
 

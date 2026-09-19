@@ -10,6 +10,8 @@ import type { GridData, GridRow } from "@/lib/measures/grid";
 import { EditMeasureForm, ArchiveMeasureButton } from "./EditMeasureForm";
 import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
 import { PencilIcon } from "@/components/ui/PencilIcon";
+import { PlusIcon } from "@/components/ui/PlusIcon";
+import { AddOutcomeInline } from "./AddOutcomeInline";
 import { formatShortDate } from "@/lib/dates";
 import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./measures.module.css";
@@ -107,14 +109,27 @@ const MIN_WEEK_WIDTH = 60;
 export function MeasuresGrid({
   data,
   weekEnding,
-  authoring,
+  isAdmin,
   trackingEnabled,
 }: {
   data: GridData;
   weekEnding: string;
-  authoring: boolean;
+  // Whether this caller administers the whole company. It no longer
+  // decides whether the authoring controls appear: 0217 admits a
+  // function's Lead to their own measures, so that question is asked
+  // per function through `canLog`, which carries the same answer.
+  // This only decides whether the actions COLUMN exists at all, so a
+  // reader with no seat anywhere is not given a permanently empty
+  // 64px of table.
+  isAdmin: boolean;
   trackingEnabled: boolean;
 }) {
+  // The actions column shows if this caller can author anywhere.
+  const authoring = isAdmin || data.groups.some((g) => g.canLog);
+  // The functions this caller may add to. An admin gets all of them;
+  // a Lead gets their own, which is the same rule reaching a
+  // different answer rather than a second rule.
+  const addableGroups = data.groups.filter((g) => g.canLog);
   // Open on the current month, with the rest closed. Six months of
   // Fridays is 26 columns and nobody needs 26 at once; the week you
   // are filling in should be on screen without scrolling to it.
@@ -144,6 +159,15 @@ export function MeasuresGrid({
   // Which measure's settings are open in the drawer. One at a time,
   // by construction: it is one drawer.
   const [editing, setEditing] = useState<string | null>(null);
+  // Which function the add panel is open on, or null.
+  //
+  // ADDING WAS LOST IN THE GRID REWRITE. Deleting FunctionSection
+  // took its "Add a critical success factor" row with it and nothing
+  // replaced it, so for one commit nobody could add a measure on this
+  // page at all, admins included. This is that, restored: one panel
+  // rather than a row per function, opened from a single control,
+  // with the function chosen in it.
+  const [adding, setAdding] = useState<string | null>(null);
   const editingRow = useMemo(
     () =>
       data.groups.flatMap((g) => g.rows).find((r) => r.id === editing) ?? null,
@@ -507,16 +531,20 @@ export function MeasuresGrid({
                         className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
                       data-pin="actions"
                       >
-                        <button
-                          type="button"
-                          className={styles.gridIconButton}
-                          onClick={() => setEditing(row.id)}
-                          aria-label={`Edit ${row.description}`}
-                          title="Edit"
-                        >
-                          <PencilIcon />
-                        </button>
-                        <ArchiveMeasureButton measureId={row.id} />
+                        {group.canLog ? (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.gridIconButton}
+                              onClick={() => setEditing(row.id)}
+                              aria-label={`Edit ${row.description}`}
+                              title="Edit"
+                            >
+                              <PencilIcon />
+                            </button>
+                            <ArchiveMeasureButton measureId={row.id} />
+                          </>
+                        ) : null}
                       </td>
                     ) : null}
                     <th
@@ -571,6 +599,48 @@ export function MeasuresGrid({
           </tbody>
         </table>
       </div>
+
+      {authoring ? (
+        <div className={styles.gridAddRow}>
+          {adding ? (
+            <div className={styles.gridAddPanel}>
+              <label className={styles.gridAddLabel}>
+                <span className={styles.gridAddLabelText}>Functional area</span>
+                <select
+                  className={styles.gridAddSelect}
+                  value={adding}
+                  onChange={(e) => setAdding(e.target.value)}
+                >
+                  {addableGroups.map((g) => (
+                    <option key={g.functionId} value={g.functionId}>
+                      {g.functionTitle}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <AddOutcomeInline
+                functionId={adding}
+                onAdded={() => setAdding(null)}
+              />
+              <button
+                type="button"
+                className={styles.gridAddCancel}
+                onClick={() => setAdding(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : addableGroups.length > 0 ? (
+            <button
+              type="button"
+              className={styles.addToggleButton}
+              onClick={() => setAdding(addableGroups[0].functionId)}
+            >
+              <PlusIcon />Add a critical success factor
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {editingRow ? (
         <>

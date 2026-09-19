@@ -114,7 +114,7 @@ export default async function MeasuresPage() {
           <MeasuresGrid
             data={grid}
             weekEnding={weekEnding}
-            authoring={isAdmin}
+            isAdmin={isAdmin}
             trackingEnabled={trackingEnabled}
           />
         </ExternalMeasuresProvider>

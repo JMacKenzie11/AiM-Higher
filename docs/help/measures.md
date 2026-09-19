@@ -56,14 +56,20 @@ function is held to cannot align to it.
 
 Writing is narrower, and it works per function rather than per person:
 
-- **The function's owner** types this week's values for it. On every
-  other function they see the numbers, not input boxes.
-- **Admins and guides** type on any function, and can switch to *Edit
-  setup* to add, edit and archive.
+- **The function's owner** runs their own function: they type this
+  week's values, add critical success factors, change targets and
+  archive rows they have outgrown. On every other function they see
+  the numbers, not input boxes, and no pencil or bin.
+- **Admins and guides** do all of that on any function.
 - **Everyone else** reads. No inputs, no save, no edit controls.
 
-So a function head is a reader on most of this page and a writer on
-their own function, at the same time.
+So a function head is a reader on most of this page and runs their
+own row of it, at the same time.
+
+Owners could always type the weekly value and could not change what
+was being measured, which is the practical reason these lists went
+stale: the person who knows a target is wrong was not the person who
+could fix it.
 
 ## Saving
 
@@ -79,8 +85,13 @@ nothing.
 
 ## Adding and editing
 
+**Add a critical success factor** from the control under the table.
+Pick the functional area and give it a name; everything else is set
+afterwards with the pencil. Admins see every area in that list, an
+owner sees their own.
+
 Each row has a **pencil** and a **bin** in their own column, to the
-left of the name.
+left of the name. They appear only on functions you can write to.
 
 The pencil opens that measure's settings in a panel at the side of
 the screen: name, target, value type, direction, how often to update,

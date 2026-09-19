@@ -1408,3 +1408,64 @@
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
+
+
+/* ---- Adding a measure ---------------------------------------- */
+
+.gridAddRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.gridAddPanel {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  width: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--aims-navy-tint);
+}
+
+.gridAddLabel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.gridAddLabelText {
+  font: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.gridAddSelect {
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-body-sm);
+}
+
+/* The name field takes the rest of the row. Left at its natural
+   width it showed about half a placeholder. */
+.gridAddPanel .addOutcomeRow {
+  flex: 1;
+  min-width: 260px;
+}
+
+.gridAddCancel {
+  background: none;
+  border: none;
+  padding: 0 var(--space-2);
+  height: var(--control-h-md);
+  color: var(--primary);
+  font: var(--text-body-sm);
+  cursor: pointer;
+  text-decoration: underline;
+}
