@@ -151,6 +151,40 @@ describe("the pinned columns line up with their offsets", () => {
     expect(rule(".grid")).toContain("table-layout: fixed");
   });
 
+  it("RESETS what it wrote before it measures again", () => {
+    // This effect runs again after every router.refresh(), which
+    // includes adding a critical success factor. Measuring a table it
+    // has already adjusted compounds twice over: the inline `left`
+    // values from the last run make a cell report its adjusted
+    // position, and a grid scrolled to the end has its sticky cells
+    // STUCK, so their box is where the scroll pinned them rather than
+    // where the layout puts them. Both errors push the same way.
+    //
+    // The symptom was the pinned block marching off to the right
+    // after an add, leaving a white gap where the names had been,
+    // with every collapsed month gone.
+    const effect = src.slice(src.indexOf("Measure the pinned offsets"));
+    const body = effect.slice(0, effect.indexOf("}, ["));
+    const clearsLeft = body.indexOf('cell.style.left = ""');
+    const clearsWidth = body.indexOf('col.style.width = ""');
+    const resetsScroll = body.indexOf("el.scrollLeft = 0");
+    const firstMeasure = body.indexOf("getBoundingClientRect");
+    expect(clearsLeft, "should clear the left values it wrote").toBeGreaterThan(-1);
+    expect(clearsWidth, "should clear the widths it wrote").toBeGreaterThan(-1);
+    expect(resetsScroll, "should unstick the sticky cells").toBeGreaterThan(-1);
+    // All three before anything is read, or the reset is decorative.
+    expect(clearsLeft).toBeLessThan(firstMeasure);
+    expect(clearsWidth).toBeLessThan(firstMeasure);
+    expect(resetsScroll).toBeLessThan(firstMeasure);
+  });
+
+  it("re-runs when the rows change, not only when a month toggles", () => {
+    // Adding a measure changes `data` and nothing else this effect
+    // depends on. Without it in the deps the new row renders into a
+    // table still sized for the old one.
+    expect(src).toContain("}, [columns, authoring, data]);");
+  });
+
   it("sizes the open month to the track rather than to a constant", () => {
     // A fixed week width cannot both fill the track and fit inside
     // it: too narrow and the previous month stays on screen, too wide

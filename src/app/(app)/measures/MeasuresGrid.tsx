@@ -257,11 +257,34 @@ export function MeasuresGrid({
   // because each step depends on the layout the one before it
   // settles.
   //
-  // Re-runs when a month opens or closes, because the number of week
-  // columns sharing the track changes with it.
+  // Re-runs whenever the rows or the open months change, which
+  // includes the router.refresh() after a measure is added.
   //
-  // IN A FRAME. Measuring on mount reads a table the stylesheet has
-  // not finished sizing, which is what made the first attempts at
+  // ---- IT RESETS BEFORE IT MEASURES ---------------------------
+  //
+  // Running a second time, after adding a critical success factor,
+  // tore the table apart: the pinned block marched off to the right
+  // leaving a white gap where the names had been, and every collapsed
+  // month vanished.
+  //
+  // Two faults, both from measuring a table this effect had already
+  // changed, and both pushing the same way, which is why a single
+  // extra pass was enough to wreck it.
+  //
+  //   The inline `left` values from the previous run were still on
+  //   the cells, so reading a cell's position returned the ADJUSTED
+  //   position and the new offset came out as the old one plus
+  //   itself.
+  //
+  //   And the grid was scrolled to the end by then, so the sticky
+  //   cells were STUCK: their box was where the scroll had pinned
+  //   them rather than where the layout puts them.
+  //
+  // So every run starts from nothing: clear what the last one wrote,
+  // put the scroll back to zero, and only then look.
+  //
+  // IN A FRAME. Measuring synchronously reads a table the stylesheet
+  // has not finished sizing, which is what made the first attempts at
   // this chase a gap that was never about column width.
   useEffect(() => {
     const el = scrollRef.current;
@@ -269,10 +292,28 @@ export function MeasuresGrid({
     const id = requestAnimationFrame(() => {
       const table = el.querySelector("table");
       if (!table) return;
+
+      // 0. Back to a clean slate. Reading scrollLeft after setting it
+      //    forces the reflow, so what follows sees the unstuck
+      //    layout rather than the one that was on screen.
+      const pinnedCells = Array.from(
+        el.querySelectorAll<HTMLElement>("[data-pin]")
+      );
+      for (const cell of pinnedCells) cell.style.left = "";
+      const weekCols = Array.from(
+        el.querySelectorAll<HTMLElement>("col[data-week-col]")
+      );
+      for (const col of weekCols) col.style.width = "";
+      el.scrollLeft = 0;
+      void el.scrollLeft;
+
       const tableLeft = table.getBoundingClientRect().left;
 
-      // 1. Where each pinned column actually starts, read from the
-      //    header row while the table sits at scroll zero.
+      // 1. Where each pinned column actually starts. Measured rather
+      //    than summed from the declared widths: cell borders sit
+      //    outside the width a colgroup gives a column, so a running
+      //    sum is not where the next one begins and the block drifted
+      //    as the weeks scrolled under it.
       let pinnedRight = 0;
       for (const col of pinnedColumns(authoring)) {
         const head = el.querySelector<HTMLElement>(
@@ -281,10 +322,8 @@ export function MeasuresGrid({
         if (!head) continue;
         const box = head.getBoundingClientRect();
         const left = Math.round(box.left - tableLeft);
-        for (const cell of Array.from(
-          el.querySelectorAll<HTMLElement>(`[data-pin="${col.key}"]`)
-        )) {
-          cell.style.left = `${left}px`;
+        for (const cell of pinnedCells) {
+          if (cell.dataset.pin === col.key) cell.style.left = `${left}px`;
         }
         pinnedRight = Math.round(box.right - tableLeft);
       }
@@ -295,11 +334,7 @@ export function MeasuresGrid({
       //    NOT minus the collapsed months. They are the thing being
       //    scrolled out of sight, so counting them against the track
       //    makes the open month narrower by exactly the width it
-      //    needed to push them off, and they stay on screen. That
-      //    left a 39px sliver of the previous month showing.
-      const weekCols = Array.from(
-        el.querySelectorAll<HTMLElement>("col[data-week-col]")
-      );
+      //    needed to push them off, and they stay on screen.
       if (weekCols.length > 0) {
         const track = el.clientWidth - pinnedRight;
         const width = Math.max(
@@ -317,7 +352,7 @@ export function MeasuresGrid({
       });
     });
     return () => cancelAnimationFrame(id);
-  }, [columns, authoring]);
+  }, [columns, authoring, data]);
 
   if (!data.hasRows) return null;
 
