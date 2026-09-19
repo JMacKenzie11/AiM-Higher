@@ -524,6 +524,7 @@ The functional chart at `/chart` (nav label: **Functional Chart**). Distinct fro
 - **Authoring lives on `/measures`**, not the function page. The function page shows a read-only summary and a link to `/measures#fn-<id>`. Server actions revalidate both routes.
 - **AI measure-draft critique** (Success Tracking on) — background Anthropic Haiku call (`src/lib/measures/critique.ts`, model `ANTHROPIC_CLARITY_MODEL`) scoring description clarity, target quality, and fit to the parent CSF. Renders as an amber panel beside the form. Best-effort; the measure saves regardless.
 - **Weekly value entries** — `success_measure_entries` keyed on measure + week_ending Friday.
+- **Target history** — `success_measure_targets`, one row per measure per `effective_from` date (always a Friday). A week is judged against the row with the greatest `effective_from <= week_ending`; a `null` target on that row means the target was cleared and the week is not judged. `success_measures.target` still holds the CURRENT target and is what every read path asking "what is the target now" uses. Append-only: no INSERT, UPDATE or DELETE policy exists and none of those verbs is granted, so rows arrive only through the `success_measures_target_history` trigger. Migration 0215.
 - Drag-to-reorder functions within a parent (admin-only) via `@dnd-kit/sortable`; drag handle on hover, opts out of pan via a `chart-no-pan` class so dnd-kit gets clean pointer events.
 - **Delete function** — hard delete with a branded confirmation that spells out the cascade (sub-functions, critical success factors, KPIs, and recorded values go with it).
 
@@ -581,7 +582,17 @@ Nav label: **Critical Success Factors**, under *Workspace*. The tracking columns
 
 **AI target-quality check** — on measure creation, a background Haiku call (`src/lib/measures/target-check.ts`, model `ANTHROPIC_CLARITY_MODEL`) validates the target against `value_type` + `target_direction`. Advisory; never blocks the save.
 
-**`/measures` is the only place values are entered.** There is no dashboard card and no single-measure page.
+**`/measures` is the only place values are entered.** The dashboard's Critical Success Factors card (Section 6) reads the same rows and is read-only. There is no single-measure page.
+
+**Target history.** Editing a target changes how the weeks from here on are judged and leaves the weeks already logged alone. The history lives in `success_measure_targets` and is written by a trigger on `success_measures`, in the same statement as the update that changed the target, so no writer can set a target without recording it and the two cannot drift.
+
+- A change takes effect **from the week in progress**, in the company's timezone. Change a target on Wednesday and the week ending that Friday is judged by the new number.
+- Two changes on the same day are one decision: the later replaces the earlier rather than stacking.
+- **Clearing a target is recorded**, as a row with a `null` target. Without it the lookup would keep finding the old number and keep judging new weeks against a target nobody wants.
+- `value_type` and `target_direction` are carried on the history row, because a target moving from `30%` to `0.30` changes its type as well as its text. For DISPLAY, the measure's current `value_type` is still what is used.
+- The backfill asserts each measure's current target has always applied, which is exactly the pre-0215 behaviour. Nothing was re-judged by the migration; real history starts from the first edit after it.
+
+Lookup lives in `src/lib/measures/target-history.ts` (`targetInForce`, `groupTargetHistory`, `targetChangesWithin`). `public.friday_of(date)` is the SQL twin of `fridayOf()` in `src/lib/dates.ts`.
 
 **Permissions.** Authoring actions in `src/lib/chart/actions.ts` admit `system_admin`, `company_admin`, and `aims_guide`. Weekly value writes (`upsertMeasureEntryAction`, `logMeasureEntriesAction`) admit those three or the function's Lead / Track holder. App-layer checks go through `isAdminForCompany`. RLS on `success_measures` and `success_measure_entries` is keyed on `function_id`, with `_guide` mirrors.
 
