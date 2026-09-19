@@ -27,6 +27,13 @@ Critical Success Factor, Frequency, Target, then one column per week.
 Functional Area and Owner are written once per function and span its
 rows.
 
+**Weeks are named by the day they start.** A column headed *14* is
+the week beginning Monday 14 September. A week belongs to the month
+it starts in, so the week beginning Monday 28 September sits under
+September even though it runs into October. Monthly measures follow
+the same rule: September's number is due in the week beginning 28
+September, because that is September's last week.
+
 **It opens on this week.** A rolling twelve months of weeks are
 available; the current month is open and scrolled into view, with the
 earlier ones collapsed to a single column each and pushed off to the
@@ -104,7 +111,7 @@ card; with one table there is one button, and it covers exactly the
 rows that have a box on them for you.
 
 The line beside it counts only your own: *"2 of 6 still to log for
-the week ending 4 Sep."* If you have nothing to log, it says
+the week beginning 31 Aug."* If you have nothing to log, it says
 nothing.
 
 ## Adding and editing
@@ -158,7 +165,7 @@ A list with several blank targets is usually a list worth pruning.
 against the target that was in force when that week closed, so
 lowering a target changes this week forward and leaves the weeks
 already logged exactly as they were. A change takes effect from the
-week you are in: change it on Wednesday and the week ending that
+week you are in: change it on Wednesday and the week containing that
 Friday uses the new number.
 
 The grid marks the week a target moved with a line down the left of

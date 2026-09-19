@@ -1,4 +1,4 @@
-import { fridayOf } from "@/lib/dates";
+import { fridayOf, mondayOf } from "@/lib/dates";
 import { expectedFridaysIn } from "@/lib/measures/frequency";
 import {
   groupTargetHistory,
@@ -149,8 +149,19 @@ const MONTH_NAMES = [
 // four or five times a year. Filing it by the end date means a
 // monthly measure's reporting week and its month agree, which is the
 // whole reason the grouping exists.
+// WHICH MONTH A WEEK BELONGS TO — the month it BEGINS in.
+//
+// It used to be the month it ended in, which was the same question
+// while the page said "week ending". Now that a column is labelled
+// with its Monday, filing the week beginning Mon 28 Sep under October
+// would put a September-looking number under an October heading.
+//
+// This is the one place the relabelling stops being cosmetic, and it
+// moves `isLastFridayOfMonth` with it: a monthly measure is due in
+// the month's last week, and "last week" has to mean the same thing
+// here and there or the column and the due date disagree.
 export function monthKeyOf(weekEnding: string): string {
-  return weekEnding.slice(0, 7);
+  return mondayOf(weekEnding).slice(0, 7);
 }
 
 export function monthLabel(key: string): string {

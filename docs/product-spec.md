@@ -542,6 +542,8 @@ One level. A **critical success factor** is what a function is held to, week by 
 
 Nav label: **Critical Success Factors**, under *Workspace*.
 
+**Weeks read as week-beginning, and are stored as week-ending.** Since 2026-09-19 every week a user sees is named by its Monday (`mondayOf`, `formatWeekBeginning` in `lib/dates.ts`): the column headers, the hero, the outstanding line, and the same wording on /dashboard, /people and a priority's page. **Nothing in storage changed and nothing should** — `success_measure_entries.week_ending`, `success_measure_targets.effective_from`, `friday_of()`, the Saturday cron and the Friday nudge remain keyed to the Friday, and Monday is Friday − 4, so the two carry identical information. Two rules moved with the label because they are the one place it is not cosmetic: `monthKeyOf` files a week under the month it BEGINS in, and `isLastFridayOfMonth` means the last week beginning in the month. For the ~5 weeks a year that straddle a boundary this moves a monthly measure's due week by one (September 2026 closes on the week beginning Mon 28 Sep, ending Fri 2 Oct), and the sweep and the nudge move with it so the header and the chasing agree. External-measure strings still say "week ending" deliberately: they describe the client's own spreadsheet, which is keyed that way.
+
 **Ordering.** Both levels are drag-reorderable and both persist to the database, shared by every viewer. A measure moves within its function (`success_measures.sort_order`, via `reorderMeasuresAction`, open to anyone `success_measures_write_by_function` admits — admin, guide, or the function's Lead). A functional area moves among its **siblings** (`functions.sort_order`, via `reorderFunctionsAction`, admin and guide only); cross-parent drops are refused because the page renders the chart's hierarchy flattened. The area handle also takes ArrowUp/ArrowDown, which is not a convenience: dnd-kit's keyboard sensor cannot navigate between `<tbody>` droppables, so that is the control's only keyboard path. Until 2026-09-19 a non-admin's own functions were floated to the top of this page; that per-viewer reshuffle is gone, because an order only some viewers see is not a saved order. Nothing on the page is gated by `performance_tracking` since 2026-09-19 — the week columns, the Target field and the Save button are there for every company, and what a given person may type is decided by `canLog` per function, not by a company flag.
 
 **Access**
@@ -579,7 +581,7 @@ Nav label: **Critical Success Factors**, under *Workspace*.
 **Saving**
 
 - One save button per function card, shown only on functions the caller can write to. `MeasuresManager` tracks which function is saving so only that card shows a spinner.
-- **Outstanding line** — "2 of 6 still to log for the week ending 4 Sep." Counts both kinds across functions the caller can log, read from the live inputs. Silent when there is nothing to log. Adds "on your functions" when the page shows functions the caller cannot log.
+- **Outstanding line** — "2 of 6 still to log for the week beginning 31 Aug." Counts both kinds across functions the caller can log, read from the live inputs. Silent when there is nothing to log. Adds "on your functions" when the page shows functions the caller cannot log.
 
 **Board** (`BoardView`) — **lives on `/dashboard`**, not here (moved 2026-09-17)
 
@@ -609,7 +611,7 @@ Nav label: **Critical Success Factors**, under *Workspace*.
 
 **Target history.** Editing a target changes how the weeks from here on are judged and leaves the weeks already logged alone. The grid is the first surface to read it: every cell is judged against the target in force when that week closed, and the week a target moved is marked. The history lives in `success_measure_targets` and is written by a trigger on `success_measures`, in the same statement as the update that changed the target, so no writer can set a target without recording it and the two cannot drift.
 
-- A change takes effect **from the week in progress**, in the company's timezone. Change a target on Wednesday and the week ending that Friday is judged by the new number.
+- A change takes effect **from the week in progress**, in the company's timezone. Change a target on Wednesday and the week containing that Friday is judged by the new number.
 - Two changes on the same day are one decision: the later replaces the earlier rather than stacking.
 - **Clearing a target is recorded**, as a row with a `null` target. Without it the lookup would keep finding the old number and keep judging new weeks against a target nobody wants.
 - `value_type` and `target_direction` are carried on the history row, because a target moving from `30%` to `0.30` changes its type as well as its text. For DISPLAY, the measure's current `value_type` is still what is used.

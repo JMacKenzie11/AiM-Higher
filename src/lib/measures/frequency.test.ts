@@ -36,15 +36,25 @@ describe("isDueForWeek", () => {
     // the rhythm on Fridays and drifted off the calendar, so a
     // monthly number landed in the second week of some months and the
     // third of others. Monthly numbers close with the month.
+    //
+    // "LAST WEEK" MEANS THE LAST WEEK BEGINNING IN THE MONTH, since
+    // 2026-09-19, matching how /measures groups and labels its
+    // columns. For roughly five weeks a year this moves a monthly
+    // measure's due week by one, and the Saturday sweep and the
+    // Friday nudge move with it — deliberately, so the column header
+    // and the chasing agree.
     const due = (f: string) =>
       isDueForWeek({ frequency: "monthly", weekEndingFriday: f, anchorFriday: ANCHOR });
-    // September 2026 has Fridays on the 4th, 11th, 18th and 25th.
-    expect(due("2026-09-04")).toBe(false);
+    // The weeks BEGINNING in September 2026 start Mon 7, 14, 21 and
+    // 28; the last of them ends on Friday 2 October.
     expect(due("2026-09-11")).toBe(false);
     expect(due("2026-09-18")).toBe(false);
-    expect(due("2026-09-25")).toBe(true);
-    // October's last Friday is the 30th.
-    expect(due("2026-10-02")).toBe(false);
+    expect(due("2026-09-25")).toBe(false);
+    expect(due("2026-10-02")).toBe(true);
+    // And the week ending Fri 4 Sep belongs to AUGUST, whose last
+    // week it is: it begins Mon 31 Aug.
+    expect(due("2026-09-04")).toBe(true);
+    // October's last week begins Mon 26 and ends Fri 30.
     expect(due("2026-10-30")).toBe(true);
   });
 

@@ -64,13 +64,20 @@ function spine(over: Partial<MeasuresSpine> = {}): MeasuresSpine {
   } as MeasuresSpine;
 }
 
-describe("weeks are grouped by the month their Friday falls in", () => {
-  it("files a week that straddles a month by its end date", () => {
-    // The week Sat 29 Aug to Fri 4 Sep is September's, because that
-    // is where its Friday is. A monthly measure reports on a Friday,
-    // so filing by the end date is what keeps a month's reporting
-    // week inside that month.
-    expect(monthKeyOf("2026-09-04")).toBe("2026-09");
+describe("weeks are grouped by the month they BEGIN in", () => {
+  it("files a week that straddles a month by its start date", () => {
+    // Reversed on 2026-09-19, with the page's labelling.
+    //
+    // The week ending Fri 4 Sep begins Mon 31 Aug, so it is August's.
+    // It used to be September's, which was the same answer to a
+    // different question while a column was labelled with its Friday.
+    // Now that a column shows its Monday, filing this one under
+    // September would put "31" under a September heading.
+    expect(monthKeyOf("2026-09-04")).toBe("2026-08");
+
+    // And a week wholly inside a month is unaffected, which is most
+    // of them: Mon 14 Sep to Fri 18 Sep is September either way.
+    expect(monthKeyOf("2026-09-18")).toBe("2026-09");
   });
 
   it("names a month in a way a reader can scan", () => {
@@ -112,14 +119,21 @@ describe("a blank cell is not a miss", () => {
     const expected = grid.groups[0].rows[0].cells
       .filter((c) => c.expected)
       .map((c) => c.weekEnding);
-    // Six months of window, one expected week per month.
+    // Six months of window, one expected week per month — still one
+    // each, but a different one since 2026-09-19.
+    //
+    // "The month's last week" now means the last week that BEGINS in
+    // the month, because that is how the columns are grouped and
+    // labelled. So March's is the week beginning Mon 30 Mar, which
+    // ends Fri 3 Apr; April's begins Mon 27 Apr and ends Fri 1 May.
+    // These are still the Fridays the values are stored against.
     expect(expected).toEqual([
-      "2026-04-24",
-      "2026-05-29",
-      "2026-06-26",
-      "2026-07-31",
-      "2026-08-28",
-      "2026-09-25",
+      "2026-04-03", // begins Mon 30 Mar
+      "2026-05-01", // begins Mon 27 Apr
+      "2026-05-29", // begins Mon 25 May
+      "2026-07-03", // begins Mon 29 Jun
+      "2026-07-31", // begins Mon 27 Jul
+      "2026-09-04", // begins Mon 31 Aug
     ]);
   });
 

@@ -1,5 +1,5 @@
 import type { UpdateFrequency } from "@/lib/types";
-import { addDays } from "@/lib/dates";
+import { addDays, mondayOf } from "@/lib/dates";
 
 // One definition of what an update frequency means, so the cron, the
 // board and the Success Tracking scorer cannot disagree about whether
@@ -36,8 +36,29 @@ export function freshnessWindowDays(frequency: UpdateFrequency): number {
 // needs no calendar arithmetic beyond a string compare, because a
 // week is filed by the month its Friday ends in and the grid groups
 // weeks the same way. The two cannot drift.
+// The LAST WEEK OF A MONTH, by the month the week BEGINS in.
+//
+// It used to compare the Fridays, which was the same question while
+// the page said "week ending". /measures now labels a column with its
+// Monday and groups the months the same way, so this had to move with
+// it: a monthly measure is due in its month's last week, and "last
+// week of September" has to mean the same thing in the column header
+// and in the due date, or the page chases a number in a month whose
+// heading it is not under.
+//
+// WHAT THIS CHANGES IN PRACTICE. Around five weeks a year straddle a
+// month boundary. For those, a monthly measure's due week moves by
+// one: September 2026 closes on the week beginning Mon 28 Sep (ending
+// Fri 2 Oct) rather than the one ending Fri 25 Sep. The Saturday
+// sweep and the Friday nudge both read this, so they move with it —
+// deliberately, so all three agree.
+//
+// The name keeps "Friday" because the argument still is one: weeks
+// are stored by the Friday they end on and always will be.
 export function isLastFridayOfMonth(friday: string): boolean {
-  return friday.slice(0, 7) !== addDays(friday, 7).slice(0, 7);
+  return (
+    mondayOf(friday).slice(0, 7) !== mondayOf(addDays(friday, 7)).slice(0, 7)
+  );
 }
 
 // Is a value expected for the week ending on this Friday?
