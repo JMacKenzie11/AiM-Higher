@@ -14,15 +14,23 @@ import { PULL_DAYS, type ExternalMapping, type PullDay } from "./mapping";
 // just gone is complete and its numbers are final. It is also ahead
 // of both things downstream that read entries:
 //
-//   this cron            Sat 14:00 UTC
-//   performance sweep    Sat 15:00 UTC   (turns a missing value into
-//                                         a commitment on a person)
+//   this cron            14:00 UTC DAILY
 //   scorecard snapshot   Sun 07:00 UTC   (counts entries from the
 //                                         last 7 days)
+//   performance sweep    Tue 12:00 UTC   (turns a missing value into
+//                                         a commitment on a person)
 //
-// The hour in front of the sweep is not a hope: every cron route in
-// this app sets maxDuration = 300, so a run cannot exceed five
-// minutes and cannot overrun into it.
+// The sweep moved off Saturday on 2026-09-19 so people have through
+// the end of Monday to enter last week's numbers. It used to run an
+// hour after this one on a shared Saturday; because this cron is
+// daily, the pull that matters is now simply Monday's, 22 hours
+// ahead of it, and it fills the same week. lastFriday gives the same
+// completed week every day from Saturday through the following
+// Friday.
+//
+// The margin is not a hope either: every cron route in this app sets
+// maxDuration = 300, so a run cannot exceed five minutes and cannot
+// overrun into the sweep.
 export const STANDARD_PULL_DAY: PullDay = "sat";
 
 export function weekdayKey(weekday: number): PullDay {

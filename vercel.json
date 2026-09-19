@@ -22,7 +22,7 @@
     },
     {
       "path": "/api/cron/performance",
-      "schedule": "0 15 * * 6"
+      "schedule": "0 12 * * 2"
     },
     {
       "path": "/api/cron/external-measures",
