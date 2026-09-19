@@ -1,7 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
-import { rollQuarterAction, type RollResult } from "@/lib/quarters/actions";
+import { useActionState, useState } from "react";
+import {
+  rollQuarterAction,
+  updateQuarterAction,
+  type QuarterResult,
+  type RollResult,
+} from "@/lib/quarters/actions";
 import styles from "../admin.module.css";
 
 // Rolling the quarter, on the company's settings page.
@@ -27,7 +32,12 @@ export function QuarterCard({
   companyId: string;
   // null when the company has no open quarter. Rolling then simply
   // opens one, which the action handles without special-casing.
-  openQuarter: { label: string; start_date: string; end_date: string } | null;
+  openQuarter: {
+    id: string;
+    label: string;
+    start_date: string;
+    end_date: string;
+  } | null;
   suggestion: { label: string; startDate: string; endDate: string };
   // How many priorities would move. Shown rather than described,
   // because "3 priorities will carry forward" is the thing somebody
@@ -38,10 +48,11 @@ export function QuarterCard({
     RollResult | undefined,
     FormData
   >(rollQuarterAction, undefined);
-
-  const lapsed =
-    openQuarter !== null &&
-    openQuarter.end_date < new Date().toISOString().slice(0, 10);
+  const [editing, setEditing] = useState(false);
+  const [editState, editAction, editPending] = useActionState<
+    QuarterResult | undefined,
+    FormData
+  >(updateQuarterAction, undefined);
 
   return (
     <section className={styles.card} aria-labelledby="quarter-card">
@@ -49,27 +60,88 @@ export function QuarterCard({
         Quarter
       </h2>
 
-      <p className={styles.subtitleInline}>
-        {openQuarter ? (
-          <>
-            Open now: <strong>{openQuarter.label}</strong>, {openQuarter.start_date} to{" "}
-            {openQuarter.end_date}.{" "}
-            {lapsed ? (
-              <strong>That end date has passed.</strong>
-            ) : null}{" "}
-            A quarter holds this company&rsquo;s priorities and nothing else
-            depends on it, so a late roll costs nothing.
-          </>
+      {openQuarter ? (
+        editing ? (
+          <form action={editAction} className={styles.quarterRollForm}>
+            <input type="hidden" name="company_id" value={companyId} />
+            <input type="hidden" name="quarter_id" value={openQuarter.id} />
+            <label className={styles.field}>
+              <span className={styles.label}>Label</span>
+              <input
+                className={styles.input}
+                name="label"
+                defaultValue={openQuarter.label}
+                required
+                disabled={editPending}
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Starts</span>
+              <input
+                className={styles.input}
+                type="date"
+                name="start_date"
+                defaultValue={openQuarter.start_date}
+                required
+                disabled={editPending}
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Ends</span>
+              <input
+                className={styles.input}
+                type="date"
+                name="end_date"
+                defaultValue={openQuarter.end_date}
+                required
+                disabled={editPending}
+              />
+            </label>
+            <button
+              type="submit"
+              className={styles.ghostButton}
+              disabled={editPending}
+            >
+              {editPending ? "Saving…" : "Save dates"}
+            </button>
+            <button
+              type="button"
+              className={styles.ghostButton}
+              onClick={() => setEditing(false)}
+              disabled={editPending}
+            >
+              Cancel
+            </button>
+          </form>
         ) : (
-          <>
-            No quarter is open. Priorities need one to live in; nothing else
-            depends on it.
-          </>
-        )}
-      </p>
+          <p className={styles.subtitleInline}>
+            Open now: <strong>{openQuarter.label}</strong>,{" "}
+            {openQuarter.start_date} to {openQuarter.end_date}.{" "}
+            <button
+              type="button"
+              className={styles.inlineEditButton}
+              onClick={() => setEditing(true)}
+            >
+              Edit
+            </button>{" "}
+            A quarter holds the company&rsquo;s priorities for the current
+            90-day period.
+          </p>
+        )
+      ) : (
+        <p className={styles.subtitleInline}>
+          No quarter is open. Priorities need one to live in; nothing else
+          depends on it.
+        </p>
+      )}
+
+      {editState && !editState.ok ? (
+        <p className={styles.errorMessage}>{editState.message}</p>
+      ) : null}
 
       <p className={styles.subtitleInline}>
-        Rolling closes the quarter above, opens the one below, and moves every
+        When you run your next quarterly planning session, roll the quarter:
+        rolling closes this quarter, opens the next one, and moves every
         priority that is not complete into it.{" "}
         {carryCount > 0 ? (
           <>

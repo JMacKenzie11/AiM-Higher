@@ -254,3 +254,39 @@ describe("show on company dashboard", () => {
     ).toBe(2);
   });
 });
+
+// ---- With Success Tracking off ---------------------------------
+//
+// The page degrades to a place to write down what each function is
+// held to. That is what the help has always said, and it was not
+// what the code did: the week columns still rendered, empty and
+// unfillable, and the add button had a second placement that put it
+// alone in a bare row above the table rather than in the toolbar.
+//
+// The state was invisible in testing because the dev clone had the
+// flag ON for the company being looked at and production had it OFF.
+describe("Success Tracking off", () => {
+  it("renders no week columns", () => {
+    expect(code).toContain(
+      "const visibleMonths = useMemo(\n    () => (trackingEnabled ? data.months : [])"
+    );
+    // And the column list follows that, not the raw months.
+    expect(code).toContain("visibleMonths.flatMap((m): Column[] =>");
+  });
+
+  it("keeps the add button in the toolbar, not in a second place", () => {
+    // One toolbar, whichever half has anything in it.
+    const toolbars = (code.match(/styles\.gridToolbar\}/g) ?? []).length;
+    expect(toolbars).toBe(1);
+  });
+
+  it("holds the left half so the actions stay right", () => {
+    // Without a placeholder the buttons slide across when there is no
+    // count to show, which is the difference between the two
+    // placements it used to have.
+    const toolbar = code.slice(code.indexOf("styles.gridToolbar}"));
+    expect(toolbar.slice(0, toolbar.indexOf("gridToolbarActions"))).toContain(
+      "<span />"
+    );
+  });
+});

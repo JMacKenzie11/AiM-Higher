@@ -300,14 +300,23 @@ export function MeasuresGrid({
   type Column =
     | { kind: "week"; key: string; month: string }
     | { kind: "month"; key: string; month: string };
+  // WITH SUCCESS TRACKING OFF THERE ARE NO WEEKS. The page is a
+  // place to write down what each function is held to, which is what
+  // the help has always said it degrades to; rendering a year of
+  // empty columns nobody can type into is not that.
+  const visibleMonths = useMemo(
+    () => (trackingEnabled ? data.months : []),
+    [data.months, trackingEnabled]
+  );
+
   const columns = useMemo<Column[]>(
     () =>
-      data.months.flatMap((m): Column[] =>
+      visibleMonths.flatMap((m): Column[] =>
         openMonths.has(m.key)
           ? m.weeks.map((w) => ({ kind: "week", key: w, month: m.key }))
           : [{ kind: "month", key: m.key, month: m.key }]
       ),
-    [data.months, openMonths]
+    [visibleMonths, openMonths]
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -592,26 +601,44 @@ export function MeasuresGrid({
 
   return (
     <div className={styles.gridStack}>
-      {trackingEnabled && writableRows.length > 0 ? (
+      {/* ONE TOOLBAR, whichever half of it has anything in it.
+ 
+          The add button had a second placement for a company without
+          Success Tracking, because there was no toolbar to hang it
+          from then. That rendered it alone in a bare row above the
+          table, left-aligned, nothing like where it sits with the
+          flag on — which is exactly what Geo-Sci looks like in
+          production, where the flag is off and dev's is on. */}
+      {(trackingEnabled && writableRows.length > 0) ||
+      addableGroups.length > 0 ? (
         <div className={styles.gridToolbar}>
-          <p
-            className={
-              outstanding === 0 ? styles.outstandingDone : styles.outstanding
-            }
-          >
-            {outstanding === 0
-              ? `All ${writableRows.length} logged for the week ending ${formatShortDate(chasedWeek)}.`
-              : `${outstanding} of ${writableRows.length} still to log for the week ending ${formatShortDate(chasedWeek)}.`}
-          </p>
-          <div className={styles.gridToolbarActions}>
-            <button
-              type="button"
-              className={uiStyles.btnPrimary}
-              onClick={save}
-              disabled={pending}
+          {trackingEnabled && writableRows.length > 0 ? (
+            <p
+              className={
+                outstanding === 0 ? styles.outstandingDone : styles.outstanding
+              }
             >
-              {pending ? "Saving…" : "Save this week"}
-            </button>
+              {outstanding === 0
+                ? `All ${writableRows.length} logged for the week ending ${formatShortDate(chasedWeek)}.`
+                : `${outstanding} of ${writableRows.length} still to log for the week ending ${formatShortDate(chasedWeek)}.`}
+            </p>
+          ) : (
+            // Holds the left half of the row so the actions stay
+            // right, rather than sliding across when there is nothing
+            // to count.
+            <span />
+          )}
+          <div className={styles.gridToolbarActions}>
+            {trackingEnabled && writableRows.length > 0 ? (
+              <button
+                type="button"
+                className={uiStyles.btnPrimary}
+                onClick={save}
+                disabled={pending}
+              >
+                {pending ? "Saving…" : "Save this week"}
+              </button>
+            ) : null}
             {addableGroups.length > 0 ? (
               <button
                 type="button"
@@ -622,21 +649,6 @@ export function MeasuresGrid({
               </button>
             ) : null}
           </div>
-        </div>
-      ) : null}
-
-      {/* The add control again, for a company without Success
-          Tracking on: there is no toolbar to hang it from then, and
-          authoring the list is the whole of what the page does. */}
-      {!trackingEnabled && addableGroups.length > 0 ? (
-        <div className={styles.gridToolbarActions}>
-          <button
-            type="button"
-            className={uiStyles.btnSecondary}
-            onClick={() => setAdding(addableGroups[0].functionId)}
-          >
-            <PlusIcon />Add a critical success factor
-          </button>
         </div>
       ) : null}
 
@@ -774,7 +786,7 @@ export function MeasuresGrid({
               >
                 Target
               </th>
-              {data.months.map((m) =>
+              {visibleMonths.map((m) =>
                 openMonths.has(m.key) ? (
                   <th
                     key={m.key}
@@ -815,7 +827,7 @@ export function MeasuresGrid({
               )}
             </tr>
             <tr>
-              {data.months
+              {visibleMonths
                 .filter((m) => openMonths.has(m.key))
                 .flatMap((m) =>
                   m.weeks.map((w) => (
