@@ -40,7 +40,40 @@ import type { Page } from "@playwright/test";
 // priority titles over 80 characters; Benson Seafood's longest is
 // 157, and it is the one that found this.
 
-const PAGES = ["/dashboard", "/measures", "/plan", "/chart", "/commitments"];
+// EVERY STATIC ROUTE IN THE APP, not a shortlist.
+//
+// It started as five pages, which is how /commitments went unchecked
+// while it was 46px too wide. The routes with an [id] in them are
+// missing and that is the known gap: they need a real row to point
+// at, and discovering one per route is a different job from this.
+// Everything reachable without one is here.
+const PAGES = [
+  "/dashboard",
+  "/measures",
+  "/plan",
+  "/chart",
+  "/commitments",
+  "/issues",
+  "/people",
+  "/foundation",
+  "/scorecard",
+  "/quarters",
+  "/leadership",
+  "/profile",
+  "/classroom",
+  "/ask-aimee",
+  "/ask-aimee/memory",
+  "/strengths/results",
+  "/strengths/teams",
+  "/strengths/welcome",
+  "/strengths/assessment",
+  "/portfolio",
+  "/hq",
+  "/admin/companies",
+  "/admin/dashboard",
+  "/admin/transcripts",
+  "/admin/classroom",
+];
 
 async function scopeIn(page: Page) {
   await signIn(page, users.admin());
@@ -75,7 +108,7 @@ const OFFENDERS = `(() => {
 type Result = { vw: number; scrollW: number; offenders: string[] };
 
 test("no page scrolls sideways on a phone", async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(600_000);
   await page.setViewportSize({ width: 393, height: 852 });
   await scopeIn(page);
 
@@ -85,8 +118,13 @@ test("no page scrolls sideways on a phone", async ({ page }) => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(1200);
     const r = (await page.evaluate(OFFENDERS)) as Result;
+    // Where it ACTUALLY landed. A gated route redirects, and counting
+    // a redirect as coverage of the route asked for is how a page
+    // goes unchecked while the suite looks thorough.
+    const landed = new URL(page.url()).pathname;
+    const where = landed === path ? path : `${path} → ${landed}`;
     if (r.scrollW > r.vw) {
-      broken.push(`${path}: ${r.scrollW} > ${r.vw} — ${r.offenders.join(" | ")}`);
+      broken.push(`${where}: ${r.scrollW} > ${r.vw} — ${r.offenders.join(" | ")}`);
     }
   }
 

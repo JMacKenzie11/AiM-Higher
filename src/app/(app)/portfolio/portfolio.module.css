@@ -43,7 +43,13 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  /* min(300px, 100%), not 300px. A minmax track has a FLOOR, and a
+     floor wider than the container is simply an overflow: on a 393px
+     phone the 300px minimum plus the grid's own box put the cards
+     4px past the edge, which is enough to make the whole page scroll
+     sideways. min() lets the track collapse to the container when
+     there is less room than the ideal. */
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: var(--space-4);
   margin: 0;
   padding: 0;
