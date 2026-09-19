@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import {
   rollQuarterAction,
   updateQuarterAction,
@@ -48,7 +48,6 @@ export function QuarterCard({
     RollResult | undefined,
     FormData
   >(rollQuarterAction, undefined);
-  const [editing, setEditing] = useState(false);
   const [editState, editAction, editPending] = useActionState<
     QuarterResult | undefined,
     FormData
@@ -60,8 +59,40 @@ export function QuarterCard({
         Quarter
       </h2>
 
+      {/* THE EXPLANATION FIRST, THEN THE CONTROLS.
+ 
+          Both paragraphs used to be split around the open quarter's
+          dates, with an Edit link buried mid-sentence. Reading the
+          card meant working out which of two date rows was the one
+          you were in, and changing the dates meant finding a link
+          inside prose. Say what a quarter is, say what rolling does,
+          then show the two things you can act on. */}
+      <p className={styles.subtitleInline}>
+        A quarter holds the company&rsquo;s priorities for the current
+        90-day period.
+      </p>
+
+      <p className={styles.subtitleInline}>
+        When you run your next quarterly planning session, roll the quarter:
+        rolling closes this quarter, opens the next one, and moves every
+        priority that is not complete into it.{" "}
+        {carryCount > 0 ? (
+          <>
+            <strong>{carryCount}</strong>{" "}
+            {carryCount === 1 ? "priority" : "priorities"} would move today.{" "}
+          </>
+        ) : null}
+        Completed priorities stay where they were finished, so the closed
+        quarter remains a record of how the team performed.
+      </p>
+
+      {/* NO EDIT MODE. The fields ARE the state: what is in them is
+          what the quarter is, and changing one and pressing Save is
+          the whole interaction. A disclosure in front of three inputs
+          hid them behind a click that told nobody anything. */}
       {openQuarter ? (
-        editing ? (
+        <>
+          <h3 className={styles.h3}>This quarter</h3>
           <form action={editAction} className={styles.quarterRollForm}>
             <input type="hidden" name="company_id" value={companyId} />
             <input type="hidden" name="quarter_id" value={openQuarter.id} />
@@ -102,32 +133,22 @@ export function QuarterCard({
               className={styles.ghostButton}
               disabled={editPending}
             >
-              {editPending ? "Saving…" : "Save dates"}
-            </button>
-            <button
-              type="button"
-              className={styles.ghostButton}
-              onClick={() => setEditing(false)}
-              disabled={editPending}
-            >
-              Cancel
+              {editPending ? "Saving…" : "Save changes"}
             </button>
           </form>
-        ) : (
-          <p className={styles.subtitleInline}>
-            Open now: <strong>{openQuarter.label}</strong>,{" "}
-            {openQuarter.start_date} to {openQuarter.end_date}.{" "}
-            <button
-              type="button"
-              className={styles.inlineEditButton}
-              onClick={() => setEditing(true)}
+
+          {editState ? (
+            <p
+              className={
+                editState.ok ? styles.successMessage : styles.errorMessage
+              }
             >
-              Edit
-            </button>{" "}
-            A quarter holds the company&rsquo;s priorities for the current
-            90-day period.
-          </p>
-        )
+              {editState.ok
+                ? `${editState.quarter.label} now runs ${editState.quarter.start_date} to ${editState.quarter.end_date}.`
+                : editState.message}
+            </p>
+          ) : null}
+        </>
       ) : (
         <p className={styles.subtitleInline}>
           No quarter is open. Priorities need one to live in; nothing else
@@ -135,24 +156,7 @@ export function QuarterCard({
         </p>
       )}
 
-      {editState && !editState.ok ? (
-        <p className={styles.errorMessage}>{editState.message}</p>
-      ) : null}
-
-      <p className={styles.subtitleInline}>
-        When you run your next quarterly planning session, roll the quarter:
-        rolling closes this quarter, opens the next one, and moves every
-        priority that is not complete into it.{" "}
-        {carryCount > 0 ? (
-          <>
-            <strong>{carryCount}</strong>{" "}
-            {carryCount === 1 ? "priority" : "priorities"} would move today.{" "}
-          </>
-        ) : null}
-        Completed priorities stay where they were finished, so the closed
-        quarter remains a record of how the team performed.
-      </p>
-
+      <h3 className={styles.h3}>Next quarter</h3>
       <form action={formAction} className={styles.quarterRollForm}>
         <input type="hidden" name="company_id" value={companyId} />
         <label className={styles.field}>
@@ -187,11 +191,7 @@ export function QuarterCard({
             disabled={pending}
           />
         </label>
-        <button
-          type="submit"
-          className={styles.ghostButton}
-          disabled={pending}
-        >
+        <button type="submit" className={styles.ghostButton} disabled={pending}>
           {pending
             ? "Rolling…"
             : openQuarter
