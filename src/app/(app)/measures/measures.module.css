@@ -893,6 +893,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* A flex item defaults to min-width: auto, which for a scroll
+     container means its min-content width: the table's. Without this
+     the card refuses to shrink below the table and the page scrolls
+     sideways instead of the grid. */
+  min-width: 0;
   /* A card, like every other first child of PageShell. Its .content
      wrapper pulls up 32px into the hero, so anything without a
      surface of its own renders its text onto the dark gradient: the
@@ -915,6 +920,7 @@
 /* The only thing on the page that scrolls sideways. The body must
    never, which is why this is its own container. */
 .gridScroll {
+  min-width: 0;
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -982,6 +988,14 @@
 /* The pinned columns. Widths are explicit because sticky offsets
    have to be, and a name column that resizes with content would slide
    the two beside it. */
+/* Pinned only when there is room for a week beside the block. Below
+   that the effect sets data-pinned="false" and the columns travel
+   with the rest of the table, which is the only thing that fits on a
+   phone. */
+.gridScroll[data-pinned="false"] .gridPin {
+  position: static;
+}
+
 .gridPin {
   position: sticky;
   z-index: 3;
@@ -1491,6 +1505,7 @@
     animation: none;
   }
 }
+
 
 /* ---- The horizontal scrollbar, moved ------------------------- */
 /*
