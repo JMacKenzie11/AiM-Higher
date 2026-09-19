@@ -1446,6 +1446,17 @@ function GridCellView({
   disabled: boolean;
 }) {
   const cell = row.cells.find((c) => c.weekEnding === week);
+  // NO LONGER DRAWN. This used to put a 2px amber rule down the left
+  // edge of the cell where a new target took effect. It read as an
+  // alert about the number rather than a note about the yardstick,
+  // and it drew the eye to the one thing on the row that was not a
+  // value. Removed at Jason's request, 2026-09-19.
+  //
+  // The change is still KNOWN, and still explains itself on hover —
+  // "Target changed from 98% to 0" — which is the honest half of what
+  // this was for. A cell going from green to red because the target
+  // moved, with nothing anywhere saying so, is the thing worth
+  // avoiding; a coloured rule down the table was not the way.
   const change = row.targetChanges.get(week);
 
   // Not expected: render nothing at all. Not a dash, not a zero, not
@@ -1463,7 +1474,6 @@ function GridCellView({
     // week: it is the one with a deadline, not the one you are
     // filling in as you go.
     editable && !isCurrent ? styles.gridCellOpen : "",
-    change ? styles.gridCellTargetMoved : "",
   ]
     .filter(Boolean)
     .join(" ");

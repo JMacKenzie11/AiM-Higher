@@ -1259,10 +1259,6 @@
 
 /* Where the target moved. A step in a trend gets a stated reason
    rather than looking like the data changed. */
-.gridCellTargetMoved {
-  border-left: 2px solid var(--aims-warning);
-}
-
 .gridEmpty::after {
   content: "·";
   color: var(--text-faint);
