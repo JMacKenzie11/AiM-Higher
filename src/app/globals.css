@@ -135,3 +135,46 @@ select {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------
+   THE 16px FLOOR ON TOUCH FORM CONTROLS.
+
+   iOS Safari ZOOMS THE PAGE when a form control whose font-size is
+   under 16px takes focus. It is not configurable and it is not a
+   bug; it is Safari deciding the text is too small to type into.
+
+   The damage is not the zoom itself, it is what zooming does to
+   fixed positioning. A zoomed page keeps laying `position: fixed`
+   out against the LAYOUT viewport while the screen shows a smaller
+   VISUAL viewport, so a full-width fixed panel no longer fits the
+   screen and Safari scrolls it to keep the focused input in view.
+   The panel's left edge — which is where its labels are — goes off
+   the side. On /measures that made the add/edit drawer read
+   "CTIONAL AREA" and "TICAL SUCCESS FACTOR", but only once the
+   keyboard was up, which is why it looked like a rendering bug
+   rather than a zoom.
+
+   The controls were 14px (`font: var(--text-body)`), so every one
+   of them triggered it.
+
+   WHY NOT maximum-scale=1 ON THE VIEWPORT META. That also stops the
+   zoom, by taking pinch-zoom away from everyone who needs it. The
+   viewport stays scalable and the text gets bigger instead, which
+   is what Safari was asking for.
+
+   WHY !important. This is a floor, not a preference. It has to beat
+   any module that sets a smaller size on a control anywhere in the
+   app, including ones not written yet — and a single 14px rule
+   somewhere reintroduces the bug silently, on a device most of us
+   are not testing on.
+
+   Checkboxes, radios and ranges are excluded: they render no text,
+   so Safari never zooms for them, and 16px would change their box
+   metrics for nothing. --------------------------------------- */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
