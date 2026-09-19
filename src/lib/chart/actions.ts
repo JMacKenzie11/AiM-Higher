@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { isAdminForCompany, scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { companyHasFeature } from "@/lib/subscriptions/service";
 import {
   CSF_AS_OUTCOME_COLUMNS,
   csfAsOutcome,
@@ -656,18 +655,17 @@ export async function createMeasureAction(
     String(formData.get("update_frequency") ?? "weekly")
   );
 
-  // Derive the company_id via outcome → function so we can enforce
-  // the performance_tracking gate without the caller knowing which
-  // company it is.
+  // The parent function, and only that. This used to join out to
+  // functions(company_id) as well, so the company could be looked up
+  // in company_features to decide whether the target hint ran. The
+  // hint runs for everyone now, so the company is nobody's business
+  // here and the join is gone with the question.
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: outcome } = await supabase
     .from("success_measures")
-    .select("function_id, functions!inner(company_id)")
+    .select("function_id")
     .eq("id", outcomeId)
-    .maybeSingle<{
-      function_id: string;
-      functions: { company_id: string } | { company_id: string }[];
-    }>();
+    .maybeSingle<{ function_id: string }>();
   // Bail here rather than at the insert. Since migration 0168
   // function_id is NOT NULL, so a KPI whose parent could not be
   // resolved — a stale id, an archived CSF, a row RLS will not show
@@ -681,10 +679,6 @@ export async function createMeasureAction(
       message: "Couldn't find the function for this measure.",
     };
   }
-
-  const companyId = Array.isArray(outcome.functions)
-    ? outcome.functions[0]?.company_id ?? null
-    : outcome.functions?.company_id ?? null;
 
   // NO TARGET REQUIREMENT, and this is a change.
   //
@@ -720,16 +714,15 @@ export async function createMeasureAction(
     .single<SuccessMeasure>();
   if (error || !data) return { ok: false, message: "Couldn't add that measure." };
 
-  // Coaching hint on the target, only when the flag is on and a
-  // target was provided. Best-effort — a null result silently
+  // Coaching hint on the target, whenever one was provided.
+  //
+  // This used to require Success Tracking, which made the quality of
+  // the help you got writing a target depend on a flag about whether
+  // a cron chases you later. Best-effort — a null result silently
   // skips the update. Runs after insert so a slow AI call doesn't
   // delay the save; the row is already visible.
   let finalRow: SuccessMeasure = data;
-  if (
-    target &&
-    companyId &&
-    (await companyHasFeature(companyId, "performance_tracking"))
-  ) {
+  if (target) {
     const check = await scoreMeasureTarget({
       description,
       target,
@@ -788,23 +781,13 @@ export async function updateMeasureAction(
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
-  // Resolve company + enforce target when the flag is on. A measure
-  // reaches its function directly now, so this is one join rather
-  // than the two the old outcome hop needed.
-  const { data: existing } = await supabase
-    .from("success_measures")
-    .select("function_id, functions!inner(company_id)")
-    .eq("id", id)
-    .maybeSingle<{
-      function_id: string;
-      functions: { company_id: string } | { company_id: string }[];
-    }>();
-  const fnRow = existing
-    ? Array.isArray(existing.functions)
-      ? existing.functions[0] ?? null
-      : existing.functions
-    : null;
-  const companyId = fnRow?.company_id ?? null;
+  // NO PRE-READ. This used to fetch the measure and join out to its
+  // company, for one reason: to look up Success Tracking and decide
+  // whether the target hint ran. The hint runs for everyone now, so
+  // the read had no remaining consumer and updating a measure is one
+  // round trip again. RLS decides whether the update lands, which is
+  // what it decided before too.
+  //
   // A target is not required. Decided 2026-09-04 for critical success
   // factors, and since 0216 every measure is one: a company may name
   // the results it owns before it knows what good looks like, and
@@ -828,15 +811,11 @@ export async function updateMeasureAction(
     .single<SuccessMeasure>();
   if (error || !data) return { ok: false, message: "Couldn't save changes." };
 
-  // Re-score the target when the flag is on. If the new target
-  // passes, this clears any stale hint from a prior save; if not,
-  // the hint is refreshed to reflect the current target text.
+  // Re-score the target on every save that has one. If the new
+  // target passes, this clears any stale hint from a prior save; if
+  // not, the hint is refreshed to reflect the current target text.
   let finalRow: SuccessMeasure = data;
-  if (
-    target &&
-    companyId &&
-    (await companyHasFeature(companyId, "performance_tracking"))
-  ) {
+  if (target) {
     const check = await scoreMeasureTarget({
       description,
       target,

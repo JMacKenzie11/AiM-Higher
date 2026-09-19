@@ -48,7 +48,6 @@ export function AddMetricRow({
   outcomeDescription,
   functionId,
   rdEnabled,
-  trackingEnabled = true,
   onAdded,
 }: {
   outcomeId: string;
@@ -56,12 +55,6 @@ export function AddMetricRow({
   outcomeDescription: string | null;
   functionId: string;
   rdEnabled: boolean;
-  // When the company doesn't have Success Tracking on, hide the
-  // target input + AI critique — target is meaningless without a
-  // weekly log to compare against, and the AI would only nag about
-  // the target. Defaults to true so any legacy caller behaves as
-  // before.
-  trackingEnabled?: boolean;
   // Called after a successful save. Parents that want a "click to
   // open, close after add" pattern pass this to collapse the form;
   // when omitted the row keeps its rapid-fire behaviour (reset
@@ -133,10 +126,6 @@ export function AddMetricRow({
     event?: Pick<React.FocusEvent<HTMLElement>, "relatedTarget">
   ) {
     if (event && !shouldCritiqueOnBlur(event)) return;
-    // Target critique is meaningless without a weekly log to
-    // compare against — skip the AI call when tracking is off so
-    // we don't burn tokens or leave a stale target_hint on the row.
-    if (!trackingEnabled) return;
     const d = description.trim();
     if (d.length < 4) return; // too short to critique usefully
     const key = `${valueType}|${direction}|${d}|${target.trim()}`;
@@ -203,25 +192,23 @@ export function AddMetricRow({
           aria-label="New metric"
         />
 
-        {trackingEnabled ? (
-          <input
-            type="text"
-            name="target"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            onBlur={(e) => runAiCritique(e)}
-            className={styles.addMetricTarget}
-            placeholder={
-              valueType === "percent"
-                ? "e.g. 90%"
-                : valueType === "text"
-                  ? "e.g. Yes"
-                  : "e.g. 0.95"
-            }
-            disabled={pending}
-            aria-label="Target"
-          />
-        ) : null}
+        <input
+          type="text"
+          name="target"
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          onBlur={(e) => runAiCritique(e)}
+          className={styles.addMetricTarget}
+          placeholder={
+            valueType === "percent"
+              ? "e.g. 90%"
+              : valueType === "text"
+                ? "e.g. Yes"
+                : "e.g. 0.95"
+          }
+          disabled={pending}
+          aria-label="Target"
+        />
 
         <select
           name="value_type"
@@ -238,21 +225,19 @@ export function AddMetricRow({
           ))}
         </select>
 
-        {trackingEnabled ? (
-          <select
-            value={direction}
-            onChange={(e) =>
-              setDirection(e.target.value as TargetDirection)
-            }
-            onBlur={(e) => runAiCritique(e)}
-            className={styles.addMetricType}
-            disabled={pending}
-            aria-label="Direction"
-          >
-            <option value="higher_is_better">Higher is better</option>
-            <option value="lower_is_better">Lower is better</option>
-          </select>
-        ) : null}
+        <select
+          value={direction}
+          onChange={(e) =>
+            setDirection(e.target.value as TargetDirection)
+          }
+          onBlur={(e) => runAiCritique(e)}
+          className={styles.addMetricType}
+          disabled={pending}
+          aria-label="Direction"
+        >
+          <option value="higher_is_better">Higher is better</option>
+          <option value="lower_is_better">Lower is better</option>
+        </select>
 
         {/* The Add button, on the same row as the fields it commits.
             Enter from any field still submits; the button is what
@@ -269,8 +254,7 @@ export function AddMetricRow({
         ) : null}
       </form>
 
-      {trackingEnabled &&
-      (hasAnyHint || critiqueLoading) &&
+      {(hasAnyHint || critiqueLoading) &&
       description.trim().length > 0 ? (
         <CritiquePanel hints={shownHints} loading={critiqueLoading} />
       ) : null}
@@ -283,9 +267,9 @@ export function AddMetricRow({
           buttonLabel="Suggest metrics"
           onSave={async (t, _body, extras) => {
             // The suggestion prompt returns a first-class `target`
-            // field for measures (required when the company has
-            // performance_tracking on, else createMeasureAction
-            // rejects with "every measure needs a target"). Value
+            // field for measures. It is optional, for every company:
+            // a team may name a result before it knows what good
+            // looks like. Value
             // type is auto-detected from the target's shape so we
             // don't need the model to emit it — % → percent,
             // yes/no → text, everything else → number. Direction

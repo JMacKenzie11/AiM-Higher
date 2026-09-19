@@ -151,9 +151,13 @@ describe("the board lives on the dashboard, under the brief", () => {
     expect(board).toBeLessThan(insights);
   });
 
-  it("is gated on the flag AND on something having been logged", () => {
+  it("is gated on something having been logged, and nothing else", () => {
     expect(dashboard).toMatch(/board\s*&&\s*board\.hasEntries\s*\?/);
-    expect(dashboard).toMatch(/perfTrackingOn\s*\n?\s*\?\s*await getBoardData/);
+    // It used to ALSO require Success Tracking, which hid a company's
+    // own recorded numbers from it. The flag is about the Saturday
+    // sweep now, so the board is not allowed to consult it.
+    expect(dashboard).not.toContain("performance_tracking");
+    expect(dashboard).toMatch(/const board = await getBoardData\(/);
   });
 
   it("is gone from /measures", () => {

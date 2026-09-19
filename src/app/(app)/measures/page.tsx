@@ -51,9 +51,14 @@ export default async function MeasuresPage() {
   // form's "draft from the role description" affordance, and 0216
   // removed the KPI add form; the flag still gates the role
   // description surfaces on /chart, which is where it belongs.
-  const [grid, trackingEnabled, externalEnabled] = await Promise.all([
+  // Success Tracking is NOT read here, and that is the point of it.
+  // The flag used to decide whether this page had week columns at
+  // all, so a company without it got a list it could never record a
+  // number against. It now governs only what the Saturday sweep and
+  // the Friday nudge do on their own; logging a week is part of the
+  // page, for everyone.
+  const [grid, externalEnabled] = await Promise.all([
     getGridData(companyId, session.profile.id, timezone, isAdmin),
-    companyHasFeature(companyId, "performance_tracking"),
     companyHasFeature(companyId, "external_measures"),
   ]);
 
@@ -81,18 +86,11 @@ export default async function MeasuresPage() {
       eyebrow="Company"
       title="Critical Success Factors"
       subtitle={
-        trackingEnabled ? (
-          <>
-            Every function&rsquo;s critical success factors. Log the week
-            ending {formatShortDate(weekEnding)} for the functions you
-            lead.
-          </>
-        ) : (
-          <>
-            Every critical success factor, by function. Weekly logging
-            turns on when Success Tracking is enabled for the company.
-          </>
-        )
+        <>
+          Every function&rsquo;s critical success factors. Log the week
+          ending {formatShortDate(weekEnding)} for the functions you
+          lead.
+        </>
       }
     >
       {groups.length === 0 ? (
@@ -115,7 +113,6 @@ export default async function MeasuresPage() {
             data={grid}
             weekEnding={weekEnding}
             isAdmin={isAdmin}
-            trackingEnabled={trackingEnabled}
           />
         </ExternalMeasuresProvider>
       )}

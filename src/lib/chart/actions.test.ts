@@ -92,10 +92,18 @@ const mocks = vi.hoisted(() => {
         // The column lists differ and always have, so that is what
         // distinguishes them. Chain shape was never the real
         // difference, only a convenient proxy for it.
+        //
+        // The parent lookup asked for "function_id, functions(...)"
+        // until Success Tracking stopped gating the target hint:
+        // the company was joined in only to check that flag, so the
+        // join went with it and the string is bare "function_id"
+        // now. Matched on the ENTRY lookup's own columns instead, so
+        // this cannot drift again the next time the parent's select
+        // is narrowed.
         select: (cols?: string) => {
-          const target = String(cols ?? "").includes("function_id, functions")
-            ? outcomesJoinedMaybeSingle
-            : measuresJoinedMaybeSingle;
+          const target = String(cols ?? "").includes("value_type")
+            ? measuresJoinedMaybeSingle
+            : outcomesJoinedMaybeSingle;
           const node: Record<string, unknown> = {};
           Object.assign(node, {
             maybeSingle: target,

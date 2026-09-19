@@ -114,7 +114,7 @@ describe("only your own functions get an input", () => {
     // every function because their canLog is true everywhere, which
     // is the same rule reaching a different answer rather than a
     // second rule.
-    expect(code).toContain("canLog={group.canLog && trackingEnabled}");
+    expect(code).toContain("canLog={group.canLog}");
   });
 
   it("falls back to reading the value, not to a disabled box", () => {
@@ -255,23 +255,48 @@ describe("show on company dashboard", () => {
   });
 });
 
-// ---- With Success Tracking off ---------------------------------
+// ---- Success Tracking does not reach this page -----------------
 //
-// The page degrades to a place to write down what each function is
-// held to. That is what the help has always said, and it was not
-// what the code did: the week columns still rendered, empty and
-// unfillable, and the add button had a second placement that put it
-// alone in a bare row above the table rather than in the toolbar.
+// It used to. The flag decided whether the week columns existed at
+// all, so a company without it got a table it could read and never
+// type into — and the Target field was hidden on the form besides.
+// That was the KPI-era gate outliving the KPIs.
 //
-// The state was invisible in testing because the dev clone had the
-// flag ON for the company being looked at and production had it OFF.
-describe("Success Tracking off", () => {
-  it("renders no week columns", () => {
-    expect(code).toContain(
-      "const visibleMonths = useMemo(\n    () => (trackingEnabled ? data.months : [])"
-    );
-    // And the column list follows that, not the raw months.
+// The flag now governs only what happens WITHOUT being asked: the
+// Friday nudge, the Issue raised from a below-target entry, the
+// commitment raised for an actual nobody entered. None of those is
+// this page. So this page must not read it, and these pin that: a
+// re-gate would be a one-word edit and would silently take the
+// week columns away from every company again.
+describe("Success Tracking does not gate the grid", () => {
+  it("does not read the flag anywhere in the grid", () => {
+    expect(code).not.toContain("trackingEnabled");
+    expect(code).not.toContain("performance_tracking");
+  });
+
+  it("renders every month it was given", () => {
+    expect(code).toContain("const visibleMonths = data.months;");
     expect(code).toContain("visibleMonths.flatMap((m): Column[] =>");
+  });
+
+  it("is not read by the page that renders the grid either", () => {
+    const page = readFileSync(
+      join(process.cwd(), "src/app/(app)/measures/page.tsx"),
+      "utf8"
+    );
+    expect(page).not.toContain("performance_tracking");
+  });
+
+  it("leaves the Target field on the form unconditionally", () => {
+    // The field itself was inside `{trackingEnabled ? (`, so a
+    // company without the flag could not type a target at all.
+    const form = readFileSync(
+      join(process.cwd(), "src/app/(app)/measures/EditMeasureForm.tsx"),
+      "utf8"
+    );
+    expect(form).not.toContain("trackingEnabled");
+    expect(form).toContain('name="target"');
+    expect(form).toContain('name="target_direction"');
   });
 
   it("keeps the add button in the toolbar, not in a second place", () => {

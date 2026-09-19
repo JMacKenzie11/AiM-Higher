@@ -70,7 +70,6 @@ export function EditMeasureForm({
   measure,
   outcomeTitle,
   outcomeDescription,
-  trackingEnabled,
   onDone,
   onCreated,
   createIn,
@@ -80,7 +79,6 @@ export function EditMeasureForm({
   measure: EditableMeasure;
   outcomeTitle: string;
   outcomeDescription: string | null;
-  trackingEnabled: boolean;
   onDone: () => void;
   // Called with the new measure's id after a create. The drawer uses
   // it to stay open on the row that was just made, so the external
@@ -161,10 +159,6 @@ export function EditMeasureForm({
     event?: Pick<React.FocusEvent<HTMLElement>, "relatedTarget">
   ) {
     if (event && !shouldCritiqueOnBlur(event)) return;
-    // Target critique is meaningless without tracking on — skip the
-    // AI call entirely so we don't burn tokens or write a stale
-    // target_hint that would linger past a tracking flip.
-    if (!trackingEnabled) return;
     const d = description.trim();
     if (d.length < 4) return;
     const key = `${valueType}|${direction}|${d}|${target.trim()}`;
@@ -245,26 +239,19 @@ export function EditMeasureForm({
         />
       </label>
 
-      {trackingEnabled ? (
-        <label className={chartStyles.formField}>
-          <span className={chartStyles.formLabel}>Target</span>
-          <input
-            className={chartStyles.formInput}
-            type="text"
-            name="target"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            onBlur={(e) => runAiCritique(e)}
-            placeholder="e.g. 0.95, 90%, Yes"
-            disabled={pending}
-          />
-        </label>
-      ) : (
-        // Tracking off — target isn't visible/editable, but preserve
-        // whatever's already stored so a later tracking flip doesn't
-        // wipe it. Same story for direction + auto_track below.
-        <input type="hidden" name="target" value={target} />
-      )}
+      <label className={chartStyles.formField}>
+        <span className={chartStyles.formLabel}>Target</span>
+        <input
+          className={chartStyles.formInput}
+          type="text"
+          name="target"
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          onBlur={(e) => runAiCritique(e)}
+          placeholder="e.g. 0.95, 90%, Yes"
+          disabled={pending}
+        />
+      </label>
 
       <label className={chartStyles.formField}>
         <span className={chartStyles.formLabel}>Value type</span>
@@ -283,84 +270,69 @@ export function EditMeasureForm({
         </select>
       </label>
 
-      {trackingEnabled ? (
-        <>
-          <label className={chartStyles.formField}>
-            <span className={chartStyles.formLabel}>Direction</span>
-            <select
-              className={chartStyles.formSelect}
-              name="target_direction"
-              value={direction}
-              onChange={(e) =>
-                setDirection(e.target.value as TargetDirection)
-              }
-              disabled={pending}
-            >
-              <option value="higher_is_better">Higher is better</option>
-              <option value="lower_is_better">Lower is better</option>
-            </select>
-          </label>
+      <label className={chartStyles.formField}>
+        <span className={chartStyles.formLabel}>Direction</span>
+        <select
+          className={chartStyles.formSelect}
+          name="target_direction"
+          value={direction}
+          onChange={(e) =>
+            setDirection(e.target.value as TargetDirection)
+          }
+          disabled={pending}
+        >
+          <option value="higher_is_better">Higher is better</option>
+          <option value="lower_is_better">Lower is better</option>
+        </select>
+      </label>
 
-          <label className={chartStyles.formField}>
-            <span className={chartStyles.formLabel}>How often to update</span>
-            <select
-              name="update_frequency"
-              defaultValue={measure.update_frequency ?? "weekly"}
-              disabled={pending}
-              className={chartStyles.formInput}
-            >
-              <option value="weekly">Every week</option>
-              <option value="biweekly">Every two weeks</option>
-              <option value="monthly">Every month</option>
-            </select>
-          </label>
+      <label className={chartStyles.formField}>
+        <span className={chartStyles.formLabel}>How often to update</span>
+        <select
+          name="update_frequency"
+          defaultValue={measure.update_frequency ?? "weekly"}
+          disabled={pending}
+          className={chartStyles.formInput}
+        >
+          <option value="weekly">Every week</option>
+          <option value="biweekly">Every two weeks</option>
+          <option value="monthly">Every month</option>
+        </select>
+      </label>
 
-          <label
-            className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
-          >
-            <span className={chartStyles.formLabel}>
-              <input
-                type="checkbox"
-                name="auto_track"
-                defaultChecked={measure.auto_track}
-                disabled={pending}
-                style={{ marginRight: "8px" }}
-              />
-              {/* Was "Auto-track weekly updates", which said what the
-                  system does rather than what happens to the person
-                  reading it, and hard-coded weekly now that frequency
-                  is a choice. */}
-              Remind the owner when this is due
-            </span>
-          </label>
-
-          <label
-            className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
-          >
-            <span className={chartStyles.formLabel}>
-              <input
-                type="checkbox"
-                name="show_on_dashboard"
-                defaultChecked={measure.show_on_dashboard}
-                disabled={pending}
-                style={{ marginRight: "8px" }}
-              />
-              Show on company dashboard
-            </span>
-          </label>
-        </>
-      ) : (
-        <>
+      <label
+        className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
+      >
+        <span className={chartStyles.formLabel}>
           <input
-            type="hidden"
-            name="target_direction"
-            value={direction}
+            type="checkbox"
+            name="auto_track"
+            defaultChecked={measure.auto_track}
+            disabled={pending}
+            style={{ marginRight: "8px" }}
           />
-          {measure.auto_track ? (
-            <input type="hidden" name="auto_track" value="on" />
-          ) : null}
-        </>
-      )}
+          {/* Was "Auto-track weekly updates", which said what the
+              system does rather than what happens to the person
+              reading it, and hard-coded weekly now that frequency
+              is a choice. */}
+          Remind the owner when this is due
+        </span>
+      </label>
+
+      <label
+        className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
+      >
+        <span className={chartStyles.formLabel}>
+          <input
+            type="checkbox"
+            name="show_on_dashboard"
+            defaultChecked={measure.show_on_dashboard}
+            disabled={pending}
+            style={{ marginRight: "8px" }}
+          />
+          Show on company dashboard
+        </span>
+      </label>
 
       {errorMessage ? (
         <p role="alert" className={chartStyles.errorMessage}>
@@ -409,8 +381,7 @@ export function EditMeasureForm({
         </button>
       </div>
 
-      {trackingEnabled &&
-      (hasAnyHint || critiqueLoading) &&
+      {(hasAnyHint || critiqueLoading) &&
       description.trim().length > 0 ? (
         <div
           className={`${chartStyles.critiquePanel} ${chartStyles.formFieldFull}`}

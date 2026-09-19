@@ -121,8 +121,10 @@ const APP_ITEMS: readonly NavItem[] = [
       // accountable for is the method, not a paid add-on, and the old
       // gate meant a company without the entitlement and without any
       // measures yet could not find the page to create its first one.
-      // Success Tracking still gates the weekly value columns, the
-      // 13-week board and the nudges, inside the page.
+      // Nothing inside the page is gated on it either, as of
+      // 2026-09-19: Success Tracking is the Friday nudge and the two
+      // things the Saturday sweep creates, and none of those is a
+      // reason to hide a column.
       { kind: "link", label: "Critical Success Factors", href: "/measures", icon: "measure" },
       { kind: "link", label: "Goals & Priorities", href: "/plan", icon: "calendar" },
       { kind: "link", label: "Issues/Solutions", href: "/issues", icon: "sparkle" },
@@ -349,7 +351,6 @@ export type SidebarProps = {
   // one. Only the portfolio band uses it, to build the settings link.
   scopedCompanyId?: string | null;
   features?: readonly string[];
-  hasChartMeasures?: boolean;
   notifications?: readonly NotificationItem[];
   // Initial collapsed state read from cookie server-side so first
   // paint matches the persisted preference — no post-hydration flicker.
@@ -371,7 +372,6 @@ export function Sidebar({
   scopedCompanyName,
   scopedCompanyId = null,
   features = [],
-  hasChartMeasures = false,
   notifications = [],
   initialCollapsed = false,
   initialCollapsedGroups = [],
@@ -453,12 +453,7 @@ export function Sidebar({
     feature?: Feature | null;
   }): boolean {
     if (link.roles && !link.roles.includes(userRole)) return false;
-    if (link.feature && !features.includes(link.feature)) {
-      if (link.feature === "performance_tracking" && hasChartMeasures) {
-        return true;
-      }
-      return false;
-    }
+    if (link.feature && !features.includes(link.feature)) return false;
     return true;
   }
 

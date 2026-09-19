@@ -42,13 +42,6 @@ export default async function DashboardPage() {
   const data = await getDashboardData(companyId);
   if (!data) redirect(crossTenantHome);
 
-  // Pending-measures widget only renders when performance_tracking
-  // is on for this company and the caller actually owns some
-  // measures that don't have a value for the current week yet.
-  const perfTrackingOn = await companyHasFeature(
-    companyId,
-    "performance_tracking"
-  );
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
@@ -65,11 +58,15 @@ export default async function DashboardPage() {
   // src/components/setup/SetupChecklist.tsx.
 
   // Generative "gaining ground / streaks / wins / worth a
-  // conversation" cards for the whole company. Only compute when
-  // the flag is on; the cards render nothing when there's no data.
-  const measureInsights = perfTrackingOn
-    ? await getMeasureInsights(companyId, data.company.timezone)
-    : null;
+  // conversation" cards for the whole company. The cards render
+  // nothing when there's no data, which is the only gate they need:
+  // these read numbers people have already recorded, and Success
+  // Tracking is about what the Saturday sweep does, not about who
+  // may look at their own values.
+  const measureInsights = await getMeasureInsights(
+    companyId,
+    data.company.timezone
+  );
 
   // The 13-week board, which used to sit on /measures.
   //
@@ -80,13 +77,12 @@ export default async function DashboardPage() {
   // indistinguishable from absent. The dashboard is the standing
   // "how are we doing" surface, which is the question this answers.
   //
-  // Loaded only when the flag is on, and rendered only when some
-  // value has actually been recorded: see hasEntries in board.ts. A
-  // frame of empty weeks teaches nobody anything. One real point is
-  // sparse and true, and shows.
-  const board = perfTrackingOn
-    ? await getBoardData(companyId, data.company.timezone)
-    : null;
+  // Rendered only when some value has actually been recorded: see
+  // hasEntries in board.ts. A frame of empty weeks teaches nobody
+  // anything. One real point is sparse and true, and shows. That is
+  // the whole gate now — it used to also require Success Tracking,
+  // which hid a company's own recorded numbers from it.
+  const board = await getBoardData(companyId, data.company.timezone);
   // Managers get the Coach column for rows they own via
   // profiles.reports_to — same rule as the coaching_conversations
   // insert policy in migration 0021. If they don't manage anyone on

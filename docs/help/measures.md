@@ -219,16 +219,26 @@ Archiving takes a measure off the page and keeps it on file. Nothing
 cascades, because nothing sits underneath a measure any more, and
 nothing hard-deletes, so past weekly values survive.
 
-## When Success Tracking is off
+## What Success Tracking changes
 
-- The board on the Dashboard is hidden.
-- The table drops the week columns, the values and the save button.
-- What is left is Functional Area, Owner, Critical Success Factor,
-  Frequency and Target: a place to write down what each function is
-  held to.
+Nothing on this page. Everyone gets the week columns, the Target
+field and the save button, whether the setting is on or off, and
+what you personally may type is decided by which functions you
+lead.
 
-Turn the entitlement on from company settings and the tracking
-columns appear on the next load.
+Success Tracking is about what happens on its own, when nobody has
+asked for anything:
+
+- the Friday reminder for a measure you lead and have not logged
+- an Issue raised automatically from a below-target value
+- a commitment raised automatically for a value nobody entered
+
+It is off for every company today, so none of those three fire. Turn
+it on in company settings when you want the chasing.
+
+It used to work the other way round: with it off, the week columns
+disappeared and the page became a list you could never record a
+number against. That changed on 19 September 2026.
 
 ## Where values are logged
 

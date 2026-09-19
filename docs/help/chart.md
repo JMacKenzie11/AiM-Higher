@@ -93,10 +93,10 @@ lands.
 **Why can't I hard-delete a critical success factor?** They only
 archive from the UI, so past-quarter weekly entries stay intact.
 
-**Do measures need a target?** No. A target is optional whether or not
-Success Tracking is on. Some results are named before anyone has worked
-out what good looks like, and a measure with no target still collects
-values; its cells read as *no target set* rather than on or off.
+**Do measures need a target?** No, and every company can set one.
+Some results are named before anyone has worked out what good looks
+like, and a measure with no target still collects values; its cells
+read as *no target set* rather than on or off.
 
 **Where do I log this week's value?** On *Critical Success Factors* or
 the dashboard, not here. The function page is for describing the

@@ -108,29 +108,6 @@ export default async function AppLayout({
     companyRow: companyRow ?? null,
   });
 
-  // Companies exploring metrics before flipping the paid Success
-  // Tracking entitlement shouldn't get an invisible nav link. When
-  // there's at least one measure on the chart, we admit the
-  // /measures link even without the entitlement — the tracking
-  // side-effects (weekly nudges, mandatory target) still stay off.
-  let hasChartMeasures = false;
-  if (
-    effectiveCompanyId &&
-    !features.includes("performance_tracking")
-  ) {
-    const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-    const { count } = await supabase
-      .from("success_measures")
-      .select("id, functions!inner(company_id)", {
-        count: "exact",
-        head: true,
-      })
-      .eq("archived", false)
-      .eq("functions.company_id", effectiveCompanyId)
-      .limit(1);
-    hasChartMeasures = (count ?? 0) > 0;
-  }
-
   // Header notifications — computed per request. State-derived, no
   // persistence yet (see lib/notifications/service.ts). Cross-company
   // roles with no scoped company get an empty list; nothing
@@ -141,7 +118,6 @@ export default async function AppLayout({
         companyId: effectiveCompanyId,
         timezone: companyTimezone ?? "America/Anchorage",
         features,
-        hasChartMeasures,
       })
     : [];
 
@@ -187,7 +163,6 @@ export default async function AppLayout({
             showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}
             scopedCompanyName={scopedCompanyName}
             features={features}
-            hasChartMeasures={hasChartMeasures}
             notifications={notifications}
             initialCollapsed={initialCollapsed}
             initialCollapsedGroups={initialCollapsedGroups}

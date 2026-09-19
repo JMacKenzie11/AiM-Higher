@@ -205,17 +205,7 @@ export function AddOutcomeForm({ functionId }: { functionId: string }) {
 
 // ---- Add Measure ----------------------------------------------
 
-export function AddMeasureForm({
-  outcomeId,
-  requireTarget = false,
-}: {
-  outcomeId: string;
-  // When the company has performance_tracking on, target becomes
-  // mandatory at the client + server layer. Direction + auto-track
-  // controls surface unconditionally so the metadata is available
-  // whether or not the flag is on today.
-  requireTarget?: boolean;
-}) {
+export function AddMeasureForm({ outcomeId }: { outcomeId: string }) {
   const [state, formAction, pending] = useActionState<
     ChartResult<SuccessMeasure>,
     FormData
@@ -252,16 +242,13 @@ export function AddMeasureForm({
       </label>
 
       <label className={styles.formField}>
-        <span className={styles.formLabel}>
-          Target{requireTarget ? " *" : ""}
-        </span>
+        <span className={styles.formLabel}>Target</span>
         <input
           className={styles.formInput}
           type="text"
           name="target"
           placeholder="e.g. 0.95, 90%, Yes"
           disabled={pending}
-          required={requireTarget}
         />
       </label>
 
