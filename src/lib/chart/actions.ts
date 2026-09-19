@@ -408,14 +408,41 @@ export async function createOutcomeAction(
 
   const description = nullableString(formData.get("description"));
 
-  // An outcome is a critical success factor: one row in
-  // success_measures, tagged csf. There is no second table to keep in
-  // step any more.
+  // THE MEASUREMENT COMES WITH THE NAME.
+  //
+  // Adding a critical success factor was two steps: type a name here,
+  // then open its settings to say what good looks like. With one
+  // level there is no reason to separate them, and a row created
+  // without a target is a row somebody has to come back to.
+  //
+  // Every field is optional at this boundary. A caller that sends
+  // only a title still works, which is what the chart page does, so
+  // the column defaults carry the rest.
+  const target = nullableString(formData.get("target"));
+  const valueType = parseValueType(String(formData.get("value_type") ?? "number"));
+  const direction = parseTargetDirection(
+    String(formData.get("target_direction") ?? "higher_is_better")
+  );
+  const updateFrequency = parseUpdateFrequency(
+    String(formData.get("update_frequency") ?? "weekly")
+  );
+  // A checkbox absent from the payload is unchecked, and absent from
+  // a payload that never carried it is the old default of on. The
+  // hidden companion field tells the two apart.
+  const autoTrack = formData.get("auto_track_present")
+    ? formData.get("auto_track") !== null
+    : true;
+
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("success_measures")
     .insert({
       function_id: functionId,
+      target,
+      value_type: valueType,
+      target_direction: direction,
+      update_frequency: updateFrequency,
+      auto_track: autoTrack,
       ...outcomeFieldsToCsf({ title, description }),
     })
     .select(CSF_AS_OUTCOME_COLUMNS)

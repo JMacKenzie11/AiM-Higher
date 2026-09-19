@@ -1410,62 +1410,113 @@
 }
 
 
-/* ---- Adding a measure ---------------------------------------- */
+/* ---- Toolbar ------------------------------------------------- */
 
-.gridAddRow {
+.gridToolbarActions {
   display: flex;
-  justify-content: flex-start;
-}
-
-.gridAddPanel {
-  display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
-  width: 100%;
-  padding: var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+}
+
+/* ---- The drawer slides ---------------------------------------- */
+/*
+   In from the right, with the scrim fading under it. Both honour
+   prefers-reduced-motion: the panel still appears, it just arrives
+   rather than travels.
+*/
+
+@keyframes drawerIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes scrimIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.drawer {
+  animation: drawerIn var(--duration-normal) var(--ease-out);
+  will-change: transform;
+}
+
+.drawerScrim {
+  animation: scrimIn var(--duration-normal) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawerScrim {
+    animation: none;
+  }
+}
+
+/* ---- The horizontal scrollbar, moved ------------------------- */
+/*
+   The native one ran the whole width of the table, under the pinned
+   columns as well, which says the names scroll and they do not. And
+   it sat at the bottom of a table that can be twenty rows tall, so
+   reaching it meant scrolling the page first.
+ 
+   So the real container's bar is hidden and a proxy sits above the
+   table, inset to start where the weeks do. Same element, two-way
+   synced, so dragging either moves the grid.
+*/
+
+.gridScroll {
+  scrollbar-width: none;
+}
+
+.gridScroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* STYLED, BECAUSE AN OVERLAY SCROLLBAR IS NOT THERE UNTIL YOU
+   SCROLL. macOS hides scrollbars at rest by default, so the proxy
+   rendered as an empty strip and the whole point of lifting it above
+   the table was lost. Drawing the track and thumb explicitly makes it
+   a visible affordance rather than a hidden one. */
+.gridScrollbar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 12px;
+  margin-bottom: var(--space-2);
+  border-radius: 6px;
   background: var(--aims-navy-tint);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
-.gridAddLabel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+.gridScrollbar::-webkit-scrollbar {
+  height: 12px;
+  -webkit-appearance: none;
 }
 
-.gridAddLabelText {
-  font: var(--text-label);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+.gridScrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.gridAddSelect {
-  height: var(--control-h-md);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
-  font: var(--text-body-sm);
+.gridScrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 6px;
 }
 
-/* The name field takes the rest of the row. Left at its natural
-   width it showed about half a placeholder. */
-.gridAddPanel .addOutcomeRow {
-  flex: 1;
-  min-width: 260px;
+.gridScrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+  background-clip: content-box;
 }
 
-.gridAddCancel {
-  background: none;
-  border: none;
-  padding: 0 var(--space-2);
-  height: var(--control-h-md);
-  color: var(--primary);
-  font: var(--text-body-sm);
-  cursor: pointer;
-  text-decoration: underline;
+.gridScrollbarInner {
+  height: 1px;
 }

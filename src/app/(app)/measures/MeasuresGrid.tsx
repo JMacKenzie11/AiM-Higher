@@ -11,7 +11,6 @@ import { EditMeasureForm, ArchiveMeasureButton } from "./EditMeasureForm";
 import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
 import { PencilIcon } from "@/components/ui/PencilIcon";
 import { PlusIcon } from "@/components/ui/PlusIcon";
-import { AddOutcomeInline } from "./AddOutcomeInline";
 import { formatShortDate } from "@/lib/dates";
 import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./measures.module.css";
@@ -106,6 +105,18 @@ function pinnedColumns(authoring: boolean) {
 const CLOSED_MONTH_WIDTH = 44;
 const MIN_WEEK_WIDTH = 60;
 
+// A new measure, before anything is typed. The column defaults,
+// restated here so the form has something to control.
+const BLANK_MEASURE = {
+  id: "",
+  description: "",
+  target: null,
+  value_type: "number" as const,
+  target_direction: "higher_is_better" as const,
+  update_frequency: "weekly",
+  auto_track: true,
+};
+
 export function MeasuresGrid({
   data,
   weekEnding,
@@ -178,13 +189,15 @@ export function MeasuresGrid({
   // app. The drawer traps nothing else: the table behind it stays
   // readable, which is the point of a drawer over a modal here.
   useEffect(() => {
-    if (!editing) return;
+    if (!editing && !adding) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setEditing(null);
+      if (e.key !== "Escape") return;
+      setEditing(null);
+      setAdding(null);
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [editing]);
+  }, [editing, adding]);
 
   // Open with the CURRENT MONTH against the pinned columns, and
   // every earlier month scrolled off to the left.
@@ -251,6 +264,31 @@ export function MeasuresGrid({
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollbarRef = useRef<HTMLDivElement>(null);
+  const scrollbarInnerRef = useRef<HTMLDivElement>(null);
+  const syncing = useRef(false);
+
+  useEffect(() => {
+    const grid = scrollRef.current;
+    const bar = scrollbarRef.current;
+    if (!grid || !bar) return;
+    const mirror = (from: HTMLElement, to: HTMLElement) => () => {
+      if (syncing.current) return;
+      syncing.current = true;
+      to.scrollLeft = from.scrollLeft;
+      requestAnimationFrame(() => {
+        syncing.current = false;
+      });
+    };
+    const a = mirror(grid, bar);
+    const b = mirror(bar, grid);
+    grid.addEventListener("scroll", a, { passive: true });
+    bar.addEventListener("scroll", b, { passive: true });
+    return () => {
+      grid.removeEventListener("scroll", a);
+      bar.removeEventListener("scroll", b);
+    };
+  }, []);
 
   // Measure the pinned offsets, size the open month to the track,
   // then scroll to the end. In that order, and all in one frame,
@@ -344,11 +382,22 @@ export function MeasuresGrid({
         for (const col of weekCols) col.style.width = `${width}px`;
       }
 
-      // 3. The open month now fills the track, so the end of the
+      // 3. The proxy scrollbar: as wide as the content, inset to
+      //    begin where the weeks do, so it sits under the only part
+      //    of the table that actually moves.
+      const bar = scrollbarRef.current;
+      const inner = scrollbarInnerRef.current;
+      if (bar && inner) {
+        bar.style.marginLeft = `${pinnedRight}px`;
+        inner.style.width = `${el.scrollWidth - pinnedRight}px`;
+      }
+
+      // 4. The open month now fills the track, so the end of the
       //    scroll puts it flush against the pinned columns with every
       //    earlier month off the left edge.
       requestAnimationFrame(() => {
         el.scrollLeft = el.scrollWidth;
+        if (bar) bar.scrollLeft = bar.scrollWidth;
       });
     });
     return () => cancelAnimationFrame(id);
@@ -369,13 +418,39 @@ export function MeasuresGrid({
               ? `All ${writableRows.length} logged for the week ending ${formatShortDate(weekEnding)}.`
               : `${outstanding} of ${writableRows.length} still to log for the week ending ${formatShortDate(weekEnding)}.`}
           </p>
+          <div className={styles.gridToolbarActions}>
+            <button
+              type="button"
+              className={uiStyles.btnPrimary}
+              onClick={save}
+              disabled={pending}
+            >
+              {pending ? "Saving…" : "Save this week"}
+            </button>
+            {addableGroups.length > 0 ? (
+              <button
+                type="button"
+                className={uiStyles.btnSecondary}
+                onClick={() => setAdding(addableGroups[0].functionId)}
+              >
+                <PlusIcon />Add a critical success factor
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* The add control again, for a company without Success
+          Tracking on: there is no toolbar to hang it from then, and
+          authoring the list is the whole of what the page does. */}
+      {!trackingEnabled && addableGroups.length > 0 ? (
+        <div className={styles.gridToolbarActions}>
           <button
             type="button"
-            className={uiStyles.btnPrimary}
-            onClick={save}
-            disabled={pending}
+            className={uiStyles.btnSecondary}
+            onClick={() => setAdding(addableGroups[0].functionId)}
           >
-            {pending ? "Saving…" : "Save this week"}
+            <PlusIcon />Add a critical success factor
           </button>
         </div>
       ) : null}
@@ -385,6 +460,25 @@ export function MeasuresGrid({
           {message.text}
         </p>
       ) : null}
+
+      {/* THE SCROLLBAR, LIFTED OUT OF THE TABLE.
+ 
+          The native one spans the whole container, including the
+          pinned columns, which says the names scroll and they do not.
+          It also sits below a table that can be twenty rows tall, so
+          reaching it means scrolling the page first.
+ 
+          This is the same scroll, proxied: an empty strip as wide as
+          the table's content, inset to start where the weeks do,
+          synced both ways. The container's own bar is hidden in CSS.
+ 
+          `syncing` is a plain ref rather than state: each element's
+          scroll handler sets the other's scrollLeft, which fires that
+          one's handler, and without the flag the two chase each other
+          for a frame. */}
+      <div className={styles.gridScrollbar} ref={scrollbarRef}>
+        <div className={styles.gridScrollbarInner} ref={scrollbarInnerRef} />
+      </div>
 
       <div className={styles.gridScroll} ref={scrollRef}>
         <table className={styles.grid}>
@@ -635,56 +729,17 @@ export function MeasuresGrid({
         </table>
       </div>
 
-      {authoring ? (
-        <div className={styles.gridAddRow}>
-          {adding ? (
-            <div className={styles.gridAddPanel}>
-              <label className={styles.gridAddLabel}>
-                <span className={styles.gridAddLabelText}>Functional area</span>
-                <select
-                  className={styles.gridAddSelect}
-                  value={adding}
-                  onChange={(e) => setAdding(e.target.value)}
-                >
-                  {addableGroups.map((g) => (
-                    <option key={g.functionId} value={g.functionId}>
-                      {g.functionTitle}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <AddOutcomeInline
-                functionId={adding}
-                onAdded={() => setAdding(null)}
-              />
-              <button
-                type="button"
-                className={styles.gridAddCancel}
-                onClick={() => setAdding(null)}
-              >
-                Cancel
-              </button>
-            </div>
-          ) : addableGroups.length > 0 ? (
-            <button
-              type="button"
-              className={styles.addToggleButton}
-              onClick={() => setAdding(addableGroups[0].functionId)}
-            >
-              <PlusIcon />Add a critical success factor
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {editingRow ? (
+      {editingRow || adding ? (
         <>
           {/* A scrim, so a click anywhere else closes it. The third
               dismissal, beside Escape and Cancel, and the one people
               reach for without being taught. */}
           <div
             className={styles.drawerScrim}
-            onClick={() => setEditing(null)}
+            onClick={() => {
+              setEditing(null);
+              setAdding(null);
+            }}
             aria-hidden
           />
           <aside
@@ -697,13 +752,16 @@ export function MeasuresGrid({
               <div>
                 <p className={styles.drawerEyebrow}>Critical success factor</p>
                 <h2 id="measure-drawer-title" className={styles.drawerTitle}>
-                  {editingRow.description}
+                  {editingRow ? editingRow.description : "Add a new one"}
                 </h2>
               </div>
               <button
                 type="button"
                 className={styles.drawerClose}
-                onClick={() => setEditing(null)}
+                onClick={() => {
+                  setEditing(null);
+                  setAdding(null);
+                }}
                 aria-label="Close"
               >
                 <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
@@ -719,19 +777,33 @@ export function MeasuresGrid({
             </header>
             <div className={styles.drawerBody}>
               <EditMeasureForm
-                measure={{
-                  id: editingRow.id,
-                  description: editingRow.description,
-                  target: editingRow.target,
-                  value_type: editingRow.valueType,
-                  target_direction: editingRow.direction,
-                  update_frequency: editingRow.frequency,
-                  auto_track: editingRow.autoTrack,
-                }}
-                outcomeTitle={editingRow.description}
-                outcomeDescription={editingRow.detail}
+                key={editingRow ? editingRow.id : `new-${adding}`}
+                measure={
+                  editingRow
+                    ? {
+                        id: editingRow.id,
+                        description: editingRow.description,
+                        target: editingRow.target,
+                        value_type: editingRow.valueType,
+                        target_direction: editingRow.direction,
+                        update_frequency: editingRow.frequency,
+                        auto_track: editingRow.autoTrack,
+                      }
+                    : BLANK_MEASURE
+                }
+                outcomeTitle={editingRow?.description ?? ""}
+                outcomeDescription={editingRow?.detail ?? null}
                 trackingEnabled={trackingEnabled}
-                onDone={() => setEditing(null)}
+                onDone={() => {
+                  setEditing(null);
+                  setAdding(null);
+                }}
+                createIn={editingRow ? undefined : adding ?? undefined}
+                functionChoices={addableGroups.map((g) => ({
+                  id: g.functionId,
+                  title: g.functionTitle,
+                }))}
+                onFunctionChange={setAdding}
               />
             </div>
           </aside>

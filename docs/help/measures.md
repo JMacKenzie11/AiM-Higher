@@ -40,6 +40,11 @@ entered sitting in a row of numbers people did.
 **Only this week takes a value.** Earlier weeks are there to read.
 Correcting an old number is a conversation rather than a keystroke.
 
+**The scrollbar sits above the table**, starting where the week
+columns do. It moves only the weeks, which is the only part that
+scrolls, and it is at the top so you do not have to reach the bottom
+of a long list to use it.
+
 **The 13-week board is on the Dashboard**, not here, in a card with
 the same name as this page. It sits under *What's worth knowing
 today* and shows every measure against its target across every
@@ -85,13 +90,23 @@ nothing.
 
 ## Adding and editing
 
-**Add a critical success factor** from the control under the table.
-Pick the functional area and give it a name; everything else is set
-afterwards with the pencil. Admins see every area in that list, an
-owner sees their own.
+**Add a critical success factor** from the button beside *Save this
+week*. It opens the same panel the pencil does, so the name, the
+target, the value type, the direction and how often it is expected
+are all set in one go. Admins choose any functional area from the
+list; an owner sees their own.
+
+It used to be two steps, a name first and the measurement afterwards.
+That made sense when a critical success factor was a heading with the
+measurable part underneath it. With one level, a row added without a
+target is a row somebody has to come back to.
 
 Each row has a **pencil** and a **bin** in their own column, to the
 left of the name. They appear only on functions you can write to.
+
+The panel slides in from the right and leaves the table readable
+behind it. Close it with **Cancel**, the **✕**, the Escape key, or by
+clicking outside.
 
 The pencil opens that measure's settings in a panel at the side of
 the screen: name, target, value type, direction, how often to update,

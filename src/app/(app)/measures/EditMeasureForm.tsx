@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   archiveMeasureAction,
+  createOutcomeAction,
   updateMeasureAction,
   type ChartResult,
 } from "@/lib/chart/actions";
@@ -53,23 +54,53 @@ export type EditableMeasure = {
   auto_track: boolean;
 };
 
+// ONE FORM FOR ADD AND EDIT.
+//
+// Adding used to be two steps: type a name in a row under the table,
+// then find the row and open its settings to say what good looks
+// like. That made sense when a critical success factor was a heading
+// and the measurable thing lived underneath it. With one level there
+// is nothing to separate, and a row created without a target is a row
+// somebody has to come back to.
+//
+// `createIn` is the difference. Present, the form posts to
+// createOutcomeAction against that function and shows a functional
+// area picker; absent, it updates the measure it was given.
 export function EditMeasureForm({
   measure,
   outcomeTitle,
   outcomeDescription,
   trackingEnabled,
   onDone,
+  createIn,
+  functionChoices,
+  onFunctionChange,
 }: {
   measure: EditableMeasure;
   outcomeTitle: string;
   outcomeDescription: string | null;
   trackingEnabled: boolean;
   onDone: () => void;
+  // The function a new measure belongs to. Absent means edit.
+  createIn?: string;
+  // Offered in create mode so the area is chosen in the same panel
+  // rather than before it opens.
+  functionChoices?: ReadonlyArray<{ id: string; title: string }>;
+  onFunctionChange?: (id: string) => void;
 }) {
+  const creating = createIn !== undefined;
   const [state, formAction, pending] = useActionState<
     ChartResult<SuccessMeasure>,
     FormData
-  >(updateMeasureAction, INITIAL);
+  >(
+    (creating
+      ? createOutcomeAction
+      : updateMeasureAction) as unknown as (
+      prev: ChartResult<SuccessMeasure> | undefined,
+      fd: FormData
+    ) => Promise<ChartResult<SuccessMeasure>>,
+    INITIAL
+  );
   const [description, setDescription] = useState(measure.description);
   const [target, setTarget] = useState(measure.target ?? "");
   const [valueType, setValueType] = useState<MetricValueType>(
@@ -149,7 +180,39 @@ export function EditMeasureForm({
 
   return (
     <form action={formAction} className={chartStyles.addForm}>
-      <input type="hidden" name="id" value={measure.id} />
+      {creating ? (
+        <>
+          <input type="hidden" name="function_id" value={createIn} />
+          {/* The action reads `title` on create and `description` on
+              update. One input, named for whichever it is, so the
+              field below stays a single controlled value. */}
+          <input type="hidden" name="title" value={description} />
+        </>
+      ) : (
+        <input type="hidden" name="id" value={measure.id} />
+      )}
+      {/* Tells the action that this payload carries the checkbox at
+          all, so an unchecked box reads as off rather than as a
+          caller that never sent one. */}
+      <input type="hidden" name="auto_track_present" value="1" />
+
+      {creating && functionChoices && functionChoices.length > 1 ? (
+        <label className={chartStyles.formField}>
+          <span className={chartStyles.formLabel}>Functional area</span>
+          <select
+            className={chartStyles.formInput}
+            value={createIn}
+            onChange={(e) => onFunctionChange?.(e.target.value)}
+            disabled={pending}
+          >
+            {functionChoices.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label
         className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
       >
@@ -301,7 +364,7 @@ export function EditMeasureForm({
           className={uiStyles.btnPrimary}
           disabled={pending}
         >
-          {pending ? "Saving…" : "Save"}
+          {pending ? "Saving…" : creating ? "Add" : "Save"}
         </button>
         <button
           type="button"

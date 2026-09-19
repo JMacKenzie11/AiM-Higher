@@ -108,3 +108,42 @@ describe("only your own functions get an input", () => {
     expect(cellView).not.toContain("disabled={!canLog}");
   });
 });
+
+// ---- What a reader with no seat sees ---------------------------
+//
+// A team member who leads no function is a reader of this page:
+// every value, no inputs, no pencil, no bin, and no way to add. That
+// is three separate controls that each have to be gated, and the one
+// most likely to be forgotten is the add button, because it lives in
+// the toolbar rather than on a row.
+describe("someone who owns no function gets no authoring controls", () => {
+  it("derives authoring from the same canLog the rows use", () => {
+    // Not a separate isAdmin check. An admin reaches it because their
+    // canLog is true everywhere, which is one rule giving a different
+    // answer rather than a second rule to keep in step.
+    expect(code).toContain(
+      "const authoring = isAdmin || data.groups.some((g) => g.canLog)"
+    );
+  });
+
+  it("offers only the functions this caller may add to", () => {
+    expect(code).toContain(
+      "const addableGroups = data.groups.filter((g) => g.canLog)"
+    );
+  });
+
+  it("hides the add control when there are none", () => {
+    // Two placements, one with Success Tracking on and one without,
+    // and both have to carry the gate.
+    const gates = code.match(/addableGroups\.length > 0/g) ?? [];
+    expect(gates.length).toBeGreaterThanOrEqual(2);
+    expect(code).not.toMatch(/\{\s*authoring \?\s*\(\s*<button[^>]*Add a critical/);
+  });
+
+  it("hides the pencil and the bin per function", () => {
+    // The actions COLUMN exists if the caller can author anywhere, so
+    // the table does not gain and lose a track as you scroll. What
+    // goes in it is decided per row.
+    expect(code).toContain("{group.canLog ? (");
+  });
+});
