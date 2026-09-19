@@ -34,16 +34,17 @@ import type { TargetHistoryRow } from "@/lib/measures/target-history";
 // a column neither consumer reads. Kept explicit rather than "*" for
 // the reason in spec §19.
 //
-// THE ENTRY WINDOW IS THE GRID'S. Six months is the widest any
+// THE ENTRY WINDOW IS THE GRID'S. A rolling year is the widest any
 // consumer wants, so one read covers all of them and each narrows in
 // memory: the board takes the last 13 weeks, the tree its five-week
 // trail. Fetching a narrower window would mean a second query for
 // rows already in hand.
 //
-// It was the board's 13 weeks until the grid arrived. Widening it
-// costs one predicate on an indexed column and roughly twice the
-// rows; a company with 30 measures and a full six months of history
-// is 780 entries, which is a small read by any measure on this page.
+// It was the board's 13 weeks, then the grid's 26. Widening it costs
+// one predicate on an indexed column: a company with 30 measures and
+// a full year of history is 1,560 entries, which is a small read by
+// any measure on this page, and most of the fleet has under 30 rows
+// in total.
 //
 // No caching here beyond what the caller does. Nothing is memoized
 // at module scope, which would be a cross-tenant leak (see the note
@@ -55,11 +56,19 @@ import type { TargetHistoryRow } from "@/lib/measures/target-history";
 
 export const BOARD_WEEKS = 13;
 
-// How far back /measures scrolls. Six months of Fridays, current week
-// included. Everything on file across the fleet today sits inside it
-// (oldest entry 2026-04-24), so this is a window rather than paging;
-// the first company to pass six months will want more.
-export const GRID_WEEKS = 26;
+// How far back /measures scrolls: a rolling twelve months of Fridays,
+// current week included.
+//
+// 52 rather than 26, decided once the grid existed. Six months shows
+// a season; a year shows the same season last year, which is the
+// comparison most of these numbers are actually read for. The window
+// rolls with today rather than resetting in January, so it never has
+// a thin week in the first days of a year.
+//
+// It is a window, not paging. Everything on file across the fleet
+// today sits inside it, and the company that outgrows a year wants a
+// different surface rather than a longer table.
+export const GRID_WEEKS = 52;
 
 // How far back the Manager's "recent" pills reach. Five weeks plus the
 // current one, matching what the row renders.

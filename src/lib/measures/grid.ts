@@ -23,10 +23,10 @@ import type {
 //
 // ---- WHY THE WEEKS ARE GROUPED BY MONTH ----------------------
 //
-// Six months is 26 columns and nobody needs 26 at once. The current
-// month is open and the rest are one column each, carrying their
-// name, so the page opens on the week you are filling in and the
-// history is a click away rather than a scroll away.
+// A rolling year is 52 columns and nobody needs 52 at once. The
+// current month is open and the rest are one column each, carrying
+// their name, so the page opens on the week you are filling in and
+// the history is a click away rather than a scroll away.
 //
 // A collapsed month shows its name and nothing else. Deliberately:
 // any summary value it could show (the last week, an average) would

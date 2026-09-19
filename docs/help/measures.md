@@ -27,9 +27,10 @@ Critical Success Factor, Frequency, Target, then one column per week.
 Functional Area and Owner are written once per function and span its
 rows.
 
-**It opens on this week.** Six months of weeks are available; the
-current month is open and scrolled into view, with the earlier ones
-collapsed to a single column each and pushed off to the left. Click a
+**It opens on this week.** A rolling twelve months of weeks are
+available; the current month is open and scrolled into view, with the
+earlier ones collapsed to a single column each and pushed off to the
+left. Click a
 month to open it, and click it again to fold it away. This week's
 column is tinted, because it is the only one that takes a value.
 

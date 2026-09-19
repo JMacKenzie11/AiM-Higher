@@ -168,14 +168,21 @@ describe("the pinned columns line up with their offsets", () => {
     const clearsLeft = body.indexOf('cell.style.left = ""');
     const clearsWidth = body.indexOf('col.style.width = ""');
     const resetsScroll = body.indexOf("el.scrollLeft = 0");
-    const firstMeasure = body.indexOf("getBoundingClientRect");
+    // The measurements that FEED the new offsets all start from
+    // tableLeft, so that is the line the clearing has to precede.
+    //
+    // Not "before any getBoundingClientRect at all": the anchor above
+    // reads the on-screen geometry deliberately, and has to, because
+    // its whole job is to record where the reader was BEFORE the
+    // reset moves everything.
+    const offsetsMeasuredFrom = body.indexOf("const tableLeft");
     expect(clearsLeft, "should clear the left values it wrote").toBeGreaterThan(-1);
     expect(clearsWidth, "should clear the widths it wrote").toBeGreaterThan(-1);
     expect(resetsScroll, "should unstick the sticky cells").toBeGreaterThan(-1);
-    // All three before anything is read, or the reset is decorative.
-    expect(clearsLeft).toBeLessThan(firstMeasure);
-    expect(clearsWidth).toBeLessThan(firstMeasure);
-    expect(resetsScroll).toBeLessThan(firstMeasure);
+    expect(offsetsMeasuredFrom).toBeGreaterThan(-1);
+    expect(clearsLeft).toBeLessThan(offsetsMeasuredFrom);
+    expect(clearsWidth).toBeLessThan(offsetsMeasuredFrom);
+    expect(resetsScroll).toBeLessThan(offsetsMeasuredFrom);
   });
 
   it("re-runs when the rows change, not only when a month toggles", () => {
@@ -247,6 +254,21 @@ describe("the pinned columns line up with their offsets", () => {
     // Over the only part of the table that moves. Running the full
     // width says the names scroll, and they do not.
     expect(src).toContain("row.style.marginLeft = `${pinnedRight}px`");
+  });
+
+  it("scrolls to the end ONCE, then leaves the position to the reader", () => {
+    // Opening a month threw the reader back to the current week, and
+    // closing one did it again, so exploring the history fought back.
+    // The effect has to re-run on a toggle, because the sizing
+    // depends on how many weeks are open; what it must not do is
+    // scroll again.
+    const src2 = readFileSync(join(DIR, "MeasuresGrid.tsx"), "utf8");
+    expect(src2).toContain("openedRef");
+    // Restored by MONTH, not by pixel: opening one inserts columns to
+    // the left of wherever they are looking, so a raw scrollLeft
+    // would slide the table under them.
+    expect(src2).toContain("data-month-key");
+    expect(src2).toContain("anchor.offset");
   });
 
   it("opens with the current month against the pinned columns", () => {

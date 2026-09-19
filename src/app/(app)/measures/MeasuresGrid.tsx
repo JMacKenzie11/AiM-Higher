@@ -18,7 +18,7 @@ import styles from "./measures.module.css";
 // The /measures grid.
 //
 // Functional Area | Owner | Critical Success Factor | Frequency |
-// Target | one column per week, six months of them.
+// Target | one column per week, a rolling year of them.
 //
 // ---- WHY A TABLE AND NOT THE CSS GRID THAT WAS HERE ----------
 //
@@ -141,9 +141,9 @@ export function MeasuresGrid({
   // a Lead gets their own, which is the same rule reaching a
   // different answer rather than a second rule.
   const addableGroups = data.groups.filter((g) => g.canLog);
-  // Open on the current month, with the rest closed. Six months of
-  // Fridays is 26 columns and nobody needs 26 at once; the week you
-  // are filling in should be on screen without scrolling to it.
+  // Open on the current month, with the rest closed. A rolling year
+  // is 52 columns and nobody needs 52 at once; the week you are
+  // filling in should be on screen without scrolling to it.
   const [openMonths, setOpenMonths] = useState<Set<string>>(
     () => new Set(data.months.filter((m) => m.isCurrent).map((m) => m.key))
   );
@@ -267,6 +267,9 @@ export function MeasuresGrid({
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const scrollbarRowRef = useRef<HTMLDivElement>(null);
+  // Whether the opening scroll has happened. After it has, the
+  // position belongs to the reader.
+  const openedRef = useRef(false);
 
   // One arrow press moves about a month. Smooth, so the eye can
   // follow which columns went by rather than being teleported.
@@ -425,9 +428,33 @@ export function MeasuresGrid({
       const table = el.querySelector("table");
       if (!table) return;
 
-      // 0. Back to a clean slate. Reading scrollLeft after setting it
-      //    forces the reflow, so what follows sees the unstuck
-      //    layout rather than the one that was on screen.
+      // 0a. REMEMBER WHERE THE READER IS, by month rather than by
+      //     pixel. Opening a month inserts four or five columns to
+      //     the left of wherever they are looking, so restoring a raw
+      //     scrollLeft would slide the table under them. Anchoring on
+      //     the leftmost month still on screen keeps the thing they
+      //     clicked where they clicked it.
+      const anchor = (() => {
+        if (!openedRef.current) return null;
+        const box0 = el.getBoundingClientRect();
+        const lastPinned = el.querySelector<HTMLElement>("[data-last-pinned]");
+        const edge = lastPinned
+          ? lastPinned.getBoundingClientRect().right
+          : box0.left;
+        for (const head of Array.from(
+          el.querySelectorAll<HTMLElement>("thead [data-month-key]")
+        )) {
+          const r = head.getBoundingClientRect();
+          if (r.right > edge + 1) {
+            return { key: head.dataset.monthKey!, offset: r.left - edge };
+          }
+        }
+        return null;
+      })();
+
+      // 0b. Back to a clean slate. Reading scrollLeft after setting it
+      //     forces the reflow, so what follows sees the unstuck
+      //     layout rather than the one that was on screen.
       const pinnedCells = Array.from(
         el.querySelectorAll<HTMLElement>("[data-pin]")
       );
@@ -481,11 +508,34 @@ export function MeasuresGrid({
       const row = scrollbarRowRef.current;
       if (row) row.style.marginLeft = `${pinnedRight}px`;
 
-      // 4. The open month now fills the track, so the end of the
-      //    scroll puts it flush against the pinned columns with every
+      // 4. Where to leave it.
+      //
+      //    FIRST TIME: the end, which is this week, with every
       //    earlier month off the left edge.
+      //
+      //    EVERY TIME AFTER: back where the reader was. Opening a
+      //    month used to throw them to the current week and closing
+      //    one did it again, so exploring the history fought back.
       requestAnimationFrame(() => {
-        el.scrollLeft = el.scrollWidth;
+        if (!openedRef.current || !anchor) {
+          el.scrollLeft = el.scrollWidth;
+          openedRef.current = true;
+          return;
+        }
+        const head = el.querySelector<HTMLElement>(
+          `thead [data-month-key="${anchor.key}"]`
+        );
+        if (!head) {
+          el.scrollLeft = el.scrollWidth;
+          return;
+        }
+        const box1 = el.getBoundingClientRect();
+        const lastPinned = el.querySelector<HTMLElement>("[data-last-pinned]");
+        const edge = lastPinned
+          ? lastPinned.getBoundingClientRect().right
+          : box1.left;
+        el.scrollLeft +=
+          head.getBoundingClientRect().left - edge - anchor.offset;
       });
     });
     return () => cancelAnimationFrame(id);
@@ -685,6 +735,7 @@ export function MeasuresGrid({
                     colSpan={m.weeks.length}
                     className={styles.gridMonthOpen}
                     data-current-month={m.isCurrent ? "" : undefined}
+                    data-month-key={m.key}
                   >
                     <button
                       type="button"
@@ -702,6 +753,7 @@ export function MeasuresGrid({
                     rowSpan={2}
                     className={styles.gridMonthClosed}
                     data-current-month={m.isCurrent ? "" : undefined}
+                    data-month-key={m.key}
                   >
                     <button
                       type="button"

@@ -17,8 +17,8 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // Critical Success Factors: the spreadsheet, in the app.
 //
 // Functional Area, Owner, Critical Success Factor, Frequency, Target,
-// then six months of weeks with the current month open and the rest
-// collapsed. One surface for both authoring and logging the week. The
+// then a rolling year of weeks with the current month open and the
+// rest collapsed. One surface for both authoring and logging the week. The
 // chart page defers the "what are we measuring" question here so it
 // can stay a chart.
 //

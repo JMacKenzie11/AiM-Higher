@@ -25,10 +25,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 const FROZEN_NOW = new Date("2026-09-02T18:00:00Z"); // a Wednesday
 const THIS_FRIDAY = "2026-09-04";
 const OLDEST = "2026-07-31"; // weekEnding - 35 days, the tree's trail
-// weekEnding - 25 weeks: what the shared spine fetches. It was the
-// board's 13 until the six-month grid arrived; the spine takes the
-// widest window any consumer wants and each narrows in memory.
-const GRID_OLDEST = "2026-03-13";
+// weekEnding - 51 weeks: what the shared spine fetches. It was the
+// board's 13, then the grid's 26; the spine takes the widest window
+// any consumer wants and each narrows in memory.
+const GRID_OLDEST = "2025-09-12";
 // Still inside that window, outside the tree's five-week trail.
 const BOARD_OLDEST = "2026-06-12";
 
@@ -423,12 +423,16 @@ describe("getGridData — the reads", () => {
     seed(`success_measures::${CSF_COLS}`, [outcome("o_1", "Revenue", "f_1")]);
   });
 
-  it("fetches the grid's six-month window, since every surface shares one read", async () => {
+  it("fetches the grid's rolling year, since every surface shares one read", async () => {
     // The entries read was five weeks, matching the old tree's trail,
-    // then 13 for the board. It is the widest window any consumer
-    // takes, because fetching a narrower one would mean a second
-    // query for rows already in memory. Each consumer narrows in
-    // shaping instead: the board to 13 weeks.
+    // then 13 for the board, then 26 for the grid. It is the widest
+    // window any consumer takes, because fetching a narrower one
+    // would mean a second query for rows already in memory. Each
+    // consumer narrows in shaping instead: the board to 13 weeks.
+    //
+    // A year, not six months: six shows a season, twelve shows the
+    // same season last year, which is the comparison these numbers
+    // are read for.
     seed("success_measure_entries", []);
     const { getGridData } = await import("./grid");
     await getGridData("co_1", "u_1", "America/Anchorage", true);
