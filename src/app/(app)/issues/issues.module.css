@@ -85,6 +85,56 @@
   .columnHeader {
     display: none;
   }
+
+  /* THE ADD LINE PLACES ITSELF, because counting its children is not
+     something this file is allowed to do.
+ 
+     .addLine composes `row` from commitments.module.css, and that
+     stylesheet places a row's cells at this width with
+     `.row > :nth-child(1..8) { grid-area: ... }`. The comments on
+     both sides say the count is safe because the form carries three
+     `<input type="hidden">` before its first real cell.
+ 
+     It carries three in `next dev`. In a production build it carries
+     SEVEN: Next adds hidden inputs of its own to a <form action={…}>
+     to encode the server-action reference. So every nth-child rule
+     landed on a hidden input, the textarea fell through to
+     :nth-child(8) — `grid-area: status` — and the select, date and
+     button fell off the end of the rules entirely and kept their
+     desktop `grid-column: 5 / 6 / 7`, which this four-column grid
+     does not have.
+ 
+     Measured on the production build at 393px:
+ 
+       grid-template-columns: 40px 40px 40px 0px 2px 0px 51px
+       textarea  w=18  h=565   "What will we do this week?"
+       select    w=2
+ 
+     Three implicit columns, the description track crushed to zero,
+     and a placeholder rendering one letter per line. It could never
+     be seen in `next dev`, which is why it reached production and
+     stayed there.
+ 
+     The fix is not a better count. It is to stop being counted: one
+     column, no areas, and every child released from whatever the
+     other stylesheet placed it at. `!important` because
+     `.row > :nth-child(n)` is two classes' worth of specificity to
+     this rule's one, and the file already uses it a few blocks down
+     for the same reason.
+ 
+     Desktop is untouched. Above this width commitments.module.css
+     places nothing, and .addDescription/.addOwner/.addDue/.addSubmit
+     put the cells under their headers as they always did. */
+  .addLine {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+    align-items: stretch;
+  }
+
+  .addLine > * {
+    grid-area: auto !important;
+    min-width: 0;
+  }
 }
 
 /* ---- Sortable list of issues -------------------------------- */
