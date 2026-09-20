@@ -638,7 +638,7 @@ export function ChatView({
               conversationId={conversation.id}
               onFixProposal={() =>
                 void sendMessage(
-                  "Please re-emit the chart_proposal fenced block using the exact schema — top_seats and functions with responsibilities (LMA first), sub_functions only if we split anything."
+                  "Please re-emit the chart_proposal fenced block using the exact schema — top_seats and functions with responsibilities, sub_functions only if we split anything. Leave Lead, Track, and Decide out of the responsibilities; the platform adds it."
                 )
               }
               senders={senders}

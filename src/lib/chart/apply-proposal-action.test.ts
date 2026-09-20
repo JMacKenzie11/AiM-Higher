@@ -374,19 +374,23 @@ describe("applyChartProposalAction", () => {
       (c) => (c[0] as { title: string }).title
     );
     expect(inserted).not.toContain("Sales");
-    // Two new responsibilities added — LMA and Pipeline already
-    // existed (case-insensitive: "LMA" vs "Lead, Track, Decide"
-    // are different strings, so LMA actually gets added too; the
-    // dedupe key is on the exact title). "Forecasting" and
-    // "Enablement" are the two novel titles.
+    // Two new responsibilities added. "Pipeline" is skipped as an
+    // exact match on an existing title.
+    //
+    // "LMA" is skipped for a different reason, and it is the point of
+    // this assertion: the parser strips it before the action ever
+    // sees it. The dedupe here is an EXACT title match, so "LMA" and
+    // the trigger-written "Lead, Track, Decide" are different
+    // strings and this path would happily have written both — which
+    // is what it used to do, on every function of every chart
+    // anybody applied. See lib/chart/baseline-role.ts.
     const rows = mocks.rolesInsertPatch.mock.calls[0]?.[0] as
       | Array<{ title: string }>
       | undefined;
     expect(rows).toBeDefined();
     const addedTitles = rows?.map((r) => r.title) ?? [];
-    expect(addedTitles).toEqual(
-      expect.arrayContaining(["LMA", "Forecasting", "Enablement"])
-    );
+    expect(addedTitles).toEqual(["Forecasting", "Enablement"]);
+    expect(addedTitles).not.toContain("LMA");
     expect(addedTitles).not.toContain("Pipeline"); // exact match on existing
   });
 

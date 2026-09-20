@@ -10,6 +10,7 @@ import {
   applyChartProposalAction,
   type ApplySummary,
 } from "@/lib/chart/apply-proposal-action";
+import { BASELINE_ROLE } from "@/lib/chart/baseline-role";
 import styles from "./ChartProposalCard.module.css";
 
 // Renders a chart_proposal fenced block emitted by the Functional
@@ -18,9 +19,14 @@ import styles from "./ChartProposalCard.module.css";
 // exposes Apply + Copy actions.
 //
 // Design decisions the card carries:
-//   * LMA is always the first responsibility on every function (per
-//     the practice prompt); visually emphasized so a leader
-//     scanning the card knows the framework is baked in.
+//   * The baseline role — "Lead, Track, Decide" — heads every
+//     function, every sub-function AND both top seats. It is drawn
+//     from a constant rather than read out of the proposal, because
+//     a database trigger writes it on every function as it is
+//     created and the model has no say in it. That is also how it
+//     reaches the Visionary and the Integrator, which have no
+//     responsibilities field for the model to fill.
+//     See lib/chart/baseline-role.ts.
 //   * Malformed JSON renders a fallback with a "Fix the proposal"
 //     button that copies a canned nudge to the composer — the model
 //     regenerates a full clean block on the next turn.
@@ -182,6 +188,7 @@ function ChartPreview({ proposal }: { proposal: ChartProposal }) {
               >
                 <p className={styles.topSeatName}>{seat.name}</p>
                 <p className={styles.topSeatNote}>{seat.note}</p>
+                <p className={styles.topSeatBaseline}>{BASELINE_ROLE}</p>
               </div>
             </div>
           ))}
@@ -193,15 +200,13 @@ function ChartPreview({ proposal }: { proposal: ChartProposal }) {
           <div key={fn.name} className={styles.functionCard}>
             <h4 className={styles.functionName}>{fn.name}</h4>
             <ul className={styles.responsibilityList}>
+              <li
+                className={`${styles.responsibility} ${styles.responsibilityBaseline}`}
+              >
+                {BASELINE_ROLE}
+              </li>
               {fn.responsibilities.map((r, i) => (
-                <li
-                  key={i}
-                  className={
-                    i === 0
-                      ? `${styles.responsibility} ${styles.responsibilityLMA}`
-                      : styles.responsibility
-                  }
-                >
+                <li key={i} className={styles.responsibility}>
                   {r}
                 </li>
               ))}
@@ -212,15 +217,13 @@ function ChartPreview({ proposal }: { proposal: ChartProposal }) {
                   <div key={sub.name} className={styles.subFunction}>
                     <h5 className={styles.subFunctionName}>{sub.name}</h5>
                     <ul className={styles.responsibilityList}>
+                      <li
+                        className={`${styles.responsibility} ${styles.responsibilityBaseline}`}
+                      >
+                        {BASELINE_ROLE}
+                      </li>
                       {sub.responsibilities.map((r, i) => (
-                        <li
-                          key={i}
-                          className={
-                            i === 0
-                              ? `${styles.responsibility} ${styles.responsibilityLMA}`
-                              : styles.responsibility
-                          }
-                        >
+                        <li key={i} className={styles.responsibility}>
                           {r}
                         </li>
                       ))}
