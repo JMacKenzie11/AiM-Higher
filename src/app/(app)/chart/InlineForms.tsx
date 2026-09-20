@@ -223,7 +223,7 @@ export function AddMeasureForm({ outcomeId }: { outcomeId: string }) {
     { value: "number", label: "Number" },
     { value: "currency", label: "Currency ($)" },
     { value: "percent", label: "Percent" },
-    { value: "text", label: "Text (yes/no)" },
+    { value: "text", label: "Yes/No" },
   ];
 
   return (

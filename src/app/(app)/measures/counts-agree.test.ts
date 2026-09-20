@@ -386,3 +386,54 @@ describe("functions but no measures still renders a card", () => {
     expect(page).toContain("Nobody has set critical success factors");
   });
 });
+
+// ---- A yes/no measure is a yes/no measure everywhere -------------
+//
+// Two reports, one root: the form was describing storage rather than
+// the choice being made, and it was offering settings that do not
+// apply to that choice.
+describe("the yes/no value type", () => {
+  const FORMS = [
+    "src/app/(app)/measures/EditMeasureForm.tsx",
+    "src/app/(app)/chart/InlineForms.tsx",
+    "src/app/(app)/chart/function/[id]/AddMetricRow.tsx",
+  ];
+
+  it("is called Yes/No, not Text, in every dropdown that offers it", () => {
+    // "Text (yes/no)" named the column it lands in. Nobody picking it
+    // is choosing a storage format; they are saying the answer is yes
+    // or no. All three forms now say the same thing, which they did
+    // not before — one already said "Yes / No" with spaces.
+    for (const rel of FORMS) {
+      const src = readFileSync(join(process.cwd(), rel), "utf8");
+      expect(src, `${rel} still offers "Text"`).not.toMatch(
+        /label:\s*"Text/
+      );
+      expect(src, `${rel} does not offer Yes\/No`).toContain(
+        '{ value: "text", label: "Yes/No" }'
+      );
+    }
+  });
+
+  it("hides Direction and Units rather than disabling them", () => {
+    // A greyed control still takes a row and still invites "why can't
+    // I use this?". Hidden says the question does not apply. Both are
+    // still SUBMITTED: target_direction is not null, and flipping the
+    // type back to Number should find the direction where it was left.
+    const form = readFileSync(
+      join(process.cwd(), "src/app/(app)/measures/EditMeasureForm.tsx"),
+      "utf8"
+    );
+    expect(form).toContain('{valueType === "text" ? (');
+    expect(form).toContain(
+      '<input type="hidden" name="target_direction" value={direction} />'
+    );
+    expect(form).toContain("{scaleApplies(valueType) ? (");
+    expect(form).toContain('<input type="hidden" name="value_scale" value={scale} />');
+  });
+
+  it("drops the comparison operator from its target in the grid", () => {
+    // "≥ Yes" is not a comparison anybody makes.
+    expect(code).toContain('{row.valueType === "text" ? null : (');
+  });
+});

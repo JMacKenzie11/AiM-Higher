@@ -40,7 +40,7 @@ const VALUE_TYPES: Array<{ value: MetricValueType; label: string }> = [
   { value: "number", label: "Number" },
   { value: "currency", label: "Currency ($)" },
   { value: "percent", label: "Percent" },
-  { value: "text", label: "Yes / No" },
+  { value: "text", label: "Yes/No" },
 ];
 
 export function AddMetricRow({
