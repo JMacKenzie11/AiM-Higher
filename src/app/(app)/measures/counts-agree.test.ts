@@ -437,3 +437,67 @@ describe("the yes/no value type", () => {
     expect(code).toContain('{row.valueType === "text" ? null : (');
   });
 });
+
+// ---- A monthly measure is one box across its month ---------------
+//
+// Asked for so somebody can put the month's number in whenever they
+// have it, rather than only in the month's last week.
+//
+// THE SPANNING CELL IS WHAT MAKES IT POSSIBLE, not just what makes it
+// tidy. A monthly value lands on the last week BEGINNING in its
+// month, and for most months that week ends in the next one:
+// September's ends 2 October. The grid draws columns up to the
+// current week, so that column does not exist yet.
+//
+// A box that IS a week therefore has nowhere to live. A cell
+// addressed by MONTH does not care — it spans whatever columns of its
+// month are on screen and writes to the month's own week either way,
+// which is why no future column has to appear on the page.
+describe("a monthly measure spans its month", () => {
+  it("collapses a month's week columns into one cell", () => {
+    expect(code).toContain("function cellUnits(");
+    expect(code).toContain("{cellUnits(row, columns).map((col) =>");
+    // Only monthly rows collapse; everything else draws the columns
+    // as they are.
+    expect(code).toContain('if (row.frequency !== "monthly") {');
+  });
+
+  it("gives that cell the colSpan, on every path it can return", () => {
+    // Including the not-due path. A cell that spans 3 on one row and
+    // 1 on another puts every cell after it in the wrong column, and
+    // a table does not complain — it just draws it wrong.
+    // Bounded to GridCellView itself. An unbounded slice runs on
+    // into the next component, whose <td>s are pinned columns and
+    // rightly have no span — which is a failure about the test, not
+    // about the grid.
+    const from = code.indexOf("function GridCellView(");
+    const to = code.indexOf("\nfunction ", from + 1);
+    const view = code.slice(from, to > 0 ? to : undefined);
+    const tds = view.match(/<td\b[^>]*/g) ?? [];
+    expect(tds.length).toBeGreaterThan(2);
+    for (const td of tds) {
+      expect(td, `a <td> in GridCellView has no colSpan: ${td}`).toContain(
+        "colSpan={span}"
+      );
+    }
+  });
+
+  it("reads and writes the month's own week, not the column's", () => {
+    expect(code).toContain("storageWeekFor(row.frequency, week)");
+    expect(code).toContain("cellKey(row.id, storageWeek(row, col.key))");
+  });
+
+  it("opens the whole month, or the feature does not exist", () => {
+    // The ordinary window is this week and the one just closed. A
+    // monthly value lives on the month's LAST week, so on the 3rd
+    // that week is three weeks away and unwritable — which is exactly
+    // what somebody asked to be able to do.
+    expect(code).toContain("const monthIsOpen = (row: GridRow, week: string)");
+    expect(code).toContain('row.frequency === "monthly"');
+  });
+
+  it("names the month, not a week, for a screen reader", () => {
+    // Four weeks announced for one number is worse than none.
+    expect(code).toContain("monthLabel(monthKeyOf(storageWeek))");
+  });
+});

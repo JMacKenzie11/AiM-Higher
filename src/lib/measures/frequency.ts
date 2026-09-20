@@ -141,3 +141,33 @@ export function lastExpectedFriday(args: {
   }
   return null;
 }
+
+// WHICH WEEK A VALUE ACTUALLY LANDS ON.
+//
+// For a weekly or fortnightly measure this is the week you are
+// looking at, and always was.
+//
+// For a MONTHLY one it is the month's own week — the last week
+// beginning in that month — whichever week you typed into. That is
+// the whole of the "enter it whenever" change: the grid offers a box
+// in every week of the month, and they all read and write one value.
+//
+// STORAGE DOES NOT MOVE, which is the point. The Tuesday sweep asks
+// whether the month's week has a value, the dashboard board plots it
+// there, and the target history judges it there — none of them needs
+// to know a box appeared in week one. A value typed on the 3rd is
+// already sitting in the right place when the sweep looks.
+//
+// The walk terminates in at most five steps: every week belongs to
+// exactly one month by its Monday, and every month has a last one.
+export function storageWeekFor(
+  frequency: UpdateFrequency,
+  weekEndingFriday: string
+): string {
+  if (frequency !== "monthly") return weekEndingFriday;
+  let week = weekEndingFriday;
+  for (let i = 0; i < 6 && !isLastFridayOfMonth(week); i += 1) {
+    week = addDays(week, 7);
+  }
+  return week;
+}
