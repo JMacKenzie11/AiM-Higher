@@ -413,68 +413,76 @@
   outline: none;
 }
 
-/* ---- Person quick-view drawer ----
-   Right-side slide-in that opens when an owner name is clicked on
-   a commitment row. Contains the person's follow-through stats, a
-   Coach jump, and the reassign picker (so ownership is only ever
-   changed inside this drawer — one gesture deeper than the old
-   "click the name to reassign" model, but that gesture was the
-   ambient cause of accidental reassigns). */
+/* ---- Clarity drawer -------------------------------------------
+   The clarity check, off to the side rather than inline under the
+   row.
+
+   It used to render as a direct child of `.row`, which made it a
+   grid item in a grid whose cells are placed by position — and on a
+   phone it pushed the card it belonged to twice its height, so the
+   list you were working down reflowed under your thumb every time
+   you scored one commitment. Out of the row entirely: the list stays
+   put, and the panel has room for the commitment's own words, which
+   inline never did.
+
+   Same shape as the measure settings drawer on /measures: scrim at
+   60, panel at 61 so both clear the sidebar (30, and 40 for its own
+   mobile drawer), in from the right, brand gradient on the head.
+   Two drawers that behave differently is worse than one that is
+   slightly wrong for one of them. */
 
 .drawerOverlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
-  background: rgba(17, 21, 26, 0.35);
-  display: flex;
-  justify-content: flex-end;
+  z-index: 60;
+  background: color-mix(in srgb, var(--aims-navy) 28%, transparent);
   animation: drawerOverlayIn var(--duration-normal) var(--ease-out);
 }
 
 .drawerPanel {
-  width: min(400px, 100%);
-  height: 100%;
-  background: var(--surface);
-  border-left: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  width: min(460px, 100vw);
   display: flex;
   flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
   animation: drawerPanelIn var(--duration-normal) var(--ease-out);
+  will-change: transform;
 }
 
 .drawerHeader {
-  padding: var(--space-5) var(--space-5) var(--space-3);
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: var(--space-3);
-  border-bottom: 1px solid var(--border);
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--grad-brand);
+  color: var(--aims-white);
 }
 
 .drawerEyebrow {
-  font: var(--text-subhead);
+  margin: 0 0 var(--space-1);
+  font: var(--text-label);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-muted);
-  margin-bottom: var(--space-1);
+  color: var(--aims-chartreuse);
 }
 
 .drawerTitle {
   margin: 0;
   font: var(--text-h2);
-  color: var(--text-heading);
-}
-
-.drawerPosition {
-  margin: var(--space-1) 0 0;
-  font: var(--text-body-sm);
-  color: var(--text-muted);
+  color: var(--aims-white);
 }
 
 .drawerClose {
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-muted);
+  color: var(--aims-white);
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
@@ -483,16 +491,16 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .drawerClose:hover {
-  background: var(--aims-navy-tint);
-  color: var(--text);
-  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .drawerBody {
-  padding: var(--space-4) var(--space-5) var(--space-5);
+  padding: var(--space-5);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -500,10 +508,23 @@
   flex: 1;
 }
 
-.drawerMuted {
+/* WHAT YOU ARE SCORING. Inline, the commitment was the line directly
+   above the editor and needed no repeating. In a drawer it is behind
+   a scrim, so it comes with you. */
+.drawerQuote {
   margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-navy-tint);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  color: var(--text);
+}
+
+.drawerHint {
+  margin: 0;
+  font: var(--text-body-sm);
   color: var(--text-muted);
-  font-style: italic;
 }
 
 .drawerError {
@@ -516,95 +537,15 @@
   font: var(--text-body-sm);
 }
 
-.drawerStatRow {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Pinned, so a long refinement note scrolls under the buttons rather
+   than pushing them off the bottom of the panel. */
+.drawerFooter {
+  display: flex;
+  justify-content: flex-end;
   gap: var(--space-3);
-}
-
-.drawerStat {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-3) var(--space-4);
-  background: var(--aims-navy-tint);
-  border-radius: var(--radius-md);
-}
-
-.drawerStatValue {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  color: var(--text-heading);
-  font-size: 22px;
-  line-height: 1.1;
-}
-
-.drawerStatLabel {
-  margin-top: 2px;
-  font: var(--text-caption);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.drawerStatCaption {
-  margin-top: 2px;
-  font: var(--text-caption);
-  color: var(--text-muted);
-}
-
-.drawerActions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.drawerPrimaryAction {
-  composes: btnSecondary from "../../../components/ui/ui.module.css";
-  text-align: center;
-}
-
-.drawerSecondaryAction {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--primary);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  text-decoration: none;
-  text-align: center;
-  border: 1px solid var(--border);
-  cursor: pointer;
-}
-
-.drawerSecondaryAction:hover {
-  background: var(--aims-cobalt-tint);
-  border-color: var(--primary);
-}
-
-.drawerReassign {
-  padding-top: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.drawerReassignConfirm {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  background: var(--aims-success-tint);
-  color: var(--aims-success);
-  border-left: 3px solid var(--aims-success);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-
-.drawerReassignHeader {
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-muted);
+  background: var(--surface);
 }
 
 @keyframes drawerOverlayIn {
@@ -617,6 +558,7 @@
   to { transform: translateX(0); }
 }
 
+/* The panel still appears; it arrives rather than travels. */
 @media (prefers-reduced-motion: reduce) {
   .drawerOverlay,
   .drawerPanel {

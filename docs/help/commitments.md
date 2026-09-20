@@ -153,7 +153,10 @@ and a well-defined finish line. Three states:
   named one, not a date anyone committed to.
 - **Hollow** — nobody has judged it yet.
 
-Click the dot to open the quick clarity editor and set either half.
+Click the dot and the clarity check slides in from the right. It
+shows the commitment's own words, the two questions, and a box for a
+rewording when one of them fails. Escape, the X, or a click outside
+closes it; the list behind it does not move while it is open.
 
 **Can I change which priority a resolved commitment links to?**
 No — priority linking is frozen once a commitment resolves, so

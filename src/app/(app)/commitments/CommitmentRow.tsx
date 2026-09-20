@@ -9,7 +9,6 @@ import {
   parkCommitmentAction,
   reassignCommitmentAction,
   rescheduleCommitmentAction,
-  setCommitmentClarityAction,
   stopRepeatingAction,
   unmarkKeptAction,
   unmarkMissedAction,
@@ -23,7 +22,8 @@ import type { Priority, Profile } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import { CommitmentLinkChip } from "@/components/plan/CommitmentLinkChip";
 import { OwnerPicker } from "./OwnerPicker";
-import { ClarityChip, ClarityEditor, clarityState } from "./ClarityStrip";
+import { ClarityChip, clarityState } from "./ClarityStrip";
+import { ClarityDrawer } from "./ClarityDrawer";
 import styles from "./commitments.module.css";
 
 // A single commitment row.
@@ -912,12 +912,16 @@ export function CommitmentRow({
         </div>
       ) : null}
 
-      {showClarity && canResolve ? (
-        <ClarityEditor
+      {/* PORTALLED, so it is not a child of this row. Everything else
+          in this component is a grid item placed by position, and the
+          editor used to be one too — inline, roughly doubling the
+          card's height on a phone. See ClarityDrawer. */}
+      {canResolve ? (
+        <ClarityDrawer
           commitment={commitment}
-          onCancel={() => setShowClarity(false)}
+          open={showClarity}
+          onClose={() => setShowClarity(false)}
           onSaved={() => setShowClarity(false)}
-          onError={setError}
         />
       ) : null}
 

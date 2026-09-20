@@ -1,7 +1,5 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { setCommitmentClarityAction } from "@/lib/commitments/actions";
 import type { Commitment } from "@/lib/types";
 import styles from "./commitments.module.css";
 
@@ -11,8 +9,11 @@ import styles from "./commitments.module.css";
 //
 // Each is a boolean in the DB; null means "not yet assessed" (a
 // meaningful third state, not the same as false). Both the analyzer
-// (on transcript ingest) and the owner/admin (via ClarityEditor)
-// can populate the fields.
+// (on transcript ingest) and the owner/admin can populate the
+// fields; the owner/admin path is ClarityDrawer, which owns the only
+// use of ClarityToggle below. The editor used to live here and
+// render inline inside the row — see ClarityDrawer for why it does
+// not any more.
 
 export type ClarityState = "clear" | "unclear" | "unassessed";
 
@@ -69,123 +70,10 @@ export function ClarityChip({
   );
 }
 
-// Three-checkbox inline editor + optional note. Reuses the shared
-// resolveStrip look so it stacks with the reschedule / close strips
-// visually. Save calls setCommitmentClarityAction.
-export function ClarityEditor({
-  commitment,
-  onCancel,
-  onSaved,
-  onError,
-}: {
-  commitment: Commitment;
-  onCancel: () => void;
-  onSaved: () => void;
-  onError: (msg: string) => void;
-}) {
-  const [timeline, setTimeline] = useState<boolean | null>(
-    commitment.clarity_timeline
-  );
-  const [success, setSuccess] = useState<boolean | null>(
-    commitment.clarity_success
-  );
-  const [note, setNote] = useState<string>(commitment.clarity_note ?? "");
-  const [pending, startTransition] = useTransition();
-
-  // Dirty check — nothing to save when the form matches what's on
-  // the row already. Save button disables + Cancel becomes "Close"
-  // in that state, so a commitment that's already both-YES doesn't
-  // ask for a save that would be a no-op.
-  const initialNote = commitment.clarity_note ?? "";
-  const isDirty =
-    timeline !== commitment.clarity_timeline ||
-    success !== commitment.clarity_success ||
-    note.trim() !== initialNote.trim();
-
-  function submit() {
-    startTransition(async () => {
-      const result = await setCommitmentClarityAction(commitment.id, {
-        timeline,
-        success,
-        note: note.trim() ? note.trim() : null,
-      });
-      if (!result.ok) {
-        onError(result.message);
-      } else {
-        onSaved();
-      }
-    });
-  }
-
-  return (
-    <div className={styles.resolveStrip}>
-      <span className={styles.stripLabel}>Clarity check</span>
-      <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)" }}>
-        A clear commitment has a deadline that was explicitly agreed
-        (not a placeholder the analyzer filled in) and an observable
-        definition of done. Toggle each below.
-      </p>
-      <ClarityToggle
-        label="Deadline was explicitly agreed"
-        value={timeline}
-        onChange={setTimeline}
-        disabled={pending}
-      />
-      <ClarityToggle
-        label="Definition of done is observable"
-        value={success}
-        onChange={setSuccess}
-        disabled={pending}
-      />
-      {/* Refinement note only makes sense when something is off — a
-          commitment that passes both checks doesn't need to be
-          reworded. Hidden entirely (not just disabled) so the editor
-          reads as "you're done" once both toggles are yes. */}
-      {!(timeline === true && success === true) ? (
-        <>
-          <label className={styles.stripLabel} htmlFor={`note-${commitment.id}`}>
-            Refinement note (optional)
-          </label>
-          <textarea
-            id={`note-${commitment.id}`}
-            className={styles.stripTextarea}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            maxLength={500}
-            placeholder="A one-liner rewording that would make this crystal clear."
-            disabled={pending}
-          />
-        </>
-      ) : null}
-      <div className={styles.stripSubmitRow}>
-        <button
-          type="button"
-          className={styles.ghostButton}
-          onClick={onCancel}
-          disabled={pending}
-        >
-          {isDirty ? "Cancel" : "Close"}
-        </button>
-        {isDirty ? (
-          <button
-            type="button"
-            className={styles.primaryButton}
-            onClick={submit}
-            disabled={pending}
-          >
-            {pending ? "Saving…" : "Save clarity"}
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 // Three-state toggle: unset (grey) → yes (green) → no (amber) → unset…
 // Cycling through keeps the interaction one-click per state without
 // hiding the "unassessed" case behind a separate control.
-function ClarityToggle({
+export function ClarityToggle({
   label,
   value,
   onChange,
