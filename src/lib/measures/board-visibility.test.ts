@@ -356,3 +356,74 @@ describe("a measure with no target is still plotted", () => {
     expect(onlyUntargeted.hasEntries).toBe(true);
   });
 });
+
+// A FUNCTION EARNS ITS CARD BY HAVING SOMETHING TO SHOW.
+//
+// Benson's dashboard had eight function cards and three of them held
+// a single line: "No metrics on this function yet." Two of those
+// functions had metrics — they were simply not ticked for the
+// dashboard, which is the same sentence read the wrong way round.
+describe("a function with no shown metrics gets no card", () => {
+  const twoFunctions = () =>
+    spine({
+      functions: [
+        {
+          id: "f1",
+          title: "Tankhouse Operations",
+          lead_id: null,
+          track_id: null,
+          sort_order: 0,
+          parent_function_id: null,
+        },
+        {
+          id: "f2",
+          title: "Marketing and Sales",
+          lead_id: null,
+          track_id: null,
+          sort_order: 1,
+          parent_function_id: null,
+        },
+      ],
+      csfRows: [
+        { ...spine().csfRows[0], id: "shown", function_id: "f1" },
+        {
+          ...spine().csfRows[0],
+          id: "unticked",
+          function_id: "f2",
+          show_on_dashboard: false,
+        },
+      ],
+    });
+
+  it("drops the function whose only measure is unticked", () => {
+    const titles = buildBoardData(twoFunctions()).functions.map((f) => f.title);
+    expect(titles).toEqual(["Tankhouse Operations"]);
+  });
+
+  it("drops a function that has no measures at all", () => {
+    const board = buildBoardData(
+      spine({
+        functions: [
+          ...twoFunctions().functions,
+          {
+            id: "f3",
+            title: "Shipping & Logistics",
+            lead_id: null,
+            track_id: null,
+            sort_order: 2,
+            parent_function_id: null,
+          },
+        ],
+        csfRows: twoFunctions().csfRows,
+      })
+    );
+    expect(board.functions.map((f) => f.title)).toEqual([
+      "Tankhouse Operations",
+    ]);
+  });
+
+  it("never hands the grid a card with an empty metric list", () => {
+    const board = buildBoardData(twoFunctions());
+    expect(board.functions.every((f) => f.metrics.length > 0)).toBe(true);
+  });
+});

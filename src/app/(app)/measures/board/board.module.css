@@ -270,13 +270,6 @@
   font-style: italic;
 }
 
-.cockpitCardEmpty {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  font-style: italic;
-  margin: 0;
-}
-
 .cockpitMetricList {
   display: flex;
   flex-direction: column;

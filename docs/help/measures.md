@@ -52,10 +52,15 @@ something you ask for. The tinting still marks the two weeks everyone
 is working to.
 
 **Show on Company Dashboard** decides whether a critical success
-factor gets a chart on the Dashboard. It is on by default. The table
-here always shows everything; the Dashboard is the glance, so turn it
-off for the measures that do not belong on the page people open
-first.
+factor gets a chart on the Dashboard. It is on by default, so nothing
+disappears from the Dashboard until you turn it off. The table here
+always shows everything; the Dashboard is the glance, so turn it off
+for the measures that do not belong on the page people open first.
+
+**A function only appears on the Dashboard if something under it is
+switched on.** Turn off every measure in a function and the whole
+card goes, rather than staying as an empty box with the function's
+name on it.
 
 A measure with no target still gets a chart. There is simply no
 target line drawn across it.

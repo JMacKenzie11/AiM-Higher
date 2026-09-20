@@ -79,19 +79,21 @@ function FunctionCard({
         </div>
       </header>
 
-      {fn.metrics.length === 0 ? (
-        <p className={styles.cockpitCardEmpty}>No metrics on this function yet.</p>
-      ) : (
-        <div className={styles.cockpitMetricList}>
-          {fn.metrics.map((m, mIdx) => (
-            <MetricSparklineRow
-              key={m.id}
-              metric={m}
-              animationDelay={animationDelay + 120 + mIdx * 80}
-            />
-          ))}
-        </div>
-      )}
+      {/* No empty branch. buildBoard drops a function with no shown
+          metrics before it ever reaches this component, so the card
+          that used to say "No metrics on this function yet." has no
+          way to render — and leaving the branch in suggested it did.
+          If a card ever comes through empty, that is a bug in the
+          filter, and an empty metric list makes it visible. */}
+      <div className={styles.cockpitMetricList}>
+        {fn.metrics.map((m, mIdx) => (
+          <MetricSparklineRow
+            key={m.id}
+            metric={m}
+            animationDelay={animationDelay + 120 + mIdx * 80}
+          />
+        ))}
+      </div>
     </article>
   );
 }
