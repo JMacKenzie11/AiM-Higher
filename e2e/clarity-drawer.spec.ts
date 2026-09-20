@@ -100,6 +100,31 @@ test("clarity opens as a drawer, not inside the row", async ({ page }) => {
   expect(info.docW, "must not scroll sideways").toBeLessThanOrEqual(info.viewW);
   expect(info.quote, "must show the commitment it is scoring").not.toBeNull();
 
+  // THE FOOTER BUTTONS CLEAR THE HELP WIDGET.
+  //
+  // It is fixed to the bottom-right corner at z-index 100 — above
+  // this panel's 61, and above every other drawer and dialog in the
+  // app. Right-aligned, the round "?" sat on top of Close and
+  // covered half its label.
+  const overlap = (await page.evaluate(`(() => {
+    const help = document.querySelector('button[aria-label="Open help"], button[aria-label="Close help"]');
+    if (!help) return "no help widget on the page";
+    const h = help.getBoundingClientRect();
+    const panel = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const hit = [];
+    for (const b of Array.from(panel.querySelectorAll("button"))) {
+      const r = b.getBoundingClientRect();
+      if (r.width === 0) continue;
+      const clash =
+        r.left < h.right && r.right > h.left &&
+        r.top < h.bottom && r.bottom > h.top;
+      if (clash) hit.push((b.textContent || "").trim() || b.getAttribute("aria-label"));
+    }
+    return hit;
+  })()`)) as string[] | string;
+  console.log("HELP OVERLAP", JSON.stringify(overlap));
+  expect(overlap, "drawer buttons sit under the help widget").toEqual([]);
+
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden({ timeout: 10_000 });
 });
