@@ -234,6 +234,16 @@ Turn off *remind the owner when this is due* in the measure's edit
 form for numbers you track as context rather than as a target, like
 headcount.
 
+## Connecting a measure to a spreadsheet
+
+If your company has External Measures switched on, a critical success
+factor can take its weekly number from a Google Sheet instead of
+someone typing it.
+
+**Who can set that up:** an admin, your AiMS guide, or the person who
+leads the function the measure belongs to. A Lead can do it for their
+own function's measures and no others.
+
 ## How a number is written, and how it reads
 
 Each critical success factor has a **Value type**:

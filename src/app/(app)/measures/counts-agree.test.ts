@@ -197,7 +197,18 @@ describe("someone who owns no function gets no authoring controls", () => {
 // still on, and the surface is simply not there.
 describe("the external-source controls are reachable", () => {
   it("renders them in the drawer", () => {
-    expect(code).toContain("<ExternalSourceControls measureId={editingRow.id} />");
+    expect(code).toContain("<ExternalSourceControls");
+    expect(code).toContain("measureId={editingRow.id}");
+  });
+
+  it("asks the owning function whether this caller may configure it", () => {
+    // PER MEASURE, not per page. A company's admin and an assigned
+    // guide may configure any of its measures; a function's Lead may
+    // configure the ones they lead and no others. `canLog` already
+    // carries exactly that answer, and it is the same one RLS gives.
+    expect(code).toContain("canAdminister={");
+    expect(code).toContain("g.rows.some((r) => r.id === editingRow.id)");
+    expect(code).toContain("?.canLog ?? false");
   });
 
   it("stays open on a new measure so the fields go live", () => {

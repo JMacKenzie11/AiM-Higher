@@ -1509,7 +1509,18 @@ export function MeasuresGrid({
                   this drawer already sits inside, so nothing here
                   needs to know whether the company has it. */}
               {editingRow ? (
-                <ExternalSourceControls measureId={editingRow.id} />
+                <ExternalSourceControls
+                  measureId={editingRow.id}
+                  // The owning function's own answer. `canLog` already
+                  // means "an admin of this company, an assigned
+                  // guide, or this function's Lead", which is exactly
+                  // who RLS admits to the measure.
+                  canAdminister={
+                    data.groups.find((g) =>
+                      g.rows.some((r) => r.id === editingRow.id)
+                    )?.canLog ?? false
+                  }
+                />
               ) : (
                 <p className={styles.drawerHint}>
                   Connecting this to a spreadsheet becomes available as

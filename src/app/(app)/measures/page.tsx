@@ -107,7 +107,11 @@ export default async function MeasuresPage() {
         <ExternalMeasuresProvider
           panel={externalPanel}
           canPull={isAdmin}
-          canAdminister={session.profile.role === "system_admin"}
+          // The page-wide default, for anything rendered outside a
+          // particular measure. Configuring a source is decided PER
+          // MEASURE and the drawer passes that; see canLog, which
+          // already means "an admin here, or this function's Lead".
+          canAdminister={isAdmin}
         >
           <MeasuresGrid
             data={grid}

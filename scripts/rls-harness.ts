@@ -6158,6 +6158,106 @@ async function externalMeasurePathsChecks(
 // A wrong scale is not a visible failure either. Nothing errors; the
 // week is simply judged against a number a million times too small,
 // every cell goes red, and the page offers no explanation.
+// WHO MAY POINT A MEASURE AT A SPREADSHEET.
+//
+// Widened 2026-09-20 from system_admin to whoever may author the
+// measure: an admin of the company, an assigned guide, or the
+// function's own Lead. The mapping is a column on success_measures
+// (external_source), so nothing in the database changed — the gate
+// that moved was an app-side one in actions.ts, stricter than the
+// policy behind it.
+//
+// WHICH IS EXACTLY WHY THIS EXISTS. "The policy already covers it" is
+// the sentence in front of most of docs/failure-modes.md. A widening
+// justified by reading a policy, and never run as the role, is a
+// claim rather than a boundary — failure mode E5. So each role writes
+// for real, and an outsider is made to fail beside it: a run where
+// everything passes and nothing was refused is measuring nothing.
+async function externalSourceRoleChecks(
+  run: Runner,
+  pending: string
+): Promise<BatchCheck[]> {
+  const [fx] = await run<Record<string, string | null>>(`
+    select m.id as measure, f.company_id as company,
+      (select id from public.profiles where role = 'company_admin'
+        and status = 'active' and company_id = f.company_id limit 1) as admin,
+      (select p.id from public.profiles p
+        where p.role = 'company_admin' and p.status = 'active'
+          and p.company_id is not null and p.company_id <> f.company_id
+        limit 1) as outsider,
+      f.lead_id as lead,
+      (select ga.guide_id from public.guide_assignments ga
+        join public.profiles p on p.id = ga.guide_id
+       where ga.company_id = f.company_id and p.role = 'aims_guide'
+         and p.status = 'active' limit 1) as guide
+      from public.success_measures m
+      join public.functions f on f.id = m.function_id
+     where m.archived = false and f.lead_id is not null
+       and exists (select 1 from public.profiles p
+                    where p.company_id = f.company_id
+                      and p.role = 'company_admin' and p.status = 'active')
+     order by m.id limit 1;`);
+
+  if (!fx?.measure || !fx?.admin || !fx?.lead || !fx?.outsider) {
+    return [{
+      name: "external source · who may map",
+      before: "not run",
+      after: "not run",
+      ok: true,
+      detail: "no measure with a Lead and two companies' admins on this clone",
+    }];
+  }
+
+  const MAPPING =
+    `'{"kind":"snapshot","file_id":"probe","tab":"Sheet1","cell":"B7"}'::jsonb`;
+
+  async function writesAs(sub: string): Promise<number> {
+    const rows = await run<{ n: number }>(
+      asCaller(
+        sub,
+        pending,
+        `update public.success_measures set external_source = ${MAPPING}
+          where id = '${fx.measure}'::uuid;
+         select count(*)::int as n from public.success_measures
+          where id = '${fx.measure}'::uuid
+            and external_source ->> 'file_id' = 'probe';`
+      )
+    );
+    return rows[0]?.n ?? 0;
+  }
+
+  const byAdmin = await writesAs(fx.admin);
+  const byLead = await writesAs(fx.lead);
+  const byOutsider = await writesAs(fx.outsider);
+  // The guide is named in the widening, so it is probed rather than
+  // assumed — and reported as unprobed when this clone has nobody
+  // assigned, instead of quietly counting as a pass.
+  const byGuide = fx.guide ? await writesAs(fx.guide) : null;
+
+  const ok =
+    byAdmin === 1 &&
+    byLead === 1 &&
+    byOutsider === 0 &&
+    (byGuide === null || byGuide === 1);
+  return [{
+    name: "external source · who may map",
+    before: "app gate allowed system_admin only",
+    after:
+      `company_admin: ${byAdmin ? "wrote" : "refused"} | ` +
+      `function Lead: ${byLead ? "wrote" : "refused"} | ` +
+      `guide: ${byGuide === null ? "none assigned on this clone" : byGuide ? "wrote" : "refused"} | ` +
+      `another company's admin: ${byOutsider ? "WROTE" : "refused"}`,
+    ok,
+    detail: ok
+      ? byGuide === null
+        ? "admin and Lead can, the outsider cannot; no guide assigned here to probe"
+        : "all three who should can, and the outsider still cannot"
+      : byOutsider
+        ? "A MEASURE IS WRITABLE ACROSS TENANTS: the widening reached further than the company"
+        : "the policy does not admit who the app now offers it to",
+  }];
+}
+
 async function targetHistoryScaleChecks(
   run: Runner,
   pending: string
@@ -8216,6 +8316,7 @@ async function main(): Promise<void> {
   const pathResults = await externalMeasurePathsChecks(run, pendingSql);
   const rollResults = await rollQuarterChecks(run, pendingSql);
   const scaleResults = await targetHistoryScaleChecks(run, pendingSql);
+  const sourceRoleResults = await externalSourceRoleChecks(run, pendingSql);
   console.log(
     batchSummaryLines(
       [
@@ -8226,6 +8327,7 @@ async function main(): Promise<void> {
         ...pathResults,
         ...rollResults,
         ...scaleResults,
+        ...sourceRoleResults,
       ],
       "Static checks over live policy text"
     ).join("\n")
