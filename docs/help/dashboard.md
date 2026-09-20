@@ -63,6 +63,21 @@ Two views. *Timeline* rolls each function's week into a single cell,
 so you can see which functions have been drifting. *Grid* breaks each
 function into a sparkline per measure, for when you want the detail.
 
+Each Timeline square is one function in one week, read across the
+measures under it that have a target:
+
+- **All on target** — every one of them logged, every one of them met.
+- **At least one missed** — something came in under its target. This
+  wins over everything else, so a red square can still contain
+  numbers that were fine.
+- **Some not logged** — nothing has missed, but the week is not
+  finished: some numbers are in and on target, the rest are blank.
+- **Nothing logged** — the week is empty.
+- **No targets set** — nothing under this function has a target, so
+  there is nothing to be on or off.
+
+Hover a square for the count behind it.
+
 The line at the top summarises what is inside, *"3 functions off
 target this week."* Click it to close the board; whether you leave it
 open or closed is remembered for next time.

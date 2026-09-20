@@ -57,7 +57,7 @@ export function StoryTimeline({ data }: { data: BoardData }) {
       <div className={styles.timelineLegend}>
         <LegendChip tone="good" label="All on target" />
         <LegendChip tone="off" label="At least one missed" />
-        <LegendChip tone="mixed" label="Mixed / partial log" />
+        <LegendChip tone="mixed" label="Some not logged" />
         <LegendChip tone="unlogged" label="Nothing logged" />
         <LegendChip tone="no_target" label="No targets set" />
       </div>
@@ -140,6 +140,14 @@ function rollUpFunctions(
       } else if (good === total) {
         status = "good";
       } else {
+        // AMBER CANNOT CONTAIN A MISS. `off > 0` is tested first and
+        // wins, so by the time we get here nothing has missed its
+        // target: some measures are logged and on target, the rest
+        // are simply not in yet.
+        //
+        // The legend called this "Mixed / partial log", which read as
+        // "some hit, some missed" — the one thing it never means.
+        // That week is red.
         status = "mixed";
       }
       return { weekEnding: w, status, good, off, unlogged, total };
