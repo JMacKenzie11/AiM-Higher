@@ -16,10 +16,21 @@
 //     ]
 //   }
 //
+// THE BASELINE ROLE IS NOT PART OF THE PROPOSAL. A database trigger
+// writes "Lead, Track, Decide" at sort_order 0 on every function as
+// it is created, top seats included. The practice used to ask the
+// model to emit it as the first responsibility too, in the older LMA
+// wording, and applying that wrote the same idea twice under two
+// names. Anything baseline-shaped is stripped here — one place, so
+// the card, the Copy text and the Apply action cannot disagree about
+// what is in a proposal. See lib/chart/baseline-role.ts.
+//
 // The parser rejects anything that doesn't structurally match: an
 // upstream generation that omits fields, adds objects where strings
 // belong, or ships an empty proposal falls back to the malformed
 // path on the card (the leader gets a 'Fix the proposal' action).
+
+import { BASELINE_ROLE, withoutBaselineRole } from "@/lib/chart/baseline-role";
 
 export type ChartTopSeat = { name: string; note: string };
 
@@ -95,13 +106,16 @@ function parseFunctions(raw: unknown): ChartFunction[] | null {
         if (typeof sname !== "string" || sname.trim().length === 0) return null;
         const sresp = parseStringArray(srec.responsibilities);
         if (!sresp) return null;
-        subs.push({ name: sname.trim(), responsibilities: sresp });
+        subs.push({
+          name: sname.trim(),
+          responsibilities: withoutBaselineRole(sresp),
+        });
       }
     }
 
     out.push({
       name: name.trim(),
-      responsibilities,
+      responsibilities: withoutBaselineRole(responsibilities),
       ...(subs ? { sub_functions: subs } : {}),
     });
   }
@@ -125,25 +139,31 @@ function isObject(v: unknown): v is Record<string, unknown> {
 }
 
 // Serialize a valid ChartProposal to a plain-text version suitable
-// for the Copy action on the card. Reader-friendly, LMA marked as
-// the first line, sub-functions indented.
+// for the Copy action on the card. Reader-friendly, sub-functions
+// indented, and the baseline role written in at the top of every
+// function and every top seat — because that is what applying the
+// proposal creates, and a copied chart that omits it would not match
+// the one in the platform.
 export function chartProposalToPlainText(proposal: ChartProposal): string {
   const lines: string[] = [];
   if (proposal.top_seats.length > 0) {
     lines.push("Top seats");
     for (const seat of proposal.top_seats) {
       lines.push(`  ${seat.name} — ${seat.note}`);
+      lines.push(`    - ${BASELINE_ROLE}`);
     }
     lines.push("");
   }
   for (const fn of proposal.functions) {
     lines.push(fn.name);
+    lines.push(`  - ${BASELINE_ROLE}`);
     fn.responsibilities.forEach((r) => {
       lines.push(`  - ${r}`);
     });
     if (fn.sub_functions && fn.sub_functions.length > 0) {
       for (const sub of fn.sub_functions) {
         lines.push(`  ${sub.name}`);
+        lines.push(`    - ${BASELINE_ROLE}`);
         sub.responsibilities.forEach((r) => {
           lines.push(`    - ${r}`);
         });

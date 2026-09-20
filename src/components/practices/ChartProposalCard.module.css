@@ -156,13 +156,29 @@
   background: var(--border);
 }
 
-.responsibilityLMA {
+/* The baseline row, on every function and every top seat. Emphasised
+   because it is the one line on the card nobody chose and nobody can
+   remove: the database writes it. */
+.responsibilityBaseline {
   font-weight: 700;
   color: var(--text-heading);
 }
 
-.responsibilityLMA::before {
+.responsibilityBaseline::before {
   background: var(--aims-cobalt);
+}
+
+/* Centred under the seat's note, which is centre-aligned, and given
+   the same cobalt marker so it reads as the same thing it is on the
+   function cards below. */
+.topSeatBaseline {
+  margin: var(--space-2) 0 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-heading);
 }
 
 .subFunctions {
