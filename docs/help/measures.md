@@ -51,6 +51,15 @@ ones, so correcting an old number is something you do rather than
 something you ask for. The tinting still marks the two weeks everyone
 is working to.
 
+**Show on Company Dashboard** decides whether a critical success
+factor gets a chart on the Dashboard. It is on by default. The table
+here always shows everything; the Dashboard is the glance, so turn it
+off for the measures that do not belong on the page people open
+first.
+
+A measure with no target still gets a chart. There is simply no
+target line drawn across it.
+
 **A monthly measure gets one box for the whole month.** It stretches
 across that month's columns, and you can put the number in whenever
 you have it rather than waiting for month end. There is only one box,

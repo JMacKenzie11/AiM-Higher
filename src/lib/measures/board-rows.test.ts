@@ -86,6 +86,9 @@ function csf(
     target_direction: "higher_is_better",
     sort_order: 0,
     created_at: "2026-01-02T00:00:00Z",
+    // On the board unless a test says otherwise, which is the
+    // column's own default. A measure is added expecting to be seen.
+    show_on_dashboard: true,
     ...overrides,
   };
 }
