@@ -349,7 +349,12 @@
 }
 
 .sfaCard {
-  background: var(--surface);
+  /* The corner circles every other card in the app carries, as a
+     background rather than the component: these cards hold add panels
+     that open below their trigger and would be clipped by the
+     overflow the component needs. See CardAccent.module.css. */
+  composes: accentSurface from "../../../components/ui/CardAccent.module.css";
+  background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);

@@ -23,3 +23,43 @@
   pointer-events: none;
   z-index: -1;
 }
+
+/* THE SAME TWO CIRCLES, PAINTED AS A BACKGROUND.
+ 
+   For cards that cannot afford the component. <CardAccent /> needs
+   its host to be `position: relative; overflow: hidden`, and on the
+   Goals & Priorities cards both of those break something:
+ 
+     overflow  the add panels inside a Focus Area card are
+               `position: absolute` and open BELOW their trigger, so a
+               clipped card would cut them off
+     position  they position against their nearest positioned
+               ancestor, so making the card one moves them
+ 
+   A background does neither. It is clipped to the card's own painting
+   area for free, it cannot escape the corner, and it changes no
+   child's containing block.
+ 
+   The geometry matches .large and .small above, converted from
+   box-offsets to circle centres so the two stay recognisably the same
+   shape:
+ 
+     large  200px box at top:-60 right:-60  ->  r=100 at (100%-40, 40)
+     small   60px box at top: 90 right: 30  ->  r=30  at (100%-60, 120)
+ 
+   Kept beside them deliberately: if one moves, the other is right
+   here to move with it. */
+.accentSurface {
+  background-image:
+    radial-gradient(
+      circle 30px at calc(100% - 60px) 120px,
+      color-mix(in srgb, var(--aims-sky) 15%, transparent) 99%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle 100px at calc(100% - 40px) 40px,
+      color-mix(in srgb, var(--aims-sky-tint) 70%, transparent) 99%,
+      transparent 100%
+    );
+  background-repeat: no-repeat;
+}
