@@ -337,3 +337,52 @@ describe("Success Tracking does not gate the grid", () => {
     );
   });
 });
+
+// ---- A company with functions and no measures -------------------
+//
+// The page rendered a hero and then blank space. Reported on the
+// PromiseOne instance, where ALL THIRTEEN companies are in exactly
+// this state: two functions each, zero measures.
+//
+// The page's own branches look complete and are not. No functions
+// gets an empty state; a non-admin with no measures gets a line
+// explaining where measures live; everyone else falls through to the
+// grid — which returned null the moment nothing had been logged. The
+// person that caught was the ADMIN, the only one who could fix it,
+// and it handed them a blank screen with no Add button on it.
+describe("functions but no measures still renders a card", () => {
+  it("only bails for someone who cannot author", () => {
+    // `!data.hasRows` alone is what made it blank.
+    expect(code).toContain("if (!data.hasRows && !authoring) return null;");
+    expect(code).not.toContain("if (!data.hasRows) return null;");
+  });
+
+  it("keeps the toolbar, so Add is reachable", () => {
+    // The toolbar shows whenever there is anything to write or
+    // anywhere to add to; addableGroups is every function the caller
+    // can log against, which for an admin is all of them.
+    expect(code).toContain(
+      "{writableRows.length > 0 || addableGroups.length > 0 ? ("
+    );
+    expect(code).toContain(
+      "const addableGroups = data.groups.filter((g) => g.canLog);"
+    );
+  });
+
+  it("shows a titled card saying so, not an empty table", () => {
+    expect(code).toContain("No Critical Success Factors have been created yet.");
+    expect(code).toContain("styles.gridEmptyTitle");
+    // The table and its scrollbar are skipped: a year of week columns
+    // with no rows under them is worse than a sentence.
+    expect(code).toContain("{data.hasRows ? (");
+  });
+
+  it("still has something for a reader with no seat", () => {
+    const page = readFileSync(
+      join(process.cwd(), "src/app/(app)/measures/page.tsx"),
+      "utf8"
+    );
+    expect(page).toContain("!hasAnyMeasure && !isAdmin");
+    expect(page).toContain("Nobody has set critical success factors");
+  });
+});

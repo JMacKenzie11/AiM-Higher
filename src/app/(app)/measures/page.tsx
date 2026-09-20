@@ -138,8 +138,8 @@ function EmptyState({ isAdmin }: { isAdmin: boolean }) {
         <Link href="/chart" className={styles.emptyLink}>
           Build the Functional Chart first
         </Link>
-        , then come back here to add critical success factors and KPIs under
-        each function.
+        , then come back here to add critical success factors under each
+        function.
       </p>
     </section>
   );

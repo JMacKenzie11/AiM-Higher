@@ -1670,3 +1670,20 @@
   font: var(--text-body-sm);
   color: var(--danger, #b3261e);
 }
+
+/* Shown instead of the table when a company has functions but no
+   measures. The toolbar above it still carries Add, which is the
+   whole point: this used to render nothing at all to the one person
+   able to do something about it. */
+.gridEmptyTitle {
+  margin: 0;
+  font: var(--text-h4);
+  color: var(--text);
+}
+
+.gridEmptyLine {
+  margin: 0;
+  padding: var(--space-4) 0 var(--space-2);
+  font: var(--text-body);
+  color: var(--text-muted);
+}
