@@ -48,6 +48,7 @@ function spine(over: Partial<MeasuresSpine> = {}): MeasuresSpine {
         detail: null,
         target: "2500",
         value_type: "number",
+        value_scale: "plain",
         target_direction: "higher_is_better",
         auto_track: true,
         update_frequency: "weekly",
@@ -381,12 +382,11 @@ describe("displayValue formats by value_type", () => {
     expect(cellFor("number", 12.59)).toBe("12.59");
   });
 
-  it("has no currency type yet, so money reads bare", () => {
-    // Recorded deliberately. Adding one is a schema change: three
-    // migrations carry `check (value_type in
-    // ('number','percent','text'))`, so an unknown type cannot even
-    // be stored. This asserts today's truth so the day it changes,
-    // this test is the reminder that the CHECK moved with it.
-    expect(cellFor("currency" as never, 1234)).toBe("1234");
+  it("renders money as money, since 0219", () => {
+    // This used to assert the opposite — that there was no currency
+    // type and money read bare. 0219 added one, and the CHECK
+    // constraint moved with it, which is what that test was there to
+    // make somebody remember.
+    expect(cellFor("currency", 1234)).toBe("$1,234");
   });
 });

@@ -1,4 +1,9 @@
 import { fridayOf, mondayOf } from "@/lib/dates";
+import {
+  formatMeasureValue,
+  parseScale,
+  type MeasureScale,
+} from "./value-format";
 import { expectedFridaysIn } from "@/lib/measures/frequency";
 import {
   groupTargetHistory,
@@ -83,6 +88,8 @@ export type GridRow = {
   // The CURRENT target, for the Target column. Cells carry their own.
   target: string | null;
   valueType: MetricValueType;
+  // The unit this is written in. Storage is always the true number.
+  scale: MeasureScale;
   direction: TargetDirection;
   autoTrack: boolean;
   showOnDashboard: boolean;
@@ -193,15 +200,9 @@ export function groupWeeksByMonth(
   }));
 }
 
-function formatValue(
-  valueType: MetricValueType,
-  value: { number: number | null; text: string | null } | null
-): string {
-  if (!value) return "";
-  if (valueType === "text") return value.text ?? "";
-  if (value.number == null || !Number.isFinite(value.number)) return "";
-  return valueType === "percent" ? `${value.number}%` : String(value.number);
-}
+// Formatting lives in value-format.ts, which the entry boxes use
+// too. Two copies of "how a number reads" is how a cell and the box
+// you type it into come to disagree.
 
 function parseTargetNumber(target: string): number | null {
   const cleaned = target.replace(/[^0-9.\-]/g, "");
@@ -295,7 +296,11 @@ export function buildGridData(
         // The current value_type formats it. How a number is DRAWN is
         // a presentation choice; how a week was JUDGED is a fact
         // about that week, and only the second comes from history.
-        displayValue: formatValue(csf.value_type, value),
+        displayValue: formatMeasureValue(
+          csf.value_type,
+          parseScale(csf.value_scale),
+          value
+        ),
         target,
       };
     });
@@ -308,6 +313,7 @@ export function buildGridData(
       frequencyLabel: SHORT_FREQUENCY[frequency],
       target: csf.target,
       valueType: csf.value_type,
+      scale: parseScale(csf.value_scale),
       direction: csf.target_direction,
       autoTrack: csf.auto_track,
       showOnDashboard: csf.show_on_dashboard ?? true,

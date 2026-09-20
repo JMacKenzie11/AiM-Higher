@@ -38,8 +38,9 @@ const INITIAL: ChartResult<SuccessMeasure> = { ok: false, message: "" };
 
 const VALUE_TYPES: Array<{ value: MetricValueType; label: string }> = [
   { value: "number", label: "Number" },
+  { value: "currency", label: "Currency ($)" },
   { value: "percent", label: "Percent" },
-  { value: "text", label: "Yes / No" },
+  { value: "text", label: "Yes/No" },
 ];
 
 export function AddMetricRow({
@@ -297,6 +298,8 @@ export function AddMetricRow({
 function guessValueType(target: string): MetricValueType {
   const t = target.trim().toLowerCase();
   if (t.includes("%")) return "percent";
+  // A target written "$500k" says money as plainly as "%" says percent.
+  if (t.includes("$")) return "currency";
   if (t === "yes" || t === "no" || t === "y" || t === "n") return "text";
   return "number";
 }

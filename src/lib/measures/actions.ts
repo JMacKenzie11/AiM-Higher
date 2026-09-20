@@ -7,6 +7,12 @@ import { trackAfter } from "@/lib/analytics/track";
 import { scoreMeasureDraft, type MeasureCritique } from "./critique";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import {
+  parseScale,
+  parseTypedNumber,
+  toStoredNumber,
+  type MeasureScale,
+} from "./value-format";
 
 // Batch weekly-value writer for the /measures batch page and the
 // dashboard "Pending this week" widget. Skips blank rows so a user
@@ -20,6 +26,11 @@ export type LogEntryResult =
 export type MeasureEntryInput = {
   measureId: string;
   valueType: MetricValueType;
+  // The unit the box was typed in. Storage is always the true
+  // number, so 18 on a millions measure is stored as 18000000 —
+  // which is also what an external pull writes for that week, so
+  // both paths land on one figure. See measures/value-format.ts.
+  scale?: MeasureScale;
   rawValue: string;
   // Which week this value belongs to. Defaults to the batch's week.
   //
@@ -65,15 +76,14 @@ export async function logMeasureEntriesAction(
     if (e.valueType === "text") {
       value_text = raw;
     } else {
-      const cleaned = raw.replace(/[^0-9.\-]/g, "");
-      const n = cleaned.length > 0 ? Number(cleaned) : NaN;
-      if (!Number.isFinite(n)) {
+      const typed = parseTypedNumber(raw);
+      if (typed === null) {
         return {
           ok: false,
           message: `Value for one of the measures isn't a number ("${raw}").`,
         };
       }
-      value_number = n;
+      value_number = toStoredNumber(typed, e.valueType, parseScale(e.scale));
     }
     rows.push({
       measure_id: e.measureId,
