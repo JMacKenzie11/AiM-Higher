@@ -160,7 +160,9 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
     return d;
   };
 
-  const boardFunctions: BoardFunction[] = functions.map((fn) => {
+  // EVERY function, for now. Filtered a few lines down, once each one
+  // knows how many metrics it actually contributes.
+  const allBoardFunctions: BoardFunction[] = functions.map((fn) => {
     // Straight down the function's list. 0216 renumbered sort_order
     // so a measure still sits where its company left it, which is why
     // this needs no grouping pass of its own.
@@ -206,6 +208,29 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
       }),
     };
   });
+
+  // A FUNCTION WITH NOTHING TO SHOW IS NOT SHOWN.
+  //
+  // The metric filter above already dropped the measures nobody
+  // ticked, but the function cards were built from the org chart, so
+  // a function whose measures were all unticked still rendered: a
+  // card with a seat holder, a "No targets set" eyebrow and the line
+  // "No metrics on this function yet." Benson's dashboard carried
+  // five of them.
+  //
+  // That line reads as "this function has not set up its metrics",
+  // which is wrong twice over — the function may have several, and
+  // the person looking cannot do anything about it from here. The
+  // board is the glance; a card that says only that it is empty
+  // costs a screenful and tells nobody anything.
+  //
+  // `depth` is computed over the FULL function list above, so
+  // dropping cards here cannot change the order of the ones that
+  // remain: a parent disappearing does not renumber its child. The
+  // board is a flat sorted list, not a tree.
+  const boardFunctions = allBoardFunctions.filter(
+    (fn) => fn.metrics.length > 0
+  );
 
   return { weeks, currentWeekEnding, functions: boardFunctions, hasEntries };
 }
