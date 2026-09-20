@@ -1205,3 +1205,90 @@ has to compare the two ends, because the running system never will.
 manufactured a complete-looking row; here, a deliberate silence let a
 row never arrive at all. Both were found by counting rows in
 production rather than by reading code.
+
+### E15. A gate that runs the build the users never get
+
+**What happened.** Every issue on Benson's `/issues` page rendered its
+"add a commitment" form as a vertical stripe of single letters on a
+phone. Reported from production, on a real phone, on every card.
+
+The form composes `row rowNoPriority` from `commitments.module.css`,
+and at ≤1024px that stylesheet places a row's cells by position:
+
+```css
+.row > :nth-child(1) { grid-area: circle }   /* … through (8) */
+```
+
+Safe only if you know the child count. Both stylesheets carried a
+comment saying the form has three hidden inputs before its first real
+cell — `issue_id`, `owner_id`, `due_date` — and it does, in
+`next dev`. A **production build gives a `<form action={serverAction}>`
+extra hidden inputs of Next's own**, to carry the server-action
+reference. Seven, when measured. Every `nth-child` rule then landed on
+a hidden input, the textarea fell through to `:nth-child(8)` and took
+`grid-area: status`, and the select, date and button fell off the end
+of the rules entirely, keeping their desktop `grid-column: 5 / 6 / 7`
+— columns a four-column grid does not have:
+
+```
+grid-template-columns: 40px 40px 40px 0px 2px 0px 51px
+textarea  w=18  h=565   "What will we do this week?"
+select    w=2
+```
+
+**How it survived.** Four separate probes reported it clean before it
+was reproduced once, and every one of them was measuring something
+other than the app:
+
+1. **The probe never reached the page.** It set the scope cookie by
+   hand. The cookie is owner-bound (`<user>:<company>`), so a raw
+   company id is ignored; the run measured `/admin/companies` and
+   reported zero. Nothing asserted where it had landed.
+2. **A `next build` run under a live `next dev` clobbered `.next`**,
+   so every JS chunk 400'd, React never hydrated, and the probe
+   measured a page with no JavaScript.
+3. **`reuseExistingServer: true` reused a stale `next-server`** —
+   a *production* server left over from an earlier build — while the
+   spec believed it was talking to `next dev`.
+4. **Then, on a healthy dev server, it was genuinely clean.** The bug
+   does not exist in `next dev`.
+
+The first three are harness faults and are the reason the fourth was
+believed. The fourth is the failure mode: **the e2e suite runs
+`npm run dev`, and no gate in this repo has ever run the build the
+users are served.** A whole class of defect — anything where dev and
+production differ in the DOM, in CSS module ordering, in what the
+framework injects — is structurally invisible to every check we have.
+
+**The rules.**
+
+- **A probe asserts where it landed before it measures anything.**
+  `expect(new URL(page.url()).pathname).toBe(path)`. A redirect
+  counted as coverage is how a page goes unchecked while the suite
+  looks thorough. Same shape as the `→ landed` line in
+  `mobile-sideways-scroll.spec.ts`.
+- **A probe fails loudly when the app did not load.** A 4xx on any
+  `/_next/` asset means nothing below it is meaningful. Report that,
+  never a confident zero.
+- **Never run `next build` while a dev server is up.** They share
+  `.next` and the build wins, leaving a server whose chunks 404 or
+  400. Kill it first.
+- **`reuseExistingServer` is only safe if you know what is listening.**
+  `lsof -nP -iTCP:3200 -sTCP:LISTEN`, then `ps -o command= -p <pid>`.
+- **Layout that depends on a child count is a defect even when it
+  renders correctly.** The count is not yours: the framework adds
+  children to a form, a conditional adds one more. Place by class.
+  Both stylesheets already carried a comment about a *previous*
+  instance of this same bug, fixed by counting more carefully rather
+  than by not counting.
+- **Where a browser gate cannot reach, guard the source.**
+  `src/lib/issues/add-line-placement.test.ts` asserts that as long as
+  `commitments.module.css` places row cells by `:nth-child`,
+  `issues.module.css` releases `.addLine`'s children from it, at the
+  same width and with the specificity to win. It runs in CI, which the
+  browser check for this could not.
+
+**Still open.** Nothing gates the production build. The source guard
+covers this one form; it does not cover the next dev-versus-production
+divergence. A `next build && next start` run over the phone-width
+sweep is the real fix and has not been built.
