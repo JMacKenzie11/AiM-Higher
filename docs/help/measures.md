@@ -229,6 +229,35 @@ Turn off *remind the owner when this is due* in the measure's edit
 form for numbers you track as context rather than as a target, like
 headcount.
 
+## How a number is written, and how it reads
+
+Each critical success factor has a **Value type**:
+
+- **Number** — shows what you entered: `38.6`
+- **Currency ($)** — shows `$1,234`
+- **Percent** — shows `13%`
+- **Text (yes/no)** — shows what you typed: `Yes`, `Green`
+
+If a number is showing plainly when you expected a `%` or a `$`, the
+value type is the thing to change. It is on the add/edit panel.
+
+**Units**, beside it, is for big numbers. Set it to *Millions* and
+you type `18` where you mean eighteen million: the box stays small,
+and the page shows `$18M`. What is stored is always the real figure,
+so if that measure is ever connected to a spreadsheet the number
+coming in lines up with the ones people typed.
+
+Set the target the same way. On a millions measure a target of `18`
+means eighteen million.
+
+Units only appears for Number and Currency. A percentage in millions
+is not a thing, and yes/no has no size.
+
+**A yes/no measure has no direction.** "Higher is better" is not a
+question you can answer about *Yes*, so that setting disappears when
+you choose Text, and the Target column shows `Yes` rather than
+`≥ Yes`.
+
 ## Putting things in order
 
 **Drag a critical success factor by the handle** between the Owner
