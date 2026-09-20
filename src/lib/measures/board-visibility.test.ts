@@ -42,6 +42,7 @@ function spine(over: Partial<MeasuresSpine> = {}): MeasuresSpine {
         target_hint: null,
         function_id: "f1",
         sort_order: 0,
+        show_on_dashboard: true,
       },
     ],
     linkRows: [],
@@ -211,5 +212,147 @@ describe("the board does not truncate a measure's name", () => {
 
   it("no longer hides the name behind a hover tooltip", () => {
     expect(grid).not.toMatch(/sparkName\}\s+title=/);
+  });
+});
+
+// ---- Show on Company Dashboard -----------------------------------
+//
+// The field has existed since 0218 and been read by nothing, which
+// made it a checkbox that did nothing — worse than an absent control,
+// because it looked like a decision somebody had made.
+//
+// This is the decision it makes: which critical success factors get a
+// chart on the dashboard. The GRID still shows every measure; the
+// board is the glance, and a company with thirty measures had thirty
+// sparklines on the page people open first.
+describe("show_on_dashboard decides what the board plots", () => {
+  const withFlags = (flags: boolean[]) =>
+    spine({
+      csfRows: flags.map((on, i) => ({
+        ...spine().csfRows[0],
+        id: `csf${i + 1}`,
+        description: `Measure ${i + 1}`,
+        sort_order: i,
+        show_on_dashboard: on,
+      })),
+      entryRows: flags.map((_, i) => ({
+        measure_id: `csf${i + 1}`,
+        week_ending: "2026-09-11",
+        value_number: 10 + i,
+        value_text: null,
+      })),
+    });
+
+  it("plots the ones that are on and omits the ones that are off", () => {
+    const board = buildBoardData(withFlags([true, false, true]));
+    const names = board.functions.flatMap((f) => f.metrics.map((m) => m.description));
+    expect(names).toEqual(["Measure 1", "Measure 3"]);
+  });
+
+  it("plots everything when everything is on, which is the default", () => {
+    const board = buildBoardData(withFlags([true, true, true]));
+    expect(board.functions.flatMap((f) => f.metrics)).toHaveLength(3);
+  });
+
+  it("hides the board when every logged measure is turned off", () => {
+    // The case that needs saying out loud. hasEntries used to count
+    // EVERY entry the company had, so a company whose logged measures
+    // were all hidden would pass that test and draw a board of empty
+    // frames — the exact "thirteen columns of blank" this field
+    // exists to prevent, reached from the other direction.
+    const board = buildBoardData(withFlags([false, false]));
+    expect(board.functions.flatMap((f) => f.metrics)).toHaveLength(0);
+    expect(board.hasEntries).toBe(false);
+  });
+
+  it("still counts entries only for measures that will render", () => {
+    // One on with no value, one off with a value. The board has a row
+    // and nothing in it, so there is nothing to show.
+    const board = buildBoardData(
+      spine({
+        csfRows: [
+          { ...spine().csfRows[0], id: "shown", show_on_dashboard: true },
+          { ...spine().csfRows[0], id: "hidden", show_on_dashboard: false },
+        ],
+        entryRows: [
+          {
+            measure_id: "hidden",
+            week_ending: "2026-09-11",
+            value_number: 42,
+            value_text: null,
+          },
+        ],
+      })
+    );
+    expect(board.hasEntries).toBe(false);
+  });
+});
+
+// ---- A measure with no target still gets a chart -----------------
+//
+// "It should show whether they have a target set or not. If they
+// don't, just don't show the target data."
+//
+// Pinned rather than built: the board already behaves this way, and
+// a behaviour nothing asserts is one refactor from being lost. The
+// chart is the values; the target is a line drawn across them, and a
+// line you cannot draw is a line you leave out — not a reason to
+// withhold the values somebody logged.
+describe("a measure with no target is still plotted", () => {
+  const noTarget = () =>
+    buildBoardData(
+      spine({
+        csfRows: [
+          { ...spine().csfRows[0], id: "m1", description: "No target", target: null },
+          { ...spine().csfRows[0], id: "m2", description: "Has target", target: "60" },
+        ],
+        entryRows: [
+          { measure_id: "m1", week_ending: "2026-09-11", value_number: 41, value_text: null },
+          { measure_id: "m2", week_ending: "2026-09-11", value_number: 58, value_text: null },
+        ],
+      })
+    );
+
+  it("appears on the board beside one that has a target", () => {
+    const names = noTarget().functions.flatMap((f) =>
+      f.metrics.map((m) => m.description)
+    );
+    expect(names).toContain("No target");
+    expect(names).toContain("Has target");
+  });
+
+  it("carries no target line, which is how the chart leaves it out", () => {
+    // targetNumeric is what CockpitGrid turns into the target rule.
+    // Null there means no line is drawn — not that nothing is.
+    const metrics = noTarget().functions.flatMap((f) => f.metrics);
+    const without = metrics.find((m) => m.description === "No target");
+    const with_ = metrics.find((m) => m.description === "Has target");
+    expect(without?.targetNumeric).toBeNull();
+    expect(with_?.targetNumeric).toBe(60);
+  });
+
+  it("still carries the values, which are the point of the chart", () => {
+    const without = noTarget()
+      .functions.flatMap((f) => f.metrics)
+      .find((m) => m.description === "No target");
+    const plotted = (without?.cells ?? [])
+      .map((c) => c.numericValue)
+      .filter((v) => v != null);
+    expect(plotted).toEqual([41]);
+  });
+
+  it("counts as something worth showing, so the board renders", () => {
+    // hasEntries decides whether the card appears at all. A company
+    // whose only logged measure has no target must not be told there
+    // is nothing to see.
+    const onlyUntargeted = buildBoardData(
+      spine({
+        csfRows: [{ ...spine().csfRows[0], id: "m1", target: null }],
+        entryRows: [
+          { measure_id: "m1", week_ending: "2026-09-11", value_number: 41, value_text: null },
+        ],
+      })
+    );
+    expect(onlyUntargeted.hasEntries).toBe(true);
   });
 });

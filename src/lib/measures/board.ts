@@ -85,7 +85,15 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
   const { weekEnding: currentWeekEnding } = spine;
   const weeks = spine.weeks.slice(-BOARD_WEEKS);
 
-  const hasEntries = spine.entryRows.length > 0;
+  // COUNTED OVER THE MEASURES THAT WILL RENDER, not over every entry
+  // the company has. A company whose logged measures are all hidden
+  // from the dashboard would otherwise pass this and draw a board of
+  // empty frames — the exact "thirteen columns of blank" this field
+  // exists to prevent, arrived at from the other direction.
+  const shownIds = new Set(
+    spine.csfRows.filter((c) => c.show_on_dashboard).map((c) => c.id)
+  );
+  const hasEntries = spine.entryRows.some((e) => shownIds.has(e.measure_id));
 
   const functions = spine.functions;
   if (functions.length === 0) {
@@ -99,7 +107,20 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
   // One kind since 0216, so a row is a row. This used to build two
   // lists and stitch them through csf_kpi_links so a KPI could show
   // the CSF it belonged to; there is no belonging any more.
-  const measures = spine.csfRows.map((c) => ({
+  // ONLY WHAT SOMEBODY CHOSE TO PUT HERE.
+  //
+  // show_on_dashboard has been written by the measure form since
+  // 0218 and read by nothing, which made it a checkbox that did
+  // nothing — worse than an absent control, because it looked like a
+  // decision. This is the decision it makes.
+  //
+  // The GRID still shows every measure. The board is the glance, and
+  // a company with thirty measures had thirty sparklines on the page
+  // people open first; the flag is how a company says which of them
+  // are the ones to look at.
+  const measures = spine.csfRows
+    .filter((c) => c.show_on_dashboard)
+    .map((c) => ({
     id: c.id,
     description: c.description,
     target: c.target,
