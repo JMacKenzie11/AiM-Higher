@@ -102,8 +102,16 @@ function toMapping(draft: Draft): unknown | null {
 export function ExternalSourceControls({
   measureId,
   className,
+  canAdminister: canAdministerThis,
 }: {
   measureId: string;
+  // PER MEASURE, because the answer is. A company's admin and an
+  // assigned guide may configure any of its measures; a function's
+  // Lead may configure the ones they lead and no others. The context
+  // carries a page-wide default for callers that have no particular
+  // measure in mind; the drawer knows which measure it is showing and
+  // passes the real answer.
+  canAdminister?: boolean;
   // Supplied by the row so this can span the measures grid. It has to
   // arrive as a prop rather than be wrapped by the caller: the row is
   // `display: contents`, so a wrapper would be a grid item in its own
@@ -112,7 +120,13 @@ export function ExternalSourceControls({
   className?: string;
 }) {
   const info = useExternalMeasure(measureId);
-  const { enabled, canPull, canAdminister, weeks } = useExternalMeasures();
+  const {
+    enabled,
+    canPull,
+    canAdminister: canAdministerAnywhere,
+    weeks,
+  } = useExternalMeasures();
+  const canAdminister = canAdministerThis ?? canAdministerAnywhere;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(

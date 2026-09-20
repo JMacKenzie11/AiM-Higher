@@ -242,16 +242,25 @@ export async function backfillExternalMeasureAction(
 // picker, a tab list, a heading list, and an explanation of what a
 // pull is allowed to overwrite.
 
+// WHO MAY CONFIGURE A SOURCE.
+//
+// Whoever may author the measure: an admin of the company, an
+// assigned guide, or the function's own Lead. That was system_admin
+// only, which was a phase-1 decision about who understood
+// spreadsheet mappings, not a statement about who owns the number —
+// and it left the person accountable for a measure unable to say
+// where it comes from.
+//
+// THE RULE IS NOT RESTATED HERE. `success_measures_write_by_function`
+// and its guide twin already say exactly this, and the writes below
+// go through the caller's own client, so RLS decides. A second copy
+// in TypeScript would be a second thing to keep in step, and the
+// app-side copy is the one that goes stale — failure mode E5.
+//
+// What is left is the FLAG check, which is about the company having
+// bought the feature rather than about who the caller is.
 async function adminGate(measureId: string): Promise<Gate> {
-  const g = await gate(measureId);
-  if (!g.ok) return g;
-  if (g.session.profile.role !== "system_admin") {
-    return {
-      ok: false,
-      message: "Only a system admin can configure an external source.",
-    };
-  }
-  return g;
+  return gate(measureId);
 }
 
 export async function setExternalSourceAction(
@@ -284,11 +293,21 @@ export async function setExternalSourceAction(
     }
   }
 
-  const { error } = await g.supabase
+  // COUNTED, because RLS refusing every row is not an error. Without
+  // this the caller is told the source saved and nothing happened,
+  // which is the worst of both: no error, no effect, no explanation.
+  const { error, count } = await g.supabase
     .from("success_measures")
-    .update({ external_source: mapping })
+    .update({ external_source: mapping }, { count: "exact" })
     .eq("id", measureId);
   if (error) return { ok: false, message: error.message };
+  if (!count) {
+    return {
+      ok: false,
+      message:
+        "You can only set a source for a measure you lead, or one in a company you administer.",
+    };
+  }
 
   revalidatePath("/measures");
   // NOT the mapping description. That sentence is already on screen
@@ -304,11 +323,21 @@ export async function clearExternalSourceAction(
   const g = await adminGate(measureId);
   if (!g.ok) return g;
 
-  const { error } = await g.supabase
+  const { error, count } = await g.supabase
     .from("success_measures")
-    .update({ external_source: null })
+    .update({ external_source: null }, { count: "exact" })
     .eq("id", measureId);
   if (error) return { ok: false, message: error.message };
+  // Same reason as setting one: a refusal by RLS writes no rows and
+  // raises nothing, so it has to be read from the count or it reads
+  // as success.
+  if (!count) {
+    return {
+      ok: false,
+      message:
+        "You can only clear a source for a measure you lead, or one in a company you administer.",
+    };
+  }
 
   revalidatePath("/measures");
   // Entries already pulled keep their origin and their receipts.
