@@ -879,7 +879,20 @@ export function MeasuresGrid({
     return () => cancelAnimationFrame(id);
   }, [columns, authoring, data]);
 
-  if (!data.hasRows) return null;
+  // NOTHING LOGGED YET IS NOT NOTHING TO SHOW — not to somebody who
+  // can add the first one.
+  //
+  // This returned null whenever no measure existed, which on a
+  // company with functions and no measures rendered a page that was
+  // a hero and then blank space. The page's own branches cover the
+  // reader: no functions gets an empty state, and a non-admin with no
+  // measures gets a line explaining where they live. The person the
+  // guard actually caught was the ADMIN — the only one who could fix
+  // it — and it handed them a blank screen with no Add button on it.
+  //
+  // Found on the PromiseOne instance, where all thirteen companies
+  // have functions and no measures at all.
+  if (!data.hasRows && !authoring) return null;
 
   return (
     <div className={styles.gridStack}>
@@ -909,6 +922,14 @@ export function MeasuresGrid({
                 ? `All ${writableRows.length} logged for the week beginning ${formatWeekBeginning(chasedWeek)}.`
                 : `${outstanding} of ${writableRows.length} still to log for the week beginning ${formatWeekBeginning(chasedWeek)}.`}
             </p>
+          ) : !data.hasRows ? (
+            // The card still has to read as a card. With no measures
+            // there is no count to show, so the title takes the slot
+            // the count normally occupies and the Add button keeps
+            // its place beside it.
+            <h2 className={styles.gridEmptyTitle}>
+              Critical Success Factors
+            </h2>
           ) : (
             // Holds the left half of the row so the actions stay
             // right, rather than sliding across when there is nothing
@@ -963,349 +984,357 @@ export function MeasuresGrid({
       {/* Arrows on both ends, so the bar reads as a control rather
           than as a decorative rule. They page by roughly a month of
           columns, which is the unit this grid is organised in. */}
-      <div className={styles.gridScrollbarRow} ref={scrollbarRowRef}>
-        <button
-          type="button"
-          className={styles.gridScrollArrow}
-          onClick={() => nudge(-1)}
-          aria-label="Scroll the weeks left"
-          tabIndex={-1}
-        >
-          <ChevronIcon direction="left" />
-        </button>
-        <div className={styles.gridScrollbar} ref={trackRef}>
-          <div
-            className={styles.gridScrollbarThumb}
-            ref={thumbRef}
-            role="scrollbar"
-            aria-controls="measures-grid-scroll"
-            aria-orientation="horizontal"
-            aria-label="Scroll the weeks"
-          />
+      {data.hasRows ? (
+        <>
+        <div className={styles.gridScrollbarRow} ref={scrollbarRowRef}>
+          <button
+            type="button"
+            className={styles.gridScrollArrow}
+            onClick={() => nudge(-1)}
+            aria-label="Scroll the weeks left"
+            tabIndex={-1}
+          >
+            <ChevronIcon direction="left" />
+          </button>
+          <div className={styles.gridScrollbar} ref={trackRef}>
+            <div
+              className={styles.gridScrollbarThumb}
+              ref={thumbRef}
+              role="scrollbar"
+              aria-controls="measures-grid-scroll"
+              aria-orientation="horizontal"
+              aria-label="Scroll the weeks"
+            />
+          </div>
+          <button
+            type="button"
+            className={styles.gridScrollArrow}
+            onClick={() => nudge(1)}
+            aria-label="Scroll the weeks right"
+            tabIndex={-1}
+          >
+            <ChevronIcon direction="right" />
+          </button>
         </div>
-        <button
-          type="button"
-          className={styles.gridScrollArrow}
-          onClick={() => nudge(1)}
-          aria-label="Scroll the weeks right"
-          tabIndex={-1}
-        >
-          <ChevronIcon direction="right" />
-        </button>
-      </div>
 
-      <div className={styles.gridScroll} id="measures-grid-scroll" ref={scrollRef}>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={collisionDetection}
-          onDragEnd={handleDragEnd}
-        >
-        <SortableContext items={areaIds} strategy={verticalListSortingStrategy}>
-        <table className={styles.grid}>
-          {/* `table-layout: fixed` honours these exactly, which is
-              what makes the sticky offsets above correct. Week
-              columns carry no width here: the effect sizes them to
-              fill the track so the open month lands flush against the
-              pinned block. */}
-          <colgroup>
-            {pinnedColumns(authoring).map((c) => (
-              <col key={c.key} style={{ width: c.width }} />
-            ))}
-            {columns.map((col) => (
-              <col
-                key={`${col.kind}-${col.key}`}
-                data-week-col={col.kind === "week" ? "" : undefined}
-                style={
-                  col.kind === "month"
-                    ? { width: CLOSED_MONTH_WIDTH }
-                    : undefined
-                }
-              />
-            ))}
-          </colgroup>
-          <thead>
-            <tr>
-              {/* rowSpan, so the week-label row below carries only
-                  week labels. Repeating these as empty cells left a
-                  tall blank band across the top of the table. */}
-              <th
-                scope="col"
-                rowSpan={2}
-                className={`${styles.gridPin} ${styles.gridPinArea}`}
-                      data-pin="area"
-              >
-                Functional Area
-              </th>
-              <th
-                scope="col"
-                rowSpan={2}
-                className={`${styles.gridPin} ${styles.gridPinOwner}`}
-                      data-pin="owner"
-              >
-                Owner
-              </th>
-              {authoring ? (
-                <>
-                  <th
-                    scope="col"
-                    rowSpan={2}
-                    className={`${styles.gridPin} ${styles.gridPinDrag}`}
-                    data-pin="drag"
-                  >
-                    <span className={styles.visuallyHidden}>Reorder</span>
-                  </th>
-                  <th
-                    scope="col"
-                    rowSpan={2}
-                    className={`${styles.gridPin} ${styles.gridPinActions}`}
-                    data-pin="actions"
-                  >
-                    <span className={styles.visuallyHidden}>Actions</span>
-                  </th>
-                </>
-              ) : null}
-              <th
-                scope="col"
-                rowSpan={2}
-                className={`${styles.gridPin} ${styles.gridPinName}`}
-                      data-pin="name"
-              >
-                Critical Success Factor
-              </th>
-              <th
-                scope="col"
-                rowSpan={2}
-                className={`${styles.gridPin} ${styles.gridPinFreq}`}
-                      data-pin="freq"
-              >
-                Frequency
-              </th>
-              <th
-                scope="col"
-                rowSpan={2}
-                className={`${styles.gridPin} ${styles.gridPinTarget}`}
-                      data-pin="target"
-                data-last-pinned=""
-              >
-                Target
-              </th>
-              {visibleMonths.map((m) =>
-                openMonths.has(m.key) ? (
-                  <th
-                    key={m.key}
-                    scope="colgroup"
-                    colSpan={m.weeks.length}
-                    className={styles.gridMonthOpen}
-                    data-current-month={m.isCurrent ? "" : undefined}
-                    data-month-key={m.key}
-                  >
-                    <button
-                      type="button"
-                      className={styles.gridMonthButton}
-                      onClick={() => toggleMonth(m.key)}
-                      aria-expanded
-                    >
-                      <span aria-hidden>▾</span> {m.label}
-                    </button>
-                  </th>
-                ) : (
-                  <th
-                    key={m.key}
-                    scope="col"
-                    rowSpan={2}
-                    className={styles.gridMonthClosed}
-                    data-current-month={m.isCurrent ? "" : undefined}
-                    data-month-key={m.key}
-                  >
-                    <button
-                      type="button"
-                      className={styles.gridMonthButton}
-                      onClick={() => toggleMonth(m.key)}
-                      aria-expanded={false}
-                    >
-                      <span aria-hidden>▸</span> {m.label}
-                    </button>
-                  </th>
-                )
-              )}
-            </tr>
-            <tr>
-              {visibleMonths
-                .filter((m) => openMonths.has(m.key))
-                .flatMap((m) =>
-                  m.weeks.map((w) => (
+        <div className={styles.gridScroll} id="measures-grid-scroll" ref={scrollRef}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={collisionDetection}
+            onDragEnd={handleDragEnd}
+          >
+          <SortableContext items={areaIds} strategy={verticalListSortingStrategy}>
+          <table className={styles.grid}>
+            {/* `table-layout: fixed` honours these exactly, which is
+                what makes the sticky offsets above correct. Week
+                columns carry no width here: the effect sizes them to
+                fill the track so the open month lands flush against the
+                pinned block. */}
+            <colgroup>
+              {pinnedColumns(authoring).map((c) => (
+                <col key={c.key} style={{ width: c.width }} />
+              ))}
+              {columns.map((col) => (
+                <col
+                  key={`${col.kind}-${col.key}`}
+                  data-week-col={col.kind === "week" ? "" : undefined}
+                  style={
+                    col.kind === "month"
+                      ? { width: CLOSED_MONTH_WIDTH }
+                      : undefined
+                  }
+                />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                {/* rowSpan, so the week-label row below carries only
+                    week labels. Repeating these as empty cells left a
+                    tall blank band across the top of the table. */}
+                <th
+                  scope="col"
+                  rowSpan={2}
+                  className={`${styles.gridPin} ${styles.gridPinArea}`}
+                        data-pin="area"
+                >
+                  Functional Area
+                </th>
+                <th
+                  scope="col"
+                  rowSpan={2}
+                  className={`${styles.gridPin} ${styles.gridPinOwner}`}
+                        data-pin="owner"
+                >
+                  Owner
+                </th>
+                {authoring ? (
+                  <>
                     <th
-                      key={w}
                       scope="col"
-                      className={
-                        w === weekEnding
-                          ? `${styles.gridWeekHead} ${styles.gridWeekHeadCurrent}`
-                          : openWeeks.includes(w)
-                            ? `${styles.gridWeekHead} ${styles.gridWeekHeadOpen}`
-                            : styles.gridWeekHead
-                      }
-                      title={
-                        openWeeks.includes(w) && w !== weekEnding
-                          ? "Still open: closes when the next week does"
-                          : undefined
-                      }
+                      rowSpan={2}
+                      className={`${styles.gridPin} ${styles.gridPinDrag}`}
+                      data-pin="drag"
                     >
-                      {/* The MONDAY's day of the month. The column is
-                          still keyed by the Friday underneath — that is
-                          what every value is stored against — but a
-                          week is read by the day it starts on. */}
-                      {mondayOf(w).slice(8)}
+                      <span className={styles.visuallyHidden}>Reorder</span>
                     </th>
-                  ))
+                    <th
+                      scope="col"
+                      rowSpan={2}
+                      className={`${styles.gridPin} ${styles.gridPinActions}`}
+                      data-pin="actions"
+                    >
+                      <span className={styles.visuallyHidden}>Actions</span>
+                    </th>
+                  </>
+                ) : null}
+                <th
+                  scope="col"
+                  rowSpan={2}
+                  className={`${styles.gridPin} ${styles.gridPinName}`}
+                        data-pin="name"
+                >
+                  Critical Success Factor
+                </th>
+                <th
+                  scope="col"
+                  rowSpan={2}
+                  className={`${styles.gridPin} ${styles.gridPinFreq}`}
+                        data-pin="freq"
+                >
+                  Frequency
+                </th>
+                <th
+                  scope="col"
+                  rowSpan={2}
+                  className={`${styles.gridPin} ${styles.gridPinTarget}`}
+                        data-pin="target"
+                  data-last-pinned=""
+                >
+                  Target
+                </th>
+                {visibleMonths.map((m) =>
+                  openMonths.has(m.key) ? (
+                    <th
+                      key={m.key}
+                      scope="colgroup"
+                      colSpan={m.weeks.length}
+                      className={styles.gridMonthOpen}
+                      data-current-month={m.isCurrent ? "" : undefined}
+                      data-month-key={m.key}
+                    >
+                      <button
+                        type="button"
+                        className={styles.gridMonthButton}
+                        onClick={() => toggleMonth(m.key)}
+                        aria-expanded
+                      >
+                        <span aria-hidden>▾</span> {m.label}
+                      </button>
+                    </th>
+                  ) : (
+                    <th
+                      key={m.key}
+                      scope="col"
+                      rowSpan={2}
+                      className={styles.gridMonthClosed}
+                      data-current-month={m.isCurrent ? "" : undefined}
+                      data-month-key={m.key}
+                    >
+                      <button
+                        type="button"
+                        className={styles.gridMonthButton}
+                        onClick={() => toggleMonth(m.key)}
+                        aria-expanded={false}
+                      >
+                        <span aria-hidden>▸</span> {m.label}
+                      </button>
+                    </th>
+                  )
                 )}
-            </tr>
-          </thead>
-          {/* One SortableContext per level. The group one lists every
-              rendered area; the sibling rule is enforced on drop
-              rather than by splitting this into a context per parent,
-              because dnd-kit will not drag between contexts at all
-              and the useful half of the gesture — seeing the row lift
-              and follow the pointer — should still happen when
-              somebody tries. */}
-          {groupOrder
-            .filter((g) => g.rows.length > 0)
-            .map((group) => {
-            const rows = rowOrder(group);
-            return (
-              <SortableGroupBody
-                key={group.functionId}
-                id={group.functionId}
-                enabled={areaIds.length > 1 && siblingIds(group).length > 1}
-                rowIds={rows.map((r) => r.id)}
-                onKeyDown={(e) => handleAreaKeyDown(e, group.functionId)}
-              >
-                {rows.map((row, i) => (
-                  <SortableMeasureRow
-                    key={row.id}
-                    id={row.id}
-                    enabled={authoring && group.canLog && rows.length > 1}
-                    first={i === 0}
-                    label={row.description}
-                    showDragCell={authoring}
-                    lead={
-                      i === 0 ? (
-                        <>
-                        {/* Written once per group, spanning its rows, the
-                            way the merged Owner and Functional Area cells
-                            in the spreadsheet already read. */}
-                        {i === 0 ? (
+              </tr>
+              <tr>
+                {visibleMonths
+                  .filter((m) => openMonths.has(m.key))
+                  .flatMap((m) =>
+                    m.weeks.map((w) => (
+                      <th
+                        key={w}
+                        scope="col"
+                        className={
+                          w === weekEnding
+                            ? `${styles.gridWeekHead} ${styles.gridWeekHeadCurrent}`
+                            : openWeeks.includes(w)
+                              ? `${styles.gridWeekHead} ${styles.gridWeekHeadOpen}`
+                              : styles.gridWeekHead
+                        }
+                        title={
+                          openWeeks.includes(w) && w !== weekEnding
+                            ? "Still open: closes when the next week does"
+                            : undefined
+                        }
+                      >
+                        {/* The MONDAY's day of the month. The column is
+                            still keyed by the Friday underneath — that is
+                            what every value is stored against — but a
+                            week is read by the day it starts on. */}
+                        {mondayOf(w).slice(8)}
+                      </th>
+                    ))
+                  )}
+              </tr>
+            </thead>
+            {/* One SortableContext per level. The group one lists every
+                rendered area; the sibling rule is enforced on drop
+                rather than by splitting this into a context per parent,
+                because dnd-kit will not drag between contexts at all
+                and the useful half of the gesture — seeing the row lift
+                and follow the pointer — should still happen when
+                somebody tries. */}
+            {groupOrder
+              .filter((g) => g.rows.length > 0)
+              .map((group) => {
+              const rows = rowOrder(group);
+              return (
+                <SortableGroupBody
+                  key={group.functionId}
+                  id={group.functionId}
+                  enabled={areaIds.length > 1 && siblingIds(group).length > 1}
+                  rowIds={rows.map((r) => r.id)}
+                  onKeyDown={(e) => handleAreaKeyDown(e, group.functionId)}
+                >
+                  {rows.map((row, i) => (
+                    <SortableMeasureRow
+                      key={row.id}
+                      id={row.id}
+                      enabled={authoring && group.canLog && rows.length > 1}
+                      first={i === 0}
+                      label={row.description}
+                      showDragCell={authoring}
+                      lead={
+                        i === 0 ? (
                           <>
-                            <th
-                              scope="rowgroup"
-                              rowSpan={group.rows.length}
-                              className={`${styles.gridPin} ${styles.gridPinArea} ${styles.gridAreaCell}`}
-                          data-pin="area"
-                            >
-                              <span className={styles.areaCellInner}>
-                                <AreaDragHandle title={group.functionTitle} />
-                                <Link
-                                  href={`/chart/function/${group.functionId}`}
-                                  className={styles.fnTitleLink}
-                                >
-                                  {group.functionTitle}
-                                </Link>
-                              </span>
-                            </th>
-                            <td
-                              rowSpan={group.rows.length}
-                              className={`${styles.gridPin} ${styles.gridPinOwner} ${styles.gridOwnerCell}`}
-                          data-pin="owner"
-                            >
-                              {group.ownerName ?? (
-                                <span className={styles.gridNoOwner}>No Lead</span>
-                              )}
-                            </td>
-                          </>
-                        ) : null}
-                        </>
-                      ) : null
-                    }
-                  >
-                      {authoring ? (
-                        <td
-                          className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
-                        data-pin="actions"
-                        >
-                          {group.canLog ? (
+                          {/* Written once per group, spanning its rows, the
+                              way the merged Owner and Functional Area cells
+                              in the spreadsheet already read. */}
+                          {i === 0 ? (
                             <>
-                              <button
-                                type="button"
-                                className={styles.gridIconButton}
-                                onClick={() => setEditing(row.id)}
-                                aria-label={`Edit ${row.description}`}
-                                title="Edit"
+                              <th
+                                scope="rowgroup"
+                                rowSpan={group.rows.length}
+                                className={`${styles.gridPin} ${styles.gridPinArea} ${styles.gridAreaCell}`}
+                            data-pin="area"
                               >
-                                <PencilIcon />
-                              </button>
-                              <ArchiveMeasureButton measureId={row.id} />
+                                <span className={styles.areaCellInner}>
+                                  <AreaDragHandle title={group.functionTitle} />
+                                  <Link
+                                    href={`/chart/function/${group.functionId}`}
+                                    className={styles.fnTitleLink}
+                                  >
+                                    {group.functionTitle}
+                                  </Link>
+                                </span>
+                              </th>
+                              <td
+                                rowSpan={group.rows.length}
+                                className={`${styles.gridPin} ${styles.gridPinOwner} ${styles.gridOwnerCell}`}
+                            data-pin="owner"
+                              >
+                                {group.ownerName ?? (
+                                  <span className={styles.gridNoOwner}>No Lead</span>
+                                )}
+                              </td>
                             </>
                           ) : null}
-                        </td>
-                      ) : null}
-                      <th
-                        scope="row"
-                        className={`${styles.gridPin} ${styles.gridPinName} ${styles.gridNameCell}`}
-                        data-pin="name"
-                      >
-                        {row.description}
-                        <ExternalMeasureNote measureId={row.id} />
-                      </th>
-                      <td className={`${styles.gridPin} ${styles.gridPinFreq} ${styles.gridFreqCell}`}
-                        data-pin="freq">
-                        {row.frequencyLabel}
-                      </td>
-                      <td className={`${styles.gridPin} ${styles.gridPinTarget} ${styles.gridTargetCell}`}
-                        data-pin="target">
-                        {row.target ? (
-                          <>
-                            <span className={styles.gridDir} aria-hidden>
-                              {row.direction === "higher_is_better" ? "≥" : "≤"}
-                            </span>{" "}
-                            {row.target}
                           </>
-                        ) : (
-                          <span className={styles.gridNoTarget}>Not set</span>
-                        )}
-                      </td>
-                      {columns.map((col) =>
-                        col.kind === "month" ? (
+                        ) : null
+                      }
+                    >
+                        {authoring ? (
                           <td
-                            key={`${row.id}-${col.key}`}
-                            className={styles.gridClosedCell}
-                          />
-                        ) : (
-                          <GridCellView
-                            key={`${row.id}-${col.key}`}
-                            row={row}
-                            week={col.key}
-                            isCurrent={col.key === weekEnding}
-                            editable={editableWeeks.includes(col.key)}
-                            canLog={group.canLog}
-                            value={values[cellKey(row.id, col.key)] ?? ""}
-                            onChange={(v) =>
-                              setValues((prev) => ({
-                                ...prev,
-                                [cellKey(row.id, col.key)]: v,
-                              }))
-                            }
-                            disabled={pending}
-                          />
-                        )
-                      )}
-                  </SortableMeasureRow>
-                ))}
-                </SortableGroupBody>
-              );
-            })}
-        </table>
-        </SortableContext>
-        </DndContext>
-      </div>
+                            className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
+                          data-pin="actions"
+                          >
+                            {group.canLog ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className={styles.gridIconButton}
+                                  onClick={() => setEditing(row.id)}
+                                  aria-label={`Edit ${row.description}`}
+                                  title="Edit"
+                                >
+                                  <PencilIcon />
+                                </button>
+                                <ArchiveMeasureButton measureId={row.id} />
+                              </>
+                            ) : null}
+                          </td>
+                        ) : null}
+                        <th
+                          scope="row"
+                          className={`${styles.gridPin} ${styles.gridPinName} ${styles.gridNameCell}`}
+                          data-pin="name"
+                        >
+                          {row.description}
+                          <ExternalMeasureNote measureId={row.id} />
+                        </th>
+                        <td className={`${styles.gridPin} ${styles.gridPinFreq} ${styles.gridFreqCell}`}
+                          data-pin="freq">
+                          {row.frequencyLabel}
+                        </td>
+                        <td className={`${styles.gridPin} ${styles.gridPinTarget} ${styles.gridTargetCell}`}
+                          data-pin="target">
+                          {row.target ? (
+                            <>
+                              <span className={styles.gridDir} aria-hidden>
+                                {row.direction === "higher_is_better" ? "≥" : "≤"}
+                              </span>{" "}
+                              {row.target}
+                            </>
+                          ) : (
+                            <span className={styles.gridNoTarget}>Not set</span>
+                          )}
+                        </td>
+                        {columns.map((col) =>
+                          col.kind === "month" ? (
+                            <td
+                              key={`${row.id}-${col.key}`}
+                              className={styles.gridClosedCell}
+                            />
+                          ) : (
+                            <GridCellView
+                              key={`${row.id}-${col.key}`}
+                              row={row}
+                              week={col.key}
+                              isCurrent={col.key === weekEnding}
+                              editable={editableWeeks.includes(col.key)}
+                              canLog={group.canLog}
+                              value={values[cellKey(row.id, col.key)] ?? ""}
+                              onChange={(v) =>
+                                setValues((prev) => ({
+                                  ...prev,
+                                  [cellKey(row.id, col.key)]: v,
+                                }))
+                              }
+                              disabled={pending}
+                            />
+                          )
+                        )}
+                    </SortableMeasureRow>
+                  ))}
+                  </SortableGroupBody>
+                );
+              })}
+          </table>
+          </SortableContext>
+          </DndContext>
+        </div>
+        </>
+      ) : (
+        <p className={styles.gridEmptyLine}>
+          No Critical Success Factors have been created yet.
+        </p>
+      )}
 
       {editingRow || adding ? (
         <>
