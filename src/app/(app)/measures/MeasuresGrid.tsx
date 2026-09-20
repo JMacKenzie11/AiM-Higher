@@ -25,6 +25,11 @@ import { ExternalSourceControls } from "./external/ExternalSourceControls";
 import { PencilIcon } from "@/components/ui/PencilIcon";
 import { PlusIcon } from "@/components/ui/PlusIcon";
 import { formatWeekBeginning, mondayOf } from "@/lib/dates";
+import {
+  formatMeasureValue,
+  parseTypedNumber,
+  toEntryNumber,
+} from "@/lib/measures/value-format";
 import uiStyles from "@/components/ui/ui.module.css";
 import {
   DndContext,
@@ -164,6 +169,7 @@ const BLANK_MEASURE = {
   description: "",
   target: null,
   value_type: "number" as const,
+  value_scale: "plain",
   target_direction: "higher_is_better" as const,
   update_frequency: "weekly",
   auto_track: true,
@@ -534,6 +540,7 @@ export function MeasuresGrid({
             .map((w) => ({
               measureId: r.id,
               valueType: r.valueType,
+              scale: r.scale,
               rawValue: values[cellKey(r.id, w)] ?? "",
               weekEnding: w,
             }))
@@ -1286,10 +1293,26 @@ export function MeasuresGrid({
                           data-pin="target">
                           {row.target ? (
                             <>
-                              <span className={styles.gridDir} aria-hidden>
-                                {row.direction === "higher_is_better" ? "≥" : "≤"}
-                              </span>{" "}
-                              {row.target}
+                              {/* NO ≥ ON A YES/NO MEASURE. "≥ Yes" is
+                                  not a comparison anybody makes, and
+                                  the direction it came from is not
+                                  asked for on a text measure either.
+                                  A target of "Yes" stands alone. */}
+                              {row.valueType === "text" ? null : (
+                                <>
+                                  <span className={styles.gridDir} aria-hidden>
+                                    {row.direction === "higher_is_better"
+                                      ? "≥"
+                                      : "≤"}
+                                  </span>{" "}
+                                </>
+                              )}
+                              {formatMeasureValue(
+                                row.valueType,
+                                row.scale,
+                                { number: parseTypedNumber(row.target), text: row.target },
+                                row.target
+                              )}
                             </>
                           ) : (
                             <span className={styles.gridNoTarget}>Not set</span>
@@ -1392,6 +1415,7 @@ export function MeasuresGrid({
                         description: editingRow.description,
                         target: editingRow.target,
                         value_type: editingRow.valueType,
+                        value_scale: editingRow.scale,
                         target_direction: editingRow.direction,
                         update_frequency: editingRow.frequency,
                         auto_track: editingRow.autoTrack,
@@ -1545,12 +1569,15 @@ function isDueInWeek(row: GridRow, week: string): boolean {
   return row.cells.find((c) => c.weekEnding === week)?.expected ?? false;
 }
 
+// What goes IN the input box, which is the measure's own unit rather
+// than what is stored. A millions measure holding 18000000 shows 18,
+// because 18 is what somebody typed and what they expect to find.
 function valueAt(row: GridRow, week: string): string {
   const cell = row.cells.find((c) => c.weekEnding === week);
   if (!cell?.value) return "";
   if (row.valueType === "text") return cell.value.text ?? "";
   if (cell.value.number == null || !Number.isFinite(cell.value.number)) return "";
-  return String(cell.value.number);
+  return String(toEntryNumber(cell.value.number, row.valueType, row.scale));
 }
 
 function ChevronIcon({ direction }: { direction: "left" | "right" }) {

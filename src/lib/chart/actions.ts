@@ -25,6 +25,12 @@ import type {
   UpdateFrequency,
 } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import {
+  parseScale,
+  parseTypedNumber,
+  storedTargetText,
+  toStoredNumber,
+} from "@/lib/measures/value-format";
 
 // Chart write actions. RLS gates access (admin OR the function's
 // leader for measure entries); the checks here surface friendly
@@ -34,7 +40,12 @@ export type ChartResult<T> =
   | { ok: true; item: T }
   | { ok: false; message: string };
 
-const VALUE_TYPES: readonly MetricValueType[] = ["number", "percent", "text"];
+const VALUE_TYPES: readonly MetricValueType[] = [
+  "number",
+  "percent",
+  "text",
+  "currency",
+];
 
 function parseValueType(raw: string): MetricValueType {
   return VALUE_TYPES.includes(raw as MetricValueType)
@@ -423,6 +434,8 @@ export async function createOutcomeAction(
   // the column defaults carry the rest.
   const target = nullableString(formData.get("target"));
   const valueType = parseValueType(String(formData.get("value_type") ?? "number"));
+  const valueScale = parseScale(formData.get("value_scale"));
+  const storedTarget = storedTargetText(target, valueType, valueScale);
   const direction = parseTargetDirection(
     String(formData.get("target_direction") ?? "higher_is_better")
   );
@@ -444,8 +457,9 @@ export async function createOutcomeAction(
     .from("success_measures")
     .insert({
       function_id: functionId,
-      target,
+      target: storedTarget,
       value_type: valueType,
+      value_scale: valueScale,
       target_direction: direction,
       update_frequency: updateFrequency,
       auto_track: autoTrack,
@@ -651,6 +665,8 @@ export async function createMeasureAction(
 
   const target = nullableString(formData.get("target"));
   const valueType = parseValueType(String(formData.get("value_type") ?? "number"));
+  const valueScale = parseScale(formData.get("value_scale"));
+  const storedTarget = storedTargetText(target, valueType, valueScale);
   const direction = parseTargetDirection(
     String(formData.get("target_direction") ?? "higher_is_better")
   );
@@ -708,8 +724,9 @@ export async function createMeasureAction(
       // belongs.
       function_id: outcome.function_id,
       description,
-      target,
+      target: storedTarget,
       value_type: valueType,
+      value_scale: valueScale,
       target_direction: direction,
       auto_track: autoTrack,
       update_frequency: updateFrequency,
@@ -774,6 +791,8 @@ export async function updateMeasureAction(
 
   const target = nullableString(formData.get("target"));
   const valueType = parseValueType(String(formData.get("value_type") ?? "number"));
+  const valueScale = parseScale(formData.get("value_scale"));
+  const storedTarget = storedTargetText(target, valueType, valueScale);
   const direction = parseTargetDirection(
     String(formData.get("target_direction") ?? "higher_is_better")
   );
@@ -792,6 +811,17 @@ export async function updateMeasureAction(
   // round trip again. RLS decides whether the update lands, which is
   // what it decided before too.
   //
+  // THE TARGET IS STORED CANONICAL, like a value.
+  //
+  // It is typed in the measure's own unit — "18" on a millions
+  // measure means eighteen million — and values are stored as the
+  // true number. If the target kept the typed figure, every week on
+  // that measure would compare 18000000 against 18 and read as wildly
+  // off target. One rule: storage is the true number, both sides.
+  //
+  // Text targets ("Yes", "Green") are left exactly as typed; there is
+  // no magnitude to scale.
+  //
   // A target is not required. Decided 2026-09-04 for critical success
   // factors, and since 0216 every measure is one: a company may name
   // the results it owns before it knows what good looks like, and
@@ -803,8 +833,9 @@ export async function updateMeasureAction(
     .from("success_measures")
     .update({
       description,
-      target,
+      target: storedTarget,
       value_type: valueType,
+      value_scale: valueScale,
       target_direction: direction,
       auto_track: autoTrack,
       show_on_dashboard: showOnDashboard,
@@ -899,12 +930,13 @@ export async function upsertMeasureEntryAction(
   const { data: measureRow } = await supabase
     .from("success_measures")
     .select(
-      "id, value_type, function:functions!inner(id, company_id, lead_id)"
+      "id, value_type, value_scale, function:functions!inner(id, company_id, lead_id)"
     )
     .eq("id", measureId)
     .maybeSingle<{
       id: string;
       value_type: MetricValueType;
+      value_scale: string | null;
       function:
         | {
             id: string;
@@ -938,9 +970,22 @@ export async function upsertMeasureEntryAction(
   if (measureRow.value_type === "text") {
     value_text = rawValue.trim() || null;
   } else {
-    const cleaned = rawValue.replace(/[^0-9.\-]/g, "");
-    const n = cleaned.length > 0 ? Number(cleaned) : NaN;
-    value_number = Number.isFinite(n) ? n : null;
+    // TYPED IN THE MEASURE'S UNIT, STORED AS THE TRUE NUMBER.
+    //
+    // 18 on a millions measure is 18000000 in the column, which is
+    // also exactly what an external pull writes for the same week.
+    // That is the whole reason the scale lives on the measure rather
+    // than being applied to the sheet on the way in: both paths land
+    // on one figure and nothing downstream has to ask which wrote it.
+    const typed = parseTypedNumber(rawValue);
+    value_number =
+      typed === null
+        ? null
+        : toStoredNumber(
+            typed,
+            measureRow.value_type,
+            parseScale(measureRow.value_scale)
+          );
   }
 
   // One retry on Postgres statement timeout — see the same pattern

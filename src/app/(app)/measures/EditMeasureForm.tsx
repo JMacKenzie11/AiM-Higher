@@ -23,6 +23,14 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./measures.module.css";
 import chartStyles from "../chart/chart.module.css";
+import {
+  MEASURE_SCALES,
+  parseScale,
+  parseTypedNumber,
+  scaleApplies,
+  toEntryNumber,
+  type MeasureScale,
+} from "@/lib/measures/value-format";
 
 // The measure settings form, and the archive control beside it.
 //
@@ -39,6 +47,7 @@ const INITIAL: ChartResult<SuccessMeasure> = { ok: false, message: "" };
 
 const VALUE_TYPES: Array<{ value: MetricValueType; label: string }> = [
   { value: "number", label: "Number" },
+  { value: "currency", label: "Currency ($)" },
   { value: "percent", label: "Percent" },
   { value: "text", label: "Text (yes/no)" },
 ];
@@ -46,6 +55,7 @@ const VALUE_TYPES: Array<{ value: MetricValueType; label: string }> = [
 export type EditableMeasure = {
   id: string;
   description: string;
+  value_scale?: string | null;
   target: string | null;
   value_type: MetricValueType;
   target_direction: TargetDirection;
@@ -105,10 +115,28 @@ export function EditMeasureForm({
     INITIAL
   );
   const [description, setDescription] = useState(measure.description);
-  const [target, setTarget] = useState(measure.target ?? "");
+  // THE TARGET BOX IS TYPED IN THE MEASURE'S UNIT, and the stored
+  // target is the true number — so an existing one comes back down
+  // to the unit before it is shown, exactly as a value does. Without
+  // this, editing a millions measure would show 18000000 in a box
+  // that expects 18, and saving would multiply it again.
+  const initialScale = parseScale(measure.value_scale);
+  const [target, setTarget] = useState(() => {
+    const raw = measure.target ?? "";
+    if (!raw || !scaleApplies(measure.value_type) || initialScale === "plain") {
+      return raw;
+    }
+    const n = parseTypedNumber(raw);
+    return n === null
+      ? raw
+      : String(toEntryNumber(n, measure.value_type, initialScale));
+  });
   const [valueType, setValueType] = useState<MetricValueType>(
     measure.value_type
   );
+  // Storage is always the true number; this decides what the entry
+  // box shows and what the page renders. See measures/value-format.
+  const [scale, setScale] = useState<MeasureScale>(initialScale);
   const [direction, setDirection] = useState<TargetDirection>(
     measure.target_direction
   );
@@ -270,21 +298,58 @@ export function EditMeasureForm({
         </select>
       </label>
 
-      <label className={chartStyles.formField}>
-        <span className={chartStyles.formLabel}>Direction</span>
-        <select
-          className={chartStyles.formSelect}
-          name="target_direction"
-          value={direction}
-          onChange={(e) =>
-            setDirection(e.target.value as TargetDirection)
-          }
-          disabled={pending}
-        >
-          <option value="higher_is_better">Higher is better</option>
-          <option value="lower_is_better">Lower is better</option>
-        </select>
-      </label>
+      {/* HIDDEN FOR A YES/NO MEASURE, not disabled.
+ 
+          "Higher is better" is not a question you can answer about
+          Yes, and a greyed-out control still takes up a row and still
+          invites "why can't I use this?". Hiding it says the question
+          does not apply.
+ 
+          The value is still SUBMITTED, because target_direction is
+          not null in the database and because flipping the type back
+          to Number should find the direction where it was left. */}
+      {valueType === "text" ? (
+        <input type="hidden" name="target_direction" value={direction} />
+      ) : (
+        <label className={chartStyles.formField}>
+          <span className={chartStyles.formLabel}>Direction</span>
+          <select
+            className={chartStyles.formSelect}
+            name="target_direction"
+            value={direction}
+            onChange={(e) =>
+              setDirection(e.target.value as TargetDirection)
+            }
+            disabled={pending}
+          >
+            <option value="higher_is_better">Higher is better</option>
+            <option value="lower_is_better">Lower is better</option>
+          </select>
+        </label>
+      )}
+
+      {/* UNITS, and only where a unit means anything. A percent in
+          millions is not a thing and text has no magnitude. */}
+      {scaleApplies(valueType) ? (
+        <label className={chartStyles.formField}>
+          <span className={chartStyles.formLabel}>Units</span>
+          <select
+            className={chartStyles.formSelect}
+            name="value_scale"
+            value={scale}
+            onChange={(e) => setScale(parseScale(e.target.value))}
+            disabled={pending}
+          >
+            {MEASURE_SCALES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <input type="hidden" name="value_scale" value={scale} />
+      )}
 
       <label className={chartStyles.formField}>
         <span className={chartStyles.formLabel}>How often to update</span>

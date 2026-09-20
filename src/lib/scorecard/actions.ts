@@ -29,7 +29,12 @@ export type EntryResult =
   | { ok: true; entry: ScorecardEntry }
   | { ok: false; message: string };
 
-const VALUE_TYPES: readonly MetricValueType[] = ["number", "percent", "text"];
+const VALUE_TYPES: readonly MetricValueType[] = [
+  "number",
+  "percent",
+  "text",
+  "currency",
+];
 
 // =============================================================
 // Functional Areas

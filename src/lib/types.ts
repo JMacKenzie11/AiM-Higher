@@ -318,7 +318,10 @@ export type SfaProgressRow = {
 };
 
 // ---- Functional scorecard (Section 4.8) -------------------------
-export type MetricValueType = "number" | "percent" | "text";
+// "currency" added 2026-09-20. It says the quantity is money, which
+// is what makes a $ renderable; how big the number is written is a
+// separate axis, MeasureScale in measures/value-format.ts.
+export type MetricValueType = "number" | "percent" | "text" | "currency";
 
 export type FunctionalArea = {
   id: string;

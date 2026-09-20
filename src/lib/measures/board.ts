@@ -6,6 +6,7 @@ import {
   type MeasuresSpine,
 } from "@/lib/measures/spine";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
+import { formatMeasureValue, parseScale } from "./value-format";
 
 // Read model for the operational Success Tracking board — 13
 // weeks of metric performance across every function in the company.
@@ -103,6 +104,7 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
     description: c.description,
     target: c.target,
     value_type: c.value_type,
+    value_scale: c.value_scale,
     target_direction: c.target_direction,
     sort_order: c.sort_order,
     function_id: c.function_id,
@@ -170,7 +172,12 @@ export function buildBoardData(spine: MeasuresSpine): BoardData {
             return {
               weekEnding: w,
               status,
-              displayValue: formatValue(m.value_type, entry),
+              displayValue: formatMeasureValue(
+                m.value_type,
+                parseScale(m.value_scale),
+                entry,
+                "—"
+              ),
               numericValue: extractNumericValue(m, entry),
             };
           }),
@@ -264,13 +271,6 @@ function parseNum(target: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function formatValue(
-  valueType: MetricValueType,
-  entry: { number: number | null; text: string | null } | null
-): string {
-  if (!entry) return "—";
-  if (valueType === "text") return entry.text ?? "—";
-  if (entry.number == null || !Number.isFinite(entry.number)) return "—";
-  if (valueType === "percent") return `${entry.number}%`;
-  return String(entry.number);
-}
+// Formatting lives in value-format.ts. The board and the grid
+// showing the same number differently is the kind of thing nobody
+// reports and everybody notices.
