@@ -1,6 +1,7 @@
 "use client";
 
 import { formatPulledAt } from "@/lib/external-measures/receipt";
+import { formatWeekBeginning } from "@/lib/dates";
 import { useExternalMeasure, useExternalMeasures } from "./ExternalMeasuresContext";
 import styles from "./external.module.css";
 
@@ -83,8 +84,13 @@ export function ExternalMeasureNote({ measureId }: { measureId: string }) {
               <div className={styles.receiptRow}>
                 <dt className={styles.receiptLabel}>Last pull</dt>
                 <dd className={styles.receiptValue}>
+                  {/* formatWeekBeginning, not the raw field. It holds
+                      the week's FRIDAY, so printing it after the words
+                      "week beginning" named the wrong end of the week —
+                      "week beginning 2026-09-18" for a week that BEGAN
+                      on the 14th. Missed when the app was relabelled. */}
                   {lastPull.receipt.headline} (week beginning{" "}
-                  {lastPull.weekEnding})
+                  {formatWeekBeginning(lastPull.weekEnding)})
                 </dd>
               </div>
             ) : null}

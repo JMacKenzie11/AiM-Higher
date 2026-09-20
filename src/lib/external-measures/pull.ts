@@ -1,5 +1,5 @@
 import type { ExternalMapping, WeekKeyedMapping, SnapshotMapping } from "./mapping";
-import { addDays } from "@/lib/dates";
+import { addDays, fridayOf } from "@/lib/dates";
 import { parseFreshnessDate, parseSheetDate, parseSheetNumber } from "./parse";
 import type { SheetReader } from "./sheets";
 
@@ -155,12 +155,55 @@ export function decideWeekKeyed(
     };
   }
 
+  // THE LAST DATE THAT FALLS IN THE WEEK, not an exact match on the
+  // week's Friday.
+  //
+  // Matching the Friday exactly meant the sheet had to be keyed the
+  // way the platform stores weeks, which is a demand on somebody
+  // else's spreadsheet. A client who dates rows by the Monday got
+  // "no row for this week" every week, forever, and the app now says
+  // "week beginning" everywhere — so a sheet built to match what the
+  // page shows would fail every time.
+  //
+  // Any date in the week resolves to the week. Taking the LAST of
+  // them is what makes that safe rather than arbitrary:
+  //
+  //   a weekly sheet has one row in the week, so last IS that row and
+  //   every existing mapping reads exactly as it did
+  //   a Monday-keyed sheet now works
+  //   a week whose Friday is blank but Thursday is filled now works
+  //   a DAILY sheet gives the last day present, which is the same
+  //   shape of answer it gives today (it took the Friday row) rather
+  //   than a new one
+  //
+  // What it does NOT do is total a daily sheet. "Pounds received"
+  // across seven daily rows is a sum, and this returns one day — but
+  // that is what the Friday match returned too, so it is a limit to
+  // write down rather than a regression. Summing would need somebody
+  // to say which measures sum, and nobody has.
   const keysSeen: string[] = [];
+  let bestRow = -1;
+  let bestDate = "";
   for (let i = 1; i < rows.length; i += 1) {
     const raw = rows[i]?.[keyIdx] ?? "";
     if (raw.trim().length > 0) keysSeen.push(raw.trim());
-    if (parseSheetDate(raw) !== weekEnding) continue;
+    const parsedDate = parseSheetDate(raw);
+    // fridayOf maps any day to the Friday its week ends on, and weeks
+    // run Saturday to Friday — so a Saturday belongs to the NEXT
+    // week, which is the platform's own rule rather than a second one
+    // invented here.
+    if (!parsedDate || fridayOf(parsedDate) !== weekEnding) continue;
+    // `>=` so the LAST row wins a tie between two rows carrying the
+    // same date, which is the same "last one wins" a person reading
+    // down the sheet would apply.
+    if (parsedDate >= bestDate) {
+      bestDate = parsedDate;
+      bestRow = i;
+    }
+  }
 
+  if (bestRow >= 0) {
+    const i = bestRow;
     // Sheet row numbers are 1-based and rows[0] is row 1, so the row
     // a person would look at is i + 1. Worth getting right: this is
     // the number on the receipt that lets somebody check the read by
@@ -183,7 +226,15 @@ export function decideWeekKeyed(
     return {
       outcome: "written",
       value: parsed.value,
-      detail: { ...base, matched_row: sheetRow, raw_value: cell },
+      // The date it actually matched, not just the row. On a daily
+      // sheet "row 14" says nothing; "row 14, 2026-09-18" says which
+      // day's number this week is carrying.
+      detail: {
+        ...base,
+        matched_row: sheetRow,
+        matched_date: bestDate,
+        raw_value: cell,
+      },
     };
   }
 

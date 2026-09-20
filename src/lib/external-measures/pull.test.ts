@@ -316,3 +316,99 @@ describe("failureSentence", () => {
     expect(failureSentence("something_new").length).toBeGreaterThan(0);
   });
 });
+
+// ---- Any date in the week, and the LAST of them ------------------
+//
+// Matching the week's Friday exactly meant the sheet had to be keyed
+// the way the platform stores weeks, which is a demand on somebody
+// else's spreadsheet. A client dating rows by the Monday got "no row
+// for this week" every week forever — and the app now says "week
+// beginning" everywhere, so a sheet built to match what the page
+// shows would have failed every time.
+//
+// Taking the LAST date in the week is what makes "any date" safe
+// rather than arbitrary. These pin each case it was chosen for, and
+// the one it deliberately does not solve.
+describe("decideWeekKeyed · which row in the week", () => {
+  const rows = (keys: string[]) => [
+    ["Week Ending", "Pounds Shipped"],
+    ...keys.map((k, i) => [k, String((i + 1) * 100)]),
+  ];
+
+  it("still takes the Friday row, so nothing already mapped moves", () => {
+    // The case that must not change. A weekly sheet has one row in
+    // the week, so "last in the week" IS that row.
+    const d = decideWeekKeyed(TAB, weekKeyed, WEEK);
+    expect(d.outcome).toBe("written");
+    if (d.outcome !== "written") return;
+    expect(d.value).toBe(1310.5);
+    expect(d.detail.matched_date).toBe("2026-09-18");
+  });
+
+  it("accepts a sheet keyed by the Monday", () => {
+    // 2026-09-14 is the Monday of the week ending Friday the 18th.
+    const d = decideWeekKeyed(rows(["2026-09-07", "2026-09-14"]), weekKeyed, WEEK);
+    expect(d.outcome).toBe("written");
+    if (d.outcome !== "written") return;
+    expect(d.value).toBe(200);
+    expect(d.detail.matched_date).toBe("2026-09-14");
+  });
+
+  it("takes Thursday when Friday has not been filled in", () => {
+    const d = decideWeekKeyed(rows(["2026-09-14", "2026-09-17"]), weekKeyed, WEEK);
+    expect(d.outcome).toBe("written");
+    if (d.outcome !== "written") return;
+    expect(d.detail.matched_date).toBe("2026-09-17");
+  });
+
+  it("takes the last day present on a daily sheet", () => {
+    const daily = rows([
+      "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18",
+    ]);
+    const d = decideWeekKeyed(daily, weekKeyed, WEEK);
+    expect(d.outcome).toBe("written");
+    if (d.outcome !== "written") return;
+    expect(d.detail.matched_date).toBe("2026-09-18");
+    expect(d.value).toBe(500);
+  });
+
+  it("does NOT total a daily sheet, and that is a known limit", () => {
+    // Recorded so nobody reads the test above as "daily sheets are
+    // handled". Seven daily rows of "pounds received" are a sum, and
+    // this returns one day. It is what the Friday match returned too,
+    // so it is a limit rather than a regression — and summing needs
+    // somebody to say which measures sum, which nobody has.
+    const daily = rows(["2026-09-14", "2026-09-15", "2026-09-16"]);
+    const d = decideWeekKeyed(daily, weekKeyed, WEEK);
+    expect(d.outcome).toBe("written");
+    if (d.outcome !== "written") return;
+    expect(d.value).toBe(300); // the last row, not 100 + 200 + 300
+  });
+
+  it("puts a Saturday in the NEXT week, which is the platform's rule", () => {
+    // Weeks run Saturday to Friday. Saturday 19 Sep belongs to the
+    // week ending 25 Sep, so it must not answer for the week ending
+    // the 18th — otherwise a week could claim the next one's number.
+    const d = decideWeekKeyed(rows(["2026-09-19"]), weekKeyed, WEEK);
+    expect(d.outcome).toBe("failed");
+    if (d.outcome !== "failed") return;
+    expect(d.reason).toBe("week_row_absent");
+  });
+
+  it("still says nothing is there when nothing is", () => {
+    const d = decideWeekKeyed(rows(["2026-09-04", "2026-09-11"]), weekKeyed, WEEK);
+    expect(d.outcome).toBe("failed");
+    if (d.outcome !== "failed") return;
+    expect(d.reason).toBe("week_row_absent");
+    // The keys it saw, so "not filled in yet" reads differently from
+    // "that column holds names, not dates".
+    expect(d.detail.keys_seen).toEqual(["2026-09-04", "2026-09-11"]);
+  });
+
+  it("ignores a key that is not a date at all", () => {
+    const d = decideWeekKeyed(rows(["Week 38", "not a date"]), weekKeyed, WEEK);
+    expect(d.outcome).toBe("failed");
+    if (d.outcome !== "failed") return;
+    expect(d.reason).toBe("week_row_absent");
+  });
+});

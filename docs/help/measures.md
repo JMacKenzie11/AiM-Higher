@@ -244,6 +244,19 @@ someone typing it.
 leads the function the measure belongs to. A Lead can do it for their
 own function's measures and no others.
 
+**Keyed to a week.** You name two column headings: the one holding the
+dates, and the one holding the number. It finds the row for the week
+and reads the value across from it.
+
+Any date inside the week works — Monday, Friday, or the day the report
+was run. If several rows fall in one week, it takes the **last** one.
+So a sheet with a row per day gives you the last day's figure, not the
+week's total: if you need a weekly total, put a weekly row in the
+sheet.
+
+Headings are matched by name, not by column letter, so inserting a
+column does not quietly point it at the wrong one.
+
 ## How a number is written, and how it reads
 
 Each critical success factor has a **Value type**:
