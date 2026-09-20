@@ -605,6 +605,7 @@ Nav label: **Critical Success Factors**, under *Workspace*.
 - `/measures` and `/dashboard` each load their own spine. `getMeasuresPageData`, which existed only because the two surfaces shared a page, is retired.
 - **Open by default.** The summary line ("3 functions off target this week") is the toggle, and the choice persists per person in `localStorage` (`measures-board-open`) in both directions, so closing it keeps it closed.
 - Opens on **Timeline**; **Grid** is the second view.
+- **Timeline rollup** (`rollUpFunctions`) — one square per function per week, over that function's measures that carry a target, tested in order: any `off` → **off**; else all `unlogged` → **unlogged**; else all `good` → **good**; else **mixed**. Because `off` is tested first, the mixed bucket can never contain a miss — it is "some logged and on target, the rest not in yet". Its chip read *"Mixed / partial log"* until 2026-09-20, which described the one case it never covers (some hit, some missed — that week is red); it now reads **"Some not logged"**. The internal status key is still `mixed`.
 - One row per measure, in the function's `sort_order`. Rows no longer carry `kind` and the Grid's CSF chip was removed with it: every row is the same kind, so the chip would have sat on all of them.
 
 **Filter chips** — *On target / Off / Not yet logged*, multi-select, in the function list's header. Rendered when at least one measure has a target. They count and filter both kinds. `counts-agree.test.ts` pins the chips and the outstanding line to one population.
