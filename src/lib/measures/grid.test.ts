@@ -332,3 +332,61 @@ describe("cellStatus", () => {
     ).toBe("no_target");
   });
 });
+
+// ---- How a value READS, which is decided by its value_type -------
+//
+// Nothing pinned this, and it is the whole reason a measure carries a
+// value_type at all. Worth pinning now because it is also the answer
+// to "can a percentage show as 13%": it already could, and the
+// measures that were not doing it were simply typed Number. Two in
+// production were retyped on 2026-09-20 rather than any code changing.
+//
+// The STORED value is identical either way — both number and percent
+// live in value_number — so retyping a measure moves nothing and only
+// changes how the same figure reads.
+describe("displayValue formats by value_type", () => {
+  function gridWith(valueType: string, value: number) {
+    return buildGridData(
+      spine({
+        csfRows: [{ ...spine().csfRows[0], value_type: valueType }],
+        entryRows: [
+          {
+            measure_id: "m1",
+            week_ending: THIS_FRIDAY,
+            value_number: value,
+            value_text: null,
+          },
+        ],
+      } as never),
+      "u_woody",
+      true
+    );
+  }
+
+  function cellFor(valueType: string, value: number): string {
+    const grid = gridWith(valueType, value);
+    const cell = grid.groups[0].rows[0].cells.find(
+      (c) => c.weekEnding === THIS_FRIDAY
+    );
+    return cell?.displayValue ?? "(no cell)";
+  }
+
+  it("adds a percent sign to a percent measure", () => {
+    expect(cellFor("percent", 12.59)).toBe("12.59%");
+  });
+
+  it("leaves a plain number alone", () => {
+    // The same figure, typed Number, is what "Gross margin on
+    // completed jobs (%)" was showing before it was retyped.
+    expect(cellFor("number", 12.59)).toBe("12.59");
+  });
+
+  it("has no currency type yet, so money reads bare", () => {
+    // Recorded deliberately. Adding one is a schema change: three
+    // migrations carry `check (value_type in
+    // ('number','percent','text'))`, so an unknown type cannot even
+    // be stored. This asserts today's truth so the day it changes,
+    // this test is the reminder that the CHECK moved with it.
+    expect(cellFor("currency" as never, 1234)).toBe("1234");
+  });
+});

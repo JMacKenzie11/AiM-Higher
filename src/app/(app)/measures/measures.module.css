@@ -1675,10 +1675,15 @@
    measures. The toolbar above it still carries Add, which is the
    whole point: this used to render nothing at all to the one person
    able to do something about it. */
+/* The same heading every other card title in the app uses: hq,
+   admin and foundation all set --text-h2 with --text-heading. This
+   asked for --text-h4, which is not a token that exists, so the
+   shorthand was invalid and the heading silently rendered as body
+   text. */
 .gridEmptyTitle {
   margin: 0;
-  font: var(--text-h4);
-  color: var(--text);
+  font: var(--text-h2);
+  color: var(--text-heading);
 }
 
 .gridEmptyLine {
