@@ -2926,9 +2926,9 @@ export const BATCHES: readonly Batch[] = [
           name: "a new measure WITH a target gets a row",
           caller: "admin",
           sql: `insert into public.success_measures
-                  (id, function_id, kind, description, target, value_type, sort_order)
+                  (id, function_id, description, target, value_type, sort_order)
                 values ('55555555-5555-4555-8555-555555555551'::uuid,
-                        '$fn'::uuid, 'csf', '_probe with target', '42', 'number', 9990);
+                        '$fn'::uuid, '_probe with target', '42', 'number', 9990);
                 select count(*)::int as n
                   from public.success_measure_targets
                  where measure_id = '55555555-5555-4555-8555-555555555551'::uuid;`,
@@ -2941,9 +2941,9 @@ export const BATCHES: readonly Batch[] = [
           // would be noise, and would make "has this ever had a
           // target" unanswerable.
           sql: `insert into public.success_measures
-                  (id, function_id, kind, description, target, value_type, sort_order)
+                  (id, function_id, description, target, value_type, sort_order)
                 values ('55555555-5555-4555-8555-555555555552'::uuid,
-                        '$fn'::uuid, 'csf', '_probe no target', null, 'number', 9991);
+                        '$fn'::uuid, '_probe no target', null, 'number', 9991);
                 select count(*)::int as n
                   from public.success_measure_targets
                  where measure_id = '55555555-5555-4555-8555-555555555552'::uuid;`,
@@ -2953,9 +2953,9 @@ export const BATCHES: readonly Batch[] = [
           name: "editing only the description writes nothing",
           caller: "admin",
           sql: `insert into public.success_measures
-                  (id, function_id, kind, description, target, value_type, sort_order)
+                  (id, function_id, description, target, value_type, sort_order)
                 values ('55555555-5555-4555-8555-555555555553'::uuid,
-                        '$fn'::uuid, 'csf', '_probe rename', null, 'number', 9992);
+                        '$fn'::uuid, '_probe rename', null, 'number', 9992);
                 update public.success_measures
                    set description = '_probe renamed', sort_order = 9993
                  where id = '55555555-5555-4555-8555-555555555553'::uuid;
@@ -6135,6 +6135,103 @@ async function externalMeasurePathsChecks(
 //   4. It is ATOMIC. A duplicate label fails the insert, and the
 //      quarter that was open must still be open afterwards.
 //   5. A caller with no business in the company is refused.
+// THE TARGET HISTORY HAS TO RECORD THE SCALE IT WAS JUDGED UNDER.
+//
+// Permanent, because the batch that would have carried it is spent:
+// success_measure_targets landed with 0215, so its before/after pair
+// has nowhere to stand. This runs against the deployed schema on
+// every invocation instead.
+//
+// ---- WHY IT EXISTS ---------------------------------------------
+//
+// 0219 added value_scale to that table and said why: a target of 18
+// means eighteen or eighteen million depending on it, and a past week
+// has to keep the reading it was judged under. It then left
+// record_measure_target() writing six columns, so the column it had
+// just added defaulted to 'plain' on every row it wrote. 0220 fixed
+// it, a day later, found by hand rather than by anything here.
+//
+// The batch's own probes could not have caught it. They assert that a
+// row APPEARS and how it is DATED — never what it SAYS. A trigger
+// writing the wrong scale passes every one of them.
+//
+// A wrong scale is not a visible failure either. Nothing errors; the
+// week is simply judged against a number a million times too small,
+// every cell goes red, and the page offers no explanation.
+async function targetHistoryScaleChecks(
+  run: Runner,
+  pending: string
+): Promise<BatchCheck[]> {
+  const [present] = await run<{ yes: boolean }>(
+    ["begin;", pending,
+     `select count(*) > 0 as yes from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'success_measure_targets'
+         and column_name = 'value_scale';`,
+     "rollback;"].join("\n")
+  );
+  if (!present?.yes) {
+    return [{
+      name: "target history · scale",
+      before: "not on this schema",
+      after: "not applicable: value_scale has not landed here yet",
+      ok: true,
+      detail: "nothing to police; the check activates with the column",
+    }];
+  }
+
+  const [fx] = await run<Record<string, string | null>>(`
+    select m.id as measure
+      from public.success_measures m
+      join public.functions f on f.id = m.function_id
+     where m.archived = false
+     order by m.id limit 1;`);
+  if (!fx?.measure) {
+    return [{
+      name: "target history · scale",
+      before: "not run",
+      after: "not run",
+      ok: true,
+      detail: "no measure on this clone to exercise the trigger against",
+    }];
+  }
+
+  // Everything below writes, reads and rolls back in one transaction,
+  // as postgres: the claim is about what the TRIGGER writes, not about
+  // who may fire it, and RLS on that path is already probed elsewhere.
+  async function scaleAfter(scale: string, type: string): Promise<string> {
+    const rows = await run<{ s: string | null }>(
+      ["begin;", pending,
+       `update public.success_measures
+           set target = '18', value_type = '${type}', value_scale = '${scale}'
+         where id = '${fx.measure}'::uuid;`,
+       `select value_scale as s from public.success_measure_targets
+         where measure_id = '${fx.measure}'::uuid
+         order by effective_from desc limit 1;`,
+       "rollback;"].join("\n")
+    );
+    return rows[0]?.s ?? "(no row)";
+  }
+
+  const millions = await scaleAfter("millions", "currency");
+  const plain = await scaleAfter("plain", "number");
+
+  // BOTH, because either alone is worthless. "millions" passes on a
+  // trigger that hard-codes millions; "plain" passes on the broken
+  // one that hard-codes the default. Only the pair proves the trigger
+  // read the measure.
+  const ok = millions === "millions" && plain === "plain";
+  return [{
+    name: "target history · scale",
+    before: "0219's trigger wrote 'plain' for both",
+    after: `millions measure: ${millions} | plain measure: ${plain}`,
+    ok,
+    detail: ok
+      ? "the row records the scale the measure is written in, both ways"
+      : "THE HISTORY IS LYING ABOUT SCALE: a week will be judged against a target read at the wrong magnitude",
+  }];
+}
+
 async function rollQuarterChecks(
   run: Runner,
   pending: string
@@ -8118,6 +8215,7 @@ async function main(): Promise<void> {
   const pullLogResult = await externalPullLogCheck(run, pendingSql);
   const pathResults = await externalMeasurePathsChecks(run, pendingSql);
   const rollResults = await rollQuarterChecks(run, pendingSql);
+  const scaleResults = await targetHistoryScaleChecks(run, pendingSql);
   console.log(
     batchSummaryLines(
       [
@@ -8127,6 +8225,7 @@ async function main(): Promise<void> {
         pullLogResult,
         ...pathResults,
         ...rollResults,
+        ...scaleResults,
       ],
       "Static checks over live policy text"
     ).join("\n")
