@@ -1692,3 +1692,15 @@
   font: var(--text-body);
   color: var(--text-muted);
 }
+
+/* ---- A monthly measure is one number across its month ----------
+   One cell spanning its month's columns, so the block needs no
+   bracketing: the cell's own edges are the month's. A faint tint
+   separates it from the weekly rows around it.
+
+   No label. The Frequency column already says "Monthly", and a cell
+   that is mostly input has no room for words. */
+
+.gridMonthBlock {
+  background: color-mix(in srgb, var(--aims-cobalt) 4%, transparent);
+}

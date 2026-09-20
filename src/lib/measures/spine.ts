@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addDays, thisFriday } from "@/lib/dates";
+import { storageWeekFor } from "./frequency";
 import type {
   MetricValueType,
   TargetDirection,
@@ -165,6 +166,19 @@ export async function loadMeasuresSpine(
   // The widest window any consumer takes. Named for the board for
   // historical reasons; it is the grid's now.
   const weeks = weeksBack(weekEnding, GRID_WEEKS);
+  // FETCH A LITTLE FURTHER FORWARD THAN WE DRAW.
+  //
+  // A monthly value lands on the last week BEGINNING in its month,
+  // which for most months ends in the following one — September's is
+  // the week ending 2 October. So the number somebody typed for the
+  // month they are in sits on a week the grid does not draw yet, and
+  // without this it would not be read back at all: they would open
+  // the page, see an empty box, and enter it twice.
+  //
+  // Only the READ widens. The columns are still the weeks up to this
+  // one, because the monthly cell spans its month rather than
+  // occupying a week, and so needs no column of its own.
+  const dataWeekEnd = storageWeekFor("monthly", weekEnding);
 
   const empty: MeasuresSpine = {
     weekEnding,
@@ -235,7 +249,7 @@ export async function loadMeasuresSpine(
             .select(ENTRY_COLS)
             .in("measure_id", measureIds)
             .gte("week_ending", weeks[0])
-            .lte("week_ending", weekEnding)
+            .lte("week_ending", dataWeekEnd)
             .order("week_ending", { ascending: false })
         ).data ?? []) as SpineEntry[]);
 

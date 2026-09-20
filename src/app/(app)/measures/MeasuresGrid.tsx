@@ -16,6 +16,8 @@ import {
   logMeasureEntriesAction,
   type MeasureEntryInput,
 } from "@/lib/measures/actions";
+import { storageWeekFor } from "@/lib/measures/frequency";
+import { monthKeyOf, monthLabel } from "@/lib/measures/months";
 import type { GridData, GridRow,
   GridGroup,
 } from "@/lib/measures/grid";
@@ -399,6 +401,34 @@ export function MeasuresGrid({
     () => new Set(data.months.filter((m) => m.isCurrent).map((m) => m.key))
   );
 
+  // WHERE A TYPED VALUE LANDS. Itself for a weekly measure; the
+  // month's own week for a monthly one, whichever box was used.
+  // Storage does not move — see storageWeekFor.
+  const storageWeek = (row: GridRow, week: string) =>
+    storageWeekFor(row.frequency, week);
+
+  // A MONTHLY MEASURE IS OPEN FOR ITS WHOLE MONTH.
+  //
+  // Without this the feature does not exist. A monthly value lives on
+  // the month's last week, and the ordinary window is "this week and
+  // the one just closed" — so on the 3rd, the week the value belongs
+  // to is three weeks away and unwritable, which is precisely the
+  // thing somebody asked to be able to do.
+  //
+  // The month stays open while its own week is still in the ordinary
+  // window, so the grace after month end is the same grace every
+  // other measure gets rather than a second rule.
+  const monthIsOpen = (row: GridRow, week: string): boolean => {
+    if (isAdmin) return true;
+    const own = storageWeek(row, week);
+    return monthKeyOf(week) === monthKeyOf(weekEnding) || openWeeks.includes(own);
+  };
+
+  const cellEditable = (row: GridRow, week: string): boolean =>
+    row.frequency === "monthly"
+      ? monthIsOpen(row, week)
+      : editableWeeks.includes(week);
+
   // THE WEEKS THAT ARE STILL OPEN, which is not the same question as
   // the weeks this caller may type into.
   //
@@ -451,7 +481,13 @@ export function MeasuresGrid({
     Object.fromEntries(
       data.groups.flatMap((g) =>
         g.rows.flatMap((r) =>
-          editableWeeks.map((w) => [cellKey(r.id, w), valueAt(r, w)])
+          // Keyed by where the value LIVES, not by the column it is
+          // shown in, so a monthly measure's four boxes are one entry
+          // in this map and typing in any of them fills all four.
+          editableWeeks.map((w) => {
+            const own = storageWeekFor(r.frequency, w);
+            return [cellKey(r.id, own), valueAt(r, own)];
+          })
         )
       )
     )
@@ -534,7 +570,12 @@ export function MeasuresGrid({
       .filter((g) => g.canLog)
       .flatMap((g) =>
         g.rows.flatMap((r) =>
-          editableWeeks
+          // DEDUPED ONTO THE STORAGE WEEK. A monthly measure shows a
+          // box in every week of its month and they are one value, so
+          // without this a save would carry the same row four times.
+          Array.from(
+            new Set(editableWeeks.map((w) => storageWeekFor(r.frequency, w)))
+          )
             .filter((w) => isDueInWeek(r, w))
             .filter((w) => (values[cellKey(r.id, w)] ?? "") !== valueAt(r, w))
             .map((w) => ({
@@ -1318,7 +1359,7 @@ export function MeasuresGrid({
                             <span className={styles.gridNoTarget}>Not set</span>
                           )}
                         </td>
-                        {columns.map((col) =>
+                        {cellUnits(row, columns).map((col) =>
                           col.kind === "month" ? (
                             <td
                               key={`${row.id}-${col.key}`}
@@ -1329,14 +1370,20 @@ export function MeasuresGrid({
                               key={`${row.id}-${col.key}`}
                               row={row}
                               week={col.key}
+                              span={col.span}
                               isCurrent={col.key === weekEnding}
-                              editable={editableWeeks.includes(col.key)}
+                              editable={cellEditable(row, col.key)}
                               canLog={group.canLog}
-                              value={values[cellKey(row.id, col.key)] ?? ""}
+                              storageWeek={storageWeek(row, col.key)}
+                              value={
+                                values[
+                                  cellKey(row.id, storageWeek(row, col.key))
+                                ] ?? ""
+                              }
                               onChange={(v) =>
                                 setValues((prev) => ({
                                   ...prev,
-                                  [cellKey(row.id, col.key)]: v,
+                                  [cellKey(row.id, storageWeek(row, col.key))]: v,
                                 }))
                               }
                               disabled={pending}
@@ -1477,9 +1524,65 @@ export function MeasuresGrid({
   );
 }
 
+// WHAT A ROW ACTUALLY DRAWS, which is not always one cell per column.
+//
+// A weekly measure draws the columns as they are. A MONTHLY one
+// collapses each run of week columns belonging to one month into a
+// single cell that spans them, because a monthly measure has one
+// number for the month and four boxes showing it would read as four
+// values that happen to match.
+//
+// It also solves a problem the per-week version could not. A monthly
+// value lands on the last week beginning in its month — September's
+// ends 2 October — which is a week the grid has not drawn yet. A cell
+// addressed by MONTH does not care: it spans whatever columns of its
+// month are on screen and writes to the month's own week either way,
+// so no future column has to appear on the page.
+//
+// A collapsed month is already one column, so its run is length 1 and
+// this changes nothing there.
+type CellUnit =
+  | { kind: "month"; key: string; span: 1 }
+  | { kind: "week"; key: string; span: number };
+
+function cellUnits(
+  row: GridRow,
+  // Structural rather than the component's local Column type, which
+  // is declared inside it and not in scope out here.
+  columns: ReadonlyArray<{ kind: "month" | "week"; key: string }>
+): CellUnit[] {
+  if (row.frequency !== "monthly") {
+    return columns.map((c) =>
+      c.kind === "month"
+        ? { kind: "month", key: c.key, span: 1 }
+        : { kind: "week", key: c.key, span: 1 }
+    );
+  }
+  const out: CellUnit[] = [];
+  for (const col of columns) {
+    if (col.kind === "month") {
+      out.push({ kind: "month", key: col.key, span: 1 });
+      continue;
+    }
+    const last = out[out.length - 1];
+    if (
+      last &&
+      last.kind === "week" &&
+      monthKeyOf(last.key) === monthKeyOf(col.key)
+    ) {
+      last.span += 1;
+      continue;
+    }
+    out.push({ kind: "week", key: col.key, span: 1 });
+  }
+  return out;
+}
+
 function GridCellView({
   row,
   week,
+  span,
+  storageWeek,
   isCurrent,
   editable,
   canLog,
@@ -1489,16 +1592,30 @@ function GridCellView({
 }: {
   row: GridRow;
   week: string;
+  // How many week columns this cell covers. Always 1 except on a
+  // monthly measure, where one cell spans its month.
+  span: number;
+  // WHERE THIS CELL'S VALUE ACTUALLY LIVES. The same week for a
+  // weekly measure. For a monthly one it is the month's own week, so
+  // every box across the month reads and writes one number — which is
+  // also why they all show the same figure and the same status.
+  storageWeek: string;
   isCurrent: boolean;
-  // Whether this week still accepts a value: the current one and the
-  // one that just closed.
+  // Whether this cell still accepts a value. For a monthly measure
+  // that is true across its whole month, not only on the week the
+  // value lands in.
   editable: boolean;
   canLog: boolean;
   value: string;
   onChange: (v: string) => void;
   disabled: boolean;
 }) {
-  const cell = row.cells.find((c) => c.weekEnding === week);
+  const cell = row.cells.find((c) => c.weekEnding === storageWeek);
+  // A monthly measure is ONE cell across its month, so the block is
+  // said by the cell itself rather than by bracketing four of them.
+  // NO LABEL — the Frequency column already says "Monthly", and there
+  // is no room for words in a cell that is mostly input.
+  const monthly = row.frequency === "monthly";
   // NO LONGER DRAWN. This used to put a 2px amber rule down the left
   // edge of the cell where a new target took effect. It read as an
   // alert about the number rather than a note about the yardstick,
@@ -1510,13 +1627,15 @@ function GridCellView({
   // this was for. A cell going from green to red because the target
   // moved, with nothing anywhere saying so, is the thing worth
   // avoiding; a coloured rule down the table was not the way.
-  const change = row.targetChanges.get(week);
+  const change = row.targetChanges.get(storageWeek);
 
   // Not expected: render nothing at all. Not a dash, not a zero, not
   // a muted dot. A monthly row is blank three weeks in four and any
   // mark in those cells reads as a week somebody skipped.
   if (!cell || !cell.expected) {
-    return <td className={styles.gridNotDue} aria-hidden />;
+    return (
+      <td className={styles.gridNotDue} colSpan={span} aria-hidden />
+    );
   }
 
   const className = [
@@ -1527,6 +1646,7 @@ function GridCellView({
     // week: it is the one with a deadline, not the one you are
     // filling in as you go.
     editable && !isCurrent ? styles.gridCellOpen : "",
+    monthly ? styles.gridMonthBlock : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -1539,7 +1659,7 @@ function GridCellView({
 
   if (editable && canLog) {
     return (
-      <td className={className} title={title}>
+      <td className={className} colSpan={span} title={title}>
         <input
           className={styles.gridInput}
           type={row.valueType === "text" ? "text" : "number"}
@@ -1548,14 +1668,18 @@ function GridCellView({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          aria-label={`${row.description}, week beginning ${mondayOf(week)}`}
+          aria-label={
+            monthly
+              ? `${row.description}, ${monthLabel(monthKeyOf(storageWeek))}`
+              : `${row.description}, week beginning ${mondayOf(week)}`
+          }
         />
       </td>
     );
   }
 
   return (
-    <td className={className} title={title}>
+    <td className={className} colSpan={span} title={title}>
       {cell.displayValue || <span className={styles.gridEmpty} aria-hidden />}
     </td>
   );

@@ -1,10 +1,15 @@
 import { fridayOf, mondayOf } from "@/lib/dates";
+// Used here AND re-exported, so every existing importer keeps
+// working. They live in months.ts because the client grid renders
+// with them and this file is server-only.
+import { monthKeyOf, monthLabel } from "./months";
+export { monthKeyOf, monthLabel };
 import {
   formatMeasureValue,
   parseScale,
   type MeasureScale,
 } from "./value-format";
-import { expectedFridaysIn } from "@/lib/measures/frequency";
+import { expectedFridaysIn, storageWeekFor } from "@/lib/measures/frequency";
 import {
   groupTargetHistory,
   targetInForce,
@@ -145,36 +150,6 @@ export type GridData = {
   hasRows: boolean;
 };
 
-const MONTH_NAMES = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-// A week belongs to the month its FRIDAY falls in.
-//
-// Weeks run Saturday to Friday, so one straddles a month boundary
-// four or five times a year. Filing it by the end date means a
-// monthly measure's reporting week and its month agree, which is the
-// whole reason the grouping exists.
-// WHICH MONTH A WEEK BELONGS TO — the month it BEGINS in.
-//
-// It used to be the month it ended in, which was the same question
-// while the page said "week ending". Now that a column is labelled
-// with its Monday, filing the week beginning Mon 28 Sep under October
-// would put a September-looking number under an October heading.
-//
-// This is the one place the relabelling stops being cosmetic, and it
-// moves `isLastFridayOfMonth` with it: a monthly measure is due in
-// the month's last week, and "last week" has to mean the same thing
-// here and there or the column and the due date disagree.
-export function monthKeyOf(weekEnding: string): string {
-  return mondayOf(weekEnding).slice(0, 7);
-}
-
-export function monthLabel(key: string): string {
-  const [year, month] = key.split("-");
-  return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
-}
 
 export function groupWeeksByMonth(
   weeks: readonly string[],
@@ -250,6 +225,13 @@ export function buildGridData(
 ): GridData {
   const { weeks, weekEnding: currentWeekEnding } = spine;
   const months = groupWeeksByMonth(weeks, currentWeekEnding);
+  // Columns are `weeks`; cells run one further where a monthly
+  // measure's own week has not been drawn yet.
+  const monthOwnWeek = storageWeekFor("monthly", currentWeekEnding);
+  const cellWeeks =
+    weeks.length > 0 && monthOwnWeek > weeks[weeks.length - 1]
+      ? [...weeks, monthOwnWeek]
+      : weeks;
 
   const rosterById = new Map(spine.roster.map((p) => [p.id, p.full_name]));
   const entriesByMeasureWeek = new Map<
@@ -273,10 +255,21 @@ export function buildGridData(
     // read as weeks nobody filled in.
     const expectedWeeks = expectedFridaysIn({
       frequency,
-      fridays: weeks,
+      fridays: cellWeeks,
       anchorFriday: fridayOf(csf.created_at.slice(0, 10)),
     });
-    const cells: GridCell[] = weeks.map((week) => {
+    // CELLS FOR ONE WEEK MORE THAN THERE ARE COLUMNS.
+    //
+    // A monthly value lands on the last week beginning in its month,
+    // which usually ends in the next one: September's is the week
+    // ending 2 October. The grid draws columns up to this week, so
+    // that cell would not exist and the month's own number could not
+    // be read back.
+    //
+    // It gets a cell and no column. The monthly row spans its month
+    // rather than occupying a week, so it never needed a column —
+    // only somewhere to keep the value it already has.
+    const cells: GridCell[] = cellWeeks.map((week) => {
       const expected = expectedWeeks.has(week);
       const value = entriesByMeasureWeek.get(`${csf.id}|${week}`) ?? null;
       const inForce = targetInForce(history, week);

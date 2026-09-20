@@ -51,6 +51,11 @@ ones, so correcting an old number is something you do rather than
 something you ask for. The tinting still marks the two weeks everyone
 is working to.
 
+**A monthly measure gets one box for the whole month.** It stretches
+across that month's columns, and you can put the number in whenever
+you have it rather than waiting for month end. There is only one box,
+so there is no way to end up with two different numbers for a month.
+
 **Two weeks take a value: this one and the one that just closed.**
 A week stays open until the end of the following week, so a number
 you were asked for on Tuesday can still be entered any time up to

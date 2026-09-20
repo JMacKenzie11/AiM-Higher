@@ -135,6 +135,16 @@ describe("a blank cell is not a miss", () => {
       "2026-07-03", // begins Mon 29 Jun
       "2026-07-31", // begins Mon 27 Jul
       "2026-09-04", // begins Mon 31 Aug
+      // SEPTEMBER'S OWN WEEK, which begins Mon 28 Sep and ends Fri 2
+      // Oct — one week past the last COLUMN the grid draws.
+      //
+      // It has a cell and no column, deliberately. A monthly value
+      // lands on the last week beginning in its month, so the month
+      // people are currently in always stores forward; without a cell
+      // there, the number they typed could not be read back and they
+      // would enter it twice. The monthly row spans its month rather
+      // than occupying a week, so it never needed the column.
+      "2026-10-02", // begins Mon 28 Sep — September's own week
     ]);
   });
 
