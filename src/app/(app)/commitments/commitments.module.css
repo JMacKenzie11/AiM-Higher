@@ -538,10 +538,16 @@
 }
 
 /* Pinned, so a long refinement note scrolls under the buttons rather
-   than pushing them off the bottom of the panel. */
+   than pushing them off the bottom of the panel.
+
+   LEFT, against the convention, because the help widget is fixed to
+   the bottom-right corner at z-index 100 — above this panel's 61 and
+   above every other drawer and dialog in the app. Right-aligned, the
+   round "?" sat on top of Close and covered half its label. Nothing
+   below the help widget can use that corner. */
 .drawerFooter {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--border);
