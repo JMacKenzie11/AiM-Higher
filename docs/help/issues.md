@@ -223,7 +223,8 @@ add it anyway if the resemblance is coincidental.
 used on `/commitments` — timeline agreed and definition of done
 observable. Green = both yes, amber = one or both no, grey =
 not yet assessed. Only shows when a commitment exists on the
-issue. Click to review or update.
+issue. Click it and the clarity check slides in from the right,
+the same panel `/commitments` uses.
 
 **Why doesn't my issue-linked commitment show on the main
 Commitments page?** Presentation-layer separation: issue-linked
