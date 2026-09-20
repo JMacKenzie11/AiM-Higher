@@ -25,6 +25,18 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* The three CardAccent needs, matching dashboard.module.css's
+     .cardAccent: anchored so the circles pin to this corner, clipped
+     so they do not escape it, and isolated so their z-index: -1 stays
+     behind this card's own content rather than sliding behind the
+     card itself and disappearing.
+
+     Clipping is safe here. The horizontal scrolling lives on
+     .timelineScroll, which is a descendant with its own overflow, so
+     it still scrolls inside a clipped card. */
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 /* Title and toggle on one line. The title says what the card is; the

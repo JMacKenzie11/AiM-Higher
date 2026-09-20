@@ -5,6 +5,7 @@ import type { BoardData } from "@/lib/measures/board";
 import { CockpitGrid } from "./CockpitGrid";
 import { StoryTimeline } from "./StoryTimeline";
 import styles from "./board.module.css";
+import { CardAccent } from "@/components/ui/CardAccent";
 
 type ViewMode = "cockpit" | "timeline";
 
@@ -81,6 +82,12 @@ export function BoardView({ data }: { data: BoardData }) {
     // title says what this is; the toggle beside it says which window
     // and how it is doing. Everything the board is made of is inside.
     <section className={styles.boardStage} aria-labelledby="board-card">
+      {/* The soft corner circles every other dashboard card carries.
+          This one is a card rendered by its own component rather than
+          inline on the page, which is how it got missed: the pattern
+          lives at the call site on /dashboard, and this call site is
+          somewhere else. */}
+      <CardAccent />
       <div className={styles.boardCardHead}>
         {/* The app's own term, and the nav label for the page where
             these are logged — so the card and the place you go to act
