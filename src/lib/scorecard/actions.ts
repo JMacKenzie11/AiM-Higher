@@ -29,12 +29,18 @@ export type EntryResult =
   | { ok: true; entry: ScorecardEntry }
   | { ok: false; message: string };
 
-const VALUE_TYPES: readonly MetricValueType[] = [
-  "number",
-  "percent",
-  "text",
-  "currency",
-];
+// NO 'currency' HERE, deliberately, and this is the second time it
+// has been written down: scorecard_metrics carries its own CHECK from
+// migration 0008, `value_type in ('number','percent','text')`, and
+// 0219 did not touch it. Adding currency to this list without
+// relaxing that constraint would let the form offer a type the table
+// refuses — a constraint violation on save and nothing else.
+//
+// The table still holds 22 rows in production, but no route under
+// src/app reaches these actions, so widening it would be latent
+// failure bought for nobody. If this surface comes back, the
+// constraint moves first.
+const VALUE_TYPES: readonly MetricValueType[] = ["number", "percent", "text"];
 
 // =============================================================
 // Functional Areas
