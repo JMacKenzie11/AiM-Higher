@@ -443,6 +443,19 @@
   margin-right: var(--space-2);
 }
 
+/* The row's label pills, on one line.
+ 
+   .summaryMain is a flex column, so two pills dropped into it stack
+   and read as two unrelated labels. They are not: the second
+   qualifies the first. Wraps on a narrow card rather than shrinking
+   either pill. */
+.rowLabels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: flex-start;
+}
+
 /* "Original goal archived", beside the QUARTERLY PRIORITY chip.
  
    Amber rather than cobalt, and deliberately not red: the row is not
@@ -455,6 +468,7 @@
    only the colours differ. */
 .orphanReasonChip {
   font: var(--text-subhead);
+  white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.15em;
   color: var(--aims-warning);

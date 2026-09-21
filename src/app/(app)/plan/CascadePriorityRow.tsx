@@ -35,10 +35,15 @@ export function CascadePriorityRow({
   return (
     <li className={styles.priorityItem}>
       <div className={styles.summaryMain}>
-        <span className={styles.levelLabel}>Quarterly Priority</span>
-        {orphanLabel ? (
-          <span className={styles.orphanReasonChip}>{orphanLabel}</span>
-        ) : null}
+        {/* Wrapped, because .summaryMain is a flex COLUMN — two
+            pills dropped straight into it stack, which reads as two
+            unrelated labels rather than one qualifying the other. */}
+        <span className={styles.rowLabels}>
+          <span className={styles.levelLabel}>Quarterly Priority</span>
+          {orphanLabel ? (
+            <span className={styles.orphanReasonChip}>{orphanLabel}</span>
+          ) : null}
+        </span>
         <Link
           href={`/plan/priority/${priority.id}`}
           className={styles.priorityTitle}
