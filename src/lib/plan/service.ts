@@ -279,6 +279,11 @@ export async function getGoalDetail(goalId: string) {
           .from("strategic_focus_areas")
           .select("id, title")
           .eq("id", goal.sfa_id)
+          // Archived resolves to null here too. Same rule, one level
+          // up: the cascade already shows this goal under Standalone
+          // Goals, so the goal's own page must not link to a focus
+          // area the plan has stopped showing.
+          .eq("archived", false)
           .maybeSingle<Pick<StrategicFocusArea, "id" | "title">>()
       : Promise.resolve({ data: null }),
     supabase
@@ -376,11 +381,31 @@ export async function getPriorityDetail(priorityId: string) {
     { data: sfaOptions },
     { data: quarters },
   ] = await Promise.all([
+    // ARCHIVED PARENTS RESOLVE TO NULL, which is what puts this page
+    // in step with the cascade.
+    //
+    // `bucketCascadeChildren` already treats a priority whose parent
+    // is archived as standalone — "nowhere to put it", not "no parent
+    // column set" — and /plan renders it in Standalone Quarterly
+    // Priorities with a Link to picker reading "Not linked (yet)".
+    //
+    // This query did not filter, so the detail page for that same
+    // priority offered "← Back to goal" and "Goal: <title>", both
+    // pointing at a goal the plan no longer shows. Following either
+    // one landed on an archived goal's page with nothing saying it
+    // was archived. Two surfaces disagreeing about whether a row has
+    // a parent, and the one with the link was the wrong one.
+    //
+    // Null here makes the page fall through to its existing
+    // no-parent state: "Back to plan", and "Not linked to a goal or
+    // focus area". The column is untouched, so un-archiving the goal
+    // restores the link on both surfaces at once.
     priority.annual_goal_id
       ? supabase
           .from("annual_goals")
           .select("id, title, sfa_id")
           .eq("id", priority.annual_goal_id)
+          .eq("archived", false)
           .maybeSingle<Pick<AnnualGoal, "id" | "title" | "sfa_id">>()
       : Promise.resolve({ data: null }),
     // The other parent a priority can have. Exactly one of these two
@@ -390,6 +415,7 @@ export async function getPriorityDetail(priorityId: string) {
           .from("strategic_focus_areas")
           .select("id, title")
           .eq("id", priority.sfa_id)
+          .eq("archived", false)
           .maybeSingle<Pick<StrategicFocusArea, "id" | "title">>()
       : Promise.resolve({ data: null }),
     supabase
