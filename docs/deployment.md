@@ -343,6 +343,18 @@ same function the proposal parser uses, rather than restated in SQL.
 Two copies of that rule would be free to drift, and would disagree
 exactly when it mattered.
 
+`npm run repair:howard-priorities` is the same shape, for a one-off:
+16 quarterly priorities on Howard Concrete Pumping that were a
+commitment list typed in at the wrong level on 2026-08-18 and
+re-entered correctly as commitments a quarter of an hour later.
+**Already run on 2026-09-21** — 14 rows that had a commitment copy,
+then the remaining 2 under `--include-unbacked`, which is a separate
+flag because deleting a duplicate and discarding the only copy of
+something are not the same decision. It refuses to delete any
+priority with commitments hanging off it, with or without that flag,
+because `commitments.priority_id` is `ON DELETE SET NULL` and would
+unlink them silently rather than fail.
+
 `npm run repair:scorecard-snapshots` is the same shape, for the
 feature-gated discipline snapshots written while the weekly cron could
 not read entitlements.
