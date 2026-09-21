@@ -26,9 +26,9 @@ As an admin or guide, you can also:
 - **Edit Purpose and Vision** — each has an inline Edit toggle that
   swaps the card into edit mode without leaving the page.
 - **Add or remove items** in Core Values, Strengths &
-  Differentiators, Ideal Customer, and Key Success Metrics — every
-  numbered card carries Edit and Delete; each section has an
-  *Add* affordance at the bottom.
+  Differentiators, and Ideal Customer — every numbered card carries
+  Edit and Delete; each section has an *Add* affordance at the
+  bottom.
 - **Edit any list item** inline via the card footer's Edit action.
 :::
 

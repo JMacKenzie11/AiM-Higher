@@ -400,58 +400,6 @@ export default async function OnePagePlanPage() {
             )}
           </section>
 
-          {/* Key Success Metrics */}
-          <section className={styles.cardAccent} aria-labelledby="metrics">
-            <CardAccent />
-            <h2 id="metrics" className={styles.h2}>
-              Key Success Metrics
-            </h2>
-            {data.keySuccessMetrics.length === 0 ? (
-              <p className={styles.emptyLine}>
-                No metrics yet.{" "}
-                {isAdmin
-                  ? "Add the handful of numbers this company measures itself by."
-                  : ""}
-              </p>
-            ) : (
-              <div className={styles.grid2}>
-                {data.keySuccessMetrics.map((metric, index) => (
-                  <article key={metric.id} className={styles.numberedCard}>
-                    <span
-                      className={`${styles.numberedCardNumber} aims-tabular`}
-                      aria-hidden="true"
-                    >
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <div className={styles.numberedCardMain}>
-                      <h3 className={styles.h3}>{metric.title}</h3>
-                      {metric.body ? (
-                        <p className={styles.bodyText}>{metric.body}</p>
-                      ) : null}
-                      {isAdmin ? (
-                        <div className={styles.subcardActions}>
-                          <EditFoundationItemForm item={metric} />
-                          <DeleteButton
-                            action={deleteFoundationItemAction}
-                            itemId={metric.id}
-                            confirmMessage="Delete this metric?"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-            {isAdmin ? (
-              <AddFoundationItemForm
-                kind="key_success_metric"
-                addLabel="Add metric"
-                titleLabel="Metric"
-                bodyLabel="Target or definition"
-              />
-            ) : null}
-          </section>
         </div>
     </PageShell>
   );

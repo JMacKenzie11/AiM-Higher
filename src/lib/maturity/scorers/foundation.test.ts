@@ -1,10 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { scoreFoundation } from "./foundation";
 
-// Foundation scorer pinning tests. Two points each for:
-//   purpose, vision, ≥3 core_values, ≥3 differentiators, ≥3 key_success_metrics
+// Foundation scorer pinning tests. 2.5 points each for:
+//   purpose, vision, ≥3 core_values, ≥3 differentiators
 // Max 10. Fewer than 3 in a values bucket earns 0 for that bucket
 // (no partial credit — the rule is "at least three or nothing").
+//
+// It was five criteria at 2 points until 2026-09-21. The fifth, ≥3
+// key success metrics, went when its card was removed from
+// /foundation; keeping it would have capped every company at 8/10
+// with no way to earn the rest. See the scorer for the reasoning.
 
 function fakeAdmin(config: {
   foundation: {
@@ -51,11 +56,10 @@ describe("scoreFoundation", () => {
       vision: false,
       values: 0,
       differentiators: 0,
-      successMetrics: 0,
     });
   });
 
-  it("gives 2 pts for purpose + 2 pts for vision but 0 for a 2-item values list", async () => {
+  it("gives 2.5 each for purpose + vision but 0 for a 2-item values list", async () => {
     // Two values isn't three — no credit. This is the "at least three
     // or nothing" contract; partial credit would let a company get 1
     // core value and coast on that.
@@ -72,17 +76,16 @@ describe("scoreFoundation", () => {
 
     const result = await scoreFoundation(admin, "co_1");
 
-    expect(result.score).toBe(4);
+    expect(result.score).toBe(5);
     expect(result.breakdown).toEqual({
       purpose: true,
       vision: true,
       values: 2,
       differentiators: 0,
-      successMetrics: 0,
     });
   });
 
-  it("hits a perfect 10 when all five criteria pass", async () => {
+  it("hits a perfect 10 when all four criteria pass", async () => {
     const admin = fakeAdmin({
       foundation: {
         purpose_statement: "Help teams grow.",
@@ -95,9 +98,6 @@ describe("scoreFoundation", () => {
         { kind: "differentiator" },
         { kind: "differentiator" },
         { kind: "differentiator" },
-        { kind: "key_success_metric" },
-        { kind: "key_success_metric" },
-        { kind: "key_success_metric" },
       ],
     });
 
@@ -109,8 +109,47 @@ describe("scoreFoundation", () => {
       vision: true,
       values: 3,
       differentiators: 3,
-      successMetrics: 3,
     });
+  });
+
+  it("ignores key_success_metric rows that are still in the table", async () => {
+    // The card is gone; the rows are not deleted. A company that had
+    // filled it in must not keep earning for it, or the score depends
+    // on whether somebody used a surface that no longer exists.
+    const admin = fakeAdmin({
+      foundation: { purpose_statement: "Help teams grow.", vision: null },
+      items: [
+        { kind: "key_success_metric" },
+        { kind: "key_success_metric" },
+        { kind: "key_success_metric" },
+      ],
+    });
+
+    const result = await scoreFoundation(admin, "co_1");
+
+    expect(result.score).toBe(2.5);
+    expect(result.breakdown).not.toHaveProperty("successMetrics");
+  });
+
+  it("reaches 10 for a company that had everything but the metrics card", async () => {
+    // The case the reweight exists for. Under the old five-criteria
+    // scoring this company scored 8 and could never do better.
+    const admin = fakeAdmin({
+      foundation: {
+        purpose_statement: "Help teams grow.",
+        vision: "The clearest chart in construction.",
+      },
+      items: [
+        { kind: "core_value" },
+        { kind: "core_value" },
+        { kind: "core_value" },
+        { kind: "differentiator" },
+        { kind: "differentiator" },
+        { kind: "differentiator" },
+      ],
+    });
+
+    expect((await scoreFoundation(admin, "co_1")).score).toBe(10);
   });
 
   it("treats whitespace-only purpose/vision as empty", async () => {
