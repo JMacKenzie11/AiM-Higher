@@ -1,0 +1,125 @@
+/* The house drawer.
+ 
+   One implementation of the shape /measures settled on: a scrim over
+   the page, a panel in from the right, a brand-gradient head, a body
+   that scrolls and a footer that does not. Two surfaces had grown
+   their own copy of it before this existed, which is how a "consistent"
+   pattern ends up with three z-index stacks and two easing curves.
+ 
+   z-index: the sidebar sits at 30, its own mobile drawer at 40, and
+   the help widget is fixed bottom-right at 100 — above everything
+   here, which is why a drawer footer's buttons must not sit in that
+   corner. See .footer. */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--aims-navy) 28%, transparent);
+  animation: scrimIn var(--duration-normal) var(--ease-out);
+}
+
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  width: min(560px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  animation: panelIn var(--duration-normal) var(--ease-out);
+  will-change: transform;
+}
+
+/* KEPT MOUNTED MEANS KEPT IN THE DOM, so `hidden` has to actually
+   hide: .panel sets display: flex, which beats the user-agent rule
+   for [hidden] on its own. Without this the closed drawer covers the
+   page. */
+.scrim[hidden],
+.panel[hidden] {
+  display: none !important;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--grad-brand);
+  color: var(--aims-white);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-1);
+  font: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--aims-chartreuse);
+}
+
+.title {
+  margin: 0;
+  font: var(--text-h2);
+  color: var(--aims-white);
+}
+
+.close {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--aims-white);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.body {
+  padding: var(--space-5);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* LEFT, against the convention, and deliberately. The help widget is
+   fixed to the bottom-right corner at z-index 100 — above this panel
+   — so a right-aligned footer button sits underneath it. */
+.footer {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+@keyframes scrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes panelIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* The panel still appears; it arrives rather than travels. */
+@media (prefers-reduced-motion: reduce) {
+  .scrim,
+  .panel {
+    animation: none;
+  }
+}

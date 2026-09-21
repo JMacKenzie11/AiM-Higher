@@ -179,3 +179,23 @@ export async function fixtureCompanyId(page: Page): Promise<string> {
 
 export { expect };
 export const test = base;
+
+// The /plan toolbar's add controls, which are one drawer with four
+// forms in it rather than four <details>.
+//
+// Returns the FORM's scope, not the drawer's. All four forms stay
+// mounted — see PlanAddDrawers for why — so three fields labelled
+// "Title" exist at any moment and a locator scoped to the panel would
+// match the hidden ones.
+export async function openPlanAdd(
+  page: Page,
+  which: "sfa" | "goal" | "priority" | "commitment"
+): Promise<Locator> {
+  await page.getByTestId(`add-${which}-button`).click();
+  await expect(page.getByTestId("drawer-panel")).toBeVisible({
+    timeout: 30_000,
+  });
+  const form = page.getByTestId(`add-${which}-form`);
+  await expect(form).toBeVisible({ timeout: 30_000 });
+  return form;
+}

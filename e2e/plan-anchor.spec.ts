@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, openPlanAdd } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // A DISCLOSURE IS SELECTED AS A <summary>, NEVER BY ITS TEXT.
@@ -84,8 +84,7 @@ test("a back link lands on /plan with the goal revealed", async ({ page }) => {
   await sweepLeftovers(page);
 
   // Create a focus area.
-  const addSfa = page.getByTestId("add-sfa-panel");
-  await addSfa.locator("summary").click();
+  const addSfa = await openPlanAdd(page, "sfa");
   await addSfa.getByLabel("Title").fill(sfaTitle);
   await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const sfa = sfaCard(page, sfaTitle);

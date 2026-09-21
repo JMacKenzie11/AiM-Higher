@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { PlusIcon } from "../../../components/ui/PlusIcon";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
@@ -7,7 +6,7 @@ import {
   type ChartFunction,
 } from "@/lib/chart/service";
 import { PageShell } from "@/components/ui/PageShell";
-import { AddFunctionForm } from "./InlineForms";
+import { ChartAddFunction } from "./ChartAddFunction";
 import { DraggableTree } from "./DraggableTree";
 import { PanZoomTree } from "./PanZoomTree";
 import styles from "./chart.module.css";
@@ -56,10 +55,7 @@ export default async function ChartPage() {
       <div className={styles.chartCard}>
         {isAdmin ? (
           <div className={styles.chartCardHeader}>
-            <details className={styles.addDetails}>
-              <summary className={styles.addSummary}><PlusIcon />Add function</summary>
-              <AddFunctionForm people={roster} parentOptions={parentOptions} />
-            </details>
+            <ChartAddFunction people={roster} parentOptions={parentOptions} />
           </div>
         ) : null}
 

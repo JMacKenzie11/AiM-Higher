@@ -511,49 +511,17 @@
   margin: 0;
 }
 
-/* ---- Inline add forms ---------------------------------------
-   Two visual states.
-   Closed → a compact "+ Add …" pill that sits inline.
-   Open  → a bordered panel with a tinted wash so the opened form
-   reads as a proper card, matching the branding elsewhere. The
-   same disclosure is used at the top of the chart page and nested
-   inside detail-page outcome cards; the tint keeps both contexts
-   coherent without ever nesting a full white card in a white card. */
-.addDetails {
-  align-self: flex-start;
-}
-
-.addDetails[open] {
-  align-self: stretch;
-  width: 100%;
-  background: var(--aims-navy-tint);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-5) var(--space-5);
-}
-
-/* Inside the chart card the parent is already tinted, so an open
-   Add-function panel needs a white surface to read as an editing
-   surface rather than blending into the card behind it. */
-.chartCard .addDetails[open] {
-  background: var(--surface);
-}
-
-.addSummary {
-  /* The page's one create action, so it is the page's primary. See the primary-per-view table in the design system. */
-  composes: btnPrimary from "../../../components/ui/ui.module.css";
-}
-
-.addSummary::-webkit-details-marker {
-  display: none;
-}
-
-/* When the disclosure is open, the summary is redundant — the panel
-   itself is the affordance. Hide it. The Add Function form redirects
-   to the detail page on save, so the disclosure closes on its own
-   through the useStayOpenForm closeAncestor hook. */
-.addDetails[open] .addSummary {
-  display: none;
+/* The add control, and the form it opens.
+ 
+   It was a <details>: a "+ Add …" pill that became a bordered,
+   tinted panel in place. The panel pushed the pan-and-zoom tree down
+   as it opened and lived inside a transforming container, which is
+   where a position: fixed child stops meaning the viewport. It opens
+   the house drawer now — see ChartAddFunction — so the disclosure
+   styling that dressed the open state went with it. What is left is
+   the trigger and the form's own grid, which the drawer hosts. */
+.addButton {
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
 .addForm {

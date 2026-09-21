@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MobileAddMenu } from "./MobileAddMenu";
+import { PlanAddDrawers } from "./PlanAddDrawers";
 import { PlusIcon } from "../../../components/ui/PlusIcon";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
@@ -9,10 +10,8 @@ import { getQuartersForCompany } from "@/lib/quarters/service";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { QuarterSwitcher } from "./QuarterSwitcher";
-import { AddSfaForm } from "./AddSfaForm";
 import { AddGoalForm } from "./AddGoalForm";
 import { AddPriorityForm } from "./AddPriorityForm";
-import { AddCommitmentForm } from "./AddCommitmentForm";
 import { LinkGoalToSfaSelect } from "./LinkGoalToSfaSelect";
 import { LinkPriorityToParentSelect } from "./LinkPriorityToParentSelect";
 import { CascadePriorityRow } from "./CascadePriorityRow";
@@ -157,83 +156,21 @@ export default async function PlanPage({ searchParams }: PageProps) {
                 + {quarters.length === 0 ? "Open your first quarter" : "Open next quarter"}
               </Link>
             ) : null}
-            {/* All three add buttons are always available for admins.
-                Goals and Priorities save as "standalone" when their
-                parent picker is left on "Not linked (yet)", and each
-                unlinked row renders in its own section below the
-                cascade. Users can link them via the row's inline
-                picker whenever the parent exists. Bulk Reset lives
-                in the dedicated danger zone at the bottom so it
-                can't be mistaken for a primary create action. */}
-            <details
-              className={styles.toolbarAddDetails}
-              data-testid="add-sfa-panel"
-            >
-              <summary className={styles.toolbarAddSummary}>
-                <PlusIcon />Add focus area
-              </summary>
-              <div className={styles.toolbarAddPanel}>
-                <AddSfaForm people={roster} />
-              </div>
-            </details>
-            <details
-              className={styles.toolbarAddDetails}
-              data-testid="add-goal-panel"
-            >
-              <summary className={styles.toolbarAddSummary}>
-                <PlusIcon />Add goal
-              </summary>
-              <div className={styles.toolbarAddPanel}>
-                <AddGoalForm
-                  defaultSfaId={null}
-                  sfaOptions={sfaOptions}
-                  people={roster}
-                />
-              </div>
-            </details>
-            {selectedQuarter ? (
-              <details
-                className={styles.toolbarAddDetails}
-                data-testid="add-priority-panel"
-              >
-                <summary className={styles.toolbarAddSummary}>
-                  <PlusIcon />Add quarterly priority
-                </summary>
-                <div className={styles.toolbarAddPanel}>
-                  <AddPriorityForm
-                    quarterId={selectedQuarter.id}
-                    defaultParent={NO_PARENT}
-                    goalOptions={goalOptions}
-                    sfaOptions={sfaOptions}
-                    people={roster}
-                  />
-                </div>
-              </details>
-            ) : null}
-            {/* Commitments come LAST here, as they do in the
-                cascade: Focus Area, Goal, Quarterly Priority is the
-                order the plan is built in, and a commitment hangs
-                off the end of it. Only offered when there is a
-                priority to attach one to, because a picker with
-                nothing in it is a dead end. */}
-            {priorityChoices.length > 0 ? (
-              <details
-                className={styles.toolbarAddDetails}
-                data-testid="add-commitment-panel"
-              >
-                <summary className={styles.toolbarAddSummary}>
-                  <PlusIcon />Add commitment
-                </summary>
-                <div className={styles.toolbarAddPanel}>
-                  <AddCommitmentForm
-                    priorities={priorityChoices}
-                    people={roster}
-                    defaultOwnerId={session.profile.id}
-                    defaultDueDate={defaultDueDate}
-                  />
-                </div>
-              </details>
-            ) : null}
+            {/* The four add buttons, and the one drawer they share.
+                They were four <details> with floating panels; the
+                drawer gives the dismissals AddPanels used to hand-roll
+                and stops a 560px panel hanging off the right edge of
+                a card on a phone. See PlanAddDrawers. */}
+            <PlanAddDrawers
+              roster={roster}
+              sfaOptions={sfaOptions}
+              goalOptions={goalOptions}
+              priorityChoices={priorityChoices}
+              quarterId={selectedQuarter?.id ?? null}
+              noParentValue={NO_PARENT}
+              defaultOwnerId={session.profile.id}
+              defaultDueDate={defaultDueDate}
+            />
           </MobileAddMenu>
         ) : null}
       </div>

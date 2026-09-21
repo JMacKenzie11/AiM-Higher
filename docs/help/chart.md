@@ -41,7 +41,9 @@ As an admin or guide, you can:
 
 ## How to add a function
 
-1. On the chart, click *Add function* at the top of the chart card.
+1. On the chart, click *Add function* at the top of the chart card. It
+   opens a panel from the right; Escape, the X, or a click outside
+   closes it. Saving takes you straight to the new function's page.
 2. New companies start with **Visionary** and **Integrator** seed boxes
    at the top — build under them.
 
