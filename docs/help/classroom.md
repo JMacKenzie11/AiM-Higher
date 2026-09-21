@@ -12,8 +12,10 @@ click any video thumbnail to play in place.
 
 ## What you can do here
 
-- **Browse a category** — every category card groups lessons by
-  theme (Foundational, Facilitation, Growth, and so on).
+- **Work through a phase** — each phase is its own numbered list,
+  in the order you'll do them, with a count of how many trainings
+  it holds. Every phase looks the same; the numbers tell you where
+  you are.
 - **Open a lesson** — landing on a lesson opens its first section.
   Use the left rail to walk through the rest.
 - **Watch a video** — thumbnails are clickable; the player only
