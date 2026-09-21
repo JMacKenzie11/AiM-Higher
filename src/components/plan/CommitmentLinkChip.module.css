@@ -25,7 +25,22 @@
   white-space: nowrap;
   max-width: 100%;
   overflow: hidden;
+  min-width: 0;
+}
+
+/* The label, and the reason it is its own element.
+ 
+   text-overflow lives HERE rather than on .chip, because .chip is a
+   flex container and a bare text node in one is an anonymous flex
+   item with no block box for text-overflow to act on. The title
+   clipped mid-word with no "…" to say it had — one of Benson's
+   priorities put 968px of text into a 139px chip and simply stopped
+   at "Refer a friend progr". */
+.chipLabel {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chipButton {
@@ -164,4 +179,76 @@
 .menuCheck {
   color: var(--aims-success);
   font-weight: 700;
+}
+
+/* ---- On a phone ------------------------------------------------ */
+
+@media (max-width: 640px) {
+  /* The chip gets the cell it is sitting in. `.wrap` is inline-flex,
+     so it shrink-wraps the chip and `max-width: 100%` on .chip
+     resolves against that — circular, and the chip stayed at 139px
+     inside a 327px cell for no reason a reader could see. */
+  .wrap {
+    display: flex;
+    width: 100%;
+  }
+
+  /* THE MENU BECOMES A SHEET AT THE BOTTOM OF THE SCREEN.
+ 
+     Four attempts, and the measurements are the argument:
+ 
+       left: 0, min-width 260px   chip at x=142 → the menu's right
+                                  edge landed at 402 on a 393px
+                                  viewport, and the document went to
+                                  465px wide. The page scrolled
+                                  sideways to make room for a
+                                  dropdown.
+       right: 0, capped at 100vw  the overflow moved to the other
+                                  side: x=-17. A width measured
+                                  against the viewport and a position
+                                  measured against the chip cannot
+                                  agree, whichever edge you pin.
+       width: 100% of the cell    on screen, and 139px wide. That is
+                                  the whole content column of the
+                                  mobile row — three 40px circles
+                                  take the rest — and a priority
+                                  title cannot be chosen from a
+                                  139px list.
+       fixed, top: auto           161px too wide? No: correct width,
+                                  wrong place. A fixed box with no
+                                  top or bottom keeps its STATIC
+                                  position, which is in document
+                                  coordinates — top: 1372 on an 852px
+                                  viewport. Far below the fold.
+ 
+     A dropdown anchored to a 139px cell on a 393px screen has
+     nowhere good to go. So on a phone it stops pretending to be a
+     dropdown: gutters left and right, pinned to the bottom, which is
+     on screen by construction and is what a picker looks like on a
+     phone anyway.
+ 
+     Above the help widget deliberately. That is fixed bottom-right
+     at z-index 100 and would otherwise sit on top of the sheet's
+     last option. While a picker is open, the picker is the thing
+     being used. */
+  .menu {
+    position: fixed;
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: var(--space-4);
+    top: auto;
+    z-index: 101;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+
+  /* Long priority titles wrap in the list rather than being clipped.
+     There is room for two lines in a sheet; there is not room for a
+     title on one. */
+  .menuItem {
+    white-space: normal;
+  }
 }

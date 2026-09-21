@@ -87,12 +87,14 @@ export function CommitmentLinkChip({
     if (href) {
       return (
         <Link href={href} className={`${styles.chip} ${styles[`chip_${tone}`]}`}>
-          {label}
+          <span className={styles.chipLabel}>{label}</span>
         </Link>
       );
     }
     return (
-      <span className={`${styles.chip} ${styles[`chip_${tone}`]}`}>{label}</span>
+      <span className={`${styles.chip} ${styles[`chip_${tone}`]}`}>
+        <span className={styles.chipLabel}>{label}</span>
+      </span>
     );
   }
 
@@ -101,12 +103,14 @@ export function CommitmentLinkChip({
     if (href) {
       return (
         <Link href={href} className={`${styles.chip} ${styles[`chip_${tone}`]}`}>
-          {label}
+          <span className={styles.chipLabel}>{label}</span>
         </Link>
       );
     }
     return (
-      <span className={`${styles.chip} ${styles[`chip_${tone}`]}`}>{label}</span>
+      <span className={`${styles.chip} ${styles[`chip_${tone}`]}`}>
+        <span className={styles.chipLabel}>{label}</span>
+      </span>
     );
   }
 
@@ -133,7 +137,13 @@ export function CommitmentLinkChip({
             : "Change link"
         }
       >
-        {label}
+        {/* WRAPPED, or it does not ellipsise. `.chip` is
+            display: inline-flex, and a bare text node inside a flex
+            container is an anonymous flex item — text-overflow has no
+            block box to apply to, so the label clipped mid-word with
+            no "…" to say it had. A priority title is long: one of
+            Benson's rendered 968px of text into a 139px chip. */}
+        <span className={styles.chipLabel}>{label}</span>
         <span aria-hidden className={styles.chipCaret}>
           ▾
         </span>
