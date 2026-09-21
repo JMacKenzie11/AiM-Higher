@@ -308,6 +308,48 @@ seed writes into tables the migrations create, so seeding an instance
 that is behind would fail on a table that does not exist yet. An
 instance whose migrations were blocked or failed is not seeded at all.
 
+## Repair scripts
+
+One-off data repairs live in `scripts/repair-*.ts` and follow one
+shape: plan every instance first, print what would change, ask for a
+typed confirmation naming the fleet total, then write. All of them
+refuse to write anything if any instance could not be planned — a
+fleet half-repaired is the state hardest to reason about later.
+
+```bash
+npm run repair:chart-baseline -- --dry-run          # the plan, touching nothing
+npm run repair:chart-baseline                        # apply, typed confirmation
+npm run repair:chart-baseline -- --instance promiseone
+```
+
+`repair:chart-baseline` removes the duplicate baseline responsibility
+the Functional Chart Builder wrote onto every function of every chart
+it applied. Migration 0107's trigger writes one `is_default` row
+holding "Lead, Track, Decide" on every function as it is created, and
+the practice prompt asked the model to emit the same thing in the
+older "Leadership, Management, and Accountability (LMA)" wording; the
+apply action inserted it directly underneath. Fixed at source in
+\#269 — this is the history that fix does not reach.
+
+It will not touch an `is_default` row under any predicate, and it
+leaves a baseline-shaped row alone when the function has no
+`is_default` row, because there the "duplicate" is the function's only
+baseline. Those are reported as orphans. It also adds the baseline to
+any function missing one; the partial unique index means a second can
+never be created, so the script is safe to run twice.
+
+The matcher is imported from `src/lib/chart/baseline-role.ts`, the
+same function the proposal parser uses, rather than restated in SQL.
+Two copies of that rule would be free to drift, and would disagree
+exactly when it mattered.
+
+`npm run repair:scorecard-snapshots` is the same shape, for the
+feature-gated discipline snapshots written while the weekly cron could
+not read entitlements.
+
+**Running one is Jason's call, per run.** Both are writes to live
+databases.
+
 ## How we know multi-instance operations work
 
 Run on **2026-09-07** against live infrastructure, deliberately, before
