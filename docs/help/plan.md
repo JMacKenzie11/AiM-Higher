@@ -103,9 +103,18 @@ picker.
 A row lands there for either of two reasons: it was added with no
 parent, **or its parent has been archived.** An archived Goal is off
 the plan, so the Priorities under it become standalone rather than
-disappearing with it — and their own pages stop offering a link back
-to that Goal, because following one would land you on something the
-plan no longer shows. Un-archive the Goal and they go back under it.
+disappearing with it.
+
+The second case is labelled **Original goal archived**, on the row
+and on the Priority's own page, so it is not mistaken for something
+nobody got round to linking. Those pages also stop offering a link
+back to the archived Goal, because following one would land you on
+something the plan no longer shows.
+
+**Link the row to a current Goal or Focus Area and the label goes.**
+It is worked out from the row itself rather than stored, so there is
+nothing to clear. Un-archiving the Goal puts the row back under it
+and removes the label the same way.
 
 ## How to open the next planning cycle
 

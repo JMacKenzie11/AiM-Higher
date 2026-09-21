@@ -411,3 +411,13 @@ details[open] > .editSummary::after {
   composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
+
+/* "Original goal archived", in the detail page's meta line.
+ 
+   Composed rather than restated so the pill on the priority's own
+   page and the one on its row in /plan cannot drift apart — they are
+   saying the same thing about the same row, and a reader moves
+   between the two by clicking. */
+.orphanReasonChip {
+  composes: orphanReasonChip from "./plan.module.css";
+}
