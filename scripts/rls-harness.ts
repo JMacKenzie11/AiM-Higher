@@ -6258,6 +6258,124 @@ async function externalSourceRoleChecks(
   }];
 }
 
+// Attribution on plan writes (0221).
+//
+// The column answers "who typed this row", and a field like that is
+// worth nothing if the answer is whatever the client claimed. So the
+// claim under test is not "the app sets it" — it is that the DATABASE
+// sets it, and overrules a caller who says otherwise.
+//
+// Both halves matter and they fail differently. A trigger that only
+// fills a null stamps correctly and is forgeable. One that always
+// overwrites is unforgeable and destroys what the service role passes
+// deliberately — the transcript pipeline attributing a commitment to
+// the person who made it in the meeting. Only the pair says the
+// trigger reads auth.uid() and branches on it.
+async function planAttributionChecks(
+  run: Runner,
+  pending: string
+): Promise<BatchCheck[]> {
+  const [present] = await run<{ yes: boolean }>(
+    ["begin;", pending,
+     `select count(*) = 4 as yes from information_schema.columns
+       where table_schema = 'public'
+         and column_name = 'created_by'
+         and table_name in ('priorities','annual_goals',
+                            'strategic_focus_areas','commitments');`,
+     "rollback;"].join("\n")
+  );
+  if (!present?.yes) {
+    return [{
+      name: "plan attribution · created_by",
+      before: "not on this schema",
+      after: "not applicable: created_by has not landed on all four yet",
+      ok: true,
+      detail: "nothing to police; the check activates with the columns",
+    }];
+  }
+
+  // A real company_admin and a real focus area to hang a goal off.
+  const [fx] = await run<Record<string, string | null>>(`
+    select p.id as admin, p.company_id as company
+      from public.profiles p
+     where p.role = 'company_admin' and p.company_id is not null
+     order by p.id limit 1;`);
+  if (!fx?.admin || !fx.company) {
+    return [{
+      name: "plan attribution · created_by",
+      before: "not run",
+      after: "not run",
+      ok: true,
+      detail: "no company_admin on this clone to write as",
+    }];
+  }
+
+  const somebodyElse = await run<{ id: string }>(`
+    select p.id from public.profiles p
+     where p.id <> '${fx.admin}'::uuid
+     order by p.id limit 1;`);
+  const other = somebodyElse[0]?.id ?? null;
+
+  // Written as the admin, through RLS, exactly as the app writes.
+  async function stampedAs(
+    claimed: string | null
+  ): Promise<string | null> {
+    const column = claimed ? ", created_by" : "";
+    const value = claimed ? `, '${claimed}'::uuid` : "";
+    const rows = await run<{ who: string | null }>(
+      asCaller(
+        fx.admin!,
+        pending,
+        `insert into public.strategic_focus_areas
+           (company_id, title${column})
+         values ('${fx.company}'::uuid, 'harness attribution probe'${value});
+         select created_by::text as who
+           from public.strategic_focus_areas
+          where title = 'harness attribution probe';`
+      )
+    );
+    return rows[0]?.who ?? null;
+  }
+
+  const unstated = await stampedAs(null);
+  const forged = other ? await stampedAs(other) : null;
+
+  // Service role: auth.uid() is null, so an explicit value survives.
+  // This is the transcript pipeline's path.
+  const serviceRows = await run<{ who: string | null }>(
+    ["begin;", pending,
+     `insert into public.strategic_focus_areas (company_id, title, created_by)
+      values ('${fx.company}'::uuid, 'harness service probe',
+              ${other ? `'${other}'::uuid` : "null"});`,
+     `select created_by::text as who from public.strategic_focus_areas
+       where title = 'harness service probe';`,
+     "rollback;"].join("\n")
+  );
+  const service = serviceRows[0]?.who ?? null;
+
+  const stamps = unstated === fx.admin;
+  const overrules = other === null || forged === fx.admin;
+  const keepsService = other === null || service === other;
+  const ok = stamps && overrules && keepsService;
+
+  return [{
+    name: "plan attribution · created_by",
+    before: "no column: who wrote a priority was unrecoverable",
+    after:
+      `unstated: ${unstated === fx.admin ? "stamped the caller" : String(unstated)} | ` +
+      `forged: ${other === null ? "no second profile to forge as" : forged === fx.admin ? "overruled" : "ACCEPTED THE LIE"} | ` +
+      `service role: ${other === null ? "not probed" : service === other ? "kept the explicit value" : "clobbered it"}`,
+    ok,
+    detail: ok
+      ? "the database attributes the row, refuses to be told otherwise, and still lets the service role speak for a person"
+      : !stamps
+        ? "an authenticated insert left created_by null: the trigger is not firing"
+        : !overrules
+          ? "A CLIENT CAN ATTRIBUTE ITS WRITE TO SOMEBODY ELSE"
+          : "the trigger overwrote the service role's explicit author",
+  }];
+}
+
 async function targetHistoryScaleChecks(
   run: Runner,
   pending: string
@@ -8317,6 +8435,7 @@ async function main(): Promise<void> {
   const rollResults = await rollQuarterChecks(run, pendingSql);
   const scaleResults = await targetHistoryScaleChecks(run, pendingSql);
   const sourceRoleResults = await externalSourceRoleChecks(run, pendingSql);
+  const attributionResults = await planAttributionChecks(run, pendingSql);
   console.log(
     batchSummaryLines(
       [
@@ -8328,6 +8447,7 @@ async function main(): Promise<void> {
         ...rollResults,
         ...scaleResults,
         ...sourceRoleResults,
+        ...attributionResults,
       ],
       "Static checks over live policy text"
     ).join("\n")
