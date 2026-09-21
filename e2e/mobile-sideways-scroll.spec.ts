@@ -107,7 +107,7 @@ const OFFENDERS = `(() => {
 
 type Result = { vw: number; scrollW: number; offenders: string[] };
 
-test("no page scrolls sideways on a phone", async ({ page }) => {
+test("@prod no page scrolls sideways on a phone", async ({ page }) => {
   test.setTimeout(600_000);
   await page.setViewportSize({ width: 393, height: 852 });
   await scopeIn(page);

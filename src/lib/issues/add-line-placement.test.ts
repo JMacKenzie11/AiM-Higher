@@ -17,10 +17,9 @@ import path from "node:path";
 // Both files carried a comment saying it had three: the hidden
 // issue_id, owner_id and due_date inputs before the first real cell.
 //
-// It has three in `next dev`. A production build gives a
-// <form action={serverAction}> extra hidden inputs of Next's own, to
-// carry the server-action reference — SEVEN in total when this was
-// measured. Every nth-child rule then landed on a hidden input, the
+// It has SEVEN. Three are written in the JSX; the rest are added by
+// React to a <form action={serverAction}> to encode the server-action
+// reference. Every nth-child rule then landed on a hidden input, the
 // textarea fell through to :nth-child(8) and took `grid-area: status`,
 // and the select, date and button fell off the end of the rules and
 // kept their desktop `grid-column: 5`, `6`, `7` — columns a
@@ -37,13 +36,12 @@ import path from "node:path";
 //
 // ---- why this is a source test ----------------------------------
 //
-// Because the browser test could not catch it. The e2e suite runs
-// `npm run dev`, and in dev the count is three and the page is
-// perfect. Reproducing it needs `next build && next start`, which no
-// gate does. So the guard is on the SOURCE: as long as
-// commitments.module.css places row cells by :nth-child, this file
-// must release .addLine's children from that placement at the same
-// width.
+// Because a browser test cannot see the RULE, only its effect on
+// whatever page it happens to load. This one asserts the rule: as
+// long as commitments.module.css places row cells by :nth-child,
+// this file must release .addLine's children from that placement at
+// the same width. e2e/issues-add-line.spec.ts covers the rendered
+// result; this covers the reason.
 //
 // If you are here because this test failed, the fix is not a better
 // count. It is to keep the add line out of the counting.
