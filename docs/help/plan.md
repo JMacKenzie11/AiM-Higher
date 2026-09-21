@@ -96,9 +96,16 @@ Area rather than underneath them, and count toward its progress the
 same way a Goal does. One Goal and one Priority under the same Focus
 Area each count once, however many Priorities that Goal holds.
 
-Standalone rows, meaning things added with no parent at all, are a
-landing pad for messy real-world sequencing rather than the default
-shape. Link them later from the row's own picker.
+Standalone rows are a landing pad for messy real-world sequencing
+rather than the default shape. Link them later from the row's own
+picker.
+
+A row lands there for either of two reasons: it was added with no
+parent, **or its parent has been archived.** An archived Goal is off
+the plan, so the Priorities under it become standalone rather than
+disappearing with it — and their own pages stop offering a link back
+to that Goal, because following one would land you on something the
+plan no longer shows. Un-archive the Goal and they go back under it.
 
 ## How to open the next planning cycle
 
