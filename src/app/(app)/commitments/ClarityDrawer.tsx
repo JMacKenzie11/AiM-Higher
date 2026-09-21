@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState, useTransition } from "react";
 import { setCommitmentClarityAction } from "@/lib/commitments/actions";
 import type { Commitment } from "@/lib/types";
+import { Drawer } from "@/components/ui/Drawer";
 import { ClarityToggle } from "./ClarityStrip";
 import styles from "./commitments.module.css";
 
@@ -46,13 +46,6 @@ export function ClarityDrawer({
   const [note, setNote] = useState<string>(commitment.clarity_note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [mounted, setMounted] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const returnFocusTo = useRef<Element | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Re-seed from the row every time it opens. The drawer outlives a
   // single open now that it is mounted outside the row, so a save
@@ -70,24 +63,6 @@ export function ClarityDrawer({
     commitment.clarity_success,
     commitment.clarity_note,
   ]);
-
-  // Escape closes. Focus moves into the panel on open and back to
-  // whatever opened it on close — the clarity dot, which is a 10px
-  // target somebody would otherwise have to hunt for again.
-  useEffect(() => {
-    if (!open) return;
-    returnFocusTo.current = document.activeElement;
-    panelRef.current?.focus();
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !pending) onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      const back = returnFocusTo.current;
-      if (back instanceof HTMLElement) back.focus();
-    };
-  }, [open, onClose, pending]);
 
   const initialNote = commitment.clarity_note ?? "";
   const isDirty =
@@ -107,103 +82,16 @@ export function ClarityDrawer({
     });
   }
 
-  if (!open || !mounted) return null;
-
   const bothYes = timeline === true && success === true;
 
-  return createPortal(
-    <>
-      <div
-        className={styles.drawerOverlay}
-        onClick={() => {
-          if (!pending) onClose();
-        }}
-      />
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        className={styles.drawerPanel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={`clarity-title-${commitment.id}`}
-      >
-        <div className={styles.drawerHeader}>
-          <div>
-            <p className={styles.drawerEyebrow}>Commitment</p>
-            <h2
-              id={`clarity-title-${commitment.id}`}
-              className={styles.drawerTitle}
-            >
-              Clarity check
-            </h2>
-          </div>
-          <button
-            type="button"
-            className={styles.drawerClose}
-            onClick={onClose}
-            disabled={pending}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className={styles.drawerBody}>
-          {/* Behind a scrim you cannot see the row any more, so the
-              commitment comes with you. */}
-          <p className={styles.drawerQuote}>{commitment.description}</p>
-
-          <p className={styles.drawerHint}>
-            A clear commitment has a deadline that was explicitly agreed,
-            not a placeholder filled in for it, and a definition of done
-            somebody else could check.
-          </p>
-
-          <ClarityToggle
-            label="Deadline was explicitly agreed"
-            value={timeline}
-            onChange={setTimeline}
-            disabled={pending}
-          />
-          <ClarityToggle
-            label="Definition of done is observable"
-            value={success}
-            onChange={setSuccess}
-            disabled={pending}
-          />
-
-          {/* Only when something is off. A commitment that passes both
-              checks does not need rewording, and an empty box asking
-              for one reads as unfinished work. */}
-          {!bothYes ? (
-            <>
-              <label
-                className={styles.stripLabel}
-                htmlFor={`note-${commitment.id}`}
-              >
-                Refinement note (optional)
-              </label>
-              <textarea
-                id={`note-${commitment.id}`}
-                className={styles.stripTextarea}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={3}
-                maxLength={500}
-                placeholder="A one-liner rewording that would make this crystal clear."
-                disabled={pending}
-              />
-            </>
-          ) : null}
-
-          {error ? (
-            <p role="alert" className={styles.drawerError}>
-              {error}
-            </p>
-          ) : null}
-        </div>
-
-        <div className={styles.drawerFooter}>
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      eyebrow="Commitment"
+      title="Clarity check"
+      footer={
+        <>
           <button
             type="button"
             className={styles.ghostButton}
@@ -222,9 +110,63 @@ export function ClarityDrawer({
               {pending ? "Saving…" : "Save clarity"}
             </button>
           ) : null}
-        </div>
+        </>
+      }
+    >
+      <div className={styles.clarityBody}>
+        {/* Behind a scrim you cannot see the row any more, so the
+            commitment comes with you. */}
+        <p className={styles.drawerQuote}>{commitment.description}</p>
+
+        <p className={styles.drawerHint}>
+          A clear commitment has a deadline that was explicitly agreed,
+          not a placeholder filled in for it, and a definition of done
+          somebody else could check.
+        </p>
+
+        <ClarityToggle
+          label="Deadline was explicitly agreed"
+          value={timeline}
+          onChange={setTimeline}
+          disabled={pending}
+        />
+        <ClarityToggle
+          label="Definition of done is observable"
+          value={success}
+          onChange={setSuccess}
+          disabled={pending}
+        />
+
+        {/* Only when something is off. A commitment that passes both
+            checks does not need rewording, and an empty box asking
+            for one reads as unfinished work. */}
+        {!bothYes ? (
+          <>
+            <label
+              className={styles.stripLabel}
+              htmlFor={`note-${commitment.id}`}
+            >
+              Refinement note (optional)
+            </label>
+            <textarea
+              id={`note-${commitment.id}`}
+              className={styles.stripTextarea}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="A one-liner rewording that would make this crystal clear."
+              disabled={pending}
+            />
+          </>
+        ) : null}
+
+        {error ? (
+          <p role="alert" className={styles.drawerError}>
+            {error}
+          </p>
+        ) : null}
       </div>
-    </>,
-    document.body
+    </Drawer>
   );
 }

@@ -1348,80 +1348,22 @@
 
 /* ---- The settings drawer ------------------------------------- */
 /*
-   Off to the side rather than inline under the row, for two reasons.
-   The table stays readable while you change a target, and nothing
-   above the buttons can grow: the form's critique panel now sits
-   below them and this footer is pinned as well, so the click-eating
-   that made Cancel need two presses cannot come back by either route.
+   The shell — portal, scrim, slide, head, z-index — is
+   components/ui/Drawer now. It was a full copy of that shape here,
+   written before the shared one existed; /plan and the commitments
+   clarity panel each had another.
+
+   Off to the side rather than inline under the row, which is the part
+   worth keeping in view: the table stays readable while you change a
+   target, and nothing above the buttons can grow. The form's critique
+   panel sits below them and .formFooter is pinned, so the
+   click-eating that made Cancel need two presses cannot come back by
+   either route.
+
+   .formFooter's `bottom: calc(-1 * var(--space-5))` cancels the
+   drawer body's padding. That padding is the shared Drawer's now, and
+   its stylesheet says so.
 */
-
-/* Above the sidebar, which sits at 30 with a 40 on its mobile
-   drawer. A scrim underneath the navigation dims the table and
-   leaves the rail bright, which reads as a rendering fault rather
-   than a focused panel. */
-.drawerScrim {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: color-mix(in srgb, var(--aims-navy) 28%, transparent);
-}
-
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 61;
-  width: min(560px, 100vw);
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border-left: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-lg);
-}
-
-.drawerHead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  background: var(--grad-brand);
-  color: var(--aims-white);
-}
-
-.drawerEyebrow {
-  margin: 0 0 var(--space-1);
-  font: var(--text-label);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--aims-chartreuse);
-}
-
-.drawerTitle {
-  margin: 0;
-  font: var(--text-h4);
-  color: var(--aims-white);
-  text-wrap: balance;
-}
-
-.drawerClose {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid color-mix(in srgb, var(--aims-white) 32%, transparent);
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--aims-white);
-  cursor: pointer;
-}
-
-.drawerClose:hover {
-  background: color-mix(in srgb, var(--aims-white) 14%, transparent);
-}
 
 .drawerHint {
   margin: var(--space-5) 0 0;

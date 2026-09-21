@@ -88,10 +88,19 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
+/* min-height: 0 so this actually scrolls. A flex child's default
+   min-height is its content, which makes `overflow-y: auto` a no-op
+   and pushes a long form past the bottom of the panel instead.
+ 
+   The padding is load-bearing for a caller that pins its own footer
+   inside the body: /measures' form footer is `position: sticky` with
+   `bottom: calc(-1 * var(--space-5))`, which is this padding
+   cancelled. Changing it moves that footer. */
 .body {
   padding: var(--space-5);
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 /* LEFT, against the convention, and deliberately. The help widget is
