@@ -414,98 +414,17 @@
 }
 
 /* ---- Clarity drawer -------------------------------------------
-   The clarity check, off to the side rather than inline under the
-   row.
+   The shell — portal, scrim, slide, head, footer — is
+   components/ui/Drawer. What is left here is the content: what the
+   panel says and the box it says it in.
 
-   It used to render as a direct child of `.row`, which made it a
-   grid item in a grid whose cells are placed by position — and on a
-   phone it pushed the card it belonged to twice its height, so the
-   list you were working down reflowed under your thumb every time
-   you scored one commitment. Out of the row entirely: the list stays
-   put, and the panel has room for the commitment's own words, which
-   inline never did.
+   It used to be a full copy of that shell, written before the shared
+   one existed. Two more lived on /plan and /measures. */
 
-   Same shape as the measure settings drawer on /measures: scrim at
-   60, panel at 61 so both clear the sidebar (30, and 40 for its own
-   mobile drawer), in from the right, brand gradient on the head.
-   Two drawers that behave differently is worse than one that is
-   slightly wrong for one of them. */
-
-.drawerOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: color-mix(in srgb, var(--aims-navy) 28%, transparent);
-  animation: drawerOverlayIn var(--duration-normal) var(--ease-out);
-}
-
-.drawerPanel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 61;
-  width: min(460px, 100vw);
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border-left: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-lg);
-  animation: drawerPanelIn var(--duration-normal) var(--ease-out);
-  will-change: transform;
-}
-
-.drawerHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  background: var(--grad-brand);
-  color: var(--aims-white);
-}
-
-.drawerEyebrow {
-  margin: 0 0 var(--space-1);
-  font: var(--text-label);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--aims-chartreuse);
-}
-
-.drawerTitle {
-  margin: 0;
-  font: var(--text-h2);
-  color: var(--aims-white);
-}
-
-.drawerClose {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--aims-white);
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 18px;
-  line-height: 1;
-}
-
-.drawerClose:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.drawerBody {
-  padding: var(--space-5);
-  overflow-y: auto;
+.clarityBody {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  flex: 1;
 }
 
 /* WHAT YOU ARE SCORING. Inline, the commitment was the line directly
@@ -535,41 +454,6 @@
   border-radius: var(--radius-sm);
   color: var(--text);
   font: var(--text-body-sm);
-}
-
-/* Pinned, so a long refinement note scrolls under the buttons rather
-   than pushing them off the bottom of the panel.
-
-   LEFT, against the convention, because the help widget is fixed to
-   the bottom-right corner at z-index 100 — above this panel's 61 and
-   above every other drawer and dialog in the app. Right-aligned, the
-   round "?" sat on top of Close and covered half its label. Nothing
-   below the help widget can use that corner. */
-.drawerFooter {
-  display: flex;
-  justify-content: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-}
-
-@keyframes drawerOverlayIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes drawerPanelIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-
-/* The panel still appears; it arrives rather than travels. */
-@media (prefers-reduced-motion: reduce) {
-  .drawerOverlay,
-  .drawerPanel {
-    animation: none;
-  }
 }
 
 /* "Marked kept · Undo" chip — appears for a few seconds after a

@@ -52,6 +52,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { reorderMeasuresAction } from "@/lib/measures/reorder-actions";
 import { reorderFunctionsAction } from "@/lib/chart/actions";
+import { Drawer } from "@/components/ui/Drawer";
 import styles from "./measures.module.css";
 
 // The /measures grid.
@@ -1407,129 +1408,90 @@ export function MeasuresGrid({
       )}
 
       {editingRow || adding ? (
-        <>
-          {/* A scrim, so a click anywhere else closes it. The third
-              dismissal, beside Escape and Cancel, and the one people
-              reach for without being taught. */}
-          <div
-            className={styles.drawerScrim}
-            onClick={() => {
+        <Drawer
+          open
+          onClose={() => {
+            setEditing(null);
+            setAdding(null);
+          }}
+          eyebrow="Critical success factor"
+          title={editingRow ? editingRow.description : "Add a new one"}
+        >
+          <EditMeasureForm
+            key={editingRow ? editingRow.id : `new-${adding}`}
+            measure={
+              editingRow
+                ? {
+                    id: editingRow.id,
+                    description: editingRow.description,
+                    target: editingRow.target,
+                    value_type: editingRow.valueType,
+                    value_scale: editingRow.scale,
+                    target_direction: editingRow.direction,
+                    update_frequency: editingRow.frequency,
+                    auto_track: editingRow.autoTrack,
+                    show_on_dashboard: editingRow.showOnDashboard,
+                  }
+                : BLANK_MEASURE
+            }
+            outcomeTitle={editingRow?.description ?? ""}
+            outcomeDescription={editingRow?.detail ?? null}
+            onDone={() => {
               setEditing(null);
               setAdding(null);
             }}
-            aria-hidden
+            onCreated={(id) => {
+              // Stay open on the row that was just created, so
+              // the external source fields below are live against
+              // it. Nothing about them is required: close the
+              // drawer and the measure is already saved.
+              setAdding(null);
+              setEditing(id);
+            }}
+            createIn={editingRow ? undefined : adding ?? undefined}
+            functionChoices={addableGroups.map((g) => ({
+              id: g.functionId,
+              title: g.functionTitle,
+            }))}
+            onFunctionChange={setAdding}
           />
-          <aside
-            className={styles.drawer}
-            role="dialog"
-            aria-modal="false"
-            aria-labelledby="measure-drawer-title"
-          >
-            <header className={styles.drawerHead}>
-              <div>
-                <p className={styles.drawerEyebrow}>Critical success factor</p>
-                <h2 id="measure-drawer-title" className={styles.drawerTitle}>
-                  {editingRow ? editingRow.description : "Add a new one"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                className={styles.drawerClose}
-                onClick={() => {
-                  setEditing(null);
-                  setAdding(null);
-                }}
-                aria-label="Close"
-              >
-                <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
-                  <path
-                    d="M4 4 l8 8 M12 4 l-8 8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.4}
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-            </header>
-            <div className={styles.drawerBody}>
-              <EditMeasureForm
-                key={editingRow ? editingRow.id : `new-${adding}`}
-                measure={
-                  editingRow
-                    ? {
-                        id: editingRow.id,
-                        description: editingRow.description,
-                        target: editingRow.target,
-                        value_type: editingRow.valueType,
-                        value_scale: editingRow.scale,
-                        target_direction: editingRow.direction,
-                        update_frequency: editingRow.frequency,
-                        auto_track: editingRow.autoTrack,
-                        show_on_dashboard: editingRow.showOnDashboard,
-                      }
-                    : BLANK_MEASURE
-                }
-                outcomeTitle={editingRow?.description ?? ""}
-                outcomeDescription={editingRow?.detail ?? null}
-                onDone={() => {
-                  setEditing(null);
-                  setAdding(null);
-                }}
-                onCreated={(id) => {
-                  // Stay open on the row that was just created, so
-                  // the external source fields below are live against
-                  // it. Nothing about them is required: close the
-                  // drawer and the measure is already saved.
-                  setAdding(null);
-                  setEditing(id);
-                }}
-                createIn={editingRow ? undefined : adding ?? undefined}
-                functionChoices={addableGroups.map((g) => ({
-                  id: g.functionId,
-                  title: g.functionTitle,
-                }))}
-                onFunctionChange={setAdding}
-              />
 
-              {/* CONNECTING A MEASURE TO A SPREADSHEET, back where it
-                  can be reached.
+          {/* CONNECTING A MEASURE TO A SPREADSHEET, back where it
+              can be reached.
  
-                  It used to live in the row's settings strip, and
-                  deleting ManagedMeasureRow for the grid took it with
-                  it: the import survived in this form and nothing
-                  rendered it, so for several commits a company with
-                  external_measures on had no way to map a measure at
-                  all. Same shape as the add control disappearing.
+              It used to live in the row's settings strip, and
+              deleting ManagedMeasureRow for the grid took it with
+              it: the import survived in this form and nothing
+              rendered it, so for several commits a company with
+              external_measures on had no way to map a measure at
+              all. Same shape as the add control disappearing.
  
-                  Edit only. A mapping needs a measure to hang off,
-                  and there is no id until the row exists.
+              Edit only. A mapping needs a measure to hang off,
+              and there is no id until the row exists.
  
-                  It gates itself on the flag through the provider
-                  this drawer already sits inside, so nothing here
-                  needs to know whether the company has it. */}
-              {editingRow ? (
-                <ExternalSourceControls
-                  measureId={editingRow.id}
-                  // The owning function's own answer. `canLog` already
-                  // means "an admin of this company, an assigned
-                  // guide, or this function's Lead", which is exactly
-                  // who RLS admits to the measure.
-                  canAdminister={
-                    data.groups.find((g) =>
-                      g.rows.some((r) => r.id === editingRow.id)
-                    )?.canLog ?? false
-                  }
-                />
-              ) : (
-                <p className={styles.drawerHint}>
-                  Connecting this to a spreadsheet becomes available as
-                  soon as you add it.
-                </p>
-              )}
-            </div>
-          </aside>
-        </>
+              It gates itself on the flag through the provider
+              this drawer already sits inside, so nothing here
+              needs to know whether the company has it. */}
+          {editingRow ? (
+            <ExternalSourceControls
+              measureId={editingRow.id}
+              // The owning function's own answer. `canLog` already
+              // means "an admin of this company, an assigned
+              // guide, or this function's Lead", which is exactly
+              // who RLS admits to the measure.
+              canAdminister={
+                data.groups.find((g) =>
+                  g.rows.some((r) => r.id === editingRow.id)
+                )?.canLog ?? false
+              }
+            />
+          ) : (
+            <p className={styles.drawerHint}>
+              Connecting this to a spreadsheet becomes available as
+              soon as you add it.
+            </p>
+          )}
+        </Drawer>
       ) : null}
     </div>
   );

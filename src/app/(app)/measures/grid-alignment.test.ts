@@ -303,7 +303,21 @@ describe("the pinned columns line up with their offsets", () => {
     // The sidebar sits at 30, its mobile drawer at 40. A scrim below
     // those dims the table and leaves the rail bright, which reads as
     // a rendering fault rather than a focused panel.
-    expect(rule(".drawerScrim")).toContain("z-index: 60");
-    expect(rule(".drawer")).toContain("z-index: 61");
+    //
+    // Asserted against components/ui/Drawer, which owns the shell for
+    // this drawer and every other one in the app. The rule used to
+    // live in measures.module.css, back when this page had its own
+    // copy of it.
+    const shared = readFileSync(
+      join(process.cwd(), "src/components/ui/Drawer.module.css"),
+      "utf8"
+    );
+    const sharedRule = (selector: string) => {
+      const i = shared.indexOf(`${selector} {`);
+      expect(i, `${selector} not found in Drawer.module.css`).toBeGreaterThan(-1);
+      return shared.slice(i, shared.indexOf("}", i));
+    };
+    expect(sharedRule(".scrim")).toContain("z-index: 60");
+    expect(sharedRule(".panel")).toContain("z-index: 61");
   });
 });
