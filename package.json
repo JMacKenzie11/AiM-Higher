@@ -22,6 +22,7 @@
     "verify:fleet": "tsx --tsconfig scripts/tsconfig.json scripts/verify-fleet.ts",
     "repair:scorecard-snapshots": "tsx --tsconfig scripts/tsconfig.json scripts/repair-scorecard-gated-snapshots.ts",
     "repair:chart-baseline": "tsx --tsconfig scripts/tsconfig.json scripts/repair-chart-baseline-rows.ts",
+    "repair:howard-priorities": "tsx --tsconfig scripts/tsconfig.json scripts/repair-howard-duplicate-priorities.ts",
     "provision": "tsx --tsconfig scripts/tsconfig.json scripts/provision-instance.ts",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
