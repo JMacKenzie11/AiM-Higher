@@ -27,6 +27,11 @@ import { formatParentRef, parentRefOf } from "@/lib/plan/parent-ref";
 import { PriorityParentOptions } from "../../PriorityParentOptions";
 import heroStyles from "@/components/plan/DetailHero.module.css";
 import styles from "../../plan-detail.module.css";
+import {
+  orphanReason,
+  orphanReasonLabel,
+  orphanReasonNote,
+} from "@/lib/plan/orphan-reason";
 
 // Priority hero card with an inline read/edit toggle. Mirrors SFA and
 // Goal hero patterns — Edit at the bottom flips fields into inputs,
@@ -76,6 +81,12 @@ export function PriorityHeroPanel({
   isOwner,
 }: PriorityHeroPanelProps) {
   const router = useRouter();
+  // Only when BOTH resolved parents are null and the row still names
+  // one. getPriorityDetail nulls an archived parent, so that pair is
+  // exactly "the parent was archived".
+  const orphan = !goal && !sfa ? orphanReason(priority) : null;
+  const orphanLabel = orphan ? orphanReasonLabel(orphan) : null;
+  const orphanNote = orphan ? orphanReasonNote(orphan) : null;
   const [editing, setEditing] = useState(false);
   const [confirmingComplete, setConfirmingComplete] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
@@ -312,6 +323,15 @@ export function PriorityHeroPanel({
                 <Link href={`/plan/sfa/${sfa.id}`} className={styles.rowTitle}>
                   Focus area: {sfa.title}
                 </Link>
+              ) : orphanLabel ? (
+                /* It HAD a parent. getPriorityDetail resolves an
+                   archived one to null so nothing links to a goal the
+                   plan has stopped showing, but "Not linked to a goal
+                   or focus area" would then read as though nobody had
+                   ever bothered. Say which. */
+                <span className={styles.orphanReasonChip} title={orphanNote ?? undefined}>
+                  {orphanLabel}
+                </span>
               ) : (
                 <span>Not linked to a goal or focus area</span>
               )}

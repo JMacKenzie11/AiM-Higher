@@ -443,6 +443,29 @@
   margin-right: var(--space-2);
 }
 
+/* "Original goal archived", beside the QUARTERLY PRIORITY chip.
+ 
+   Amber rather than cobalt, and deliberately not red: the row is not
+   broken and nobody did anything wrong. A goal was archived and this
+   is where its priorities went. Linking the row to a current goal
+   removes the chip, because the chip is derived from the row's own
+   parent column rather than stored anywhere.
+ 
+   Shares .levelLabel's geometry so the two pills sit on one baseline;
+   only the colours differ. */
+.orphanReasonChip {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--aims-warning);
+  align-self: flex-start;
+  padding: 2px var(--space-2);
+  background: var(--aims-warning-tint);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-1);
+  margin-right: var(--space-2);
+}
+
 .sfaBody {
   padding: var(--space-3) 0 0 0;
   border-top: 1px solid var(--border);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import type { CascadePriority } from "@/lib/plan/service";
+import { orphanReason, orphanReasonLabel } from "@/lib/plan/orphan-reason";
 import styles from "./plan.module.css";
 
 // One quarterly priority row in the /plan cascade.
@@ -14,17 +15,30 @@ import styles from "./plan.module.css";
 //
 // `trailing` is for controls that belong to one context only — the
 // link picker on a standalone row, which the other two don't have.
+//
+// `explainOrphan` is only ever true in the standalone section, and
+// only says something when the row GOT there rather than started
+// there. Under a goal or a focus area the parent is right above it
+// and the question does not arise.
 export function CascadePriorityRow({
   priority,
   trailing,
+  explainOrphan = false,
 }: {
   priority: CascadePriority;
   trailing?: React.ReactNode;
+  explainOrphan?: boolean;
 }) {
+  const orphanLabel = explainOrphan
+    ? orphanReasonLabel(orphanReason(priority))
+    : null;
   return (
     <li className={styles.priorityItem}>
       <div className={styles.summaryMain}>
         <span className={styles.levelLabel}>Quarterly Priority</span>
+        {orphanLabel ? (
+          <span className={styles.orphanReasonChip}>{orphanLabel}</span>
+        ) : null}
         <Link
           href={`/plan/priority/${priority.id}`}
           className={styles.priorityTitle}

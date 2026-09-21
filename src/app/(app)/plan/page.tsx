@@ -433,6 +433,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                     <CascadePriorityRow
                       key={priority.id}
                       priority={priority}
+                      explainOrphan
                       trailing={
                         isAdmin ? (
                           <LinkPriorityToParentSelect
