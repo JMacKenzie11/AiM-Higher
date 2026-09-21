@@ -23,7 +23,7 @@ import { test, expect, signIn, users } from "./fixtures";
 // about one further right, and the failing attempts at this fix each
 // looked correct on one row and wrong on another.
 
-test("the link chip and its menu stay on a phone screen", async ({ page }) => {
+test("@prod the link chip and its menu stay on a phone screen", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 393, height: 852 });
   await signIn(page, users.admin());

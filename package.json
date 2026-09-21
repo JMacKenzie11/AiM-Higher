@@ -26,6 +26,7 @@
     "provision": "tsx --tsconfig scripts/tsconfig.json scripts/provision-instance.ts",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
+    "e2e:prod": "E2E_PROD=1 playwright test --project=production-build",
     "seed:user": "node --env-file=.env.local --experimental-strip-types scripts/seed-user.ts",
     "seed:demo": "node --env-file=.env.local --experimental-strip-types scripts/seed-demo.ts",
     "seed:construction": "node --env-file=.env.local --experimental-strip-types scripts/seed-construction.ts",

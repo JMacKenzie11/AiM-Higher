@@ -95,25 +95,23 @@
      both sides say the count is safe because the form carries three
      `<input type="hidden">` before its first real cell.
  
-     It carries three in `next dev`. In a production build it carries
-     SEVEN: Next adds hidden inputs of its own to a <form action={…}>
-     to encode the server-action reference. So every nth-child rule
-     landed on a hidden input, the textarea fell through to
-     :nth-child(8) — `grid-area: status` — and the select, date and
-     button fell off the end of the rules entirely and kept their
-     desktop `grid-column: 5 / 6 / 7`, which this four-column grid
-     does not have.
+     It carries SEVEN. Three are written in the JSX; the rest are
+     added by React to a <form action={…}> to encode the
+     server-action reference, in `next dev` and in a production build
+     alike. So every nth-child rule landed on a hidden input, the
+     textarea fell through to :nth-child(8) — `grid-area: status` —
+     and the select, date and button fell off the end of the rules
+     entirely and kept their desktop `grid-column: 5 / 6 / 7`, which
+     this four-column grid does not have.
  
-     Measured on the production build at 393px:
+     Measured at 393px:
  
        grid-template-columns: 40px 40px 40px 0px 2px 0px 51px
        textarea  w=18  h=565   "What will we do this week?"
        select    w=2
  
      Three implicit columns, the description track crushed to zero,
-     and a placeholder rendering one letter per line. It could never
-     be seen in `next dev`, which is why it reached production and
-     stayed there.
+     and a placeholder rendering one letter per line.
  
      The fix is not a better count. It is to stop being counted: one
      column, no areas, and every child released from whatever the

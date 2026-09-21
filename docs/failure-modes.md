@@ -1206,7 +1206,7 @@ manufactured a complete-looking row; here, a deliberate silence let a
 row never arrive at all. Both were found by counting rows in
 production rather than by reading code.
 
-### E15. A gate that runs the build the users never get
+### E15. Three broken probes, and a conclusion drawn from their silence
 
 **What happened.** Every issue on Benson's `/issues` page rendered its
 "add a commitment" form as a vertical stripe of single letters on a
@@ -1221,11 +1221,10 @@ and at ≤1024px that stylesheet places a row's cells by position:
 
 Safe only if you know the child count. Both stylesheets carried a
 comment saying the form has three hidden inputs before its first real
-cell — `issue_id`, `owner_id`, `due_date` — and it does, in
-`next dev`. A **production build gives a `<form action={serverAction}>`
-extra hidden inputs of Next's own**, to carry the server-action
-reference. Seven, when measured. Every `nth-child` rule then landed on
-a hidden input, the textarea fell through to `:nth-child(8)` and took
+cell — `issue_id`, `owner_id`, `due_date`. It has **seven**: React
+adds its own to a `<form action={serverAction}>` to encode the
+server-action reference. Every `nth-child` rule then landed on a
+hidden input, the textarea fell through to `:nth-child(8)` and took
 `grid-area: status`, and the select, date and button fell off the end
 of the rules entirely, keeping their desktop `grid-column: 5 / 6 / 7`
 — columns a four-column grid does not have:
@@ -1250,15 +1249,24 @@ other than the app:
 3. **`reuseExistingServer: true` reused a stale `next-server`** —
    a *production* server left over from an earlier build — while the
    spec believed it was talking to `next dev`.
-4. **Then, on a healthy dev server, it was genuinely clean.** The bug
-   does not exist in `next dev`.
+4. **And then it reproduced on the production build**, so the
+   conclusion drawn was "this is a dev-versus-production difference:
+   three hidden inputs in dev, seven in the build."
 
-The first three are harness faults and are the reason the fourth was
-believed. The fourth is the failure mode: **the e2e suite runs
-`npm run dev`, and no gate in this repo has ever run the build the
-users are served.** A whole class of defect — anything where dev and
-production differ in the DOM, in CSS module ordering, in what the
-framework injects — is structurally invisible to every check we have.
+**That conclusion was wrong, and it stood in this document for a
+day.** Re-measured on 2026-09-21 while building the production-build
+e2e project: the form carries **seven hidden inputs in `next dev`
+too**, and the same collapse reproduces there — `w=18, h=461`,
+identical to the build. The count was never measured in dev; it was
+*inferred* from counting the three written in the JSX, and the three
+broken probes above were taken as evidence that dev rendered it
+correctly.
+
+So the failure mode is not "dev and production differ". It is
+**three harness faults in a row, and a conclusion drawn from their
+silence.** Every one of them reported a clean zero, and a zero was
+accepted from a probe that had never been shown capable of returning
+anything else. The empty-set rule, missed three times.
 
 **The rules.**
 
@@ -1288,7 +1296,12 @@ framework injects — is structurally invisible to every check we have.
   same width and with the specificity to win. It runs in CI, which the
   browser check for this could not.
 
-**Still open.** Nothing gates the production build. The source guard
-covers this one form; it does not cover the next dev-versus-production
-divergence. A `next build && next start` run over the phone-width
-sweep is the real fix and has not been built.
+**Built since.** `npm run e2e:prod` runs the phone-width checks
+against `next build && next start` in its own dist directory
+(`playwright.config.ts`, project `production-build`, opt in with
+`@prod` in a test's title). It is worth having — CI builds the app
+and then never renders it, and dev and production genuinely can
+differ in CSS-module ordering and minification — but it is **not**
+what would have caught this bug. This bug was visible in dev all
+along. What would have caught it is a probe that had been shown
+failing before its zero was believed.

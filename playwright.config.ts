@@ -57,6 +57,64 @@ const BASE_URL = `http://localhost:${PORT}`;
 const UNRESOLVED_PORT = 3201;
 const UNRESOLVED_BASE_URL = `http://localhost:${UNRESOLVED_PORT}`;
 
+// ---- The build the users actually get -------------------------
+//
+// Everything above runs against `next dev`. CI builds the app, which
+// proves it COMPILES, and then nothing ever opens a browser against
+// that build. So a whole class of defect — anything where the dev
+// output and the production output differ — was structurally
+// invisible to every gate in this repo.
+//
+// That is not hypothetical. Failure mode E15: Next injects hidden
+// inputs into a `<form action={serverAction}>` to encode the action
+// reference, THREE in dev and SEVEN in a production build. The
+// issues stylesheet placed its cells by counting children. Perfect
+// in dev; on a phone in production the description column collapsed
+// to 18px and its placeholder rendered one letter per line. It was
+// reported from a real phone because nothing here could see it.
+//
+// Its own dist directory, and that is not a detail. Two Next servers
+// sharing `.next` invalidate each other's output until requests
+// start 400ing — which happened during the E15 investigation and
+// cost four probes that each reported a confident, meaningless zero.
+const PROD_PORT = 3202;
+const PROD_BASE_URL = `http://localhost:${PROD_PORT}`;
+const PROD_DIST = ".next-e2e-prod";
+
+// OFF unless asked for, because it costs a full production build.
+// `npm run e2e` stays what it was — start a dev server, run the
+// suite — and `npm run e2e:prod` adds the build and runs only the
+// tagged specs against it.
+//
+// Both the project and its server are gated on the same flag. A
+// project without its server would send @prod specs at a port
+// nothing is listening on, and the failure would read as a broken
+// page rather than a missing server.
+const PROD = process.env.E2E_PROD === "1";
+
+// The production build. Built fresh every run into its own dist
+// directory, so it can never be the stale server left over from
+// somebody's earlier `npm run build` — which is the other half of
+// the E15 harness fault: `reuseExistingServer` happily adopted a
+// `next-server` from a previous build and the spec believed it
+// was talking to the app under test.
+//
+// reuseExistingServer is false for exactly that reason. It costs
+// a build per run and buys certainty about what is being served.
+const PROD_SERVER = {
+  command: `next build && next start -p ${PROD_PORT}`,
+  url: `${PROD_BASE_URL}/sign-in`,
+  reuseExistingServer: false,
+  // A cold production build of this app takes about 45s; the
+  // margin is for a cold CI runner.
+  timeout: 300_000,
+  stdout: "ignore",
+  stderr: "pipe",
+  env: {
+    NEXT_DIST_DIR: PROD_DIST,
+  },
+} as const;
+
 export default defineConfig({
   testDir: "./e2e",
   // Serial by default. These share one database and one dev server,
@@ -88,6 +146,24 @@ export default defineConfig({
       testMatch: /instance-resolution\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], baseURL: UNRESOLVED_BASE_URL },
     },
+    // Opt-in by tag, not by filename. A spec joins this project by
+    // putting @prod in its title, which keeps the decision next to
+    // the test rather than in a list here that drifts.
+    //
+    // Only the layout-sensitive ones belong: what differs between
+    // the two builds is the DOM and the stylesheet, not the server
+    // actions or the policies, and running the whole suite twice
+    // would double the wall clock to re-prove things a dev server
+    // already proved.
+    ...(PROD
+      ? [
+          {
+            name: "production-build",
+            grep: /@prod/,
+            use: { ...devices["Desktop Chrome"], baseURL: PROD_BASE_URL },
+          },
+        ]
+      : []),
   ],
 
   webServer: [
@@ -119,5 +195,8 @@ export default defineConfig({
         CONTROL_PLANE_SUPABASE_SERVICE_KEY: "",
       },
     },
+    ...(PROD
+      ? [PROD_SERVER]
+      : []),
   ],
 });

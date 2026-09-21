@@ -131,7 +131,7 @@ button teaches people to ignore it. The hooks in use:
 Matching on *data* is fine, and the commitment spec does it: the
 description it types is unique per run. Data is not copy.
 
-## The two servers
+## The three servers
 
 Most specs run against `npm run dev` on 3200, where `LOCAL_INSTANCE_*`
 pins every request to the dev database and the hostname is ignored.
@@ -143,6 +143,43 @@ rejects before consulting the registry. That matters: **the registry
 lives in the production project**, so a hostname with a domain under it
 would reach for production. `CONTROL_PLANE_*` is blanked on that server
 too, so an accidental lookup fails loudly instead of connecting.
+
+### The third: the build that ships
+
+```bash
+npm run e2e:prod
+```
+
+`next build && next start -p 3202`, into its own `NEXT_DIST_DIR`
+(`.next-e2e-prod`), running only specs whose title contains **`@prod`**.
+
+**Why it exists.** CI runs `npm run build`, which proves the app
+compiles, and then nothing ever opens a browser against that build.
+Everything above runs against `npm run dev`. So until this, nothing in
+the repo had rendered and inspected the artifact that actually ships.
+
+**Two things about it are deliberate.** Its own dist directory,
+because two Next servers sharing `.next` invalidate each other's
+output until requests start 400ing — that happened during the E15
+investigation and cost three probes that each reported a confident,
+meaningless zero. And `reuseExistingServer: false`, because
+`reuseExistingServer` once adopted a stale `next-server` left over
+from an earlier `npm run build` while the spec believed it was talking
+to the app under test. It costs a build per run and buys certainty
+about what is being served.
+
+**Opt in by tag, not by filename**, so the decision sits beside the
+test. Only layout-sensitive specs belong: what can differ between the
+builds is the DOM and the stylesheet, not the server actions or the
+policies, and running the whole suite twice would double the wall
+clock to re-prove what the dev server already proved.
+
+**What it is not.** It is not the thing that would have caught E15.
+That bug reproduces in `next dev` identically — the original
+diagnosis said otherwise and was wrong (see `failure-modes.md`). This
+gate tests the shipped artifact, which is worth doing on its own
+terms. It is not a substitute for showing a probe red before
+believing its green.
 
 ## Running the live-credential specs
 
