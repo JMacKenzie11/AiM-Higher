@@ -44,9 +44,9 @@ the steps.
 
 Eight disciplines, each 0–10:
 
-- **Foundation** — purpose, vision, at least three core values /
-  differentiators / key success metrics on the One-Page Plan.
-  State-based (no trend line).
+- **Foundation** — purpose, vision, at least three core values, and
+  at least three differentiators on the One-Page Plan. Four things,
+  2.5 points each. State-based (no trend line).
 - **Accountability chart** — every function has a Lead assigned, at
   least one critical success factor, and at least one measure.
   State-based. LTD Track/Decide always sit with the Lead, so they're not

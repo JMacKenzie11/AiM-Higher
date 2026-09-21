@@ -260,7 +260,8 @@ The "why we exist, where we're going, who we serve, and how we'll know it's work
 4. **Strengths & Differentiators** — titled + body, numbered, admin-writable.
 5. **Ideal Customer Profile** — two sub-lists (best-fit clients/projects and psychographics). Each entry is a single line with delete-only management; `AddSnippetForm` per sub-list.
 6. **Focus Areas** — read-only preview here; write side lives on `/plan`. Falls through the same numbered-card grid.
-7. **Key Success Metrics** — titled + body, admin-writable.
+
+**Key Success Metrics was section 7 and was removed on 2026-09-21.** The company's numbers live on `/measures` as Critical Success Factors, and the One-Page Plan version was a second place to keep the same thing. Rows of kind `key_success_metric` are left in `foundation_items` — nothing deletes them — and are simply no longer read; `createFoundationItemAction` still accepts the kind, which costs nothing and keeps an old row editable if one is ever surfaced again. **The foundation scorer was reweighted in the same change**: it was 2 points each for five criteria, and leaving the metrics criterion would have capped every company at 8/10 on a surface with no way to earn the other two. It is now 2.5 each for purpose, vision, ≥3 core values and ≥3 differentiators. Companies that had filled the card in keep their 10; ones that had everything but it move from 8 to 10, which is the point — they had completed the surface as it now exists. Stored snapshots are historical and unchanged.
 
 **Visual system:**
 
