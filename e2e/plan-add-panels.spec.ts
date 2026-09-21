@@ -8,6 +8,12 @@ import type { Page } from "@playwright/test";
 // All three have regressed before, and none of them is visible to a
 // unit test — they are layout and native <details> behaviour.
 //
+// The first two are about the SFA DETAIL page, which still uses
+// <details> panels. The toolbar's four became one drawer; what is
+// pinned there is that the four BUTTONS still collapse behind one Add
+// on a phone, which is a separate concern from how a panel opens and
+// did not change with the drawer.
+//
 // THE PILL IS MEASURED INSIDE ITS ROW, not the viewport. Clicking a
 // <summary> can scroll it into view, which moves a viewport-relative
 // box without anything having reflowed; the first version of this
@@ -75,7 +81,7 @@ test("the four toolbar adds hide behind one Add on a phone", async ({
   // plain `display: flex` won and the buttons never hid.
   await page.setViewportSize({ width: 430, height: 900 });
   await page.goto("/plan");
-  const four = page.getByTestId("add-sfa-panel");
+  const four = page.getByTestId("add-sfa-button");
   const trigger = page.getByRole("button", { name: "Add", exact: true });
   await expect(trigger).toBeVisible({ timeout: 30_000 });
 
@@ -106,7 +112,7 @@ test("the mobile Add trigger is not on the desktop toolbar", async ({
   await scopeIn(page);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/plan");
-  await expect(page.getByTestId("add-sfa-panel")).toBeVisible({
+  await expect(page.getByTestId("add-sfa-button")).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByRole("button", { name: "Add", exact: true })).toBeHidden();

@@ -16,10 +16,14 @@ export function AddGoalForm({
   defaultSfaId,
   sfaOptions,
   people,
+  onAdded,
 }: {
   defaultSfaId: string | null;
   sfaOptions: Pick<StrategicFocusArea, "id" | "title">[];
   people: Pick<Profile, "id" | "full_name">[];
+  // Called after a successful create, once router.refresh()
+  // has been requested. The plan toolbar's Drawer closes on it.
+  onAdded?: () => void;
 }) {
   const [state, formAction, pending] = useActionState<
     PlanResult<AnnualGoal>,
@@ -41,7 +45,7 @@ export function AddGoalForm({
     state,
     pending,
     (s) => Boolean(s && "ok" in s && s.ok),
-    { closeAncestor: "details" }
+    { closeAncestor: "details", onSuccess: onAdded }
   );
 
   return (

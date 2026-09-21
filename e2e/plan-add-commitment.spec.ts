@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, openPlanAdd } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
 // A DISCLOSURE IS SELECTED AS A <summary>, NEVER BY ITS TEXT.
@@ -110,8 +110,7 @@ test("a commitment added from the plan toolbar lands on its priority", async ({
   await sweep(page);
 
   // ---- Something to attach a commitment to -------------------
-  const addSfa = page.getByTestId("add-sfa-panel");
-  await addSfa.locator("summary").click();
+  const addSfa = await openPlanAdd(page, "sfa");
   await addSfa.getByLabel("Title").fill(faTitle);
   await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const fa = sfaCard(page, faTitle);
@@ -126,8 +125,7 @@ test("a commitment added from the plan toolbar lands on its priority", async ({
   ).toBeVisible({ timeout: 30_000 });
 
   // ---- The toolbar panel -------------------------------------
-  const panel = page.getByTestId("add-commitment-panel");
-  await panel.locator("summary").click();
+  const panel = await openPlanAdd(page, "commitment");
   await panel.getByLabel("Commitment").fill(commitment);
 
   // The picker groups priorities by what they sit under, so a

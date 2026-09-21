@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, openPlanAdd } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // A DISCLOSURE IS SELECTED AS A <summary>, NEVER BY ITS TEXT.
@@ -73,8 +73,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
   await sweep(page);
 
   // ---- Focus area -------------------------------------------
-  const addSfa = page.getByTestId("add-sfa-panel");
-  await addSfa.locator("summary").click();
+  const addSfa = await openPlanAdd(page, "sfa");
   await addSfa.getByLabel("Title").fill(faTitle);
   await addSfa.getByRole("button", { name: "Add Focus Area", exact: true }).click();
   const fa = sfaCard(page, faTitle);
@@ -93,10 +92,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
   ).toBeVisible({ timeout: 30_000 });
 
   // ---- The grouped parent picker on the toolbar panel --------
-  const addPriorityToolbar = page.getByTestId("add-priority-panel");
-  await addPriorityToolbar
-    .locator("summary")
-    .click();
+  const addPriorityToolbar = await openPlanAdd(page, "priority");
   const parentPicker = addPriorityToolbar.getByLabel("Parent");
   await expect(parentPicker).toBeVisible();
   // Both levels, grouped, in one control.
@@ -113,9 +109,12 @@ test("a priority under a focus area, end to end", async ({ page }) => {
     .filter({ hasText: faTitle })
     .getAttribute("value");
   expect(faOption).toMatch(/^sfa:[0-9a-f-]{36}$/);
-  await addPriorityToolbar
-    .locator("summary")
-    .click();
+  // Shut the drawer again before touching the cascade underneath it:
+  // it is modal, with a scrim over the page.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("drawer-panel")).toBeHidden({
+    timeout: 15_000,
+  });
 
   // ---- Add a priority straight under the focus area ----------
   const addPriority = fa.getByTestId("sfa-add-priority-panel");

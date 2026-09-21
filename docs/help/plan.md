@@ -48,10 +48,12 @@ As an admin or guide, you can also:
   one to.
 - **Add anywhere in the cascade.** The toolbar shows *Add focus
   area*, *Add goal*, and (with an open quarter) *Add quarterly
-  priority*. On a phone the four buttons sit behind a single *Add*
-  to keep the plan itself on screen; tap it to show them. If the
-  parent above doesn't exist yet, leave the picker
-  on *Not linked (yet)*. The new row lands in a *Standalone* section
+  priority*. Each one opens a panel that slides in from the right;
+  Escape, the X, or a click outside closes it, and it closes itself
+  once the row is added. On a phone the four buttons sit behind a
+  single *Add* to keep the plan itself on screen; tap it to show
+  them. If the parent above doesn't exist yet, leave the picker on
+  *Not linked (yet)*. The new row lands in a *Standalone* section
   below the cascade and can be linked later from the row itself.
 - **Add a Priority straight to a Focus Area.** Open a Focus Area in
   the cascade and use its *Add quarterly priority*, next to *Add

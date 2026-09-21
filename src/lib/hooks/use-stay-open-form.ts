@@ -15,6 +15,12 @@ import { useEffect, useRef, useState } from "react";
 //     calls router.refresh() so the list stays in sync.
 //   • Optionally close the containing <details> (or any HTMLElement)
 //     so cascade "modal" forms disappear once they've done their job.
+//   • Optionally call back when the create succeeded, for a host that
+//     is not a <details> — the plan toolbar's Drawer. It fires AFTER
+//     router.refresh(), which is the whole reason it is a callback
+//     here rather than something the caller derives from `state`: the
+//     refresh has to be requested before the host reacts to the
+//     success, never after.
 //
 // The hook only knows whether the last submit succeeded — the caller
 // derives that from useActionState's returned state.
@@ -23,7 +29,7 @@ export function useStayOpenForm<TState extends { ok?: boolean } | undefined>(
   state: TState,
   pending: boolean,
   isSuccess: (s: TState) => boolean,
-  options?: { closeAncestor?: string }
+  options?: { closeAncestor?: string; onSuccess?: () => void }
 ) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -56,9 +62,19 @@ export function useStayOpenForm<TState extends { ok?: boolean } | undefined>(
       if (ancestor instanceof HTMLDetailsElement) ancestor.open = false;
     }
 
+    // After the refresh, never before. A host that closes on this is
+    // closing a form whose refresh is already on its way.
+    options?.onSuccess?.();
+
     setConfirmationVisible(true);
     const timer = window.setTimeout(() => setConfirmationVisible(false), 2000);
     return () => window.clearTimeout(timer);
+    // options.onSuccess is deliberately NOT a dependency. Callers
+    // pass an inline arrow, so a new identity arrives on every render
+    // and depending on it would re-run this effect — resetting the
+    // form and firing a second refresh — for every unrelated
+    // re-render while a success is on screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [successKey, router, options?.closeAncestor]);
 
   return { formRef, confirmationVisible };

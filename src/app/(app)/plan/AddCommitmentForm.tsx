@@ -34,6 +34,7 @@ export function AddCommitmentForm({
   people,
   defaultOwnerId,
   defaultDueDate,
+  onAdded,
 }: {
   priorities: PriorityChoice[];
   people: Pick<Profile, "id" | "full_name">[];
@@ -42,6 +43,9 @@ export function AddCommitmentForm({
   // the date does not depend on where the reader's laptop thinks it
   // is.
   defaultDueDate: string;
+  // Called after a successful create, once router.refresh()
+  // has been requested. The plan toolbar's Drawer closes on it.
+  onAdded?: () => void;
 }) {
   const [state, formAction, pending] = useActionState<
     CommitmentResult,
@@ -57,7 +61,7 @@ export function AddCommitmentForm({
     state,
     pending,
     (s) => Boolean(s && "ok" in s && s.ok),
-    { closeAncestor: "details" }
+    { closeAncestor: "details", onSuccess: onAdded }
   );
 
   // Group by parent so the list reads as the cascade does.
