@@ -34,6 +34,21 @@ export const users = {
     email: credential("E2E_MEMBER_EMAIL"),
     password: credential("E2E_MEMBER_PASSWORD"),
   }),
+  // company_admin inside the fixture company. Not a system_admin
+  // standing in for one: the stand-in sees more, so it proves
+  // nothing about what this role can reach.
+  companyAdmin: () => ({
+    email: credential("E2E_COMPANY_ADMIN_EMAIL"),
+    password: credential("E2E_COMPANY_ADMIN_PASSWORD"),
+  }),
+  // A team_member who LEADS a function ("E2E Led Function"). The only
+  // difference between this account and member() above is the
+  // function's lead_id, so any agent one sees and the other does not
+  // is the function-lead predicate and nothing else.
+  lead: () => ({
+    email: credential("E2E_LEAD_EMAIL"),
+    password: credential("E2E_LEAD_PASSWORD"),
+  }),
   // A real portfolio_admin: no company, no assignments, instance-wide
   // read and three container writes. Not a system_admin standing in
   // for one — the thing under test is what this role can and cannot

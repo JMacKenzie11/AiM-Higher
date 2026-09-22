@@ -1,4 +1,5 @@
 import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
+import type { Page } from "@playwright/test";
 
 // The Agent Hub's two write paths, each walked in a browser and each
 // put back the way it was found.
@@ -174,5 +175,56 @@ test.describe("Agent Hub", () => {
     // requireRole redirects rather than rendering; what matters is
     // that the editor never appears.
     await expect(page.getByTestId("agent-hub-agents")).toHaveCount(0);
+  });
+});
+
+// Who the merged agent list admits, walked as three real accounts.
+//
+// The sharp pair is the last two: same role (team_member), same
+// company, and the ONLY difference between them is the lead_id on
+// "E2E Led Function". So an agent one sees and the other does not is
+// the function-lead predicate and nothing else. Both fixtures come
+// from `npm run seed:e2e`.
+//
+// Read-only. Nothing here writes, so there is nothing to restore.
+async function pickerText(page: Page): Promise<string> {
+  await page.goto("/ask-aimee");
+  await page.getByRole("button", { name: /new conversation/i }).click();
+  await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
+    timeout: 30_000,
+  });
+  await page
+    .getByRole("button", { name: /change agent/i })
+    .click({ timeout: 30_000 });
+  const picker = page.getByRole("dialog");
+  await expect(picker).toBeVisible();
+  return picker.innerText();
+}
+
+test.describe("who the agent picker admits", () => {
+  test("a company_admin sees the People agents", async ({ page }) => {
+    await signIn(page, users.companyAdmin());
+    const text = await pickerText(page);
+    expect(text).toContain("Functional Chart Builder");
+    expect(text).toContain("Role Description Creator");
+  });
+
+  test("a plain team_member sees neither", async ({ page }) => {
+    await signIn(page, users.member());
+    const text = await pickerText(page);
+    expect(text).not.toContain("Functional Chart Builder");
+    expect(text).not.toContain("Role Description Creator");
+  });
+
+  test("a team_member who leads a function sees only the one that admits leads", async ({
+    page,
+  }) => {
+    await signIn(page, users.lead());
+    const text = await pickerText(page);
+    // Admits function leads on top of its allowedRoles.
+    expect(text).toContain("Role Description Creator");
+    // Does not. This half is what stops the predicate being read as
+    // "leading a function widens everything".
+    expect(text).not.toContain("Functional Chart Builder");
   });
 });

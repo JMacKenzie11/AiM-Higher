@@ -26,6 +26,19 @@
  *   - E2E_MEMBER_EMAIL — team_member inside the fixture company. The
  *     least-privileged real user, which is the right thing to test
  *     ordinary navigation and commitment creation with.
+ *   - E2E_COMPANY_ADMIN_EMAIL — company_admin inside the fixture
+ *     company. Added 2026-09-22 for the Agent Hub verification, which
+ *     needed to see the agent picker as the role that runs a company
+ *     rather than as a system_admin standing in for one. The stand-in
+ *     sees more, so it proves nothing about what a company_admin can
+ *     reach.
+ *   - E2E_LEAD_EMAIL — team_member inside the fixture company who
+ *     LEADS a function ("E2E Led Function", created below with its
+ *     lead_id set). Added at the same time and for the sharper case:
+ *     the Role Description Creator admits function leads on top of its
+ *     allowedRoles, so a plain team_member must not see it and this
+ *     one must. Two fixtures whose only difference is the lead_id is
+ *     the whole experiment.
  *
  * Usage:
  *   npm run seed:e2e
@@ -101,7 +114,7 @@ type UserSpec = {
   email: string;
   password: string;
   fullName: string;
-  role: "system_admin" | "team_member" | "portfolio_admin";
+  role: "system_admin" | "company_admin" | "team_member" | "portfolio_admin";
   companyId: string | null;
 };
 
@@ -192,6 +205,10 @@ async function main() {
   const memberPassword = required("E2E_MEMBER_PASSWORD");
   const portfolioEmail = required("E2E_PORTFOLIO_EMAIL");
   const portfolioPassword = required("E2E_PORTFOLIO_PASSWORD");
+  const companyAdminEmail = required("E2E_COMPANY_ADMIN_EMAIL");
+  const companyAdminPassword = required("E2E_COMPANY_ADMIN_PASSWORD");
+  const leadEmail = required("E2E_LEAD_EMAIL");
+  const leadPassword = required("E2E_LEAD_PASSWORD");
 
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -274,6 +291,26 @@ async function main() {
     companyId,
   });
 
+  const companyAdminId = await upsertUser(admin, {
+    email: companyAdminEmail,
+    password: companyAdminPassword,
+    fullName: "E2E Company Admin",
+    role: "company_admin",
+    companyId,
+  });
+  // Deliberately a team_member, not an admin. What makes this fixture
+  // useful is the lead_id set further down: it is the only difference
+  // between this account and E2E_MEMBER_EMAIL, so any agent one sees
+  // and the other does not is the function-lead predicate and nothing
+  // else.
+  const leadId = await upsertUser(admin, {
+    email: leadEmail,
+    password: leadPassword,
+    fullName: "E2E Function Lead",
+    role: "team_member",
+    companyId,
+  });
+
   const portfolioId = await upsertUser(admin, {
     email: portfolioEmail,
     password: portfolioPassword,
@@ -285,6 +322,37 @@ async function main() {
     // fixture that quietly behaves unlike the real role.
     companyId: null,
   });
+
+  // ---- the function the lead fixture leads ---------------------
+  //
+  // Matched by title so a rerun updates in place rather than adding a
+  // second one. Top-level (no parent) and unarchived, because
+  // leadsAnyFunction filters on archived = false and a lead of an
+  // archived function is correctly not a lead.
+  const LED_FUNCTION = "E2E Led Function";
+  const { data: existingFunction } = await admin
+    .from("functions")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("title", LED_FUNCTION)
+    .maybeSingle<{ id: string }>();
+  if (existingFunction?.id) {
+    const { error } = await admin
+      .from("functions")
+      .update({ lead_id: leadId, archived: false })
+      .eq("id", existingFunction.id);
+    if (error) throw error;
+  } else {
+    const { error } = await admin.from("functions").insert({
+      company_id: companyId,
+      title: LED_FUNCTION,
+      description: "Exists so one fixture member leads a function and another does not.",
+      lead_id: leadId,
+      sort_order: 900,
+    });
+    if (error) throw error;
+  }
+  console.log(`  function "${LED_FUNCTION}" → led by ${leadEmail}`);
 
   // ---- guide assignment ---------------------------------------
   const { error: assignmentError } = await admin
@@ -313,7 +381,13 @@ async function main() {
   // Only the fixture users' own rows. Everything here runs after
   // assertNotProduction, which refuses any target resolving to
   // production, the control plane, or NEXT_PUBLIC_SUPABASE_URL.
-  const fixtureIds = [adminId, memberId, portfolioId].filter(Boolean);
+  const fixtureIds = [
+    adminId,
+    memberId,
+    companyAdminId,
+    leadId,
+    portfolioId,
+  ].filter(Boolean);
   const { data: cleared, error: clearError } = await admin
     .from("coaching_conversations")
     .delete()

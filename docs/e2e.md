@@ -74,6 +74,8 @@ not set" or cannot find the composer, this is the first thing to try.
 | `E2E_ADMIN_EMAIL` | `system_admin`, no company, guide assignment to the fixture company |
 | `E2E_MEMBER_EMAIL` | `team_member` inside the fixture company |
 | `E2E_PORTFOLIO_EMAIL` | `portfolio_admin`, no company and no assignments |
+| `E2E_COMPANY_ADMIN_EMAIL` | `company_admin` inside the fixture company |
+| `E2E_LEAD_EMAIL` | `team_member` inside the fixture company who leads "E2E Led Function" |
 
 The quarter is deliberately wide. The commitments composer refuses to
 render without one covering this week, and a narrow window would make
@@ -99,7 +101,8 @@ what that role can and cannot do — a stand-in would prove nothing.
 Live in `.env.local` beside every other local-only value:
 `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD`, `E2E_MEMBER_EMAIL` /
 `E2E_MEMBER_PASSWORD`, `E2E_PORTFOLIO_EMAIL` /
-`E2E_PORTFOLIO_PASSWORD`. Dedicated fixtures, never a personal account: a
+`E2E_PORTFOLIO_PASSWORD`, `E2E_COMPANY_ADMIN_EMAIL` /
+`E2E_COMPANY_ADMIN_PASSWORD`, `E2E_LEAD_EMAIL` / `E2E_LEAD_PASSWORD`. Dedicated fixtures, never a personal account: a
 test that signs in as a real person will one day change that person's
 data.
 
