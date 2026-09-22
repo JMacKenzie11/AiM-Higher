@@ -4,36 +4,19 @@ import type { Role } from "@/lib/types";
 // the checklist a system admin ticks and the list the action accepts
 // cannot drift apart.
 
+// Label only. These carried a line of explanation each until
+// 2026-09-22; a system admin is the only person who sees this
+// screen and already knows what the platform roles mean, so the
+// hints were five lines of noise above the control that matters.
 export const HUB_ROLE_OPTIONS: ReadonlyArray<{
   value: Role;
   label: string;
-  hint: string;
 }> = [
-  {
-    value: "team_member",
-    label: "Team member",
-    hint: "Everybody in the company who is not an admin.",
-  },
-  {
-    value: "company_admin",
-    label: "Company admin",
-    hint: "Runs their own company.",
-  },
-  {
-    value: "aims_guide",
-    label: "Guide",
-    hint: "Only on the companies they are assigned to.",
-  },
-  {
-    value: "portfolio_admin",
-    label: "Portfolio admin",
-    hint: "Reads across the portfolio. Rarely wants an agent.",
-  },
-  {
-    value: "system_admin",
-    label: "System admin",
-    hint: "AiMS staff.",
-  },
+  { value: "team_member", label: "Team member" },
+  { value: "company_admin", label: "Company admin" },
+  { value: "aims_guide", label: "Guide" },
+  { value: "portfolio_admin", label: "Portfolio admin" },
+  { value: "system_admin", label: "System admin" },
 ];
 
 export const HUB_ROLE_VALUES = new Set<string>(

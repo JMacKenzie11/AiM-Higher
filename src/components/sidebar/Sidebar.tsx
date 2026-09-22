@@ -321,7 +321,7 @@ const SYSTEM_ADMIN_BOTTOM_ITEMS: readonly NavItem[] = [
         kind: "link",
         label: "Agent Hub",
         href: "/admin/agents",
-        icon: "sparkle",
+        icon: "hub",
       },
     ],
   },
@@ -870,7 +870,8 @@ type IconName =
   | "book"
   | "spark"
   | "building"
-  | "gauge";
+  | "gauge"
+  | "hub";
 
 function Icon({ name }: { name: IconName }): ReactNode {
   switch (name) {
@@ -954,6 +955,19 @@ function Icon({ name }: { name: IconName }): ReactNode {
       return (
         <Stroke>
           <path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4" />
+        </Stroke>
+      );
+    // A centre with spokes: the Agent Hub, literally. Distinct from
+    // "sparkle", which Ask Aimee and Issues/Solutions already share,
+    // and from "spark", which is the strengths asterisk.
+    case "hub":
+      return (
+        <Stroke>
+          <circle cx="12" cy="12" r="2.5" />
+          <circle cx="5" cy="5" r="2" />
+          <circle cx="19" cy="5" r="2" />
+          <circle cx="12" cy="20" r="2" />
+          <path d="M10.3 10.3 6.5 6.5M13.7 10.3l3.8-3.8M12 14.5V18" />
         </Stroke>
       );
     case "building":

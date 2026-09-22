@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
 import { listHubAgents, listHubCategories } from "@/lib/practices/hub-service";
 import { AgentHubEditor } from "./AgentHubEditor";
@@ -26,17 +25,11 @@ export default async function AgentHubPage() {
     <div className={styles.stage}>
       <section className={styles.hero} aria-label="Agent Hub">
         <div className={styles.heroInner}>
-          <Link href="/admin/companies" className={styles.crumbLink}>
-            ← Admin home
-          </Link>
           <p className={styles.eyebrow}>Admin</p>
           <h1 className={styles.h1}>Agent Hub</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Name the agents people meet in Ask Aimee, group them, set their
-            order, and choose who can reach them. Changes apply to every
-            company straight away. What each agent actually says is set in the
-            code and is not edited here.
+            Extend Ask Aimee by adding new agents.
           </p>
         </div>
       </section>

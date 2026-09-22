@@ -36,13 +36,45 @@ function rowFor(page: import("@playwright/test").Page) {
 // Asserting the button visible first gives the in-flight navigation
 // somewhere to land before the click is attempted.
 async function startConversation(page: Page): Promise<void> {
-  await page.goto("/ask-aimee");
+  // goto, retried once on ERR_ABORTED.
+  //
+  // An abort here does not mean the page is broken: it means another
+  // navigation superseded this one, which is what a scope-in or a
+  // router.refresh() landing a moment late looks like. Seen once in
+  // this spec. The retry costs one navigation on a rare race and
+  // removes a failure mode that reads like a product bug in the
+  // report.
+  try {
+    await page.goto("/ask-aimee");
+  } catch (err) {
+    if (!String(err).includes("ERR_ABORTED")) throw err;
+    await page.goto("/ask-aimee");
+  }
   const start = page.getByRole("button", { name: /new conversation/i });
   await expect(start).toBeVisible({ timeout: 30_000 });
   await start.click();
   await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
     timeout: 30_000,
   });
+}
+
+// Edit and Access open the house drawer, which portals to
+// document.body — so the form is NOT inside the row, and a
+// row-scoped locator finds nothing. Addressed by drawer name, the
+// same way the chart specs tell that page's two drawers apart.
+function drawer(page: Page, which: "agent-edit" | "agent-access") {
+  return page
+    .getByTestId("drawer-panel")
+    .and(page.locator(`[data-drawer-name="${which}"]`));
+}
+
+async function openDrawer(
+  page: Page,
+  which: "agent-edit" | "agent-access"
+): Promise<void> {
+  const button = which === "agent-edit" ? /^edit$/i : /^access$/i;
+  await rowFor(page).getByRole("button", { name: button }).click();
+  await expect(drawer(page, which)).toBeVisible({ timeout: 15_000 });
 }
 
 test.describe("Agent Hub", () => {
@@ -58,24 +90,25 @@ test.describe("Agent Hub", () => {
     if ((await row.count()) === 0) return;
 
     if (!(await row.innerText()).includes(SEEDED_TITLE)) {
-      await row.getByRole("button", { name: /^edit$/i }).click();
-      await row.getByLabel(/^name$/i).fill(SEEDED_TITLE);
-      await row.getByRole("button", { name: /^save$/i }).click();
+      await openDrawer(page, "agent-edit");
+      const d = drawer(page, "agent-edit");
+      await d.getByLabel(/^name$/i).fill(SEEDED_TITLE);
+      await d.getByRole("button", { name: /^save$/i }).click();
       await expect(rowFor(page)).toContainText(SEEDED_TITLE, {
         timeout: 15_000,
       });
     }
 
-    const after = rowFor(page);
-    const summary = await after
+    const summary = await rowFor(page)
       .getByTestId("agent-hub-access-summary")
       .innerText();
     if (/functional leads/i.test(summary)) {
-      await after.getByRole("button", { name: /^access$/i }).click();
-      for (const box of await after.locator('input[type="checkbox"]').all()) {
+      await openDrawer(page, "agent-access");
+      const d = drawer(page, "agent-access");
+      for (const box of await d.locator('input[type="checkbox"]').all()) {
         if (await box.isChecked()) await box.uncheck();
       }
-      await after.getByRole("button", { name: /^save$/i }).click();
+      await d.getByRole("button", { name: /^save$/i }).click();
       await expect(
         rowFor(page).getByTestId("agent-hub-access-summary")
       ).not.toContainText(/functional leads/i, { timeout: 15_000 });
@@ -94,12 +127,28 @@ test.describe("Agent Hub", () => {
     await expect(row).toBeVisible();
     await expect(row).toContainText(SEEDED_TITLE);
 
-    await row.getByRole("button", { name: /^edit$/i }).click();
-    const nameField = row.getByLabel(/^name$/i);
-    await nameField.fill(marker);
-    await row.getByRole("button", { name: /^save$/i }).click();
+    await openDrawer(page, "agent-edit");
+    const d = drawer(page, "agent-edit");
+    await d.getByLabel(/^name$/i).fill(marker);
+    await d.getByRole("button", { name: /^save$/i }).click();
 
+    // The drawer closes itself on a successful save.
+    await expect(d).toHaveCount(0, { timeout: 15_000 });
     await expect(rowFor(page)).toContainText(marker, { timeout: 15_000 });
+    // And then WAIT FOR THE WRITE TO SETTLE before navigating away.
+    //
+    // Every write on this page runs inside a transition that ends in
+    // router.refresh(). Navigating while that is still in flight let
+    // the late refresh pull the browser back to /admin/agents,
+    // halfway through opening a chat — which surfaced as the picker
+    // step failing on a URL that made no sense for it.
+    //
+    // The row's buttons are disabled for exactly the life of that
+    // transition, so re-enabled is the precise signal, and a better
+    // one than a sleep or networkidle.
+    await expect(
+      rowFor(page).getByRole("button", { name: /^edit$/i })
+    ).toBeEnabled({ timeout: 15_000 });
 
     // The edit has to reach the surface people actually use, not
     // just the screen that made it. This is the whole point of the
@@ -121,6 +170,10 @@ test.describe("Agent Hub", () => {
       .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
       .click();
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
+    // toHaveURL passes as soon as the URL matches, which can be
+    // before the navigation has finished. Letting it finish is what
+    // stops the next goto aborting it.
+    await page.waitForLoadState("load");
 
     // Started from the button on /ask-aimee rather than by visiting
     // /ask-aimee/new directly. That route currently 500s on a plain
@@ -152,11 +205,13 @@ test.describe("Agent Hub", () => {
       /functional leads/i
     );
 
-    await row.getByRole("button", { name: /^access$/i }).click();
-    // The last checkbox in the Roles column is the Functional Leads
-    // toggle, which sits below the role list rather than in it.
-    await row.locator('input[type="checkbox"]').last().check();
-    await row.getByRole("button", { name: /^save$/i }).click();
+    await openDrawer(page, "agent-access");
+    const d = drawer(page, "agent-access");
+    // Its own labelled control now, rather than the last checkbox in
+    // the roles list, so this no longer depends on ordering.
+    await d.getByRole("checkbox", { name: /functional leads/i }).check();
+    await d.getByRole("button", { name: /^save$/i }).click();
+    await expect(d).toHaveCount(0, { timeout: 15_000 });
 
     await expect(
       rowFor(page).getByTestId("agent-hub-access-summary")

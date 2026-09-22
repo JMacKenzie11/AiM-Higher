@@ -11,6 +11,8 @@ import {
   type HubResult,
 } from "@/lib/practices/hub-actions";
 import { AgentRow } from "./AgentRow";
+import { AgentEditDrawer } from "./AgentEditDrawer";
+import { AgentAccessDrawer } from "./AgentAccessDrawer";
 import admin from "../companies/admin.module.css";
 import styles from "./hub.module.css";
 
@@ -29,6 +31,14 @@ export function AgentHubEditor({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null
   );
+  // Which agent has a drawer open, and which drawer. One pair of
+  // drawers for the whole page rather than a pair per row: the panel
+  // is a portal to document.body either way, so five rows would have
+  // meant five of them stacked in the DOM saying the same thing.
+  const [drawer, setDrawer] = useState<{
+    agentId: string;
+    kind: "edit" | "access";
+  } | null>(null);
   const [newCategory, setNewCategory] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
@@ -72,6 +82,13 @@ export function AgentHubEditor({
   const visibleCategories = [...categories].sort(
     (a, b) => a.sortOrder - b.sortOrder
   );
+
+  // Looked up from the live list rather than held in state, so a
+  // refresh while a drawer is open shows the saved row rather than
+  // the one that was there when it opened.
+  const openAgent = drawer
+    ? (agents.find((a) => a.id === drawer.agentId) ?? null)
+    : null;
 
   // An agent whose category row has gone missing would otherwise
   // render nowhere. The foreign key makes that impossible today, but
@@ -119,11 +136,16 @@ export function AgentHubEditor({
                   <AgentRow
                     key={agent.id}
                     agent={agent}
-                    categories={visibleCategories}
                     isFirst={i === 0}
                     isLast={i === rows.length - 1}
                     pending={pending}
                     run={run}
+                    onEdit={() =>
+                      setDrawer({ agentId: agent.id, kind: "edit" })
+                    }
+                    onAccess={() =>
+                      setDrawer({ agentId: agent.id, kind: "access" })
+                    }
                   />
                 ))
               )}
@@ -140,11 +162,14 @@ export function AgentHubEditor({
               <AgentRow
                 key={agent.id}
                 agent={agent}
-                categories={visibleCategories}
                 isFirst={i === 0}
                 isLast={i === orphans.length - 1}
                 pending={pending}
                 run={run}
+                onEdit={() => setDrawer({ agentId: agent.id, kind: "edit" })}
+                onAccess={() =>
+                  setDrawer({ agentId: agent.id, kind: "access" })
+                }
               />
             ))}
           </div>
@@ -286,6 +311,30 @@ export function AgentHubEditor({
           somewhere else first.
         </p>
       </section>
+
+      {openAgent && drawer?.kind === "edit" ? (
+        <AgentEditDrawer
+          // Keyed by agent, so opening Edit on a different row
+          // remounts the form instead of showing the last one's
+          // draft with a new heading over it.
+          key={openAgent.id}
+          agent={openAgent}
+          categories={visibleCategories}
+          pending={pending}
+          run={run}
+          onClose={() => setDrawer(null)}
+        />
+      ) : null}
+
+      {openAgent && drawer?.kind === "access" ? (
+        <AgentAccessDrawer
+          key={openAgent.id}
+          agent={openAgent}
+          pending={pending}
+          run={run}
+          onClose={() => setDrawer(null)}
+        />
+      ) : null}
     </>
   );
 }
