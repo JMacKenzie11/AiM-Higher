@@ -32,10 +32,21 @@ const PROMPT = path.join(
   "prompts/practices/role-description.md"
 );
 
-// Generated 2026-09-22, at the file's first landing. Not regenerated
-// since.
+// Generated 2026-09-22, at the file's first landing.
+//
+// Regenerated 2026-09-22, and saying it out loud: section 7 gained
+// the positive-framing standard. The agent proposed "the VP walks
+// sites often enough to catch a drifting habit before it becomes an
+// incident report" as what a safety value looks like lived well,
+// which defines excellence as an averted bad outcome. AiMS runs on
+// appreciative inquiry and ask-better-questions.md already states
+// the rule this broke: frame movement toward something wanted, not
+// away from something unwanted. The section now carries five tests,
+// the failing line as a worked counter-example, and a read-back
+// check before moving on. The "why it matters" line on a critical
+// success factor gained the same lens.
 const ROLE_DESCRIPTION_PROMPT_SHA =
-  "0e4a71f02fc19c1e544c77bb339544628edfdbaf2657cabf49ee559e8c47f982";
+  "dd3e3041c4e618826c7f2f90165b256d829433d44cfc73354a911c5b97316606";
 
 async function read(): Promise<string> {
   return fs.readFile(PROMPT, "utf8");
@@ -83,6 +94,31 @@ describe("the role description prompt", () => {
   it("still asks the function and the title separately", async () => {
     const src = await read();
     expect(src).toMatch(/Ask this separately from the function, every time\./);
+  });
+
+  // The failure mode this section is most prone to, and the one a
+  // leader met in the first real conversation. An excellence
+  // standard written as an averted disaster aims the seat at the
+  // disaster: what people focus on grows.
+  it("still holds excellence to positive framing", async () => {
+    const src = await read();
+    expect(src).toMatch(
+      /never what is prevented, caught, avoided, or kept from going wrong/
+    );
+    // The five tests, by name, so removing one is a visible edit.
+    for (const test of [
+      "Present, not averted",
+      "Observable, present tense",
+      "Specific to this seat",
+      "A repeatable standard, not a highlight",
+      "Recognisable",
+    ]) {
+      expect(src).toContain(test);
+    }
+    // The worked counter-example. A rule without the failing case
+    // beside it is a rule a model reads past.
+    expect(src).toMatch(/before it becomes an incident report/);
+    expect(src).toMatch(/does this describe something happening, or something not happening\?/);
   });
 
   // One level of measures. The two-level model came out in migration

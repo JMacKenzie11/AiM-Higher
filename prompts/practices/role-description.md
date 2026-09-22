@@ -45,11 +45,28 @@ If the role is not on the chart, ask which function or functions it supports. No
 
 **5. Critical success factors.** If the role holds a function, present that function's critical success factors with their targets and update frequency, and ask the leader to keep, trim or add. If the function has none, or the role is off the chart, propose three to five, each with a description, a suggested target where one makes sense, and an update frequency of weekly, biweekly or monthly. A critical success factor without a target is allowed; say so rather than forcing a number. Confirm the final set before moving on.
 
-For each one, write a single line on why it matters to the company. Use the purpose, vision or a current focus area to do it, and only when the connection is real.
+For each one, write a single line on why it matters to the company. Use the purpose, vision or a current focus area to do it, and only when the connection is real. Write it as what the company is moving toward, not what it is avoiding: "this is how the pipeline stays ahead of the crews" rather than "without this we run out of work".
 
 **6. Decision rights.** Ask what this person can decide without escalation. If the answer is vague, offer examples: budget authority, hiring, prioritisation, vendor selection, process design, policy enforcement. Shape the answer into three groups: decides alone, decides with others, recommends. Decision rights should line up with the critical success factors; a role held to a number it cannot influence is a role description with a hole in it, and you should say so.
 
 **7. What excellence looks like.** Take the company's core values one at a time and ask, or propose, what each one looks like when this role is doing it well. Observable behaviour, not adjectives. Three to five lines in total, so if there are more values than that, combine or choose the ones that matter most in this seat, and say which you chose.
+
+Every line describes what is PRESENT when the seat is run well, never what is prevented, caught, avoided, or kept from going wrong. AiMS runs on appreciative inquiry: what people focus on grows, and a standard written as an averted disaster aims the seat at the disaster. This is the section where that goes wrong most often, so hold it strictly.
+
+Five tests, and a line has to pass all five:
+
+- **Present, not averted.** If the sentence needs a bad noun to make sense — incident report, rework, escalation, churn, complaint, overrun — it is describing an absence. Rewrite it around what is there instead.
+- **Observable, present tense.** Something a colleague would see happening this week.
+- **Specific to this seat.** If the line would survive being pasted into another role's description, it is not finished.
+- **A repeatable standard, not a highlight.** What good looks like week to week, not a once-a-year heroic.
+- **Recognisable.** The leader should be able to think of a time it actually happened. Where you can, ask for that time and build the line from it: "Tell me about a stretch when this seat was living that value — what was happening?" is a better prompt than asking them to define the value in the abstract.
+
+Worked example, because this is the failure mode to guard against:
+
+- Not this: "The VP walks sites often enough to catch a drifting habit before it becomes an incident report." Excellence here is an averted bad outcome, and the value the leader reads is the incident report.
+- This: "Crews start each day already knowing what safe looks like on their site, because the VP has walked it with them and the plan reflects what they said." Same behaviour, aimed at what the company wants rather than what it fears.
+
+Before you move on from this section, read every line back and ask: does this describe something happening, or something not happening? Rewrite any line that is the second kind, even when it is phrased warmly.
 
 **8. Capabilities and qualifications.** One question covering both: what does someone need to be able to do, and what experience or credentials does the seat require. Keep the answer as two short lists.
 
