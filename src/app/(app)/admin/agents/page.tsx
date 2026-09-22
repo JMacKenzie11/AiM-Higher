@@ -1,0 +1,58 @@
+import Link from "next/link";
+import { requireRole } from "@/lib/auth/current-user";
+import {
+  listHubAgents,
+  listHubCategories,
+  listHubCompanies,
+} from "@/lib/practices/hub-service";
+import { AgentHubEditor } from "./AgentHubEditor";
+import styles from "../companies/admin.module.css";
+
+// The Agent Hub: name, describe, group, order and scope the Ask
+// Aimee agents without a deploy.
+//
+// WHAT THIS PAGE DOES NOT DO, ON PURPOSE. It does not edit prompts,
+// and it does not create agents. A prompt is the agent — nothing
+// else decides whether it asks one question or eight — and editing
+// one from a screen needs the immutable versioning that phase 2
+// brings, so that a change cannot rewrite the prompt under a
+// conversation already running on it. Until then the registry holds
+// them, and this page holds everything around them.
+
+export default async function AgentHubPage() {
+  await requireRole(["system_admin"]);
+  const [categories, agents, companies] = await Promise.all([
+    listHubCategories(),
+    listHubAgents(),
+    listHubCompanies(),
+  ]);
+
+  return (
+    <div className={styles.stage}>
+      <section className={styles.hero} aria-label="Agent Hub">
+        <div className={styles.heroInner}>
+          <Link href="/admin/companies" className={styles.crumbLink}>
+            ← Admin home
+          </Link>
+          <p className={styles.eyebrow}>Admin</p>
+          <h1 className={styles.h1}>Agent Hub</h1>
+          <span className={styles.rule} aria-hidden="true" />
+          <p className={styles.subtitle}>
+            Name the agents people meet in Ask Aimee, group them, set their
+            order, and choose who can reach them. Changes apply to every
+            company straight away. What each agent actually says is set in the
+            code and is not edited here.
+          </p>
+        </div>
+      </section>
+
+      <div className={styles.content}>
+        <AgentHubEditor
+          categories={categories}
+          agents={agents}
+          companies={companies}
+        />
+      </div>
+    </div>
+  );
+}

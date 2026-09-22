@@ -7,7 +7,7 @@ import {
   getMessageSenders,
   listSharesForConversation,
 } from "@/lib/coach/service";
-import { PRACTICES, findPractice } from "@/lib/practices/registry";
+import { listAgents, resolveAgent } from "@/lib/practices/resolve";
 import { practiceFeatureGate, practiceRoleGate } from "@/lib/practices/gate";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { getCurrentRoleDescription } from "@/lib/role-descriptions/roles-list";
@@ -121,7 +121,7 @@ export default async function AskAimeeChatPage({
   // the practice's own header + opening chips. Backend for optional
   // partner context is still in place (columns + action + partner
   // context builder) but no longer surfaced in the UI.
-  const practice = findPractice(conversation.practice_id);
+  const practice = await resolveAgent(conversation.practice_id);
 
   // Registry entries the AgentPicker is allowed to offer for this
   // caller. Role-gated at the page level so the modal never
@@ -147,12 +147,15 @@ export default async function AskAimeeChatPage({
   const companyFeatures = await getCompanyFeatures(conversation.company_id);
   // Asked once, and only when some practice actually admits leads,
   // so a company with no such agent pays nothing for the concept.
+  // Merged, so the Hub's renames, reordering and access edits reach
+  // the picker. Archived agents are already dropped by listAgents.
+  const agents = await listAgents();
   const isFunctionLead =
-    PRACTICES.some((p) => p.alsoFunctionLeads) &&
+    agents.some((p) => p.alsoFunctionLeads) &&
     (await leadsAnyFunction(session.profile.id, conversation.company_id));
   const agentPickerPractices =
     access === "owner"
-      ? PRACTICES.filter((p) => {
+      ? agents.filter((p) => {
           const hasFeature = p.feature
             ? companyFeatures.includes(p.feature)
             : true;

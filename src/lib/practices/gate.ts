@@ -1,10 +1,16 @@
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import type { Profile } from "@/lib/types";
 import type { Practice } from "./registry";
+import type { ResolvedAgent } from "./resolve";
 
 // Central role/scope check for launching a practice. Called from the
 // server-action layer AND the direct-launch route (/ask-aimee/new)
 // so the same message shows whether the user hits a card or the URL.
+//
+// EVERY CALLER PASSES A MERGED AGENT, not a raw registry entry, or
+// the Hub's access edits would apply on one surface and not the
+// next. The parameter stays typed as Practice because a merged
+// agent IS one, with the identity and access fields overlaid.
 //
 // Guides are gate-eligible when a practice's allowedRoles includes
 // "aims_guide", but they additionally need an assignment to the
@@ -60,14 +66,43 @@ export function practiceRoleGate(
   return { ok: true };
 }
 
+// The company allowlist. Empty admits everybody, which is what an
+// agent with no allowlist means and what all five seed with — so
+// "unset" and "every company" stay the same thing rather than
+// becoming a distinction somebody has to remember.
+//
+// Checked IN ADDITION to role and feature, never instead of them: a
+// company being on the list does not make a team_member an admin.
+export function practiceCompanyGate(
+  agent: Pick<ResolvedAgent, "companyAllowlist">,
+  companyId: string
+): PracticeGateResult {
+  const list = agent.companyAllowlist ?? [];
+  if (list.length === 0) return { ok: true };
+  if (list.includes(companyId)) return { ok: true };
+  return {
+    ok: false,
+    message: "That agent isn't switched on for this company.",
+  };
+}
+
 // Both halves, for a caller that can await. Role first, so a member
 // who is refused by role is told that rather than being told the
 // company's packaging.
 export async function practiceGate(
-  practice: Practice,
+  practice: Practice & Partial<Pick<ResolvedAgent, "companyAllowlist">>,
   profile: GateProfile,
   companyId: string
 ): Promise<PracticeGateResult> {
+  // The allowlist first among the company checks, because it is the
+  // cheapest and the most absolute: a company that is not on it
+  // cannot reach the agent by any role.
+  const allowlist = practiceCompanyGate(
+    { companyAllowlist: practice.companyAllowlist ?? [] },
+    companyId
+  );
+  if (!allowlist.ok) return allowlist;
+
   const role = practiceRoleGate(practice, profile, companyId);
   // A refusal by ROLE is not final when the practice admits function
   // leads: a seat's Lead is usually a team_member, and no list of

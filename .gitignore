@@ -17,7 +17,13 @@ build/
 
 # Provisioning state: database passwords and service-role keys for
 # instances this machine created. Never committed.
-.provisioning-state/
+#
+# No trailing slash, deliberately. The worktree ritual in CLAUDE.md
+# symlinks this from the main checkout, and git treats a symlink as
+# a file, so a directory-only pattern did not match it: every new
+# worktree showed it as untracked and one `git add -A` away from
+# being committed. This one holds service-role keys.
+.provisioning-state
 .env.*.local
 
 # vercel
@@ -29,7 +35,9 @@ next-env.d.ts
 
 # Sentry Config File
 .env.sentry-build-plugin
-.claude/
+# Same as .provisioning-state above: symlinked per worktree, so the
+# pattern cannot be directory-only.
+.claude
 
 # Playwright
 /test-results/

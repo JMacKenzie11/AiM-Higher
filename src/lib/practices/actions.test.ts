@@ -86,8 +86,12 @@ vi.mock("@/lib/admin/scope", () => ({
   getEffectiveCompanyId: mocks.getEffectiveCompanyId,
 }));
 
-vi.mock("./registry", () => ({
-  findPractice: mocks.findPractice,
+// The resolver, not the registry: create.ts reads the MERGED agent
+// so a Hub rename or access change applies at launch. The mock keeps
+// its old name because what it returns is the same shape — a merged
+// agent is a Practice with identity and access overlaid.
+vi.mock("./resolve", () => ({
+  resolveAgent: mocks.findPractice,
 }));
 
 vi.mock("next/cache", () => ({

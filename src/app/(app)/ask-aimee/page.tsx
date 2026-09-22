@@ -6,7 +6,7 @@ import {
   listSharedWithMe,
 } from "@/lib/coach/service";
 import { PageShell } from "@/components/ui/PageShell";
-import { findPractice } from "@/lib/practices/registry";
+import { listAgentsIncludingArchived } from "@/lib/practices/resolve";
 import { AskAimeeNewButton } from "./AskAimeeNewButton";
 import { MemorySweep } from "./MemorySweep";
 import { ArchiveConversationButton } from "../coach/[profileId]/ArchiveConversationButton";
@@ -33,10 +33,18 @@ export default async function AskAimeePage() {
   // see mixed stacks.
   const companyId = await getEffectiveCompanyId(session);
 
-  const [conversations, sharedWithMe] = await Promise.all([
+  const [conversations, sharedWithMe, allAgents] = await Promise.all([
     listGeneralConversationsForUser(session.profile.id, companyId),
     listSharedWithMe(session.profile.id, companyId),
+    // Archived included: a conversation attached to an agent that
+    // has since been archived still shows that agent's name, because
+    // archiving hides an agent from pickers and does not rewrite
+    // history.
+    listAgentsIncludingArchived(),
   ]);
+  // One lookup rather than an await per row: both lists map over
+  // conversations and each row wants its agent's title.
+  const agentsById = new Map(allAgents.map((a) => [a.id, a]));
 
   return (
     <PageShell
@@ -69,7 +77,9 @@ export default async function AskAimeePage() {
           </p>
         ) : (
           conversations.map((c) => {
-            const practice = findPractice(c.practice_id);
+            const practice = c.practice_id
+              ? agentsById.get(c.practice_id) ?? null
+              : null;
             // For agent-attached conversations, the agent title is the
             // real "what is this?" — the c.title is a date stamp
             // (defaultDateLabel) that duplicates the Updated line
@@ -125,7 +135,9 @@ export default async function AskAimeePage() {
             </h2>
           </div>
           {sharedWithMe.map((c) => {
-            const practice = findPractice(c.practice_id);
+            const practice = c.practice_id
+              ? agentsById.get(c.practice_id) ?? null
+              : null;
             const heading = practice ? practice.title : c.title;
             return (
               <div key={c.id} className={styles.conversationRow}>
