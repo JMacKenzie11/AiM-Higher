@@ -575,6 +575,544 @@ async function coachMemoryEdit(
 //      claim is what keeps that true, and it asserts the home was
 //      really set first, so a refused UPDATE cannot pass it by
 //      leaving the column null.
+// ---- 0222: a function's Lead writes its role description --------
+//
+// The widening: anyone who heads up a function can write their
+// company's role descriptions. They are usually a team_member, so
+// no list of platform roles can express this and the relationship
+// has to.
+//
+// ANY document, not only the seat they hold. That is the product's
+// call, taken before 0222 reached a database: heading up a function
+// is the threshold for writing these, not a claim over one row. So
+// "another seat's document" is a 1 here, and the case earns its
+// keep on what stays 0 — another company's, and the chart itself.
+//
+// CLAUDE.md's rule for a role widening is what this case is shaped
+// around: run AS the granted role, assert the write that must now
+// succeed AND a write the same role must still be refused, and be
+// shown failing against the pre-fix schema before the green is
+// believed. Run without --pending 0222 and the first claim goes red,
+// which is the proof that it is the policy doing the work.
+//
+// The lead is seeded per run and made the lead of a real function,
+// because the clone has no team_member who leads anything and a
+// fixture that comes back null would report NOT PROVEN rather than
+// passing on an absent caller.
+async function roleDescriptionLeadWrites(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "role-description-lead-writes";
+  const hazard =
+    "A function's Lead cannot write their company's role descriptions, or can reach past them";
+
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;",
+      pending,
+      `select count(*) > 0 as ok from information_schema.tables
+        where table_schema='public' and table_name='role_descriptions';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name,
+      hazard,
+      wrong: "table not on this schema",
+      right: "table not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0221 has not landed here yet. Runs for real under --pending 0221_role_descriptions_off_chart.sql,0222_lead_writes_own_role_description.sql.",
+    };
+  }
+
+  const LEAD = "aaaaaaaa-0000-4000-8000-00000000lead".replace("lead", "1ead");
+  const A = ids.companyAdminCompany;
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  // A real team_member in the admin's company, made the lead of one
+  // function. The SECOND function is the control: same caller, a
+  // seat they do not hold.
+  const seed = `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${LEAD}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-lead@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${LEAD}', '${A}', 'Harness Lead', 'team_member', 'active');
+update public.functions set lead_id = '${LEAD}'
+ where id = (select id from public.functions
+              where company_id = '${A}' and archived = false
+              order by sort_order limit 1);`;
+
+  const mine = `(select id from public.functions
+                  where company_id = '${A}' and lead_id = '${LEAD}'
+                  and archived = false limit 1)`;
+  const notMine = `(select id from public.functions
+                     where company_id = '${A}' and archived = false
+                       and coalesce(lead_id, '00000000-0000-0000-0000-000000000000') <> '${LEAD}'
+                     order by sort_order limit 1)`;
+
+  const count = async (sql: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(sql);
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+
+  const saveFor = (fnExpr: string, title: string) => `
+insert into public.role_descriptions (company_id, function_id, title)
+values ('${A}', ${fnExpr}, '${title}');
+insert into public.role_description_versions
+  (role_id, company_id, function_id, version_number, snapshot_document, body_json)
+select rd.id, '${A}', rd.function_id, 1, '{}'::jsonb, '{"harness":true}'::jsonb
+  from public.role_descriptions rd where rd.title = '${title}';
+select count(*)::int as n from public.role_description_versions v
+  join public.role_descriptions rd on rd.id = v.role_id
+ where rd.title = '${title}';`;
+
+  const ownSeat = await count(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(LEAD),
+      saveFor(mine, "harness: lead own seat"),
+      "rollback;",
+    ].join("\n")
+  );
+
+  const otherSeat = await count(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(LEAD),
+      saveFor(notMine, "harness: lead other seat"),
+      "rollback;",
+    ].join("\n")
+  );
+
+  // An off-chart role has no function and therefore no lead. It stays
+  // admin-and-guide.
+  const offChart = await count(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(LEAD),
+      saveFor("null", "harness: lead off chart"),
+      "rollback;",
+    ].join("\n")
+  );
+
+  // The lead must not gain anything else on the way past. The chart
+  // itself is the obvious neighbour.
+  const renamesFunction = await count(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(LEAD),
+      `with u as (update public.functions set title = 'harness renamed'
+                   where id = ${mine} returning id)
+        select count(*)::int as n from u;`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const checks: Array<[string, number, number]> = [
+    ["own seat's document", ownSeat, 1],
+    ["another seat's document", otherSeat, 1],
+    ["an off-chart role", offChart, 1],
+    // The boundary that did not move. Leading a function has never
+    // carried the right to rename one, and a widening on documents
+    // must not quietly become one on the chart.
+    ["renaming the function they lead", renamesFunction, 0],
+  ];
+  const failures = checks.filter(([, got, want]) => got !== want);
+
+  return {
+    name,
+    hazard,
+    wrong:
+      "a lead cannot write their company's documents, or gains the chart with them",
+    right: "own seat=1, another seat=1, off-chart=1, function rename=0",
+    ok: failures.length === 0,
+    detail:
+      (failures.length === 0 ? "" : "MISMATCH: ") +
+      checks.map(([label, got]) => `${label}=${got}`).join(", "),
+  };
+}
+
+// ---- The Role Description Builder's two read tools --------------
+//
+// The claim: what get_foundation and list_functions return is what
+// the caller could already see in the product, because they run on
+// the caller's own client and RLS decides.
+//
+// This probes the QUERY SHAPE those tools use rather than the tools
+// themselves, which is the honest thing a database harness can say.
+// The property it cannot reach — that the module never swaps in the
+// service client and never takes a company id from the model — is a
+// source guard in agent-tools.test.ts, because no amount of running
+// SQL proves the absence of a different code path.
+//
+// Three callers, as instructed: a company_admin reading their own
+// company and reading another's, an assigned guide, and the same
+// guide with the assignment revoked inside the transaction so the
+// caller is identical in both halves.
+async function roleDescriptionAgentReads(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "role-description-agent-reads";
+  const hazard =
+    "The Role Description agent reads a company the person holding the conversation cannot";
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const A = ids.companyAdminCompany;
+  const B = ids.otherCompany;
+  const G = ids.guideCompany;
+
+  const count = async (sql: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(sql);
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+
+  // The exact shape list_functions uses.
+  const functionsFor = (co: string) =>
+    `select count(*)::int as n from public.functions
+      where company_id = '${co}' and archived = false;`;
+
+  // And get_foundation's two.
+  const foundationFor = (co: string) =>
+    `select (
+       (select count(*) from public.company_foundation where company_id = '${co}')
+       + (select count(*) from public.foundation_items where company_id = '${co}')
+     )::int as n;`;
+
+  const seeded = async (co: string): Promise<number> =>
+    count(["begin;", pending, functionsFor(co), "rollback;"].join("\n"));
+
+  const ownFunctions = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      functionsFor(A),
+      "rollback;",
+    ].join("\n")
+  );
+
+  const otherFunctions = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      functionsFor(B),
+      "rollback;",
+    ].join("\n")
+  );
+
+  // Seeded as the superuser first, and rolled back with everything
+  // else. Without it this read returns zero because company B has no
+  // Foundation, which is indistinguishable in the output from zero
+  // because RLS denied it — a control that proves nothing while
+  // looking exactly like one that proves something.
+  const seedFoundationB = `
+insert into public.foundation_items (company_id, kind, title, body, sort_order)
+values ('${B}', 'core_value', 'harness: probe value', 'probe', 0);`;
+
+  const otherFoundation = await count(
+    [
+      "begin;", pending, seedFoundationB,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      foundationFor(B),
+      "rollback;",
+    ].join("\n")
+  );
+
+  const assignedGuide = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.guide),
+      functionsFor(G),
+      "rollback;",
+    ].join("\n")
+  );
+
+  const unassignedGuide = await count(
+    [
+      "begin;", pending,
+      `delete from public.guide_assignments where guide_id = '${ids.guide}';`,
+      "set local role authenticated;", claims(ids.guide),
+      functionsFor(G),
+      "rollback;",
+    ].join("\n")
+  );
+
+  // Controls. A zero that is zero because the company has no chart
+  // proves nothing about RLS, and reads identically in the output.
+  const bHasFunctions = await seeded(B);
+  const gHasFunctions = await seeded(G);
+  const bHasFoundation = await count(
+    ["begin;", pending, seedFoundationB, foundationFor(B), "rollback;"].join("\n")
+  );
+
+  const notProven: string[] = [];
+  if (bHasFunctions <= 0) notProven.push("company B has no functions to be denied");
+  if (gHasFunctions <= 0) notProven.push("the guide's company has no functions to see");
+  if (bHasFoundation <= 0) notProven.push("company B has no foundation rows to be denied");
+
+  const checks: Array<[string, number, number]> = [
+    ["own company's functions", ownFunctions, gHasFunctions >= 0 ? ownFunctions : -1],
+    ["another company's functions", otherFunctions, 0],
+    ["another company's foundation", otherFoundation, 0],
+    ["assigned guide's functions", assignedGuide, gHasFunctions],
+    ["unassigned guide's functions", unassignedGuide, 0],
+  ];
+  // The own-company check is "more than none", not a fixed number:
+  // the clone's chart changes shape whenever somebody edits it.
+  const failures = checks.filter(([label, got, want]) =>
+    label === "own company's functions" ? got <= 0 : got !== want
+  );
+
+  const detail =
+    checks.map(([label, got]) => `${label}=${got}`).join(", ") +
+    (notProven.length > 0 ? ` | NOT PROVEN: ${notProven.join("; ")}` : "");
+
+  return {
+    name,
+    hazard,
+    wrong: "a tool returns rows from a company the caller cannot see",
+    right:
+      "own company > 0, another company = 0 for both tables, assigned guide sees the chart, the same guide unassigned sees none",
+    ok: failures.length === 0 && notProven.length === 0,
+    detail:
+      failures.length === 0 && notProven.length === 0
+        ? detail
+        : "MISMATCH: " + detail,
+  };
+}
+
+// ---- 0221: a role description off the chart --------------------
+//
+// The claim: a role_descriptions row with a NULL function_id is
+// reachable by the company that owns it, and by nobody else.
+//
+// It exists because 0127 and 0129 reach the company by joining
+// function_id to functions. A null joins to nothing, so before 0221
+// an off-chart document was invisible to the person who wrote it —
+// denied rather than leaked, which is the safe failure and still a
+// broken feature. The re-key onto the table's own company_id is what
+// this probes, and the OFF-CHART row is the one that matters: an
+// on-chart row would pass under either shape and prove nothing.
+//
+// Four callers, as instructed: the company's own admin, an assigned
+// guide, an unassigned guide, and another company's admin. Plus the
+// parent check on insert, which is the hole company_id alone leaves:
+// a caller's own company_id passes the with-check while role_id
+// points at somebody else's role, and the row lands in a history
+// that is not theirs. Reading it back is still denied. The history
+// is still corrupt.
+async function roleDescriptionOffChart(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "role-description-off-chart";
+  const hazard = "An off-chart role description is unreachable, or reachable by the wrong company";
+
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;",
+      pending,
+      `select count(*) > 0 as ok from information_schema.tables
+        where table_schema='public' and table_name='role_descriptions';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name,
+      hazard,
+      wrong: "table not on this schema",
+      right: "table not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0221 has not landed here yet. Runs for real under --pending 0221_role_descriptions_off_chart.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const A = ids.companyAdminCompany;
+  const B = ids.otherCompany;
+  const G = ids.guideCompany;
+
+  // Seeded by the superuser before the caller is assumed, so the row
+  // under test exists regardless of whether the caller could have
+  // written it. What is being asked is who can SEE it.
+  const seedOffChart = (co: string, title: string) =>
+    `insert into public.role_descriptions (company_id, function_id, title)
+       values ('${co}', null, '${title}');`;
+
+  const count = async (sql: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(sql);
+      return r?.n ?? -1;
+    } catch {
+      // A statement-level refusal is the stronger outcome and is what
+      // an INSERT with no admitting policy actually produces.
+      return 0;
+    }
+  };
+
+  // ---- Reads --------------------------------------------------
+  const ownAdminSees = await count(
+    [
+      "begin;", pending,
+      seedOffChart(A, "harness: off-chart own"),
+      "set local role authenticated;", claims(ids.companyAdmin),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart own';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const otherAdminSees = await count(
+    [
+      "begin;", pending,
+      seedOffChart(B, "harness: off-chart other"),
+      "set local role authenticated;", claims(ids.companyAdmin),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart other';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const assignedGuideSees = await count(
+    [
+      "begin;", pending,
+      seedOffChart(G, "harness: off-chart guided"),
+      "set local role authenticated;", claims(ids.guide),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart guided';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  // Same guide, a company they are NOT assigned to. Their assignment
+  // is revoked inside the transaction rather than inventing a second
+  // guide, so the caller is identical in both halves and the only
+  // thing that changed is the assignment.
+  const unassignedGuideSees = await count(
+    [
+      "begin;", pending,
+      seedOffChart(G, "harness: off-chart unassigned"),
+      `delete from public.guide_assignments where guide_id = '${ids.guide}';`,
+      "set local role authenticated;", claims(ids.guide),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart unassigned';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  // ---- Writes -------------------------------------------------
+  const ownAdminWrites = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      seedOffChart(A, "harness: off-chart write own"),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart write own';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const adminWritesOtherCompany = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      seedOffChart(B, "harness: off-chart write other"),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart write other';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const assignedGuideWrites = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.guide),
+      seedOffChart(G, "harness: off-chart write guided"),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart write guided';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const unassignedGuideWrites = await count(
+    [
+      "begin;", pending,
+      `delete from public.guide_assignments where guide_id = '${ids.guide}';`,
+      "set local role authenticated;", claims(ids.guide),
+      seedOffChart(G, "harness: off-chart write unassigned"),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart write unassigned';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  // ---- A version attached to somebody else's role -------------
+  const crossParentVersion = await count(
+    [
+      "begin;", pending,
+      seedOffChart(B, "harness: off-chart victim"),
+      "set local role authenticated;", claims(ids.companyAdmin),
+      `insert into public.role_description_versions
+         (role_id, company_id, version_number, snapshot_document, body_json)
+       select rd.id, '${A}', 99, '{}'::jsonb, '{"harness":true}'::jsonb
+         from public.role_descriptions rd
+        where rd.title = 'harness: off-chart victim';`,
+      `select count(*)::int as n from public.role_description_versions
+         where version_number = 99;`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const checks: Array<[string, number, number]> = [
+    ["own admin reads own off-chart role", ownAdminSees, 1],
+    ["own admin reads another company's", otherAdminSees, 0],
+    ["assigned guide reads", assignedGuideSees, 1],
+    ["unassigned guide reads", unassignedGuideSees, 0],
+    ["own admin writes own", ownAdminWrites, 1],
+    ["own admin writes another company's", adminWritesOtherCompany, 0],
+    ["assigned guide writes", assignedGuideWrites, 1],
+    ["unassigned guide writes", unassignedGuideWrites, 0],
+    ["version attached to another company's role", crossParentVersion, 0],
+  ];
+  const failures = checks.filter(([, got, want]) => got !== want);
+
+  return {
+    name,
+    hazard,
+    wrong:
+      "off-chart rows invisible to their own company, or visible / writable outside it",
+    right: checks.map(([label, , want]) => `${label}=${want}`).join(", "),
+    ok: failures.length === 0,
+    detail:
+      failures.length === 0
+        ? checks.map(([label, got]) => `${label}=${got}`).join(", ")
+        : "MISMATCH: " +
+          failures.map(([label, got, want]) => `${label}=${got} want ${want}`).join(", "),
+  };
+}
+
 async function portfolioAssignmentBoundary(
   run: Runner,
   ids: Identities,
@@ -4355,11 +4893,41 @@ export const BATCHES: readonly Batch[] = [
     // Empty on the clone: no role description has ever been
     // published there, so without this the deleted-user control sees
     // zero and the check cannot run.
+    // Empty on the clone: no role description has ever been
+    // published there, so without this the deleted-user control sees
+    // zero and the check cannot run.
+    //
+    // Since 0221 a version hangs off a role_descriptions row and
+    // carries its own company_id, both NOT NULL, so the seed has to
+    // create the parent first. Written to work either side of that
+    // migration: the parent insert is a no-op on a schema without the
+    // table, and the column list is chosen at runtime from what is
+    // actually there.
     seedRows: {
-      role_description_versions:
-        "insert into public.role_description_versions " +
-        "(function_id, version_number, snapshot_document) " +
-        "select id, 1, '{}'::jsonb from public.functions limit 1;",
+      role_description_versions: `
+        do $seed$
+        declare fn record;
+        begin
+          select id, company_id, title into fn from public.functions limit 1;
+          if fn.id is null then return; end if;
+
+          if to_regclass('public.role_descriptions') is null then
+            insert into public.role_description_versions
+              (function_id, version_number, snapshot_document)
+            values (fn.id, 1, '{}'::jsonb);
+          else
+            insert into public.role_descriptions (company_id, function_id, title)
+            values (fn.company_id, fn.id, fn.title)
+            on conflict do nothing;
+
+            insert into public.role_description_versions
+              (function_id, role_id, company_id, version_number, snapshot_document)
+            select fn.id, rd.id, fn.company_id, 1, '{}'::jsonb
+              from public.role_descriptions rd
+             where rd.function_id = fn.id;
+          end if;
+        end
+        $seed$;`,
     },
     indirectScope: {
       function_roles: {
@@ -4386,11 +4954,22 @@ export const BATCHES: readonly Batch[] = [
           "select t.id as key, f.company_id from public.role_description_documents t " +
           "join public.functions f on f.id = t.function_id",
       },
+      // Since 0221 the company is on the row, and reaching it by
+      // joining function_id would drop every off-chart version —
+      // the sweep would then report on a subset and look complete.
+      // coalesce keeps the entry correct on a schema that predates
+      // the column.
       role_description_versions: {
         key: "id",
         rows:
-          "select t.id as key, f.company_id from public.role_description_versions t " +
-          "join public.functions f on f.id = t.function_id",
+          // to_jsonb(t)->>'company_id' rather than t.company_id, so
+          // this parses on a schema that predates the column and
+          // yields null there instead of a syntax error. The left
+          // join is what lets an off-chart row through at all.
+          "select t.id as key, " +
+          "coalesce((to_jsonb(t)->>'company_id')::uuid, f.company_id) as company_id " +
+          "from public.role_description_versions t " +
+          "left join public.functions f on f.id = t.function_id",
       },
     },
     writeProbes: {
@@ -8260,6 +8839,18 @@ async function main(): Promise<void> {
     [
       "coach-memory-edit",
       (r: Runner, i: Identities) => coachMemoryEdit(r, i, pendingSql),
+    ],
+    [
+      "role-description-lead-writes",
+      (r: Runner, i: Identities) => roleDescriptionLeadWrites(r, i, pendingSql),
+    ],
+    [
+      "role-description-agent-reads",
+      (r: Runner, i: Identities) => roleDescriptionAgentReads(r, i, pendingSql),
+    ],
+    [
+      "role-description-off-chart",
+      (r: Runner, i: Identities) => roleDescriptionOffChart(r, i, pendingSql),
     ],
     [
       "portfolio-assignment-boundary",

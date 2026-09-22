@@ -118,7 +118,6 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
             functionId={detail.fn.id}
             roles={detail.roles}
             canEdit={isAdmin}
-            rdEnabled={rdEnabled}
           />
         </section>
 
@@ -138,8 +137,6 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
                 canEdit={isAdmin}
                 singularLabel="decision right"
                 addPlaceholder="Add a decision this role can make without escalation"
-                suggestTarget="decision_rights"
-                suggestButtonLabel="Suggest decision rights"
                 createAction={createFunctionDecisionRightAction}
                 renameAction={renameFunctionDecisionRightAction}
                 deleteAction={deleteFunctionDecisionRightAction}
@@ -160,8 +157,6 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
                 canEdit={isAdmin}
                 singularLabel="competency indicator"
                 addPlaceholder="Add an observable behavior that shows excellence in this seat"
-                suggestTarget="competencies"
-                suggestButtonLabel="Suggest competency indicators"
                 createAction={createFunctionCompetencyAction}
                 renameAction={renameFunctionCompetencyAction}
                 deleteAction={deleteFunctionCompetencyAction}

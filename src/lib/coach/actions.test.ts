@@ -583,7 +583,7 @@ describe("generateConversationTitleAction", () => {
         conversationId: "conv_1",
         companyId: "co_acme",
         purpose: "title",
-        model: "claude-haiku-4-5",
+        model: "claude-sonnet-5",
       })
     );
   });

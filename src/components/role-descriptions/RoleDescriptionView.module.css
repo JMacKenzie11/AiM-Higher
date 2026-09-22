@@ -1,0 +1,97 @@
+/* The role description document, as it reads. Shared by the agent's
+   card and the saved document page, so the preview and the stored
+   thing cannot look like two different products. */
+.doc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font: var(--text-h2);
+  color: var(--text-heading);
+}
+
+.placement {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.heading {
+  margin: 0;
+  font: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.subBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.subHeading {
+  margin: 0;
+  font: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.para {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text-body-color, var(--text-heading));
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: var(--text-body);
+  color: var(--text-heading);
+}
+
+.itemLead {
+  font-weight: 600;
+}
+
+.itemBody {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.meta {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+/* Italic and muted, so it reads as "nobody set one" rather than as
+   a number that came back wrong. */
+.noTarget {
+  font-style: italic;
+}

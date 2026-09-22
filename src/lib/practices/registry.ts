@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { PracticeCategory } from "./categories";
 import type { Role } from "@/lib/types";
+import type { ModuleFeature } from "@/lib/subscriptions/service";
 
 // Practices are prompt modules layered onto the existing coaching
 // infrastructure. Same chat UI, same streaming, same tools, same
@@ -32,7 +33,10 @@ export type { PracticeCategory } from "./categories";
 // chat view (see ChatView.tsx). Keeping outputCard values as string
 // tags rather than component references means the registry can be
 // serialized to a client component without losing shape.
-export type OutputCardName = "ScriptCard" | "ChartProposalCard";
+export type OutputCardName =
+  | "ScriptCard"
+  | "ChartProposalCard"
+  | "RoleDescriptionCard";
 
 export type Practice = {
   id: string;
@@ -94,7 +98,69 @@ export type Practice = {
   //   card renderer that consumes it. Absent means no card
   //   integration (plain text turns).
   outputCard?: Readonly<Record<string, OutputCardName>>;
+  // tools
+  //   Tools registered for THIS practice and nowhere else. The
+  //   general coach's tool list is built by buildCoachTools and is
+  //   unchanged; these are added on top when this practice is the
+  //   one running.
+  //
+  //   Per-practice rather than global because a tool the model can
+  //   always see is a tool it will sometimes reach for. The chart
+  //   and the Foundation are the Role Description Builder's working
+  //   material and nobody else's, and a coach that can list every
+  //   function is a coach that will list every function.
+  //
+  //   String tags, not functions, so the registry stays
+  //   serializable to the client components that render the picker.
+  //   The route resolves them; an unknown tag is dropped rather
+  //   than thrown, because a typo here should cost the agent a tool
+  //   and not the conversation.
+  tools?: readonly PracticeToolName[];
+  // feature
+  //   When present, the practice is hidden from the picker and its
+  //   launch refused unless the scoped company has this feature.
+  //   Absent means every company.
+  //
+  //   Added with the Role Description Creator, which had been
+  //   DESCRIBED as feature-gated without being one: the card it
+  //   writes to only renders for companies with role_descriptions,
+  //   so a company without it could run the agent, press Save, and
+  //   have the document land somewhere they cannot see.
+  feature?: ModuleFeature;
+  // alsoFunctionLeads
+  //   Admits anybody who heads up a function on this company's
+  //   chart, on top of allowedRoles. A seat's Lead is usually a
+  //   team_member, and a role description is a description of their
+  //   own seat, so a list of platform roles cannot express who
+  //   should reach this. The relationship can: they lead a function.
+  //
+  //   The write it unlocks is narrower than the agent. A lead saves
+  //   the document for the function THEY lead; RLS says so in 0222
+  //   and saveRoleDescriptionAction says so before the database is
+  //   asked.
+  alsoFunctionLeads?: boolean;
+  // maxTokens
+  //   Ceiling for one assistant turn, when the default is not
+  //   enough. Absent means the route's default, which suits a
+  //   conversational turn.
+  //
+  //   An agent that emits a whole DOCUMENT in one turn does not fit
+  //   that shape. A role description is a dozen sections of prose
+  //   and lists; at the default it came back cut off mid-sentence
+  //   with no closing fence, which the card could only report as
+  //   "didn't come back in a shape this card can read". The truncation
+  //   is invisible in the stream — the text simply stops — so the
+  //   symptom looks like a malformed payload and the remedy looks
+  //   like re-emitting it, which truncates again.
+  maxTokens?: number;
 };
+
+// The tool sets a practice may declare. Adding one means adding a
+// builder to the resolver in the coach route.
+export type PracticeToolName =
+  | "get_foundation"
+  | "list_functions"
+  | "get_role_description";
 
 export const PRACTICES: readonly Practice[] = [
   {
@@ -150,13 +216,48 @@ export const PRACTICES: readonly Practice[] = [
     title: "Functional Chart Builder",
     description:
       "Build a clear accountability chart: the functions your business needs, before the people who fill them.",
-    category: "Structure",
+    category: "People",
     promptFile: "prompts/practices/functional-chart-builder.md",
     chips: ["I need to create my functional chart"],
     basePromptMode: "voice_only",
     skipSetup: false,
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
     outputCard: { chart_proposal: "ChartProposalCard" },
+  },
+  {
+    id: "role-description",
+    title: "Role Description Creator",
+    description:
+      "Create downloadable role descriptions that integrate company context like industry, and organizational culture.",
+    category: "People",
+    promptFile: "prompts/practices/role-description.md",
+    // Two chips, because the second is a whole path the leader
+    // would otherwise have to discover by answering "no" to the
+    // first. A role that is not on the chart is a first-class case,
+    // not an exception.
+    chips: [
+      "Write a role description for a seat on our Functional Chart",
+      "Write a role description for a role that is not on the chart",
+    ],
+    basePromptMode: "voice_only",
+    skipSetup: true,
+    allowedRoles: ["company_admin", "system_admin", "aims_guide"],
+    // get_role_description registers only when the conversation is
+    // revising something, so a fresh interview never sees it.
+    tools: ["get_foundation", "list_functions", "get_role_description"],
+    // NOT feature-gated. role_descriptions gates the surfaces this
+    // agent replaced — decision rights, competency indicators, the
+    // generator page — and that flag is being switched off fleet-
+    // wide (0223). Tying the agent to it would take the agent down
+    // with them. Who can reach it is a question about the person:
+    // the three roles below, plus anyone who heads up a function.
+    alsoFunctionLeads: true,
+    // The assembled document, measured: ~6KB of JSON before the
+    // prose sections are full length, and a revision carries every
+    // untouched section through verbatim. 2000 truncated it twice in
+    // a row.
+    maxTokens: 8000,
+    outputCard: { role_description: "RoleDescriptionCard" },
   },
 ] as const;
 

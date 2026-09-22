@@ -8,7 +8,12 @@ import {
   listSharesForConversation,
 } from "@/lib/coach/service";
 import { PRACTICES, findPractice } from "@/lib/practices/registry";
-import { practiceRoleGate } from "@/lib/practices/gate";
+import { practiceFeatureGate, practiceRoleGate } from "@/lib/practices/gate";
+import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { getCurrentRoleDescription } from "@/lib/role-descriptions/roles-list";
+import { RoleDescriptionView } from "@/components/role-descriptions/RoleDescriptionView";
+import styles from "../revision.module.css";
+import { leadsAnyFunction } from "@/lib/practices/function-leads";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 import { ShareChatButton } from "./ShareChatButton";
@@ -124,12 +129,44 @@ export default async function AskAimeeChatPage({
   // caller is the owner — sharees don't get to switch the agent.
   // Gated against the conversation's company, which is the company
   // the practice would actually run against.
+  // Read once and filtered in memory. getCompanyFeatures is
+  // request-cached, so asking per practice would have been free too;
+  // this just reads as what it is.
+  // The document being revised, read here and rendered above the
+  // thread. Server-side, from the saved version: it is already on
+  // file, so asking the model to reproduce it would cost a call, add
+  // latency, and eventually produce something that is nearly the
+  // document.
+  const revisingRoleId =
+    (conversation as { revising_role_id?: string | null }).revising_role_id ??
+    null;
+  const revisingDoc = revisingRoleId
+    ? await getCurrentRoleDescription(revisingRoleId)
+    : null;
+
+  const companyFeatures = await getCompanyFeatures(conversation.company_id);
+  // Asked once, and only when some practice actually admits leads,
+  // so a company with no such agent pays nothing for the concept.
+  const isFunctionLead =
+    PRACTICES.some((p) => p.alsoFunctionLeads) &&
+    (await leadsAnyFunction(session.profile.id, conversation.company_id));
   const agentPickerPractices =
     access === "owner"
       ? PRACTICES.filter((p) => {
+          const hasFeature = p.feature
+            ? companyFeatures.includes(p.feature)
+            : true;
+          if (!practiceFeatureGate(p, hasFeature).ok) return false;
           if (!p.allowedRoles) return true;
-          return practiceRoleGate(p, session.profile, conversation.company_id)
-            .ok;
+          if (
+            practiceRoleGate(p, session.profile, conversation.company_id).ok
+          ) {
+            return true;
+          }
+          // The card and the gate have to agree. A lead who is
+          // refused here and admitted by practiceGate would find the
+          // agent only by guessing the URL.
+          return p.alsoFunctionLeads === true && isFunctionLead;
         })
       : null;
 
@@ -159,6 +196,17 @@ export default async function AskAimeeChatPage({
         }))}
         practice={practice}
         agentPickerPractices={agentPickerPractices}
+        autoOpen={revisingRoleId != null}
+        revisionPreamble={
+          revisingDoc ? (
+            <section className={styles.revisionPreamble}>
+              <p className={styles.revisionPreambleLabel}>
+                Currently saved · version {revisingDoc.versionNumber}
+              </p>
+              <RoleDescriptionView doc={revisingDoc.doc} />
+            </section>
+          ) : null
+        }
         access={access}
         currentUserId={session.profile.id}
         senders={senders}

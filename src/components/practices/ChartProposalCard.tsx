@@ -35,6 +35,13 @@ import styles from "./ChartProposalCard.module.css";
 //     revision produces a fresh card; the disabled state is scoped
 //     to THIS card's Apply, not global.
 
+// The nudge lives with the card that knows what failed to parse.
+// It used to live in ChatView, closed over by a no-argument
+// callback, which meant every card asked the model to re-emit a
+// chart_proposal.
+const CHART_FIX_NUDGE =
+  "Please re-emit the chart_proposal fenced block using the exact schema — top_seats and functions with responsibilities, sub_functions only if we split anything. Leave Lead, Track, and Decide out of the responsibilities; the platform adds it.";
+
 export function ChartProposalCard({
   raw,
   streaming,
@@ -53,7 +60,7 @@ export function ChartProposalCard({
   // Called when the leader clicks 'Fix the proposal' — parent
   // composes a canned nudge message and sends it as if the user
   // typed it. Optional so the card can render standalone in tests.
-  onFixRequest?: () => void;
+  onFixRequest?: (nudge: string) => void;
 }) {
   const [applyResult, setApplyResult] = useState<ApplySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +83,7 @@ export function ChartProposalCard({
               <button
                 type="button"
                 className={styles.ghostButton}
-                onClick={onFixRequest}
+                onClick={() => onFixRequest(CHART_FIX_NUDGE)}
               >
                 Fix the proposal
               </button>

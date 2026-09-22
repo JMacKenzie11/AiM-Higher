@@ -15,7 +15,7 @@ import {
   type ShareCandidate,
 } from "./service";
 import { findPractice, type Practice } from "@/lib/practices/registry";
-import { practiceRoleGate } from "@/lib/practices/gate";
+import { practiceGate } from "@/lib/practices/gate";
 import { cleanGeneratedTitle } from "./title";
 import { logCoachTokenUsage } from "./usage";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -259,7 +259,7 @@ export async function setConversationAgentAction(
     if (!candidate) {
       return { ok: false, message: "That agent isn't available." };
     }
-    const gate = practiceRoleGate(
+    const gate = await practiceGate(
       candidate,
       session.profile,
       convo.company_id
@@ -471,7 +471,7 @@ export async function generateConversationTitleAction(
   let generated: string | null = null;
   try {
     const response = await client.messages.create({
-      model: "claude-haiku-4-5",
+      model: "claude-sonnet-5",
       max_tokens: 40,
       system:
         "You produce short, specific titles for coaching conversations. Return 4–8 words of plain text that capture the topic. No quotes, no trailing punctuation, no markdown formatting (no asterisks, underscores, backticks, or hash marks). Prefer concrete nouns and verbs over generic labels.",
@@ -487,7 +487,7 @@ export async function generateConversationTitleAction(
         conversationId: convo.id,
         companyId: convo.company_id,
         purpose: "title",
-        model: "claude-haiku-4-5",
+        model: "claude-sonnet-5",
         usage: response.usage,
       });
     }

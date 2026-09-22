@@ -21,6 +21,8 @@ import {
   saveRoleDescription,
 } from "@/lib/role-descriptions/cache";
 import { listPublishedVersions } from "@/lib/role-descriptions/versions";
+import { parseRoleDescription } from "@/lib/role-descriptions/parse-document";
+import { RoleDescriptionView } from "@/components/role-descriptions/RoleDescriptionView";
 import { PageShell } from "@/components/ui/PageShell";
 import { EditableProseSection } from "./EditableProseSection";
 import { EditableQualification } from "./EditableQualification";
@@ -89,6 +91,29 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
   ]);
   const coreValues = (valuesRaw ?? []).map((v: { title: string }) => v.title);
 
+  // A document the agent wrote, if there is one. It wins over the
+  // generator, because it is the thing a person sat down and agreed
+  // section by section rather than the thing a model assembled from
+  // the chart on page load.
+  //
+  // Rendered through RoleDescriptionView, which is also what the
+  // card renders. A saved page assembled by different code from the
+  // card that previewed it eventually shows something the card did
+  // not, and the leader finds out after they have sent it on.
+  const { data: agentRows } = await supabase
+    .from("role_description_versions")
+    .select("version_number, body_json, published_at")
+    .eq("function_id", detail.fn.id)
+    .not("body_json", "is", null)
+    .order("version_number", { ascending: false })
+    .limit(1);
+  const agentRow = (agentRows ?? [])[0] as
+    | { version_number: number; body_json: unknown; published_at: string }
+    | undefined;
+  const agentDoc = agentRow
+    ? parseRoleDescription(JSON.stringify(agentRow.body_json))
+    : null;
+
   // Access: anyone signed in with visibility on the function (RLS
   // enforces same-company or system_admin) can view the RD. Edit
   // affordances (Regenerate, Publish, edit Position Summary / Why)
@@ -116,21 +141,32 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
         ) : undefined
       }
     >
-      {!readiness.allReady ? (
+      {/* The readiness banner belongs to the generator's path. An
+          agent document is complete by construction: the interview
+          does not finish until every section is agreed, so counting
+          filled-in gates against it would report a shortfall that
+          does not exist. */}
+      {agentDoc === null && !readiness.allReady ? (
         <p className={styles.previewBanner}>
           Preview — {readiness.readyCount} of {readiness.total} sections
           filled in. Sections with no content are hidden.
         </p>
       ) : null}
 
-      <Suspense fallback={<GeneratingSkeleton />}>
-        <AssembledDocument
-          detail={detail}
-          currentUserId={currentUserId}
-          canRegenerate={canEditProse}
-          coreValues={coreValues}
-        />
-      </Suspense>
+      {agentDoc ? (
+        <section className={styles.agentDocument}>
+          <RoleDescriptionView doc={agentDoc} />
+        </section>
+      ) : (
+        <Suspense fallback={<GeneratingSkeleton />}>
+          <AssembledDocument
+            detail={detail}
+            currentUserId={currentUserId}
+            canRegenerate={canEditProse}
+            coreValues={coreValues}
+          />
+        </Suspense>
+      )}
 
       <VersionsSection
         functionId={detail.fn.id}
@@ -376,9 +412,16 @@ async function AssembledDocument({
         </Section>
       ) : null}
 
-      {/* 8 · Competency Indicators — from chart */}
+      {/* 8 · What excellence looks like — from chart.
+          Renamed from "Competency Indicators" when the Role
+          Description Builder landed: the section ties each core
+          value to observable behaviour in this seat, and
+          "competency indicator" named the column rather than the
+          thing a reader is looking at. The chart's own editing
+          section still says Competency Indicators, because that is
+          still the column's name until it is migrated. */}
       {detail.competencies.length > 0 ? (
-        <Section id="rd-competencies" title="Competency Indicators">
+        <Section id="rd-competencies" title="What excellence looks like">
           <ol className={styles.rdSimpleList}>
             {detail.competencies.map((c) => (
               <li key={c.id} className={styles.rdSimpleItem}>

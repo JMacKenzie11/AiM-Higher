@@ -6,7 +6,7 @@ import Anthropic from "@anthropic-ai/sdk";
 // var so both modules pin the same model when it's set.
 
 export const ANTHROPIC_MODEL =
-  process.env.ANTHROPIC_COACH_MODEL || "claude-sonnet-4-6";
+  process.env.ANTHROPIC_COACH_MODEL || "claude-sonnet-5";
 
 let _client: Anthropic | null = null;
 

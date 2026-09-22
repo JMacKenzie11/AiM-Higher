@@ -1,0 +1,52 @@
+/* The Role Description card. Same frame as ChartProposalCard, so an
+   agent output reads as an agent output whichever agent made it. */
+.card {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  margin: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.building,
+.malformed {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.error {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--aims-danger);
+  background: var(--aims-danger-tint);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.primary {
+  composes: btn btnPrimary btnSm from "@/components/ui/ui.module.css";
+}
+
+.secondary {
+  composes: btn btnGhost btnSm from "@/components/ui/ui.module.css";
+}
+
+.savedNote {
+  font: var(--text-body-sm);
+  color: var(--aims-success, var(--primary));
+  font-weight: 600;
+}

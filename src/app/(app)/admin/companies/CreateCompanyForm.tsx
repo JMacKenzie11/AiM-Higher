@@ -71,7 +71,7 @@ export function CreateCompanyForm() {
       <div className={`${styles.field} ${styles.formFull}`}>
         <span className={styles.label}>Features</span>
         <ul className={styles.featureList}>
-          {COMPANY_FEATURES.map((f) => (
+          {COMPANY_FEATURES.filter((f) => !f.hidden).map((f) => (
             <li key={f.value} className={styles.featureItem}>
               <label className={styles.featureRow}>
                 <input

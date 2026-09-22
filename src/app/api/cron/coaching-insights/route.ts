@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const MODEL = "claude-haiku-4-5";
+const MODEL = "claude-sonnet-5";
 const PROMPT_VERSION = 1;
 const BATCH_LIMIT = 40;
 // Cap transcript payload so a runaway thread can't blow the token

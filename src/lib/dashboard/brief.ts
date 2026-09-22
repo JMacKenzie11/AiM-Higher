@@ -20,7 +20,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // spuriously invalidate at UTC midnight.
 //
 // Model: reuses ANTHROPIC_COACH_MODEL so ops can pin one model
-// across coaching + brief. Falls back to claude-sonnet-4-6 if unset.
+// across coaching + brief. Falls back to claude-sonnet-5 if unset.
 
 export type DashboardBrief = {
   content: string;
@@ -55,7 +55,7 @@ const PROMPT_HASH = crypto
   .digest("hex")
   .slice(0, 16);
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 400;
 
 export async function getOrGenerateDashboardBrief(

@@ -5,6 +5,10 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getPeopleRoster } from "@/lib/people/service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { PageShell } from "@/components/ui/PageShell";
+import { isAdminForCompany } from "@/lib/auth/permissions";
+import { listRoleDescriptions } from "@/lib/role-descriptions/roles-list";
+import { leadsAnyFunction } from "@/lib/practices/function-leads";
+import { RoleDescriptionsCard } from "@/components/role-descriptions/RoleDescriptionsCard";
 import { InviteForm } from "../admin/companies/[id]/InviteForm";
 import { RowActionsMenu } from "./RowActionsMenu";
 import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
@@ -88,6 +92,27 @@ export default async function PeoplePage() {
   if (!companyId) redirect("/admin/companies");
 
   const { people } = await getPeopleRoster(companyId);
+
+  // Saved role descriptions live here rather than on a page of
+  // their own: a role description is about a seat, the people are
+  // on this page, and a usually-short list does not earn a twelfth
+  // item in the sidebar.
+  //
+  // NOT gated on role_descriptions. That flag gates the surfaces
+  // the agent replaced and is going off fleet-wide; gating the
+  // place documents land on a flag the agent that writes them does
+  // not carry is how somebody saves into a list they cannot see.
+  // The card renders empty for a company that has written none,
+  // which is the honest state rather than a hidden one.
+  const savedRoles = await listRoleDescriptions(companyId);
+
+  // One answer for the page: an admin or assigned guide may revise
+  // any of their company's, and so may anyone who heads up a
+  // function. Heading up a function is the threshold rather than a
+  // claim over one row, so this no longer varies by role.
+  const canRevise =
+    isAdminForCompany(session.profile, companyId) ||
+    (await leadsAnyFunction(session.profile.id, companyId));
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
@@ -224,6 +249,13 @@ export default async function PeoplePage() {
           <InviteForm companyId={companyId} />
         </section>
       ) : null}
+
+      <section className={styles.card} aria-labelledby="role-descriptions">
+        <h2 id="role-descriptions" className={styles.h2}>
+          Role Descriptions
+        </h2>
+        <RoleDescriptionsCard roles={savedRoles} canRevise={canRevise} />
+      </section>
     </PageShell>
   );
 }

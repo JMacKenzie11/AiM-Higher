@@ -5,7 +5,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CoachingConversation } from "@/lib/coach/service";
 import { findPractice } from "./registry";
-import { practiceRoleGate } from "./gate";
+import { practiceGate } from "./gate";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Pure creation logic for a practice conversation. Kept in its own
@@ -25,7 +25,14 @@ export type CreateResult =
   | { ok: false; message: string };
 
 export async function createPracticeConversation(
-  practiceId: string
+  practiceId: string,
+  // The role description this conversation was opened to revise, if
+  // any. Recorded on the row rather than inferred later: the
+  // conversation the document came from is private to whoever held
+  // it, so a second person revising it is always somewhere new, and
+  // nothing about the new conversation would otherwise say which
+  // document it is about. Migration 0224.
+  options?: { revisingRoleId?: string }
 ): Promise<CreateResult> {
   const practice = findPractice(practiceId);
   if (!practice) {
@@ -46,7 +53,7 @@ export async function createPracticeConversation(
     };
   }
 
-  const gate = practiceRoleGate(practice, session.profile, companyId);
+  const gate = await practiceGate(practice, session.profile, companyId);
   if (!gate.ok) return gate;
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
@@ -61,6 +68,7 @@ export async function createPracticeConversation(
       context_kind: "execution",
       mode: "general",
       practice_id: practice.id,
+      revising_role_id: options?.revisingRoleId ?? null,
     })
     .select("*")
     .single<CoachingConversation>();

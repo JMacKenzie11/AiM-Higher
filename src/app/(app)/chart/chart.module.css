@@ -2070,3 +2070,8 @@
   font: var(--text-body);
   color: var(--text-heading);
 }
+
+/* A single link on its own line, between cards. */
+.crumbRow {
+  margin: 0;
+}

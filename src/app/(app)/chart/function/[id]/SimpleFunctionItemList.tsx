@@ -2,8 +2,6 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import type { RdTarget } from "@/lib/role-descriptions/recommend";
-import { SuggestOptionsPopover } from "./SuggestOptionsPopover";
 import { AddRowButton } from "@/components/ui/AddRowButton";
 import styles from "../../chart.module.css";
 
@@ -48,8 +46,6 @@ export function SimpleFunctionItemList<T extends BaseItem>({
   createAction,
   renameAction,
   deleteAction,
-  suggestTarget,
-  suggestButtonLabel,
   onChanged,
 }: {
   functionId: string;
@@ -63,11 +59,6 @@ export function SimpleFunctionItemList<T extends BaseItem>({
   ) => Promise<CreateResult<T>>;
   renameAction: (id: string, newTitle: string) => Promise<RenameResult<T>>;
   deleteAction: (id: string) => Promise<DeleteResult>;
-  // When present, renders a "Suggest options" popover under the
-  // draft row. Omit (or pass undefined) to hide — for example when
-  // the company doesn't have role_descriptions enabled.
-  suggestTarget?: RdTarget;
-  suggestButtonLabel?: string;
   onChanged?: () => void;
 }) {
   return (
@@ -92,22 +83,6 @@ export function SimpleFunctionItemList<T extends BaseItem>({
           placeholder={addPlaceholder}
           createAction={createAction}
           onChanged={onChanged}
-        />
-      ) : null}
-      {canEdit && suggestTarget ? (
-        <SuggestOptionsPopover
-          functionId={functionId}
-          target={suggestTarget}
-          buttonLabel={suggestButtonLabel ?? "Suggest options"}
-          onSave={async (t, b) => {
-            const fd = new FormData();
-            fd.set("function_id", functionId);
-            fd.set("title", t);
-            if (b) fd.set("body", b);
-            const r = await createAction(undefined, fd);
-            if (r.ok) onChanged?.();
-            return r.ok ? { ok: true } : { ok: false, message: r.message };
-          }}
         />
       ) : null}
     </div>

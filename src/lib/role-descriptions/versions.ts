@@ -16,6 +16,10 @@ export type PublishedVersion = {
   versionNumber: number;
   snapshotDocument: RdDocument;
   snapshotOverrides: RdUserOverrides | null;
+  // The agent's document, when the agent wrote this version. The
+  // Sonnet generator leaves it null and fills snapshotDocument
+  // instead; a version carries one or the other, never both.
+  bodyJson: unknown | null;
   notes: string | null;
   publishedBy: string | null;
   publishedByName: string | null;
@@ -29,7 +33,7 @@ export async function listPublishedVersions(
   const { data } = await supabase
     .from("role_description_versions")
     .select(
-      "id, function_id, version_number, snapshot_document, snapshot_overrides, notes, published_by, published_at, profiles:published_by (full_name)"
+      "id, function_id, version_number, snapshot_document, snapshot_overrides, body_json, notes, published_by, published_at, profiles:published_by (full_name)"
     )
     .eq("function_id", functionId)
     .order("version_number", { ascending: false });
@@ -39,6 +43,7 @@ export async function listPublishedVersions(
     version_number: number;
     snapshot_document: RdDocument;
     snapshot_overrides: RdUserOverrides | null;
+    body_json: unknown | null;
     notes: string | null;
     published_by: string | null;
     published_at: string;
@@ -49,6 +54,7 @@ export async function listPublishedVersions(
     versionNumber: row.version_number,
     snapshotDocument: row.snapshot_document,
     snapshotOverrides: row.snapshot_overrides,
+    bodyJson: row.body_json ?? null,
     notes: row.notes,
     publishedBy: row.published_by,
     publishedByName: firstProfileName(row.profiles),
@@ -64,7 +70,7 @@ export async function getPublishedVersion(
   const { data } = await supabase
     .from("role_description_versions")
     .select(
-      "id, function_id, version_number, snapshot_document, snapshot_overrides, notes, published_by, published_at, profiles:published_by (full_name)"
+      "id, function_id, version_number, snapshot_document, snapshot_overrides, body_json, notes, published_by, published_at, profiles:published_by (full_name)"
     )
     .eq("function_id", functionId)
     .eq("version_number", versionNumber)
@@ -74,6 +80,7 @@ export async function getPublishedVersion(
       version_number: number;
       snapshot_document: RdDocument;
       snapshot_overrides: RdUserOverrides | null;
+      body_json: unknown | null;
       notes: string | null;
       published_by: string | null;
       published_at: string;
@@ -85,6 +92,7 @@ export async function getPublishedVersion(
     functionId: data.function_id,
     versionNumber: data.version_number,
     snapshotDocument: data.snapshot_document,
+    bodyJson: data.body_json ?? null,
     snapshotOverrides: data.snapshot_overrides,
     notes: data.notes,
     publishedBy: data.published_by,
