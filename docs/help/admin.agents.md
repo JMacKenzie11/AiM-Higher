@@ -25,7 +25,7 @@ There is no per-company copy of an agent.
       one or more and it is limited to those. Guides also need to
       be assigned to the company.
     - **Functional Leads.** Anyone who leads a function as per the
-      functional chart, even when their role is not ticked.
+      functional chart, even when their role is not checked.
       Useful for an agent about a function, where the lead is
       usually a team member.
     - **Feature.** Pick a feature and only companies that have it
@@ -39,13 +39,33 @@ There is no per-company copy of an agent.
 - **Add, rename, reorder and hide categories** in the lower card.
   Categories are the headings agents are grouped under.
 
+- **Config** an agent to change what it says and how it behaves:
+  its wording, its opening chips, which tools it can use, its
+  token ceiling and its model.
+    - An agent starts out running the version set in the code.
+      **Edit in Hub** copies that into a draft. Nothing changes
+      for anyone until you publish.
+    - **Save** keeps working on the draft. **Preview** opens a
+      real conversation running the draft, visible only to you
+      and left out of every usage report. Both save what is on
+      screen first, so they always use what you are looking at.
+    - **Review and publish** shows what changed against the
+      version that is live now, or against the code default if
+      nothing has been published. Publish notes are required:
+      they are the record of why every company's agent changed.
+    - **History** lists every version with its notes and who
+      published it. **Make live** puts an older one back, and
+      asks for its own note.
+    - **Revert to code default** goes back to the version set in
+      the code.
+
 ## What you cannot do here
 
-**Change what an agent says.** The questions it asks, the order
-it asks them in, and what it produces at the end are set by the
-AiMS engineering team, not on this page. If an agent is asking
-the wrong thing, that is a change to request rather than one to
-make here.
+**Change an agent mid-conversation.** A conversation keeps the
+version it started with for its whole life. Publish while someone
+is mid-chat and they finish on what they started with; their next
+conversation picks up the new one. This is deliberate, and it is
+what makes publishing and reverting safe to press.
 
 **Create a new agent.** New agents are added by the engineering
 team. This page shapes the ones that exist.
@@ -53,9 +73,9 @@ team. This page shapes the ones that exist.
 ## Common questions
 
 **Somebody says an agent has disappeared.** Check two things on its
-Access panel: is their role ticked, and does their company have the
+Access panel: is their role checked, and does their company have the
 feature you chose. If neither explains it and the person leads a
-function, check whether Functional Leads is ticked. The summary line
+function, check whether Functional Leads is checked. The summary line
 on the agent's row shows all of it at a glance.
 
 **I hid an agent by mistake.** Press *Show again* on its row.
@@ -73,3 +93,13 @@ editing around it.
 **Does renaming an agent break old conversations?** No. A
 conversation stays attached to the agent it started with and
 picks up the new name.
+
+**I published something wrong. What now?** Open Config, go to
+History, and press *Make live* on the version you want back. It
+asks for a note. Anyone mid-conversation was never affected;
+anyone starting one after you press it gets the restored version.
+
+**Why does the draft's version number keep going up?** Every save
+writes a new version rather than changing the last one. Nothing can
+be edited after the fact, which is what lets a conversation safely
+keep the exact version it started with.

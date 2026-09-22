@@ -338,7 +338,6 @@ export function AgentHubEditor({
           slug={openAgent.slug}
           title={openAgent.title}
           pending={pending}
-          run={run}
           onClose={() => setDrawer(null)}
         />
       ) : null}

@@ -56,7 +56,6 @@ type Props = {
   slug: string;
   title: string;
   pending: boolean;
-  run: (fn: () => Promise<VersionResult>) => void;
   onClose: () => void;
 };
 
@@ -80,7 +79,6 @@ export function AgentConfigDrawer({
   slug,
   title,
   pending,
-  run,
   onClose,
 }: Props) {
   const router = useRouter();
@@ -90,6 +88,30 @@ export function AgentConfigDrawer({
   // render one drawer would put every agent's wording in the page.
   const [config, setConfig] = useState<AgentConfigView | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  // Bumped after every action, because this drawer owns its own
+  // data. router.refresh() re-renders the PAGE; it does not re-run
+  // an effect in a component whose props did not change, so without
+  // this the drawer kept showing the config it fetched on open —
+  // "Edit in Hub" appeared to do nothing at all.
+  const [reloadKey, setReloadKey] = useState(0);
+  // "Saved" paints only once the REFETCH has landed, never when the
+  // action returns.
+  //
+  // The first version of this set a flag the moment saveDraftAction
+  // resolved, which made it a lie: the drawer's own copy of the
+  // draft lags a save by one refetch, so the indicator said "saved"
+  // while the form on screen was still pointed at the previous
+  // version. A test that waited on it still raced, and an admin
+  // reading it would have been told the same untruth.
+  //
+  // So it is derived from evidence instead. A save inserts a NEW
+  // version and moves the draft pointer, so the proof that the
+  // refetch caught up is that the draft's id CHANGED from the one we
+  // saved out of. Until that happens, nothing is claimed.
+  const [savedFrom, setSavedFrom] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
   useEffect(() => {
     let live = true;
     loadAgentConfigAction(agentRowId).then((r) => {
@@ -100,7 +122,28 @@ export function AgentConfigDrawer({
     return () => {
       live = false;
     };
-  }, [agentRowId]);
+  }, [agentRowId, reloadKey]);
+
+  // Every write in this drawer goes through here: run it, surface a
+  // refusal as written, then refetch. router.refresh() still fires
+  // so the row behind the drawer picks up anything that changed
+  // there too.
+  async function act(fn: () => Promise<VersionResult>): Promise<VersionResult> {
+    setBusy(true);
+    setLoadError(null);
+    try {
+      const result = await fn();
+      if (!result.ok) {
+        setLoadError(result.message);
+      } else {
+        setReloadKey((k) => k + 1);
+        router.refresh();
+      }
+      return result;
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const draft = config?.draft ?? null;
   const [view, setView] = useState<"config" | "publish" | "history">("config");
@@ -121,6 +164,15 @@ export function AgentConfigDrawer({
     if (draft) setForm(shapeOf(draft));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId]);
+
+  // The evidence the save landed: the refetched draft is a different
+  // row from the one we saved out of.
+  useEffect(() => {
+    if (savedFrom && draftId && draftId !== savedFrom) {
+      setSaved(true);
+      setSavedFrom(null);
+    }
+  }, [draftId, savedFrom]);
 
   function set<K extends keyof ConfigShape>(key: K, value: ConfigShape[K]) {
     setForm((f) => (f ? { ...f, [key]: value } : f));
@@ -172,9 +224,11 @@ export function AgentConfigDrawer({
             <button
               type="button"
               className={admin.primaryButton}
-              disabled={pending}
+              disabled={pending || busy}
               onClick={() =>
-                run(async () => {
+                void act(async () => {
+                  setSaved(false);
+                  setSavedFrom(draft?.id ?? null);
                   return saveDraftAction(agentRowId, toDraftInput(form));
                 })
               }
@@ -184,7 +238,7 @@ export function AgentConfigDrawer({
             <button
               type="button"
               className={admin.ghostButton}
-              disabled={pending}
+              disabled={pending || busy}
               onClick={() => setView("publish")}
             >
               Review and publish
@@ -195,7 +249,7 @@ export function AgentConfigDrawer({
             type="button"
             className={admin.ghostButton}
             onClick={onClose}
-            disabled={pending}
+            disabled={pending || busy}
           >
             Close
           </button>
@@ -244,10 +298,10 @@ export function AgentConfigDrawer({
               <button
                 type="button"
                 className={admin.primaryButton}
-                disabled={pending}
+                disabled={pending || busy}
                 data-testid="agent-config-edit-in-hub"
                 onClick={() =>
-                  run(async () => startDraftAction(agentRowId, slug))
+                  void act(() => startDraftAction(agentRowId, slug))
                 }
               >
                 Edit in Hub
@@ -256,9 +310,9 @@ export function AgentConfigDrawer({
                 <button
                   type="button"
                   className={admin.dangerGhost}
-                  disabled={pending}
+                  disabled={pending || busy}
                   onClick={() =>
-                    run(async () => revertToCodeAction(agentRowId))
+                    void act(() => revertToCodeAction(agentRowId))
                   }
                 >
                   Revert to code default
@@ -275,6 +329,16 @@ export function AgentConfigDrawer({
               Draft, version {draft.versionNumber}. Not live. Save keeps
               working on it; publish sends it to every company.
             </p>
+            {saved ? (
+              <p
+                className={admin.successMessage}
+                role="status"
+                data-testid="agent-config-saved"
+              >
+                Saved as version {draft.versionNumber}. Preview and Publish
+                save again first, so both always use what is on screen.
+              </p>
+            ) : null}
 
             <div className={admin.field}>
               <label className={admin.label} htmlFor="cfg-prompt">
@@ -433,14 +497,28 @@ export function AgentConfigDrawer({
               <button
                 type="button"
                 className={admin.ghostButton}
-                disabled={pending}
+                disabled={pending || busy}
                 data-testid="agent-config-preview"
                 onClick={() =>
-                  run(async () => {
+                  void act(async () => {
+                    // SAVE FIRST, then preview the version just
+                    // written. Previewing `draft.id` meant previewing
+                    // the last SAVED state, not what is on screen —
+                    // and worse, the drawer's own copy of the draft
+                    // lags a save by one refetch, so pressing Save
+                    // then Preview previewed the version from before
+                    // the save. Publish already works this way; so
+                    // should this, and for the same reason: what you
+                    // are looking at is what should run.
+                    const saved = await saveDraftAction(
+                      agentRowId,
+                      toDraftInput(form)
+                    );
+                    if (!saved.ok) return saved;
                     const r = await startPreviewAction(
                       agentRowId,
                       slug,
-                      draft.id
+                      saved.versionId!
                     );
                     if (r.ok && r.conversationId) {
                       router.push(`/ask-aimee/${r.conversationId}`);
@@ -454,9 +532,9 @@ export function AgentConfigDrawer({
               <button
                 type="button"
                 className={admin.dangerGhost}
-                disabled={pending}
+                disabled={pending || busy}
                 data-testid="agent-config-discard"
-                onClick={() => run(async () => discardDraftAction(agentRowId))}
+                onClick={() => void act(() => discardDraftAction(agentRowId))}
               >
                 Discard draft
               </button>
@@ -536,11 +614,14 @@ export function AgentConfigDrawer({
               <button
                 type="button"
                 className={admin.primaryButton}
-                disabled={pending || !notes.trim()}
+                disabled={pending || busy || !notes.trim()}
                 data-testid="agent-config-publish"
                 onClick={() =>
-                  run(async () => {
-                    const saved = await saveDraftAction(agentRowId, toDraftInput(form));
+                  void act(async () => {
+                    const saved = await saveDraftAction(
+                      agentRowId,
+                      toDraftInput(form)
+                    );
                     if (!saved.ok) return saved;
                     const r = await publishDraftAction(
                       agentRowId,
@@ -561,7 +642,7 @@ export function AgentConfigDrawer({
                 type="button"
                 className={admin.ghostButton}
                 onClick={() => setView("config")}
-                disabled={pending}
+                disabled={pending || busy}
               >
                 Back
               </button>
@@ -604,9 +685,9 @@ export function AgentConfigDrawer({
                         <button
                           type="button"
                           className={admin.primaryButton}
-                          disabled={pending || !notes.trim()}
+                          disabled={pending || busy || !notes.trim()}
                           onClick={() =>
-                            run(async () => {
+                            void act(async () => {
                               const r = await publishDraftAction(
                                 agentRowId,
                                 v.id,
@@ -628,7 +709,7 @@ export function AgentConfigDrawer({
                         type="button"
                         className={admin.ghostButton}
                         onClick={() => setPublishing(v.id)}
-                        disabled={pending}
+                        disabled={pending || busy}
                       >
                         Make live
                       </button>
