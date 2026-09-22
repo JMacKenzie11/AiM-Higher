@@ -1,7 +1,20 @@
+/* ABOVE THE DRAWER, not level with it.
+ 
+   This was 60, the same as the drawer's scrim, with the drawer's
+   panel at 61. A dialog opened from inside a drawer therefore
+   rendered UNDER the panel it was opened from: on /chart, "Delete
+   function" in the function panel put its confirmation half behind
+   the panel, with the Delete button in the covered half. Visible,
+   readable, and impossible to click.
+ 
+   70 clears the drawer and stays under the help widget at 100, which
+   is the one thing in this app deliberately above everything. A
+   dialog is always the most recent thing the user asked for, so it
+   belongs above whatever asked for it. */
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 70;
   background: rgba(17, 21, 26, 0.42);
   display: flex;
   align-items: center;
