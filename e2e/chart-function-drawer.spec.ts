@@ -25,7 +25,11 @@ import type { Page } from "@playwright/test";
 //     function* did, on the first pass: it inherited `.dangerZone`,
 //     which is right-aligned, and the `?` bubble is fixed in that
 //     corner at z-index 100. Same incident as /issues' clarity
-//     panel, same check as the one in clarity-drawer.spec.ts.
+//     panel, same check as the one in clarity-drawer.spec.ts;
+//   * a function can be moved under a different parent, and the
+//     picker never offers the function itself. The refusal for a
+//     descendant is unit-tested in descendants.test.ts, because the
+//     picker is what stops anybody reaching it in a browser.
 
 async function scopeIn(page: Page) {
   await signIn(page, users.admin());
@@ -191,4 +195,60 @@ test("switching functions in the drawer does not show the last one", async ({
   await expect(panel.getByRole("button", { name: secondTitle })).toBeVisible({
     timeout: 30_000,
   });
+});
+
+test("a function can be moved to a different parent", async ({ page }) => {
+  test.setTimeout(240_000);
+  await scopeIn(page);
+  await page.goto("/chart");
+
+  const addPanel = page
+    .getByTestId("drawer-panel")
+    .and(page.locator('[data-drawer-name="chart-add-function"]'));
+  const panel = page
+    .getByTestId("drawer-panel")
+    .and(page.locator('[data-drawer-name="chart-function"]'));
+  const title = `E2E move ${Date.now()}`;
+
+  // A throwaway at top level, so the move is visible and nothing a
+  // company depends on is rearranged to prove a point.
+  await page.getByTestId("add-function-button").click();
+  await addPanel.getByLabel(/function title/i).fill(title);
+  await addPanel.getByRole("button", { name: /^Add function$/ }).click();
+  await expect(addPanel).toBeHidden({ timeout: 30_000 });
+
+  const card = page
+    .getByTestId("function-card-button")
+    .filter({ hasText: title });
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await card.click();
+  await expect(panel).toBeVisible({ timeout: 30_000 });
+
+  // Top level says so, rather than saying nothing.
+  await expect(panel.getByText("Top level.")).toBeVisible();
+
+  await panel
+    .getByRole("button", { name: /change where this function sits/i })
+    .click();
+  const select = panel.getByLabel("Sits under");
+  await expect(select).toBeVisible({ timeout: 10_000 });
+
+  // The function is not offered as its own parent. The database has
+  // no constraint against it, and a function that is its own parent
+  // is unreachable from any root: it vanishes off the chart.
+  const options = await select.locator("option").allTextContents();
+  expect(options.some((o) => o.includes(title))).toBe(false);
+  expect(options[0]).toMatch(/top level/i);
+
+  await select.selectOption({ label: "Visionary" });
+
+  await expect(panel.getByRole("button", { name: "Visionary" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(panel.getByText("Top level.")).toBeHidden();
+
+  // ---- Clean up, through the UI -------------------------------
+  await panel.getByRole("button", { name: /delete function/i }).click();
+  await page.getByTestId("confirm-accept").click();
+  await expect(card).toBeHidden({ timeout: 30_000 });
 });

@@ -21,16 +21,21 @@ import { FunctionTitleEditor } from "./function/[id]/FunctionTitleEditor";
 import { DeleteFunctionButton } from "./function/[id]/DeleteFunctionButton";
 import { SimpleFunctionItemList } from "./function/[id]/SimpleFunctionItemList";
 import { ReadinessChecklist } from "./function/[id]/ReadinessChecklist";
+import { FunctionParentEditor } from "./FunctionParentEditor";
 import styles from "./chart.module.css";
 
 // The function's detail, opened over the chart.
 //
 // Everything the /chart/function/[id] page shows is here, drawn by
 // the same components that page uses — one seat editor, one roles
-// list, one readiness card. The page stays for deep links, for the
-// role description underneath it, and for anyone who lands on it
-// from outside; what changed is that clicking a card on the chart
-// no longer has to leave the chart to change a name.
+// list, one readiness card. There is nothing on the page that is
+// not here, so the drawer does not offer a way over to it: a link
+// to a second copy of what you are already looking at is a question
+// ("is there more over there?") with the answer no.
+//
+// The page is still there and still the destination for a deep
+// link, for a team member, and for the role description underneath
+// it. It is simply not somewhere this panel sends anybody.
 //
 // ---- WHY IT FETCHES ON OPEN ------------------------------------
 //
@@ -139,9 +144,14 @@ export function FunctionDrawer({
 
       {detail ? (
         <>
-          {detail.parent ? (
-            <ParentLine parent={detail.parent} onSwitch={onSwitch} />
-          ) : null}
+          <FunctionParentEditor
+            functionId={detail.fn.id}
+            parent={detail.parent}
+            options={detail.parentOptions}
+            canEdit={detail.canEdit}
+            onSwitch={onSwitch}
+            onChanged={refresh}
+          />
 
           <section
             className={styles.fnDrawerSection}
@@ -273,15 +283,6 @@ export function FunctionDrawer({
             </section>
           ) : null}
 
-          <section className={styles.fnDrawerSection}>
-            <a
-              href={`/chart/function/${detail.fn.id}`}
-              className={styles.crumb}
-            >
-              Open the full function page →
-            </a>
-          </section>
-
           {detail.canEdit ? (
             <div className={styles.fnDrawerDanger}>
               <DeleteFunctionButton
@@ -304,26 +305,5 @@ export function FunctionDrawer({
         </p>
       ) : null}
     </Drawer>
-  );
-}
-
-function ParentLine({
-  parent,
-  onSwitch,
-}: {
-  parent: { id: string; title: string };
-  onSwitch: (id: string) => void;
-}) {
-  return (
-    <p className={styles.fnDrawerParent}>
-      Part of{" "}
-      <button
-        type="button"
-        className={styles.fnDrawerJump}
-        onClick={() => onSwitch(parent.id)}
-      >
-        {parent.title}
-      </button>
-    </p>
   );
 }

@@ -3,6 +3,9 @@
 import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getChartFunctionDetail } from "@/lib/chart/service";
+import { parentChoicesFor } from "@/lib/chart/descendants";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { getCachedRoleDescription } from "@/lib/role-descriptions/cache";
 import { computeReadiness } from "@/lib/role-descriptions/readiness";
@@ -32,6 +35,12 @@ import type {
 export type FunctionDrawerDetail = {
   fn: Pick<FunctionNode, "id" | "title" | "company_id">;
   parent: Pick<FunctionNode, "id" | "title"> | null;
+  // Where this function may be moved to: every function on the
+  // chart except itself and its own descendants, indented so a flat
+  // select still reads as a tree. Computed on the server because
+  // the exclusion needs the whole tree, which the drawer does not
+  // otherwise have.
+  parentOptions: Array<{ id: string; title: string }>;
   children: Array<Pick<FunctionNode, "id" | "title">>;
   seatHolder: Pick<Profile, "id" | "full_name"> | null;
   roster: Array<Pick<Profile, "id" | "full_name">>;
@@ -65,6 +74,22 @@ export async function loadFunctionDrawerAction(
   }
 
   const canEdit = isAdminForCompany(session.profile, detail.fn.company_id);
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data: allRows } = await supabase
+    .from("functions")
+    .select("id, title, parent_function_id, sort_order")
+    .eq("company_id", detail.fn.company_id)
+    .eq("archived", false);
+  const parentOptions = parentChoicesFor(
+    detail.fn.id,
+    (allRows ?? []) as Array<{
+      id: string;
+      title: string;
+      parent_function_id: string | null;
+      sort_order: number;
+    }>
+  );
   const rdEnabled = await companyHasFeature(
     detail.fn.company_id,
     "role_descriptions"
@@ -86,6 +111,7 @@ export async function loadFunctionDrawerAction(
         company_id: detail.fn.company_id,
       },
       parent: detail.parent,
+      parentOptions,
       children: detail.children.map((c) => ({ id: c.id, title: c.title })),
       seatHolder: detail.seatHolder,
       roster: detail.roster,
