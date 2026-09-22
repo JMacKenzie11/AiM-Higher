@@ -21,6 +21,30 @@ function rowFor(page: import("@playwright/test").Page) {
   return page.locator(`[data-agent-slug="${SLUG}"]`);
 }
 
+// Open a fresh chat, and survive whatever navigation is still
+// settling from the step before.
+//
+// This used to be three inline lines, and it flaked: clicking
+// straight after goto() raced an RSC navigation left over from the
+// rename's router.refresh(), and Playwright timed out waiting for
+// that navigation to finish while the button sat plainly visible on
+// screen. It passed in isolation and failed in sequence, which is
+// the worst shape for a test to have — the repo's own fixtures.ts
+// notes that a suite going red for no reason gets ignored, then
+// deleted.
+//
+// Asserting the button visible first gives the in-flight navigation
+// somewhere to land before the click is attempted.
+async function startConversation(page: Page): Promise<void> {
+  await page.goto("/ask-aimee");
+  const start = page.getByRole("button", { name: /new conversation/i });
+  await expect(start).toBeVisible({ timeout: 30_000 });
+  await start.click();
+  await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
+    timeout: 30_000,
+  });
+}
+
 test.describe("Agent Hub", () => {
   // Restore runs even when the test failed half way. The first
   // version put the rename-back at the end of the test body, and a
@@ -104,11 +128,7 @@ test.describe("Agent Hub", () => {
     // and that action calls revalidatePath, which Next forbids
     // mid-render. Pre-existing on main and not this PR's to fix; the
     // button is the path a person actually takes.
-    await page.goto("/ask-aimee");
-    await page.getByRole("button", { name: /new conversation/i }).click();
-    await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
-      timeout: 30_000,
-    });
+    await startConversation(page);
     await page
       .getByRole("button", { name: /change agent/i })
       .click({ timeout: 30_000 });
@@ -188,11 +208,7 @@ test.describe("Agent Hub", () => {
 //
 // Read-only. Nothing here writes, so there is nothing to restore.
 async function pickerText(page: Page): Promise<string> {
-  await page.goto("/ask-aimee");
-  await page.getByRole("button", { name: /new conversation/i }).click();
-  await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
-    timeout: 30_000,
-  });
+  await startConversation(page);
   await page
     .getByRole("button", { name: /change agent/i })
     .click({ timeout: 30_000 });
