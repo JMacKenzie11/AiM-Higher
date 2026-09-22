@@ -583,7 +583,11 @@ describe("generateConversationTitleAction", () => {
         conversationId: "conv_1",
         companyId: "co_acme",
         purpose: "title",
-        model: "claude-sonnet-5",
+        // Haiku, and asserted rather than assumed: this value is
+        // what coach_usage_log prices the call at, so a model
+        // change that forgets the log line mis-attributes cost
+        // silently.
+        model: "claude-haiku-4-5",
       })
     );
   });
