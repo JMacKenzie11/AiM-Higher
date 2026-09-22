@@ -308,6 +308,35 @@ function oneOf<T extends string>(
     : fallback;
 }
 
+// Did this payload stop mid-flight?
+//
+// A truncated block and a malformed one both fail to parse, and
+// telling them apart matters because the remedies are opposite. A
+// malformed one is re-emitted and comes back right; a truncated one
+// is re-emitted and truncates again in the same place, which is
+// exactly what a leader saw twice in a row.
+//
+// A FALLBACK, not the mechanism. The server reports the model's own
+// stop_reason, which is the fact; this is for a turn that was on the
+// page before that existed.
+//
+// The test is the closing brace, and nothing cleverer. Sniffing the
+// JSON error message for "unexpected end of input" was the first
+// attempt and it is not portable: V8 rewrote those strings, so the
+// same truncated payload reads as end-of-input on one Node and as
+// "Expected ',' or ']'" on the next.
+//
+// A payload that ran out of room usually stops mid-string or
+// mid-array and so does not end with `}`. One that happens to stop
+// just after a brace is indistinguishable from a malformed document
+// by shape alone — and does not need to be distinguished, because
+// the server already said which it was.
+export function looksTruncated(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (trimmed === "") return false;
+  return !trimmed.endsWith("}");
+}
+
 // Plain text, for Copy. Mirrors chartProposalToPlainText: the text
 // somebody pastes into an email must say what the card says, so
 // both are generated from the parsed document rather than one from

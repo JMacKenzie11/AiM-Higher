@@ -139,6 +139,20 @@ export type Practice = {
   //   and saveRoleDescriptionAction says so before the database is
   //   asked.
   alsoFunctionLeads?: boolean;
+  // maxTokens
+  //   Ceiling for one assistant turn, when the default is not
+  //   enough. Absent means the route's default, which suits a
+  //   conversational turn.
+  //
+  //   An agent that emits a whole DOCUMENT in one turn does not fit
+  //   that shape. A role description is a dozen sections of prose
+  //   and lists; at the default it came back cut off mid-sentence
+  //   with no closing fence, which the card could only report as
+  //   "didn't come back in a shape this card can read". The truncation
+  //   is invisible in the stream — the text simply stops — so the
+  //   symptom looks like a malformed payload and the remedy looks
+  //   like re-emitting it, which truncates again.
+  maxTokens?: number;
 };
 
 // The tool sets a practice may declare. Adding one means adding a
@@ -238,6 +252,11 @@ export const PRACTICES: readonly Practice[] = [
     // with them. Who can reach it is a question about the person:
     // the three roles below, plus anyone who heads up a function.
     alsoFunctionLeads: true,
+    // The assembled document, measured: ~6KB of JSON before the
+    // prose sections are full length, and a revision carries every
+    // untouched section through verbatim. 2000 truncated it twice in
+    // a row.
+    maxTokens: 8000,
     outputCard: { role_description: "RoleDescriptionCard" },
   },
 ] as const;

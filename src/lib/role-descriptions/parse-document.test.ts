@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  looksTruncated,
   parseRoleDescription,
   roleDescriptionToPlainText,
   type RoleDescriptionDoc,
@@ -284,5 +285,56 @@ describe("the field names the model actually reached for", () => {
     expect(doc?.responsibilities[0]?.category).toBe("Right");
     expect(doc?.what_excellence_looks_like[0]?.behaviour).toBe("right");
     expect(doc?.decision_rights.decides).toEqual(["right"]);
+  });
+});
+
+// Truncation, which is a different failure from a malformed shape
+// and has the opposite remedy. A cut-off document re-emitted
+// identically is cut off again in the same place; a malformed one
+// comes back right. Telling them apart is what stops a leader going
+// round the loop twice, which is what happened.
+describe("looksTruncated", () => {
+  it("catches a document that stops mid-string", () => {
+    const cut = JSON.stringify(ON_CHART).slice(0, 400);
+    expect(looksTruncated(cut)).toBe(true);
+  });
+
+  it("catches one that stops mid-array", () => {
+    expect(
+      looksTruncated('{"title":"X","responsibilities":[{"category":"A"},')
+    ).toBe(true);
+  });
+
+  // The honest limit of the fallback, written down rather than
+  // discovered: a payload that stops just after a brace reads as
+  // complete-but-malformed. It does not need to be caught here,
+  // because the server reports the model's stop_reason and the card
+  // prefers that over this.
+  it("cannot tell a cut that lands on a brace, and says so here", () => {
+    expect(
+      looksTruncated('{"title":"X","responsibilities":[{"category":"A"}')
+    ).toBe(false);
+  });
+
+  it("does not cry truncation at a whole document", () => {
+    expect(looksTruncated(JSON.stringify(ON_CHART))).toBe(false);
+  });
+
+  // The distinction that matters: this one arrived complete and is
+  // simply wrong, so re-emitting it is the right advice.
+  it("does not cry truncation at a complete but malformed document", () => {
+    expect(
+      looksTruncated(JSON.stringify({ ...ON_CHART, function: "Marketing" }))
+    ).toBe(false);
+    expect(
+      parseRoleDescription(
+        JSON.stringify({ ...ON_CHART, function: "Marketing" })
+      )
+    ).toBeNull();
+  });
+
+  it("says nothing about an empty payload", () => {
+    expect(looksTruncated("")).toBe(false);
+    expect(looksTruncated("   ")).toBe(false);
   });
 });

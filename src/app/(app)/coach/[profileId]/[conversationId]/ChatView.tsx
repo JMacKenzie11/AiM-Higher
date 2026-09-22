@@ -46,6 +46,9 @@ type UiMessage = {
   // uniformly as "Coach", so we don't render their created_by.
   created_by?: string;
   streaming?: boolean;
+  // The model hit its ceiling on this turn, so the text stops
+  // mid-token. Reported by the server, not guessed from the text.
+  truncated?: boolean;
   error?: string | null;
 };
 
@@ -366,6 +369,13 @@ export function ChatView({
               )
             );
           },
+          onTruncated: () => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, truncated: true } : m
+              )
+            );
+          },
           onError: (message) => {
             setMessages((prev) =>
               prev.map((m) =>
@@ -527,6 +537,13 @@ export function ChatView({
                 m.id === assistantId
                   ? { ...m, content: m.content + chunk }
                   : m
+              )
+            );
+          },
+          onTruncated: () => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, truncated: true } : m
               )
             );
           },
@@ -848,7 +865,8 @@ function MessageBubble({
             raw,
             isStreaming,
             conversationId,
-            onFixProposal
+            onFixProposal,
+            message.truncated === true
           );
         }
       }
@@ -912,7 +930,8 @@ function renderCard(
   raw: string,
   streaming: boolean,
   conversationId: string,
-  onFixProposal?: (nudge: string) => void
+  onFixProposal?: (nudge: string) => void,
+  truncated = false
 ): ReactNode {
   switch (name) {
     case "ScriptCard":
@@ -933,6 +952,7 @@ function renderCard(
           streaming={streaming}
           conversationId={conversationId}
           onFixRequest={onFixProposal}
+          truncated={truncated}
         />
       );
   }
@@ -981,6 +1001,9 @@ async function consumeSse(
   handlers: {
     onDelta: (chunk: string) => void;
     onError: (message: string) => void;
+    // The model ran out of room. The text simply stops, with no
+    // marker in it, so this is the only honest way to know.
+    onTruncated: () => void;
     onDone: () => void;
   }
 ): Promise<void> {
@@ -1038,6 +1061,8 @@ async function consumeSse(
               ? String((parsed as { message?: unknown }).message ?? "Error")
               : "Error";
           handlers.onError(message);
+        } else if (event === "truncated") {
+          handlers.onTruncated();
         } else if (event === "done") {
           handlers.onDone();
         }

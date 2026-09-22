@@ -70,6 +70,9 @@ const GENERATE_OPENER_PROMPT =
   "Open this conversation. Introduce yourself briefly in your role, then begin the guided flow you're designed for — start with your first question or step. Keep the opener under 120 words.";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
+// Default ceiling for one assistant turn. Suits a conversational
+// reply; an agent that emits a whole document in one turn declares
+// its own in the registry. See Practice.maxTokens.
 const MAX_TOKENS = 2000;
 // Cap on the number of tool-loop iterations per user turn. Each
 // iteration = one Anthropic call that may end in either a natural
@@ -330,7 +333,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           const messageStream = client.messages.stream(
             {
               model,
-              max_tokens: MAX_TOKENS,
+              max_tokens: practice?.maxTokens ?? MAX_TOKENS,
               system: [
                 {
                   type: "text",
@@ -368,6 +371,21 @@ export async function POST(req: NextRequest): Promise<Response> {
             final.usage.cache_creation_input_tokens ?? 0;
           turnUsage.cache_read_input_tokens +=
             final.usage.cache_read_input_tokens ?? 0;
+
+          // THE MODEL RAN OUT OF ROOM. Said out loud rather than
+          // left to be inferred: a turn that hits the ceiling stops
+          // mid-token, with no marker and no closing fence, so every
+          // downstream reader sees a malformed payload and guesses
+          // at why. The card guesses from a missing closing brace,
+          // which is a heuristic; this is the fact.
+          if (final.stop_reason === "max_tokens") {
+            console.warn(
+              `coach: turn hit max_tokens (conversation=${conversationId}` +
+                `, practice=${practice?.id ?? "none"}` +
+                `, cap=${practice?.maxTokens ?? MAX_TOKENS})`
+            );
+            controller.enqueue(encodeEvent("truncated", { reason: "max_tokens" }));
+          }
 
           if (final.stop_reason !== "tool_use") break;
 

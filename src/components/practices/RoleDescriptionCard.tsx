@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  looksTruncated,
   parseRoleDescription,
   roleDescriptionToPlainText,
 } from "@/lib/role-descriptions/parse-document";
@@ -41,16 +42,25 @@ import styles from "./RoleDescriptionCard.module.css";
 const ROLE_DESCRIPTION_FIX_NUDGE =
   "Please re-emit the role_description fenced block using the exact field names from the schema: `function` as an object with `id` and `title` taken from list_functions (or null), `responsibilities` with `category` and `description`, `decision_rights` with `decides`, `decides_with` and `recommends`, and `what_excellence_looks_like` with `value` and `behaviour`. JSON only, nothing else in the block.";
 
+// A cut-off document needs less of itself, not the same again.
+const TRUNCATED_NUDGE =
+  "That document was cut off before it finished. Please send it again, tightening the prose sections so the whole block fits: keep why_this_role_exists and why_this_role_matters to one short paragraph each, and keep every other section exactly as it was.";
+
 export function RoleDescriptionCard({
   raw,
   streaming,
   conversationId,
   onFixRequest,
+  truncated: reportedTruncated = false,
 }: {
   raw: string;
   streaming: boolean;
   conversationId: string;
   onFixRequest?: (nudge: string) => void;
+  // Reported by the server from the model's own stop_reason. The
+  // brace check below is the fallback for a turn that was already
+  // on the page before this existed.
+  truncated?: boolean;
 }) {
   const [saved, setSaved] = useState<{ versionNumber: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,19 +85,29 @@ export function RoleDescriptionCard({
   }
 
   if (!doc) {
+    // Two different failures wearing one face. A cut-off document
+    // re-emitted identically is cut off again in the same place, so
+    // offering "fix the proposal" for it sends somebody round a loop
+    // — which is what happened twice before the cause was known.
+    const truncated = reportedTruncated || looksTruncated(raw);
     return (
       <div className={styles.card} data-testid="role-description-card">
         <p className={styles.malformed}>
-          That role description didn&rsquo;t come back in a shape this card can
-          read.
+          {truncated
+            ? "That role description got cut off before it finished."
+            : "That role description didn’t come back in a shape this card can read."}
         </p>
         {onFixRequest ? (
           <button
             type="button"
             className={styles.secondary}
-            onClick={() => onFixRequest(ROLE_DESCRIPTION_FIX_NUDGE)}
+            onClick={() =>
+              onFixRequest(
+                truncated ? TRUNCATED_NUDGE : ROLE_DESCRIPTION_FIX_NUDGE
+              )
+            }
           >
-            Fix the proposal
+            {truncated ? "Send it again" : "Fix the proposal"}
           </button>
         ) : null}
       </div>
