@@ -8,6 +8,17 @@ export type CompanyFeature = {
   label: string;
   hint: string;
   defaultOnCreate?: boolean;
+  // hidden
+  //   Kept in the catalog and out of the pickers. The flag stays
+  //   valid, stays enforced, and companies that already carry it are
+  //   untouched; it simply stops being offered while what it gates
+  //   is being replaced.
+  //
+  //   NOT deleted, deliberately. Removing the entry would drop it
+  //   from VALID_COMPANY_FEATURES, and the settings form submits the
+  //   full set of ticked boxes — so the first save on any company
+  //   that had it would silently strip it.
+  hidden?: boolean;
 };
 
 export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
@@ -74,9 +85,15 @@ export const COMPANY_FEATURES: ReadonlyArray<CompanyFeature> = [
     hint: "Adds a shared training library — lessons, videos, and downloadable resources authored centrally by AiMS. Aimee can also recommend a training in conversation.",
   },
   {
+    // Hidden 2026-09-22. The Role Description Creator replaced the
+    // authoring half of what this gates, and what becomes of the
+    // decision-rights and competency columns is a later decision.
+    // Offering a toggle for a half-replaced feature invites somebody
+    // to switch it on and meet both halves.
     value: "role_descriptions",
     label: "Role Descriptions",
     hint: "Generate role descriptions for each function.",
+    hidden: true,
   },
 ];
 

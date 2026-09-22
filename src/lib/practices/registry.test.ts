@@ -43,13 +43,18 @@ describe("the People agents", () => {
 describe("the Role Description Creator", () => {
   const rd = PRACTICES.find((p) => p.id === "role-description")!;
 
-  // It was described as feature-gated for a while without being one.
-  // The card it writes to only renders for companies with
-  // role_descriptions, so without this a company could run the
-  // agent, press Save, and have the document land somewhere they
-  // cannot see.
-  it("is gated on the same feature as the surface its output lands on", () => {
-    expect(rd.feature).toBe("role_descriptions");
+  // Deliberately ungated. role_descriptions gates the surfaces this
+  // agent replaced, and that flag is going off fleet-wide; carrying
+  // it here would take the agent down with them. Who can reach it is
+  // a question about the person, not the company's packaging.
+  it("is not gated on a company feature", () => {
+    expect(rd.feature).toBeUndefined();
+  });
+
+  // The seat's Lead is usually a team_member, so no list of platform
+  // roles can express who should reach this.
+  it("admits whoever heads up a function", () => {
+    expect(rd.alsoFunctionLeads).toBe(true);
   });
 
   it("declares the two tools it cannot work without", () => {

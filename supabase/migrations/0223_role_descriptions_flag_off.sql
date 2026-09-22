@@ -1,0 +1,31 @@
+-- =============================================================
+-- Migration 0223 — role_descriptions off, fleet-wide
+--
+-- The flag gates the original role-description feature: Decision
+-- Rights and Competency Indicators on a function, and the Sonnet
+-- generator behind /chart/function/[id]/role-description. The
+-- authoring half of that has been replaced by the Role Description
+-- Creator, and what becomes of the two column-backed lists is a
+-- later decision.
+--
+-- 0222 hid the toggle so nobody switches it on while it is half
+-- replaced. This turns it off where it is already on.
+--
+-- ---- WHAT THIS DOES NOT DO ------------------------------------
+--
+-- Nothing is dropped. function_decision_rights and
+-- function_competencies keep every row, the tables keep their
+-- policies, and role_description_documents and
+-- role_description_versions are untouched. Turning a flag off hides
+-- a surface; it must not be the thing that loses a company's data.
+--
+-- Switching the flag back on restores exactly what was there,
+-- because nothing about the content depends on it.
+--
+-- The delete is logged by the 0173 trigger on company_features like
+-- any other disable, so the entitlement history records what
+-- happened and when.
+-- =============================================================
+
+delete from public.company_features
+ where feature = 'role_descriptions';

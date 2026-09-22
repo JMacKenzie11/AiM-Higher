@@ -10,6 +10,7 @@ import {
 import { PRACTICES, findPractice } from "@/lib/practices/registry";
 import { practiceFeatureGate, practiceRoleGate } from "@/lib/practices/gate";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { leadsAnyFunction } from "@/lib/practices/function-leads";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 import { ShareChatButton } from "./ShareChatButton";
@@ -129,6 +130,11 @@ export default async function AskAimeeChatPage({
   // request-cached, so asking per practice would have been free too;
   // this just reads as what it is.
   const companyFeatures = await getCompanyFeatures(conversation.company_id);
+  // Asked once, and only when some practice actually admits leads,
+  // so a company with no such agent pays nothing for the concept.
+  const isFunctionLead =
+    PRACTICES.some((p) => p.alsoFunctionLeads) &&
+    (await leadsAnyFunction(session.profile.id, conversation.company_id));
   const agentPickerPractices =
     access === "owner"
       ? PRACTICES.filter((p) => {
@@ -137,8 +143,15 @@ export default async function AskAimeeChatPage({
             : true;
           if (!practiceFeatureGate(p, hasFeature).ok) return false;
           if (!p.allowedRoles) return true;
-          return practiceRoleGate(p, session.profile, conversation.company_id)
-            .ok;
+          if (
+            practiceRoleGate(p, session.profile, conversation.company_id).ok
+          ) {
+            return true;
+          }
+          // The card and the gate have to agree. A lead who is
+          // refused here and admitted by practiceGate would find the
+          // agent only by guessing the URL.
+          return p.alsoFunctionLeads === true && isFunctionLead;
         })
       : null;
 

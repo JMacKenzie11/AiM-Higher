@@ -69,7 +69,16 @@ export async function practiceGate(
   companyId: string
 ): Promise<PracticeGateResult> {
   const role = practiceRoleGate(practice, profile, companyId);
-  if (!role.ok) return role;
+  // A refusal by ROLE is not final when the practice admits function
+  // leads: a seat's Lead is usually a team_member, and no list of
+  // platform roles can say "the person who runs a function". The
+  // relationship is asked only when the role list has already said
+  // no, so the extra read costs nothing for an admin.
+  if (!role.ok) {
+    if (!practice.alsoFunctionLeads) return role;
+    const { leadsAnyFunction } = await import("./function-leads");
+    if (!(await leadsAnyFunction(profile.id, companyId))) return role;
+  }
   if (!practice.feature) return { ok: true };
   const { companyHasFeature } = await import("@/lib/subscriptions/service");
   return practiceFeatureGate(

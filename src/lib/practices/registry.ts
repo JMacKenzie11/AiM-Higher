@@ -127,6 +127,18 @@ export type Practice = {
   //   so a company without it could run the agent, press Save, and
   //   have the document land somewhere they cannot see.
   feature?: ModuleFeature;
+  // alsoFunctionLeads
+  //   Admits anybody who heads up a function on this company's
+  //   chart, on top of allowedRoles. A seat's Lead is usually a
+  //   team_member, and a role description is a description of their
+  //   own seat, so a list of platform roles cannot express who
+  //   should reach this. The relationship can: they lead a function.
+  //
+  //   The write it unlocks is narrower than the agent. A lead saves
+  //   the document for the function THEY lead; RLS says so in 0222
+  //   and saveRoleDescriptionAction says so before the database is
+  //   asked.
+  alsoFunctionLeads?: boolean;
 };
 
 // The tool sets a practice may declare. Adding one means adding a
@@ -214,7 +226,13 @@ export const PRACTICES: readonly Practice[] = [
     skipSetup: true,
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
     tools: ["get_foundation", "list_functions"],
-    feature: "role_descriptions",
+    // NOT feature-gated. role_descriptions gates the surfaces this
+    // agent replaced — decision rights, competency indicators, the
+    // generator page — and that flag is being switched off fleet-
+    // wide (0223). Tying the agent to it would take the agent down
+    // with them. Who can reach it is a question about the person:
+    // the three roles below, plus anyone who heads up a function.
+    alsoFunctionLeads: true,
     outputCard: { role_description: "RoleDescriptionCard" },
   },
 ] as const;

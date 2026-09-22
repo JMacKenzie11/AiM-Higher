@@ -7,6 +7,7 @@ import { getAccessForConversation } from "@/lib/coach/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { leadsFunction } from "@/lib/practices/function-leads";
 import { parseRoleDescription } from "./parse-document";
 
 // Save a role description the agent proposed.
@@ -95,8 +96,25 @@ export async function saveRoleDescriptionAction(
   }
 
   const companyId = convo.company_id;
-  if (!isAdminForCompany(session.profile, companyId)) {
-    return { ok: false, message: "You can't save role descriptions for this company." };
+  // An admin or assigned guide saves anything for their company. A
+  // function's Lead saves the document for THEIR function and
+  // nothing else — not another seat's, and not an off-chart role,
+  // which has no lead by construction. RLS says the same in 0222;
+  // this says it first so the refusal is a sentence rather than a
+  // failed insert.
+  const isAdmin = isAdminForCompany(session.profile, companyId);
+  const leadsThisFunction =
+    !isAdmin &&
+    doc.function !== null &&
+    (await leadsFunction(session.profile.id, doc.function.id));
+  if (!isAdmin && !leadsThisFunction) {
+    return {
+      ok: false,
+      message:
+        doc.function === null
+          ? "Only an admin can save a role description that isn't on the chart."
+          : "You can only save the role description for a function you lead.",
+    };
   }
 
   // The caller's own client from here, so RLS is the boundary on
