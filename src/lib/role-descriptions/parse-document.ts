@@ -19,6 +19,25 @@
 // answer. The parser's job is "can this be rendered and stored",
 // not "is this a good role description".
 //
+// ---- ALIASES, AND WHY THERE ARE ANY ----------------------------
+//
+// The first real conversation emitted `title` for `category`,
+// `behavior` for `behaviour`, and `decides_alone` for `decides`.
+// Every one of those is a reasonable guess at an English field
+// name, and the prompt at the time did not carry the schema, so the
+// model had nothing to guess against. The prompt carries it now.
+//
+// The aliases stay anyway, because two of those three would have
+// failed SILENTLY. A missing `behaviour` becomes "" and a missing
+// `decides` becomes [], so the document would have saved with every
+// excellence line blank and the decision rights empty, and nobody
+// would have been told. A loud rejection is recoverable; a saved
+// document with holes in it is discovered by whoever reads it next.
+//
+// Aliases are only ever accepted where the meaning is unambiguous
+// and the shape is identical. There is no alias for `function` as a
+// bare string: see parseFunctionRef.
+//
 // ---- ON-CHART AND OFF-CHART ------------------------------------
 //
 // `function` is null for a role that is not a seat on the chart,
@@ -147,6 +166,14 @@ export function parseRoleDescription(raw: string): RoleDescriptionDoc | null {
 // chart". Collapsing those two into null would make a malformed
 // function object silently become an off-chart role, which is a
 // document that quietly says something untrue about the company.
+//
+// A BARE STRING IS NOT ACCEPTED, though the model has emitted one.
+// `"function": "Field Operations"` carries no id, and the id is
+// what links the saved document to the seat on the chart: accepting
+// the string would produce a role description that looks on-chart
+// in its prose and is off-chart in the database, listed on /roles
+// with no way back to the function it describes. Rejecting is loud
+// and the nudge names the fix.
 function parseFunctionRef(raw: unknown): RdFunctionRef | null | undefined {
   if (raw === null || raw === undefined) return null;
   if (!isObject(raw)) return undefined;
@@ -163,7 +190,9 @@ function parseResponsibilities(raw: unknown): RdResponsibility[] | null {
   for (const item of raw) {
     if (!isObject(item)) return null;
     const o = item as Record<string, unknown>;
-    const category = str(o.category);
+    // `title` is the model's recurring guess and means the same
+    // thing in the same shape.
+    const category = str(o.category) ?? str(o.title);
     if (category === null || category.trim() === "") return null;
     out.push({ category, description: str(o.description) ?? "" });
   }
@@ -217,8 +246,11 @@ function parseDecisionRights(raw: unknown): RdDecisionRights | null {
   }
   if (!isObject(raw)) return null;
   const o = raw as Record<string, unknown>;
-  const decides = strList(o.decides);
-  const decidesWith = strList(o.decides_with);
+  // decides_alone / decides_with_others are the model's phrasing of
+  // the same three buckets. Without these the rights vanish without
+  // a word, which is the failure this parser exists to avoid.
+  const decides = strList(o.decides ?? o.decides_alone);
+  const decidesWith = strList(o.decides_with ?? o.decides_with_others);
   const recommends = strList(o.recommends);
   if (decides === null || decidesWith === null || recommends === null) {
     return null;
@@ -234,7 +266,10 @@ function parseExcellence(raw: unknown): RdExcellence[] | null {
     const o = item as Record<string, unknown>;
     const value = str(o.value);
     if (value === null || value.trim() === "") return null;
-    out.push({ value, behaviour: str(o.behaviour) ?? "" });
+    // American spelling, which a model will reach for regardless of
+    // what the prompt says. Blank behaviour on every line is a
+    // document that renders as a list of value names.
+    out.push({ value, behaviour: str(o.behaviour) ?? str(o.behavior) ?? "" });
   }
   return out;
 }

@@ -45,8 +45,16 @@ const PROMPT = path.join(
 // the failing line as a worked counter-example, and a read-back
 // check before moving on. The "why it matters" line on a critical
 // success factor gained the same lens.
+//
+// Regenerated again 2026-09-22, same day, and saying this one out
+// loud too: the prompt now CARRIES the schema. It said "JSON in the
+// card's shape" and never stated the shape, so the first real
+// conversation guessed — `title` for `category`, `behavior` for
+// `behaviour`, `decides_alone` for `decides`, and a bare string for
+// `function`. Every guess was reasonable English. Two of them would
+// have saved a document with holes in it rather than failing.
 const ROLE_DESCRIPTION_PROMPT_SHA =
-  "dd3e3041c4e618826c7f2f90165b256d829433d44cfc73354a911c5b97316606";
+  "8341f2879532d39ce690debd6ece64f59d7bbb521277e680ce15afeb465cca1e";
 
 async function read(): Promise<string> {
   return fs.readFile(PROMPT, "utf8");
@@ -119,6 +127,30 @@ describe("the role description prompt", () => {
     // beside it is a rule a model reads past.
     expect(src).toMatch(/before it becomes an incident report/);
     expect(src).toMatch(/does this describe something happening, or something not happening\?/);
+  });
+
+  // The schema, in the file the model actually reads. Naming the
+  // three near misses is the load-bearing part: a field list alone
+  // did not stop the model reaching for `title`, because `title` is
+  // what that field is called in ordinary English.
+  it("still carries the exact schema and names the near misses", async () => {
+    const src = await read();
+    for (const field of [
+      '"category"',
+      '"behaviour"',
+      '"decides"',
+      '"decides_with"',
+      '"recommends"',
+      '"why_it_matters"',
+      '"supports_functions"',
+    ]) {
+      expect(src).toContain(field);
+    }
+    expect(src).toMatch(/`category` is not `title`/);
+    expect(src).toMatch(/`behaviour` is not `behavior`/);
+    expect(src).toMatch(/`decides` is not `decides_alone`/);
+    // The id, which is what ties a saved document to its seat.
+    expect(src).toMatch(/Never a bare string/);
   });
 
   // One level of measures. The two-level model came out in migration

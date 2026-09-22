@@ -202,3 +202,87 @@ describe("plain text", () => {
     expect(text).not.toContain("QUALIFICATIONS");
   });
 });
+
+// The shape the model actually emitted in the first real
+// conversation, reduced to the five field names it got wrong. Kept
+// as a fixture rather than described, because the value of this
+// test is that it is not a guess about what a model might do.
+//
+// Three of these five would have failed SILENTLY before the
+// aliases: a missing `behaviour` becomes "", a missing `decides`
+// becomes [], so the leader would have saved a document with every
+// excellence line blank and no decision rights, and found out by
+// reading it back.
+const AS_EMITTED = {
+  title: "VP, Field Operations",
+  function: { id: "fn-uuid", title: "Field Operations" },
+  supports_functions: [],
+  reports_to: "Integrator",
+  why_this_role_exists: "...",
+  why_this_role_matters: "...",
+  responsibilities: [
+    { title: "Safety Culture and Site Compliance", description: "Site safety protocols." },
+  ],
+  critical_success_factors: [],
+  decision_rights: {
+    decides_alone: ["Approve purchase orders up to $50,000"],
+    decides_with_others: [],
+    recommends: [],
+  },
+  what_excellence_looks_like: [
+    { value: "Send Them Home Safe", behavior: "Crews start each day knowing what safe looks like." },
+  ],
+  capabilities: [],
+  qualifications: ["15 years of industry experience"],
+};
+
+describe("the field names the model actually reached for", () => {
+  it("accepts `title` where `category` belongs", () => {
+    const doc = parseRoleDescription(JSON.stringify(AS_EMITTED));
+    expect(doc?.responsibilities[0]?.category).toBe(
+      "Safety Culture and Site Compliance"
+    );
+  });
+
+  it("accepts `behavior` where `behaviour` belongs, rather than blanking the line", () => {
+    const doc = parseRoleDescription(JSON.stringify(AS_EMITTED));
+    expect(doc?.what_excellence_looks_like[0]?.behaviour).toBe(
+      "Crews start each day knowing what safe looks like."
+    );
+  });
+
+  it("accepts `decides_alone` and `decides_with_others`, rather than emptying the rights", () => {
+    const doc = parseRoleDescription(JSON.stringify(AS_EMITTED));
+    expect(doc?.decision_rights.decides).toEqual([
+      "Approve purchase orders up to $50,000",
+    ]);
+    expect(doc?.decision_rights.decides_with).toEqual([]);
+  });
+
+  // The one near miss that is NOT forgiven, and deliberately. A
+  // title with no id is a document that reads as on-chart and is
+  // off-chart in the database: listed on /roles with no way back to
+  // the seat it describes. Loud beats quietly wrong.
+  it("still refuses a bare-string function", () => {
+    const doc = parseRoleDescription(
+      JSON.stringify({ ...AS_EMITTED, function: "Field Operations" })
+    );
+    expect(doc).toBeNull();
+  });
+
+  it("prefers the canonical name when both are present", () => {
+    const doc = parseRoleDescription(
+      JSON.stringify({
+        ...AS_EMITTED,
+        responsibilities: [{ category: "Right", title: "Wrong", description: "" }],
+        what_excellence_looks_like: [
+          { value: "V", behaviour: "right", behavior: "wrong" },
+        ],
+        decision_rights: { decides: ["right"], decides_alone: ["wrong"], decides_with: [], recommends: [] },
+      })
+    );
+    expect(doc?.responsibilities[0]?.category).toBe("Right");
+    expect(doc?.what_excellence_looks_like[0]?.behaviour).toBe("right");
+    expect(doc?.decision_rights.decides).toEqual(["right"]);
+  });
+});

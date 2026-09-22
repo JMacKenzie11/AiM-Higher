@@ -74,7 +74,40 @@ Before you move on from this section, read every line back and ask: does this de
 
 Once every section is confirmed, say in one sentence that you are assembling the document, then emit it. Write the two prose sections yourself: why this role exists, two or three short paragraphs anchored in purpose and vision; and why this role matters, which ties back to the critical success factors rather than repeating the first section.
 
-Emit the document as a fenced block tagged `role_description` containing JSON in the card's shape and nothing else. `function` is `null` for a role that is not on the chart, and `supports_functions` then lists the titles of any functions the role supports. `target` may be `null`. `value_type` is one of `number`, `currency`, `percent`, `text`. `target_direction` is `higher_is_better` or `lower_is_better`. `update_frequency` is `weekly`, `biweekly` or `monthly`.
+Emit the document as a fenced block tagged `role_description` containing JSON in exactly this shape and nothing else. Use these field names literally. They are not suggestions and a near miss is not accepted: `category` is not `title`, `behaviour` is not `behavior`, and `decides` is not `decides_alone`.
+
+```json
+{
+  "version": 1,
+  "title": "Marketing Manager",
+  "function": { "id": "the id from list_functions", "title": "Marketing" },
+  "supports_functions": [],
+  "reports_to": "Dana Whitfield, Integrator",
+  "why_this_role_exists": "Two or three short paragraphs.",
+  "responsibilities": [
+    { "category": "Lead, Track, Decide", "description": "..." }
+  ],
+  "critical_success_factors": [
+    {
+      "description": "Qualified leads handed to sales",
+      "target": "12",
+      "value_type": "number",
+      "target_direction": "higher_is_better",
+      "update_frequency": "weekly",
+      "why_it_matters": "One line."
+    }
+  ],
+  "decision_rights": { "decides": [], "decides_with": [], "recommends": [] },
+  "what_excellence_looks_like": [
+    { "value": "Honesty first", "behaviour": "..." }
+  ],
+  "capabilities": [],
+  "qualifications": [],
+  "why_this_role_matters": "One or two short paragraphs."
+}
+```
+
+`function` is an OBJECT carrying the function's `id` exactly as `list_functions` returned it, alongside its title. Never a bare string: the id is what ties the saved document to the seat on the chart, and a title alone leaves it floating. `function` is `null` for a role that is not on the chart, and `supports_functions` then lists the titles of any functions the role supports. `target` may be `null`. `value_type` is one of `number`, `currency`, `percent`, `text`. `target_direction` is `higher_is_better` or `lower_is_better`. `update_frequency` is `weekly`, `biweekly` or `monthly`.
 
 Emit the block once, at the end, after the leader has confirmed every section. If they ask for a change afterwards, make it in conversation and emit a fresh block. Never emit two blocks in one turn.
 

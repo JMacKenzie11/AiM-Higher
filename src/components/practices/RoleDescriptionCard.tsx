@@ -33,6 +33,14 @@ import styles from "./RoleDescriptionCard.module.css";
 //     Save. Nothing is overwritten and nothing is global: saving
 //     twice is two versions, which is the point of versions.
 
+// Names the fields, because the failure this recovers from is
+// always a field-name miss rather than broken JSON: the model
+// emitted `title` for `category`, `behavior` for `behaviour` and a
+// bare string for `function`. A nudge that just says "try again"
+// gets the same guesses back.
+const ROLE_DESCRIPTION_FIX_NUDGE =
+  "Please re-emit the role_description fenced block using the exact field names from the schema: `function` as an object with `id` and `title` taken from list_functions (or null), `responsibilities` with `category` and `description`, `decision_rights` with `decides`, `decides_with` and `recommends`, and `what_excellence_looks_like` with `value` and `behaviour`. JSON only, nothing else in the block.";
+
 export function RoleDescriptionCard({
   raw,
   streaming,
@@ -42,7 +50,7 @@ export function RoleDescriptionCard({
   raw: string;
   streaming: boolean;
   conversationId: string;
-  onFixRequest?: () => void;
+  onFixRequest?: (nudge: string) => void;
 }) {
   const [saved, setSaved] = useState<{ versionNumber: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +85,7 @@ export function RoleDescriptionCard({
           <button
             type="button"
             className={styles.secondary}
-            onClick={onFixRequest}
+            onClick={() => onFixRequest(ROLE_DESCRIPTION_FIX_NUDGE)}
           >
             Fix the proposal
           </button>

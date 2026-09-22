@@ -637,11 +637,7 @@ export function ChatView({
               onRetry={m.error ? retry : undefined}
               practice={practice}
               conversationId={conversation.id}
-              onFixProposal={() =>
-                void sendMessage(
-                  "Please re-emit the chart_proposal fenced block using the exact schema — top_seats and functions with responsibilities, sub_functions only if we split anything. Leave Lead, Track, and Decide out of the responsibilities; the platform adds it."
-                )
-              }
+              onFixProposal={(nudge) => void sendMessage(nudge)}
               senders={senders}
               currentUserId={currentUserId}
               showAttribution={showAttribution}
@@ -716,7 +712,13 @@ function MessageBubble({
   onRetry?: () => void;
   practice?: Practice | null;
   conversationId: string;
-  onFixProposal?: () => void;
+  // Takes the nudge, because the nudge belongs to the CARD. It was
+  // a no-argument callback closing over the chart builder's text,
+  // so "Fix the proposal" on the role description card asked the
+  // agent to re-emit a chart_proposal block it has never heard of,
+  // and the agent said so. Each card knows what it failed to parse;
+  // nothing above it does.
+  onFixProposal?: (nudge: string) => void;
   senders: Record<string, SenderInfo>;
   currentUserId: string;
   showAttribution: boolean;
@@ -854,7 +856,7 @@ function renderCard(
   raw: string,
   streaming: boolean,
   conversationId: string,
-  onFixProposal?: () => void
+  onFixProposal?: (nudge: string) => void
 ): ReactNode {
   switch (name) {
     case "ScriptCard":
