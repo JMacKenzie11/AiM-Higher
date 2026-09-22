@@ -11,6 +11,7 @@ import {
   type CsfRow,
 } from "@/lib/measures/csf-as-outcome";
 import { scoreMeasureTarget } from "@/lib/measures/target-check";
+import { descendantsOf } from "@/lib/chart/descendants";
 import { nullableString } from "@/lib/utils";
 import type {
   FunctionCompetency,
@@ -197,6 +198,88 @@ export async function renameFunctionAction(
 
   revalidatePath("/chart");
   revalidatePath(`/chart/function/${functionId}`);
+  return { ok: true, item: data };
+}
+
+// Move a function under a different parent, or out to the top
+// level. The drawer's picker calls this; updateFunctionAction can
+// also set the column, but it round-trips every field on the row and
+// a caller that only wants the parent would have to send the title,
+// the description and three seat ids back to leave them alone.
+//
+// ---- THE CYCLE GUARD -------------------------------------------
+//
+// parent_function_id has no constraint that stops a function being
+// its own ancestor. Set Marketing's parent to Marketing and the row
+// is legal, the chart's walk never reaches it from any root, and the
+// function disappears from the page that is supposed to be the map
+// of the company. Set it to one of its own descendants and the whole
+// subtree goes with it.
+//
+// Neither is hypothetical the moment a picker exists: "Marketing"
+// and "Marketing and Sales" sit next to each other in the list. So
+// the descendants are walked here and the move is refused with a
+// sentence that says which rule it broke, rather than succeeding
+// into a chart with a hole in it.
+export async function setFunctionParentAction(
+  functionId: string,
+  parentFunctionId: string | null
+): Promise<ChartResult<FunctionNode>> {
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  if (!functionId) return { ok: false, message: "Missing function." };
+  if (parentFunctionId === functionId) {
+    return { ok: false, message: "A function can't sit under itself." };
+  }
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+
+  if (parentFunctionId) {
+    // Read the company's tree once and walk down from the function
+    // being moved. RLS scopes this to the caller's company, so a
+    // parent id from another company simply is not in the rows and
+    // falls out as "that function isn't on this chart".
+    const { data: fn } = await supabase
+      .from("functions")
+      .select("id, company_id")
+      .eq("id", functionId)
+      .maybeSingle<{ id: string; company_id: string }>();
+    if (!fn) return { ok: false, message: "That function is no longer there." };
+
+    const { data: allRows } = await supabase
+      .from("functions")
+      .select("id, parent_function_id")
+      .eq("company_id", fn.company_id);
+    const all = (allRows ?? []) as Array<{
+      id: string;
+      parent_function_id: string | null;
+    }>;
+    if (!all.some((f) => f.id === parentFunctionId)) {
+      return { ok: false, message: "That function isn't on this chart." };
+    }
+    if (descendantsOf(functionId, all).has(parentFunctionId)) {
+      return {
+        ok: false,
+        message: "That function already sits under this one.",
+      };
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("functions")
+    .update({ parent_function_id: parentFunctionId })
+    .eq("id", functionId)
+    .select("*")
+    .single<FunctionNode>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't move that function." };
+  }
+
+  revalidatePath("/chart");
+  revalidatePath(`/chart/function/${functionId}`);
+  // /measures groups by function and renders the same hierarchy, so
+  // a move on either page has to invalidate both. Same reason
+  // reorderFunctionsAction does it.
+  revalidatePath("/measures");
   return { ok: true, item: data };
 }
 

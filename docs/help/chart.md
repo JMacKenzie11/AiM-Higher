@@ -73,9 +73,13 @@ As an admin or guide, you can:
    behind it, in the same place you left it.
 4. *Part of* at the top and the *Sub-functions* list move the panel to
    another function without closing it.
-5. *Open the full function page →* near the bottom goes to the same
-   detail as its own page, which is where critical success factors
-   live.
+5. *Move*, beside where it says what the function sits under, changes
+   its place on the chart. Pick *Top level (no parent)* to pull it
+   out from under another function. A function can't be moved under
+   itself or under one of its own sub-functions, so neither is on the
+   list.
+6. Critical success factors aren't here. They live on *Critical
+   Success Factors*, which is where you log against them too.
 :::
 
 ::: role team_member
