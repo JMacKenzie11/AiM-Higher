@@ -8,7 +8,8 @@ import {
   listSharesForConversation,
 } from "@/lib/coach/service";
 import { PRACTICES, findPractice } from "@/lib/practices/registry";
-import { practiceRoleGate } from "@/lib/practices/gate";
+import { practiceFeatureGate, practiceRoleGate } from "@/lib/practices/gate";
+import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 import { ShareChatButton } from "./ShareChatButton";
@@ -124,9 +125,17 @@ export default async function AskAimeeChatPage({
   // caller is the owner — sharees don't get to switch the agent.
   // Gated against the conversation's company, which is the company
   // the practice would actually run against.
+  // Read once and filtered in memory. getCompanyFeatures is
+  // request-cached, so asking per practice would have been free too;
+  // this just reads as what it is.
+  const companyFeatures = await getCompanyFeatures(conversation.company_id);
   const agentPickerPractices =
     access === "owner"
       ? PRACTICES.filter((p) => {
+          const hasFeature = p.feature
+            ? companyFeatures.includes(p.feature)
+            : true;
+          if (!practiceFeatureGate(p, hasFeature).ok) return false;
           if (!p.allowedRoles) return true;
           return practiceRoleGate(p, session.profile, conversation.company_id)
             .ok;

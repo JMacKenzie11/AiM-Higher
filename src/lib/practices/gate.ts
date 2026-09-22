@@ -19,6 +19,24 @@ export type GateProfile = Pick<Profile, "id" | "role" | "company_id"> & {
   guide_company_ids: readonly string[];
 };
 
+// The feature half of the gate, separate because it needs a round
+// trip and the role half does not. Callers that already know the
+// company's features pass the answer in; the rest await
+// practiceGate below.
+export function practiceFeatureGate(
+  practice: Practice,
+  hasFeature: boolean
+): PracticeGateResult {
+  if (!practice.feature) return { ok: true };
+  if (!hasFeature) {
+    return {
+      ok: false,
+      message: "That agent isn't switched on for this company.",
+    };
+  }
+  return { ok: true };
+}
+
 export function practiceRoleGate(
   practice: Practice,
   profile: GateProfile,
@@ -40,4 +58,22 @@ export function practiceRoleGate(
     }
   }
   return { ok: true };
+}
+
+// Both halves, for a caller that can await. Role first, so a member
+// who is refused by role is told that rather than being told the
+// company's packaging.
+export async function practiceGate(
+  practice: Practice,
+  profile: GateProfile,
+  companyId: string
+): Promise<PracticeGateResult> {
+  const role = practiceRoleGate(practice, profile, companyId);
+  if (!role.ok) return role;
+  if (!practice.feature) return { ok: true };
+  const { companyHasFeature } = await import("@/lib/subscriptions/service");
+  return practiceFeatureGate(
+    practice,
+    await companyHasFeature(companyId, practice.feature)
+  );
 }

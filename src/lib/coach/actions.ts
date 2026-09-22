@@ -15,7 +15,7 @@ import {
   type ShareCandidate,
 } from "./service";
 import { findPractice, type Practice } from "@/lib/practices/registry";
-import { practiceRoleGate } from "@/lib/practices/gate";
+import { practiceGate } from "@/lib/practices/gate";
 import { cleanGeneratedTitle } from "./title";
 import { logCoachTokenUsage } from "./usage";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -259,7 +259,7 @@ export async function setConversationAgentAction(
     if (!candidate) {
       return { ok: false, message: "That agent isn't available." };
     }
-    const gate = practiceRoleGate(
+    const gate = await practiceGate(
       candidate,
       session.profile,
       convo.company_id

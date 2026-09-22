@@ -55,13 +55,18 @@ export function RoleDescriptionsCard({ roles }: { roles: SavedRole[] }) {
             >
               <span className={styles.rowMain}>
                 <span className={styles.rowTitle}>{role.title}</span>
-                <span className={styles.rowPlacement}>
-                  {role.functionId
-                    ? "On the chart"
-                    : role.supportsFunctions.length > 0
-                      ? `Not on the chart. Supports ${role.supportsFunctions.join(", ")}`
-                      : "Not on the chart"}
-                </span>
+                {/* Whether a role sits on the Functional Chart is
+                    not something a reader of this list can act on,
+                    so it is not here. What a role SUPPORTS is real
+                    information and stays. A row with neither says
+                    nothing rather than saying "Not on the chart",
+                    which was a fact about our data model wearing a
+                    sentence. */}
+                {role.supportsFunctions.length > 0 ? (
+                  <span className={styles.rowPlacement}>
+                    Supports {role.supportsFunctions.join(", ")}
+                  </span>
+                ) : null}
               </span>
               <span className={styles.rowMeta}>
                 <span className={styles.version}>v{role.versionNumber}</span>

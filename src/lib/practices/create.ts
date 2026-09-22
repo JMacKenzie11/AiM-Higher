@@ -5,7 +5,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CoachingConversation } from "@/lib/coach/service";
 import { findPractice } from "./registry";
-import { practiceRoleGate } from "./gate";
+import { practiceGate } from "./gate";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Pure creation logic for a practice conversation. Kept in its own
@@ -46,7 +46,7 @@ export async function createPracticeConversation(
     };
   }
 
-  const gate = practiceRoleGate(practice, session.profile, companyId);
+  const gate = await practiceGate(practice, session.profile, companyId);
   if (!gate.ok) return gate;
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());

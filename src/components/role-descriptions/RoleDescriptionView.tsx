@@ -27,19 +27,14 @@ export function RoleDescriptionView({ doc }: { doc: RoleDescriptionDoc }) {
     <article className={styles.doc}>
       <header className={styles.head}>
         <h3 className={styles.title}>{doc.title}</h3>
-        <p className={styles.placement}>
-          {doc.function ? (
-            <>Part of {doc.function.title}</>
-          ) : doc.supports_functions.length > 0 ? (
-            <>Not on the chart. Supports {doc.supports_functions.join(", ")}</>
-          ) : (
-            // Said out loud. An off-chart role that supports nothing
-            // is a choice the leader made when the agent asked, and a
-            // blank here would read as a section that failed to load.
-            <>Not on the chart</>
-          )}
-          {doc.reports_to ? <> · Reports to {doc.reports_to}</> : null}
-        </p>
+        {/* Where the role sits, when there is somewhere. "Not on
+            the chart" is a fact about our data model rather than
+            about the role, and a reader cannot do anything with it,
+            so a role that is on no chart and supports nothing simply
+            says who it reports to. */}
+        {placementLine(doc) ? (
+          <p className={styles.placement}>{placementLine(doc)}</p>
+        ) : null}
       </header>
 
       <Prose heading="Why this role exists" text={doc.why_this_role_exists} />
@@ -145,6 +140,16 @@ export function RoleDescriptionView({ doc }: { doc: RoleDescriptionDoc }) {
       <Prose heading="Why this role matters" text={doc.why_this_role_matters} />
     </article>
   );
+}
+
+function placementLine(doc: RoleDescriptionDoc): string {
+  const parts: string[] = [];
+  if (doc.function) parts.push(`Part of ${doc.function.title}`);
+  else if (doc.supports_functions.length > 0) {
+    parts.push(`Supports ${doc.supports_functions.join(", ")}`);
+  }
+  if (doc.reports_to) parts.push(`Reports to ${doc.reports_to}`);
+  return parts.join(" · ");
 }
 
 function Section({

@@ -65,14 +65,12 @@ export async function buildRoleDescriptionDocxFromDoc(input: {
 
   const subtitle: string[] = [];
   if (companyName) subtitle.push(companyName);
+  // No "Not on the Functional Chart". Whether a role is a seat on
+  // our chart is a fact about our data model, and the person reading
+  // a printed role description cannot do anything with it.
   if (doc.function) subtitle.push(`Part of ${doc.function.title}`);
   else if (doc.supports_functions.length > 0) {
     subtitle.push(`Supports ${doc.supports_functions.join(", ")}`);
-  } else {
-    // Said out loud rather than left blank. "Not on the Functional
-    // Chart" is a fact about the role that the reader of a printed
-    // document cannot otherwise discover.
-    subtitle.push("Not on the Functional Chart");
   }
   if (doc.reports_to) subtitle.push(`Reports to ${doc.reports_to}`);
   paragraphs.push(

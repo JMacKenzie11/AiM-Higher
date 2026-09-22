@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { PracticeCategory } from "./categories";
 import type { Role } from "@/lib/types";
+import type { ModuleFeature } from "@/lib/subscriptions/service";
 
 // Practices are prompt modules layered onto the existing coaching
 // infrastructure. Same chat UI, same streaming, same tools, same
@@ -115,6 +116,17 @@ export type Practice = {
   //   than thrown, because a typo here should cost the agent a tool
   //   and not the conversation.
   tools?: readonly PracticeToolName[];
+  // feature
+  //   When present, the practice is hidden from the picker and its
+  //   launch refused unless the scoped company has this feature.
+  //   Absent means every company.
+  //
+  //   Added with the Role Description Creator, which had been
+  //   DESCRIBED as feature-gated without being one: the card it
+  //   writes to only renders for companies with role_descriptions,
+  //   so a company without it could run the agent, press Save, and
+  //   have the document land somewhere they cannot see.
+  feature?: ModuleFeature;
 };
 
 // The tool sets a practice may declare. Adding one means adding a
@@ -202,6 +214,7 @@ export const PRACTICES: readonly Practice[] = [
     skipSetup: true,
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
     tools: ["get_foundation", "list_functions"],
+    feature: "role_descriptions",
     outputCard: { role_description: "RoleDescriptionCard" },
   },
 ] as const;
