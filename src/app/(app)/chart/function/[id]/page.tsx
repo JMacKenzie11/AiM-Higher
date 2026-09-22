@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getChartFunctionDetail } from "@/lib/chart/service";
+import { parentChoicesFor } from "@/lib/chart/descendants";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import {
   createFunctionCompetencyAction,
   createFunctionDecisionRightAction,
@@ -16,8 +19,7 @@ import { CardAccent } from "@/components/ui/CardAccent";
 import { PageShell } from "@/components/ui/PageShell";
 import { DeleteFunctionButton } from "./DeleteFunctionButton";
 import { RolesList } from "./RolesList";
-import { SeatEditor } from "./SeatEditor";
-import { FunctionTitleEditor } from "./FunctionTitleEditor";
+import { FunctionDetailsForm } from "../../FunctionDetailsForm";
 import { RoleDescriptionReadiness } from "./RoleDescriptionReadiness";
 import { SimpleFunctionItemList } from "./SimpleFunctionItemList";
 import styles from "../../chart.module.css";
@@ -48,18 +50,32 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
     "role_descriptions"
   );
 
+  // The same list the drawer offers: the whole chart minus this
+  // function and its own descendants, indented. Computed here
+  // because the exclusion needs the tree and the detail read does
+  // not carry it.
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data: allRows } = await supabase
+    .from("functions")
+    .select("id, title, parent_function_id, sort_order")
+    .eq("company_id", detail.fn.company_id)
+    .eq("archived", false);
+  const parentOptions = parentChoicesFor(
+    detail.fn.id,
+    (allRows ?? []) as Array<{
+      id: string;
+      title: string;
+      parent_function_id: string | null;
+      sort_order: number;
+    }>
+  );
+
   return (
     <PageShell
       backHref="/chart"
       backLabel="Back to chart"
       eyebrow="Function"
-      title={
-        <FunctionTitleEditor
-          functionId={detail.fn.id}
-          initialTitle={detail.fn.title}
-          canEdit={isAdmin}
-        />
-      }
+      title={detail.fn.title}
       subtitle={
         detail.parent ? (
           <>
@@ -71,13 +87,23 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         ) : undefined
       }
     >
-        <section className={styles.sectionCard} aria-labelledby="seat">
-          <h2 id="seat" className={styles.sectionTitle}>
-            In the seat
+        {/* Name, parent and seat, behind one Save — the same
+            component the chart's drawer renders, which is what stops
+            a field existing in one place and not the other. The H1
+            above stopped being click-to-edit for that reason: the
+            name is a field in this form now, on both surfaces. */}
+        <section className={styles.sectionCard} aria-labelledby="details">
+          <h2 id="details" className={styles.sectionTitle}>
+            Details
           </h2>
-          <SeatEditor
+          <FunctionDetailsForm
             functionId={detail.fn.id}
-            currentSeatHolder={detail.seatHolder}
+            initial={{
+              title: detail.fn.title,
+              parentFunctionId: detail.parent?.id ?? null,
+              leadId: detail.seatHolder?.id ?? null,
+            }}
+            parentOptions={parentOptions}
             roster={detail.roster}
             canEdit={isAdmin}
           />

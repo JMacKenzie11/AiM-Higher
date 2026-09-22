@@ -63,13 +63,17 @@ describe("parentChoicesFor", () => {
     expect(ids).not.toContain("brand");
   });
 
+  // Non-breaking spaces, not dashes. A closed select shows the
+  // chosen option alone, where a leading "— " reads as part of the
+  // function's name rather than as its depth.
   it("indents by depth so a flat select still reads as a tree", () => {
+    const NB = "\u00a0\u00a0";
     expect(parentChoicesFor("ops", TREE)).toEqual([
       { id: "vis", title: "Visionary" },
-      { id: "int", title: "— Integrator" },
-      { id: "mkt", title: "— — Marketing" },
-      { id: "leads", title: "— — — Lead Gen" },
-      { id: "brand", title: "— — — Brand" },
+      { id: "int", title: `${NB}Integrator` },
+      { id: "mkt", title: `${NB}${NB}Marketing` },
+      { id: "leads", title: `${NB}${NB}${NB}Lead Gen` },
+      { id: "brand", title: `${NB}${NB}${NB}Brand` },
     ]);
   });
 

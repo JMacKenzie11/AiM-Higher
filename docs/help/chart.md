@@ -28,7 +28,8 @@ As an admin or guide, you can:
 
 - **Add or delete functions** to grow / shape the tree. A new function
   is built entirely in the add panel, responsibilities and all.
-- **Assign seats** — one person per function.
+- **Assign seats**: one person per function, in the panel's Details
+  section.
 - **Edit a function without leaving the chart**: click any function
   box and its detail opens in a panel from the right.
 - **Edit responsibilities and critical success factors**, all inline
@@ -64,21 +65,26 @@ As an admin or guide, you can:
 
 ::: role company_admin,aims_guide,system_admin
 1. Click the function's box on the chart. Its detail opens in a panel
-   from the right, over the chart: the name, who's in the seat,
-   responsibilities, and (Role Descriptions on) decision rights and
-   competency indicators.
-2. Edit in place. Everything saves as you go; there is no Save button
-   and nothing to discard.
-3. Escape, the X, or a click outside closes it. The chart is still
-   behind it, in the same place you left it.
-4. *Part of* at the top and the *Sub-functions* list move the panel to
-   another function without closing it.
-5. *Move*, beside where it says what the function sits under, changes
-   its place on the chart. Pick *Top level (no parent)* to pull it
-   out from under another function. A function can't be moved under
-   itself or under one of its own sub-functions, so neither is on the
+   from the right, over the chart: the name, where it sits, who's in
+   the seat, responsibilities, and (Role Descriptions on) decision
+   rights and competency indicators.
+2. **Details** holds the name, *Sits under* and *In the seat*. Change
+   what you need and click *Save changes*. Nothing is written until
+   you do, and the button stays greyed out until there's something to
+   save.
+3. Pick *Top level (no parent)* under *Sits under* to pull a function
+   out from under another one. A function can't be moved under itself
+   or under one of its own sub-functions, so neither appears on the
    list.
-6. Critical success factors aren't here. They live on *Critical
+4. **Responsibilities save as you go.** Adding one or deleting one
+   takes effect straight away, with no Save button involved. The
+   trash icon means gone.
+5. Escape, the X, or a click outside closes the panel. If you have
+   unsaved details, it asks first. The chart is still behind it, in
+   the same place you left it.
+6. The *Sub-functions* list moves the panel to another function
+   without closing it.
+7. Critical success factors aren't here. They live on *Critical
    Success Factors*, which is where you log against them too.
 :::
 

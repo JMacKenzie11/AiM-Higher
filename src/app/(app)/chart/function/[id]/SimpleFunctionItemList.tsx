@@ -19,7 +19,7 @@ import styles from "../../chart.module.css";
 //
 // `onChanged` is for the chart drawer, which holds these items in
 // client state rather than getting them from the RSC tree. See the
-// same note on SeatEditor.
+// same note in RolesList.
 
 type BaseItem = {
   id: string;

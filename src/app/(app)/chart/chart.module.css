@@ -2032,3 +2032,41 @@
   flex: 1 1 auto;
   min-width: 0;
 }
+
+/* ---- The function's details form -------------------------------
+   Name, where it sits, who is in the seat, behind one Save. Same
+   grid as the add panel's form, because it is the same three fields
+   asked again. */
+.fnDetailsForm {
+  composes: addForm;
+}
+
+/* The read-only rendering, for somebody who cannot edit. A disabled
+   form is a worse way to say "this isn't yours" than a plain list of
+   what is true. */
+.fnFactList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.fnFact {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.fnFactLabel {
+  font: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  min-width: 96px;
+}
+
+.fnFactValue {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text-heading);
+}

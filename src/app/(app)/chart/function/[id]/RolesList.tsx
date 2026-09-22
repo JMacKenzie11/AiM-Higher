@@ -23,8 +23,10 @@ import styles from "../../chart.module.css";
 //   Draft row at the bottom stays live: type + Enter to add another.
 //
 // `onChanged` is for the chart drawer, which holds this list in
-// client state rather than getting it from the RSC tree. See the
-// same note on SeatEditor.
+// client state rather than getting it from the RSC tree: on the
+// page these rows sit in the RSC tree and revalidatePath inside
+// each action redraws them for free, which no revalidation can do
+// for state the drawer fetched itself.
 
 const INITIAL: ChartResult<FunctionRole> = { ok: false, message: "" };
 
