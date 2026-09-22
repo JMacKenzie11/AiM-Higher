@@ -575,6 +575,220 @@ async function coachMemoryEdit(
 //      claim is what keeps that true, and it asserts the home was
 //      really set first, so a refused UPDATE cannot pass it by
 //      leaving the column null.
+// ---- 0221: a role description off the chart --------------------
+//
+// The claim: a role_descriptions row with a NULL function_id is
+// reachable by the company that owns it, and by nobody else.
+//
+// It exists because 0127 and 0129 reach the company by joining
+// function_id to functions. A null joins to nothing, so before 0221
+// an off-chart document was invisible to the person who wrote it —
+// denied rather than leaked, which is the safe failure and still a
+// broken feature. The re-key onto the table's own company_id is what
+// this probes, and the OFF-CHART row is the one that matters: an
+// on-chart row would pass under either shape and prove nothing.
+//
+// Four callers, as instructed: the company's own admin, an assigned
+// guide, an unassigned guide, and another company's admin. Plus the
+// parent check on insert, which is the hole company_id alone leaves:
+// a caller's own company_id passes the with-check while role_id
+// points at somebody else's role, and the row lands in a history
+// that is not theirs. Reading it back is still denied. The history
+// is still corrupt.
+async function roleDescriptionOffChart(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "role-description-off-chart";
+  const hazard = "An off-chart role description is unreachable, or reachable by the wrong company";
+
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;",
+      pending,
+      `select count(*) > 0 as ok from information_schema.tables
+        where table_schema='public' and table_name='role_descriptions';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name,
+      hazard,
+      wrong: "table not on this schema",
+      right: "table not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0221 has not landed here yet. Runs for real under --pending 0221_role_descriptions_off_chart.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const A = ids.companyAdminCompany;
+  const B = ids.otherCompany;
+  const G = ids.guideCompany;
+
+  // Seeded by the superuser before the caller is assumed, so the row
+  // under test exists regardless of whether the caller could have
+  // written it. What is being asked is who can SEE it.
+  const seedOffChart = (co: string, title: string) =>
+    `insert into public.role_descriptions (company_id, function_id, title)
+       values ('${co}', null, '${title}');`;
+
+  const count = async (sql: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(sql);
+      return r?.n ?? -1;
+    } catch {
+      // A statement-level refusal is the stronger outcome and is what
+      // an INSERT with no admitting policy actually produces.
+      return 0;
+    }
+  };
+
+  // ---- Reads --------------------------------------------------
+  const ownAdminSees = await count(
+    [
+      "begin;", pending,
+      seedOffChart(A, "harness: off-chart own"),
+      "set local role authenticated;", claims(ids.companyAdmin),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart own';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const otherAdminSees = await count(
+    [
+      "begin;", pending,
+      seedOffChart(B, "harness: off-chart other"),
+      "set local role authenticated;", claims(ids.companyAdmin),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart other';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const assignedGuideSees = await count(
+    [
+      "begin;", pending,
+      seedOffChart(G, "harness: off-chart guided"),
+      "set local role authenticated;", claims(ids.guide),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart guided';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  // Same guide, a company they are NOT assigned to. Their assignment
+  // is revoked inside the transaction rather than inventing a second
+  // guide, so the caller is identical in both halves and the only
+  // thing that changed is the assignment.
+  const unassignedGuideSees = await count(
+    [
+      "begin;", pending,
+      seedOffChart(G, "harness: off-chart unassigned"),
+      `delete from public.guide_assignments where guide_id = '${ids.guide}';`,
+      "set local role authenticated;", claims(ids.guide),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart unassigned';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  // ---- Writes -------------------------------------------------
+  const ownAdminWrites = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      seedOffChart(A, "harness: off-chart write own"),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart write own';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const adminWritesOtherCompany = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      seedOffChart(B, "harness: off-chart write other"),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart write other';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const assignedGuideWrites = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.guide),
+      seedOffChart(G, "harness: off-chart write guided"),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart write guided';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const unassignedGuideWrites = await count(
+    [
+      "begin;", pending,
+      `delete from public.guide_assignments where guide_id = '${ids.guide}';`,
+      "set local role authenticated;", claims(ids.guide),
+      seedOffChart(G, "harness: off-chart write unassigned"),
+      `select count(*)::int as n from public.role_descriptions
+         where title = 'harness: off-chart write unassigned';`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  // ---- A version attached to somebody else's role -------------
+  const crossParentVersion = await count(
+    [
+      "begin;", pending,
+      seedOffChart(B, "harness: off-chart victim"),
+      "set local role authenticated;", claims(ids.companyAdmin),
+      `insert into public.role_description_versions
+         (role_id, company_id, version_number, snapshot_document, body_json)
+       select rd.id, '${A}', 99, '{}'::jsonb, '{"harness":true}'::jsonb
+         from public.role_descriptions rd
+        where rd.title = 'harness: off-chart victim';`,
+      `select count(*)::int as n from public.role_description_versions
+         where version_number = 99;`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const checks: Array<[string, number, number]> = [
+    ["own admin reads own off-chart role", ownAdminSees, 1],
+    ["own admin reads another company's", otherAdminSees, 0],
+    ["assigned guide reads", assignedGuideSees, 1],
+    ["unassigned guide reads", unassignedGuideSees, 0],
+    ["own admin writes own", ownAdminWrites, 1],
+    ["own admin writes another company's", adminWritesOtherCompany, 0],
+    ["assigned guide writes", assignedGuideWrites, 1],
+    ["unassigned guide writes", unassignedGuideWrites, 0],
+    ["version attached to another company's role", crossParentVersion, 0],
+  ];
+  const failures = checks.filter(([, got, want]) => got !== want);
+
+  return {
+    name,
+    hazard,
+    wrong:
+      "off-chart rows invisible to their own company, or visible / writable outside it",
+    right: checks.map(([label, , want]) => `${label}=${want}`).join(", "),
+    ok: failures.length === 0,
+    detail:
+      failures.length === 0
+        ? checks.map(([label, got]) => `${label}=${got}`).join(", ")
+        : "MISMATCH: " +
+          failures.map(([label, got, want]) => `${label}=${got} want ${want}`).join(", "),
+  };
+}
+
 async function portfolioAssignmentBoundary(
   run: Runner,
   ids: Identities,
@@ -4355,11 +4569,41 @@ export const BATCHES: readonly Batch[] = [
     // Empty on the clone: no role description has ever been
     // published there, so without this the deleted-user control sees
     // zero and the check cannot run.
+    // Empty on the clone: no role description has ever been
+    // published there, so without this the deleted-user control sees
+    // zero and the check cannot run.
+    //
+    // Since 0221 a version hangs off a role_descriptions row and
+    // carries its own company_id, both NOT NULL, so the seed has to
+    // create the parent first. Written to work either side of that
+    // migration: the parent insert is a no-op on a schema without the
+    // table, and the column list is chosen at runtime from what is
+    // actually there.
     seedRows: {
-      role_description_versions:
-        "insert into public.role_description_versions " +
-        "(function_id, version_number, snapshot_document) " +
-        "select id, 1, '{}'::jsonb from public.functions limit 1;",
+      role_description_versions: `
+        do $seed$
+        declare fn record;
+        begin
+          select id, company_id, title into fn from public.functions limit 1;
+          if fn.id is null then return; end if;
+
+          if to_regclass('public.role_descriptions') is null then
+            insert into public.role_description_versions
+              (function_id, version_number, snapshot_document)
+            values (fn.id, 1, '{}'::jsonb);
+          else
+            insert into public.role_descriptions (company_id, function_id, title)
+            values (fn.company_id, fn.id, fn.title)
+            on conflict do nothing;
+
+            insert into public.role_description_versions
+              (function_id, role_id, company_id, version_number, snapshot_document)
+            select fn.id, rd.id, fn.company_id, 1, '{}'::jsonb
+              from public.role_descriptions rd
+             where rd.function_id = fn.id;
+          end if;
+        end
+        $seed$;`,
     },
     indirectScope: {
       function_roles: {
@@ -4386,11 +4630,22 @@ export const BATCHES: readonly Batch[] = [
           "select t.id as key, f.company_id from public.role_description_documents t " +
           "join public.functions f on f.id = t.function_id",
       },
+      // Since 0221 the company is on the row, and reaching it by
+      // joining function_id would drop every off-chart version —
+      // the sweep would then report on a subset and look complete.
+      // coalesce keeps the entry correct on a schema that predates
+      // the column.
       role_description_versions: {
         key: "id",
         rows:
-          "select t.id as key, f.company_id from public.role_description_versions t " +
-          "join public.functions f on f.id = t.function_id",
+          // to_jsonb(t)->>'company_id' rather than t.company_id, so
+          // this parses on a schema that predates the column and
+          // yields null there instead of a syntax error. The left
+          // join is what lets an off-chart row through at all.
+          "select t.id as key, " +
+          "coalesce((to_jsonb(t)->>'company_id')::uuid, f.company_id) as company_id " +
+          "from public.role_description_versions t " +
+          "left join public.functions f on f.id = t.function_id",
       },
     },
     writeProbes: {
@@ -8260,6 +8515,10 @@ async function main(): Promise<void> {
     [
       "coach-memory-edit",
       (r: Runner, i: Identities) => coachMemoryEdit(r, i, pendingSql),
+    ],
+    [
+      "role-description-off-chart",
+      (r: Runner, i: Identities) => roleDescriptionOffChart(r, i, pendingSql),
     ],
     [
       "portfolio-assignment-boundary",
