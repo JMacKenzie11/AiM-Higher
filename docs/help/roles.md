@@ -28,7 +28,7 @@ kept off the chart would have nowhere to be found.
 ## How to write one
 
 ::: role company_admin,aims_guide,system_admin
-1. Go to *Ask Aimee* and pick **Write a role description** from the
+1. Go to *Ask Aimee* and pick **Role Description Creator** from the
    agent list, under **People**.
 2. Two ways in: a seat that's on your Functional Chart, or a role
    that isn't. Pick the one you mean; Aimee asks different questions

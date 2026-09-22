@@ -185,9 +185,9 @@ export const PRACTICES: readonly Practice[] = [
   },
   {
     id: "role-description",
-    title: "Write a role description",
+    title: "Role Description Creator",
     description:
-      "Build a role description for one seat: what it owns, what it is held to, what it decides, and what excellence looks like.",
+      "Create downloadable role descriptions that integrate company context like industry, and organizational culture.",
     category: "People",
     promptFile: "prompts/practices/role-description.md",
     // Two chips, because the second is a whole path the leader
