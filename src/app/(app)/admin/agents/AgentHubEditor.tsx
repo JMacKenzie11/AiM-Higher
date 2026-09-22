@@ -99,7 +99,7 @@ export function AgentHubEditor({
       ) : null}
 
       <section className={admin.card} data-testid="agent-hub-agents">
-        <h2 className={admin.h2}>Agents</h2>
+        <h2 className={`${admin.h2} ${styles.cardTitle}`}>Agents</h2>
         <p className={admin.fieldHint}>
           Edit changes the name, description and category. Access chooses who
           can reach it. Hide takes it off the list people pick from, and leaves
@@ -160,7 +160,7 @@ export function AgentHubEditor({
       </section>
 
       <section className={admin.card} data-testid="agent-hub-categories">
-        <h2 className={admin.h2}>Categories</h2>
+        <h2 className={`${admin.h2} ${styles.cardTitle}`}>Categories</h2>
         <p className={admin.fieldHint}>
           The headings agents are grouped under in Ask Aimee, in the order they
           appear.
@@ -170,7 +170,7 @@ export function AgentHubEditor({
           {visibleCategories.map((category, i) => (
             <li
               key={category.id}
-              className={admin.listItem}
+              className={styles.categoryRow}
               data-testid="agent-hub-category-row"
             >
               {renaming === category.id ? (
@@ -201,7 +201,7 @@ export function AgentHubEditor({
                 </div>
               ) : (
                 <div className={styles.categoryHead}>
-                  <span className={styles.categoryName}>
+                  <span className={styles.categoryRowName}>
                     {category.name}
                     {category.archived ? " (hidden)" : ""}
                   </span>
