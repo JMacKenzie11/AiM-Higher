@@ -103,8 +103,69 @@ export async function createFunctionAction(
     return { ok: false, message: "Couldn't create that function." };
   }
 
+  // RESPONSIBILITIES COME WITH THE FUNCTION, not after it.
+  //
+  // They used to be the reason the add form redirected: you named a
+  // function, landed on its page, and typed the responsibilities
+  // there, because a responsibility needs a function_id and there
+  // was no function until you had submitted. The form now collects
+  // them client-side and hands them over here, so one submit
+  // creates the whole box.
+  //
+  // A failure to write them does NOT fail the create. The function
+  // exists at this point, and returning an error for it would leave
+  // the caller looking at "couldn't create that function" beside a
+  // function that is on the chart. The rows the user typed are the
+  // recoverable half: the drawer that opens on a card click adds
+  // them in seconds.
+  const responsibilities = parseResponsibilities(formData.get("responsibilities"));
+  if (responsibilities.length > 0) {
+    // The trigger from 0107 has already put the baseline
+    // "Lead, Track, Decide" row at sort_order 0, so user rows start
+    // at 1. Read it rather than assume it: an insert that collides
+    // on sort_order would drop the lot.
+    const { data: existing } = await supabase
+      .from("function_roles")
+      .select("sort_order")
+      .eq("function_id", data.id)
+      .order("sort_order", { ascending: false })
+      .limit(1);
+    const base =
+      existing && existing.length > 0 ? (existing[0].sort_order ?? 0) + 1 : 1;
+    await supabase.from("function_roles").insert(
+      responsibilities.map((title, i) => ({
+        function_id: data.id,
+        title,
+        body: null,
+        sort_order: base + i,
+        is_default: false,
+      }))
+    );
+  }
+
   revalidatePath("/chart");
   return { ok: true, item: data };
+}
+
+// Responsibilities arrive as a JSON array of strings in one form
+// field, rather than as repeated inputs, because the list is built
+// and reordered in client state before anything is submitted.
+// Anything that is not an array of non-empty strings is dropped
+// rather than rejected: the field is optional, and a malformed one
+// is a bug in our own form, not something to tell the user about
+// while their function is otherwise fine.
+function parseResponsibilities(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string" || raw.trim() === "") return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((v): v is string => typeof v === "string")
+      .map((v) => v.trim())
+      .filter((v) => v !== "");
+  } catch {
+    return [];
+  }
 }
 
 // Lightweight rename — updates only the title, leaves every other

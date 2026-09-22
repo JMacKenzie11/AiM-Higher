@@ -1999,3 +1999,36 @@
   text-align: inherit;
   cursor: pointer;
 }
+
+/* ---- Add function: the responsibilities list --------------------
+   Same rows as the function drawer's editor, built before the
+   function exists. They cannot share RolesList: that one renders
+   saved rows and calls a server action per edit, and there is no
+   function_id to call it with until submit. What is shared is the
+   look, by composing the same classes, so the list you build here is
+   the list you see afterwards. */
+.addRoleList {
+  composes: roleList;
+}
+
+.addRoleRow {
+  composes: roleRow;
+}
+
+/* The baseline row, shown and not editable. Every function gets
+   "Lead, Track, Decide" from a trigger whether or not this panel
+   mentions it, and a list that starts empty here and arrives with a
+   row already in it reads as a bug. */
+.addRoleRowDefault {
+  composes: roleRowDefault;
+}
+
+.addRoleRowDraft {
+  composes: roleRowDraft;
+}
+
+.addRoleTitle {
+  composes: roleTitle;
+  flex: 1 1 auto;
+  min-width: 0;
+}

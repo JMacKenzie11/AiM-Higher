@@ -26,7 +26,8 @@ As a team member, you can:
 ::: role company_admin,aims_guide,system_admin
 As an admin or guide, you can:
 
-- **Add or delete functions** to grow / shape the tree.
+- **Add or delete functions** to grow / shape the tree. A new function
+  is built entirely in the add panel, responsibilities and all.
 - **Assign seats** — one person per function.
 - **Edit a function without leaving the chart**: click any function
   box and its detail opens in a panel from the right.
@@ -45,9 +46,19 @@ As an admin or guide, you can:
 
 1. On the chart, click *Add function* at the top of the chart card. It
    opens a panel from the right; Escape, the X, or a click outside
-   closes it. Saving takes you straight to the new function's page.
-2. New companies start with **Visionary** and **Integrator** seed boxes
-   at the top — build under them.
+   closes it.
+2. Fill in the whole box here: the name, which function it sits under,
+   who's in the seat, and its roles and responsibilities. Type a
+   responsibility and press Enter, or click *Add*, to put it on the
+   list. The trash icon takes one off again.
+3. Every function carries *Lead, Track, Decide* whether you add
+   anything or not, which is why it's already on the list.
+4. Click *Add function*. The panel closes and the new box is on the
+   chart with its responsibilities on it. You don't leave the chart.
+5. Anything still sitting in the *Add a responsibility* box when you
+   save is dropped. Press Enter first to keep it.
+6. New companies start with **Visionary** and **Integrator** seed boxes
+   at the top. Build under them.
 
 ## How to edit a function
 
