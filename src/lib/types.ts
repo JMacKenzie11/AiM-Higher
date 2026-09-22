@@ -117,7 +117,7 @@ export type StrategicFocusArea = {
   sort_order: number;
   archived: boolean;
   created_at: string;
-  // Who created the row (migration 0221). Null on anything created
+  // Who created the row (migration 0225). Null on anything created
   // before it, and on rows the service role writes. Stamped by a
   // database trigger from auth.uid(), not by any action — see the
   // migration for why it overrules a value an authenticated client
@@ -138,7 +138,7 @@ export type AnnualGoal = {
   sort_order: number;
   archived: boolean;
   created_at: string;
-  // Who created the row (migration 0221). Null on anything created
+  // Who created the row (migration 0225). Null on anything created
   // before it, and on rows the service role writes. Stamped by a
   // database trigger from auth.uid(), not by any action — see the
   // migration for why it overrules a value an authenticated client
@@ -167,7 +167,7 @@ export type Priority = {
   sort_order: number;
   archived: boolean;
   created_at: string;
-  // Who created the row (migration 0221). Null on anything created
+  // Who created the row (migration 0225). Null on anything created
   // before it, and on rows the service role writes. Stamped by a
   // database trigger from auth.uid(), not by any action — see the
   // migration for why it overrules a value an authenticated client
@@ -254,7 +254,7 @@ export type Commitment = {
   resolved_by_role: CommitmentResolverRole | null;
   resolved_by_profile_id: string | null;
   created_at: string;
-  // Who created the row (migration 0221). Null on anything created
+  // Who created the row (migration 0225). Null on anything created
   // before it, and on rows the service role writes. Stamped by a
   // database trigger from auth.uid(), not by any action — see the
   // migration for why it overrules a value an authenticated client

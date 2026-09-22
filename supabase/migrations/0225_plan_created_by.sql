@@ -1,4 +1,16 @@
--- 0221: who created this row, on the four plan tables.
+-- 0225: who created this row, on the four plan tables.
+--
+-- RENUMBERED FROM 0221, and not because anything was wrong with it.
+-- Two sessions branched from main at 0220 on the same day and both
+-- took the next number; the role-description work merged first and
+-- reached the fleet, so production sat at 0224 while this file still
+-- said 0221.
+--
+-- That is not a conflict the runner would have reported. It tracks
+-- one high-water mark per instance and skips anything at or below
+-- it, so this migration would have merged, passed CI, and been
+-- silently never applied — the columns absent in production while
+-- every instance reported itself current.
 --
 -- WHY. Howard Concrete Pumping's plan was typed in one level too high
 -- on 2026-08-18 — sixteen quarterly priorities that were a commitment

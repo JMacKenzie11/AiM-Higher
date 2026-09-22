@@ -6258,7 +6258,7 @@ async function externalSourceRoleChecks(
   }];
 }
 
-// Attribution on plan writes (0221).
+// Attribution on plan writes (0225).
 //
 // The column answers "who typed this row", and a field like that is
 // worth nothing if the answer is whatever the client claimed. So the
