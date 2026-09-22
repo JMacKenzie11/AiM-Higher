@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { practiceCompanyGate, practiceRoleGate, type GateProfile } from "./gate";
+import { practiceRoleGate, type GateProfile } from "./gate";
 import type { Practice } from "./registry";
 
 // Role gate for launching a practice. Covers:
@@ -107,47 +107,5 @@ describe("practiceRoleGate", () => {
     );
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.message).toMatch(/aren't assigned/i);
-  });
-});
-
-describe("practiceCompanyGate", () => {
-  // The Agent Hub's company allowlist. Empty admits everybody,
-  // because that is what all five agents seed with and what an
-  // agent with no allowlist means — "unset" and "every company"
-  // have to stay the same thing or somebody has to remember which
-  // is which.
-  it("admits every company when the allowlist is empty", () => {
-    expect(practiceCompanyGate({ companyAllowlist: [] }, "co_acme").ok).toBe(
-      true
-    );
-  });
-
-  it("admits a company on the allowlist", () => {
-    const res = practiceCompanyGate(
-      { companyAllowlist: ["co_acme", "co_meridian"] },
-      "co_acme"
-    );
-    expect(res.ok).toBe(true);
-  });
-
-  it("denies a company that is not on a non-empty allowlist", () => {
-    const res = practiceCompanyGate(
-      { companyAllowlist: ["co_meridian"] },
-      "co_acme"
-    );
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/isn't switched on/i);
-  });
-
-  // A null column reaching the gate must read as "no allowlist"
-  // rather than throwing. The row defaults to '{}' so this should
-  // not happen, but the gate is the security boundary and a crash
-  // here is a picker that renders nothing.
-  it("treats a missing allowlist as every company", () => {
-    const res = practiceCompanyGate(
-      { companyAllowlist: undefined as unknown as readonly string[] },
-      "co_acme"
-    );
-    expect(res.ok).toBe(true);
   });
 });

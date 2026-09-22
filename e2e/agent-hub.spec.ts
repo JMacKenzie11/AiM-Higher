@@ -46,7 +46,7 @@ test.describe("Agent Hub", () => {
     const summary = await after
       .getByTestId("agent-hub-access-summary")
       .innerText();
-    if (/compan(y|ies)/i.test(summary)) {
+    if (/functional leads/i.test(summary)) {
       await after.getByRole("button", { name: /^access$/i }).click();
       for (const box of await after.locator('input[type="checkbox"]').all()) {
         if (await box.isChecked()) await box.uncheck();
@@ -54,7 +54,7 @@ test.describe("Agent Hub", () => {
       await after.getByRole("button", { name: /^save$/i }).click();
       await expect(
         rowFor(page).getByTestId("agent-hub-access-summary")
-      ).not.toContainText(/compan(y|ies)/i, { timeout: 15_000 });
+      ).not.toContainText(/functional leads/i, { timeout: 15_000 });
     }
   });
 
@@ -121,29 +121,29 @@ test.describe("Agent Hub", () => {
     // when an assertion above throws.
   });
 
-  test("limits an agent to one company and opens it up again", async ({
-    page,
-  }) => {
+  test("admits Functional Leads, and takes it back", async ({ page }) => {
     await signIn(page, users.admin());
     await page.goto("/admin/agents");
 
     const row = rowFor(page);
     await expect(row).toBeVisible();
-    const summary = row.getByTestId("agent-hub-access-summary");
-    // Starts with no allowlist, which reads as every company.
-    await expect(summary).not.toContainText(/compan(y|ies)/i);
-
-    await row.getByRole("button", { name: /^access$/i }).click();
-    const firstCompany = row.locator('input[type="checkbox"]').last();
-    await firstCompany.check();
-    await row.getByRole("button", { name: /^save$/i }).click();
-
-    await expect(rowFor(page).getByTestId("agent-hub-access-summary")).toContainText(
-      /1 company/i,
-      { timeout: 15_000 }
+    // Seeds with no predicates, so the summary names roles only.
+    await expect(row.getByTestId("agent-hub-access-summary")).not.toContainText(
+      /functional leads/i
     );
 
-    // Clearing the allowlist is afterEach's job, same reason.
+    await row.getByRole("button", { name: /^access$/i }).click();
+    // The last checkbox in the Roles column is the Functional Leads
+    // toggle, which sits below the role list rather than in it.
+    await row.locator('input[type="checkbox"]').last().check();
+    await row.getByRole("button", { name: /^save$/i }).click();
+
+    await expect(
+      rowFor(page).getByTestId("agent-hub-access-summary")
+    ).toContainText(/functional leads/i, { timeout: 15_000 });
+
+    // Taking it back is afterEach's job, so that it happens even when
+    // an assertion above throws.
   });
 
   test("refuses to hide a category that still holds agents", async ({

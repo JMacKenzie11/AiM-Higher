@@ -208,20 +208,11 @@
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
-.companyList {
-  max-height: 220px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2);
-}
-
-.companyOption {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 2px 0;
-  font: var(--text-body-sm);
+/* Save and Cancel need air above them. The last control in a panel
+ * is a bordered pill, and with only the shared submitRow gap the two
+ * buttons sat tight under its edge and read as part of it. */
+.panelActions {
+  margin-top: var(--space-4);
 }
 
 /* A category row carries the same fill as an agent row. They are

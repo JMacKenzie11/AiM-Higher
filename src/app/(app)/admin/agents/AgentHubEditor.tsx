@@ -2,11 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import type {
-  HubAgent,
-  HubCategory,
-  HubCompany,
-} from "@/lib/practices/hub-service";
+import type { HubAgent, HubCategory } from "@/lib/practices/hub-service";
 import {
   createHubCategoryAction,
   moveHubCategoryAction,
@@ -24,11 +20,9 @@ import styles from "./hub.module.css";
 export function AgentHubEditor({
   categories,
   agents,
-  companies,
 }: {
   categories: HubCategory[];
   agents: HubAgent[];
-  companies: HubCompany[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -126,7 +120,6 @@ export function AgentHubEditor({
                     key={agent.id}
                     agent={agent}
                     categories={visibleCategories}
-                    companies={companies}
                     isFirst={i === 0}
                     isLast={i === rows.length - 1}
                     pending={pending}
@@ -148,7 +141,6 @@ export function AgentHubEditor({
                 key={agent.id}
                 agent={agent}
                 categories={visibleCategories}
-                companies={companies}
                 isFirst={i === 0}
                 isLast={i === orphans.length - 1}
                 pending={pending}

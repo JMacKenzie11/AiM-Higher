@@ -177,7 +177,6 @@ export async function updateAgentAccessAction(
     allowedRoles: string[];
     feature: string | null;
     functionLead: boolean;
-    companyAllowlist: string[];
   }
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
@@ -203,7 +202,6 @@ export async function updateAgentAccessAction(
       allowed_roles: roles,
       feature: fields.feature || null,
       access_predicates: fields.functionLead ? [FUNCTION_LEAD_PREDICATE] : [],
-      company_allowlist: [...new Set(fields.companyAllowlist)],
     })
     .eq("id", id);
   if (error) return { ok: false, message: "Couldn't save that access change." };

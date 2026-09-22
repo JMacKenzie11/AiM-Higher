@@ -45,7 +45,6 @@ export type ResolvedAgent = Practice & {
   sortOrder: number;
   categorySortOrder: number;
   archived: boolean;
-  companyAllowlist: readonly string[];
 };
 
 type AgentRow = {
@@ -57,7 +56,6 @@ type AgentRow = {
   allowed_roles: string[] | null;
   feature: string | null;
   access_predicates: string[] | null;
-  company_allowlist: string[] | null;
   archived: boolean;
   agent_categories: { name: string; sort_order: number } | null;
 };
@@ -86,7 +84,7 @@ const loadAgentRows = cache(async function loadAgentRows(): Promise<
       .from("agents")
       .select(
         "id, slug, title, description, sort_order, allowed_roles, feature, " +
-          "access_predicates, company_allowlist, archived, " +
+          "access_predicates, archived, " +
           "agent_categories ( name, sort_order )"
       );
     if (error) return null;
@@ -111,7 +109,6 @@ function fromRegistryOnly(): ResolvedAgent[] {
     sortOrder: i,
     categorySortOrder: categoryOrder(p.category),
     archived: false,
-    companyAllowlist: [],
   }));
 }
 
@@ -139,7 +136,6 @@ export const listAgents = cache(async function listAgents(): Promise<
         sortOrder: i,
         categorySortOrder: categoryOrder(practice.category),
         archived: false,
-        companyAllowlist: [],
       });
       continue;
     }
@@ -165,7 +161,6 @@ export const listAgents = cache(async function listAgents(): Promise<
       categorySortOrder:
         row.agent_categories?.sort_order ?? categoryOrder(practice.category),
       archived: row.archived,
-      companyAllowlist: row.company_allowlist ?? [],
     });
   }
 
@@ -212,7 +207,6 @@ export const listAgentsIncludingArchived = cache(
           sortOrder: i,
           categorySortOrder: categoryOrder(practice.category),
           archived: false,
-          companyAllowlist: [] as readonly string[],
         };
       }
       return {
@@ -233,7 +227,6 @@ export const listAgentsIncludingArchived = cache(
         categorySortOrder:
           row.agent_categories?.sort_order ?? categoryOrder(practice.category),
         archived: row.archived,
-        companyAllowlist: (row.company_allowlist ?? []) as readonly string[],
       };
     });
   }

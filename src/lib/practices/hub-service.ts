@@ -35,7 +35,6 @@ export type HubAgent = {
   allowedRoles: string[];
   feature: string | null;
   accessPredicates: string[];
-  companyAllowlist: string[];
   archived: boolean;
   // False when no registry entry matches the slug, which today means
   // the agent cannot run: its prompt has nowhere to come from.
@@ -82,7 +81,7 @@ export async function listHubAgents(): Promise<HubAgent[]> {
     .from("agents")
     .select(
       "id, slug, category_id, title, description, sort_order, allowed_roles, " +
-        "feature, access_predicates, company_allowlist, archived"
+        "feature, access_predicates, archived"
     )
     .order("sort_order");
   const registrySlugs = new Set(PRACTICES.map((p) => p.id));
@@ -100,7 +99,6 @@ export async function listHubAgents(): Promise<HubAgent[]> {
       allowed_roles: string[] | null;
       feature: string | null;
       access_predicates: string[] | null;
-      company_allowlist: string[] | null;
       archived: boolean;
     }>
   ).map((a) => ({
@@ -113,22 +111,7 @@ export async function listHubAgents(): Promise<HubAgent[]> {
     allowedRoles: a.allowed_roles ?? [],
     feature: a.feature,
     accessPredicates: a.access_predicates ?? [],
-    companyAllowlist: a.company_allowlist ?? [],
     archived: a.archived,
     hasRegistryEntry: registrySlugs.has(a.slug),
-  }));
-}
-
-export type HubCompany = { id: string; name: string };
-
-// For the allowlist picker: every company on the instance, because a
-// system admin allowlisting an agent is working across tenants by
-// definition.
-export async function listHubCompanies(): Promise<HubCompany[]> {
-  const db = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data } = await db.from("companies").select("id, name").order("name");
-  return ((data ?? []) as Array<{ id: string; name: string }>).map((c) => ({
-    id: c.id,
-    name: c.name,
   }));
 }
