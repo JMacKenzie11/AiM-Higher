@@ -5,7 +5,9 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getPeopleRoster } from "@/lib/people/service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { PageShell } from "@/components/ui/PageShell";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { listRoleDescriptions } from "@/lib/role-descriptions/roles-list";
+import { functionsLedBy } from "@/lib/practices/function-leads";
 import { RoleDescriptionsCard } from "@/components/role-descriptions/RoleDescriptionsCard";
 import { InviteForm } from "../admin/companies/[id]/InviteForm";
 import { RowActionsMenu } from "./RowActionsMenu";
@@ -103,6 +105,23 @@ export default async function PeoplePage() {
   // The card renders empty for a company that has written none,
   // which is the honest state rather than a hidden one.
   const savedRoles = await listRoleDescriptions(companyId);
+
+  // Who may revise WHICH, resolved per role rather than per page: an
+  // admin or assigned guide may revise any of their company's, and a
+  // function's Lead may revise the seat they hold and no other. One
+  // boolean for the page would hide the button from a lead or show
+  // it where it will be refused.
+  const revisorIsAdmin = isAdminForCompany(session.profile, companyId);
+  const ledFunctionIds = revisorIsAdmin
+    ? new Set<string>()
+    : await functionsLedBy(session.profile.id, companyId);
+  const canRevise = Object.fromEntries(
+    savedRoles.map((r) => [
+      r.roleId,
+      revisorIsAdmin ||
+        (r.functionId !== null && ledFunctionIds.has(r.functionId)),
+    ])
+  );
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
@@ -244,7 +263,7 @@ export default async function PeoplePage() {
         <h2 id="role-descriptions" className={styles.h2}>
           Role Descriptions
         </h2>
-        <RoleDescriptionsCard roles={savedRoles} />
+        <RoleDescriptionsCard roles={savedRoles} canRevise={canRevise} />
       </section>
     </PageShell>
   );

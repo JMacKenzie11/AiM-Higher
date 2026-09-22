@@ -289,7 +289,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     // so a practice declaring a tool the coach also has cannot send
     // Anthropic two definitions with one name — which is an API
     // error, not a precedence question.
-    ...resolvePracticeTools(practice?.tools, convo.company_id),
+    ...resolvePracticeTools(
+      practice?.tools,
+      convo.company_id,
+      (convo as { revising_role_id?: string | null }).revising_role_id ?? null
+    ),
   ].filter(
     (t, i, all) => all.findIndex((o) => o.definition.name === t.definition.name) === i
   );
@@ -729,13 +733,16 @@ async function generateTitleForConversation(args: {
 // conversation with a 500.
 function resolvePracticeTools(
   names: readonly PracticeToolName[] | undefined,
-  companyId: string
+  companyId: string,
+  revisingRoleId: string | null
 ): CoachTool[] {
   if (!names || names.length === 0) return [];
   const wanted = new Set<string>(names);
   const available = [
-    ...(wanted.has("get_foundation") || wanted.has("list_functions")
-      ? buildRoleDescriptionTools({ companyId })
+    ...(wanted.has("get_foundation") ||
+    wanted.has("list_functions") ||
+    wanted.has("get_role_description")
+      ? buildRoleDescriptionTools({ companyId, revisingRoleId })
       : []),
   ];
   return available.filter((t) => wanted.has(t.definition.name));

@@ -29,16 +29,23 @@ import { parseRoleDescription } from "./parse-document";
 //
 // Three answers, tried in order, and the order matters:
 //
+//   0. The role this conversation was opened to REVISE, recorded on
+//      the conversation by the Revise button (0224). This is the
+//      only answer that is told rather than inferred, and it is the
+//      one that works when somebody else wrote the original: the
+//      conversation it came from is private and a second admin
+//      never sees it.
 //   1. A role this CONVERSATION has already saved. Two saves in one
 //      sitting are two versions of one role, not two roles.
 //   2. For an on-chart role, the role row for that function. A
 //      second conversation about the Marketing seat extends the
 //      Marketing seat's history.
-//   3. Otherwise a new role. An off-chart role written in a fresh
-//      conversation cannot be matched to an earlier one by anything
-//      we actually know — the titles might match by coincidence and
-//      might differ by choice — so it starts its own history rather
-//      than guessing its way into somebody else's.
+//   3. Otherwise a new role.
+//
+// Step 0 is what fixed the off-chart duplicate. Without it a second
+// person revising a role that is not on the chart fell past 1 and 2
+// and created a rival row: two entries for one job, each with its
+// own version 1, and nothing saying so.
 //
 // ---- THE BOUNDARY ----------------------------------------------
 //
@@ -74,9 +81,13 @@ export async function saveRoleDescriptionAction(
 
   const { data: convo } = await admin
     .from("coaching_conversations")
-    .select("id, company_id")
+    .select("id, company_id, revising_role_id")
     .eq("id", conversationId)
-    .maybeSingle<{ id: string; company_id: string }>();
+    .maybeSingle<{
+      id: string;
+      company_id: string;
+      revising_role_id: string | null;
+    }>();
   if (!convo) {
     return { ok: false, message: "Couldn't find that conversation." };
   }
@@ -125,6 +136,7 @@ export async function saveRoleDescriptionAction(
   const roleId = await resolveRoleId(db, {
     companyId,
     conversationId,
+    revisingRoleId: convo.revising_role_id,
     functionId: doc.function?.id ?? null,
     title: doc.title,
     supportsFunctions: doc.supports_functions,
@@ -177,17 +189,45 @@ export async function saveRoleDescriptionAction(
 
 type Db = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
+export async function __resolveRoleIdForTest(
+  db: Db,
+  args: Parameters<typeof resolveRoleId>[1]
+): Promise<string | null> {
+  return resolveRoleId(db, args);
+}
+
 async function resolveRoleId(
   db: Db,
   args: {
     companyId: string;
     conversationId: string;
+    revisingRoleId: string | null;
     functionId: string | null;
     title: string;
     supportsFunctions: string[];
     createdBy: string;
   }
 ): Promise<string | null> {
+  // 0. Told, not inferred. Checked against the company so a
+  // conversation cannot be pointed at another tenant's role by a
+  // stale or tampered id; RLS would refuse the insert anyway, and a
+  // named refusal beats a failed write.
+  if (args.revisingRoleId) {
+    const { data: revising } = await db
+      .from("role_descriptions")
+      .select("id")
+      .eq("id", args.revisingRoleId)
+      .eq("company_id", args.companyId)
+      .limit(1);
+    if (revising && revising.length > 0) {
+      await db
+        .from("role_descriptions")
+        .update({ title: args.title })
+        .eq("id", args.revisingRoleId);
+      return args.revisingRoleId;
+    }
+  }
+
   // 1. This conversation has saved before.
   const { data: mine } = await db
     .from("role_description_versions")

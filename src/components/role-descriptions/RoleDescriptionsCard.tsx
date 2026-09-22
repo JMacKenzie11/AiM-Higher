@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { reviseRoleDescriptionAction } from "@/lib/role-descriptions/revise-action";
 import { RoleDescriptionView } from "./RoleDescriptionView";
 import type { RoleDescriptionDoc } from "@/lib/role-descriptions/parse-document";
 import styles from "./RoleDescriptionsCard.module.css";
@@ -29,8 +30,21 @@ export type SavedRole = {
   doc: RoleDescriptionDoc | null;
 };
 
-export function RoleDescriptionsCard({ roles }: { roles: SavedRole[] }) {
+export function RoleDescriptionsCard({
+  roles,
+  canRevise,
+}: {
+  roles: SavedRole[];
+  // Whether THIS reader may revise each role. Computed on the
+  // server, per role, because a function's Lead may revise their own
+  // seat and nobody else's — a single boolean for the page would
+  // either hide the button from a lead or offer it where it will be
+  // refused.
+  canRevise: Record<string, boolean>;
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startRevising] = useTransition();
 
   if (roles.length === 0) {
     return (
@@ -89,6 +103,37 @@ export function RoleDescriptionsCard({ roles }: { roles: SavedRole[] }) {
                     This version can&rsquo;t be read. Ask Aimee for a fresh one.
                   </p>
                 )}
+                {canRevise[role.roleId] ? (
+                  <div className={styles.actions}>
+                    <button
+                      type="button"
+                      className={styles.revise}
+                      disabled={pending}
+                      onClick={() =>
+                        startRevising(async () => {
+                          setError(null);
+                          // Redirects on success, so anything that
+                          // comes back is a refusal.
+                          const result = await reviseRoleDescriptionAction(
+                            role.roleId
+                          );
+                          if (result && !result.ok) setError(result.message);
+                        })
+                      }
+                    >
+                      {pending ? "Opening…" : "Revise with Aimee"}
+                    </button>
+                    <span className={styles.reviseHint}>
+                      Opens a new conversation. Saving writes version{" "}
+                      {role.versionNumber + 1}; this one is kept.
+                    </span>
+                  </div>
+                ) : null}
+                {error ? (
+                  <p role="alert" className={styles.broken}>
+                    {error}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </li>

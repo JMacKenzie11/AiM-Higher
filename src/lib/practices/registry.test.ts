@@ -57,9 +57,14 @@ describe("the Role Description Creator", () => {
     expect(rd.alsoFunctionLeads).toBe(true);
   });
 
-  it("declares the two tools it cannot work without", () => {
+  it("declares the tools it cannot work without", () => {
     expect([...(rd.tools ?? [])].sort()).toEqual([
       "get_foundation",
+      // Registered only when the conversation is revising something,
+      // so a fresh interview never sees it. Declared here all the
+      // same: the registry says what the agent may use, and the
+      // builder decides what it gets this time.
+      "get_role_description",
       "list_functions",
     ]);
   });

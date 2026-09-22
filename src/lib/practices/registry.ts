@@ -143,7 +143,10 @@ export type Practice = {
 
 // The tool sets a practice may declare. Adding one means adding a
 // builder to the resolver in the coach route.
-export type PracticeToolName = "get_foundation" | "list_functions";
+export type PracticeToolName =
+  | "get_foundation"
+  | "list_functions"
+  | "get_role_description";
 
 export const PRACTICES: readonly Practice[] = [
   {
@@ -225,7 +228,9 @@ export const PRACTICES: readonly Practice[] = [
     basePromptMode: "voice_only",
     skipSetup: true,
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
-    tools: ["get_foundation", "list_functions"],
+    // get_role_description registers only when the conversation is
+    // revising something, so a fresh interview never sees it.
+    tools: ["get_foundation", "list_functions", "get_role_description"],
     // NOT feature-gated. role_descriptions gates the surfaces this
     // agent replaced — decision rights, competency indicators, the
     // generator page — and that flag is being switched off fleet-

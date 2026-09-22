@@ -53,8 +53,17 @@ const PROMPT = path.join(
 // `behaviour`, `decides_alone` for `decides`, and a bare string for
 // `function`. Every guess was reasonable English. Two of them would
 // have saved a document with holes in it rather than failing.
+//
+// Regenerated 2026-09-22 a third time, said out loud: the prompt
+// gained a revision branch. A saved document is revised in a NEW
+// conversation, because the one it came from is private to whoever
+// held it, so the agent has to be able to pick up finished work it
+// did not write. The rule that matters there is "change only what
+// they ask for": a revision that re-runs the interview is how a
+// one-line fix becomes a chore, and one that quietly rewrites prose
+// nobody mentioned loses somebody's words.
 const ROLE_DESCRIPTION_PROMPT_SHA =
-  "8341f2879532d39ce690debd6ece64f59d7bbb521277e680ce15afeb465cca1e";
+  "ccc6d3ca500fd0079c82653ee9537f0f713f0d4ae20fc540d7b79b774fa7f747";
 
 async function read(): Promise<string> {
   return fs.readFile(PROMPT, "utf8");
@@ -151,6 +160,21 @@ describe("the role description prompt", () => {
     expect(src).toMatch(/`decides` is not `decides_alone`/);
     // The id, which is what ties a saved document to its seat.
     expect(src).toMatch(/Never a bare string/);
+  });
+
+  // Revision. The failure modes here are both quiet: re-running the
+  // interview wastes the reviser's time, and rewriting untouched
+  // sections loses the original author's words without telling
+  // anybody.
+  it("still revises rather than re-interviews", async () => {
+    const src = await read();
+    expect(src).toMatch(/Do not re-run the interview\./);
+    expect(src).toMatch(/Change only what they ask for\./);
+    expect(src).toMatch(
+      /Every other section survives exactly as written, word for word/
+    );
+    // The standards do not lapse because it is an edit.
+    expect(src).toMatch(/passes the same five tests as an original one/);
   });
 
   // One level of measures. The two-level model came out in migration

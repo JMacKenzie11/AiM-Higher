@@ -107,3 +107,25 @@
     white-space: normal;
   }
 }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.revise {
+  composes: btn btnPrimary btnSm from "@/components/ui/ui.module.css";
+}
+
+/* Says what the button will do before it does it. A revision opens
+   somewhere else and writes a new version, and both are worth
+   knowing before the click rather than after. */
+.reviseHint {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}

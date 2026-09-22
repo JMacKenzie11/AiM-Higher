@@ -44,3 +44,20 @@ export async function leadsFunction(
     .limit(1);
   return (data ?? []).length > 0;
 }
+
+// Every function this person leads in a company, as a set of ids.
+// The /people card asks it once and answers per row, rather than one
+// round trip per saved role description.
+export async function functionsLedBy(
+  profileId: string,
+  companyId: string
+): Promise<Set<string>> {
+  const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data } = await db
+    .from("functions")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("lead_id", profileId)
+    .eq("archived", false);
+  return new Set(((data ?? []) as Array<{ id: string }>).map((f) => f.id));
+}

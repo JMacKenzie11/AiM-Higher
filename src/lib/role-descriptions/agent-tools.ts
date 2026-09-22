@@ -46,8 +46,86 @@ import type { CoachTool } from "@/lib/coach/tools";
 
 export function buildRoleDescriptionTools(args: {
   companyId: string;
+  // The role this conversation is revising, when it is revising one.
+  // Recorded on the conversation at launch, never supplied by the
+  // model: identity is the wrong thing to trust a model with.
+  revisingRoleId?: string | null;
 }): CoachTool[] {
-  return [makeGetFoundationTool(args), makeListFunctionsTool(args)];
+  const tools = [makeGetFoundationTool(args), makeListFunctionsTool(args)];
+  // Registered ONLY when there is something to load. An agent that
+  // can always call get_role_description will sometimes call it at
+  // the start of a fresh interview, get "nothing here", and tell the
+  // leader about a document that was never supposed to exist.
+  if (args.revisingRoleId) {
+    tools.push(makeGetRoleDescriptionTool(args.revisingRoleId));
+  }
+  return tools;
+}
+
+// ---- get_role_description --------------------------------------
+
+function makeGetRoleDescriptionTool(roleId: string): CoachTool {
+  return {
+    definition: {
+      name: "get_role_description",
+      description:
+        "The saved role description this conversation is revising, as its most recent version. " +
+        "Call it before your first question. You are picking up somebody else's work — possibly a colleague's, from a conversation you cannot see — so read what is there and open with it rather than starting the interview again. " +
+        "Returns status='empty' if the document has gone; say so and offer to write a fresh one.",
+      input_schema: { type: "object", properties: {}, required: [] },
+    },
+    handler: async () => {
+      const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+
+      const { data: roleRows } = await db
+        .from("role_descriptions")
+        .select("id, title, function_id, supports_functions")
+        .eq("id", roleId)
+        .limit(1);
+      const role = (roleRows ?? [])[0] as
+        | {
+            id: string;
+            title: string;
+            function_id: string | null;
+            supports_functions: string[] | null;
+          }
+        | undefined;
+      if (!role) {
+        return { status: "empty" as const, reason: "that role description is gone" };
+      }
+
+      const { data: versionRows } = await db
+        .from("role_description_versions")
+        .select("version_number, body_json, published_at")
+        .eq("role_id", roleId)
+        .order("version_number", { ascending: false })
+        .limit(1);
+      const version = (versionRows ?? [])[0] as
+        | { version_number: number; body_json: unknown; published_at: string }
+        | undefined;
+      if (!version?.body_json) {
+        return {
+          status: "empty" as const,
+          reason: "that role has no saved document yet",
+        };
+      }
+
+      return {
+        status: "ok" as const,
+        // The number the NEXT save will carry, so the agent can say
+        // which version it is about to write rather than guessing.
+        current_version: version.version_number,
+        saved_at: version.published_at,
+        title: role.title,
+        function_id: role.function_id,
+        supports_functions: role.supports_functions ?? [],
+        // The document verbatim. The agent revises it rather than
+        // rebuilding it, so anything the leader does not mention
+        // survives untouched.
+        document: version.body_json,
+      };
+    },
+  };
 }
 
 // ---- get_foundation -------------------------------------------

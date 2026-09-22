@@ -25,7 +25,14 @@ export type CreateResult =
   | { ok: false; message: string };
 
 export async function createPracticeConversation(
-  practiceId: string
+  practiceId: string,
+  // The role description this conversation was opened to revise, if
+  // any. Recorded on the row rather than inferred later: the
+  // conversation the document came from is private to whoever held
+  // it, so a second person revising it is always somewhere new, and
+  // nothing about the new conversation would otherwise say which
+  // document it is about. Migration 0224.
+  options?: { revisingRoleId?: string }
 ): Promise<CreateResult> {
   const practice = findPractice(practiceId);
   if (!practice) {
@@ -61,6 +68,7 @@ export async function createPracticeConversation(
       context_kind: "execution",
       mode: "general",
       practice_id: practice.id,
+      revising_role_id: options?.revisingRoleId ?? null,
     })
     .select("*")
     .single<CoachingConversation>();
