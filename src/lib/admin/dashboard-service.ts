@@ -142,10 +142,17 @@ export async function getCompanyActivity(): Promise<CompanyActivityRow[]> {
       .from("coaching_messages")
       .select("created_by, created_at, coaching_conversations!inner(company_id)")
       .gte("created_at", since30)
+      // Previews excluded, on the JOINED table: the turns a system
+      // admin spends rehearsing a draft are not message volume. See
+      // migration 0229.
+      .eq("coaching_conversations.is_preview", false)
       .eq("role", "user"),
     admin
       .from("coaching_conversations")
       .select("id, company_id, created_at, practice_id")
+      // Previews excluded: an admin rehearsing a draft in the Agent
+      // Hub is not usage. See migration 0229.
+      .eq("is_preview", false)
       .gte("created_at", since30),
     admin
       .from("coach_token_usage")
@@ -342,6 +349,10 @@ export async function getPracticeAdoption(): Promise<PracticeAdoptionRow[]> {
     .from("coaching_conversations")
     .select("id, practice_id, company_id")
     .not("practice_id", "is", null)
+    // Previews excluded, and this is the query that most needed it:
+    // agent adoption is the number a rehearsal would most visibly
+    // inflate. See migration 0229.
+    .eq("is_preview", false)
     .gte("created_at", since30);
   const convos = (convosData ?? []) as Array<{
     id: string;

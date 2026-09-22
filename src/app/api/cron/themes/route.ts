@@ -60,6 +60,9 @@ async function handle(req: NextRequest): Promise<Response> {
   const { data: convosData } = await admin
     .from("coaching_conversations")
     .select("id, title, practice_id")
+    // Previews excluded: an admin rehearsing a draft in the Agent
+    // Hub is not usage. See migration 0229.
+    .eq("is_preview", false)
     .not("title", "ilike", "Coaching · %")
     .not("title", "ilike", "___ __") // matches "Aug 10" bare dates
     .order("updated_at", { ascending: false })

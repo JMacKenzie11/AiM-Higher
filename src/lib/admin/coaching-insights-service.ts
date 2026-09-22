@@ -166,6 +166,9 @@ export async function getCoachingInsightsAdoption(
   const convoQuery = admin
     .from("coaching_conversations")
     .select("id, company_id, practice_id, created_by, created_at")
+    // Previews excluded: an admin rehearsing a draft in the Agent
+    // Hub is not usage. See migration 0229.
+    .eq("is_preview", false)
     .gte("created_at", startTs)
     .lt("created_at", endTs)
     .in("company_id", scopedCompanyIds);
@@ -486,6 +489,9 @@ export async function getCoachingInsightsSynthesis(
     const convoQuery = admin
       .from("coaching_conversations")
       .select("id")
+      // Previews excluded: an admin rehearsing a draft in the Agent
+      // Hub is not usage. See migration 0229.
+      .eq("is_preview", false)
       .gte("created_at", startTs)
       .lt("created_at", endTs)
       .in("company_id", scopedCompanyIds);
