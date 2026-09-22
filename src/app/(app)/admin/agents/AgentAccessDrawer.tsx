@@ -94,8 +94,8 @@ export function AgentAccessDrawer({
         <div className={admin.field}>
           <span className={admin.label}>Roles</span>
           <p className={admin.fieldHint}>
-            Tick nothing to let every role use it. Ticking a role limits it to
-            the roles you tick.
+            Check nothing to let every role use it. Checking a role limits it
+            to the roles you check.
           </p>
           <div className={admin.checkGroup}>
             {HUB_ROLE_OPTIONS.map((r) => (

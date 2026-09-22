@@ -21,9 +21,9 @@ There is no per-company copy of an agent.
   was. Moving an agent to a different category puts it last in
   that group; use the arrows on its row to move it up.
 - **Access** an agent to choose who can reach it:
-    - **Roles.** Tick nothing and every role can use it. Tick one
-      or more and it is limited to those. Guides also need to be
-      assigned to the company.
+    - **Roles.** Check nothing and every role can use it. Check
+      one or more and it is limited to those. Guides also need to
+      be assigned to the company.
     - **Functional Leads.** Anyone who leads a function as per the
       functional chart, even when their role is not ticked.
       Useful for an agent about a function, where the lead is

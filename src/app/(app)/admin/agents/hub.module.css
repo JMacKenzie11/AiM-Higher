@@ -231,6 +231,15 @@
   gap: var(--space-5);
 }
 
+/* Height is set from scrollHeight in AgentEditDrawer, so the browser
+ * must not fight it with its own scrollbar. resize stays vertical so
+ * a system admin can still drag it larger than the text needs. */
+.growTextarea {
+  overflow-y: hidden;
+  min-height: 84px;
+  resize: vertical;
+}
+
 .addRow {
   display: flex;
   gap: var(--space-2);

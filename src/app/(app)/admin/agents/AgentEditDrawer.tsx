@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Drawer } from "@/components/ui/Drawer";
 import type { HubAgent, HubCategory } from "@/lib/practices/hub-service";
 import {
@@ -35,6 +35,23 @@ export function AgentEditDrawer({
   const [title, setTitle] = useState(agent.title);
   const [description, setDescription] = useState(agent.description);
   const [categoryId, setCategoryId] = useState(agent.categoryId);
+
+  // The description box grows to fit what is in it.
+  //
+  // A fixed rows={4} cut the longest seeded description in half, and
+  // the field a system admin most often opens this drawer to read is
+  // the one that was clipped. Height is driven off scrollHeight
+  // rather than a row count because the text wraps, so the number of
+  // visual lines is not the number of newlines.
+  const descRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+    // Reset first: without it the box can only ever grow, because
+    // scrollHeight of an already-tall element never shrinks.
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [description]);
 
   function save() {
     run(async () => {
@@ -96,9 +113,6 @@ export function AgentEditDrawer({
             onChange={(e) => setTitle(e.target.value)}
             maxLength={80}
           />
-          <p className={admin.fieldHint}>
-            The heading on the card in Ask Aimee.
-          </p>
         </div>
 
         <div className={admin.field}>
@@ -107,15 +121,13 @@ export function AgentEditDrawer({
           </label>
           <textarea
             id="agent-description"
-            className={admin.input}
+            ref={descRef}
+            className={`${admin.input} ${styles.growTextarea}`}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={4}
+            rows={3}
             maxLength={300}
           />
-          <p className={admin.fieldHint}>
-            One line under the name, saying what the agent helps with.
-          </p>
         </div>
 
         <div className={admin.field}>
@@ -136,10 +148,6 @@ export function AgentEditDrawer({
                 </option>
               ))}
           </select>
-          <p className={admin.fieldHint}>
-            Moving an agent puts it last in the new category. Use the arrows
-            on its row to move it up.
-          </p>
         </div>
       </div>
     </Drawer>

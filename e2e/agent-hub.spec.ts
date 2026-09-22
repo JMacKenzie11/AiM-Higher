@@ -135,6 +135,20 @@ test.describe("Agent Hub", () => {
     // The drawer closes itself on a successful save.
     await expect(d).toHaveCount(0, { timeout: 15_000 });
     await expect(rowFor(page)).toContainText(marker, { timeout: 15_000 });
+    // And then WAIT FOR THE WRITE TO SETTLE before navigating away.
+    //
+    // Every write on this page runs inside a transition that ends in
+    // router.refresh(). Navigating while that is still in flight let
+    // the late refresh pull the browser back to /admin/agents,
+    // halfway through opening a chat — which surfaced as the picker
+    // step failing on a URL that made no sense for it.
+    //
+    // The row's buttons are disabled for exactly the life of that
+    // transition, so re-enabled is the precise signal, and a better
+    // one than a sleep or networkidle.
+    await expect(
+      rowFor(page).getByRole("button", { name: /^edit$/i })
+    ).toBeEnabled({ timeout: 15_000 });
 
     // The edit has to reach the surface people actually use, not
     // just the screen that made it. This is the whole point of the
