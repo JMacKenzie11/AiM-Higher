@@ -15,7 +15,7 @@ const gatedPractice: Practice = {
   id: "chart-builder",
   title: "Functional Chart Builder",
   description: "test",
-  category: "Structure",
+  category: "People",
   promptFile: "prompts/practices/functional-chart-builder.md",
   basePromptMode: "voice_only",
   skipSetup: true,

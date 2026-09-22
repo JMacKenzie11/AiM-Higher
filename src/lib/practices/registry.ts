@@ -32,7 +32,10 @@ export type { PracticeCategory } from "./categories";
 // chat view (see ChatView.tsx). Keeping outputCard values as string
 // tags rather than component references means the registry can be
 // serialized to a client component without losing shape.
-export type OutputCardName = "ScriptCard" | "ChartProposalCard";
+export type OutputCardName =
+  | "ScriptCard"
+  | "ChartProposalCard"
+  | "RoleDescriptionCard";
 
 export type Practice = {
   id: string;
@@ -172,13 +175,34 @@ export const PRACTICES: readonly Practice[] = [
     title: "Functional Chart Builder",
     description:
       "Build a clear accountability chart: the functions your business needs, before the people who fill them.",
-    category: "Structure",
+    category: "People",
     promptFile: "prompts/practices/functional-chart-builder.md",
     chips: ["I need to create my functional chart"],
     basePromptMode: "voice_only",
     skipSetup: false,
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
     outputCard: { chart_proposal: "ChartProposalCard" },
+  },
+  {
+    id: "role-description",
+    title: "Write a role description",
+    description:
+      "Build a role description for one seat: what it owns, what it is held to, what it decides, and what excellence looks like.",
+    category: "People",
+    promptFile: "prompts/practices/role-description.md",
+    // Two chips, because the second is a whole path the leader
+    // would otherwise have to discover by answering "no" to the
+    // first. A role that is not on the chart is a first-class case,
+    // not an exception.
+    chips: [
+      "Write a role description for a seat on our Functional Chart",
+      "Write a role description for a role that is not on the chart",
+    ],
+    basePromptMode: "voice_only",
+    skipSetup: true,
+    allowedRoles: ["company_admin", "system_admin", "aims_guide"],
+    tools: ["get_foundation", "list_functions"],
+    outputCard: { role_description: "RoleDescriptionCard" },
   },
 ] as const;
 
