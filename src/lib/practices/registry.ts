@@ -94,7 +94,29 @@ export type Practice = {
   //   card renderer that consumes it. Absent means no card
   //   integration (plain text turns).
   outputCard?: Readonly<Record<string, OutputCardName>>;
+  // tools
+  //   Tools registered for THIS practice and nowhere else. The
+  //   general coach's tool list is built by buildCoachTools and is
+  //   unchanged; these are added on top when this practice is the
+  //   one running.
+  //
+  //   Per-practice rather than global because a tool the model can
+  //   always see is a tool it will sometimes reach for. The chart
+  //   and the Foundation are the Role Description Builder's working
+  //   material and nobody else's, and a coach that can list every
+  //   function is a coach that will list every function.
+  //
+  //   String tags, not functions, so the registry stays
+  //   serializable to the client components that render the picker.
+  //   The route resolves them; an unknown tag is dropped rather
+  //   than thrown, because a typo here should cost the agent a tool
+  //   and not the conversation.
+  tools?: readonly PracticeToolName[];
 };
+
+// The tool sets a practice may declare. Adding one means adding a
+// builder to the resolver in the coach route.
+export type PracticeToolName = "get_foundation" | "list_functions";
 
 export const PRACTICES: readonly Practice[] = [
   {

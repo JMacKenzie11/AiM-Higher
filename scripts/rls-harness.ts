@@ -575,6 +575,161 @@ async function coachMemoryEdit(
 //      claim is what keeps that true, and it asserts the home was
 //      really set first, so a refused UPDATE cannot pass it by
 //      leaving the column null.
+// ---- The Role Description Builder's two read tools --------------
+//
+// The claim: what get_foundation and list_functions return is what
+// the caller could already see in the product, because they run on
+// the caller's own client and RLS decides.
+//
+// This probes the QUERY SHAPE those tools use rather than the tools
+// themselves, which is the honest thing a database harness can say.
+// The property it cannot reach — that the module never swaps in the
+// service client and never takes a company id from the model — is a
+// source guard in agent-tools.test.ts, because no amount of running
+// SQL proves the absence of a different code path.
+//
+// Three callers, as instructed: a company_admin reading their own
+// company and reading another's, an assigned guide, and the same
+// guide with the assignment revoked inside the transaction so the
+// caller is identical in both halves.
+async function roleDescriptionAgentReads(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "role-description-agent-reads";
+  const hazard =
+    "The Role Description agent reads a company the person holding the conversation cannot";
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const A = ids.companyAdminCompany;
+  const B = ids.otherCompany;
+  const G = ids.guideCompany;
+
+  const count = async (sql: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(sql);
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+
+  // The exact shape list_functions uses.
+  const functionsFor = (co: string) =>
+    `select count(*)::int as n from public.functions
+      where company_id = '${co}' and archived = false;`;
+
+  // And get_foundation's two.
+  const foundationFor = (co: string) =>
+    `select (
+       (select count(*) from public.company_foundation where company_id = '${co}')
+       + (select count(*) from public.foundation_items where company_id = '${co}')
+     )::int as n;`;
+
+  const seeded = async (co: string): Promise<number> =>
+    count(["begin;", pending, functionsFor(co), "rollback;"].join("\n"));
+
+  const ownFunctions = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      functionsFor(A),
+      "rollback;",
+    ].join("\n")
+  );
+
+  const otherFunctions = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      functionsFor(B),
+      "rollback;",
+    ].join("\n")
+  );
+
+  // Seeded as the superuser first, and rolled back with everything
+  // else. Without it this read returns zero because company B has no
+  // Foundation, which is indistinguishable in the output from zero
+  // because RLS denied it — a control that proves nothing while
+  // looking exactly like one that proves something.
+  const seedFoundationB = `
+insert into public.foundation_items (company_id, kind, title, body, sort_order)
+values ('${B}', 'core_value', 'harness: probe value', 'probe', 0);`;
+
+  const otherFoundation = await count(
+    [
+      "begin;", pending, seedFoundationB,
+      "set local role authenticated;", claims(ids.companyAdmin),
+      foundationFor(B),
+      "rollback;",
+    ].join("\n")
+  );
+
+  const assignedGuide = await count(
+    [
+      "begin;", pending,
+      "set local role authenticated;", claims(ids.guide),
+      functionsFor(G),
+      "rollback;",
+    ].join("\n")
+  );
+
+  const unassignedGuide = await count(
+    [
+      "begin;", pending,
+      `delete from public.guide_assignments where guide_id = '${ids.guide}';`,
+      "set local role authenticated;", claims(ids.guide),
+      functionsFor(G),
+      "rollback;",
+    ].join("\n")
+  );
+
+  // Controls. A zero that is zero because the company has no chart
+  // proves nothing about RLS, and reads identically in the output.
+  const bHasFunctions = await seeded(B);
+  const gHasFunctions = await seeded(G);
+  const bHasFoundation = await count(
+    ["begin;", pending, seedFoundationB, foundationFor(B), "rollback;"].join("\n")
+  );
+
+  const notProven: string[] = [];
+  if (bHasFunctions <= 0) notProven.push("company B has no functions to be denied");
+  if (gHasFunctions <= 0) notProven.push("the guide's company has no functions to see");
+  if (bHasFoundation <= 0) notProven.push("company B has no foundation rows to be denied");
+
+  const checks: Array<[string, number, number]> = [
+    ["own company's functions", ownFunctions, gHasFunctions >= 0 ? ownFunctions : -1],
+    ["another company's functions", otherFunctions, 0],
+    ["another company's foundation", otherFoundation, 0],
+    ["assigned guide's functions", assignedGuide, gHasFunctions],
+    ["unassigned guide's functions", unassignedGuide, 0],
+  ];
+  // The own-company check is "more than none", not a fixed number:
+  // the clone's chart changes shape whenever somebody edits it.
+  const failures = checks.filter(([label, got, want]) =>
+    label === "own company's functions" ? got <= 0 : got !== want
+  );
+
+  const detail =
+    checks.map(([label, got]) => `${label}=${got}`).join(", ") +
+    (notProven.length > 0 ? ` | NOT PROVEN: ${notProven.join("; ")}` : "");
+
+  return {
+    name,
+    hazard,
+    wrong: "a tool returns rows from a company the caller cannot see",
+    right:
+      "own company > 0, another company = 0 for both tables, assigned guide sees the chart, the same guide unassigned sees none",
+    ok: failures.length === 0 && notProven.length === 0,
+    detail:
+      failures.length === 0 && notProven.length === 0
+        ? detail
+        : "MISMATCH: " + detail,
+  };
+}
+
 // ---- 0221: a role description off the chart --------------------
 //
 // The claim: a role_descriptions row with a NULL function_id is
@@ -8515,6 +8670,10 @@ async function main(): Promise<void> {
     [
       "coach-memory-edit",
       (r: Runner, i: Identities) => coachMemoryEdit(r, i, pendingSql),
+    ],
+    [
+      "role-description-agent-reads",
+      (r: Runner, i: Identities) => roleDescriptionAgentReads(r, i, pendingSql),
     ],
     [
       "role-description-off-chart",
