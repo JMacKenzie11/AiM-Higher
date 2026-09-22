@@ -16,9 +16,10 @@ There is no per-company copy of an agent.
 
 - **Edit** an agent to change its name, its description and the
   category it sits in. The name is the heading on the card and
-  the description is the line underneath it. Picking a different
-  category applies straight away and puts the agent last in the
-  new group; use the arrows to move it up.
+  the description is the line underneath it. Nothing is saved
+  until you press *Save*, and *Cancel* leaves the agent as it
+  was. Moving an agent to a different category puts it last in
+  that group; use the arrows on its row to move it up.
 - **Access** an agent to choose who can reach it:
     - **Roles.** Tick nothing and every role can use it. Tick one
       or more and it is limited to those. Guides also need to be

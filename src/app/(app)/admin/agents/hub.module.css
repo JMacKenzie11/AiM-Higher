@@ -192,29 +192,6 @@
   padding-right: var(--space-2);
 }
 
-/* Plain white against the row's gradient, so an open editor reads as
- * a surface nested inside the row rather than more of the same row. */
-.panel {
-  margin-top: var(--space-3);
-  padding: var(--space-4);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.panelGrid {
-  display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-
-/* Save and Cancel need air above them. The last control in a panel
- * is a bordered pill, and with only the shared submitRow gap the two
- * buttons sat tight under its edge and read as part of it. */
-.panelActions {
-  margin-top: var(--space-4);
-}
-
 /* A category row carries the same fill as an agent row. They are
  * different content, but they are the same KIND of thing on the
  * page: a record with controls on the right. Leaving the lower card
@@ -242,6 +219,16 @@
   border-bottom: none;
   padding-bottom: 0;
   margin-bottom: 0;
+}
+
+/* A drawer body is a single 560px column, so the fields stack. The
+ * gap is what used to be the inline panel's grid gap, which is why
+ * Save and Cancel no longer need spacing of their own: the drawer
+ * footer is a separate surface with its own border and padding. */
+.drawerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
 .addRow {
