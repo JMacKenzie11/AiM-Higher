@@ -261,8 +261,8 @@ describe("the field names the model actually reached for", () => {
 
   // The one near miss that is NOT forgiven, and deliberately. A
   // title with no id is a document that reads as on-chart and is
-  // off-chart in the database: listed on /roles with no way back to
-  // the seat it describes. Loud beats quietly wrong.
+  // off-chart in the database: listed on /people with no way back
+  // to the seat it describes. Loud beats quietly wrong.
   it("still refuses a bare-string function", () => {
     const doc = parseRoleDescription(
       JSON.stringify({ ...AS_EMITTED, function: "Field Operations" })

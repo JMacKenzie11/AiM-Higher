@@ -171,7 +171,7 @@ export function parseRoleDescription(raw: string): RoleDescriptionDoc | null {
 // `"function": "Field Operations"` carries no id, and the id is
 // what links the saved document to the seat on the chart: accepting
 // the string would produce a role description that looks on-chart
-// in its prose and is off-chart in the database, listed on /roles
+// in its prose and is off-chart in the database, listed on /people
 // with no way back to the function it describes. Rejecting is loud
 // and the nudge names the fix.
 function parseFunctionRef(raw: unknown): RdFunctionRef | null | undefined {

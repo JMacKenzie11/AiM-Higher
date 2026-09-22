@@ -42,7 +42,7 @@ As an admin or guide, you can:
   the agent replaced them.
 - **Publish a Role Description**: the panel at the bottom of the
   function page assembles the sections into a shareable doc. Saved
-  ones are listed on [Role Descriptions](./roles.md).
+  ones are listed on [Team](./people.md), below Add a person.
 :::
 
 ## How to add a function

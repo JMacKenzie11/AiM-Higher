@@ -98,3 +98,35 @@ to you.
 app calls a commitment resolved after its due date. Used to read
 "Closed" but that came across as "finished" — the current word is
 more honest.
+
+## Role Descriptions
+
+Below *Add a person* you'll find every role description your company
+has saved, newest first. Click a row to read the whole thing without
+leaving the page.
+
+A role description says what one seat owns, what it is held to week
+by week, what it can decide, and what excellence looks like in it.
+You write one with Aimee: pick **Role Description Creator** from the
+agent list, under **People**.
+
+Each row is a **role**, not a version. A role you've rewritten four
+times is one row showing the newest version's number, the day it was
+saved and who saved it.
+
+**Roles that aren't on the Functional Chart appear here too**, and
+this is the only place they do. That's the point of the list. A role
+description for a seat on the chart is also on that function's page;
+one for a role you deliberately kept off the chart would otherwise
+have nowhere to be found.
+
+**Common questions**
+
+**Does saving overwrite the last one?** No. Every save adds a
+version and nothing is ever written over.
+
+**Why isn't my role description here?** Nothing is saved until you
+press Save on the card Aimee hands you. She proposes; you decide.
+
+**Can I get a Word file?** Yes, from the card in the conversation.
+Download and Copy both work whether or not you've saved.

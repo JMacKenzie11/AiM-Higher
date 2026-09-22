@@ -183,19 +183,7 @@ export default async function ChartFunctionDetailPage({ params }: PageProps) {
         ) : null}
 
         {rdEnabled ? (
-          <>
-            <RoleDescriptionReadiness detail={detail} canEdit={isAdmin} />
-            {/* The other direction from /roles, which links here for
-                every on-chart role. A reader who got to this function
-                from the chart has no other way to discover that the
-                company has a list of these, including the ones that
-                are not seats on it. */}
-            <p className={styles.crumbRow}>
-              <Link href="/roles" className={styles.crumb}>
-                All role descriptions →
-              </Link>
-            </p>
-          </>
+          <RoleDescriptionReadiness detail={detail} canEdit={isAdmin} />
         ) : null}
 
         {isAdmin ? (

@@ -5,6 +5,9 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getPeopleRoster } from "@/lib/people/service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { PageShell } from "@/components/ui/PageShell";
+import { companyHasFeature } from "@/lib/subscriptions/service";
+import { listRoleDescriptions } from "@/lib/role-descriptions/roles-list";
+import { RoleDescriptionsCard } from "@/components/role-descriptions/RoleDescriptionsCard";
 import { InviteForm } from "../admin/companies/[id]/InviteForm";
 import { RowActionsMenu } from "./RowActionsMenu";
 import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
@@ -88,6 +91,15 @@ export default async function PeoplePage() {
   if (!companyId) redirect("/admin/companies");
 
   const { people } = await getPeopleRoster(companyId);
+
+  // Saved role descriptions live here rather than on a page of
+  // their own: a role description is about a seat, the people are
+  // on this page, and a usually-short list does not earn a twelfth
+  // item in the sidebar. Gated on the same flag as the agent that
+  // writes them, so the list and the thing that fills it appear
+  // together.
+  const rdEnabled = await companyHasFeature(companyId, "role_descriptions");
+  const savedRoles = rdEnabled ? await listRoleDescriptions(companyId) : [];
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
@@ -222,6 +234,15 @@ export default async function PeoplePage() {
             Add a person
           </h2>
           <InviteForm companyId={companyId} />
+        </section>
+      ) : null}
+
+      {rdEnabled ? (
+        <section className={styles.card} aria-labelledby="role-descriptions">
+          <h2 id="role-descriptions" className={styles.h2}>
+            Role Descriptions
+          </h2>
+          <RoleDescriptionsCard roles={savedRoles} />
         </section>
       ) : null}
     </PageShell>

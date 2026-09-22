@@ -149,7 +149,7 @@ export async function saveRoleDescriptionAction(
     return { ok: false, message: "Couldn't save that role description." };
   }
 
-  revalidatePath("/roles");
+  revalidatePath("/people");
   if (doc.function?.id) {
     revalidatePath(`/chart/function/${doc.function.id}/role-description`);
     revalidatePath(`/chart/function/${doc.function.id}`);
@@ -190,7 +190,7 @@ async function resolveRoleId(
     if (byFunction && byFunction.length > 0) {
       const id = (byFunction[0] as { id: string }).id;
       // Keep the title current: the agent may have named the seat
-      // something the chart does not, and /roles lists by this.
+      // something the chart does not, and the list reads by this.
       await db
         .from("role_descriptions")
         .update({ title: args.title })

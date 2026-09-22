@@ -1,0 +1,102 @@
+"use client";
+
+import { useState } from "react";
+import { RoleDescriptionView } from "./RoleDescriptionView";
+import type { RoleDescriptionDoc } from "@/lib/role-descriptions/parse-document";
+import styles from "./RoleDescriptionsCard.module.css";
+
+// Saved role descriptions, on the Team page.
+//
+// It has no page of its own and no nav entry, deliberately: a role
+// description is about a seat and the people are here, so a reader
+// who wants one is already on this page rather than hunting a
+// twelfth item in the sidebar for a list that is usually short.
+//
+// EXPANDS IN PLACE rather than linking out. An off-chart role has
+// no function page to link to, and a list where half the rows open
+// and half do not is a list that looks broken. Expanding works the
+// same for both, and the renderer is the one the card in the
+// conversation uses, so the saved thing reads as what was agreed.
+
+export type SavedRole = {
+  roleId: string;
+  title: string;
+  functionId: string | null;
+  supportsFunctions: string[];
+  versionNumber: number;
+  updatedAt: string;
+  authorName: string | null;
+  doc: RoleDescriptionDoc | null;
+};
+
+export function RoleDescriptionsCard({ roles }: { roles: SavedRole[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  if (roles.length === 0) {
+    return (
+      <p className={styles.empty}>
+        None yet. Ask Aimee for the <strong>Role Description Creator</strong>,
+        under People in the agent list, and save what she writes.
+      </p>
+    );
+  }
+
+  return (
+    <ul className={styles.list}>
+      {roles.map((role) => {
+        const open = openId === role.roleId;
+        return (
+          <li key={role.roleId} className={styles.row}>
+            <button
+              type="button"
+              className={styles.rowButton}
+              aria-expanded={open}
+              onClick={() => setOpenId(open ? null : role.roleId)}
+            >
+              <span className={styles.rowMain}>
+                <span className={styles.rowTitle}>{role.title}</span>
+                <span className={styles.rowPlacement}>
+                  {role.functionId
+                    ? "On the chart"
+                    : role.supportsFunctions.length > 0
+                      ? `Not on the chart. Supports ${role.supportsFunctions.join(", ")}`
+                      : "Not on the chart"}
+                </span>
+              </span>
+              <span className={styles.rowMeta}>
+                <span className={styles.version}>v{role.versionNumber}</span>
+                <span className={styles.metaLine}>
+                  {formatDay(role.updatedAt)}
+                  {role.authorName ? ` · ${role.authorName}` : ""}
+                </span>
+              </span>
+              <span className={styles.chevron} aria-hidden="true">
+                {open ? "▾" : "▸"}
+              </span>
+            </button>
+
+            {open ? (
+              <div className={styles.body}>
+                {role.doc ? (
+                  <RoleDescriptionView doc={role.doc} />
+                ) : (
+                  <p className={styles.broken}>
+                    This version can&rsquo;t be read. Ask Aimee for a fresh one.
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function formatDay(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}

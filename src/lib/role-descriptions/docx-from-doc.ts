@@ -4,7 +4,6 @@ import {
   AlignmentType,
   Document,
   Footer,
-  HeadingLevel,
   Packer,
   PageNumber,
   Paragraph,
@@ -19,13 +18,33 @@ import type { RoleDescriptionDoc } from "./parse-document";
 // AND a chart detail, and reads the function's rows off the detail
 // to lay the sections out. Neither is available here: this document
 // carries its own sections, and an off-chart role has no function to
-// fetch a detail for. Folding two sources into one function would
-// mean a builder where half the parameters are null on every call.
+// fetch a detail for.
 //
-// The page furniture is deliberately identical — same title block,
-// same company subtitle, same page numbers in the footer — so a file
-// from the agent and a file from the generator open looking like the
-// same product.
+// ---- WHY IT STYLES EVERYTHING EXPLICITLY -----------------------
+//
+// The first version set no styles at all and used docx's
+// HeadingLevel constants. Word renders that as Times New Roman with
+// its own stock blue headings, no space between paragraphs, and
+// every line at one indent — which read as a different product from
+// the card it was downloaded from, and worse, as a default nobody
+// chose. The card is the reference; this mirrors it.
+//
+// Nothing here uses HeadingLevel. A heading in this document is a
+// run with a size, a weight and a colour, because that is the only
+// way to be sure what Word draws: HeadingLevel picks up whatever
+// the user's Normal.dotm says a Heading 1 looks like, which on a
+// customer's machine is not a decision we made.
+//
+// Calibri, matching the generator's builder. Inter and Figtree are
+// the brand faces and neither is installed on a typical machine, so
+// asking for them means Word substitutes something arbitrary. A
+// clean sans everybody actually has beats a brand face half the
+// readers do not.
+
+const NAVY = "1F3352"; // --aims-navy
+const COBALT = "3551A4"; // --aims-cobalt, section headings
+const MUTED = "5B6472"; // --text-muted
+const BODY_SIZE = 22; // 11pt, in half-points
 
 export async function buildRoleDescriptionDocxFromDoc(input: {
   doc: RoleDescriptionDoc;
@@ -34,11 +53,13 @@ export async function buildRoleDescriptionDocxFromDoc(input: {
   const { doc, companyName } = input;
   const paragraphs: Paragraph[] = [];
 
+  // ---- Title block --------------------------------------------
   paragraphs.push(
     new Paragraph({
-      text: doc.title,
-      heading: HeadingLevel.TITLE,
-      alignment: AlignmentType.LEFT,
+      spacing: { after: 60 },
+      children: [
+        new TextRun({ text: doc.title, bold: true, size: 40, color: NAVY }),
+      ],
     })
   );
 
@@ -56,29 +77,91 @@ export async function buildRoleDescriptionDocxFromDoc(input: {
   if (doc.reports_to) subtitle.push(`Reports to ${doc.reports_to}`);
   paragraphs.push(
     new Paragraph({
-      children: [new TextRun({ text: subtitle.join(" · "), italics: true })],
+      spacing: { after: 360 },
+      children: [
+        new TextRun({
+          text: subtitle.join("  ·  "),
+          size: 20,
+          color: MUTED,
+        }),
+      ],
     })
   );
 
-  const heading = (text: string) =>
-    paragraphs.push(new Paragraph({ text, heading: HeadingLevel.HEADING_1 }));
-  const body = (text: string) =>
-    paragraphs.push(new Paragraph({ text }));
-  const bullet = (text: string) =>
-    paragraphs.push(new Paragraph({ text, bullet: { level: 0 } }));
+  // ---- Builders -----------------------------------------------
 
-  if (doc.why_this_role_exists) {
+  // Uppercase and letter-spaced, which is what the card does with
+  // its section labels. `characterSpacing` is in twentieths of a
+  // point; 20 is the visual equivalent of the card's 0.08em.
+  const heading = (text: string) =>
+    paragraphs.push(
+      new Paragraph({
+        spacing: { before: 360, after: 140 },
+        children: [
+          new TextRun({
+            text: text.toUpperCase(),
+            bold: true,
+            size: 20,
+            color: COBALT,
+            characterSpacing: 20,
+          }),
+        ],
+      })
+    );
+
+  const para = (text: string) =>
+    paragraphs.push(
+      new Paragraph({
+        spacing: { after: 160, line: 300 },
+        children: [new TextRun({ text, size: BODY_SIZE, color: NAVY })],
+      })
+    );
+
+  // A responsibility or an excellence line: the label on its own
+  // line in the heading colour, the body under it in muted grey.
+  // Two paragraphs rather than one bold run followed by plain text,
+  // so the body wraps under itself instead of under the label.
+  const labelled = (label: string, body: string) => {
+    paragraphs.push(
+      new Paragraph({
+        spacing: { before: 140, after: 20 },
+        children: [
+          new TextRun({ text: label, bold: true, size: BODY_SIZE, color: NAVY }),
+        ],
+      })
+    );
+    if (body) {
+      paragraphs.push(
+        new Paragraph({
+          spacing: { after: 60, line: 280 },
+          indent: { left: 200 },
+          children: [new TextRun({ text: body, size: 20, color: MUTED })],
+        })
+      );
+    }
+  };
+
+  const bullet = (text: string) =>
+    paragraphs.push(
+      new Paragraph({
+        bullet: { level: 0 },
+        spacing: { after: 60, line: 280 },
+        children: [new TextRun({ text, size: BODY_SIZE, color: NAVY })],
+      })
+    );
+
+  // ---- Sections -----------------------------------------------
+
+  if (doc.why_this_role_exists.trim()) {
     heading("Why this role exists");
-    for (const para of doc.why_this_role_exists.split(/\n{2,}/)) {
-      if (para.trim()) body(para.trim());
+    for (const p of doc.why_this_role_exists.split(/\n{2,}/)) {
+      if (p.trim()) para(p.trim());
     }
   }
 
   if (doc.responsibilities.length > 0) {
     heading("Responsibilities");
-    for (const r of doc.responsibilities) {
-      bullet(r.description ? `${r.category}: ${r.description}` : r.category);
-    }
+    for (const r of doc.responsibilities) labelled(r.category, r.description);
   }
 
   if (doc.critical_success_factors.length > 0) {
@@ -88,8 +171,40 @@ export async function buildRoleDescriptionDocxFromDoc(input: {
       // a target is an allowed state everywhere else in this product
       // and it must not read as a missed number in a printed doc.
       const target = c.target === null ? "no target set" : c.target;
-      bullet(`${c.description} — ${target}, ${c.update_frequency}`);
-      if (c.why_it_matters) body(c.why_it_matters);
+      paragraphs.push(
+        new Paragraph({
+          spacing: { before: 140, after: 20 },
+          children: [
+            new TextRun({
+              text: c.description,
+              bold: true,
+              size: BODY_SIZE,
+              color: NAVY,
+            }),
+            new TextRun({
+              text: `   ${target} · ${c.update_frequency}`,
+              size: 20,
+              color: MUTED,
+            }),
+          ],
+        })
+      );
+      if (c.why_it_matters) {
+        paragraphs.push(
+          new Paragraph({
+            spacing: { after: 60, line: 280 },
+            indent: { left: 200 },
+            children: [
+              new TextRun({
+                text: c.why_it_matters,
+                size: 20,
+                color: MUTED,
+                italics: true,
+              }),
+            ],
+          })
+        );
+      }
     }
   }
 
@@ -102,7 +217,14 @@ export async function buildRoleDescriptionDocxFromDoc(input: {
     heading("Decision Rights");
     for (const [label, list] of rights) {
       if (list.length === 0) continue;
-      body(label);
+      paragraphs.push(
+        new Paragraph({
+          spacing: { before: 140, after: 40 },
+          children: [
+            new TextRun({ text: label, bold: true, size: 20, color: NAVY }),
+          ],
+        })
+      );
       for (const item of list) bullet(item);
     }
   }
@@ -110,7 +232,7 @@ export async function buildRoleDescriptionDocxFromDoc(input: {
   if (doc.what_excellence_looks_like.length > 0) {
     heading("What excellence looks like");
     for (const e of doc.what_excellence_looks_like) {
-      bullet(`${e.value}: ${e.behaviour}`);
+      labelled(e.value, e.behaviour);
     }
   }
 
@@ -124,24 +246,39 @@ export async function buildRoleDescriptionDocxFromDoc(input: {
     for (const q of doc.qualifications) bullet(q);
   }
 
-  if (doc.why_this_role_matters) {
+  if (doc.why_this_role_matters.trim()) {
     heading("Why this role matters");
-    for (const para of doc.why_this_role_matters.split(/\n{2,}/)) {
-      if (para.trim()) body(para.trim());
+    for (const p of doc.why_this_role_matters.split(/\n{2,}/)) {
+      if (p.trim()) para(p.trim());
     }
   }
 
   const document = new Document({
+    creator: "AiMHigher",
+    title: `Role Description — ${doc.title}`,
+    description: companyName
+      ? `Role description for ${doc.title} at ${companyName}`
+      : `Role description for ${doc.title}`,
+    styles: {
+      default: {
+        document: { run: { font: "Calibri", size: BODY_SIZE, color: NAVY } },
+      },
+    },
     sections: [
       {
+        properties: {},
         children: paragraphs,
         footers: {
           default: new Footer({
             children: [
               new Paragraph({
-                alignment: AlignmentType.CENTER,
+                alignment: AlignmentType.RIGHT,
                 children: [
-                  new TextRun({ children: [PageNumber.CURRENT], size: 18 }),
+                  new TextRun({
+                    children: ["Page ", PageNumber.CURRENT],
+                    color: "9CA3AF",
+                    size: 18,
+                  }),
                 ],
               }),
             ],
