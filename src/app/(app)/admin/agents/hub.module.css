@@ -1,0 +1,158 @@
+/* Agent Hub specifics. The stage, hero, cards, buttons and form
+   fields come from the shared admin stylesheet next door; only the
+   shapes that surface has no equivalent for live here. */
+
+.categoryBlock {
+  margin-bottom: var(--space-6);
+}
+
+.categoryHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-3);
+}
+
+.categoryName {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.agentRow {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  background: var(--surface);
+}
+
+.agentRowArchived {
+  opacity: 0.62;
+}
+
+.agentTop {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.agentMain {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.agentTitle {
+  font: var(--text-subhead);
+  color: var(--text-heading);
+  margin: 0 0 2px 0;
+}
+
+.agentDescription {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.agentMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.slug {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--aims-sand);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+
+.warnChip {
+  background: var(--aims-warning-tint);
+  color: var(--text-heading);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+
+.archivedChip {
+  background: var(--aims-sand);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+
+.rowButtons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Up / down. Square so a column of them lines up. */
+.moveButton {
+  composes: btnSecondary from "../../../../components/ui/ui.module.css";
+  min-width: 34px;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+.panel {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.panelGrid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.companyList {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+}
+
+.companyOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 0;
+  font: var(--text-body-sm);
+}
+
+.addRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .agentTop {
+    flex-direction: column;
+  }
+  .rowButtons {
+    justify-content: flex-start;
+  }
+}

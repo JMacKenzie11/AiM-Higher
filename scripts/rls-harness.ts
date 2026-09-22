@@ -744,6 +744,141 @@ select count(*)::int as n from public.role_description_versions v
   };
 }
 
+// ---- 0226: the Agent Hub's two tables ---------------------------
+//
+// The claim: a system admin shapes what every company sees, and
+// nobody else can, while every signed-in user can still read enough
+// to render their picker.
+//
+// The read being WIDE is the deliberate half and the one worth
+// asserting. A member who cannot read `agents` gets an empty agent
+// picker, which looks like a broken product rather than a denied
+// one — so "member reads" is a claim, not an oversight.
+//
+// Each refusal is paired with a control on the same statement as a
+// system_admin, because a write that fails for an unrelated reason
+// reports identically to one the policy refused.
+async function agentHubWrites(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "agent-hub-writes";
+  const hazard =
+    "A company admin edits the agent catalogue, or a member cannot read it";
+
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;",
+      pending,
+      `select count(*) > 0 as ok from information_schema.tables
+        where table_schema='public' and table_name='agents';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name,
+      hazard,
+      wrong: "table not on this schema",
+      right: "table not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0226 has not landed here yet. Runs for real under --pending 0226_agent_hub.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  const count = async (sql: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(sql);
+      return r?.n ?? -1;
+    } catch {
+      // A statement-level refusal is what an INSERT with no
+      // admitting policy actually produces.
+      return 0;
+    }
+  };
+
+  const rename = (title: string) =>
+    `with u as (update public.agents set title = '${title}'
+                 where slug = 'ask-better-questions' returning id)
+      select count(*)::int as n from u;`;
+
+  const addCategory = (slugv: string) =>
+    `insert into public.agent_categories (name, slug, sort_order)
+       values ('Harness', '${slugv}', 99);
+     select count(*)::int as n from public.agent_categories
+      where slug = '${slugv}';`;
+
+  // ---- system_admin: the control, and the grant ---------------
+  const adminRenames = await count(
+    ["begin;", pending, "set local role authenticated;", claims(ids.systemAdmin),
+     rename("harness: admin renamed"), "rollback;"].join("\n")
+  );
+  const adminAddsCategory = await count(
+    ["begin;", pending, "set local role authenticated;", claims(ids.systemAdmin),
+     addCategory("harness-admin"), "rollback;"].join("\n")
+  );
+
+  // ---- company_admin and member: refused ----------------------
+  const companyAdminRenames = await count(
+    ["begin;", pending, "set local role authenticated;", claims(ids.companyAdmin),
+     rename("harness: company admin renamed"), "rollback;"].join("\n")
+  );
+  const memberRenames = await count(
+    ["begin;", pending, "set local role authenticated;", claims(ids.member),
+     rename("harness: member renamed"), "rollback;"].join("\n")
+  );
+  const companyAdminAddsCategory = await count(
+    ["begin;", pending, "set local role authenticated;", claims(ids.companyAdmin),
+     addCategory("harness-company"), "rollback;"].join("\n")
+  );
+  const memberDeletes = await count(
+    ["begin;", pending, "set local role authenticated;", claims(ids.member),
+     `with d as (delete from public.agents
+                  where slug = 'ask-better-questions' returning id)
+       select count(*)::int as n from d;`,
+     "rollback;"].join("\n")
+  );
+
+  // ---- reads: wide, and that is the point ---------------------
+  const memberReadsAgents = await count(
+    ["begin;", pending, "set local role authenticated;", claims(ids.member),
+     "select count(*)::int as n from public.agents;", "rollback;"].join("\n")
+  );
+  const memberReadsCategories = await count(
+    ["begin;", pending, "set local role authenticated;", claims(ids.member),
+     "select count(*)::int as n from public.agent_categories;", "rollback;"].join("\n")
+  );
+
+  const checks: Array<[string, number, number]> = [
+    ["system_admin renames", adminRenames, 1],
+    ["system_admin adds a category", adminAddsCategory, 1],
+    ["company_admin renames", companyAdminRenames, 0],
+    ["company_admin adds a category", companyAdminAddsCategory, 0],
+    ["member renames", memberRenames, 0],
+    ["member deletes", memberDeletes, 0],
+    ["member reads agents", memberReadsAgents, 5],
+    ["member reads categories", memberReadsCategories, 3],
+  ];
+  const failures = checks.filter(([, got, want]) => got !== want);
+
+  return {
+    name,
+    hazard,
+    wrong: "anybody but a system admin writes, or a member cannot read",
+    right:
+      "system_admin writes both tables; company_admin and member refused; member reads 5 agents and 3 categories",
+    ok: failures.length === 0,
+    detail:
+      (failures.length === 0 ? "" : "MISMATCH: ") +
+      checks.map(([label, got]) => `${label}=${got}`).join(", "),
+  };
+}
+
 // ---- The Role Description Builder's two read tools --------------
 //
 // The claim: what get_foundation and list_functions return is what
@@ -8957,6 +9092,10 @@ async function main(): Promise<void> {
     [
       "coach-memory-edit",
       (r: Runner, i: Identities) => coachMemoryEdit(r, i, pendingSql),
+    ],
+    [
+      "agent-hub-writes",
+      (r: Runner, i: Identities) => agentHubWrites(r, i, pendingSql),
     ],
     [
       "role-description-lead-writes",

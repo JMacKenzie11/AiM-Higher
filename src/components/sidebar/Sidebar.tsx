@@ -313,6 +313,16 @@ const SYSTEM_ADMIN_BOTTOM_ITEMS: readonly NavItem[] = [
         href: "/admin/classroom",
         icon: "book",
       },
+      // Same reasoning as Classroom admin: the Hub shapes what every
+      // company sees in Ask Aimee, so it belongs with the
+      // platform-wide tools rather than beside the /ask-aimee link
+      // the company itself uses.
+      {
+        kind: "link",
+        label: "Agent Hub",
+        href: "/admin/agents",
+        icon: "sparkle",
+      },
     ],
   },
 ];
