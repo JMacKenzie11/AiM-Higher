@@ -121,14 +121,19 @@
   min-width: 0;
 }
 
+/* --text-subhead is 11px and is meant for the uppercase letterspaced
+ * labels it is used for elsewhere; as a row title it read a size
+ * smaller than the rest of the app. Body weight 600 is what the app
+ * uses for a name in a list. */
 .agentTitle {
-  font: var(--text-subhead);
+  font: var(--text-body);
+  font-weight: 600;
   color: var(--text-heading);
   margin: 0 0 2px 0;
 }
 
 .agentDescription {
-  font: var(--text-body-sm);
+  font: var(--text-body);
   color: var(--text-muted);
   margin: 0;
 }
@@ -238,6 +243,67 @@
   overflow-y: hidden;
   min-height: 84px;
   resize: vertical;
+}
+
+.configSource {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--aims-sky-tint);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--aims-navy);
+}
+
+.promptPreview,
+.promptEditor,
+.diffPrompt {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.promptPreview,
+.diffPrompt {
+  margin: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--aims-sand);
+  border-radius: var(--radius-sm);
+}
+
+.promptEditor {
+  min-height: 240px;
+}
+
+.diffField {
+  margin: 0 0 var(--space-2);
+  font: var(--text-body-sm);
+}
+
+.diffAdded {
+  background: var(--aims-success-tint);
+  display: block;
+}
+
+.diffRemoved {
+  background: var(--aims-danger-tint);
+  display: block;
+}
+
+.diffGap {
+  color: var(--text-muted);
+  display: block;
+}
+
+.versionRow {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  background: var(--grad-secondary);
 }
 
 .addRow {

@@ -449,3 +449,39 @@ export async function startPreviewAction(
   refresh();
   return { ok: true, conversationId: data.id };
 }
+
+// ---- The Config tab's read ---------------------------------------
+//
+// An action rather than page data, deliberately. This returns PROMPT
+// TEXT, and the Hub lists every agent: loading it for all of them up
+// front would put every prompt in the page payload to render one
+// drawer. Fetched when a drawer opens, for the one agent it is about.
+export async function loadAgentConfigAction(
+  agentRowId: string
+): Promise<
+  | { ok: true; view: import("./version-service").AgentConfigView }
+  | { ok: false; message: string }
+> {
+  await requireRole(["system_admin"]);
+  const supabase = await db();
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("id, slug, live_version_id, draft_version_id")
+    .eq("id", agentRowId)
+    .maybeSingle<{
+      id: string;
+      slug: string;
+      live_version_id: string | null;
+      draft_version_id: string | null;
+    }>();
+  if (!agent) return { ok: false, message: "That agent no longer exists." };
+
+  const { loadAgentConfig } = await import("./version-service");
+  const view = await loadAgentConfig(
+    agent.id,
+    agent.slug,
+    agent.live_version_id,
+    agent.draft_version_id
+  );
+  return { ok: true, view };
+}

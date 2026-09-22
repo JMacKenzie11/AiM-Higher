@@ -32,6 +32,7 @@ export function AgentRow({
   run,
   onEdit,
   onAccess,
+  onConfig,
 }: {
   agent: HubAgent;
   isFirst: boolean;
@@ -40,6 +41,7 @@ export function AgentRow({
   run: (fn: () => Promise<HubResult>) => void;
   onEdit: () => void;
   onAccess: () => void;
+  onConfig: () => void;
 }) {
   return (
     <div
@@ -106,6 +108,14 @@ export function AgentRow({
             disabled={pending}
           >
             Access
+          </button>
+          <button
+            type="button"
+            className={admin.ghostButton}
+            onClick={onConfig}
+            disabled={pending}
+          >
+            Config
           </button>
           <button
             type="button"
