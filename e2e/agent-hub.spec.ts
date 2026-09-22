@@ -9,6 +9,9 @@ import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 // blast radius this page has and the reason it is system-admin only.
 
 const SLUG = "ask-better-questions";
+// The seeded title, so the restore has something to restore TO even
+// when the test failed before it could read the original.
+const SEEDED_TITLE = "Ask great questions";
 
 // The slug is on the row element itself, so this addresses the row
 // directly. Re-resolved after every write rather than held, because
@@ -18,6 +21,42 @@ function rowFor(page: import("@playwright/test").Page) {
 }
 
 test.describe("Agent Hub", () => {
+  // Restore runs even when the test failed half way. The first
+  // version put the rename-back at the end of the test body, and a
+  // failure before it left the agent called "E2E Renamed 1790…" on
+  // the dev clone, where it showed up in the next run's picker as
+  // though the product had been renamed. A cleanup that only runs on
+  // the happy path is not a cleanup.
+  test.afterEach(async ({ page }) => {
+    await page.goto("/admin/agents");
+    const row = page.locator(`[data-agent-slug="${SLUG}"]`);
+    if ((await row.count()) === 0) return;
+
+    if (!(await row.innerText()).includes(SEEDED_TITLE)) {
+      await row.getByRole("button", { name: /^edit$/i }).click();
+      await row.getByLabel(/^name$/i).fill(SEEDED_TITLE);
+      await row.getByRole("button", { name: /^save$/i }).click();
+      await expect(rowFor(page)).toContainText(SEEDED_TITLE, {
+        timeout: 15_000,
+      });
+    }
+
+    const after = rowFor(page);
+    const summary = await after
+      .getByTestId("agent-hub-access-summary")
+      .innerText();
+    if (/compan(y|ies)/i.test(summary)) {
+      await after.getByRole("button", { name: /^access$/i }).click();
+      for (const box of await after.locator('input[type="checkbox"]').all()) {
+        if (await box.isChecked()) await box.uncheck();
+      }
+      await after.getByRole("button", { name: /^save$/i }).click();
+      await expect(
+        rowFor(page).getByTestId("agent-hub-access-summary")
+      ).not.toContainText(/compan(y|ies)/i, { timeout: 15_000 });
+    }
+  });
+
   test("renames an agent, sees it in the picker, and renames it back", async ({
     page,
   }) => {
@@ -28,9 +67,7 @@ test.describe("Agent Hub", () => {
 
     const row = rowFor(page);
     await expect(row).toBeVisible();
-    // Captured rather than hardcoded: the seeded title is a product
-    // string and this test must not be the thing that pins it.
-    const original = (await row.locator("p").first().innerText()).trim();
+    await expect(row).toContainText(SEEDED_TITLE);
 
     await row.getByRole("button", { name: /^edit$/i }).click();
     const nameField = row.getByLabel(/^name$/i);
@@ -79,13 +116,8 @@ test.describe("Agent Hub", () => {
     await expect(picker.getByText(marker)).toBeVisible({ timeout: 15_000 });
     await picker.getByRole("button", { name: /^close$/i }).click();
 
-    // ---- put it back ----
-    await page.goto("/admin/agents");
-    const again = rowFor(page);
-    await again.getByRole("button", { name: /^edit$/i }).click();
-    await again.getByLabel(/^name$/i).fill(original);
-    await again.getByRole("button", { name: /^save$/i }).click();
-    await expect(rowFor(page)).toContainText(original, { timeout: 15_000 });
+    // Putting it back is afterEach's job, so that it happens even
+    // when an assertion above throws.
   });
 
   test("limits an agent to one company and opens it up again", async ({
@@ -110,14 +142,7 @@ test.describe("Agent Hub", () => {
       { timeout: 15_000 }
     );
 
-    // ---- put it back ----
-    const back = rowFor(page);
-    await back.getByRole("button", { name: /^access$/i }).click();
-    await back.locator('input[type="checkbox"]').last().uncheck();
-    await back.getByRole("button", { name: /^save$/i }).click();
-    await expect(
-      rowFor(page).getByTestId("agent-hub-access-summary")
-    ).not.toContainText(/compan(y|ies)/i, { timeout: 15_000 });
+    // Clearing the allowlist is afterEach's job, same reason.
   });
 
   test("refuses to hide a category that still holds agents", async ({
