@@ -62,8 +62,14 @@ const PROMPT = path.join(
 // they ask for": a revision that re-runs the interview is how a
 // one-line fix becomes a chore, and one that quietly rewrites prose
 // nobody mentioned loses somebody's words.
+//
+// Regenerated 2026-09-22, fourth and last today: the revision
+// opener stopped describing the document. It is rendered above the
+// conversation now, server-side from the saved version, so an agent
+// summarising it back was reading aloud from a page the person is
+// looking at.
 const ROLE_DESCRIPTION_PROMPT_SHA =
-  "ccc6d3ca500fd0079c82653ee9537f0f713f0d4ae20fc540d7b79b774fa7f747";
+  "4a73cd57ba7469111c7c1baa23b1af37a8292def08b461df9aac0525eec6a87c";
 
 async function read(): Promise<string> {
   return fs.readFile(PROMPT, "utf8");
@@ -169,6 +175,10 @@ describe("the role description prompt", () => {
   it("still revises rather than re-interviews", async () => {
     const src = await read();
     expect(src).toMatch(/Do not re-run the interview\./);
+    // The document is on screen. An agent describing it back is
+    // reading aloud from the page.
+    expect(src).toMatch(/THE DOCUMENT IS ALREADY ON THEIR SCREEN/);
+    expect(src).toMatch(/Do not describe it back to them/);
     expect(src).toMatch(/Change only what they ask for\./);
     expect(src).toMatch(
       /Every other section survives exactly as written, word for word/

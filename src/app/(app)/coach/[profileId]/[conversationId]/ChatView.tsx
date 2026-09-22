@@ -80,6 +80,8 @@ export function ChatView({
   initialMessages,
   practice = null,
   agentPickerPractices = null,
+  autoOpen = false,
+  revisionPreamble = null,
   access,
   currentUserId,
   senders,
@@ -100,6 +102,23 @@ export function ChatView({
   // omitted) hides the AgentPicker entirely — used for about-mode
   // threads where the agent slot isn't meaningful.
   agentPickerPractices?: readonly Practice[] | null;
+  // Open the conversation by generating the first turn, rather than
+  // waiting behind the empty-state chips. Set when the conversation
+  // exists to revise something: the person said what they wanted by
+  // clicking Revise, and offering them "write a role description for
+  // a seat on our Functional Chart" is offering to start over.
+  //
+  // Per-CONVERSATION, which is why it is not firstTurn. The same
+  // agent starts a fresh interview behind chips and a revision by
+  // reading the document first; the registry describes the agent and
+  // cannot tell those two apart.
+  autoOpen?: boolean;
+  // The document this conversation is revising, rendered above the
+  // thread. Server-rendered from the saved version rather than asked
+  // of the model: it is already on file, the renderer is the one the
+  // card and the saved page use, and a model asked to reproduce a
+  // document verbatim will eventually not.
+  revisionPreamble?: ReactNode;
   // How the current caller can interact:
   //   'owner' — full control (rename, share, chat, auto-title)
   //   'write' — chat allowed; rename/share/auto-title suppressed
@@ -193,26 +212,62 @@ export function ChatView({
     };
   }, []);
 
-  // Auto-fire the generate opener on landing if the attached
-  // agent uses firstTurn='generate' and nothing has been sent yet.
-  // Ref-guarded so React 18 dev double-invoke doesn't fire the
-  // stream twice. Only owners trigger it — sharees see whatever's
-  // already there. Currently no agent ships firstTurn: "generate"
-  // (the pattern is empty-state chips), but the plumbing stays so
-  // a future agent can opt into a dynamic first turn without
-  // client changes.
+  // Auto-fire the generate opener on landing when the attached agent
+  // uses firstTurn='generate', OR when this conversation exists to
+  // revise something. Ref-guarded so React 18 dev double-invoke
+  // doesn't fire the stream twice. Only owners trigger it — sharees
+  // see whatever's already there.
+  //
+  // `autoOpen` is the revision case and it is per-CONVERSATION,
+  // which is why it is not firstTurn. The same agent starts a fresh
+  // interview behind chips and a revision by reading the document
+  // first; the registry describes the agent and cannot tell those
+  // two apart.
   const openerFiredRef = useRef(false);
   useEffect(() => {
     if (openerFiredRef.current) return;
     if (!isOwner) return;
-    if (!practice || practice.firstTurn !== "generate") return;
+    if (!practice) return;
+    if (practice.firstTurn !== "generate" && !autoOpen) return;
     if (initialMessages.length > 0) return;
     openerFiredRef.current = true;
     runOpenerGeneration();
+
+    // RELEASE THE GUARD ON CLEANUP, or in dev it fires zero times.
+    //
+    // React 18 StrictMode runs effect → cleanup → effect. The
+    // cleanup above this one aborts the in-flight coach fetch on
+    // unmount, which is right when somebody navigates away and is
+    // also what StrictMode's simulated unmount does: pass one starts
+    // the stream, the cleanup kills it, and pass two returns early
+    // because the ref says it already fired. The opener never
+    // reaches the server and the bubble says "Thinking…" forever.
+    //
+    // This plumbing had never been exercised — the comment above
+    // noted no agent shipped firstTurn: "generate" — so the
+    // interaction sat there until a revision became its first
+    // caller.
+    //
+    // Releasing the guard lets pass two fire for real. The
+    // `initialMessages.length > 0` check above stops it re-firing on
+    // a conversation that already has turns, and `sending` stops a
+    // second concurrent stream.
+    return () => {
+      openerFiredRef.current = false;
+      // And take the aborted attempt's bubble with it. The optimistic
+      // assistant slot is added before the fetch; aborting the fetch
+      // does not remove it, so pass two's bubble streams UNDER a
+      // stranded "Thinking…" that never resolves. Only empty
+      // streaming slots are dropped, so a real partial response is
+      // never swallowed.
+      setMessages((prev) =>
+        prev.filter((m) => !(m.streaming === true && m.content === ""))
+      );
+    };
     // Depend only on stable inputs — runOpenerGeneration is a
     // useCallback so its identity is stable across re-renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOwner, practice, initialMessages.length]);
+  }, [isOwner, practice, autoOpen, initialMessages.length]);
 
   // Keep the bottom of the thread in view as the assistant streams,
   // but ONLY while the user is already near the bottom — a hard
@@ -605,7 +660,8 @@ export function ChatView({
       </div>
 
       <div className={styles.thread} data-testid="coach-thread">
-        {isEmpty ? (
+        {revisionPreamble}
+        {isEmpty && autoOpen ? null : isEmpty ? (
           <div className={styles.emptyState}>
             <p className={styles.emptyStatePrompt}>
               {isPractice ? practice.title : emptyPrompt}

@@ -110,3 +110,25 @@ function firstName(
   if (Array.isArray(raw)) return raw[0]?.full_name ?? null;
   return raw.full_name;
 }
+
+// The newest version of one role, for the conversation that is
+// revising it. Separate from listRoleDescriptions because that one
+// reads a company's worth of rows to build a list, and this reads
+// one row to render a document.
+export async function getCurrentRoleDescription(
+  roleId: string
+): Promise<{ versionNumber: number; doc: RoleDescriptionDoc } | null> {
+  const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data } = await db
+    .from("role_description_versions")
+    .select("version_number, body_json")
+    .eq("role_id", roleId)
+    .order("version_number", { ascending: false })
+    .limit(1);
+  const row = (data ?? [])[0] as
+    | { version_number: number; body_json: unknown }
+    | undefined;
+  if (!row?.body_json) return null;
+  const doc = parseRoleDescription(JSON.stringify(row.body_json));
+  return doc ? { versionNumber: row.version_number, doc } : null;
+}

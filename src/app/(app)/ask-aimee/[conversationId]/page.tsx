@@ -10,6 +10,9 @@ import {
 import { PRACTICES, findPractice } from "@/lib/practices/registry";
 import { practiceFeatureGate, practiceRoleGate } from "@/lib/practices/gate";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { getCurrentRoleDescription } from "@/lib/role-descriptions/roles-list";
+import { RoleDescriptionView } from "@/components/role-descriptions/RoleDescriptionView";
+import styles from "../revision.module.css";
 import { leadsAnyFunction } from "@/lib/practices/function-leads";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
@@ -129,6 +132,18 @@ export default async function AskAimeeChatPage({
   // Read once and filtered in memory. getCompanyFeatures is
   // request-cached, so asking per practice would have been free too;
   // this just reads as what it is.
+  // The document being revised, read here and rendered above the
+  // thread. Server-side, from the saved version: it is already on
+  // file, so asking the model to reproduce it would cost a call, add
+  // latency, and eventually produce something that is nearly the
+  // document.
+  const revisingRoleId =
+    (conversation as { revising_role_id?: string | null }).revising_role_id ??
+    null;
+  const revisingDoc = revisingRoleId
+    ? await getCurrentRoleDescription(revisingRoleId)
+    : null;
+
   const companyFeatures = await getCompanyFeatures(conversation.company_id);
   // Asked once, and only when some practice actually admits leads,
   // so a company with no such agent pays nothing for the concept.
@@ -181,6 +196,17 @@ export default async function AskAimeeChatPage({
         }))}
         practice={practice}
         agentPickerPractices={agentPickerPractices}
+        autoOpen={revisingRoleId != null}
+        revisionPreamble={
+          revisingDoc ? (
+            <section className={styles.revisionPreamble}>
+              <p className={styles.revisionPreambleLabel}>
+                Currently saved · version {revisingDoc.versionNumber}
+              </p>
+              <RoleDescriptionView doc={revisingDoc.doc} />
+            </section>
+          ) : null
+        }
         access={access}
         currentUserId={session.profile.id}
         senders={senders}
