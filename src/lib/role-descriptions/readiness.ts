@@ -69,7 +69,7 @@ export function computeReadiness(detail: Detail): ReadinessResult {
     },
     {
       key: "competencies",
-      title: "Competency Indicators",
+      title: "What excellence looks like",
       description:
         "At least three observable behaviors that show excellence.",
       ready: detail.competencies.length >= 3,

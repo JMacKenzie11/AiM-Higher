@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   getChartTree,
@@ -29,9 +30,14 @@ export default async function ChartPage() {
 
   const { roots, roster } = await getChartTree(companyId);
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // isAdminForCompany rather than a role-only check: an aims_guide
+  // is company_admin on the companies they are assigned to, and the
+  // role list here left them out — they could open a function's
+  // detail page and edit everything on it, but the chart offered
+  // them no "Add function" and no drag handles. The drawer made that
+  // gap load-bearing, since this is now the flag that decides
+  // whether a card opens a panel or a read-only page.
+  const isAdmin = isAdminForCompany(session.profile, companyId);
 
   // Flatten the tree so the Add form can offer any function as a
   // parent. Two levels of depth is what we render nicely on the
@@ -64,7 +70,11 @@ export default async function ChartPage() {
         ) : (
           <div className={styles.tree}>
             <PanZoomTree>
-              <DraggableTree roots={roots} canReorder={isAdmin} />
+              <DraggableTree
+                roots={roots}
+                canReorder={isAdmin}
+                canEdit={isAdmin}
+              />
             </PanZoomTree>
           </div>
         )}

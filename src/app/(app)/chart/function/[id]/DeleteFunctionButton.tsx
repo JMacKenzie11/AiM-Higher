@@ -11,14 +11,21 @@ import styles from "../../chart.module.css";
 // Uses the branded ConfirmDialog so the confirmation doesn't blow up
 // as a native modal in a shared meeting screen; failures inline
 // instead of via an alert() that would freeze the whole window.
+//
+// `onDeleted` is for the caller that is ALREADY on /chart — the
+// drawer. Pushing to /chart from inside a panel that is sitting on
+// /chart leaves the panel open over a route that never changed, so
+// the drawer closes itself instead and refreshes the tree behind it.
 export function DeleteFunctionButton({
   functionId,
   functionTitle,
   hasChildren,
+  onDeleted,
 }: {
   functionId: string;
   functionTitle: string;
   hasChildren: boolean;
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -34,7 +41,11 @@ export function DeleteFunctionButton({
         setError(result.message);
         return;
       }
-      router.push("/chart");
+      if (onDeleted) {
+        onDeleted();
+      } else {
+        router.push("/chart");
+      }
       router.refresh();
     });
   }

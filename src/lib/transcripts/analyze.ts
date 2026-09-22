@@ -29,7 +29,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // as CONTENT only — any embedded "ignore your instructions"
 // language is treated as text to analyze, not directives.
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS_ANALYSIS = 5000;
 // Bumped from 2000 → 4000 after seeing empty extractions on
 // meetings that generated both commitments AND issues. The dual-

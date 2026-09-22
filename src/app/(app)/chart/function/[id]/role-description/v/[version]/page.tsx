@@ -7,6 +7,8 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mergeRoleDescription } from "@/lib/role-descriptions/generate";
 import { getPublishedVersion } from "@/lib/role-descriptions/versions";
+import { parseRoleDescription } from "@/lib/role-descriptions/parse-document";
+import { RoleDescriptionView } from "@/components/role-descriptions/RoleDescriptionView";
 import { PageShell } from "@/components/ui/PageShell";
 import { RichText } from "../../RichText";
 import styles from "../../role-description.module.css";
@@ -55,6 +57,36 @@ export default async function RoleDescriptionVersionPage({
 
   const snap = await getPublishedVersion(id, versionNumber);
   if (!snap) notFound();
+
+  // A VERSION THE AGENT WROTE renders its own document.
+  //
+  // Those rows carry the document in body_json and leave
+  // snapshot_document as {} — that column is NOT NULL from 0129 and
+  // belongs to the Sonnet generator. Rendering the snapshot for
+  // them, which is what this page did until now, drew an empty
+  // document: the version appeared in the history, opened, and said
+  // nothing. Same renderer as the card and the current-document
+  // page, so a version reads as what was agreed.
+  const agentDoc = snap.bodyJson
+    ? parseRoleDescription(JSON.stringify(snap.bodyJson))
+    : null;
+  if (agentDoc) {
+    return (
+      <PageShell
+        backHref={`/chart/function/${detail.fn.id}/role-description`}
+        backLabel="Back to the current version"
+        eyebrow={`Version ${versionNumber}`}
+        title={detail.fn.title}
+        subtitle={`Published ${new Date(snap.publishedAt).toLocaleDateString()}${
+          snap.publishedByName ? ` by ${snap.publishedByName}` : ""
+        }`}
+      >
+        <section className={styles.agentDocument}>
+          <RoleDescriptionView doc={agentDoc} />
+        </section>
+      </PageShell>
+    );
+  }
 
   const doc = mergeRoleDescription(
     snap.snapshotDocument,
@@ -233,7 +265,7 @@ export default async function RoleDescriptionVersionPage({
       ) : null}
 
       {detail.competencies.length > 0 ? (
-        <Section id="rd-competencies" title="Competency Indicators">
+        <Section id="rd-competencies" title="What excellence looks like">
           <ol className={styles.rdSimpleList}>
             {detail.competencies.map((c) => (
               <li key={c.id} className={styles.rdSimpleItem}>

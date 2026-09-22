@@ -26,26 +26,74 @@ As a team member, you can:
 ::: role company_admin,aims_guide,system_admin
 As an admin or guide, you can:
 
-- **Add or delete functions** to grow / shape the tree.
-- **Assign seats** — one person per function.
+- **Add or delete functions** to grow / shape the tree. A new function
+  is built entirely in the add panel, responsibilities and all.
+- **Assign seats**: one person per function, in the panel's Details
+  section.
+- **Edit a function without leaving the chart**: click any function
+  box and its detail opens in a panel from the right.
 - **Edit responsibilities and critical success factors**, all inline
-  on the function page.
+  in the panel or on the function page.
 - **Add Decision Rights and Competency Indicators** (Role Descriptions
   feature on) with the same inline pattern.
-- **Get suggestions** for any list (Responsibilities, Critical Success
-  Factors, Decision Rights, Competency
-  Indicators) via the *Suggest…* button under the add-row.
-- **Publish a Role Description** — the panel at the bottom of the
-  function page assembles the sections into a shareable doc.
+- **Use the Role Description Creator**, under *People* in the agent
+  list. She works from this chart and your One-Page Plan and
+  asks you the rest. The old per-list *Suggest…* buttons are gone;
+  the agent replaced them.
+- **Publish a Role Description**: the panel at the bottom of the
+  function page assembles the sections into a shareable doc. Saved
+  ones are listed on [Team](./people.md), below Add a person.
 :::
 
 ## How to add a function
 
 1. On the chart, click *Add function* at the top of the chart card. It
    opens a panel from the right; Escape, the X, or a click outside
-   closes it. Saving takes you straight to the new function's page.
-2. New companies start with **Visionary** and **Integrator** seed boxes
-   at the top — build under them.
+   closes it.
+2. Fill in the whole box here: the name, which function it sits under,
+   who's in the seat, and its roles and responsibilities. Type a
+   responsibility and press Enter, or click *Add*, to put it on the
+   list. The trash icon takes one off again.
+3. Every function carries *Lead, Track, Decide* whether you add
+   anything or not, which is why it's already on the list.
+4. Click *Add function*. The panel closes and the new box is on the
+   chart with its responsibilities on it. You don't leave the chart.
+5. Anything still sitting in the *Add a responsibility* box when you
+   save is dropped. Press Enter first to keep it.
+6. New companies start with **Visionary** and **Integrator** seed boxes
+   at the top. Build under them.
+
+## How to edit a function
+
+::: role company_admin,aims_guide,system_admin
+1. Click the function's box on the chart. Its detail opens in a panel
+   from the right, over the chart: the name, where it sits, who's in
+   the seat, responsibilities, and (Role Descriptions on) decision
+   rights and competency indicators.
+2. **Details** holds the name, *Sits under* and *In the seat*. Change
+   what you need and click *Save changes*. Nothing is written until
+   you do, and the button stays greyed out until there's something to
+   save.
+3. Pick *Top level (no parent)* under *Sits under* to pull a function
+   out from under another one. A function can't be moved under itself
+   or under one of its own sub-functions, so neither appears on the
+   list.
+4. **Responsibilities save as you go.** Adding one or deleting one
+   takes effect straight away, with no Save button involved. The
+   trash icon means gone.
+5. Escape, the X, or a click outside closes the panel. If you have
+   unsaved details, it asks first. The chart is still behind it, in
+   the same place you left it.
+6. The *Sub-functions* list moves the panel to another function
+   without closing it.
+7. Critical success factors aren't here. They live on *Critical
+   Success Factors*, which is where you log against them too.
+:::
+
+::: role team_member
+Clicking a function box opens its page, with everything the function
+owns on it.
+:::
 
 ## How to assign a seat
 
@@ -71,8 +119,8 @@ line up. Every hint is advisory; Save stays enabled regardless.
 ## How to publish a Role Description
 
 ::: role company_admin,aims_guide,system_admin
-1. On the function detail page, scroll to the *Role Description* card at
-   the bottom.
+1. In the function's panel, or on its page, scroll to the *Role
+   Description* card at the bottom.
 2. Check the 5-section readiness list (Title, Responsibilities, Critical
    Success Factors with targets, Decision Rights, Competency
    Indicators).
@@ -87,10 +135,11 @@ assembled page.
 
 ## Common questions
 
-**What happens when I delete a function?** Hard delete — cascades to
+**What happens when I delete a function?** Hard delete. It cascades to
 sub-functions, critical success factors, measures, and recorded weekly
 values. A confirmation dialog spells out the cascade before the click
-lands.
+lands. Delete from the panel and the panel closes onto the chart with
+the box gone.
 
 **Why can't I hard-delete a critical success factor?** They only
 archive from the UI, so past-quarter weekly entries stay intact.
@@ -105,7 +154,12 @@ the dashboard, not here. The function page is for describing the
 critical success factor; the *Critical Success Factors* page is for
 logging against it.
 
-**Do AiMS Guides have admin access?** Yes — on the companies they're
-assigned to, guides can edit anything an admin can (seats, R&R, critical
-success factors, metrics, decision rights, competencies, the role
-description).
+**Do AiMS Guides have admin access?** Yes. On the companies they're
+assigned to, guides can edit anything an admin can: seats, R&R,
+critical success factors, metrics, decision rights, competencies and
+the role description.
+
+**Where did the Suggest buttons go?** Replaced by the *Role
+Description Creator* agent, under *People* in Ask Aimee. A list of options
+beside one field couldn't see the rest of your chart or your plan;
+the agent can, and asks about the seat specifically.

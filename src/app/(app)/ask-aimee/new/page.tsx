@@ -5,7 +5,7 @@ import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { findPractice } from "@/lib/practices/registry";
-import { practiceRoleGate } from "@/lib/practices/gate";
+import { practiceGate } from "@/lib/practices/gate";
 import { createPracticeConversation } from "@/lib/practices/create";
 import { createGeneralConversationAction } from "@/lib/coach/actions";
 import { PageShell } from "@/components/ui/PageShell";
@@ -91,7 +91,7 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
     );
   }
 
-  const gate = practiceRoleGate(practice, session.profile, companyId);
+  const gate = await practiceGate(practice, session.profile, companyId);
   if (!gate.ok) return notAvailable(gate.message);
 
   let conversationId: string;

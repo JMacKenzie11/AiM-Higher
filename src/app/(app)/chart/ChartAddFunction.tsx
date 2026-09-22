@@ -16,10 +16,16 @@ import styles from "./chart.module.css";
 // fixed` child stops meaning the viewport.
 //
 // keepMounted, for the same reason /plan needs it: AddFunctionForm
-// does router.push to the new function's page in an effect on
-// success, and unmounting the form at the moment it succeeds is how
-// that push gets discarded. The <details> this replaces never
-// unmounted anything.
+// calls router.refresh() in an effect on success, and unmounting the
+// form at the moment it succeeds is how that refresh gets discarded.
+// The <details> this replaces never unmounted anything.
+//
+// It used to push to the new function's page instead, because
+// responsibilities could only be typed once a function_id existed.
+// The form collects them now, so the panel closes onto the chart
+// with the finished box already drawn on it. The form clears its own
+// state on the way out, which keepMounted makes its job rather than
+// this component's.
 export function ChartAddFunction({
   people,
   parentOptions,
@@ -46,11 +52,16 @@ export function ChartAddFunction({
         open={open}
         onClose={() => setOpen(false)}
         keepMounted
+        name="chart-add-function"
         eyebrow="Functional chart"
         title="Add function"
       >
         <div data-testid="add-function-form">
-          <AddFunctionForm people={people} parentOptions={parentOptions} />
+          <AddFunctionForm
+            people={people}
+            parentOptions={parentOptions}
+            onCreated={() => setOpen(false)}
+          />
         </div>
       </Drawer>
     </>

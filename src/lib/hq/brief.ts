@@ -14,7 +14,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // preserved). Best-effort: if the Claude call errors, the caller
 // gets { ok: false, message } and the UI shows an inline retry.
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 800;
 
 const SYSTEM_PROMPT = `You are the AiMS coaching prep assistant. You produce a short structured

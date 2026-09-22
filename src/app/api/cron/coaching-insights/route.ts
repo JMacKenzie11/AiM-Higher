@@ -27,6 +27,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+// Haiku, deliberately: this runs fleet-wide on a schedule and
+// the work is extraction rather than judgement.
 const MODEL = "claude-haiku-4-5";
 const PROMPT_VERSION = 1;
 const BATCH_LIMIT = 40;

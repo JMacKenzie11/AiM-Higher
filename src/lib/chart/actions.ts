@@ -11,6 +11,7 @@ import {
   type CsfRow,
 } from "@/lib/measures/csf-as-outcome";
 import { scoreMeasureTarget } from "@/lib/measures/target-check";
+import { descendantsOf } from "@/lib/chart/descendants";
 import { nullableString } from "@/lib/utils";
 import type {
   FunctionCompetency,
@@ -103,8 +104,69 @@ export async function createFunctionAction(
     return { ok: false, message: "Couldn't create that function." };
   }
 
+  // RESPONSIBILITIES COME WITH THE FUNCTION, not after it.
+  //
+  // They used to be the reason the add form redirected: you named a
+  // function, landed on its page, and typed the responsibilities
+  // there, because a responsibility needs a function_id and there
+  // was no function until you had submitted. The form now collects
+  // them client-side and hands them over here, so one submit
+  // creates the whole box.
+  //
+  // A failure to write them does NOT fail the create. The function
+  // exists at this point, and returning an error for it would leave
+  // the caller looking at "couldn't create that function" beside a
+  // function that is on the chart. The rows the user typed are the
+  // recoverable half: the drawer that opens on a card click adds
+  // them in seconds.
+  const responsibilities = parseResponsibilities(formData.get("responsibilities"));
+  if (responsibilities.length > 0) {
+    // The trigger from 0107 has already put the baseline
+    // "Lead, Track, Decide" row at sort_order 0, so user rows start
+    // at 1. Read it rather than assume it: an insert that collides
+    // on sort_order would drop the lot.
+    const { data: existing } = await supabase
+      .from("function_roles")
+      .select("sort_order")
+      .eq("function_id", data.id)
+      .order("sort_order", { ascending: false })
+      .limit(1);
+    const base =
+      existing && existing.length > 0 ? (existing[0].sort_order ?? 0) + 1 : 1;
+    await supabase.from("function_roles").insert(
+      responsibilities.map((title, i) => ({
+        function_id: data.id,
+        title,
+        body: null,
+        sort_order: base + i,
+        is_default: false,
+      }))
+    );
+  }
+
   revalidatePath("/chart");
   return { ok: true, item: data };
+}
+
+// Responsibilities arrive as a JSON array of strings in one form
+// field, rather than as repeated inputs, because the list is built
+// and reordered in client state before anything is submitted.
+// Anything that is not an array of non-empty strings is dropped
+// rather than rejected: the field is optional, and a malformed one
+// is a bug in our own form, not something to tell the user about
+// while their function is otherwise fine.
+function parseResponsibilities(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string" || raw.trim() === "") return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((v): v is string => typeof v === "string")
+      .map((v) => v.trim())
+      .filter((v) => v !== "");
+  } catch {
+    return [];
+  }
 }
 
 // Lightweight rename — updates only the title, leaves every other
@@ -136,6 +198,163 @@ export async function renameFunctionAction(
 
   revalidatePath("/chart");
   revalidatePath(`/chart/function/${functionId}`);
+  return { ok: true, item: data };
+}
+
+// The function's three single-value fields, saved together.
+//
+// Name, where it sits, and who is in the seat were three separate
+// click-to-edit affordances that each wrote the moment they lost
+// focus. That is how the function detail PAGE has always worked,
+// and the drawer inherited it by sharing the components. It is not
+// how anything else in a drawer in this app behaves: /measures and
+// /plan both collect a form and commit it on a button.
+//
+// So these three now travel together, behind one Save. The
+// responsibilities below them do NOT, and deliberately: a row with
+// a trash icon that does not delete until you press a button
+// somewhere else is a worse lie than an immediate delete.
+//
+// NOT updateFunctionAction, which writes description, track_id and
+// decide_id from the same FormData. A caller sending only these
+// three would have those columns read as absent and nulled: the
+// description silently emptied and the track/decide seats cleared,
+// by a save that said nothing about any of them.
+export async function updateFunctionDetailsAction(
+  functionId: string,
+  fields: {
+    title: string;
+    parentFunctionId: string | null;
+    leadId: string | null;
+  }
+): Promise<ChartResult<FunctionNode>> {
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  if (!functionId) return { ok: false, message: "Missing function." };
+
+  const title = fields.title.trim();
+  if (!title) return { ok: false, message: "Give the function a name." };
+
+  const parentFunctionId = fields.parentFunctionId || null;
+  if (parentFunctionId === functionId) {
+    return { ok: false, message: "A function can't sit under itself." };
+  }
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+
+  if (parentFunctionId) {
+    const guard = await parentMoveRefusal(supabase, functionId, parentFunctionId);
+    if (guard) return { ok: false, message: guard };
+  }
+
+  const { data, error } = await supabase
+    .from("functions")
+    .update({
+      title,
+      parent_function_id: parentFunctionId,
+      lead_id: fields.leadId || null,
+    })
+    .eq("id", functionId)
+    .select("*")
+    .single<FunctionNode>();
+  if (error || !data) return { ok: false, message: "Couldn't save changes." };
+
+  revalidatePath("/chart");
+  revalidatePath(`/chart/function/${functionId}`);
+  revalidatePath("/measures");
+  return { ok: true, item: data };
+}
+
+// The cycle check, shared by the two actions that can move a
+// function. Returns the sentence to refuse with, or null to allow.
+async function parentMoveRefusal(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  functionId: string,
+  parentFunctionId: string
+): Promise<string | null> {
+  const { data: fn } = await supabase
+    .from("functions")
+    .select("id, company_id")
+    .eq("id", functionId)
+    .maybeSingle<{ id: string; company_id: string }>();
+  if (!fn) return "That function is no longer there.";
+
+  const { data: allRows } = await supabase
+    .from("functions")
+    .select("id, parent_function_id")
+    .eq("company_id", fn.company_id);
+  const all = (allRows ?? []) as Array<{
+    id: string;
+    parent_function_id: string | null;
+  }>;
+  if (!all.some((f) => f.id === parentFunctionId)) {
+    return "That function isn't on this chart.";
+  }
+  if (descendantsOf(functionId, all).has(parentFunctionId)) {
+    return "That function already sits under this one.";
+  }
+  return null;
+}
+
+// Move a function under a different parent, or out to the top
+// level. The drawer's picker calls this; updateFunctionAction can
+// also set the column, but it round-trips every field on the row and
+// a caller that only wants the parent would have to send the title,
+// the description and three seat ids back to leave them alone.
+//
+// ---- THE CYCLE GUARD -------------------------------------------
+//
+// parent_function_id has no constraint that stops a function being
+// its own ancestor. Set Marketing's parent to Marketing and the row
+// is legal, the chart's walk never reaches it from any root, and the
+// function disappears from the page that is supposed to be the map
+// of the company. Set it to one of its own descendants and the whole
+// subtree goes with it.
+//
+// Neither is hypothetical the moment a picker exists: "Marketing"
+// and "Marketing and Sales" sit next to each other in the list. So
+// the descendants are walked here and the move is refused with a
+// sentence that says which rule it broke, rather than succeeding
+// into a chart with a hole in it.
+export async function setFunctionParentAction(
+  functionId: string,
+  parentFunctionId: string | null
+): Promise<ChartResult<FunctionNode>> {
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  if (!functionId) return { ok: false, message: "Missing function." };
+  if (parentFunctionId === functionId) {
+    return { ok: false, message: "A function can't sit under itself." };
+  }
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+
+  if (parentFunctionId) {
+    // RLS scopes the tree read to the caller's company, so a parent
+    // id from another company simply is not in the rows and falls
+    // out as "that function isn't on this chart".
+    const refusal = await parentMoveRefusal(
+      supabase,
+      functionId,
+      parentFunctionId
+    );
+    if (refusal) return { ok: false, message: refusal };
+  }
+
+  const { data, error } = await supabase
+    .from("functions")
+    .update({ parent_function_id: parentFunctionId })
+    .eq("id", functionId)
+    .select("*")
+    .single<FunctionNode>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't move that function." };
+  }
+
+  revalidatePath("/chart");
+  revalidatePath(`/chart/function/${functionId}`);
+  // /measures groups by function and renders the same hierarchy, so
+  // a move on either page has to invalidate both. Same reason
+  // reorderFunctionsAction does it.
+  revalidatePath("/measures");
   return { ok: true, item: data };
 }
 

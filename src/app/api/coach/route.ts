@@ -7,12 +7,17 @@ import Anthropic from "@anthropic-ai/sdk";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
-import { buildCoachTools } from "@/lib/coach/tools";
+import { buildCoachTools, type CoachTool } from "@/lib/coach/tools";
+import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { trackAfter } from "@/lib/analytics/track";
-import { findPractice, loadPracticePrompt } from "@/lib/practices/registry";
+import {
+  findPractice,
+  loadPracticePrompt,
+  type PracticeToolName,
+} from "@/lib/practices/registry";
 import {
   getAccessForConversation,
   type CoachingConversation,
@@ -64,7 +69,10 @@ type IncomingBody = {
 const GENERATE_OPENER_PROMPT =
   "Open this conversation. Introduce yourself briefly in your role, then begin the guided flow you're designed for — start with your first question or step. Keep the opener under 120 words.";
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = "claude-sonnet-5";
+// Default ceiling for one assistant turn. Suits a conversational
+// reply; an agent that emits a whole document in one turn declares
+// its own in the registry. See Practice.maxTokens.
 const MAX_TOKENS = 2000;
 // Cap on the number of tool-loop iterations per user turn. Each
 // iteration = one Anthropic call that may end in either a natural
@@ -260,7 +268,6 @@ export async function POST(req: NextRequest): Promise<Response> {
   const memoryBlock = context.memoryContext ? `${context.memoryContext}\n\n` : "";
   const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${memoryBlock}${context.coachingContext}\n\n`;
   const messages = buildMessages(history, userTurnPrefix);
-  void practice; // reserved for future per-practice tool gating
 
   // Tool gating: subject-scoped tools are ONLY registered when there
   // is a subject to scope them to. In general mode the tool list is
@@ -269,11 +276,30 @@ export async function POST(req: NextRequest): Promise<Response> {
   // Company-scoped tools (classroom) register in both modes provided
   // the feature is on — Aimee can recommend a training in Ask Aimee
   // conversations too. buildCoachTools handles the branch.
-  const tools = await buildCoachTools({
-    subjectProfileId:
-      convo.mode === "about" ? convo.subject_profile_id ?? null : null,
-    companyId: convo.company_id,
-  });
+  const tools = [
+    ...(await buildCoachTools({
+      subjectProfileId:
+        convo.mode === "about" ? convo.subject_profile_id ?? null : null,
+      companyId: convo.company_id,
+    })),
+    // PRACTICE TOOLS, registered for the practice running and
+    // nowhere else. A tool the model can always see is a tool it
+    // will sometimes reach for: the Functional Chart is the Role
+    // Description Builder's working material and nobody else's, and
+    // a coach that can list every function is a coach that will.
+    //
+    // Deduped by name against what buildCoachTools already returned,
+    // so a practice declaring a tool the coach also has cannot send
+    // Anthropic two definitions with one name — which is an API
+    // error, not a precedence question.
+    ...resolvePracticeTools(
+      practice?.tools,
+      convo.company_id,
+      (convo as { revising_role_id?: string | null }).revising_role_id ?? null
+    ),
+  ].filter(
+    (t, i, all) => all.findIndex((o) => o.definition.name === t.definition.name) === i
+  );
   const toolDefs = tools.map((t) => t.definition);
 
   const stream = new ReadableStream<Uint8Array>({
@@ -307,7 +333,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           const messageStream = client.messages.stream(
             {
               model,
-              max_tokens: MAX_TOKENS,
+              max_tokens: practice?.maxTokens ?? MAX_TOKENS,
               system: [
                 {
                   type: "text",
@@ -345,6 +371,21 @@ export async function POST(req: NextRequest): Promise<Response> {
             final.usage.cache_creation_input_tokens ?? 0;
           turnUsage.cache_read_input_tokens +=
             final.usage.cache_read_input_tokens ?? 0;
+
+          // THE MODEL RAN OUT OF ROOM. Said out loud rather than
+          // left to be inferred: a turn that hits the ceiling stops
+          // mid-token, with no marker and no closing fence, so every
+          // downstream reader sees a malformed payload and guesses
+          // at why. The card guesses from a missing closing brace,
+          // which is a heuristic; this is the fact.
+          if (final.stop_reason === "max_tokens") {
+            console.warn(
+              `coach: turn hit max_tokens (conversation=${conversationId}` +
+                `, practice=${practice?.id ?? "none"}` +
+                `, cap=${practice?.maxTokens ?? MAX_TOKENS})`
+            );
+            controller.enqueue(encodeEvent("truncated", { reason: "max_tokens" }));
+          }
 
           if (final.stop_reason !== "tool_use") break;
 
@@ -696,4 +737,31 @@ async function generateTitleForConversation(args: {
   } catch {
     // Silent — the default date title stays.
   }
+}
+
+// Practice tool tags to the tools themselves.
+//
+// The registry holds string tags rather than builders, so it stays
+// serializable to the client components that render the agent
+// picker. This is where they become tools, and it is the one place
+// a new practice tool set has to be added.
+//
+// An unknown tag is DROPPED, not thrown. A typo in the registry
+// should cost the agent a tool it can notice missing, not the whole
+// conversation with a 500.
+function resolvePracticeTools(
+  names: readonly PracticeToolName[] | undefined,
+  companyId: string,
+  revisingRoleId: string | null
+): CoachTool[] {
+  if (!names || names.length === 0) return [];
+  const wanted = new Set<string>(names);
+  const available = [
+    ...(wanted.has("get_foundation") ||
+    wanted.has("list_functions") ||
+    wanted.has("get_role_description")
+      ? buildRoleDescriptionTools({ companyId, revisingRoleId })
+      : []),
+  ];
+  return available.filter((t) => wanted.has(t.definition.name));
 }

@@ -15,7 +15,7 @@ import {
   type ShareCandidate,
 } from "./service";
 import { findPractice, type Practice } from "@/lib/practices/registry";
-import { practiceRoleGate } from "@/lib/practices/gate";
+import { practiceGate } from "@/lib/practices/gate";
 import { cleanGeneratedTitle } from "./title";
 import { logCoachTokenUsage } from "./usage";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -259,7 +259,7 @@ export async function setConversationAgentAction(
     if (!candidate) {
       return { ok: false, message: "That agent isn't available." };
     }
-    const gate = practiceRoleGate(
+    const gate = await practiceGate(
       candidate,
       session.profile,
       convo.company_id
@@ -471,6 +471,10 @@ export async function generateConversationTitleAction(
   let generated: string | null = null;
   try {
     const response = await client.messages.create({
+      // Haiku, deliberately. Four to eight words out of a
+      // transcript, on every conversation's first exchange, at
+      // max_tokens 40. Nothing about the task rewards a larger
+      // model and the volume is one call per conversation started.
       model: "claude-haiku-4-5",
       max_tokens: 40,
       system:

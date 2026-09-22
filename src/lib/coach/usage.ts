@@ -19,6 +19,23 @@ type Rates = {
 };
 
 const MODEL_RATES: Record<string, Rates> = {
+  // Every surface runs on Sonnet 5 as of 2026-09-22. Cheaper than
+  // the Sonnet 4.6 it replaced ($3/$15), so the move down a
+  // generation-forward is also a move down in price.
+  //
+  // ORDER MATTERS BELOW. ratesFor matches by prefix, and
+  // "claude-sonnet-5" is not a prefix of "claude-sonnet-4-6" or the
+  // other way round, so these two are safe — but a future
+  // "claude-sonnet-5-1" would be caught by "claude-sonnet-5" first.
+  // Put longer ids above shorter ones that prefix them.
+  "claude-sonnet-5": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cacheCreatePerMillion: 2.5,
+    cacheReadPerMillion: 0.2,
+  },
+  // Kept so historical rows logged before the move are still priced
+  // at what they actually cost. Nothing writes these any more.
   "claude-sonnet-4-6": {
     inputPerMillion: 3.0,
     outputPerMillion: 15.0,
@@ -40,10 +57,11 @@ const MODEL_RATES: Record<string, Rates> = {
 };
 
 function ratesFor(model: string): Rates {
-  // Match by prefix so a versioned id like "claude-sonnet-4-6-20260101"
-  // still lands on the sonnet rate. Fall back to sonnet.
+  // Match by prefix so a versioned id still lands on its family's
+  // rate. Falls back to the model everything currently runs on, so
+  // an unrecognised id is costed rather than dropped.
   const entry = Object.entries(MODEL_RATES).find(([k]) => model.startsWith(k));
-  return entry?.[1] ?? MODEL_RATES["claude-sonnet-4-6"];
+  return entry?.[1] ?? MODEL_RATES["claude-sonnet-5"];
 }
 
 // Accept both `undefined` and `null` on the cache-token fields

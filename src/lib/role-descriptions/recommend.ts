@@ -19,7 +19,7 @@ import { logCoachTokenUsage } from "@/lib/coach/usage";
 // Flag-not-block: any failure returns an empty list. The drawer
 // still lets the user type an answer directly.
 
-const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 900;
 
 export type RdTarget =
