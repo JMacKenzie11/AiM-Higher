@@ -255,17 +255,22 @@ export function ChatView({
     // `initialMessages.length > 0` check above stops it re-firing on
     // a conversation that already has turns, and `sending` stops a
     // second concurrent stream.
+    // Release the guard, and NOTHING ELSE.
+    //
+    // This cleanup used to drop the empty streaming bubble too, to
+    // clear the one pass one left behind when its fetch was aborted.
+    // That is wrong: StrictMode's cleanup runs while pass one's
+    // fetch is still in flight, and pass two then declines to start
+    // another because `sending` is already true. The bubble was
+    // removed, the stream filled a message id that no longer
+    // existed, and the reply vanished — saved on the server,
+    // invisible on the page.
+    //
+    // The stale bubble is cleared where it is safe to: at the start
+    // of the next attempt, which only happens once the previous one
+    // has actually finished.
     return () => {
       openerFiredRef.current = false;
-      // And take the aborted attempt's bubble with it. The optimistic
-      // assistant slot is added before the fetch; aborting the fetch
-      // does not remove it, so pass two's bubble streams UNDER a
-      // stranded "Thinking…" that never resolves. Only empty
-      // streaming slots are dropped, so a real partial response is
-      // never swallowed.
-      setMessages((prev) =>
-        prev.filter((m) => !(m.streaming === true && m.content === ""))
-      );
     };
     // Depend only on stable inputs — runOpenerGeneration is a
     // useCallback so its identity is stable across re-renders.
@@ -504,9 +509,16 @@ export function ChatView({
 
     // Optimistic assistant slot so the "Thinking…" indicator lands
     // immediately. Same id-shape as the normal path.
+    //
+    // Any EMPTY streaming slot still on screen belongs to an attempt
+    // that was aborted — StrictMode's simulated unmount kills the
+    // first fetch — and would otherwise sit there as a "Thinking…"
+    // that never resolves, above the one that works. Dropped here
+    // rather than in the effect's cleanup, because here the previous
+    // attempt is provably over: `sending` was false.
     const assistantId = `local-a-${Date.now()}`;
     setMessages((prev) => [
-      ...prev,
+      ...prev.filter((m) => !(m.streaming === true && m.content === "")),
       { id: assistantId, role: "assistant", content: "", streaming: true },
     ]);
 

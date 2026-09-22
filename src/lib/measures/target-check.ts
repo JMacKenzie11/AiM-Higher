@@ -16,7 +16,7 @@ import type { MetricValueType, TargetDirection } from "@/lib/types";
 // output all return null. The save always succeeds; the hint is a
 // nice-to-have coaching signal, not a permission gate.
 
-const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 300;
 
 const SYSTEM_PROMPT = `You review a target set on a work performance measure and decide whether the target is clear enough to be useful.

@@ -77,7 +77,7 @@ import {
 // reads it live through the tier-one tools every turn.
 
 const PROMPT_PATH = path.join(process.cwd(), "prompts", "coach-memory.md");
-const MODEL = "claude-haiku-4-5";
+const MODEL = "claude-sonnet-5";
 
 // How many conversations one entry will summarize. A person returning
 // after a long absence should not pay for ten model calls before the

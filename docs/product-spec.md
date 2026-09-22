@@ -600,6 +600,16 @@ Added 2026-09-22. Gated on `role_descriptions`, the same flag as the document su
 - **Competency Indicators reads "What excellence looks like" wherever the DOCUMENT renders it** — the assembled page, the version snapshot page, and the readiness gate. The chart's own editing section keeps the column's name, because that is still the column's name until the data is migrated.
 - **Not done here, deliberately.** `function_decision_rights` and `function_competencies` are not dropped. Migrating their rows into each function's newest document and contracting the columns is the next instruction.
 
+### 9b. The Anthropic model
+
+Every Anthropic-backed surface runs **`claude-sonnet-5`** as of 2026-09-22: the coach route (and therefore every agent), transcript analysis, facilitation review, the dashboard and HQ briefs, strengths, measure critique and target check, coach memory, auto-titling, and the themes and coaching-insights crons.
+
+There is no single place this is declared — each surface reads its own env var (`ANTHROPIC_COACH_MODEL`, `ANTHROPIC_SUMMARY_MODEL`, `ANTHROPIC_FACILITATION_MODEL`, `ANTHROPIC_CLARITY_MODEL`, `ANTHROPIC_RD_MODEL`, `ANTHROPIC_RD_DOC_MODEL`) with a hardcoded fallback beside it. The fallbacks now all name the same model, so an unset environment behaves like a pinned one.
+
+- **What it replaced.** `claude-sonnet-4-6` on the conversational surfaces and `claude-haiku-4-5` on the cheap ones (auto-titling, memory, the crons, measure critique). Sonnet 5 is **cheaper than the Sonnet it replaced** ($2/$10 per MTok against $3/$15) and dearer than the Haiku ($1/$5), so the net cost depends on traffic mix; the Haiku surfaces are the ones to watch, and moving them back is a per-file change.
+- **`claude-haiku-4-5-20251001`** appeared in three files with a date suffix. Current model ids are complete as-is and take no suffix; the bare form is what the rest of the app used.
+- **`coach/usage.ts` carries a rate table** and it is what turns tokens into dollars. Sonnet 5's rate was added with the move; the Sonnet 4.6 and Haiku rows stay so rows logged before it are still priced at what they actually cost. `ratesFor` matches by PREFIX, so a future `claude-sonnet-5-1` would be caught by the `claude-sonnet-5` entry unless it is listed above it.
+
 ---
 
 ## 10. Critical Success Factors (`/measures`)

@@ -69,7 +69,7 @@ type IncomingBody = {
 const GENERATE_OPENER_PROMPT =
   "Open this conversation. Introduce yourself briefly in your role, then begin the guided flow you're designed for — start with your first question or step. Keep the opener under 120 words.";
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = "claude-sonnet-5";
 // Default ceiling for one assistant turn. Suits a conversational
 // reply; an agent that emits a whole document in one turn declares
 // its own in the registry. See Practice.maxTokens.

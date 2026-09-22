@@ -17,7 +17,7 @@ import { logCoachTokenUsage } from "@/lib/coach/usage";
 // manually. Better to let the save succeed than to fail the flow
 // on an ancillary AI call.
 
-const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 400;
 
 export type ClarityScore = {

@@ -21,7 +21,7 @@ import type { getChartFunctionDetail } from "@/lib/chart/service";
 // JSON, returns null and the view page falls back to a bare
 // rendering (data-only, no prose). No exception ever leaves.
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 3000;
 
 export type RdDocument = {

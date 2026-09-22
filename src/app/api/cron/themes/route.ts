@@ -24,7 +24,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const SAMPLE_LIMIT = 200;
-const MODEL = "claude-haiku-4-5";
+const MODEL = "claude-sonnet-5";
 
 export async function POST(req: NextRequest): Promise<Response> {
   return handle(req);

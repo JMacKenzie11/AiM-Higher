@@ -29,7 +29,7 @@ import { isScoredReview } from "./scored";
 // prompt.v2.md, extend the type shape, and add a version check in the
 // renderer. DB stays schemaless so history is preserved.
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 3500;
 
 type FacilitationInput = {
