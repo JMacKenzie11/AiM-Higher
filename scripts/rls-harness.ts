@@ -854,6 +854,52 @@ async function agentHubWrites(
      "select count(*)::int as n from public.agent_categories;", "rollback;"].join("\n")
   );
 
+  // ---- the counter-proof: the same probe, shown RED ------------
+  //
+  // E5 says a probe's green is not believed until it has been seen
+  // failing. The usual way is to run it against the pre-fix schema,
+  // and that is not available here: before 0226 these tables do not
+  // exist, so the probe errors rather than failing, and an error is
+  // not a red — it is the probe not running.
+  //
+  // So the schema is weakened instead of the fix being removed.
+  // Inside a transaction that is rolled back, the policy under test
+  // is replaced with a deliberately wrong one, and the SAME checks
+  // are re-run. They must now come back the other way. If a
+  // weakened policy still produces a passing number, the assertion
+  // above was never testing anything, which is the failure mode a
+  // green cannot otherwise distinguish itself from.
+  //
+  // Two directions, because this table's risk runs both ways: a
+  // write policy that admits too much, and a read policy that
+  // admits too little.
+
+  // Wrong shape one: an update policy anybody can satisfy. This is
+  // the Form-D-less mistake the convention exists to prevent.
+  const weakenedCompanyAdminRenames = await count(
+    ["begin;", pending,
+     `drop policy if exists agents_update on public.agents;
+      create policy agents_update on public.agents
+      for update to authenticated
+      using (true) with check (true);`,
+     "set local role authenticated;", claims(ids.companyAdmin),
+     rename("harness: weakened policy"), "rollback;"].join("\n")
+  );
+
+  // Wrong shape two: a select policy that forgets reads are wide
+  // here on purpose. A member who cannot read the catalogue gets an
+  // empty agent picker, which looks like the product being broken
+  // rather than like a permissions decision.
+  const narrowedMemberReadsAgents = await count(
+    ["begin;", pending,
+     `drop policy if exists agents_select on public.agents;
+      create policy agents_select on public.agents
+      for select to authenticated
+      using ((select public.auth_role()) = 'system_admin');`,
+     "set local role authenticated;", claims(ids.member),
+     "select count(*)::int as n from public.agents;", "rollback;"].join("\n")
+  );
+
   const checks: Array<[string, number, number]> = [
     ["system_admin renames", adminRenames, 1],
     ["system_admin adds a category", adminAddsCategory, 1],
@@ -863,6 +909,13 @@ async function agentHubWrites(
     ["member deletes", memberDeletes, 0],
     ["member reads agents", memberReadsAgents, 5],
     ["member reads categories", memberReadsCategories, 3],
+    // The counter-proof. These assert the WRONG answers, because
+    // under the wrong policy the wrong answer is what a working
+    // probe must see.
+    ["[red] company_admin renames under a weakened update policy",
+      weakenedCompanyAdminRenames, 1],
+    ["[red] member reads agents under a narrowed select policy",
+      narrowedMemberReadsAgents, 0],
   ];
   const failures = checks.filter(([, got, want]) => got !== want);
 
@@ -871,7 +924,9 @@ async function agentHubWrites(
     hazard,
     wrong: "anybody but a system admin writes, or a member cannot read",
     right:
-      "system_admin writes both tables; company_admin and member refused; member reads 5 agents and 3 categories",
+      "system_admin writes both tables; company_admin and member refused; " +
+      "member reads 5 agents and 3 categories; and both assertions flip " +
+      "when the policy under them is deliberately weakened",
     ok: failures.length === 0,
     detail:
       (failures.length === 0 ? "" : "MISMATCH: ") +
