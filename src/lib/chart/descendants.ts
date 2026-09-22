@@ -36,8 +36,14 @@ export function descendantsOf(
 
 // The functions a given function may be moved under: everything on
 // the chart except itself and its own descendants. Titles carry an
-// indent so a flat <select> still reads as a tree, the way the add
-// panel's picker does.
+// indent so a flat <select> still reads as a tree.
+//
+// Non-breaking spaces rather than the "— " the add panel's picker
+// uses. A closed select shows only the chosen option, and "—
+// Integrator" reads as part of the name rather than as depth; the
+// dash is also an em-dash in user-facing copy, which this product
+// does not use. Spaces collapse to nothing visible when the value
+// is shown alone and still step the list when it is open.
 export function parentChoicesFor(
   functionId: string,
   rows: readonly (ParentLink & { title: string; sort_order: number })[]
@@ -67,7 +73,7 @@ export function parentChoicesFor(
       if (blocked.has(row.id)) continue;
       out.push({
         id: row.id,
-        title: depth === 0 ? row.title : `${"— ".repeat(depth)}${row.title}`,
+        title: depth === 0 ? row.title : `${"\u00a0\u00a0".repeat(depth)}${row.title}`,
       });
       walk(row.id, depth + 1);
     }

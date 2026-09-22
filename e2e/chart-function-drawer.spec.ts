@@ -29,7 +29,11 @@ import type { Page } from "@playwright/test";
 //   * a function can be moved under a different parent, and the
 //     picker never offers the function itself. The refusal for a
 //     descendant is unit-tested in descendants.test.ts, because the
-//     picker is what stops anybody reaching it in a browser.
+//     picker is what stops anybody reaching it in a browser;
+//   * the details commit on Save and not before, and closing with
+//     unsaved ones asks first. Three fields that each wrote on blur
+//     is what this replaced, and a panel you can Escape out of
+//     would otherwise throw typed work away without a word.
 
 async function scopeIn(page: Page) {
   await signIn(page, users.admin());
@@ -79,11 +83,11 @@ test("a function opens in a drawer over the chart, not on its own page", async (
     .toBeLessThan(Math.round((await page.viewportSize())!.width));
 
   // ---- It is the function that was clicked --------------------
-  await expect(panel.getByRole("button", { name: firstTitle! })).toBeVisible({
+  await expect(panel.getByLabel("Function name")).toHaveValue(firstTitle!, {
     timeout: 30_000,
   });
   await expect(
-    panel.getByRole("heading", { name: /in the seat/i })
+    panel.getByRole("heading", { name: /^details$/i })
   ).toBeVisible();
   await expect(
     panel.getByRole("heading", { name: /roles & responsibilities/i })
@@ -115,47 +119,98 @@ test("a function opens in a drawer over the chart, not on its own page", async (
   expect(new URL(page.url()).pathname).toBe("/chart");
 });
 
-test("a rename in the drawer reaches the card behind it", async ({ page }) => {
+test("a rename is saved on Save, and reaches the card behind it", async ({
+  page,
+}) => {
   test.setTimeout(240_000);
   await scopeIn(page);
   await page.goto("/chart");
 
-  const panel = page.getByTestId("drawer-panel").and(page.locator('[data-drawer-name="chart-function"]'));
+  const panel = page
+    .getByTestId("drawer-panel")
+    .and(page.locator('[data-drawer-name="chart-function"]'));
   const cards = page.getByTestId("function-card-button");
   await expect(cards.first()).toBeVisible({ timeout: 30_000 });
 
   const original = (await cards.first().locator("h3").textContent())!.trim();
-  const renamed = `${original} ✎`;
+  const renamed = `${original} \u270e`;
 
   await cards.first().click();
   await expect(panel).toBeVisible({ timeout: 30_000 });
 
-  // The drawer's head IS the rename control, the way the detail
-  // page's H1 is.
-  const titleButton = panel.getByRole("button", { name: original });
-  await expect(titleButton).toBeVisible({ timeout: 30_000 });
-  await titleButton.click();
-  const titleInput = panel.getByLabel("Function name");
-  await titleInput.fill(renamed);
-  await titleInput.press("Enter");
+  const name = panel.getByLabel("Function name");
+  await expect(name).toHaveValue(original, { timeout: 30_000 });
+  const save = panel.getByTestId("save-function-details");
 
-  // The panel's own copy follows immediately; the card behind it
-  // follows the router refresh.
-  await expect(panel.getByRole("button", { name: renamed })).toBeVisible({
-    timeout: 30_000,
-  });
+  // Nothing to save yet, and the button says so rather than
+  // inviting a write that would change nothing.
+  await expect(save).toBeDisabled();
+
+  await name.fill(renamed);
+  await expect(save).toBeEnabled();
+
+  // TYPING IS NOT SAVING. This is the whole point of the change:
+  // the old form wrote on blur, so a click anywhere committed.
+  await panel.getByLabel("In the seat").focus();
+  await expect(cards.first().locator("h3")).toHaveText(original);
+
+  await save.click();
+  await expect(save).toBeDisabled({ timeout: 30_000 });
   await expect(
     page.getByTestId("function-card-button").first().locator("h3")
   ).toHaveText(renamed, { timeout: 30_000 });
 
   // ---- Put it back --------------------------------------------
-  await panel.getByRole("button", { name: renamed }).click();
-  const back = panel.getByLabel("Function name");
-  await back.fill(original);
-  await back.press("Enter");
-  await expect(panel.getByRole("button", { name: original })).toBeVisible({
-    timeout: 30_000,
+  await panel.getByLabel("Function name").fill(original);
+  await panel.getByTestId("save-function-details").click();
+  await expect(
+    page.getByTestId("function-card-button").first().locator("h3")
+  ).toHaveText(original, { timeout: 30_000 });
+});
+
+test("closing with unsaved details asks before throwing them away", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await scopeIn(page);
+  await page.goto("/chart");
+
+  const panel = page
+    .getByTestId("drawer-panel")
+    .and(page.locator('[data-drawer-name="chart-function"]'));
+  const cards = page.getByTestId("function-card-button");
+  await expect(cards.first()).toBeVisible({ timeout: 30_000 });
+  const original = (await cards.first().locator("h3").textContent())!.trim();
+
+  await cards.first().click();
+  await expect(panel).toBeVisible({ timeout: 30_000 });
+  await panel.getByLabel("Function name").fill(`${original} unsaved`);
+
+  // Escape does not close; it asks.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("confirm-accept")).toBeVisible({
+    timeout: 10_000,
   });
+  await expect(panel).toBeVisible();
+
+  // Keeping the changes leaves the panel and the edit exactly there.
+  await page.getByTestId("confirm-cancel").click();
+  await expect(panel).toBeVisible();
+  await expect(panel.getByLabel("Function name")).toHaveValue(
+    `${original} unsaved`
+  );
+
+  // Discarding closes, and nothing was written.
+  await page.keyboard.press("Escape");
+  await page.getByTestId("confirm-accept").click();
+  await expect(panel).toBeHidden({ timeout: 10_000 });
+  await expect(cards.first().locator("h3")).toHaveText(original);
+
+  // And a clean panel closes without a word.
+  await cards.first().click();
+  await expect(panel).toBeVisible({ timeout: 30_000 });
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden({ timeout: 10_000 });
 });
 
 test("switching functions in the drawer does not show the last one", async ({
@@ -180,7 +235,7 @@ test("switching functions in the drawer does not show the last one", async ({
   );
 
   await cards.nth(0).click();
-  await expect(panel.getByRole("button", { name: firstTitle })).toBeVisible({
+  await expect(panel.getByLabel("Function name")).toHaveValue(firstTitle, {
     timeout: 30_000,
   });
 
@@ -190,9 +245,10 @@ test("switching functions in the drawer does not show the last one", async ({
   await cards.nth(1).click();
   await expect(panel).toBeVisible({ timeout: 30_000 });
   // The one that was showing a moment ago must be gone, not still
-  // there under the new heading while the fetch lands.
-  await expect(panel.getByRole("button", { name: firstTitle })).toBeHidden();
-  await expect(panel.getByRole("button", { name: secondTitle })).toBeVisible({
+  // there under the new heading while the fetch lands. The form is
+  // keyed on the function id, so a stale value here would mean the
+  // panel had been handed the wrong detail rather than none.
+  await expect(panel.getByLabel("Function name")).toHaveValue(secondTitle, {
     timeout: 30_000,
   });
 });
@@ -224,14 +280,9 @@ test("a function can be moved to a different parent", async ({ page }) => {
   await card.click();
   await expect(panel).toBeVisible({ timeout: 30_000 });
 
-  // Top level says so, rather than saying nothing.
-  await expect(panel.getByText("Top level.")).toBeVisible();
-
-  await panel
-    .getByRole("button", { name: /change where this function sits/i })
-    .click();
   const select = panel.getByLabel("Sits under");
-  await expect(select).toBeVisible({ timeout: 10_000 });
+  await expect(select).toBeVisible({ timeout: 30_000 });
+  await expect(select).toHaveValue("");
 
   // The function is not offered as its own parent. The database has
   // no constraint against it, and a function that is its own parent
@@ -241,11 +292,11 @@ test("a function can be moved to a different parent", async ({ page }) => {
   expect(options[0]).toMatch(/top level/i);
 
   await select.selectOption({ label: "Visionary" });
-
-  await expect(panel.getByRole("button", { name: "Visionary" })).toBeVisible({
+  await panel.getByTestId("save-function-details").click();
+  await expect(panel.getByTestId("save-function-details")).toBeDisabled({
     timeout: 30_000,
   });
-  await expect(panel.getByText("Top level.")).toBeHidden();
+  await expect(select).not.toHaveValue("");
 
   // ---- Clean up, through the UI -------------------------------
   await panel.getByRole("button", { name: /delete function/i }).click();

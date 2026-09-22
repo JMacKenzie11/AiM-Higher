@@ -201,6 +201,100 @@ export async function renameFunctionAction(
   return { ok: true, item: data };
 }
 
+// The function's three single-value fields, saved together.
+//
+// Name, where it sits, and who is in the seat were three separate
+// click-to-edit affordances that each wrote the moment they lost
+// focus. That is how the function detail PAGE has always worked,
+// and the drawer inherited it by sharing the components. It is not
+// how anything else in a drawer in this app behaves: /measures and
+// /plan both collect a form and commit it on a button.
+//
+// So these three now travel together, behind one Save. The
+// responsibilities below them do NOT, and deliberately: a row with
+// a trash icon that does not delete until you press a button
+// somewhere else is a worse lie than an immediate delete.
+//
+// NOT updateFunctionAction, which writes description, track_id and
+// decide_id from the same FormData. A caller sending only these
+// three would have those columns read as absent and nulled: the
+// description silently emptied and the track/decide seats cleared,
+// by a save that said nothing about any of them.
+export async function updateFunctionDetailsAction(
+  functionId: string,
+  fields: {
+    title: string;
+    parentFunctionId: string | null;
+    leadId: string | null;
+  }
+): Promise<ChartResult<FunctionNode>> {
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  if (!functionId) return { ok: false, message: "Missing function." };
+
+  const title = fields.title.trim();
+  if (!title) return { ok: false, message: "Give the function a name." };
+
+  const parentFunctionId = fields.parentFunctionId || null;
+  if (parentFunctionId === functionId) {
+    return { ok: false, message: "A function can't sit under itself." };
+  }
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+
+  if (parentFunctionId) {
+    const guard = await parentMoveRefusal(supabase, functionId, parentFunctionId);
+    if (guard) return { ok: false, message: guard };
+  }
+
+  const { data, error } = await supabase
+    .from("functions")
+    .update({
+      title,
+      parent_function_id: parentFunctionId,
+      lead_id: fields.leadId || null,
+    })
+    .eq("id", functionId)
+    .select("*")
+    .single<FunctionNode>();
+  if (error || !data) return { ok: false, message: "Couldn't save changes." };
+
+  revalidatePath("/chart");
+  revalidatePath(`/chart/function/${functionId}`);
+  revalidatePath("/measures");
+  return { ok: true, item: data };
+}
+
+// The cycle check, shared by the two actions that can move a
+// function. Returns the sentence to refuse with, or null to allow.
+async function parentMoveRefusal(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  functionId: string,
+  parentFunctionId: string
+): Promise<string | null> {
+  const { data: fn } = await supabase
+    .from("functions")
+    .select("id, company_id")
+    .eq("id", functionId)
+    .maybeSingle<{ id: string; company_id: string }>();
+  if (!fn) return "That function is no longer there.";
+
+  const { data: allRows } = await supabase
+    .from("functions")
+    .select("id, parent_function_id")
+    .eq("company_id", fn.company_id);
+  const all = (allRows ?? []) as Array<{
+    id: string;
+    parent_function_id: string | null;
+  }>;
+  if (!all.some((f) => f.id === parentFunctionId)) {
+    return "That function isn't on this chart.";
+  }
+  if (descendantsOf(functionId, all).has(parentFunctionId)) {
+    return "That function already sits under this one.";
+  }
+  return null;
+}
+
 // Move a function under a different parent, or out to the top
 // level. The drawer's picker calls this; updateFunctionAction can
 // also set the column, but it round-trips every field on the row and
@@ -234,34 +328,15 @@ export async function setFunctionParentAction(
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   if (parentFunctionId) {
-    // Read the company's tree once and walk down from the function
-    // being moved. RLS scopes this to the caller's company, so a
-    // parent id from another company simply is not in the rows and
-    // falls out as "that function isn't on this chart".
-    const { data: fn } = await supabase
-      .from("functions")
-      .select("id, company_id")
-      .eq("id", functionId)
-      .maybeSingle<{ id: string; company_id: string }>();
-    if (!fn) return { ok: false, message: "That function is no longer there." };
-
-    const { data: allRows } = await supabase
-      .from("functions")
-      .select("id, parent_function_id")
-      .eq("company_id", fn.company_id);
-    const all = (allRows ?? []) as Array<{
-      id: string;
-      parent_function_id: string | null;
-    }>;
-    if (!all.some((f) => f.id === parentFunctionId)) {
-      return { ok: false, message: "That function isn't on this chart." };
-    }
-    if (descendantsOf(functionId, all).has(parentFunctionId)) {
-      return {
-        ok: false,
-        message: "That function already sits under this one.",
-      };
-    }
+    // RLS scopes the tree read to the caller's company, so a parent
+    // id from another company simply is not in the rows and falls
+    // out as "that function isn't on this chart".
+    const refusal = await parentMoveRefusal(
+      supabase,
+      functionId,
+      parentFunctionId
+    );
+    if (refusal) return { ok: false, message: refusal };
   }
 
   const { data, error } = await supabase

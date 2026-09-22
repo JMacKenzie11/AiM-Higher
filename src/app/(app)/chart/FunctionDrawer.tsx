@@ -15,13 +15,12 @@ import {
   loadFunctionDrawerAction,
   type FunctionDrawerDetail,
 } from "@/lib/chart/function-drawer";
-import { SeatEditor } from "./function/[id]/SeatEditor";
 import { RolesList } from "./function/[id]/RolesList";
-import { FunctionTitleEditor } from "./function/[id]/FunctionTitleEditor";
 import { DeleteFunctionButton } from "./function/[id]/DeleteFunctionButton";
 import { SimpleFunctionItemList } from "./function/[id]/SimpleFunctionItemList";
 import { ReadinessChecklist } from "./function/[id]/ReadinessChecklist";
-import { FunctionParentEditor } from "./FunctionParentEditor";
+import { FunctionDetailsForm } from "./FunctionDetailsForm";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import styles from "./chart.module.css";
 
 // The function's detail, opened over the chart.
@@ -57,6 +56,10 @@ import styles from "./chart.module.css";
 // honest: add a decision right and the checklist below it ticks
 // over in the same beat.
 
+// Stands in for "there is no destination, just close". A uuid can
+// never collide with it.
+const CLOSE = "__close__";
+
 export function FunctionDrawer({
   functionId,
   onClose,
@@ -72,6 +75,13 @@ export function FunctionDrawer({
   const [detail, setDetail] = useState<FunctionDrawerDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, startLoading] = useTransition();
+  // Details batch behind a Save now, so Escape, the X and a click on
+  // the scrim can all throw typed work away. They ask first.
+  const [dirty, setDirty] = useState(false);
+  // Null means "not asking". A string means "asking, and this is the
+  // function to move to once they say discard"; the close case uses
+  // the sentinel below because there is no id to go to.
+  const [pendingExit, setPendingExit] = useState<string | null>(null);
 
   const load = useCallback(
     (id: string) => {
@@ -96,8 +106,48 @@ export function FunctionDrawer({
     if (!functionId) return;
     setDetail(null);
     setError(null);
+    setDirty(false);
     load(functionId);
   }, [functionId, load]);
+
+  // One gate for every way out: the X, Escape, and the scrim all
+  // route through the Drawer's onClose.
+  const requestClose = useCallback(() => {
+    if (dirty) {
+      setPendingExit(CLOSE);
+      return;
+    }
+    onClose();
+  }, [dirty, onClose]);
+
+  const discardAndClose = useCallback(() => {
+    setPendingExit(null);
+    setDirty(false);
+    onClose();
+  }, [onClose]);
+
+  // Switching to a sub-function replaces the form under the reader,
+  // which loses unsaved edits just as surely as closing does. Same
+  // question, same dialog, different destination.
+  const requestSwitch = useCallback(
+    (id: string) => {
+      if (dirty) {
+        setPendingExit(id);
+        return;
+      }
+      onSwitch(id);
+    },
+    [dirty, onSwitch]
+  );
+
+  const discardAndGo = useCallback(() => {
+    const target = pendingExit;
+    setPendingExit(null);
+    setDirty(false);
+    if (target === null) return;
+    if (target === CLOSE) onClose();
+    else onSwitch(target);
+  }, [pendingExit, onClose, onSwitch]);
 
   const refresh = useCallback(() => {
     if (functionId) load(functionId);
@@ -111,26 +161,10 @@ export function FunctionDrawer({
   return (
     <Drawer
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       name="chart-function"
       eyebrow="Function"
-      title={
-        detail ? (
-          <FunctionTitleEditor
-            functionId={detail.fn.id}
-            initialTitle={detail.fn.title}
-            canEdit={detail.canEdit}
-            onRenamed={(next) => {
-              setDetail((prev) =>
-                prev ? { ...prev, fn: { ...prev.fn, title: next } } : prev
-              );
-              router.refresh();
-            }}
-          />
-        ) : (
-          "Function"
-        )
-      }
+      title={detail?.fn.title ?? "Function"}
     >
       {error ? (
         <p role="alert" className={styles.fnDrawerError}>
@@ -144,28 +178,38 @@ export function FunctionDrawer({
 
       {detail ? (
         <>
-          <FunctionParentEditor
-            functionId={detail.fn.id}
-            parent={detail.parent}
-            options={detail.parentOptions}
-            canEdit={detail.canEdit}
-            onSwitch={onSwitch}
-            onChanged={refresh}
-          />
-
           <section
             className={styles.fnDrawerSection}
-            aria-labelledby="fn-drawer-seat"
+            aria-labelledby="fn-drawer-details"
           >
-            <h3 id="fn-drawer-seat" className={styles.fnDrawerSectionTitle}>
-              In the seat
+            <h3 id="fn-drawer-details" className={styles.fnDrawerSectionTitle}>
+              Details
             </h3>
-            <SeatEditor
+            <FunctionDetailsForm
+              key={detail.fn.id}
               functionId={detail.fn.id}
-              currentSeatHolder={detail.seatHolder}
+              initial={{
+                title: detail.fn.title,
+                parentFunctionId: detail.parent?.id ?? null,
+                leadId: detail.seatHolder?.id ?? null,
+              }}
+              parentOptions={detail.parentOptions}
               roster={detail.roster}
               canEdit={detail.canEdit}
-              onChanged={refresh}
+              onDirtyChange={setDirty}
+              onSaved={(values) => {
+                // The head carries the name, and it is client state
+                // that no server revalidation reaches. Without this
+                // the panel keeps the old name over a chart that
+                // already shows the new one.
+                setDetail((prev) =>
+                  prev
+                    ? { ...prev, fn: { ...prev.fn, title: values.title } }
+                    : prev
+                );
+                setDirty(false);
+                refresh();
+              }}
             />
           </section>
 
@@ -253,7 +297,7 @@ export function FunctionDrawer({
                     <button
                       type="button"
                       className={styles.fnDrawerJump}
-                      onClick={() => onSwitch(c.id)}
+                      onClick={() => requestSwitch(c.id)}
                     >
                       {c.title}
                     </button>
@@ -289,7 +333,7 @@ export function FunctionDrawer({
                 functionId={detail.fn.id}
                 functionTitle={detail.fn.title}
                 hasChildren={detail.children.length > 0}
-                onDeleted={onClose}
+                onDeleted={discardAndClose}
               />
             </div>
           ) : null}
@@ -304,6 +348,19 @@ export function FunctionDrawer({
           Saving…
         </p>
       ) : null}
+
+      {/* Branded, not window.confirm, for the reason
+          DeleteFunctionButton gives: a native modal on a shared
+          meeting screen is a different kind of interruption. */}
+      <ConfirmDialog
+        open={pendingExit !== null}
+        title="Discard your changes?"
+        message="The name, where this function sits, and who's in the seat haven't been saved yet. Responsibilities you added or removed are already saved."
+        confirmLabel="Discard"
+        tone="danger"
+        onConfirm={discardAndGo}
+        onCancel={() => setPendingExit(null)}
+      />
     </Drawer>
   );
 }
