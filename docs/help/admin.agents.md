@@ -23,17 +23,13 @@ There is no per-company copy of an agent.
     - **Roles.** Tick nothing and every role can use it. Tick one
       or more and it is limited to those. Guides also need to be
       assigned to the company.
-    - **Also anyone who leads a function.** Lets the person who
-      runs a seat on the chart use the agent even when their role
-      is not ticked. Useful for an agent about a function, where
-      the lead is usually a team member.
+    - **Functional Leads.** Anyone who leads a function as per the
+      functional chart, even when their role is not ticked.
+      Useful for an agent about a function, where the lead is
+      usually a team member.
     - **Feature.** Pick a feature and only companies that have it
       switched on can use the agent. Leave it on "No feature
       needed" for an agent that should reach everyone.
-    - **Companies.** Tick nothing for every company. Tick some and
-      the agent is limited to those, on top of the role and
-      feature above. This is how you pilot an agent with one
-      company before opening it up.
 - **Move an agent** with the up and down arrows on its row. The
   order here is the order the cards appear in.
 - **Hide an agent** to take it off the list people pick from.
@@ -55,11 +51,11 @@ team. This page shapes the ones that exist.
 
 ## Common questions
 
-**Somebody says an agent has disappeared.** Check three things on
-its Access panel, in this order: is their role ticked, does their
-company have the feature you chose, and is their company on the
-allowlist. The summary line on the agent's row shows all three at
-a glance.
+**Somebody says an agent has disappeared.** Check two things on its
+Access panel: is their role ticked, and does their company have the
+feature you chose. If neither explains it and the person leads a
+function, check whether Functional Leads is ticked. The summary line
+on the agent's row shows all of it at a glance.
 
 **I hid an agent by mistake.** Press *Show again* on its row.
 Nothing was lost: hiding only takes it off the picker.

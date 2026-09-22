@@ -1,10 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/current-user";
-import {
-  listHubAgents,
-  listHubCategories,
-  listHubCompanies,
-} from "@/lib/practices/hub-service";
+import { listHubAgents, listHubCategories } from "@/lib/practices/hub-service";
 import { AgentHubEditor } from "./AgentHubEditor";
 import styles from "../companies/admin.module.css";
 
@@ -21,10 +17,9 @@ import styles from "../companies/admin.module.css";
 
 export default async function AgentHubPage() {
   await requireRole(["system_admin"]);
-  const [categories, agents, companies] = await Promise.all([
+  const [categories, agents] = await Promise.all([
     listHubCategories(),
     listHubAgents(),
-    listHubCompanies(),
   ]);
 
   return (
@@ -47,11 +42,7 @@ export default async function AgentHubPage() {
       </section>
 
       <div className={styles.content}>
-        <AgentHubEditor
-          categories={categories}
-          agents={agents}
-          companies={companies}
-        />
+        <AgentHubEditor categories={categories} agents={agents} />
       </div>
     </div>
   );

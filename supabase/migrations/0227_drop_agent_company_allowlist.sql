@@ -1,0 +1,35 @@
+-- =============================================================
+-- Migration 0227 — drop agents.company_allowlist
+--
+-- Phase 1 gave every agent a per-company allowlist: empty admits
+-- every company, a non-empty list restricts to those named. It
+-- shipped unused — every one of the five seeded with '{}' — and the
+-- product decision is that switching an agent on per company is not
+-- something this product needs. Agents are shaped for the whole
+-- fleet; role and feature are the two axes that matter.
+--
+-- ---- WHY THE COLUMN GOES RATHER THAN JUST THE UI ---------------
+--
+-- 0226's own header argues that a row must not describe a capability
+-- the runtime does not have, because the next person to read the
+-- schema is misled by it. Removing the editor and the gate while
+-- leaving the column would be exactly that: a list anybody could
+-- write to through PostgREST as a system_admin, that no code reads,
+-- and that looks load-bearing to whoever finds it next. It would
+-- also read as a permission control while enforcing nothing, which
+-- is the worst kind of thing to leave in a permissions table.
+--
+-- ---- SAFE TO DROP ----------------------------------------------
+--
+-- Nothing is lost: the column is '{}' on every row on every
+-- instance, which is the value that meant "no restriction". No
+-- policy references it, no index covers it, and the merge layer
+-- treats a missing value and an empty one identically already.
+--
+-- Deploy order does not matter either way. Code that still reads the
+-- column would get undefined and fall through to "no allowlist",
+-- which is the behaviour this migration makes permanent.
+-- =============================================================
+
+alter table public.agents
+  drop column if exists company_allowlist;

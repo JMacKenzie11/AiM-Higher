@@ -6,7 +6,7 @@ import {
   HUB_ROLE_OPTIONS,
   FUNCTION_LEAD_PREDICATE,
 } from "@/lib/practices/hub-constants";
-import type { HubAgent, HubCategory, HubCompany } from "@/lib/practices/hub-service";
+import type { HubAgent, HubCategory } from "@/lib/practices/hub-service";
 import {
   moveAgentAction,
   moveAgentToCategoryAction,
@@ -21,7 +21,6 @@ import styles from "./hub.module.css";
 type Props = {
   agent: HubAgent;
   categories: HubCategory[];
-  companies: HubCompany[];
   isFirst: boolean;
   isLast: boolean;
   pending: boolean;
@@ -31,7 +30,6 @@ type Props = {
 export function AgentRow({
   agent,
   categories,
-  companies,
   isFirst,
   isLast,
   pending,
@@ -51,7 +49,6 @@ export function AgentRow({
   const [functionLead, setFunctionLead] = useState(
     agent.accessPredicates.includes(FUNCTION_LEAD_PREDICATE)
   );
-  const [allowlist, setAllowlist] = useState<string[]>(agent.companyAllowlist);
 
   function openIdentity() {
     setTitle(agent.title);
@@ -63,7 +60,6 @@ export function AgentRow({
     setRoles(agent.allowedRoles);
     setFeature(agent.feature ?? "");
     setFunctionLead(agent.accessPredicates.includes(FUNCTION_LEAD_PREDICATE));
-    setAllowlist(agent.companyAllowlist);
     setPanel(panel === "access" ? "none" : "access");
   }
 
@@ -220,7 +216,7 @@ export function AgentRow({
               as you pick it.
             </p>
           </div>
-          <div className={admin.submitRow}>
+          <div className={`${admin.submitRow} ${styles.panelActions}`}>
             <button
               type="button"
               className={admin.primaryButton}
@@ -282,11 +278,10 @@ export function AgentRow({
                   onChange={(e) => setFunctionLead(e.target.checked)}
                 />
                 <span>
-                  Also anyone who leads a function
+                  Functional Leads
                   <br />
                   <span className={admin.fieldHint}>
-                    Lets the person who runs a seat on the chart use it, even
-                    when their role is not ticked above.
+                    Anyone who leads a function as per the functional chart.
                   </span>
                 </span>
               </label>
@@ -314,34 +309,9 @@ export function AgentRow({
                 agent.
               </p>
             </div>
-
-            <div className={admin.field}>
-              <span className={admin.label}>Companies</span>
-              <p className={admin.fieldHint}>
-                Tick nothing for every company. Ticking a company limits the
-                agent to the companies you tick, on top of the role and feature
-                above.
-              </p>
-              <div className={styles.companyList}>
-                {companies.length === 0 ? (
-                  <p className={admin.fieldHint}>No companies yet.</p>
-                ) : (
-                  companies.map((c) => (
-                    <label key={c.id} className={styles.companyOption}>
-                      <input
-                        type="checkbox"
-                        checked={allowlist.includes(c.id)}
-                        onChange={() => setAllowlist(toggle(allowlist, c.id))}
-                      />
-                      <span>{c.name}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-            </div>
           </div>
 
-          <div className={admin.submitRow}>
+          <div className={`${admin.submitRow} ${styles.panelActions}`}>
             <button
               type="button"
               className={admin.primaryButton}
@@ -352,7 +322,6 @@ export function AgentRow({
                     allowedRoles: roles,
                     feature: feature || null,
                     functionLead,
-                    companyAllowlist: allowlist,
                   });
                   if (result.ok) setPanel("none");
                   return result;
@@ -389,20 +358,13 @@ function accessSummary(agent: HubAgent): string {
     parts.push(labels.join(", "));
   }
   if (agent.accessPredicates.includes(FUNCTION_LEAD_PREDICATE)) {
-    parts.push("function leads");
+    parts.push("Functional Leads");
   }
   if (agent.feature) {
     const label =
       COMPANY_FEATURES.find((f) => f.value === agent.feature)?.label ??
       agent.feature;
     parts.push(`needs ${label}`);
-  }
-  if (agent.companyAllowlist.length > 0) {
-    parts.push(
-      agent.companyAllowlist.length === 1
-        ? "1 company"
-        : `${agent.companyAllowlist.length} companies`
-    );
   }
   return parts.join(" · ");
 }
