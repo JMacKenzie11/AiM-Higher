@@ -14,7 +14,8 @@ import {
   type CoachingContextKind,
   type ShareCandidate,
 } from "./service";
-import { findPractice, type Practice } from "@/lib/practices/registry";
+import { type Practice } from "@/lib/practices/registry";
+import { resolveAgent } from "@/lib/practices/resolve";
 import { practiceGate } from "@/lib/practices/gate";
 import { cleanGeneratedTitle } from "./title";
 import { logCoachTokenUsage } from "./usage";
@@ -255,7 +256,7 @@ export async function setConversationAgentAction(
   // plain Ask Aimee).
   let nextPractice: Practice | null = null;
   if (agentId !== null) {
-    const candidate = findPractice(agentId);
+    const candidate = await resolveAgent(agentId);
     if (!candidate) {
       return { ok: false, message: "That agent isn't available." };
     }

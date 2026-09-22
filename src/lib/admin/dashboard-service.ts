@@ -17,7 +17,7 @@
 
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { PRACTICES } from "@/lib/practices/registry";
+import { listAgentsIncludingArchived } from "@/lib/practices/resolve";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Cross-company aggregates for the system-admin dashboard. Every
@@ -331,6 +331,10 @@ export type PracticeAdoptionRow = {
 // at least one follow-up) is qualitatively different from one that
 // ended after the opener.
 export async function getPracticeAdoption(): Promise<PracticeAdoptionRow[]> {
+  // Merged, so an agent renamed in the Hub is named that here
+  // too. Archived included: adoption over the last 30 days should
+  // still name an agent that was archived yesterday.
+  const PRACTICES = await listAgentsIncludingArchived();
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const since30 = daysAgo(30);
 

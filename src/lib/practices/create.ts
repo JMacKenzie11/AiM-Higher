@@ -4,7 +4,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CoachingConversation } from "@/lib/coach/service";
-import { findPractice } from "./registry";
+import { resolveAgent } from "./resolve";
 import { practiceGate } from "./gate";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
@@ -34,7 +34,7 @@ export async function createPracticeConversation(
   // document it is about. Migration 0224.
   options?: { revisingRoleId?: string }
 ): Promise<CreateResult> {
-  const practice = findPractice(practiceId);
+  const practice = await resolveAgent(practiceId);
   if (!practice) {
     return { ok: false, message: "That practice isn't available." };
   }

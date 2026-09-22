@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
-import { findPractice } from "@/lib/practices/registry";
+import { resolveAgent } from "@/lib/practices/resolve";
 import { practiceGate } from "@/lib/practices/gate";
 import { createPracticeConversation } from "@/lib/practices/create";
 import { createGeneralConversationAction } from "@/lib/coach/actions";
@@ -81,7 +81,7 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
 
   // Agent-attached start — reuses the practice-launch path so the
   // opener + scripted-first-message behaviour is unchanged.
-  const practice = findPractice(agentId);
+  const practice = await resolveAgent(agentId);
   if (!practice) return notAvailable("That agent isn't available.");
 
   const companyId = await getEffectiveCompanyId(session);

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { findPractice } from "@/lib/practices/registry";
+import { agentTitlesById } from "@/lib/practices/resolve";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Cross-company coaching-insights layer. Feeds the "Coaching
@@ -127,6 +127,7 @@ export async function listCoachingInsightsCompanies(): Promise<CompanyOption[]> 
 export async function getCoachingInsightsAdoption(
   filters: CoachingInsightsFilters
 ): Promise<CoachingInsightsAdoption> {
+  const agentTitles = await agentTitlesById();
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Convert endIso (inclusive day) to an exclusive upper bound
@@ -261,7 +262,7 @@ export async function getCoachingInsightsAdoption(
       withAgent += 1;
       const bucket = perAgent.get(c.practice_id) ?? {
         title:
-          findPractice(c.practice_id)?.title ?? c.practice_id,
+          agentTitles.get(c.practice_id) ?? c.practice_id,
         count: 0,
         wentDeep: 0,
       };
@@ -444,6 +445,7 @@ const HEATMAP_TOP_THEMES = 5;
 export async function getCoachingInsightsSynthesis(
   filters: CoachingInsightsFilters
 ): Promise<CoachingInsightsSynthesis> {
+  const agentTitles = await agentTitlesById();
   const startTs = `${filters.startIso}T00:00:00.000Z`;
   const endExclusive = new Date(`${filters.endIso}T00:00:00.000Z`);
   endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
@@ -516,7 +518,7 @@ export async function getCoachingInsightsSynthesis(
       return emptySynthesis(filters, days);
     }
 
-    return buildSynthesis(rows, filters, days);
+    return buildSynthesis(rows, filters, days, agentTitles);
   } catch (err) {
     console.error("getCoachingInsightsSynthesis: unexpected failure", err);
     return emptySynthesis(filters, days);
@@ -526,7 +528,12 @@ export async function getCoachingInsightsSynthesis(
 function buildSynthesis(
   rows: AnalysisRow[],
   filters: CoachingInsightsFilters,
-  days: number
+  days: number,
+  // Agent id to title, resolved by the caller. Passed rather than
+  // fetched because this function is sync and pure, and the titles
+  // are a merge of registry and database that only the caller can
+  // await.
+  agentTitles: Map<string, string>
 ): CoachingInsightsSynthesis {
 
   // ---- Themes: normalize + bucket topics --------------------
@@ -632,7 +639,7 @@ function buildSynthesis(
       practiceTitle:
         pid === null
           ? "Ask Aimee"
-          : findPractice(pid)?.title ?? pid,
+          : agentTitles.get(pid) ?? pid,
     }));
 
   const cellMap = new Map<string, HeatmapCell>();
@@ -652,7 +659,7 @@ function buildSynthesis(
         practiceTitle:
           row.practice_id === null
             ? "Ask Aimee"
-            : findPractice(row.practice_id)?.title ?? row.practice_id,
+            : agentTitles.get(row.practice_id) ?? row.practice_id,
         themeLabel: prettifyLabel(raw),
         count: 0,
       };

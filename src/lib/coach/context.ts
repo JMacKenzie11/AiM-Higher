@@ -16,7 +16,7 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { SUB_STRENGTH_LABELS } from "@/lib/strengths/types";
 import type { ResultsProfile } from "@/lib/strengths/types";
 import { buildPartnerContext } from "@/lib/practices/partner-context";
-import { findPractice } from "@/lib/practices/registry";
+import { resolveAgent } from "@/lib/practices/resolve";
 import type {
   AnnualGoal,
   Commitment,
@@ -100,7 +100,7 @@ export async function buildCoachContext(
   //   about   → the named subject
   //   practice→ the participant (they are their own subject)
   //   general → nobody
-  const practice = findPractice(input.practiceId ?? null);
+  const practice = await resolveAgent(input.practiceId ?? null);
   const isPractice = practice !== null;
   const subjectForBundle: string | null =
     input.subjectProfileId ??

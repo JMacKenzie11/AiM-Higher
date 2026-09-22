@@ -14,10 +14,10 @@ import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { trackAfter } from "@/lib/analytics/track";
 import {
-  findPractice,
   loadPracticePrompt,
   type PracticeToolName,
 } from "@/lib/practices/registry";
+import { resolveAgent } from "@/lib/practices/resolve";
 import {
   getAccessForConversation,
   type CoachingConversation,
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   // prompt runs against subject-scoped context. Practice sessions
   // (practice_id set) load the participant's own person_context and,
   // if a partner is named, a strict-allow-list partner_context.
-  const practice = findPractice(convo.practice_id);
+  const practice = await resolveAgent(convo.practice_id);
   const context = await buildCoachContext({
     companyId: convo.company_id,
     subjectProfileId: convo.subject_profile_id,
@@ -558,7 +558,7 @@ async function loadSystemPrompt(
   mode: "about" | "general",
   practiceId: string | null
 ): Promise<string> {
-  const practice = findPractice(practiceId);
+  const practice = await resolveAgent(practiceId);
   // A voice_only practice loads aims-voice.md alone as the base —
   // no coaching spine, no diagnostic modes, no patterns-to-watch-
   // for. Used by structural practices (chart builder, etc.) where
