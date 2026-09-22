@@ -14,8 +14,8 @@ import {
   type CoachingContextKind,
   type ShareCandidate,
 } from "./service";
-import { type Practice } from "@/lib/practices/registry";
-import { resolveAgent } from "@/lib/practices/resolve";
+import { resolveAgent, type ResolvedAgent } from "@/lib/practices/resolve";
+import { liveVersionIdFor } from "@/lib/practices/version-config";
 import { practiceGate } from "@/lib/practices/gate";
 import { cleanGeneratedTitle } from "./title";
 import { logCoachTokenUsage } from "./usage";
@@ -254,7 +254,11 @@ export async function setConversationAgentAction(
 
   // Validate + role-gate the target agent (null = clear back to
   // plain Ask Aimee).
-  let nextPractice: Practice | null = null;
+  // ResolvedAgent rather than Practice: the merged shape carries
+  // agentRowId, which is what the re-pin below needs to find the
+  // agent's live version. A ResolvedAgent IS a Practice, so nothing
+  // downstream changes.
+  let nextPractice: ResolvedAgent | null = null;
   if (agentId !== null) {
     const candidate = await resolveAgent(agentId);
     if (!candidate) {
@@ -278,9 +282,32 @@ export async function setConversationAgentAction(
     .eq("conversation_id", conversationId)
     .eq("role", "assistant");
 
+  // RE-PIN ON SWAP, and clear the pin on detach.
+  //
+  // The alternative was to keep whatever version was stamped when
+  // the conversation was created, and that is wrong: swapping agents
+  // is a fresh choice made at this moment, so it takes the agent's
+  // CURRENT live version. Prior messages stay exactly as they are —
+  // they are history, and history is not re-run.
+  //
+  // Detaching (agentId === null) clears it to null, because a plain
+  // Aimee conversation has no agent and therefore no version. Leaving
+  // a stale id there would point a registry-run conversation at a
+  // config it is not using.
+  //
+  // This is reachable only pre-lock — the guard above refuses once a
+  // user message exists — so no conversation can change config
+  // mid-flight.
+  const nextVersionId = nextPractice
+    ? await liveVersionIdFor(nextPractice.agentRowId)
+    : null;
+
   const { error: updateErr } = await supabase
     .from("coaching_conversations")
-    .update({ practice_id: nextPractice?.id ?? null })
+    .update({
+      practice_id: nextPractice?.id ?? null,
+      agent_version_id: nextVersionId,
+    })
     .eq("id", conversationId);
   if (updateErr) {
     console.error("setConversationAgentAction update failed", updateErr);
