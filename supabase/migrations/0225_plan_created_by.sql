@@ -130,10 +130,10 @@ create trigger stamp_created_by
   for each row execute function public.stamp_created_by();
 
 comment on column public.strategic_focus_areas.created_by is
-  'Who created this row. Null on anything created before migration 0221, and on rows written by the service role. Informational: no policy reads it.';
+  'Who created this row. Null on anything created before migration 0225, and on rows written by the service role. Informational: no policy reads it.';
 comment on column public.annual_goals.created_by is
-  'Who created this row. Null on anything created before migration 0221, and on rows written by the service role. Informational: no policy reads it.';
+  'Who created this row. Null on anything created before migration 0225, and on rows written by the service role. Informational: no policy reads it.';
 comment on column public.priorities.created_by is
-  'Who created this row. Null on anything created before migration 0221, and on rows written by the service role. Informational: no policy reads it.';
+  'Who created this row. Null on anything created before migration 0225, and on rows written by the service role. Informational: no policy reads it.';
 comment on column public.commitments.created_by is
-  'Who created this row. Null on anything created before migration 0221, and on rows written by the service role. Informational: no policy reads it.';
+  'Who created this row. Null on anything created before migration 0225, and on rows written by the service role. Informational: no policy reads it.';
