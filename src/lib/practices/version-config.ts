@@ -9,6 +9,7 @@ import {
   type Practice,
   type PracticeToolName,
 } from "./registry";
+import { isValidAgentModel } from "./models";
 
 // What an agent actually RUNS on, for one conversation.
 //
@@ -91,6 +92,17 @@ const KNOWN_CARDS: ReadonlySet<string> = new Set<OutputCardName>([
   "ChartProposalCard",
   "RoleDescriptionCard",
 ]);
+
+function modelOrNull(value: string | null, versionId: string): string | null {
+  if (!value) return null;
+  if (isValidAgentModel(value)) return value;
+  warnOnce(
+    `model:${versionId}:${value}`,
+    `agent_versions ${versionId}: model "${value}" is not on the allowlist. ` +
+      "Dropped, so this agent runs the platform default."
+  );
+  return null;
+}
 
 let warned: Set<string> | null = null;
 function warnOnce(key: string, message: string) {
@@ -216,7 +228,12 @@ export function configFromVersion(row: VersionRow): AgentRuntimeConfig {
       row.base_prompt_mode === "voice_only" ? "voice_only" : "full_coach",
     tools,
     maxTokens: row.max_tokens,
-    model: row.model,
+    // An unrecognised model is dropped, which falls the caller back
+    // to the platform default. Same reasoning as tools and cards
+    // above: the allowlist is code, so a version can name a model
+    // that has since been retired, and sending it to the API would
+    // fail the turn in front of a client.
+    model: modelOrNull(row.model, row.id),
     chips: asStringArray(row.chips),
     skipSetup: row.skip_setup,
     firstTurn:

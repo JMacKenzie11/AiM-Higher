@@ -8,6 +8,7 @@ import {
   listSharesForConversation,
 } from "@/lib/coach/service";
 import { listAgents, resolveAgent } from "@/lib/practices/resolve";
+import { resolveRuntimeConfig } from "@/lib/practices/version-config";
 import { practiceFeatureGate, practiceRoleGate } from "@/lib/practices/gate";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { getCurrentRoleDescription } from "@/lib/role-descriptions/roles-list";
@@ -121,7 +122,35 @@ export default async function AskAimeeChatPage({
   // the practice's own header + opening chips. Backend for optional
   // partner context is still in place (columns + action + partner
   // context builder) but no longer surfaced in the UI.
-  const practice = await resolveAgent(conversation.practice_id);
+  const registryAgent = await resolveAgent(conversation.practice_id);
+
+  // The chips and output-card contract ChatView renders come from
+  // the version PINNED to this conversation, not from the registry
+  // and not from whatever is live now. Same rule as the prompt: a
+  // publish must not change a conversation that is already running.
+  //
+  // Only the client-safe fields are overlaid. The prompt, the tool
+  // list and the model stay on the server — AgentRuntimeConfig
+  // separates the two halves for exactly this reason, and spreading
+  // the whole config into a prop would put an agent's prompt in the
+  // browser for anyone to read.
+  const runtime = registryAgent
+    ? await resolveRuntimeConfig(
+        registryAgent,
+        conversation.agent_version_id ?? null
+      )
+    : null;
+  const practice =
+    registryAgent && runtime
+      ? {
+          ...registryAgent,
+          chips: runtime.chips,
+          outputCard: runtime.outputCard ?? undefined,
+          skipSetup: runtime.skipSetup,
+          firstTurn: runtime.firstTurn ?? undefined,
+          scriptedOpener: runtime.scriptedOpener ?? undefined,
+        }
+      : registryAgent;
 
   // Registry entries the AgentPicker is allowed to offer for this
   // caller. Role-gated at the page level so the modal never
