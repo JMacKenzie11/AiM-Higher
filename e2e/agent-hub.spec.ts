@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 
 // The Agent Hub's two write paths, each walked in a browser and each
 // put back the way it was found.
@@ -43,10 +43,41 @@ test.describe("Agent Hub", () => {
     // just the screen that made it. This is the whole point of the
     // merge layer, and the failure it is guarding against is a
     // rename that shows only in the Hub.
+    //
+    // The picker is a modal inside a chat, not a list on /ask-aimee
+    // (the Practice Coaches tab was retired), so this opens a plain
+    // conversation and clicks the composer's agent control. The
+    // conversation is left behind deliberately: it carries no user
+    // turns, so it is never summarized and costs nothing.
+    //
+    // Coaching runs against a company's context, and a system admin
+    // belongs to none, so the chat refuses to start until we scope
+    // in. Same idiom as the chart specs.
+    await page.goto("/admin/companies");
+    await page
+      .getByTestId("scope-into-company")
+      .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
+      .click();
+    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
+
+    // Started from the button on /ask-aimee rather than by visiting
+    // /ask-aimee/new directly. That route currently 500s on a plain
+    // start: it calls createGeneralConversationAction during render,
+    // and that action calls revalidatePath, which Next forbids
+    // mid-render. Pre-existing on main and not this PR's to fix; the
+    // button is the path a person actually takes.
     await page.goto("/ask-aimee");
-    await expect(page.getByText(marker).first()).toBeVisible({
-      timeout: 15_000,
+    await page.getByRole("button", { name: /new conversation/i }).click();
+    await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
+      timeout: 30_000,
     });
+    await page
+      .getByRole("button", { name: /change agent/i })
+      .click({ timeout: 30_000 });
+    const picker = page.getByRole("dialog");
+    await expect(picker).toBeVisible();
+    await expect(picker.getByText(marker)).toBeVisible({ timeout: 15_000 });
+    await picker.getByRole("button", { name: /^close$/i }).click();
 
     // ---- put it back ----
     await page.goto("/admin/agents");
