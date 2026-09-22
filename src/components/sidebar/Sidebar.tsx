@@ -35,7 +35,8 @@ type Feature =
   | "execution"
   | "strengths"
   | "performance_tracking"
-  | "classroom";
+  | "classroom"
+  | "role_descriptions";
 // The shared Role union rather than a fourth copy of it. Every copy
 // of this list in the codebase had to be found by the typechecker
 // when portfolio_admin landed; this one now cannot drift again.
@@ -114,6 +115,17 @@ const APP_ITEMS: readonly NavItem[] = [
       },
       { kind: "link", label: "One-Page Plan", href: "/foundation", icon: "doc" },
       { kind: "link", label: "Team", href: "/people", icon: "people" },
+      // Under Team, beside the people, because a role description is
+      // about a seat rather than about the chart's shape. Gated on
+      // the same flag as the agent that writes them, so the surface
+      // and the thing that fills it appear together.
+      {
+        kind: "link",
+        label: "Role Descriptions",
+        href: "/roles",
+        icon: "doc",
+        feature: "role_descriptions",
+      },
       { kind: "link", label: "Functional Chart", href: "/chart", icon: "chart" },
       // Restored 2026-09-04 as Critical Success Factors, the rethink
       // the surface was pulled for. Deliberately NOT gated on

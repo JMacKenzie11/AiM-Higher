@@ -36,11 +36,13 @@ As an admin or guide, you can:
   in the panel or on the function page.
 - **Add Decision Rights and Competency Indicators** (Role Descriptions
   feature on) with the same inline pattern.
-- **Get suggestions** for any list (Responsibilities, Critical Success
-  Factors, Decision Rights, Competency
-  Indicators) via the *Suggest…* button under the add-row.
-- **Publish a Role Description** — the panel at the bottom of the
-  function page assembles the sections into a shareable doc.
+- **Write a role description with Aimee**, under *People* in the
+  agent list. She works from this chart and your One-Page Plan and
+  asks you the rest. The old per-list *Suggest…* buttons are gone;
+  the agent replaced them.
+- **Publish a Role Description**: the panel at the bottom of the
+  function page assembles the sections into a shareable doc. Saved
+  ones are listed on [Role Descriptions](./roles.md).
 :::
 
 ## How to add a function
@@ -152,7 +154,12 @@ the dashboard, not here. The function page is for describing the
 critical success factor; the *Critical Success Factors* page is for
 logging against it.
 
-**Do AiMS Guides have admin access?** Yes — on the companies they're
-assigned to, guides can edit anything an admin can (seats, R&R, critical
-success factors, metrics, decision rights, competencies, the role
-description).
+**Do AiMS Guides have admin access?** Yes. On the companies they're
+assigned to, guides can edit anything an admin can: seats, R&R,
+critical success factors, metrics, decision rights, competencies and
+the role description.
+
+**Where did the Suggest buttons go?** Replaced by the *Write a role
+description* agent, under *People* in Ask Aimee. A list of options
+beside one field couldn't see the rest of your chart or your plan;
+the agent can, and asks about the seat specifically.

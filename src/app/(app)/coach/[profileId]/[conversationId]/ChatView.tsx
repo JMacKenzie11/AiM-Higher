@@ -24,6 +24,7 @@ import type {
 import type { OutputCardName, Practice } from "@/lib/practices/registry";
 import { ScriptCard } from "@/components/practices/ScriptCard";
 import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
+import { RoleDescriptionCard } from "@/components/practices/RoleDescriptionCard";
 import {
   AgentPicker,
   type AgentAttachedInfo,
@@ -861,6 +862,15 @@ function renderCard(
     case "ChartProposalCard":
       return (
         <ChartProposalCard
+          raw={raw}
+          streaming={streaming}
+          conversationId={conversationId}
+          onFixRequest={onFixProposal}
+        />
+      );
+    case "RoleDescriptionCard":
+      return (
+        <RoleDescriptionCard
           raw={raw}
           streaming={streaming}
           conversationId={conversationId}

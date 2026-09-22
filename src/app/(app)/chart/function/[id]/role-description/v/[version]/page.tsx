@@ -233,7 +233,7 @@ export default async function RoleDescriptionVersionPage({
       ) : null}
 
       {detail.competencies.length > 0 ? (
-        <Section id="rd-competencies" title="Competency Indicators">
+        <Section id="rd-competencies" title="What excellence looks like">
           <ol className={styles.rdSimpleList}>
             {detail.competencies.map((c) => (
               <li key={c.id} className={styles.rdSimpleItem}>

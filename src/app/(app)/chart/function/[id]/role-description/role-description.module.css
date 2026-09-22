@@ -721,3 +721,14 @@
     page-break-inside: avoid;
   }
 }
+
+/* A document written by the agent, in the frame the generated one
+   uses, so a reader cannot tell which path produced the page they
+   are looking at from its chrome. */
+.agentDocument {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+}

@@ -10,7 +10,6 @@ import {
 } from "@/lib/chart/actions";
 import type { FunctionRole } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { SuggestOptionsPopover } from "./SuggestOptionsPopover";
 import { AddRowButton } from "@/components/ui/AddRowButton";
 import styles from "../../chart.module.css";
 
@@ -21,6 +20,14 @@ import styles from "../../chart.module.css";
 //   trash icon on the
 //   right deletes with a confirm.
 //   Draft row at the bottom stays live: type + Enter to add another.
+//
+// The per-section "Suggest responsibilities" popover is gone. The
+// Role Description Builder replaces it: a one-shot list of options
+// beside a field is a worse version of an interview that already
+// knows the chart, the Foundation and the plan, and asks about this
+// seat specifically. `rdEnabled` is kept on the props because the
+// drawer and the page both still pass it and the flag still gates
+// the sections around this one.
 //
 // `onChanged` is for the chart drawer, which holds this list in
 // client state rather than getting it from the RSC tree: on the
@@ -34,13 +41,11 @@ export function RolesList({
   functionId,
   roles,
   canEdit,
-  rdEnabled,
   onChanged,
 }: {
   functionId: string;
   roles: FunctionRole[];
   canEdit: boolean;
-  rdEnabled: boolean;
   onChanged?: () => void;
 }) {
   return (
@@ -59,23 +64,6 @@ export function RolesList({
       )}
       {canEdit ? (
         <DraftRoleRow functionId={functionId} onChanged={onChanged} />
-      ) : null}
-      {canEdit && rdEnabled ? (
-        <SuggestOptionsPopover
-          functionId={functionId}
-          target="responsibilities"
-          buttonLabel="Suggest responsibilities"
-          hideCardBody
-          onSave={async (title, body) => {
-            const fd = new FormData();
-            fd.set("function_id", functionId);
-            fd.set("title", title);
-            if (body) fd.set("body", body);
-            const r = await createFunctionRoleAction(undefined, fd);
-            if (r.ok) onChanged?.();
-            return r.ok ? { ok: true } : { ok: false, message: r.message };
-          }}
-        />
       ) : null}
     </div>
   );
