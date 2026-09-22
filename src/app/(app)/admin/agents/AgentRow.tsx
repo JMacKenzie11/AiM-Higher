@@ -102,7 +102,10 @@ export function AgentRow({
                 No matching agent in the code. It will not appear to anyone.
               </span>
             ) : null}
-            <span data-testid="agent-hub-access-summary">
+            <span
+              className={styles.accessChip}
+              data-testid="agent-hub-access-summary"
+            >
               {accessSummary(agent)}
             </span>
           </div>

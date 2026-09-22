@@ -16,11 +16,63 @@
   margin-bottom: var(--space-3);
 }
 
+/* The group heading in the Agents card.
+ *
+ * Deliberately the SAME treatment as AgentPicker.module.css
+ * .categoryHeader: uppercase, letterspaced, muted, with a
+ * chartreuse dot. The picker is the surface this page edits, so the
+ * editor looking like the thing it edits is the point rather than a
+ * coincidence. If one moves, move the other. */
 .categoryName {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0;
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.categoryName::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--aims-chartreuse);
+  flex-shrink: 0;
+}
+
+/* The name on a row in the Categories card. NOT the group heading
+ * above: this one is an editable label sitting beside a Rename
+ * button, so it stays a plain readable heading. Uppercasing it
+ * would make the rename field and its label disagree. */
+.categoryRowName {
   font: var(--text-h3);
   color: var(--text-heading);
   margin: 0;
   flex: 1 1 auto;
+}
+
+/* Chartreuse underline beneath each card's title, the same device
+ * as the hero's .rule. */
+.cardTitle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.cardTitle::after {
+  content: "";
+  display: block;
+  height: 3px;
+  width: 72px;
+  border-radius: var(--radius-pill);
+  background: var(--grad-rule);
 }
 
 .headActions {
@@ -30,12 +82,28 @@
   flex-wrap: wrap;
 }
 
+/* White-to-sky-tint, the app's standard "this is an item, not the
+ * page" fill (--grad-secondary, as used by the dashboard's practice
+ * tiles and the plan and measures cards). It is what stops a list of
+ * rows inside a white card reading as one undifferentiated sheet. */
 .agentRow {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   margin-bottom: var(--space-2);
-  background: var(--surface);
+  background: var(--grad-secondary);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+/* No cursor change and no pointer affordance: the row is not
+ * clickable, its buttons are. This is a scanning aid for which row
+ * the cursor is over, which matters most on the wide rows where the
+ * name and its buttons are far apart. */
+.agentRow:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface));
 }
 
 .agentRowArchived {
@@ -96,6 +164,17 @@
   padding: 1px 6px;
 }
 
+/* Who can reach this agent, as a pill rather than loose grey text.
+ * It is the single most-asked question on this page, so it gets the
+ * sky tint that the app uses for secondary informational fills. */
+.accessChip {
+  background: var(--aims-sky-tint);
+  color: var(--aims-navy);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+  font-weight: 600;
+}
+
 .rowButtons {
   display: flex;
   align-items: center;
@@ -113,10 +192,14 @@
   padding-right: var(--space-2);
 }
 
+/* Plain white against the row's gradient, so an open editor reads as
+ * a surface nested inside the row rather than more of the same row. */
 .panel {
   margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 
 .panelGrid {
@@ -139,6 +222,35 @@
   gap: var(--space-2);
   padding: 2px 0;
   font: var(--text-body-sm);
+}
+
+/* A category row carries the same fill as an agent row. They are
+ * different content, but they are the same KIND of thing on the
+ * page: a record with controls on the right. Leaving the lower card
+ * as plain white rows made it read as the unfinished half. */
+.categoryRow {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  background: var(--grad-secondary);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.categoryRow:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface));
+}
+
+/* The head inside a category row has no divider of its own: the row
+ * border is already the boundary. */
+.categoryRow .categoryHead {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
 }
 
 .addRow {
