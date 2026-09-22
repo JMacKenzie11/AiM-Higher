@@ -6,7 +6,7 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { createPracticeConversation } from "@/lib/practices/create";
-import { leadsFunction } from "@/lib/practices/function-leads";
+import { leadsAnyFunction } from "@/lib/practices/function-leads";
 
 // Open a conversation to revise a saved role description.
 //
@@ -45,15 +45,12 @@ export async function reviseRoleDescriptionAction(
   const isAdmin = isAdminForCompany(session.profile, role.company_id);
   const isLead =
     !isAdmin &&
-    role.function_id !== null &&
-    (await leadsFunction(session.profile.id, role.function_id));
+    (await leadsAnyFunction(session.profile.id, role.company_id));
   if (!isAdmin && !isLead) {
     return {
       ok: false,
       message:
-        role.function_id === null
-          ? "Only an admin can revise a role description that isn't on the chart."
-          : "You can only revise the role description for a function you lead.",
+        "Revising a role description is for admins, guides, and anyone who heads up a function.",
     };
   }
 

@@ -35,12 +35,10 @@ export function RoleDescriptionsCard({
   canRevise,
 }: {
   roles: SavedRole[];
-  // Whether THIS reader may revise each role. Computed on the
-  // server, per role, because a function's Lead may revise their own
-  // seat and nobody else's — a single boolean for the page would
-  // either hide the button from a lead or offer it where it will be
-  // refused.
-  canRevise: Record<string, boolean>;
+  // Whether this reader may revise. Computed on the server, and one
+  // answer for the page: heading up a function admits you to the
+  // company's role descriptions rather than to one row of them.
+  canRevise: boolean;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +101,7 @@ export function RoleDescriptionsCard({
                     This version can&rsquo;t be read. Ask Aimee for a fresh one.
                   </p>
                 )}
-                {canRevise[role.roleId] ? (
+                {canRevise ? (
                   <div className={styles.actions}>
                     <button
                       type="button"

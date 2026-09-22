@@ -575,6 +575,175 @@ async function coachMemoryEdit(
 //      claim is what keeps that true, and it asserts the home was
 //      really set first, so a refused UPDATE cannot pass it by
 //      leaving the column null.
+// ---- 0222: a function's Lead writes its role description --------
+//
+// The widening: anyone who heads up a function can write their
+// company's role descriptions. They are usually a team_member, so
+// no list of platform roles can express this and the relationship
+// has to.
+//
+// ANY document, not only the seat they hold. That is the product's
+// call, taken before 0222 reached a database: heading up a function
+// is the threshold for writing these, not a claim over one row. So
+// "another seat's document" is a 1 here, and the case earns its
+// keep on what stays 0 — another company's, and the chart itself.
+//
+// CLAUDE.md's rule for a role widening is what this case is shaped
+// around: run AS the granted role, assert the write that must now
+// succeed AND a write the same role must still be refused, and be
+// shown failing against the pre-fix schema before the green is
+// believed. Run without --pending 0222 and the first claim goes red,
+// which is the proof that it is the policy doing the work.
+//
+// The lead is seeded per run and made the lead of a real function,
+// because the clone has no team_member who leads anything and a
+// fixture that comes back null would report NOT PROVEN rather than
+// passing on an absent caller.
+async function roleDescriptionLeadWrites(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "role-description-lead-writes";
+  const hazard =
+    "A function's Lead cannot write their company's role descriptions, or can reach past them";
+
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;",
+      pending,
+      `select count(*) > 0 as ok from information_schema.tables
+        where table_schema='public' and table_name='role_descriptions';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name,
+      hazard,
+      wrong: "table not on this schema",
+      right: "table not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0221 has not landed here yet. Runs for real under --pending 0221_role_descriptions_off_chart.sql,0222_lead_writes_own_role_description.sql.",
+    };
+  }
+
+  const LEAD = "aaaaaaaa-0000-4000-8000-00000000lead".replace("lead", "1ead");
+  const A = ids.companyAdminCompany;
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  // A real team_member in the admin's company, made the lead of one
+  // function. The SECOND function is the control: same caller, a
+  // seat they do not hold.
+  const seed = `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${LEAD}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-lead@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${LEAD}', '${A}', 'Harness Lead', 'team_member', 'active');
+update public.functions set lead_id = '${LEAD}'
+ where id = (select id from public.functions
+              where company_id = '${A}' and archived = false
+              order by sort_order limit 1);`;
+
+  const mine = `(select id from public.functions
+                  where company_id = '${A}' and lead_id = '${LEAD}'
+                  and archived = false limit 1)`;
+  const notMine = `(select id from public.functions
+                     where company_id = '${A}' and archived = false
+                       and coalesce(lead_id, '00000000-0000-0000-0000-000000000000') <> '${LEAD}'
+                     order by sort_order limit 1)`;
+
+  const count = async (sql: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(sql);
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+
+  const saveFor = (fnExpr: string, title: string) => `
+insert into public.role_descriptions (company_id, function_id, title)
+values ('${A}', ${fnExpr}, '${title}');
+insert into public.role_description_versions
+  (role_id, company_id, function_id, version_number, snapshot_document, body_json)
+select rd.id, '${A}', rd.function_id, 1, '{}'::jsonb, '{"harness":true}'::jsonb
+  from public.role_descriptions rd where rd.title = '${title}';
+select count(*)::int as n from public.role_description_versions v
+  join public.role_descriptions rd on rd.id = v.role_id
+ where rd.title = '${title}';`;
+
+  const ownSeat = await count(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(LEAD),
+      saveFor(mine, "harness: lead own seat"),
+      "rollback;",
+    ].join("\n")
+  );
+
+  const otherSeat = await count(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(LEAD),
+      saveFor(notMine, "harness: lead other seat"),
+      "rollback;",
+    ].join("\n")
+  );
+
+  // An off-chart role has no function and therefore no lead. It stays
+  // admin-and-guide.
+  const offChart = await count(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(LEAD),
+      saveFor("null", "harness: lead off chart"),
+      "rollback;",
+    ].join("\n")
+  );
+
+  // The lead must not gain anything else on the way past. The chart
+  // itself is the obvious neighbour.
+  const renamesFunction = await count(
+    [
+      "begin;", pending, seed,
+      "set local role authenticated;", claims(LEAD),
+      `with u as (update public.functions set title = 'harness renamed'
+                   where id = ${mine} returning id)
+        select count(*)::int as n from u;`,
+      "rollback;",
+    ].join("\n")
+  );
+
+  const checks: Array<[string, number, number]> = [
+    ["own seat's document", ownSeat, 1],
+    ["another seat's document", otherSeat, 1],
+    ["an off-chart role", offChart, 1],
+    // The boundary that did not move. Leading a function has never
+    // carried the right to rename one, and a widening on documents
+    // must not quietly become one on the chart.
+    ["renaming the function they lead", renamesFunction, 0],
+  ];
+  const failures = checks.filter(([, got, want]) => got !== want);
+
+  return {
+    name,
+    hazard,
+    wrong:
+      "a lead cannot write their company's documents, or gains the chart with them",
+    right: "own seat=1, another seat=1, off-chart=1, function rename=0",
+    ok: failures.length === 0,
+    detail:
+      (failures.length === 0 ? "" : "MISMATCH: ") +
+      checks.map(([label, got]) => `${label}=${got}`).join(", "),
+  };
+}
+
 // ---- The Role Description Builder's two read tools --------------
 //
 // The claim: what get_foundation and list_functions return is what
@@ -8670,6 +8839,10 @@ async function main(): Promise<void> {
     [
       "coach-memory-edit",
       (r: Runner, i: Identities) => coachMemoryEdit(r, i, pendingSql),
+    ],
+    [
+      "role-description-lead-writes",
+      (r: Runner, i: Identities) => roleDescriptionLeadWrites(r, i, pendingSql),
     ],
     [
       "role-description-agent-reads",

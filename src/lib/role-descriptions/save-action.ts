@@ -7,7 +7,7 @@ import { getAccessForConversation } from "@/lib/coach/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { leadsFunction } from "@/lib/practices/function-leads";
+import { leadsAnyFunction } from "@/lib/practices/function-leads";
 import { parseRoleDescription } from "./parse-document";
 
 // Save a role description the agent proposed.
@@ -107,24 +107,21 @@ export async function saveRoleDescriptionAction(
   }
 
   const companyId = convo.company_id;
-  // An admin or assigned guide saves anything for their company. A
-  // function's Lead saves the document for THEIR function and
-  // nothing else — not another seat's, and not an off-chart role,
-  // which has no lead by construction. RLS says the same in 0222;
-  // this says it first so the refusal is a sentence rather than a
-  // failed insert.
+  // An admin or assigned guide saves anything for their company, and
+  // so does anyone who heads up a function on its chart. Heading up
+  // a function is the threshold, not a claim over one row: a lead
+  // may write any of the company's role descriptions, including
+  // off-chart ones and the seat above their own. RLS says the same
+  // in 0222; this says it first so the refusal is a sentence rather
+  // than a failed insert.
   const isAdmin = isAdminForCompany(session.profile, companyId);
-  const leadsThisFunction =
-    !isAdmin &&
-    doc.function !== null &&
-    (await leadsFunction(session.profile.id, doc.function.id));
-  if (!isAdmin && !leadsThisFunction) {
+  const isLead =
+    !isAdmin && (await leadsAnyFunction(session.profile.id, companyId));
+  if (!isAdmin && !isLead) {
     return {
       ok: false,
       message:
-        doc.function === null
-          ? "Only an admin can save a role description that isn't on the chart."
-          : "You can only save the role description for a function you lead.",
+        "Saving a role description is for admins, guides, and anyone who heads up a function.",
     };
   }
 

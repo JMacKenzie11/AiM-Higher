@@ -132,9 +132,10 @@ conversation, and you won't see it: the document is what gets picked
 up, not the chat. Coaching conversations stay private to whoever
 held them.
 
-**Who can change them?** Admins and assigned guides, for anything in
-their company. If you head up a function, you can revise the role
-description for the seat you hold. Everyone else can read them.
+**Who can change them?** Admins, assigned guides, and anyone who
+heads up a function on the chart. If you lead a function you can
+revise any of your company's role descriptions, not only your own
+seat's. Everyone else can read them.
 
 **Does saving overwrite the last one?** No. Every save adds a
 version and nothing is ever written over.
