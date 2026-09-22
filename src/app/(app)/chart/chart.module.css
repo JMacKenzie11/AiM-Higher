@@ -1898,3 +1898,104 @@
   opacity: 0.6;
   cursor: progress;
 }
+
+/* ---- Function drawer -------------------------------------------
+   The function's detail, opened over the chart instead of routed to.
+ 
+   Deliberately NOT .sectionCard. The page stacks cards on a tinted
+   page background, which is what makes a card read as a card. The
+   drawer body IS --surface, so the same class would draw a border
+   around a panel the same colour as the panel, four times, inside
+   560px. Sections here separate with a rule and nothing else. */
+.fnDrawerSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--border);
+}
+
+.fnDrawerSection:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.fnDrawerSectionTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+/* "Part of Field Operations", above the first section. It switches
+   the drawer to the parent rather than navigating, so it is a button
+   wearing a link's clothes. */
+.fnDrawerParent {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin: 0 0 var(--space-4);
+}
+
+.fnDrawerJump {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.fnDrawerJump:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.fnDrawerSubList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fnDrawerStatus {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.fnDrawerError {
+  font: var(--text-body-sm);
+  color: var(--aims-danger);
+  background: var(--aims-danger-tint);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  margin: 0;
+}
+
+/* LEFT, against .dangerZone, and for the reason Drawer.module.css
+   gives: the help widget is fixed bottom-right at z-index 100, above
+   every drawer in the app. .dangerZone is `justify-content: flex-end`,
+   which put *Delete function* exactly under the `?` bubble — measured
+   on B&B Electric at 1440x1000, the button's right half was behind
+   it. On the detail page the same class is fine; there is no panel
+   and no corner. */
+.fnDrawerDanger {
+  composes: dangerZone;
+  justify-content: flex-start;
+}
+
+/* The card is the trigger. It has to lay out exactly as the link it
+   replaces, so it composes .fnCardLink and only strips the defaults
+   a <button> brings that an <a> does not. */
+.fnCardButton {
+  composes: fnCardLink;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}

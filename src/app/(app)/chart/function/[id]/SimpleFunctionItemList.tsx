@@ -16,6 +16,10 @@ import styles from "../../chart.module.css";
 // server-action references) so the two callers can point at
 // function_decision_rights vs function_competencies without a
 // duplicated component per entity.
+//
+// `onChanged` is for the chart drawer, which holds these items in
+// client state rather than getting them from the RSC tree. See the
+// same note on SeatEditor.
 
 type BaseItem = {
   id: string;
@@ -46,6 +50,7 @@ export function SimpleFunctionItemList<T extends BaseItem>({
   deleteAction,
   suggestTarget,
   suggestButtonLabel,
+  onChanged,
 }: {
   functionId: string;
   items: T[];
@@ -63,6 +68,7 @@ export function SimpleFunctionItemList<T extends BaseItem>({
   // the company doesn't have role_descriptions enabled.
   suggestTarget?: RdTarget;
   suggestButtonLabel?: string;
+  onChanged?: () => void;
 }) {
   return (
     <div className={styles.roleList}>
@@ -77,6 +83,7 @@ export function SimpleFunctionItemList<T extends BaseItem>({
           singularLabel={singularLabel}
           renameAction={renameAction}
           deleteAction={deleteAction}
+          onChanged={onChanged}
         />
       ))}
       {canEdit ? (
@@ -84,6 +91,7 @@ export function SimpleFunctionItemList<T extends BaseItem>({
           functionId={functionId}
           placeholder={addPlaceholder}
           createAction={createAction}
+          onChanged={onChanged}
         />
       ) : null}
       {canEdit && suggestTarget ? (
@@ -97,6 +105,7 @@ export function SimpleFunctionItemList<T extends BaseItem>({
             fd.set("title", t);
             if (b) fd.set("body", b);
             const r = await createAction(undefined, fd);
+            if (r.ok) onChanged?.();
             return r.ok ? { ok: true } : { ok: false, message: r.message };
           }}
         />
@@ -111,12 +120,14 @@ function ItemRow<T extends BaseItem>({
   singularLabel,
   renameAction,
   deleteAction,
+  onChanged,
 }: {
   item: T;
   canEdit: boolean;
   singularLabel: string;
   renameAction: (id: string, newTitle: string) => Promise<RenameResult<T>>;
   deleteAction: (id: string) => Promise<DeleteResult>;
+  onChanged?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.title);
@@ -145,6 +156,7 @@ function ItemRow<T extends BaseItem>({
         setError(result.message);
       } else {
         setEditing(false);
+        onChanged?.();
       }
     });
   }
@@ -194,6 +206,7 @@ function ItemRow<T extends BaseItem>({
           id={item.id}
           singularLabel={singularLabel}
           deleteAction={deleteAction}
+          onChanged={onChanged}
         />
       ) : null}
       {error ? (
@@ -209,10 +222,12 @@ function DeleteButton({
   id,
   singularLabel,
   deleteAction,
+  onChanged,
 }: {
   id: string;
   singularLabel: string;
   deleteAction: (id: string) => Promise<DeleteResult>;
+  onChanged?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -223,6 +238,7 @@ function DeleteButton({
     startTransition(async () => {
       const result = await deleteAction(id);
       if (!result.ok) setMessage(result.message);
+      else onChanged?.();
     });
   }
 
@@ -269,6 +285,7 @@ function DraftRow<T extends BaseItem>({
   functionId,
   placeholder,
   createAction,
+  onChanged,
 }: {
   functionId: string;
   placeholder: string;
@@ -276,6 +293,7 @@ function DraftRow<T extends BaseItem>({
     prev: CreateResult<T> | undefined,
     formData: FormData
   ) => Promise<CreateResult<T>>;
+  onChanged?: () => void;
 }) {
   const [state, formAction, pending] = useActionState<
     CreateResult<T>,
@@ -283,6 +301,10 @@ function DraftRow<T extends BaseItem>({
   >(createAction, INITIAL_CREATE);
   const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  // Through a ref so the effect below depends on `state` alone. See
+  // the same note in RolesList's draft row.
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
 
@@ -290,6 +312,7 @@ function DraftRow<T extends BaseItem>({
     if (state && "ok" in state && state.ok) {
       setTitle("");
       inputRef.current?.focus();
+      onChangedRef.current?.();
     }
   }, [state]);
 

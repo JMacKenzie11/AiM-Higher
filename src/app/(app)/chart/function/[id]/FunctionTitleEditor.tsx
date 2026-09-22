@@ -12,15 +12,24 @@ import styles from "../../chart.module.css";
 // reverts on Escape. Applies to every function — including the
 // seed Visionary and Integrator boxes — so a company can localise
 // or evolve the language.
+//
+// The chart drawer renders it in the drawer's gradient head, which
+// is why the read state inherits its font and colour rather than
+// setting either: one component, two headings, no second style.
+// `onRenamed` is how the drawer's own copy of the title follows the
+// edit — router.refresh() reaches the RSC tree behind the panel,
+// never the client state inside it.
 
 export function FunctionTitleEditor({
   functionId,
   initialTitle,
   canEdit,
+  onRenamed,
 }: {
   functionId: string;
   initialTitle: string;
   canEdit: boolean;
+  onRenamed?: (title: string) => void;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -51,6 +60,7 @@ export function FunctionTitleEditor({
         setError(result.message);
       } else {
         setEditing(false);
+        onRenamed?.(next);
         router.refresh();
       }
     });

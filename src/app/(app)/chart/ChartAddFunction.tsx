@@ -46,6 +46,7 @@ export function ChartAddFunction({
         open={open}
         onClose={() => setOpen(false)}
         keepMounted
+        name="chart-add-function"
         eyebrow="Functional chart"
         title="Add function"
       >

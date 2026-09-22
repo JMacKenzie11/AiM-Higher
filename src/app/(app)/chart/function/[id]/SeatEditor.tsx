@@ -9,17 +9,25 @@ import styles from "../../chart.module.css";
 // active in the company; an "Unassigned" option clears the seat.
 // setFunctionRoleAction with role='lead' writes the seat holder;
 // track/decide default to lead in the UI when unset.
+//
+// `onChanged` exists for the chart drawer. On the detail page this
+// component is rendered from the RSC tree, so revalidatePath inside
+// the action is enough to redraw it with the new name. The drawer
+// fetched its copy into client state, which no revalidation can
+// reach — it hands in a refetch instead.
 
 export function SeatEditor({
   functionId,
   currentSeatHolder,
   roster,
   canEdit,
+  onChanged,
 }: {
   functionId: string;
   currentSeatHolder: Pick<Profile, "id" | "full_name"> | null;
   roster: Array<Pick<Profile, "id" | "full_name">>;
   canEdit: boolean;
+  onChanged?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -33,6 +41,7 @@ export function SeatEditor({
         setError(result.message);
       } else {
         setEditing(false);
+        onChanged?.();
       }
     });
   }

@@ -28,8 +28,10 @@ As an admin or guide, you can:
 
 - **Add or delete functions** to grow / shape the tree.
 - **Assign seats** — one person per function.
+- **Edit a function without leaving the chart**: click any function
+  box and its detail opens in a panel from the right.
 - **Edit responsibilities and critical success factors**, all inline
-  on the function page.
+  in the panel or on the function page.
 - **Add Decision Rights and Competency Indicators** (Role Descriptions
   feature on) with the same inline pattern.
 - **Get suggestions** for any list (Responsibilities, Critical Success
@@ -46,6 +48,29 @@ As an admin or guide, you can:
    closes it. Saving takes you straight to the new function's page.
 2. New companies start with **Visionary** and **Integrator** seed boxes
    at the top — build under them.
+
+## How to edit a function
+
+::: role company_admin,aims_guide,system_admin
+1. Click the function's box on the chart. Its detail opens in a panel
+   from the right, over the chart: the name, who's in the seat,
+   responsibilities, and (Role Descriptions on) decision rights and
+   competency indicators.
+2. Edit in place. Everything saves as you go; there is no Save button
+   and nothing to discard.
+3. Escape, the X, or a click outside closes it. The chart is still
+   behind it, in the same place you left it.
+4. *Part of* at the top and the *Sub-functions* list move the panel to
+   another function without closing it.
+5. *Open the full function page →* near the bottom goes to the same
+   detail as its own page, which is where critical success factors
+   live.
+:::
+
+::: role team_member
+Clicking a function box opens its page, with everything the function
+owns on it.
+:::
 
 ## How to assign a seat
 
@@ -71,8 +96,8 @@ line up. Every hint is advisory; Save stays enabled regardless.
 ## How to publish a Role Description
 
 ::: role company_admin,aims_guide,system_admin
-1. On the function detail page, scroll to the *Role Description* card at
-   the bottom.
+1. In the function's panel, or on its page, scroll to the *Role
+   Description* card at the bottom.
 2. Check the 5-section readiness list (Title, Responsibilities, Critical
    Success Factors with targets, Decision Rights, Competency
    Indicators).
@@ -87,10 +112,11 @@ assembled page.
 
 ## Common questions
 
-**What happens when I delete a function?** Hard delete — cascades to
+**What happens when I delete a function?** Hard delete. It cascades to
 sub-functions, critical success factors, measures, and recorded weekly
 values. A confirmation dialog spells out the cascade before the click
-lands.
+lands. Delete from the panel and the panel closes onto the chart with
+the box gone.
 
 **Why can't I hard-delete a critical success factor?** They only
 archive from the UI, so past-quarter weekly entries stay intact.

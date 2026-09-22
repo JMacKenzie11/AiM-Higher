@@ -44,11 +44,15 @@ export function Drawer({
   footer,
   keepMounted = false,
   labelledBy,
+  name,
 }: {
   open: boolean;
   onClose: () => void;
   eyebrow?: string;
-  title: string;
+  // A node rather than a string, for the caller that makes its
+  // heading editable in place — /chart's function drawer renders a
+  // click-to-rename control here. Pass a string for everything else.
+  title: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
   // Keep children in the DOM while closed. See the note above.
@@ -56,6 +60,10 @@ export function Drawer({
   // Override the generated aria-labelledby, for a caller that renders
   // its own heading inside the body.
   labelledBy?: string;
+  // Tells two drawers on one page apart, for a test. /chart has two:
+  // the keepMounted "Add function" panel, which is in the DOM even
+  // when closed, and the function editor. `data-testid` matches both.
+  name?: string;
 }) {
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -107,6 +115,7 @@ export function Drawer({
         hidden={!open}
         onClick={onClose}
         data-testid="drawer-scrim"
+        data-drawer-name={name}
       />
       <div
         ref={panelRef}
@@ -117,6 +126,7 @@ export function Drawer({
         aria-modal="true"
         aria-labelledby={titleId}
         data-testid="drawer-panel"
+        data-drawer-name={name}
       >
         <div className={styles.head}>
           <div>
