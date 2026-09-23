@@ -86,9 +86,13 @@ not what it is called underneath.
 
 ## Sending an agent to other instances
 
-**Distribute** on an agent you built here shows where it stands on
-every other instance: current, behind, never sent, or the reason a
-previous attempt was refused.
+**Distribute** on any agent shows where it stands on every other
+instance: current, behind, never sent, or the reason a previous
+attempt was refused.
+
+It needs something published first. An agent still running the
+version set in the code has nothing to send, and the dry run says
+so: open Config, **Edit in Hub**, and publish before you push.
 
 It is always two steps. **Dry run** tells you exactly what would
 happen on each instance you picked, including anything you should
