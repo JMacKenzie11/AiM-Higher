@@ -19,6 +19,10 @@ import {
 } from "@/lib/practices/registry";
 import { resolveAgent } from "@/lib/practices/resolve";
 import {
+  resolveRuntimeConfig,
+  type AgentRuntimeConfig,
+} from "@/lib/practices/version-config";
+import {
   getAccessForConversation,
   type CoachingConversation,
   type CoachingMessage,
@@ -236,8 +240,6 @@ export async function POST(req: NextRequest): Promise<Response> {
       "Coach isn't configured yet — ANTHROPIC_API_KEY is missing on the server."
     );
   }
-  const model = process.env.ANTHROPIC_COACH_MODEL || DEFAULT_MODEL;
-
   // Build context. In general mode (Ask Aimee) there is no subject,
   // so person / strengths context are absent and the system prompt
   // gets an Aimee preamble. In about mode the standard leadership
@@ -245,6 +247,19 @@ export async function POST(req: NextRequest): Promise<Response> {
   // (practice_id set) load the participant's own person_context and,
   // if a partner is named, a strict-allow-list partner_context.
   const practice = await resolveAgent(convo.practice_id);
+  // The config this conversation runs on. Resolved from its OWN
+  // pinned version, never from the agent's live pointer — see
+  // version-config.ts. Null when there is no agent at all.
+  const agentConfig = practice
+    ? await resolveRuntimeConfig(practice, convo.agent_version_id ?? null)
+    : null;
+
+  // A published version may name its own model; otherwise the env
+  // override, otherwise the product default. Version first because
+  // it is the most specific and the most deliberate: somebody chose
+  // it for this agent and wrote a publish note saying why.
+  const model =
+    agentConfig?.model || process.env.ANTHROPIC_COACH_MODEL || DEFAULT_MODEL;
   const context = await buildCoachContext({
     companyId: convo.company_id,
     subjectProfileId: convo.subject_profile_id,
@@ -254,7 +269,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     practiceId: convo.practice_id,
     partnerProfileId: convo.partner_profile_id,
   });
-  const systemPromptText = await loadSystemPrompt(convo.mode, convo.practice_id);
+  const systemPromptText = await loadSystemPrompt(convo.mode, agentConfig);
 
   const client = new Anthropic({ apiKey });
   const personBlock = context.personContext ? `${context.personContext}\n\n` : "";
@@ -333,7 +348,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           const messageStream = client.messages.stream(
             {
               model,
-              max_tokens: practice?.maxTokens ?? MAX_TOKENS,
+              max_tokens: agentConfig?.maxTokens ?? MAX_TOKENS,
               system: [
                 {
                   type: "text",
@@ -382,7 +397,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             console.warn(
               `coach: turn hit max_tokens (conversation=${conversationId}` +
                 `, practice=${practice?.id ?? "none"}` +
-                `, cap=${practice?.maxTokens ?? MAX_TOKENS})`
+                `, cap=${agentConfig?.maxTokens ?? MAX_TOKENS})`
             );
             controller.enqueue(encodeEvent("truncated", { reason: "max_tokens" }));
           }
@@ -554,27 +569,37 @@ export async function POST(req: NextRequest): Promise<Response> {
 
 // ---- Helpers ----------------------------------------------------
 
+// Takes the RESOLVED CONFIG, not a practice id.
+//
+// It used to re-resolve the agent from the registry, which is now
+// the wrong source: a conversation runs on the version pinned to it,
+// and the prompt may be stored text rather than a file on disk. The
+// caller has already resolved that once for this turn, so passing it
+// in also removes the second lookup.
+//
+// `config` is null for a plain Aimee or about-mode conversation.
 async function loadSystemPrompt(
   mode: "about" | "general",
-  practiceId: string | null
+  config: AgentRuntimeConfig | null
 ): Promise<string> {
-  const practice = await resolveAgent(practiceId);
   // A voice_only practice loads aims-voice.md alone as the base —
   // no coaching spine, no diagnostic modes, no patterns-to-watch-
   // for. Used by structural practices (chart builder, etc.) where
   // the practice prompt is the entire flow and inheriting the coach
   // spine would push it into diagnosis instead of the guided task.
   const base =
-    practice?.basePromptMode === "voice_only"
+    config?.basePromptMode === "voice_only"
       ? await loadVoiceOnlyBase()
       : await loadCoachBase();
 
-  // Practice sessions layer the registered practice's prompt AFTER
-  // the base. The base establishes voice + stance; the practice
-  // narrows it into a specific guided flow (including any card-
-  // block contract the client renders).
-  const composed = practice
-    ? `${base}\n\n${await loadPracticePrompt(practice)}`
+  // Practice sessions layer the agent's prompt AFTER the base. The
+  // base establishes voice + stance; the agent narrows it into a
+  // specific guided flow (including any card-block contract the
+  // client renders). The two bases stay on disk and keep their SHA
+  // guards — they are the fallback, so they matter more now, not
+  // less.
+  const composed = config
+    ? `${base}\n\n${config.prompt}`
     : mode === "about"
       ? base
       : `${GENERAL_MODE_PREAMBLE}\n\n${base}`;

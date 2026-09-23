@@ -36,6 +36,12 @@ export type CoachingConversation = {
   // position, reports_to, open commitments, current-quarter
   // follow-through rate — nothing else).
   practice_id: string | null;
+  // The config version this conversation runs on (migration 0228).
+  // Null means registry-defined, which is every row that predates
+  // phase 2 and every conversation on an agent nobody has published.
+  // Stamped at creation and re-stamped when the agent is swapped;
+  // never rewritten by a publish, which is the point of it.
+  agent_version_id: string | null;
   partner_profile_id: string | null;
   created_at: string;
   updated_at: string;

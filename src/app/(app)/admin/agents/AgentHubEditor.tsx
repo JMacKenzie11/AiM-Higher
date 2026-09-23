@@ -13,6 +13,7 @@ import {
 import { AgentRow } from "./AgentRow";
 import { AgentEditDrawer } from "./AgentEditDrawer";
 import { AgentAccessDrawer } from "./AgentAccessDrawer";
+import { AgentConfigDrawer } from "./AgentConfigDrawer";
 import admin from "../companies/admin.module.css";
 import styles from "./hub.module.css";
 
@@ -37,7 +38,7 @@ export function AgentHubEditor({
   // meant five of them stacked in the DOM saying the same thing.
   const [drawer, setDrawer] = useState<{
     agentId: string;
-    kind: "edit" | "access";
+    kind: "edit" | "access" | "config";
   } | null>(null);
   const [newCategory, setNewCategory] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -146,6 +147,9 @@ export function AgentHubEditor({
                     onAccess={() =>
                       setDrawer({ agentId: agent.id, kind: "access" })
                     }
+                    onConfig={() =>
+                      setDrawer({ agentId: agent.id, kind: "config" })
+                    }
                   />
                 ))
               )}
@@ -170,6 +174,7 @@ export function AgentHubEditor({
                 onAccess={() =>
                   setDrawer({ agentId: agent.id, kind: "access" })
                 }
+                onConfig={() => setDrawer({ agentId: agent.id, kind: "config" })}
               />
             ))}
           </div>
@@ -322,6 +327,17 @@ export function AgentHubEditor({
           categories={visibleCategories}
           pending={pending}
           run={run}
+          onClose={() => setDrawer(null)}
+        />
+      ) : null}
+
+      {openAgent && drawer?.kind === "config" ? (
+        <AgentConfigDrawer
+          key={openAgent.id}
+          agentRowId={openAgent.id}
+          slug={openAgent.slug}
+          title={openAgent.title}
+          pending={pending}
           onClose={() => setDrawer(null)}
         />
       ) : null}

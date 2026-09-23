@@ -934,6 +934,190 @@ async function agentHubWrites(
   };
 }
 
+// ---- agent_versions: immutable, and admin-only to read ---------
+//
+// Two claims, and they need different kinds of evidence.
+//
+// IMMUTABLE is a PRIVILEGE claim, not a policy one. Failure mode E8
+// is exactly this table's shape getting it wrong: 0129 declares
+// role_description_versions immutable with nothing but the comment
+// "No update policy", and Supabase's default grants mean an UPDATE
+// there still RUNS, matches no rows through RLS, and reports "0 rows
+// affected" — indistinguishable from a refusal. So this probe asks
+// has_table_privilege directly, AND fires a real UPDATE and DELETE
+// expecting SQLSTATE 42501. A probe asserting "0 rows" would pass on
+// the broken version of this migration and go on passing.
+//
+// ADMIN-ONLY TO READ is a policy claim, so it is measured as rows,
+// with a system_admin control beside it — a zero that the control
+// also returns proves nothing.
+async function agentVersionsWall(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "agent-versions-wall";
+  const hazard =
+    "A published prompt is rewritable, or readable by somebody who is not a system admin";
+
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;", pending,
+      `select count(*) > 0 as ok from information_schema.tables
+        where table_schema='public' and table_name='agent_versions';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name, hazard,
+      wrong: "table not on this schema",
+      right: "table not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0228 has not landed here yet. Runs for real under --pending 0228_agent_versions.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  // Returns a row count as a string, or the SQLSTATE when the
+  // statement was refused. The two share one channel on purpose:
+  // "0" and "42501" then sit side by side as different assertions on
+  // the same measured value.
+  //
+  // `setup` runs BEFORE the role switch, as the connection's own
+  // role. That is not a detail: seeding a row as the caller made the
+  // read wall unmeasurable, because a member has no insert policy, so
+  // every read came back 42501 from the SEED rather than 0 from the
+  // read. The same rule asCaller() carries a few hundred lines up.
+  const measure = async (
+    sub: string,
+    setup: string,
+    statement: string
+  ): Promise<string> => {
+    try {
+      const rows = await run<{ n: number }>(
+        ["begin;", pending, setup, "set local role authenticated;", claims(sub),
+         statement, "rollback;"].join("\n")
+      );
+      return String(rows?.[0]?.n ?? 0);
+    } catch (error) {
+      const text = String((error as Error).message ?? error);
+      const code = text.match(/ERROR:\s+(\d+)/);
+      return code ? code[1] : "ERROR";
+    }
+  };
+
+  // ---- the privilege, asked directly -------------------------
+  const [priv] = await run<{
+    auth_no_update: boolean;
+    auth_no_delete: boolean;
+    svc_no_update: boolean;
+    svc_no_delete: boolean;
+    svc_no_insert: boolean;
+    auth_can_select: boolean;
+  }>(
+    ["begin;", pending,
+     `select
+        not has_table_privilege('authenticated', 'public.agent_versions', 'update') as auth_no_update,
+        not has_table_privilege('authenticated', 'public.agent_versions', 'delete') as auth_no_delete,
+        not has_table_privilege('service_role', 'public.agent_versions', 'update') as svc_no_update,
+        not has_table_privilege('service_role', 'public.agent_versions', 'delete') as svc_no_delete,
+        not has_table_privilege('service_role', 'public.agent_versions', 'insert') as svc_no_insert,
+        has_table_privilege('authenticated', 'public.agent_versions', 'select') as auth_can_select;`,
+     "rollback;"].join("\n")
+  );
+
+  // ---- a real statement, expecting a refusal ------------------
+  //
+  // As system_admin, who holds every policy this table has. If even
+  // THEY are refused, the verb is gone rather than merely unmatched.
+  const seed = `insert into public.agent_versions
+      (agent_id, version_number, prompt, publish_notes)
+      select id, 9001, 'harness prompt', 'harness' from public.agents limit 1;`;
+
+  const adminUpdate = await measure(
+    ids.systemAdmin,
+    seed,
+    `with u as (update public.agent_versions set prompt = 'rewritten'
+                 where version_number = 9001 returning id)
+       select count(*)::int as n from u;`
+  );
+  const adminDelete = await measure(
+    ids.systemAdmin,
+    seed,
+    `with d as (delete from public.agent_versions
+                 where version_number = 9001 returning id)
+       select count(*)::int as n from d;`
+  );
+
+  // ---- the read wall ------------------------------------------
+  const readAs = async (sub: string) =>
+    measure(sub, seed, "select count(*)::int as n from public.agent_versions;");
+
+  const adminReads = await readAs(ids.systemAdmin);
+  const memberReads = await readAs(ids.member);
+  const companyAdminReads = await readAs(ids.companyAdmin);
+
+  // ---- the counter-proof, rolled back -------------------------
+  //
+  // The read wall above is a pair of zeroes. Zeroes are the cheapest
+  // thing in the world to produce by accident, so the same query is
+  // re-run against a deliberately widened policy and must come back
+  // non-zero. If it does not, the two zeroes were never a denial.
+  const weakenedMemberReads = await measure(
+    ids.member,
+    `${seed}
+     drop policy if exists agent_versions_select on public.agent_versions;
+     create policy agent_versions_select on public.agent_versions
+       for select to authenticated using (true);`,
+    "select count(*)::int as n from public.agent_versions;"
+  );
+
+  const checks: Array<[string, string, string]> = [
+    ["authenticated lacks UPDATE", String(priv?.auth_no_update), "true"],
+    ["authenticated lacks DELETE", String(priv?.auth_no_delete), "true"],
+    ["service_role lacks UPDATE", String(priv?.svc_no_update), "true"],
+    ["service_role lacks DELETE", String(priv?.svc_no_delete), "true"],
+    ["service_role lacks INSERT", String(priv?.svc_no_insert), "true"],
+    ["authenticated holds SELECT", String(priv?.auth_can_select), "true"],
+    ["system_admin UPDATE refused", adminUpdate, "42501"],
+    ["system_admin DELETE refused", adminDelete, "42501"],
+    // COUNTS, not a fixed number. The first version of these
+    // asserted exactly 1, which was true only while the table was
+    // nearly empty — a hundred-odd rows later the probe failed on
+    // its own arithmetic rather than on anything about access. What
+    // the claim actually is: an admin sees rows, nobody else sees
+    // any, and the widened policy shows the non-admin exactly what
+    // the admin could see all along.
+    ["system_admin reads rows", String(Number(adminReads) > 0), "true"],
+    ["member reads", memberReads, "0"],
+    ["company_admin reads", companyAdminReads, "0"],
+    [
+      "[red] a widened policy shows the member everything",
+      String(weakenedMemberReads === adminReads && Number(adminReads) > 0),
+      "true",
+    ],
+  ];
+  const failures = checks.filter(([, got, want]) => got !== want);
+
+  return {
+    name,
+    hazard,
+    wrong:
+      "UPDATE returns 0 rows instead of being refused, or a non-admin reads prompts",
+    right:
+      "UPDATE and DELETE are refused with 42501 even for system_admin because the verb is granted to nobody; " +
+      "system_admin reads, member and company_admin read nothing, and that zero flips to 1 when the policy is widened",
+    ok: failures.length === 0,
+    detail:
+      (failures.length === 0 ? "" : "MISMATCH: ") +
+      checks.map(([label, got]) => `${label}=${got}`).join(", "),
+  };
+}
+
 // ---- The Role Description Builder's two read tools --------------
 //
 // The claim: what get_foundation and list_functions return is what
@@ -9151,6 +9335,10 @@ async function main(): Promise<void> {
     [
       "agent-hub-writes",
       (r: Runner, i: Identities) => agentHubWrites(r, i, pendingSql),
+    ],
+    [
+      "agent-versions-wall",
+      (r: Runner, i: Identities) => agentVersionsWall(r, i, pendingSql),
     ],
     [
       "role-description-lead-writes",

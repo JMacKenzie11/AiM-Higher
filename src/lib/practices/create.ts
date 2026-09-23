@@ -5,6 +5,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CoachingConversation } from "@/lib/coach/service";
 import { resolveAgent } from "./resolve";
+import { liveVersionIdFor } from "./version-config";
 import { practiceGate } from "./gate";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
@@ -68,6 +69,15 @@ export async function createPracticeConversation(
       context_kind: "execution",
       mode: "general",
       practice_id: practice.id,
+      // THE PIN. Stamped once, here, from the agent's live pointer.
+      // Null when the agent has no published version, which means
+      // "runs from the code registry" and is true of every agent
+      // until somebody presses Publish.
+      //
+      // Read at creation rather than at each turn on purpose: a
+      // publish that lands mid-conversation must not change what
+      // this conversation says.
+      agent_version_id: await liveVersionIdFor(practice.agentRowId),
       revising_role_id: options?.revisingRoleId ?? null,
     })
     .select("*")

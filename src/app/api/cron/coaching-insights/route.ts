@@ -88,6 +88,9 @@ async function handle(req: NextRequest): Promise<Response> {
   const { data: convosData } = await admin
     .from("coaching_conversations")
     .select("id, company_id, practice_id, created_at")
+    // Previews excluded: an admin rehearsing a draft in the Agent
+    // Hub is not usage. See migration 0229.
+    .eq("is_preview", false)
     .order("updated_at", { ascending: false })
     .limit(BATCH_LIMIT * 4);
   const candidates = ((convosData ?? []) as Array<{
