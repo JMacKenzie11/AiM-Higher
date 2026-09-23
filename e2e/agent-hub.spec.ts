@@ -133,6 +133,24 @@ test.describe("Agent Hub", () => {
     }
   }
 
+  // READ ONLY. Opens nothing and writes nothing, so it needs no
+  // restore.
+  test("offers Distribute on an agent that is defined in code", async ({
+    page,
+  }) => {
+    // ask-better-questions is a seeded agent with a registry entry.
+    // Phase 4b showed Distribute only for agents built in the Hub,
+    // which left the seeded five — the ones most likely to be edited
+    // centrally and pushed — as the only agents that could not be
+    // sent anywhere.
+    await signIn(page, users.admin());
+    await page.goto("/admin/agents");
+
+    const row = rowFor(page);
+    await expect(row).toBeVisible();
+    await expect(row.getByTestId("agent-hub-distribute")).toBeVisible();
+  });
+
   test("renames an agent, sees it in the picker, and renames it back", async ({
     page,
   }) => {

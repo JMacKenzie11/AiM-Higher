@@ -158,17 +158,27 @@ export function AgentRow({
           >
             {agent.archived ? "Show again" : "Hide"}
           </button>
-          {!agent.hasRegistryEntry ? (
-            <button
-              type="button"
-              className={admin.ghostButton}
-              onClick={onDistribute}
-              disabled={pending}
-              data-testid="agent-hub-distribute"
-            >
-              Distribute
-            </button>
-          ) : null}
+          {/* EVERY agent, not only the ones built here.
+              Phase 4b showed this only for a Hub-built agent, on the
+              reasoning that an agent defined in code already exists
+              on every instance. That reasoning was wrong about what
+              gets distributed: the push sends a published VERSION,
+              and a conversation is stamped with the agent's live
+              version when it starts (create.ts), so a pushed version
+              is what the receiving instance actually runs whether or
+              not it also has a registry entry.
+              Hiding the button meant the five seeded agents — the
+              ones most likely to be edited centrally — were the only
+              ones that could not be sent anywhere. */}
+          <button
+            type="button"
+            className={admin.ghostButton}
+            onClick={onDistribute}
+            disabled={pending}
+            data-testid="agent-hub-distribute"
+          >
+            Distribute
+          </button>
           </>
           )}
         </div>
