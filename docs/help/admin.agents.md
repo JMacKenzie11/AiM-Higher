@@ -84,6 +84,39 @@ give it, and every conversation ever run on the agent is filed
 under it, so renaming the agent later changes what people see and
 not what it is called underneath.
 
+## Sending an agent to other instances
+
+**Distribute** on an agent you built here shows where it stands on
+every other instance: current, behind, never sent, or the reason a
+previous attempt was refused.
+
+It is always two steps. **Dry run** tells you exactly what would
+happen on each instance you picked, including anything you should
+know first, like an agent that would go live somewhere no company has
+the feature it needs. **Apply** then does exactly that, and nothing
+else. Changing which instances you picked throws the plan away, so
+you can never apply a plan you have not read.
+
+**Pushing is switched off** until it has been tried against a real
+instance for the first time. The dry run works and is safe; the
+apply button is disabled and the server refuses it either way.
+
+**Retract** takes the agent out of one instance's pickers. As with
+unpublishing here, conversations already running there keep
+answering on the version they started with.
+
+An agent you have sent anywhere **cannot be deleted** here. Retract
+it from each instance first, then hide it. The record has to stay, or
+conversations on those instances lose their name and their wording.
+
+## An agent managed from somewhere else
+
+On an instance that receives agents, one sent from AiMS HQ shows as
+**Managed from AiMS HQ** with no edit controls at all. That is not a
+permissions quirk to work around: it is authored somewhere else, and
+changes to it come from there. The database refuses local edits
+regardless of what the screen offers.
+
 ## Unpublishing versus deleting
 
 These are different, and only one of them is usually what you want.

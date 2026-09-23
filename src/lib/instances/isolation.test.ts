@@ -33,14 +33,12 @@ import path from "node:path";
 // applies to coaching surfaces and preview-exclusion.test.ts applies
 // to analytics reads.
 //
-// ---- the deferred push ---------------------------------------
+// ---- the push --------------------------------------------------
 //
-// Agent distribution (phase 4b, deferred until a third instance
-// exists) will be the second entry here: it writes outward from an
-// explicit admin action, never while serving a client. It is named
-// now so that whoever builds it finds this list rather than
+// Agent distribution is the second entry. It was named here before
+// it was built, so whoever built it found this list rather than
 // discovering the rule by breaking it. See docs/product-spec.md
-// §14e.
+// §14e and §14f.
 
 const ROOT = path.join(process.cwd(), "src");
 
@@ -52,6 +50,14 @@ const ALLOWED = new Map<string, string>([
     "The cron fan-out. Runs from a schedule with no request and no " +
       "session, doing the same work on every instance in turn. It is " +
       "the reason the credentials exist.",
+  ],
+  [
+    "lib/practices/distribution.ts",
+    "Agent distribution. Runs from an explicit admin action, never " +
+      "while serving a client; only ever writes OUTWARD; and nothing " +
+      "it reads from a target reaches a response — the dry run reads " +
+      "agents, agent_categories and company_features to build a plan " +
+      "of counts and slugs, never tenant content.",
   ],
   [
     "lib/instances/registry.ts",
