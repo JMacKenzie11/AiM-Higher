@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
-  listGeneralConversationsForUser,
+  listConversationsForUser,
   listSharedWithMe,
 } from "@/lib/coach/service";
 import { PageShell } from "@/components/ui/PageShell";
@@ -34,7 +34,7 @@ export default async function AskAimeePage() {
   const companyId = await getEffectiveCompanyId(session);
 
   const [conversations, sharedWithMe, allAgents] = await Promise.all([
-    listGeneralConversationsForUser(session.profile.id, companyId),
+    listConversationsForUser(session.profile.id, companyId),
     listSharedWithMe(session.profile.id, companyId),
     // Archived included: a conversation attached to an agent that
     // has since been archived still shows that agent's name, because
@@ -86,13 +86,30 @@ export default async function AskAimeePage() {
             // below. Show the agent title as the heading and drop
             // c.title in that case.
             const heading = practice ? practice.title : c.title;
+            // A conversation ABOUT somebody lives on their coach
+            // page: that is where the subject's memory and history
+            // are. /ask-aimee/<id> would redirect there anyway, so
+            // this links straight through rather than bouncing.
+            const about = c.mode === "about" && c.subject_profile_id;
+            const href = about
+              ? `/coach/${c.subject_profile_id}/${c.id}`
+              : `/ask-aimee/${c.id}`;
             return (
               <div key={c.id} className={styles.conversationRow}>
-                <Link
-                  href={`/ask-aimee/${c.id}`}
-                  className={styles.conversationLink}
-                >
-                  <span className={styles.conversationTitle}>{heading}</span>
+                <Link href={href} className={styles.conversationLink}>
+                  <span className={styles.conversationTitle}>
+                    {heading}
+                    {about ? (
+                      // The name, because "Coaching · Sep 23" beside
+                      // three other rows that also say Coaching is
+                      // not a title anybody can pick from.
+                      <span className={styles.conversationAbout}>
+                        {c.subjectName
+                          ? ` · about ${c.subjectName}`
+                          : " · about a team member"}
+                      </span>
+                    ) : null}
+                  </span>
                   {c.lastMessageSnippet ? (
                     <span className={styles.conversationSnippet}>
                       {c.lastMessageSnippet}

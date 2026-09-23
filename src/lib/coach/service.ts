@@ -58,6 +58,10 @@ export type CoachingMessage = {
 
 export type ConversationWithSnippet = CoachingConversation & {
   lastMessageSnippet: string | null;
+  // Set only for a mode:"about" row, so a list can say who it is
+  // about. Null when the subject's profile could not be read, which
+  // a caller should treat as "no name" rather than as an error.
+  subjectName?: string | null;
 };
 
 export async function listConversationsForSubject(
@@ -116,7 +120,24 @@ export async function listConversationsForSubject(
 // worked in two tenants will otherwise see both stacks mixed on the
 // Ask Aimee landing. Pass null to skip the scope filter (regular
 // members always have exactly one, so it never matters for them).
-export async function listGeneralConversationsForUser(
+// ---- EVERY CONVERSATION THE CALLER STARTED, NOT ONLY "general" --
+//
+// This used to filter mode = "general", so a conversation ABOUT a
+// person was missing from the one screen that lists your
+// conversations. It was not lost — it lives on that person's coach
+// page — but nothing on the landing said so, and in a company where
+// the only conversation was an "about" one the page read "No
+// conversations yet" while the conversation was one click away.
+//
+// The page's own subtitle offers "an employee not on the platform"
+// as a reason to use it, so a conversation about a person is
+// precisely what somebody expects to find here.
+//
+// The split remains everywhere it earns its keep: an "about"
+// conversation still LIVES at /coach/<subject>/<id>, still carries
+// the subject's memory, and this list links there rather than
+// pulling it onto a page that cannot show its context.
+export async function listConversationsForUser(
   userId: string,
   companyId: string | null,
   includeArchived = false
@@ -126,7 +147,6 @@ export async function listGeneralConversationsForUser(
   let query = supabase
     .from("coaching_conversations")
     .select("*")
-    .eq("mode", "general")
     .eq("created_by", userId)
     .order("updated_at", { ascending: false });
   if (companyId) query = query.eq("company_id", companyId);
@@ -135,6 +155,32 @@ export async function listGeneralConversationsForUser(
   const { data: convos } = await query;
   const rows = (convos ?? []) as CoachingConversation[];
   if (rows.length === 0) return [];
+
+  // Names for the "about" rows. One query for all of them, and a
+  // miss is a missing name rather than a missing row: the profile
+  // may be deactivated or outside what this caller can read, and
+  // dropping the conversation for that would put us back where we
+  // started.
+  const subjectIds = [
+    ...new Set(
+      rows
+        .map((r) => r.subject_profile_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  const nameById = new Map<string, string>();
+  if (subjectIds.length > 0) {
+    const { data: people } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", subjectIds);
+    for (const p of (people ?? []) as Array<{
+      id: string;
+      full_name: string | null;
+    }>) {
+      if (p.full_name) nameById.set(p.id, p.full_name);
+    }
+  }
 
   const { data: messages } = await supabase
     .from("coaching_messages")
@@ -158,6 +204,9 @@ export async function listGeneralConversationsForUser(
   return rows.map((r) => ({
     ...r,
     lastMessageSnippet: bySnippet.get(r.id) ?? null,
+    subjectName: r.subject_profile_id
+      ? nameById.get(r.subject_profile_id) ?? null
+      : null,
   }));
 }
 
@@ -286,7 +335,7 @@ export async function listSharesForConversation(
 }
 
 // Conversations shared TO the caller, scoped to the currently
-// active company (same scoping story as listGeneralConversationsForUser
+// active company (same scoping story as listConversationsForUser
 // — a system_admin or guide bouncing between tenants shouldn't see
 // mixed stacks). Rows include the owner's name + avatar so the
 // "Shared with you" section can render "from Jane Doe · Aug 12"
