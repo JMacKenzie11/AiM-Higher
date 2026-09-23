@@ -347,6 +347,13 @@ export async function POST(req: NextRequest): Promise<Response> {
         // tool. This records it.
         const toolTally: Array<{ name: string; inputBytes: number }> = [];
         let iterations = 0;
+        // Per iteration, because the decision this feeds needs to
+        // know which pass cost what.
+        const iterationShape: Array<{
+          iteration: number;
+          output_tokens: number;
+          stop_reason: string | null;
+        }> = [];
 
         const turnUsage = {
           input_tokens: 0,
@@ -357,6 +364,35 @@ export async function POST(req: NextRequest): Promise<Response> {
 
         for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
           iterations += 1;
+
+          // ---- WHAT THIS PASS IS, AND WHY WE RECORD IT ----------
+          //
+          // Sonnet 5 thinks by default. Thinking tokens bill at
+          // output rates and arrive as thinking_delta events, which
+          // this route does not forward — so they are invisible by
+          // construction. Measured on one real turn: 3,572 billed
+          // output tokens against a 215 word answer.
+          //
+          // The obvious move is to disable thinking on the first
+          // pass, where the model is only deciding WHICH lookup to
+          // run. Measured against the same prompt shape:
+          //
+          //   default   first token 2,441ms   295 output tokens
+          //   disabled  first token   614ms   123 output tokens
+          //
+          // It is NOT done here, on purpose. A turn that needs no
+          // lookup answers on the first pass, and disabling thinking
+          // there would take the reasoning off answers as well as
+          // off tool selection. How often that happens is not
+          // knowable from the code, and the coach is the product —
+          // so the split is measured before it is traded.
+          //
+          // iterationShape below is that measurement. When the
+          // traffic says most turns look something up, the trade is
+          // nearly free and can be made deliberately.
+          //
+          // (budget_tokens is not an option either way: Sonnet 5
+          // rejects `thinking.type.enabled` outright.)
           const messageStream = client.messages.stream(
             {
               model,
@@ -398,6 +434,11 @@ export async function POST(req: NextRequest): Promise<Response> {
             final.usage.cache_creation_input_tokens ?? 0;
           turnUsage.cache_read_input_tokens +=
             final.usage.cache_read_input_tokens ?? 0;
+          iterationShape.push({
+            iteration: iter,
+            output_tokens: final.usage.output_tokens ?? 0,
+            stop_reason: final.stop_reason ?? null,
+          });
 
           // THE MODEL RAN OUT OF ROOM. Said out loud rather than
           // left to be inferred: a turn that hits the ceiling stops
@@ -547,6 +588,25 @@ export async function POST(req: NextRequest): Promise<Response> {
             tool_input_bytes: toolTally.reduce((n, t) => n + t.inputBytes, 0),
             output_tokens: turnUsage.output_tokens,
             visible_chars: assistantText.length,
+            // WHAT THIS IS FOR.
+            //
+            // The question on the table is whether to stop the model
+            // thinking on the pass where it only decides which
+            // lookup to run. That is nearly free if most turns look
+            // something up, and a real cost to answer quality if
+            // many turns answer straight away — because those answer
+            // on the first pass, and the first pass is the one that
+            // would lose its reasoning.
+            //
+            // answered_without_lookup is that split. It is the fact
+            // the decision needs, and it cannot be read off the
+            // code: it depends on what people ask.
+            iteration_shape: iterationShape,
+            answered_without_lookup:
+              iterationShape[0]?.stop_reason !== "tool_use",
+            tool_pass_output_tokens: iterationShape
+              .filter((i) => i.stop_reason === "tool_use")
+              .reduce((n, i) => n + i.output_tokens, 0),
           },
           { company: convo.company_id }
         );
