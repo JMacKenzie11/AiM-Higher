@@ -33,6 +33,7 @@ export function AgentRow({
   onEdit,
   onAccess,
   onConfig,
+  onDistribute,
 }: {
   agent: HubAgent;
   isFirst: boolean;
@@ -42,6 +43,7 @@ export function AgentRow({
   onEdit: () => void;
   onAccess: () => void;
   onConfig: () => void;
+  onDistribute: () => void;
 }) {
   return (
     <div
@@ -65,12 +67,17 @@ export function AgentRow({
                 ordinary: an agent built in the Hub has no code by
                 definition. What matters now is whether it has been
                 published, so that is what the chip says. */}
-            {!agent.hasRegistryEntry && !agent.liveVersionId ? (
+            {agent.managedFrom ? (
+              <span className={styles.accessChip}>
+                Managed from AiMS HQ
+              </span>
+            ) : null}
+            {!agent.managedFrom && !agent.hasRegistryEntry && !agent.liveVersionId ? (
               <span className={styles.warnChip}>
                 Not published. Only system admins can see it.
               </span>
             ) : null}
-            {!agent.hasRegistryEntry && agent.liveVersionId ? (
+            {!agent.managedFrom && !agent.hasRegistryEntry && agent.liveVersionId ? (
               <span className={styles.archivedChip}>Built in the Hub</span>
             ) : null}
             <span
@@ -83,6 +90,16 @@ export function AgentRow({
         </div>
 
         <div className={styles.rowButtons}>
+          {/* A managed agent is authored elsewhere. Every edit
+              affordance is ABSENT rather than disabled: a disabled
+              button invites someone to work out how to enable it,
+              and there is no local answer. */}
+          {agent.managedFrom ? (
+            <span className={styles.agentDescription}>
+              Edited on {agent.managedFrom}
+            </span>
+          ) : (
+          <>
           <button
             type="button"
             className={styles.moveButton}
@@ -135,6 +152,19 @@ export function AgentRow({
           >
             {agent.archived ? "Show again" : "Hide"}
           </button>
+          {!agent.hasRegistryEntry ? (
+            <button
+              type="button"
+              className={admin.ghostButton}
+              onClick={onDistribute}
+              disabled={pending}
+              data-testid="agent-hub-distribute"
+            >
+              Distribute
+            </button>
+          ) : null}
+          </>
+          )}
         </div>
       </div>
     </div>

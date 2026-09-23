@@ -245,6 +245,37 @@ with its registry row. The two cheaper-looking options — a suspended
 registry row for the dev clone, or pushing by connection string — were
 considered and rejected; §14e says why.
 
+### The apply gate
+
+`AGENT_DISTRIBUTION_APPLY_ENABLED` — **off unless set to `true`.**
+
+The push code is merged and live, but every WRITE it can make (apply
+and retract) is refused unless this is set. The check is in the server
+action, not only the UI: the panel renders the apply control disabled
+with *"Not yet verified against a live push"*, and the action refuses
+regardless, because a disabled button is a hint and the action is the
+control.
+
+**The dry run is not gated**, and does not need to be. It reads three
+tables on each target — `agents`, `agent_categories`,
+`company_features` — and writes nothing.
+
+**Flip it to `true` only after the acceptance walk above passes**, in
+the provisioning window, against the new instance. Not before:
+flipping it early makes the first real push its own first test,
+against a live customer.
+
+Set it in the Vercel environment for Production. There is no reason
+for it in Preview or Development — neither has fleet credentials that
+reach a real instance.
+
+**Why it exists rather than a feature branch.** The alternative was
+leaving the apply path unmerged until the next instance. An apply path
+sitting on a branch for months rots against every change to the things
+it calls, and the rot is invisible until the day it matters. Merged
+behind a gate it stays compiled, typechecked, linted and reviewed
+alongside everything else.
+
 ## Instance status: taking an instance offline
 
 `public.instances.status` is the switch that takes an instance on and

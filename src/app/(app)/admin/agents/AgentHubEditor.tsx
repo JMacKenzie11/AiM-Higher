@@ -15,6 +15,7 @@ import { AgentEditDrawer } from "./AgentEditDrawer";
 import { AgentAccessDrawer } from "./AgentAccessDrawer";
 import { AgentConfigDrawer } from "./AgentConfigDrawer";
 import { AgentCreateDrawer } from "./AgentCreateDrawer";
+import { AgentDistributionDrawer } from "./AgentDistributionDrawer";
 import admin from "../companies/admin.module.css";
 import styles from "./hub.module.css";
 
@@ -39,7 +40,7 @@ export function AgentHubEditor({
   // meant five of them stacked in the DOM saying the same thing.
   const [drawer, setDrawer] = useState<{
     agentId: string;
-    kind: "edit" | "access" | "config";
+    kind: "edit" | "access" | "config" | "distribution";
   } | null>(null);
   const [creating, setCreating] = useState(false);
   const [newCategory, setNewCategory] = useState("");
@@ -163,6 +164,9 @@ export function AgentHubEditor({
                     onConfig={() =>
                       setDrawer({ agentId: agent.id, kind: "config" })
                     }
+                    onDistribute={() =>
+                      setDrawer({ agentId: agent.id, kind: "distribution" })
+                    }
                   />
                 ))
               )}
@@ -188,6 +192,9 @@ export function AgentHubEditor({
                   setDrawer({ agentId: agent.id, kind: "access" })
                 }
                 onConfig={() => setDrawer({ agentId: agent.id, kind: "config" })}
+                onDistribute={() =>
+                  setDrawer({ agentId: agent.id, kind: "distribution" })
+                }
               />
             ))}
           </div>
@@ -348,6 +355,15 @@ export function AgentHubEditor({
         <AgentCreateDrawer
           categories={visibleCategories}
           onClose={() => setCreating(false)}
+        />
+      ) : null}
+
+      {openAgent && drawer?.kind === "distribution" ? (
+        <AgentDistributionDrawer
+          key={openAgent.id}
+          agentRowId={openAgent.id}
+          title={openAgent.title}
+          onClose={() => setDrawer(null)}
         />
       ) : null}
 

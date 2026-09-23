@@ -1062,6 +1062,21 @@ Migration 0230, 2026-09-23. **Only the schema half shipped.** The push and the D
 
 **The isolation gate** (`src/lib/instances/isolation.test.ts`) ships with this, ahead of the push it guards. Instance isolation is **not enforced by credentials**: every instance's deployment holds every other's service-role key, because that is how the cron fan-out reaches them. So it is a discipline, and the test is the only thing making it a rule. A closed allowlist — `for-each.ts` and `registry.ts` today — with an assertion that every entry **still crosses**, because dead permission is how the next crossing gets waved through. The deferred push is named in it as the intended second entry.
 
+### 14f. Agent distribution: the push, the panel, and the gate
+
+Phase 4b, 2026-09-23. No migration — 0230 already carried the schema.
+
+- **The walk**, `src/lib/practices/distribution.ts`, follows `sync-content` rather than the migration runner. The runner applies schema in lockstep and a part-way failure leaves a fleet that must be reconciled; this is content, so instance three failing has no bearing on one and two.
+- **Order is the safety property:** refuse if the target lacks the agent tables (before any write), refuse on slug collision, upsert the agent by slug, carry the category by slug creating it if absent, insert the version **through the 0230 door**, and move the live pointer **last**. A failure before the pointer leaves an agent with no live version — the Hub-only state phase 3 already defines, invisible to everyone but a system admin — rather than a broken agent. Every step is an upsert, so a retry completes what landed without doubling it.
+- **`already_current` is proven, never inferred.** The evidence is the target's live `version_number`; "we wrote zero rows" is not, because that is also what a broken query returns. E4.
+- **Two steps, never one.** A dry run names every target and every change; the apply executes *that* plan. Changing the selected instances discards the plan, because a stale plan is the one thing an apply must not run.
+- **The apply gate**, `AGENT_DISTRIBUTION_APPLY_ENABLED`, off by default and checked **in the server action**. The apply path is merged rather than branched so it cannot rot unseen, and gated so it cannot run before it has been verified. Retract is a write and is gated with it. The dry run is not gated and does not need to be: it reads three tables and writes nothing. See `docs/deployment.md`.
+- **Receiving side.** A managed agent renders with "Managed from AiMS HQ" and **every edit affordance absent** rather than disabled — a disabled button invites somebody to work out how to enable it, and there is no local answer. The database enforces it regardless (0230).
+- **Delete.** An agent sent to any instance cannot be deleted here, only retracted everywhere then hidden. Deleting it would strip the name and wording off every conversation on those instances, with nothing local to show it had happened.
+- **The isolation gate** gained its second entry, as it was written to expect: `distribution.ts` runs from an explicit admin action, never while serving a client, only writes outward, and nothing it reads from a target reaches a response.
+
+**Verified against the real fleet, read-only**, with the apply gate off. The dry run's three reads were run against `promiseone` and every branch fired: `agent_versions` reachable (the migration check), the slug absent (no collision, against its five real registry agents), the `people` category present (no creation warning), `classroom` on 13 companies (no warning) and `role_descriptions` on **0** (the feature warning firing on real data, not a contrived case). The six writes remain unverified and gated.
+
 ---
 
 ## 15. Classroom (Shared Training Library)

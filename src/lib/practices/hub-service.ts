@@ -41,6 +41,10 @@ export type HubAgent = {
   // admin, because the merge layer only offers one with a live
   // version.
   liveVersionId: string | null;
+  // The instance that authored this agent, for one distributed here.
+  // Null for a local agent. Non-null makes it read-only, enforced by
+  // the policies in 0230 rather than by this screen.
+  managedFrom: string | null;
   // False when no registry entry matches the slug, which today means
   // the agent cannot run: its prompt has nowhere to come from.
   // Database-defined agents are phase 3. Until then the Hub says so
@@ -86,7 +90,7 @@ export async function listHubAgents(): Promise<HubAgent[]> {
     .from("agents")
     .select(
       "id, slug, category_id, title, description, sort_order, allowed_roles, " +
-        "feature, access_predicates, archived, live_version_id"
+        "feature, access_predicates, archived, live_version_id, managed_from"
     )
     .order("sort_order");
   const registrySlugs = new Set(PRACTICES.map((p) => p.id));
@@ -106,6 +110,7 @@ export async function listHubAgents(): Promise<HubAgent[]> {
       access_predicates: string[] | null;
       archived: boolean;
       live_version_id: string | null;
+      managed_from: string | null;
     }>
   ).map((a) => ({
     id: a.id,
@@ -119,6 +124,7 @@ export async function listHubAgents(): Promise<HubAgent[]> {
     accessPredicates: a.access_predicates ?? [],
     archived: a.archived,
     liveVersionId: a.live_version_id,
+    managedFrom: a.managed_from,
     hasRegistryEntry: registrySlugs.has(a.slug),
   }));
 }

@@ -680,6 +680,32 @@ export async function deleteAgentAction(
     };
   }
 
+  // Distributed copies keep the record alive too. An agent deleted
+  // here while five instances still run it would strip the name and
+  // wording off every conversation on those instances, and nothing
+  // local would show that had happened.
+  const { data: dist } = await supabase
+    .from("agent_distributions")
+    .select("target_subdomain")
+    .eq("agent_slug", agent.slug)
+    .in("outcome", ["applied", "already_current"]);
+  const instances = new Set(
+    ((dist ?? []) as Array<{ target_subdomain: string }>).map(
+      (r) => r.target_subdomain
+    )
+  );
+  if (instances.size > 0) {
+    return {
+      ok: false,
+      message:
+        `This agent has been sent to ${instances.size} other ` +
+        `${instances.size === 1 ? "instance" : "instances"}, so it cannot be ` +
+        "deleted. Retract it from each of them first, then hide it here: " +
+        "conversations that already ran on it keep working, which is why " +
+        "the record has to stay.",
+    };
+  }
+
   const { count: used } = await supabase
     .from("coaching_conversations")
     .select("id", { count: "exact", head: true })
