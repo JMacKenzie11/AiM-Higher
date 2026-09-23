@@ -29,6 +29,7 @@ export function AgentRow({
   isFirst,
   isLast,
   pending,
+  readOnly,
   run,
   onEdit,
   onAccess,
@@ -39,6 +40,9 @@ export function AgentRow({
   isFirst: boolean;
   isLast: boolean;
   pending: boolean;
+  // This whole instance is a reader, not an author (0231). Same
+  // treatment as a single managed agent, for the same reason.
+  readOnly: boolean;
   run: (fn: () => Promise<HubResult>) => void;
   onEdit: () => void;
   onAccess: () => void;
@@ -94,9 +98,11 @@ export function AgentRow({
               affordance is ABSENT rather than disabled: a disabled
               button invites someone to work out how to enable it,
               and there is no local answer. */}
-          {agent.managedFrom ? (
+          {agent.managedFrom || readOnly ? (
             <span className={styles.agentDescription}>
-              Edited on {agent.managedFrom}
+              {agent.managedFrom
+                ? `Edited on ${agent.managedFrom}`
+                : "Managed centrally"}
             </span>
           ) : (
           <>

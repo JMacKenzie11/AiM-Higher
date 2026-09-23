@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
+import { refuseIfNotAuthoringInstance } from "@/lib/instances/primary";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import {
@@ -147,6 +148,8 @@ export async function dryRunDistributionAction(
   subdomains: string[]
 ): Promise<DistributionResult> {
   const session = await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const loaded = await loadSource(agentRowId);
   if (!loaded.ok) {
     return {
@@ -193,6 +196,8 @@ export async function applyDistributionAction(
   subdomains: string[]
 ): Promise<DistributionResult> {
   const session = await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   // THE GATE. Server-side, before anything else happens.
   if (!distributionApplyEnabled()) {
     return { ok: false, message: DISTRIBUTION_GATE_MESSAGE };
@@ -240,6 +245,8 @@ export async function retractDistributionAction(
   subdomain: string
 ): Promise<DistributionResult> {
   const session = await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   if (!distributionApplyEnabled()) {
     return { ok: false, message: DISTRIBUTION_GATE_MESSAGE };
   }

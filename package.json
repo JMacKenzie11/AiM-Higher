@@ -33,7 +33,8 @@
     "check:docs": "node --experimental-strip-types scripts/check-docs-touched.ts",
     "check:help": "node --experimental-strip-types scripts/check-help-coverage.ts",
     "rls:hazards": "tsx --tsconfig scripts/tsconfig.json scripts/rls-harness.ts",
-    "posthog:insights": "node --env-file=.env.local --experimental-strip-types scripts/setup-posthog-insights.ts"
+    "posthog:insights": "node --env-file=.env.local --experimental-strip-types scripts/setup-posthog-insights.ts",
+    "instance:primary": "tsx --tsconfig scripts/tsconfig.json scripts/mark-primary.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

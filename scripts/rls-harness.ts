@@ -758,6 +758,26 @@ select count(*)::int as n from public.role_description_versions v
 // Each refusal is paired with a control on the same statement as a
 // system_admin, because a write that fails for an unrelated reason
 // reports identically to one the policy refused.
+// 0231 makes every agent write conditional on this database being
+// the authoring one, and the clone is not. The two probes below are
+// about DIFFERENT hazards — who may write at all, and whether an
+// agent managed from elsewhere is locked — so they establish the
+// authoring context and leave the authoring rule itself to
+// authoring-instance-wall, which asserts both halves of it.
+//
+// Without this their CONTROLS fail: "system_admin renames an agent"
+// returns 0 not because the role check broke but because the
+// instance is a reader. A probe that goes red for a reason it is not
+// about is a probe nobody trusts.
+//
+// A DO block rather than a bare update, so the same string is a
+// no-op against a schema from before 0231 and these probes keep
+// running under --pending for the earlier migrations they exercise.
+const AUTHORING = `
+do $$ begin
+  update public.instance_settings set is_primary = true;
+exception when undefined_table then null; end $$;`;
+
 async function agentHubWrites(
   run: Runner,
   ids: Identities,
@@ -815,29 +835,29 @@ async function agentHubWrites(
 
   // ---- system_admin: the control, and the grant ---------------
   const adminRenames = await count(
-    ["begin;", pending, "set local role authenticated;", claims(ids.systemAdmin),
+    ["begin;", pending, AUTHORING, "set local role authenticated;", claims(ids.systemAdmin),
      rename("harness: admin renamed"), "rollback;"].join("\n")
   );
   const adminAddsCategory = await count(
-    ["begin;", pending, "set local role authenticated;", claims(ids.systemAdmin),
+    ["begin;", pending, AUTHORING, "set local role authenticated;", claims(ids.systemAdmin),
      addCategory("harness-admin"), "rollback;"].join("\n")
   );
 
   // ---- company_admin and member: refused ----------------------
   const companyAdminRenames = await count(
-    ["begin;", pending, "set local role authenticated;", claims(ids.companyAdmin),
+    ["begin;", pending, AUTHORING, "set local role authenticated;", claims(ids.companyAdmin),
      rename("harness: company admin renamed"), "rollback;"].join("\n")
   );
   const memberRenames = await count(
-    ["begin;", pending, "set local role authenticated;", claims(ids.member),
+    ["begin;", pending, AUTHORING, "set local role authenticated;", claims(ids.member),
      rename("harness: member renamed"), "rollback;"].join("\n")
   );
   const companyAdminAddsCategory = await count(
-    ["begin;", pending, "set local role authenticated;", claims(ids.companyAdmin),
+    ["begin;", pending, AUTHORING, "set local role authenticated;", claims(ids.companyAdmin),
      addCategory("harness-company"), "rollback;"].join("\n")
   );
   const memberDeletes = await count(
-    ["begin;", pending, "set local role authenticated;", claims(ids.member),
+    ["begin;", pending, AUTHORING, "set local role authenticated;", claims(ids.member),
      `with d as (delete from public.agents
                   where slug = 'ask-better-questions' returning id)
        select count(*)::int as n from d;`,
@@ -846,11 +866,11 @@ async function agentHubWrites(
 
   // ---- reads: wide, and that is the point ---------------------
   const memberReadsAgents = await count(
-    ["begin;", pending, "set local role authenticated;", claims(ids.member),
+    ["begin;", pending, AUTHORING, "set local role authenticated;", claims(ids.member),
      "select count(*)::int as n from public.agents;", "rollback;"].join("\n")
   );
   const memberReadsCategories = await count(
-    ["begin;", pending, "set local role authenticated;", claims(ids.member),
+    ["begin;", pending, AUTHORING, "set local role authenticated;", claims(ids.member),
      "select count(*)::int as n from public.agent_categories;", "rollback;"].join("\n")
   );
 
@@ -877,7 +897,7 @@ async function agentHubWrites(
   // Wrong shape one: an update policy anybody can satisfy. This is
   // the Form-D-less mistake the convention exists to prevent.
   const weakenedCompanyAdminRenames = await count(
-    ["begin;", pending,
+    ["begin;", pending, AUTHORING,
      `drop policy if exists agents_update on public.agents;
       create policy agents_update on public.agents
       for update to authenticated
@@ -891,7 +911,7 @@ async function agentHubWrites(
   // empty agent picker, which looks like the product being broken
   // rather than like a permissions decision.
   const narrowedMemberReadsAgents = await count(
-    ["begin;", pending,
+    ["begin;", pending, AUTHORING,
      `drop policy if exists agents_select on public.agents;
       create policy agents_select on public.agents
       for select to authenticated
@@ -1161,7 +1181,7 @@ async function agentDistributionWall(
 
   const [exists] = await run<{ ok: boolean }>(
     [
-      "begin;", pending,
+      "begin;", pending, AUTHORING,
       `select count(*) > 0 as ok from information_schema.columns
         where table_schema='public' and table_name='agents'
           and column_name='managed_from';`,
@@ -1189,7 +1209,7 @@ async function agentDistributionWall(
   ): Promise<string> => {
     try {
       const rows = await run<{ n: number }>(
-        ["begin;", pending, setup, "set local role authenticated;", claims(sub),
+        ["begin;", pending, AUTHORING, setup, "set local role authenticated;", claims(sub),
          statement, "rollback;"].join("\n")
       );
       return String(rows?.[0]?.n ?? 0);
@@ -1253,7 +1273,7 @@ async function agentDistributionWall(
     svc_can_execute: boolean;
     auth_no_execute: boolean;
   }>(
-    ["begin;", pending,
+    ["begin;", pending, AUTHORING,
      `select
         not has_table_privilege('service_role', 'public.agent_versions', 'insert') as svc_no_insert,
         has_function_privilege('service_role',
@@ -1269,7 +1289,7 @@ async function agentDistributionWall(
   const doorWithoutActor = await (async () => {
     try {
       await run(
-        ["begin;", pending, seed,
+        ["begin;", pending, AUTHORING, seed,
          `select public.insert_distributed_agent_version(
             (select id from public.agents where slug = 'harness-managed'),
             9200, 'p', '[]'::jsonb, 'full_coach', false, null, null,
@@ -1286,7 +1306,7 @@ async function agentDistributionWall(
   const doorOnLocalAgent = await (async () => {
     try {
       await run(
-        ["begin;", pending, seed,
+        ["begin;", pending, AUTHORING, seed,
          `select public.insert_distributed_agent_version(
             (select id from public.agents where slug = 'harness-local'),
             9201, 'p', '[]'::jsonb, 'full_coach', false, null, null,
@@ -1326,6 +1346,190 @@ async function agentDistributionWall(
       "every local write to a managed agent is refused while the same admin writes a local agent beside it; " +
       "service_role holds EXECUTE on the one door and still no INSERT on the table; " +
       "the door refuses a null actor and refuses a local agent",
+    ok: failures.length === 0,
+    detail:
+      (failures.length === 0 ? "" : "MISMATCH: ") +
+      checks.map(([label, got]) => `${label}=${got}`).join(", "),
+  };
+}
+
+// ---- One authoring instance ------------------------------------
+//
+// 0231. The agent tables are writable only where
+// instance_settings.is_primary is true, which is one database and
+// defaults to false everywhere.
+//
+// ---- WHY BOTH HALVES SET THE FLAG THEMSELVES -------------------
+//
+// The obvious probe asserts the refusals against whatever the flag
+// happens to say on the database it is run against. That is a probe
+// whose meaning changes when somebody flips a row — green on a
+// read-only clone, red on the authoring one, for no code reason.
+//
+// So each half sets the flag inside its own rolled-back transaction.
+// The caller, the statements and the schema are identical across the
+// pair; the single boolean is the only difference. A refusal in one
+// half beside a success in the other is the control E4 asks for, and
+// it makes the probe say the same thing wherever it runs.
+async function authoringInstanceWall(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "authoring-instance-wall";
+  const hazard =
+    "A client instance's admin edits agents locally, drifting from HQ and blocking the next push";
+
+  const [exists] = await run<{ ok: boolean }>(
+    ["begin;", pending,
+     `select count(*) > 0 as ok from information_schema.tables
+       where table_schema='public' and table_name='instance_settings';`,
+     "rollback;"].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name, hazard,
+      wrong: "table not on this schema",
+      right: "table not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0231 has not landed here yet. Runs for real under --pending 0231_primary_instance.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  // The agent a version is written against, seeded as the
+  // connection's own role before the switch to authenticated.
+  const seed = `
+    insert into public.agents
+      (slug, category_id, title, description, managed_from)
+    select 'harness-authoring', c.id, 'Harness authoring', 'local', null
+      from public.agent_categories c limit 1;`;
+
+  const measure = async (
+    primary: boolean,
+    statement: string,
+    withSeed = false
+  ): Promise<string> => {
+    try {
+      const rows = await run<{ n: number }>(
+        ["begin;", pending,
+         `update public.instance_settings set is_primary = ${primary};`,
+         withSeed ? seed : "",
+         "set local role authenticated;", claims(ids.systemAdmin),
+         statement, "rollback;"].join("\n")
+      );
+      return String(rows?.[0]?.n ?? 0);
+    } catch (error) {
+      const text = String((error as Error).message ?? error);
+      const code = text.match(/ERROR:\s+(\d+)/);
+      return code ? code[1] : "ERROR";
+    }
+  };
+
+  // Scoped to the seeded row. An unscoped update renamed all 23
+  // agents on the clone and reported 23 against an expected 1 —
+  // which is the probe being wrong, not the policy, and is what the
+  // control half is for.
+  const RENAME = `with u as (update public.agents set title = 'rewritten'
+                               where slug = 'harness-authoring' returning id)
+                   select count(*)::int as n from u;`;
+  const NEW_AGENT = `insert into public.agents (slug, category_id, title, description)
+                       select 'harness-new-agent', c.id, 'New', 'made here'
+                         from public.agent_categories c limit 1;
+                     select count(*)::int as n from public.agents
+                      where slug = 'harness-new-agent';`;
+  const NEW_CATEGORY = `insert into public.agent_categories (name, slug, sort_order)
+                          values ('Harness category', 'harness-category', 99);
+                        select count(*)::int as n from public.agent_categories
+                         where slug = 'harness-category';`;
+  const NEW_VERSION = `insert into public.agent_versions (agent_id, version_number, prompt)
+                         select id, 9300, 'p' from public.agents
+                          where slug = 'harness-authoring';
+                       select count(*)::int as n from public.agent_versions
+                        where version_number = 9300;`;
+
+  const renameOff = await measure(false, RENAME, true);
+  const renameOn = await measure(true, RENAME, true);
+  const createOff = await measure(false, NEW_AGENT);
+  const createOn = await measure(true, NEW_AGENT);
+  const categoryOff = await measure(false, NEW_CATEGORY);
+  const categoryOn = await measure(true, NEW_CATEGORY);
+  const versionOff = await measure(false, NEW_VERSION, true);
+  const versionOn = await measure(true, NEW_VERSION, true);
+
+  // ---- and the flag itself is out of reach -------------------
+  //
+  // The whole wall rests on one boolean, so the boolean has to be
+  // unreachable from the app's own role. A system admin who could
+  // write this row could promote their instance and then do
+  // everything above. Asserted as a PRIVILEGE, not as a missing
+  // policy. E8.
+  const [priv] = await run<{
+    auth_no_update: boolean;
+    auth_no_insert: boolean;
+    auth_no_delete: boolean;
+    auth_can_select: boolean;
+    svc_can_update: boolean;
+    svc_no_insert: boolean;
+    svc_no_delete: boolean;
+  }>(
+    ["begin;", pending,
+     `select
+        not has_table_privilege('authenticated', 'public.instance_settings', 'update') as auth_no_update,
+        not has_table_privilege('authenticated', 'public.instance_settings', 'insert') as auth_no_insert,
+        not has_table_privilege('authenticated', 'public.instance_settings', 'delete') as auth_no_delete,
+        has_table_privilege('authenticated', 'public.instance_settings', 'select') as auth_can_select,
+        has_table_privilege('service_role', 'public.instance_settings', 'update') as svc_can_update,
+        not has_table_privilege('service_role', 'public.instance_settings', 'insert') as svc_no_insert,
+        not has_table_privilege('service_role', 'public.instance_settings', 'delete') as svc_no_delete;`,
+     "rollback;"].join("\n")
+  );
+
+  // A missing row must read as read-only, not as open. Proven by
+  // deleting it inside the transaction as the owner and asking the
+  // helper, rather than by reading the coalesce and believing it.
+  const [absent] = await run<{ answer: boolean }>(
+    ["begin;", pending,
+     "delete from public.instance_settings;",
+     "select public.is_primary_instance() as answer;",
+     "rollback;"].join("\n")
+  );
+
+  const checks: Array<[string, string, string]> = [
+    // An UPDATE that no policy admits writes zero rows; an INSERT
+    // raises. Both are the true answer for their verb, which is why
+    // the expectations differ.
+    ["renames an agent, NOT authoring", renameOff, "0"],
+    ["control, renames an agent while authoring", renameOn, "1"],
+    ["creates an agent, NOT authoring", createOff, "42501"],
+    ["control, creates an agent while authoring", createOn, "1"],
+    ["creates a category, NOT authoring", categoryOff, "42501"],
+    ["control, creates a category while authoring", categoryOn, "1"],
+    ["publishes a version, NOT authoring", versionOff, "42501"],
+    ["control, publishes a version while authoring", versionOn, "1"],
+    ["authenticated cannot UPDATE the flag", String(priv?.auth_no_update), "true"],
+    ["authenticated cannot INSERT the flag", String(priv?.auth_no_insert), "true"],
+    ["authenticated cannot DELETE the flag", String(priv?.auth_no_delete), "true"],
+    ["authenticated can still READ the flag", String(priv?.auth_can_select), "true"],
+    ["service_role may UPDATE the flag", String(priv?.svc_can_update), "true"],
+    ["service_role cannot INSERT the flag", String(priv?.svc_no_insert), "true"],
+    ["service_role cannot DELETE the flag", String(priv?.svc_no_delete), "true"],
+    ["a missing row reads as NOT authoring", String(absent?.answer), "false"],
+  ];
+  const failures = checks.filter(([, got, want]) => got !== want);
+
+  return {
+    name,
+    hazard,
+    wrong:
+      "agents are writable on an instance that is not the authoring one, or the flag deciding that is writable from the app",
+    right:
+      "every agent write is refused with is_primary false and the same write by the same admin succeeds with it true; " +
+      "authenticated may read the flag and holds no write verb on it; service_role may update it and cannot add or remove the row; " +
+      "a missing row reads as read-only",
     ok: failures.length === 0,
     detail:
       (failures.length === 0 ? "" : "MISMATCH: ") +
@@ -9558,6 +9762,10 @@ async function main(): Promise<void> {
     [
       "agent-distribution-wall",
       (r: Runner, i: Identities) => agentDistributionWall(r, i, pendingSql),
+    ],
+    [
+      "authoring-instance-wall",
+      (r: Runner, i: Identities) => authoringInstanceWall(r, i, pendingSql),
     ],
     [
       "role-description-lead-writes",
