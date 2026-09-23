@@ -21,7 +21,7 @@ import styles from "../../chart.module.css";
 // Always-live "add a metric" row matched to the roles list rhythm.
 // Three visible fields — description, target, value type — then Add
 // (or press Enter). Direction defaults to higher_is_better and
-// auto_track stays on; both are editable per-metric via the row's
+// both are editable per-metric via the row's
 // Edit affordance after creation so the sub-form doesn't need to
 // nag every new-metric user.
 //
@@ -168,7 +168,6 @@ export function AddMetricRow({
       <form action={formAction} className={styles.addMetricRow}>
         <input type="hidden" name="outcome_id" value={outcomeId} />
         <input type="hidden" name="target_direction" value={direction} />
-        <input type="hidden" name="auto_track" value="on" />
 
         <input
           ref={descriptionRef}
@@ -274,7 +273,7 @@ export function AddMetricRow({
             // type is auto-detected from the target's shape so we
             // don't need the model to emit it — % → percent,
             // yes/no → text, everything else → number. Direction
-            // and auto_track stay at safe defaults; user can tune
+            // stays at a safe default; user can tune
             // both per-metric from the inline Edit form after
             // creation.
             const targetValue = extras?.target?.trim() ?? "";
@@ -284,7 +283,6 @@ export function AddMetricRow({
             fd.set("description", t);
             fd.set("value_type", valueType);
             fd.set("target_direction", "higher_is_better");
-            fd.set("auto_track", "on");
             if (targetValue) fd.set("target", targetValue);
             const r = await createMeasureAction(undefined, fd);
             return r.ok ? { ok: true } : { ok: false, message: r.message };

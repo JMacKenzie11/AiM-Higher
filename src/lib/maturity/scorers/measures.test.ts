@@ -14,7 +14,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // The formula, pinned below:
 //   share with a target      × 3 pts
 //   share logged in 7 days   × 5 pts
-//   auto_track rows with no recent entry: −0.5 each, capped at −2
 // Cadence dominates on purpose. A target nobody logs against says
 // nothing about how the business is running.
 
@@ -23,7 +22,7 @@ const FROZEN_NOW = new Date("2026-09-02T18:00:00Z");
 function fakeAdmin(config: {
   functions?: Array<{ id: string }>;
   outcomes?: Array<{ id: string }>;
-  measures?: Array<{ id: string; target: string | null; auto_track: boolean }>;
+  measures?: Array<{ id: string; target: string | null }>;
   entries?: Array<{ measure_id: string }>;
 }) {
   const rows: Record<string, unknown[]> = {
@@ -48,8 +47,8 @@ function fakeAdmin(config: {
   return { from: (t: string) => make(t) } as unknown as SupabaseClient;
 }
 
-function m(id: string, target: string | null, auto_track = true) {
-  return { id, target, auto_track };
+function m(id: string, target: string | null) {
+  return { id, target };
 }
 
 beforeEach(() => {
@@ -69,7 +68,6 @@ describe("scoreMeasures — the empty ladder", () => {
       totalMeasures: 0,
       withTarget: 0,
       withRecentEntry: 0,
-      autoTrackGaps: 0,
     });
   });
 
@@ -119,15 +117,15 @@ describe("scoreMeasures — the formula", () => {
       totalMeasures: 2,
       withTarget: 2,
       withRecentEntry: 2,
-      autoTrackGaps: 0,
       targetPct: 100,
       cadencePct: 100,
     });
   });
 
   it("weights cadence above targets", async () => {
-    // All targets, nothing logged: 3 points earned, then two
-    // auto_track gaps dock 1. Cadence is the bigger lever by design.
+    // All targets, nothing logged: 3 points. The penalty used to
+    // take this to 2. Cadence is the bigger lever either way, which
+    // is what this case is about.
     const targetsOnly = await scoreMeasures(
       fakeAdmin({
         functions: [{ id: "f_1" }],
@@ -149,7 +147,7 @@ describe("scoreMeasures — the formula", () => {
       "co_1"
     );
 
-    expect(targetsOnly.score).toBe(2);
+    expect(targetsOnly.score).toBe(3);
     expect(cadenceOnly.score).toBe(5);
     // score is number | null on the DisciplineScore type; both are
     // non-null here, and the point of the assertion is the ordering.
@@ -172,10 +170,18 @@ describe("scoreMeasures — the formula", () => {
   });
 });
 
-describe("scoreMeasures — the auto_track penalty", () => {
-  it("docks half a point per unlogged auto_track measure", async () => {
+describe("scoreMeasures — the penalty that was removed", () => {
+  // It docked 0.5 per unlogged auto_track measure, capped at 2.
+  // Removed 2026-09-23 with the column it read: every measure it
+  // charged for had ALREADY lost its share of the 5 cadence points,
+  // so it billed the same gap twice.
+  //
+  // The cases are kept with the numbers the scorer now produces,
+  // because the question is no longer "does the penalty apply" but
+  // "does anything still apply it".
+  it("does not dock a company beyond the cadence it already lost", async () => {
     // 3 measures, all targeted, 1 logged.
-    // 3 + (1/3 × 5 = 1.667) = 4.667, minus 2 gaps × 0.5 = 3.667 → 3.7
+    // 3 + (1/3 x 5 = 1.667) = 4.667. It used to come out at 3.667.
     const result = await scoreMeasures(
       fakeAdmin({
         functions: [{ id: "f_1" }],
@@ -186,12 +192,12 @@ describe("scoreMeasures — the auto_track penalty", () => {
       "co_1"
     );
 
-    expect(result.breakdown).toMatchObject({ autoTrackGaps: 2 });
-    expect(result.score).toBeCloseTo(3.7, 1);
+    expect(result.score).toBeCloseTo(4.7, 1);
   });
 
-  it("caps the penalty at 2 points however many gaps there are", async () => {
-    // 8 unlogged auto_track measures would be −4 uncapped.
+  it("scores targets alone when nothing has been logged", async () => {
+    // 8 measures, all targeted, none logged: 3 + 0 = 3, where the
+    // capped penalty used to take it to 1.
     const measures = Array.from({ length: 8 }, (_, i) => m(`m_${i}`, "1"));
     const result = await scoreMeasures(
       fakeAdmin({
@@ -203,25 +209,6 @@ describe("scoreMeasures — the auto_track penalty", () => {
       "co_1"
     );
 
-    // 3 (all targeted) + 0 cadence − 2 capped = 1.
-    expect(result.breakdown).toMatchObject({ autoTrackGaps: 8 });
-    expect(result.score).toBe(1);
-  });
-
-  it("exempts measures with auto_track off from the penalty", async () => {
-    // Context measures like headcount are worth tracking but should
-    // not be treated as a broken weekly commitment.
-    const result = await scoreMeasures(
-      fakeAdmin({
-        functions: [{ id: "f_1" }],
-        outcomes: [{ id: "o_1" }],
-        measures: [m("m_1", "1", false), m("m_2", "1", false)],
-        entries: [],
-      }),
-      "co_1"
-    );
-
-    expect(result.breakdown).toMatchObject({ autoTrackGaps: 0 });
     expect(result.score).toBe(3);
   });
 
@@ -258,10 +245,7 @@ describe("scoreMeasures — deduplication", () => {
       "co_1"
     );
 
-    expect(result.breakdown).toMatchObject({
-      withRecentEntry: 1,
-      autoTrackGaps: 1,
-    });
+    expect(result.breakdown).toMatchObject({ withRecentEntry: 1 });
   });
 });
 
@@ -277,7 +261,7 @@ describe("scoreMeasures — CSFs count too", () => {
         functions: [{ id: "f_1" }],
         outcomes: [{ id: "o_1" }],
         // One targeted and logged KPI, one bare CSF.
-        measures: [m("kpi_1", "95"), m("csf_1", null, false)],
+        measures: [m("kpi_1", "95"), m("csf_1", null)],
         entries: [{ measure_id: "kpi_1" }],
       }),
       "co_1"
@@ -293,7 +277,7 @@ describe("scoreMeasures — CSFs count too", () => {
       fakeAdmin({
         functions: [{ id: "f_1" }],
         outcomes: [{ id: "o_1" }],
-        measures: [m("kpi_1", "95"), m("csf_1", null, false)],
+        measures: [m("kpi_1", "95"), m("csf_1", null)],
         entries: [{ measure_id: "kpi_1" }],
       }),
       "co_1"
@@ -303,21 +287,21 @@ describe("scoreMeasures — CSFs count too", () => {
   });
 
   it("does not penalise a migrated CSF for going unlogged", async () => {
-    // Migrated CSFs arrive with auto_track false, so they lower the
-    // shares but never trigger the missed-logging penalty. Without
-    // that, every company would take the full 2-point deduction on
-    // day one for work nobody had been asked to do yet.
+    // Migrated CSFs arrive with no target and no history, so they
+    // lower the target and cadence shares. They used to be spared
+    // the missed-logging penalty by carrying auto_track false; with
+    // the penalty gone, nothing is charged twice and the exemption
+    // has nothing left to do.
     const result = await scoreMeasures(
       fakeAdmin({
         functions: [{ id: "f_1" }],
         outcomes: [{ id: "o_1" }],
-        measures: [m("csf_1", null, false), m("csf_2", null, false)],
+        measures: [m("csf_1", null), m("csf_2", null)],
         entries: [],
       }),
       "co_1"
     );
 
-    expect(result.breakdown).toMatchObject({ autoTrackGaps: 0 });
     expect(result.score).toBe(0);
   });
 });

@@ -1,0 +1,60 @@
+-- =============================================================
+-- Migration 0232 — drop success_measures.auto_track
+--
+-- The column meant exactly one thing: "the Tuesday cron opens a
+-- 'log last week's value' COMMITMENT for this measure". Migration
+-- 0166's own test says so, and says why it set the column false on
+-- every CSF it migrated:
+--
+--   "Defaulting migrated CSFs to true would hand every function
+--    leader a pile of new commitments the moment the cron is
+--    restored in phase 6."
+--
+-- That was the right instinct and the wrong lever. The problem was
+-- never which measures got commitments; it was that a missing number
+-- produced a commitment at all. A commitment is a promise somebody
+-- made, and one the system wrote because you had not typed a number
+-- yet is not that. The nudge belongs in the notification tray, which
+-- already carried a Friday item aimed at the same function lead.
+--
+-- The cron stops writing commitments in this PR. With that gone the
+-- column describes nothing, and 0227 already settled what happens to
+-- a column in that position:
+--
+--   "a row must not describe a capability the runtime does not have,
+--    because the next person to read the schema is misled by it."
+--
+-- ---- WHAT THIS WIDENS ------------------------------------------
+--
+-- Two readers filtered on it, and both now see every measure:
+--
+--   the Friday "log this week's numbers" notification, which
+--   excluded auto_track measures because the cron was chasing them
+--   with commitments instead. 76 of 89 measures were on the
+--   notification side, 13 on the commitment side, and a measure was
+--   never on both.
+--
+--   measure insights, which included ONLY auto_track measures — so
+--   it was reading 13 of 89.
+--
+-- Neither split was a decision anybody made about insights or
+-- notifications. Both were fallout from a flag that existed to
+-- control commitments.
+--
+-- ---- BLAST RADIUS, MEASURED ------------------------------------
+--
+-- Zero companies hold `performance_tracking` on any instance at the
+-- time of writing: the one that did had it disabled on 2026-09-19.
+-- Nothing this widens can fire until somebody opts in, and when they
+-- do it is the behaviour the feature describes rather than a burst
+-- of catch-up.
+--
+-- ---- SAFE TO DROP ----------------------------------------------
+--
+-- No policy references it, no index covers it, and no UI writes it:
+-- there is no control anywhere in the app that sets this column. The
+-- values it holds came from 0166 doing it in bulk.
+-- =============================================================
+
+alter table public.success_measures
+  drop column if exists auto_track;

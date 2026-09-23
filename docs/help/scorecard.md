@@ -63,7 +63,7 @@ Eight disciplines, each 0–10:
   don't count toward either half. Priority linkage is deliberately
   not scored.
 - **Success tracking** — every measure has a target, has been logged in
-  the last 7 days, and auto-track measures aren't sitting empty. Scored
+  the last 7 days. Scored
   for every company. It used to be skipped unless the Success Tracking
   setting was on; that setting is about automatic reminders now, not
   about whether you track, so it no longer decides this.

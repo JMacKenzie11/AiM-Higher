@@ -181,10 +181,31 @@ describe("the unrecorded-measure nudge covers mapped measures", () => {
   });
 
   it("decides 'missing' on the presence of an entry and nothing else", () => {
-    // `if (!entry) { missing.push(m); continue; }` — no second
-    // condition, no exclusion list. A pulled entry and a typed entry
-    // are the same entry to this code, which is the point.
-    expect(code).toMatch(/if\s*\(!entry\)\s*\{\s*missing\.push\(m\);/);
+    // THE NUDGE MOVED. It used to be a commitment this cron wrote;
+    // it is now the Friday item in the notification tray, so the
+    // property this case exists for — a pulled entry and a typed
+    // entry are the same entry — has to be asserted where the
+    // decision now lives.
+    const tray = readFileSync(
+      path.join(ROOT, "src/lib/notifications/service.ts"),
+      "utf8"
+    )
+      .split("\n")
+      .filter((l) => !l.trim().startsWith("//"))
+      .join("\n");
+    const pending = tray.slice(
+      tray.indexOf("async function getPendingMeasuresForUser")
+    );
+    const read = pending.slice(
+      pending.indexOf('.from("success_measure_entries")'),
+      pending.indexOf('.eq("week_ending", weekEnding)')
+    );
+    expect(read).toContain("measure_id");
+    expect(read).not.toContain("origin");
+    // And the sweep itself no longer decides anything about a
+    // missing value: it skips it.
+    expect(code).toMatch(/if\s*\(!entry\)\s*continue;/);
+    expect(code).not.toContain("missing.push");
   });
 
   it("selects entries for the week without filtering on how they arrived", () => {
@@ -233,28 +254,22 @@ describe("the Saturday sweep judges the week that closed", () => {
     expect(code).toMatch(/weekEndingFriday:\s*weekJustClosed/);
   });
 
-  it("files the commitment against that week", () => {
-    expect(code).toMatch(/week_ending:\s*weekJustClosed/);
+  it("writes no commitment, for any week", () => {
+    // The three cases that used to live here pinned the commitment's
+    // week, its due date and its wording. Removed 2026-09-23: a
+    // missing number is a reminder in the tray, not a promise
+    // somebody is recorded as having made.
+    expect(code).not.toContain('.from("commitments")');
+    expect(code).not.toContain("Log last week's value for");
+    expect(code).not.toContain("due_date");
   });
 
-  it("but makes it DUE the coming Friday, not a date already gone", () => {
-    // Otherwise every nudge is born overdue, which is accurate and
-    // useless: there is nothing a person can do about a date that has
-    // passed except carry a red row around.
-    expect(code).toMatch(/dueDate\s*=\s*thisFriday\(timezone\)/);
-    expect(code).toMatch(/due_date:\s*dueDate/);
-  });
-
-  it("says last week in the commitment, because that is the week", () => {
-    expect(code).toContain("Log last week's value for");
-    expect(code).not.toContain("Log this week's value for");
-  });
-
-  it("leaves nothing pointing at thisFriday except the due date", () => {
-    // The specific regression. One stray thisFriday() feeding the
-    // entry read would put the whole thing back where it started, and
-    // nothing would throw.
-    const calls = code.match(/thisFriday\(timezone\)/g) ?? [];
-    expect(calls).toHaveLength(1);
+  it("has no reason left to look at the coming Friday", () => {
+    // The old version allowed exactly one thisFriday() — the due
+    // date. With the commitment gone there is nothing in this file
+    // that should be looking forward at all, and a stray one would
+    // be the original bug returning: judging a week that has not
+    // happened yet.
+    expect(code).not.toContain("thisFriday");
   });
 });

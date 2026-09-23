@@ -10,8 +10,14 @@ import { join, relative } from "node:path";
 // does WITHOUT being asked:
 //
 //   the Friday nudge for a measure you lead and have not logged
-//   an Issue raised from a below-target entry          (Saturday cron)
-//   a commitment raised for an actual nobody entered   (same cron)
+//   an Issue raised from a below-target entry          (Tuesday cron)
+//
+// There was a third, removed 2026-09-23: a commitment raised for an
+// actual nobody entered. A commitment is a promise somebody made,
+// and one the system wrote because a number had not been typed yet
+// is not that. The nudge is the tray item, and it is now the only
+// one — so every measure gets it, rather than the ones a per-measure
+// flag left behind.
 //
 // It does NOT decide whether anyone may set a target, type a weekly
 // value, see the 13-week board, or be scored on Success tracking.

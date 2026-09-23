@@ -304,27 +304,40 @@ async function getPendingMeasuresForUser({
   //
   // Pull description too — if exactly one measure ends up pending,
   // the tray can show it by name instead of just a count.
+  // EVERY measure on the lead's functions.
+  //
+  // This filtered out auto_track measures, because the Tuesday cron
+  // was chasing those with commitments instead and nudging twice
+  // would have been worse than nudging once. The cron no longer
+  // writes commitments, so this is the only nudge there is and it
+  // covers everything (migration 0232 drops the column).
+  //
+  // Worth recording why the filter read backwards: the checkbox
+  // that set it said "Remind the owner when this is due", and
+  // ticking it EXCLUDED the measure from this list. The label and
+  // the behaviour had been opposite since the two halves were
+  // written apart.
   const { data: measures } = await supabase
     .from("success_measures")
-    .select("id, description, auto_track")
+    .select("id, description")
     .in("function_id", functionIds)
     .eq("archived", false);
-  const manual = (measures ?? []).filter(
-    (m) => !(m as { auto_track: boolean }).auto_track
-  ) as Array<{ id: string; description: string }>;
-  if (manual.length === 0) return empty;
-  const manualIds = manual.map((m) => m.id);
+  const tracked = (measures ?? []) as Array<{
+    id: string;
+    description: string;
+  }>;
+  if (tracked.length === 0) return empty;
 
   const { data: entries } = await supabase
     .from("success_measure_entries")
     .select("measure_id")
-    .in("measure_id", manualIds)
+    .in("measure_id", tracked.map((m) => m.id))
     .eq("week_ending", weekEnding);
   const filled = new Set(
     (entries ?? []).map((e) => (e as { measure_id: string }).measure_id)
   );
 
-  const pending = manual.filter((m) => !filled.has(m.id));
+  const pending = tracked.filter((m) => !filled.has(m.id));
   return {
     count: pending.length,
     firstDescription: pending.length === 1 ? pending[0].description : null,
