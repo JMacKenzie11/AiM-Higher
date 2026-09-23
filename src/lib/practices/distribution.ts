@@ -222,6 +222,23 @@ async function readTargetState(
 // Anything with a single version still refuses. A version is
 // somebody's published work, and a push would replace what their
 // users are running with ours.
+// What a plan says when it is about to adopt a seeded copy.
+//
+// Its own function so the sentence has one home and can be read
+// without running a push against a live instance, which is how the
+// last version of it stayed wrong after 0231 made it untrue.
+export function seedAdoptionWarning(
+  slug: string,
+  versionNumber: number
+): string {
+  return (
+    `This instance already has "${slug}" from the original install, ` +
+    "running the wording built into the code. Pushing replaces that " +
+    `with version ${versionNumber}, and it follows this instance from ` +
+    "then on."
+  );
+}
+
 export function isUntouchedSeed(state: TargetState): boolean {
   return (
     state.versionCount === 0 &&
@@ -297,10 +314,18 @@ export async function distributeToTarget(
     if (isUntouchedSeed(state)) {
       // Adopted, and said out loud in the plan, so the dry run is
       // where this is noticed rather than afterwards.
+      //
+      // WHAT THIS SENTENCE USED TO SAY, and why it was wrong: that
+      // "local admins stop being able to edit it". Written for phase
+      // 4b, when a receiving instance's system admin could still
+      // edit a seeded agent. 0231 removed that from every instance
+      // that is not the authoring one, so the warning was promising
+      // a change that had already happened, in a term that read as
+      // if some other class of admin existed. What actually changes
+      // is what that instance RUNS, which is the thing somebody
+      // reading a plan needs to weigh.
       base.warnings.push(
-        `"${source.slug}" exists here as a seeded copy that has never been ` +
-          "published. Pushing takes it over, and local admins stop being " +
-          "able to edit it."
+        seedAdoptionWarning(source.slug, source.versionNumber)
       );
     } else {
       return {

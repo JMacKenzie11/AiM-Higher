@@ -99,11 +99,13 @@ export function AgentRow({
               button invites someone to work out how to enable it,
               and there is no local answer. */}
           {agent.managedFrom || readOnly ? (
-            <span className={styles.agentDescription}>
-              {agent.managedFrom
-                ? `Edited on ${agent.managedFrom}`
-                : "Managed centrally"}
-            </span>
+            /* One sentence for both, because they are the same
+               situation to the person reading it: this is not where
+               the agent is changed. The old copy printed the raw
+               subdomain — "Edited on @" — which named a thing nobody
+               outside the registry has heard of. The chip above
+               already says it is managed from AiMS HQ. */
+            <span className={styles.agentDescription}>Managed centrally</span>
           ) : (
           <>
           <button
