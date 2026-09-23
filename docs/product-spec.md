@@ -1036,6 +1036,32 @@ Added 2026-09-22. A net-new agent is an `agents` row with **no registry entry be
 - **The audience sentence** renders on every publish confirm and on the create flow's last step, computed from the access settings. **One deliberate disagreement with the phase instruction**, which gave "Visible to: nobody (no roles selected)" as an example: in this product an empty `allowed_roles` means *every* role, so rendering it as "nobody" would make the sentence lie in the most dangerous direction — an admin reading "nobody" while publishing to the fleet. Empty renders as "everyone".
 - **First publish has no baseline** (no live version, no code entry), so the publish panel renders the whole configuration instead of a diff.
 
+### 14e. Agent distribution: the schema, and why the push is deferred
+
+Migration 0230, 2026-09-23. **Only the schema half shipped.** The push and the Distribution panel are **deferred, not cancelled** — read this before building them.
+
+**Why deferred.** Distribution sends an agent from the main instance to others. The fleet is `@` (PROD, the author) and `promiseone` (a client), so **the only possible target is a live client instance**, and that is not somewhere to test a new write path. The value arrives when instance three does; the cost is now. What *is* awkward to retrofit — the receiving-side lock, the write door, the receipts table — landed now, so a future push has a safe place to land.
+
+**When to build it.** When the next instance is provisioned, there is a window **after provisioning and before the client is onboarded**: a real registry row, the real code path, real credentials, and no data at risk. That is where the acceptance E2E runs.
+
+**The options that were considered and rejected**, so nobody re-derives them:
+
+| Option | Why not |
+|---|---|
+| Temporary registry row for the dev clone, `status: 'suspended'`, plus a test-only override to allow suspended targets | A write to the live control plane, and a code path that exists only for testing |
+| Provision a throwaway instance | A real project and real money; kept as the **fallback** if a push is ever needed before a third instance exists |
+| Push to the dev clone by connection string, bypassing the registry | Tests a different path than production uses. Targets come **from the registry**; a test that skips it proves nothing about the thing that ships |
+
+**What 0230 contains:**
+
+- **`agents.managed_from`** — the authoring subdomain, null for a local agent. The `agents` INSERT/UPDATE/DELETE policies and the `agent_versions` INSERT policy all gain `and managed_from is null`, so a receiving instance's admin cannot edit a managed agent **through PostgREST**, not merely through the Hub. SELECT stays wide: a receiving admin must *see* it to be told it is managed from HQ.
+- **No UPDATE or DELETE policy was added to `agent_versions`.** The phase instruction asked for the condition on those policies; there are none, by design (0228, E8), and creating them to "lock them down" would be **strictly worse** — a policy implies the verb is reachable, and the whole lesson of E8 is that a policy-shaped absence is weaker than a privilege-shaped one.
+- **`insert_distributed_agent_version()`**, `SECURITY DEFINER`, the single door for fleet-managed version writes. 0228 withheld INSERT on `agent_versions` from `service_role` and said why: *"every write goes through a server action as the signed-in system admin, so the published_by column cannot be anonymous."* RLS bypass does not help when the **privilege** is revoked, and a blanket grant would trade that guarantee away in a footnote. The function **requires an actor** and **refuses a local agent**, so it cannot become a way around the policy above. `service_role` gets EXECUTE and nothing else; its direct INSERT stays revoked, and `agent-distribution-wall` proves both halves in the same run.
+- **`agent_distributions`** — receipts, written on the main instance only. Append-only by privilege, like `agent_versions`.
+- **The `agents_versions` policy reaches into `agents`**, which is the shape behind the 0150/0151 recursion. Safe here because the reference is **one way**: no policy on `agents` mentions `agent_versions`. The migration carries that warning where the policy lives.
+
+**The isolation gate** (`src/lib/instances/isolation.test.ts`) ships with this, ahead of the push it guards. Instance isolation is **not enforced by credentials**: every instance's deployment holds every other's service-role key, because that is how the cron fan-out reaches them. So it is a discipline, and the test is the only thing making it a rule. A closed allowlist — `for-each.ts` and `registry.ts` today — with an assertion that every entry **still crosses**, because dead permission is how the next crossing gets waved through. The deferred push is named in it as the intended second entry.
+
 ---
 
 ## 15. Classroom (Shared Training Library)

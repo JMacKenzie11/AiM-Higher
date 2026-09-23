@@ -212,6 +212,39 @@ and `registry.ts` builds names from a row's `env_prefix`, so nothing
 here is a literal `process.env.NAME` the inliner could have seen. It
 relies on the runtime environment being populated, and it is.
 
+## The window after provisioning, before onboarding
+
+**When you provision the next instance, there is work waiting for that
+window.** Between the instance going live in the registry and the
+client being onboarded, it is a real instance — real registry row,
+real credentials, the real code path — with no customer data in it and
+nothing at risk.
+
+That is the only safe place to verify **agent distribution**, whose
+schema landed in migration 0230 and whose push was deliberately
+deferred for exactly this reason: today's fleet is the main instance
+plus one client, so the only possible push target is somebody's live
+data. See `docs/product-spec.md` §14e for the design, the rejected
+alternatives, and what 0230 already contains.
+
+Concretely, in that window:
+
+1. Build the push and the Distribution panel (spec §14e names the
+   pieces and the order the writes must happen in).
+2. Run the acceptance walk against the new instance: push an agent,
+   see it in that instance's picker, confirm a local admin edit is
+   refused **at the database**, hold a conversation on it, push a v2
+   and confirm the in-flight conversation stays pinned, retract and
+   confirm the picker loses it while the conversation still answers,
+   and re-push after a simulated partial failure to prove idempotency.
+3. Then onboard the client.
+
+If a push is ever needed **before** a third instance exists, the
+fallback is a throwaway provisioned instance, deleted afterwards along
+with its registry row. The two cheaper-looking options — a suspended
+registry row for the dev clone, or pushing by connection string — were
+considered and rejected; §14e says why.
+
 ## Instance status: taking an instance offline
 
 `public.instances.status` is the switch that takes an instance on and
