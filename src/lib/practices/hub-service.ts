@@ -36,6 +36,11 @@ export type HubAgent = {
   feature: string | null;
   accessPredicates: string[];
   archived: boolean;
+  // Null means the agent is not published. For a database-defined
+  // agent that also means it is invisible to everyone but a system
+  // admin, because the merge layer only offers one with a live
+  // version.
+  liveVersionId: string | null;
   // False when no registry entry matches the slug, which today means
   // the agent cannot run: its prompt has nowhere to come from.
   // Database-defined agents are phase 3. Until then the Hub says so
@@ -81,7 +86,7 @@ export async function listHubAgents(): Promise<HubAgent[]> {
     .from("agents")
     .select(
       "id, slug, category_id, title, description, sort_order, allowed_roles, " +
-        "feature, access_predicates, archived"
+        "feature, access_predicates, archived, live_version_id"
     )
     .order("sort_order");
   const registrySlugs = new Set(PRACTICES.map((p) => p.id));
@@ -100,6 +105,7 @@ export async function listHubAgents(): Promise<HubAgent[]> {
       feature: string | null;
       access_predicates: string[] | null;
       archived: boolean;
+      live_version_id: string | null;
     }>
   ).map((a) => ({
     id: a.id,
@@ -112,6 +118,7 @@ export async function listHubAgents(): Promise<HubAgent[]> {
     feature: a.feature,
     accessPredicates: a.access_predicates ?? [],
     archived: a.archived,
+    liveVersionId: a.live_version_id,
     hasRegistryEntry: registrySlugs.has(a.slug),
   }));
 }

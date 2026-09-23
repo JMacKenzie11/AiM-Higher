@@ -101,6 +101,10 @@ export type AgentConfigView = {
   // Which config an agent is RUNNING. "registry" until somebody
   // publishes, which is every agent today.
   liveSource: "registry" | "version";
+  // True when any version of this agent has ever been published.
+  // Delete is refused past that point, because conversations may
+  // have run on it and the record has to stay.
+  everPublished: boolean;
   live: AgentVersionDetail | null;
   draft: AgentVersionDetail | null;
   // FULL detail, not summaries: the history view diffs a version
@@ -134,6 +138,7 @@ export async function loadAgentConfig(
 
   return {
     liveSource: liveId ? "version" : "registry",
+    everPublished: rows.some((r) => r.publishedAt !== null),
     live: rows.find((r) => r.isLive) ?? null,
     draft: rows.find((r) => r.isDraft) ?? null,
     // Published versions, plus the current draft. Every SAVE writes

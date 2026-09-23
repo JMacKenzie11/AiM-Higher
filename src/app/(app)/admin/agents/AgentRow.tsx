@@ -60,10 +60,18 @@ export function AgentRow({
             {agent.archived ? (
               <span className={styles.archivedChip}>Hidden</span>
             ) : null}
-            {!agent.hasRegistryEntry ? (
+            {/* Phase 1 flagged "no matching agent in the code" as a
+                fault, because back then it was one. Phase 3 makes it
+                ordinary: an agent built in the Hub has no code by
+                definition. What matters now is whether it has been
+                published, so that is what the chip says. */}
+            {!agent.hasRegistryEntry && !agent.liveVersionId ? (
               <span className={styles.warnChip}>
-                No matching agent in the code. It will not appear to anyone.
+                Not published. Only system admins can see it.
               </span>
+            ) : null}
+            {!agent.hasRegistryEntry && agent.liveVersionId ? (
+              <span className={styles.archivedChip}>Built in the Hub</span>
             ) : null}
             <span
               className={styles.accessChip}

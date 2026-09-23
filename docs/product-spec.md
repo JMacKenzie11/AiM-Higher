@@ -1023,6 +1023,19 @@ Added 2026-09-22, migrations 0228 and 0229. Phase 1 put an agent's **identity** 
 - **The prompt SHA guards stay.** They guard the fallback, which is now the escape hatch, so they matter more rather than less.
 - **Out of scope, deliberately:** creating a net-new agent. Phase 3.
 
+### 14d. Agent Hub phase 3: agents created from the Hub
+
+Added 2026-09-22. A net-new agent is an `agents` row with **no registry entry behind it**, walking the same draft, preview and publish path phase 2 built. **No new version machinery and no migration** — checked before building: `created_by` already exists, "ever published" is a version with `published_at` set, and slug references are a query.
+
+- **The design rule.** A database-only agent has no code fallback, so **the pin is the fallback**. Version rows are immutable and conversations read the version stamped on them, so an agent can be unpublished or archived without breaking a conversation in flight.
+- **The merge layer now admits these rows**, on one condition: a live version. `live_version_id` set makes it a real agent appended to the merged set; null keeps it in the Hub and nowhere else, because an unpublished agent has no prompt anybody approved. Phase 1's "ignored and logged" warning is gone.
+  - **Pickers require a live version; the runtime and the Hub must not.** An *unpublished* agent has no live version and may still have conversations pinned to its old ones — that is exactly what unpublish is for. Filtering those out of `listAgentsIncludingArchived` would strip the agent's name off every one of them and make `resolveAgent` answer null mid-conversation. Hence `requireLive`.
+  - **No code to fall back to.** `resolveRuntimeConfig` handles a database-defined agent explicitly rather than reaching for a prompt file that does not exist. If its version cannot be read there is nothing honest left, so it degrades to the base prompt and logs loudly; immutability plus no DELETE privilege makes that close to unreachable, and a chat that throws is worse than one that carries on.
+- **Slugs** are generated from the title, uniquified against other database agents, and **immutable**, because `coaching_conversations.practice_id` stores them as text. A slug colliding with a **registry id is refused**, not uniquified: that row would become an override of a code agent and take over its conversations.
+- **Lifecycle.** **Unpublish** clears `live_version_id` — a separate action from `revertToCodeAction` because there is no code to revert *to*. **Delete** is offered only when the agent was never published **and** no conversation references its slug; both are checked because they come apart. Everything else archives.
+- **The audience sentence** renders on every publish confirm and on the create flow's last step, computed from the access settings. **One deliberate disagreement with the phase instruction**, which gave "Visible to: nobody (no roles selected)" as an example: in this product an empty `allowed_roles` means *every* role, so rendering it as "nobody" would make the sentence lie in the most dangerous direction — an admin reading "nobody" while publishing to the fleet. Empty renders as "everyone".
+- **First publish has no baseline** (no live version, no code entry), so the publish panel renders the whole configuration instead of a diff.
+
 ---
 
 ## 15. Classroom (Shared Training Library)
