@@ -122,7 +122,7 @@ async function publishChip(page: Page, slug: string, marker: string) {
     d = panel(page, "agent-config");
   }
 
-  await d.getByLabel(/^opening chips$/i).fill(marker);
+  await d.getByLabel(/^conversation starters$/i).fill(marker);
   await d.getByRole("button", { name: /review and publish/i }).click();
   await expect(d.getByTestId("agent-config-diff")).toBeVisible();
   await d.getByLabel(/^publish notes$/i).fill(`e2e: chips to ${marker}`);
@@ -293,7 +293,7 @@ test.describe("agent config versions", () => {
     await expect(drawer.getByTestId("agent-config-draft-note")).toBeVisible({
       timeout: 15_000,
     });
-    await drawer.getByLabel(/^opening chips$/i).fill("PREVIEW-D1");
+    await drawer.getByLabel(/^conversation starters$/i).fill("PREVIEW-D1");
     // No Save first, deliberately: Preview saves what is on screen
     // and previews the version it just wrote. Going straight to it
     // is the path that used to preview the PREVIOUS version.
@@ -349,7 +349,7 @@ test.describe("agent config versions", () => {
     // Type, and do NOT save. This is the path that used to lose the
     // edit entirely.
     const marker = `UNSAVED-${Date.now()}`;
-    await drawer.getByLabel(/^opening chips$/i).fill(marker);
+    await drawer.getByLabel(/^conversation starters$/i).fill(marker);
     await drawer.getByTestId("agent-config-preview").click();
     await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
       timeout: 30_000,

@@ -278,6 +278,14 @@
   min-height: 240px;
 }
 
+/* Tall enough to show three starters without scrolling, which is
+ * how many most agents have. It was two rows, so the third was
+ * always half-cut. */
+.startersEditor {
+  min-height: 116px;
+  resize: vertical;
+}
+
 .diffField {
   margin: 0 0 var(--space-2);
   font: var(--text-body-sm);
@@ -304,6 +312,23 @@
   padding: var(--space-3);
   margin-bottom: var(--space-2);
   background: var(--grad-secondary);
+}
+
+/* The label / card pair stacks: the drawer is 560px, so a row
+ * would wrap anyway, and the earlier hint said "left" and "right"
+ * about two controls that were sitting one above the other. */
+.cardPair {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+/* The label on a read-only field, so it does not read as something
+ * to type in. The agent's prompt decides this word. */
+.cardPair input[readonly] {
+  background: var(--aims-sand);
+  cursor: default;
 }
 
 .addRow {

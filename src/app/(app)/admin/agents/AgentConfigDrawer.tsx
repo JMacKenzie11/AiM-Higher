@@ -25,10 +25,25 @@ import {
 import admin from "../companies/admin.module.css";
 import styles from "./hub.module.css";
 
+// The three read-only lookups an agent may be given. Labelled for a
+// human: the raw function names told a system admin nothing about
+// what switching one on actually does.
 const TOOL_OPTIONS = [
-  "get_foundation",
-  "list_functions",
-  "get_role_description",
+  {
+    value: "get_foundation",
+    label: "The company's Foundation",
+    hint: "Purpose, values and the rest of the Foundation page.",
+  },
+  {
+    value: "list_functions",
+    label: "The Functional Chart",
+    hint: "The seats on the chart and who leads them.",
+  },
+  {
+    value: "get_role_description",
+    label: "A saved role description",
+    hint: "Only used when the conversation is revising one.",
+  },
 ] as const;
 const CARD_OPTIONS = [
   "ScriptCard",
@@ -149,6 +164,8 @@ export function AgentConfigDrawer({
   const [view, setView] = useState<"config" | "publish" | "history">("config");
   const [notes, setNotes] = useState("");
   const [publishing, setPublishing] = useState<string | null>(null);
+  // Which history entry is showing its diff against what is live.
+  const [diffing, setDiffing] = useState<string | null>(null);
 
   // The draft form. Seeded once; the drawer unmounts on close, so
   // reopening re-seeds from whatever was saved.
@@ -355,11 +372,11 @@ export function AgentConfigDrawer({
 
             <div className={admin.field}>
               <label className={admin.label} htmlFor="cfg-chips">
-                Opening chips
+                Conversation starters
               </label>
               <textarea
                 id="cfg-chips"
-                className={admin.input}
+                className={`${admin.input} ${styles.startersEditor}`}
                 value={form.chips.join("\n")}
                 onChange={(e) =>
                   set(
@@ -367,9 +384,12 @@ export function AgentConfigDrawer({
                     e.target.value.split("\n").map((c) => c.trim()).filter(Boolean)
                   )
                 }
-                rows={3}
+                rows={5}
               />
-              <p className={admin.fieldHint}>One per line.</p>
+              <p className={admin.fieldHint}>
+                One per line. These are the buttons someone can press instead
+                of typing, on the empty chat.
+              </p>
             </div>
 
             <div className={admin.field}>
@@ -382,9 +402,21 @@ export function AgentConfigDrawer({
                 value={form.basePromptMode}
                 onChange={(e) => set("basePromptMode", e.target.value)}
               >
-                <option value="full_coach">Full coach</option>
-                <option value="voice_only">Voice only</option>
+                <option value="full_coach">
+                  Full coach — coaching approach plus the AiMS voice
+                </option>
+                <option value="voice_only">
+                  Voice only — the AiMS voice, nothing else
+                </option>
               </select>
+              <p className={admin.fieldHint}>
+                What sits underneath the prompt above. Choose{" "}
+                <strong>Full coach</strong> for an agent that holds a
+                conversation, so it inherits how a coach listens and asks.
+                Choose <strong>Voice only</strong> for an agent that runs a
+                structured task, where the prompt above is the whole flow and
+                the coaching approach would pull it into diagnosis instead.
+              </p>
             </div>
 
             <div className={admin.field}>
@@ -428,43 +460,63 @@ export function AgentConfigDrawer({
             </div>
 
             <div className={admin.field}>
-              <span className={admin.label}>Tools</span>
+              <span className={admin.label}>What it can look up</span>
+              <p className={admin.fieldHint}>
+                Company information the agent may read mid-conversation. It
+                only ever reads, only this company, and only what the person
+                it is talking to could already see.
+              </p>
               <div className={admin.checkGroup}>
                 {TOOL_OPTIONS.map((t) => (
-                  <label key={t} className={admin.checkOption}>
+                  <label key={t.value} className={admin.checkOption}>
                     <input
                       type="checkbox"
-                      checked={form.tools.includes(t)}
+                      checked={form.tools.includes(t.value)}
                       onChange={() =>
                         set(
                           "tools",
-                          form.tools.includes(t)
-                            ? form.tools.filter((x) => x !== t)
-                            : [...form.tools, t]
+                          form.tools.includes(t.value)
+                            ? form.tools.filter((x) => x !== t.value)
+                            : [...form.tools, t.value]
                         )
                       }
                     />
-                    <span>{t}</span>
+                    <span>
+                      {t.label}
+                      <br />
+                      <span className={admin.fieldHint}>{t.hint}</span>
+                    </span>
                   </label>
                 ))}
               </div>
             </div>
 
             <div className={admin.field}>
-              <span className={admin.label}>Output cards</span>
+              <span className={admin.label}>Formatted results</span>
               <p className={admin.fieldHint}>
-                Fenced tag on the left, card on the right. Only cards this
-                build ships can be chosen.
+                Some agents finish by producing something structured, like a
+                script or a draft role description, and it is shown as a
+                formatted card instead of plain text. Each pair below says:
+                when the agent marks part of its reply with this label, show
+                it as this card.
               </p>
               {Object.entries(form.outputCard).map(([tag, card]) => (
-                <div key={tag} className={styles.addRow}>
+                <div key={tag} className={styles.cardPair}>
+                  <label className={admin.fieldHint} htmlFor={`tag-${tag}`}>
+                    Label the agent writes
+                  </label>
                   <input
+                    id={`tag-${tag}`}
                     className={admin.input}
                     value={tag}
                     readOnly
-                    aria-label={`Fenced tag ${tag}`}
+                    aria-label={`Label the agent writes: ${tag}`}
                   />
+                  <label className={admin.fieldHint} htmlFor={`card-${tag}`}>
+                    Shown as
+                  </label>
                   <select
+                    id={`card-${tag}`}
                     className={admin.select}
                     value={card}
                     aria-label={`Card for ${tag}`}
@@ -671,6 +723,51 @@ export function AgentConfigDrawer({
                   </p>
                   {v.publishNotes ? (
                     <p className={styles.agentDescription}>{v.publishNotes}</p>
+                  ) : null}
+                  {!v.isLive && baseline ? (
+                    <button
+                      type="button"
+                      className={admin.inlineEditButton}
+                      onClick={() => setDiffing(diffing === v.id ? null : v.id)}
+                    >
+                      {diffing === v.id ? "Hide diff" : "View diff"}
+                    </button>
+                  ) : null}
+                  {diffing === v.id && baseline ? (
+                    <pre className={styles.diffPrompt}>
+                      {fieldChanges(baseline, shapeOf(v)).map((c) => (
+                        <span key={c.label} className={styles.diffField}>
+                          {c.label}: {c.before} → {c.after}
+                          {"\n"}
+                        </span>
+                      ))}
+                      {collapseUnchanged(
+                        promptDiff(baseline.prompt, v.prompt)
+                      ).map((l, i) => (
+                        <span
+                          key={i}
+                          className={
+                            l.kind === "added"
+                              ? styles.diffAdded
+                              : l.kind === "removed"
+                                ? styles.diffRemoved
+                                : l.kind === "gap"
+                                  ? styles.diffGap
+                                  : undefined
+                          }
+                        >
+                          {l.kind === "added"
+                            ? "+ "
+                            : l.kind === "removed"
+                              ? "- "
+                              : l.kind === "gap"
+                                ? "  … "
+                                : "  "}
+                          {l.text}
+                          {"\n"}
+                        </span>
+                      ))}
+                    </pre>
                   ) : null}
                   {!v.isLive ? (
                     publishing === v.id ? (

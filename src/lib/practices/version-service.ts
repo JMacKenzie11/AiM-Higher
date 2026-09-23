@@ -103,7 +103,10 @@ export type AgentConfigView = {
   liveSource: "registry" | "version";
   live: AgentVersionDetail | null;
   draft: AgentVersionDetail | null;
-  history: AgentVersionSummary[];
+  // FULL detail, not summaries: the history view diffs a version
+  // against what is live, and a diff needs the prompt. This is
+  // system_admin-only data either way.
+  history: AgentVersionDetail[];
   // The registry entry's config, always available: it is what "Edit
   // in Hub" copies into a first draft, and what the diff compares
   // against when nothing is live.
@@ -133,7 +136,13 @@ export async function loadAgentConfig(
     liveSource: liveId ? "version" : "registry",
     live: rows.find((r) => r.isLive) ?? null,
     draft: rows.find((r) => r.isDraft) ?? null,
-    history: rows.map(({ prompt: _p, ...summary }) => summary),
+    // Published versions, plus the current draft. Every SAVE writes
+    // a version, so a few minutes of drafting leaves a dozen
+    // unpublished rows; listing them all buries the published
+    // history that somebody actually came here to read. Nothing is
+    // deleted — they are still rows, and still pinnable — they are
+    // just not what this list is for.
+    history: rows.filter((r) => r.publishedAt !== null || r.isDraft),
     registry: practice ? await registryConfig(practice) : null,
   };
 }
