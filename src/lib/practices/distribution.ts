@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { listActiveInstances, lookupInstance } from "@/lib/instances/registry";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { isPrimaryInstance } from "@/lib/instances/primary";
 import { isServable } from "@/lib/instances/types";
 import type { DistributionStep } from "./distribution-types";
 
@@ -89,6 +90,14 @@ export type Target = { subdomain: string; displayName: string };
 // agree by accident; the supabase URL is the thing that decides
 // whose data gets written.
 export async function distributionTargets(): Promise<Target[]> {
+  // ONLY THE AUTHORING INSTANCE PUSHES. Without this, a client
+  // instance that is in the registry sees HQ in its own target list
+  // and is one click from pushing its agents into production. The
+  // actions refuse it and 0231 refuses the local writes that would
+  // produce something worth pushing, but a list that names HQ as a
+  // destination should never be drawn at all.
+  if (!(await isPrimaryInstance())) return [];
+
   const here = await getCurrentInstanceConfig();
   const rows = await listActiveInstances();
 
@@ -134,10 +143,13 @@ async function hasAgentTables(db: SupabaseClient): Promise<boolean> {
   return !error;
 }
 
-type TargetState = {
+export type TargetState = {
   agentId: string | null;
   managedFrom: string | null;
   liveVersionNumber: number | null;
+  // Evidence of local authorship, for the adoption rule below.
+  versionCount: number;
+  hasDraft: boolean;
 };
 
 async function readTargetState(
@@ -146,15 +158,22 @@ async function readTargetState(
 ): Promise<TargetState> {
   const { data } = await db
     .from("agents")
-    .select("id, managed_from, live_version_id")
+    .select("id, managed_from, live_version_id, draft_version_id")
     .eq("slug", slug)
     .maybeSingle<{
       id: string;
       managed_from: string | null;
       live_version_id: string | null;
+      draft_version_id: string | null;
     }>();
   if (!data) {
-    return { agentId: null, managedFrom: null, liveVersionNumber: null };
+    return {
+      agentId: null,
+      managedFrom: null,
+      liveVersionNumber: null,
+      versionCount: 0,
+      hasDraft: false,
+    };
   }
   let liveVersionNumber: number | null = null;
   if (data.live_version_id) {
@@ -165,11 +184,50 @@ async function readTargetState(
       .maybeSingle<{ version_number: number }>();
     liveVersionNumber = v?.version_number ?? null;
   }
+  // A count, not a fetch: the question is whether anything was ever
+  // published here, and the prompts themselves are none of our
+  // business. head:true sends no rows back.
+  const { count } = await db
+    .from("agent_versions")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", data.id);
   return {
     agentId: data.id,
     managedFrom: data.managed_from,
     liveVersionNumber,
+    versionCount: count ?? 0,
+    hasDraft: data.draft_version_id !== null,
   };
+}
+
+// Is this target's copy an untouched seed rather than somebody's work?
+//
+// ---- WHY THIS QUESTION EXISTS ----------------------------------
+//
+// 0226 seeds five agents and migrations run fleet-wide, so every
+// instance has five rows with managed_from null. The refusal below
+// reads that as "authored here" and blocks the first push to any
+// instance, for the five agents most likely to be pushed. It is not
+// a one-off on one instance either: the next instance provisioned
+// arrives in the same state.
+//
+// ---- WHAT COUNTS AS EVIDENCE ------------------------------------
+//
+// Not the timestamps, and not the slug. Publishing is the only way
+// an agent's config reaches anybody on that instance, so an agent
+// with no versions, no live pointer and no draft has never been
+// anything a user there could run. Adopting it takes nothing away
+// from anyone.
+//
+// Anything with a single version still refuses. A version is
+// somebody's published work, and a push would replace what their
+// users are running with ours.
+export function isUntouchedSeed(state: TargetState): boolean {
+  return (
+    state.versionCount === 0 &&
+    state.liveVersionNumber === null &&
+    !state.hasDraft
+  );
 }
 
 // A feature gate naming a feature no company holds makes an agent
@@ -236,16 +294,30 @@ export async function distributeToTarget(
   base.fromVersion = state.liveVersionNumber;
 
   if (state.agentId && state.managedFrom === null) {
-    return {
-      ...base,
-      outcome: "refused",
-      detail:
-        `An agent with the id "${source.slug}" already exists here and was ` +
-        "created here. Pushing would take it over, so it is refused. " +
-        "Rename one of them.",
-    };
+    if (isUntouchedSeed(state)) {
+      // Adopted, and said out loud in the plan, so the dry run is
+      // where this is noticed rather than afterwards.
+      base.warnings.push(
+        `"${source.slug}" exists here as a seeded copy that has never been ` +
+          "published. Pushing takes it over, and local admins stop being " +
+          "able to edit it."
+      );
+    } else {
+      return {
+        ...base,
+        outcome: "refused",
+        detail:
+          `An agent with the id "${source.slug}" already exists here, was ` +
+          "created here, and has published versions. Pushing would replace " +
+          "what its users are running, so it is refused. Rename one of them.",
+      };
+    }
   }
-  if (state.agentId && state.managedFrom !== sourceSubdomain) {
+  if (
+    state.agentId &&
+    state.managedFrom !== null &&
+    state.managedFrom !== sourceSubdomain
+  ) {
     return {
       ...base,
       outcome: "refused",

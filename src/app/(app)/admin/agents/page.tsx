@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth/current-user";
 import { listHubAgents, listHubCategories } from "@/lib/practices/hub-service";
+import { isPrimaryInstance } from "@/lib/instances/primary";
 import { AgentHubEditor } from "./AgentHubEditor";
 import styles from "../companies/admin.module.css";
 
@@ -16,9 +17,15 @@ import styles from "../companies/admin.module.css";
 
 export default async function AgentHubPage() {
   await requireRole(["system_admin"]);
-  const [categories, agents] = await Promise.all([
+  const [categories, agents, primary] = await Promise.all([
     listHubCategories(),
     listHubAgents(),
+    // Agents are authored in one place (0231). Everywhere else this
+    // page is a window: the same list, none of the controls. Asked
+    // here rather than in the client half because the answer is a
+    // database fact, and because the page should not render a
+    // control and then take it away.
+    isPrimaryInstance(),
   ]);
 
   return (
@@ -29,13 +36,19 @@ export default async function AgentHubPage() {
           <h1 className={styles.h1}>Agent Hub</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Extend Ask Aimee by adding new agents.
+            {primary
+              ? "Extend Ask Aimee by adding new agents."
+              : "The agents available in Ask Aimee here. They are managed centrally, so this is a view rather than an editor."}
           </p>
         </div>
       </section>
 
       <div className={styles.content}>
-        <AgentHubEditor categories={categories} agents={agents} />
+        <AgentHubEditor
+          categories={categories}
+          agents={agents}
+          readOnly={!primary}
+        />
       </div>
     </div>
   );

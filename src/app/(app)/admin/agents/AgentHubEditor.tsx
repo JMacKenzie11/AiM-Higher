@@ -25,9 +25,16 @@ import styles from "./hub.module.css";
 export function AgentHubEditor({
   categories,
   agents,
+  readOnly,
 }: {
   categories: HubCategory[];
   agents: HubAgent[];
+  // True on every instance that is not the authoring one. The
+  // controls are ABSENT rather than disabled, the same choice the
+  // row already made for a managed agent: a disabled button invites
+  // somebody to work out how to enable it, and there is no local
+  // answer.
+  readOnly: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -119,17 +126,19 @@ export function AgentHubEditor({
             right. Beside the heading it competed with it; here it
             reads as the action you take after reading what the card
             is for. */}
-        <div className={styles.cardAction}>
-          <button
-            type="button"
-            className={admin.primaryButton}
-            onClick={() => setCreating(true)}
-            disabled={pending}
-            data-testid="agent-hub-new"
-          >
-            New agent
-          </button>
-        </div>
+        {readOnly ? null : (
+          <div className={styles.cardAction}>
+            <button
+              type="button"
+              className={admin.primaryButton}
+              onClick={() => setCreating(true)}
+              disabled={pending}
+              data-testid="agent-hub-new"
+            >
+              New agent
+            </button>
+          </div>
+        )}
 
         {visibleCategories.map((category) => {
           const rows = agents
@@ -153,6 +162,7 @@ export function AgentHubEditor({
                     isFirst={i === 0}
                     isLast={i === rows.length - 1}
                     pending={pending}
+                    readOnly={readOnly}
                     run={run}
                     onEdit={() =>
                       setDrawer({ agentId: agent.id, kind: "edit" })
@@ -185,6 +195,7 @@ export function AgentHubEditor({
                 isFirst={i === 0}
                 isLast={i === orphans.length - 1}
                 pending={pending}
+                readOnly={readOnly}
                 run={run}
                 onEdit={() => setDrawer({ agentId: agent.id, kind: "edit" })}
                 onAccess={() =>
@@ -251,6 +262,7 @@ export function AgentHubEditor({
                       ? "1 agent"
                       : `${category.agentCount} agents`}
                   </span>
+                  {readOnly ? null : (
                   <div className={styles.headActions}>
                     <button
                       type="button"
@@ -301,12 +313,15 @@ export function AgentHubEditor({
                       {category.archived ? "Show again" : "Hide"}
                     </button>
                   </div>
+                  )}
                 </div>
               )}
             </li>
           ))}
         </ul>
 
+        {readOnly ? null : (
+        <>
         <div className={styles.addRow}>
           <div className={admin.field}>
             <label className={admin.label} htmlFor="new-category">
@@ -334,6 +349,8 @@ export function AgentHubEditor({
           A category has to be empty before it can be hidden. Move its agents
           somewhere else first.
         </p>
+        </>
+        )}
       </section>
 
       {openAgent && drawer?.kind === "edit" ? (

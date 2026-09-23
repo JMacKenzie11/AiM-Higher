@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
+import { refuseIfNotAuthoringInstance } from "@/lib/instances/primary";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { PRACTICES, type PracticeToolName } from "./registry";
@@ -156,6 +157,8 @@ export async function startDraftAction(
   slug: string
 ): Promise<VersionResult> {
   const session = await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
 
   const { data: agent } = await supabase
@@ -237,6 +240,8 @@ export async function saveDraftAction(
   input: DraftInput
 ): Promise<VersionResult> {
   const session = await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const problem = validate(input);
   if (problem) return { ok: false, message: problem };
 
@@ -264,6 +269,8 @@ export async function publishDraftAction(
   notes: string
 ): Promise<VersionResult> {
   const session = await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const trimmed = notes.trim();
   if (!trimmed) {
     return {
@@ -340,6 +347,8 @@ export async function revertToCodeAction(
   agentRowId: string
 ): Promise<VersionResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
   const { error } = await supabase
     .from("agents")
@@ -355,6 +364,8 @@ export async function discardDraftAction(
   agentRowId: string
 ): Promise<VersionResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
   // The pointer moves; the rows stay. Nothing can delete a version.
   const { error } = await supabase
@@ -401,6 +412,8 @@ export async function startPreviewAction(
   versionId: string
 ): Promise<VersionResult & { conversationId?: string }> {
   const session = await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
 
   const { getEffectiveCompanyId } = await import("@/lib/admin/scope");
@@ -503,6 +516,8 @@ export async function createAgentAction(input: {
   config: DraftInput;
 }): Promise<VersionResult & { agentRowId?: string; slug?: string }> {
   const session = await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
 
   const title = input.title.trim();
   const description = input.description.trim();
@@ -623,6 +638,8 @@ export async function unpublishAgentAction(
   agentRowId: string
 ): Promise<VersionResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
   const { error } = await supabase
     .from("agents")
@@ -648,6 +665,8 @@ export async function deleteAgentAction(
   agentRowId: string
 ): Promise<VersionResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
 
   const { data: agent } = await supabase

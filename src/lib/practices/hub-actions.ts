@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
+import { refuseIfNotAuthoringInstance } from "@/lib/instances/primary";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
@@ -48,6 +49,8 @@ export async function updateAgentIdentityAction(
   fields: { title: string; description: string }
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const title = fields.title.trim();
   const description = fields.description.trim();
   if (!title) return { ok: false, message: "Give the agent a name." };
@@ -84,6 +87,8 @@ export async function moveAgentToCategoryAction(
   categoryId: string
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
 
   const { data: category } = await supabase
@@ -127,6 +132,8 @@ export async function moveAgentAction(
   direction: "up" | "down"
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
 
   const { data: agent } = await supabase
@@ -180,6 +187,8 @@ export async function updateAgentAccessAction(
   }
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
 
   const roles = [...new Set(fields.allowedRoles)];
   for (const role of roles) {
@@ -220,6 +229,8 @@ export async function setAgentArchivedAction(
   archived: boolean
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
   const { error } = await supabase
     .from("agents")
@@ -236,6 +247,8 @@ export async function createHubCategoryAction(
   name: string
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const trimmed = name.trim();
   if (!trimmed) return { ok: false, message: "Give the category a name." };
   if (trimmed.length > 60) {
@@ -277,6 +290,8 @@ export async function renameHubCategoryAction(
   name: string
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const trimmed = name.trim();
   if (!trimmed) return { ok: false, message: "Category name can't be empty." };
   if (trimmed.length > 60) {
@@ -297,6 +312,8 @@ export async function moveHubCategoryAction(
   direction: "up" | "down"
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
   const { data: rows } = await supabase
     .from("agent_categories")
@@ -333,6 +350,8 @@ export async function setHubCategoryArchivedAction(
   archived: boolean
 ): Promise<HubResult> {
   await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
   const supabase = await db();
 
   if (archived) {

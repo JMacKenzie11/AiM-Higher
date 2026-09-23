@@ -117,6 +117,17 @@ permissions quirk to work around: it is authored somewhere else, and
 changes to it come from there. The database refuses local edits
 regardless of what the screen offers.
 
+## When this page has no controls at all
+
+Agents are built and changed in one place, and shared out from
+there. Everywhere else this page is a list: you can see every
+agent, what it does and who can reach it, and there is no *New
+agent*, no *Edit*, no *Access* and no *Config*.
+
+That is not something to fix or ask to have switched on. If an
+agent needs changing for your instance, that change happens where
+the agents are built, and arrives here when it is sent.
+
 ## Unpublishing versus deleting
 
 These are different, and only one of them is usually what you want.
@@ -144,9 +155,6 @@ version it started with for its whole life. Publish while someone
 is mid-chat and they finish on what they started with; their next
 conversation picks up the new one. This is deliberate, and it is
 what makes publishing and reverting safe to press.
-
-**Create a new agent.** New agents are added by the engineering
-team. This page shapes the ones that exist.
 
 ## Common questions
 

@@ -398,6 +398,33 @@ async function main() {
     `  cleared ${(cleared ?? []).length} coaching conversation(s) left by earlier test runs`
   );
 
+  // ---- the clone is an authoring instance --------------------
+  //
+  // 0231 makes the agent tables writable only where is_primary is
+  // true, and it defaults to false so a newly provisioned instance
+  // is read-only before anybody decides anything. The e2e suite
+  // drives the Agent Hub's editing, so the database it drives has to
+  // be one that authors.
+  //
+  // Read back rather than trusted: an update that matches no row
+  // reports exactly the same success as one that lands.
+  const { error: primaryError } = await admin
+    .from("instance_settings")
+    .update({ is_primary: true, updated_at: new Date().toISOString() })
+    .eq("singleton", true);
+  if (primaryError) throw primaryError;
+  const { data: primaryRow } = await admin
+    .from("instance_settings")
+    .select("is_primary")
+    .maybeSingle<{ is_primary: boolean }>();
+  if (primaryRow?.is_primary !== true) {
+    throw new Error(
+      "instance_settings.is_primary did not stick. The Agent Hub specs " +
+        "would fail against a read-only instance."
+    );
+  }
+  console.log("  marked the clone as the authoring instance");
+
   console.log("Done.");
 }
 

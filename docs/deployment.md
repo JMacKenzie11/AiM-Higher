@@ -212,6 +212,38 @@ and `registry.ts` builds names from a row's `env_prefix`, so nothing
 here is a literal `process.env.NAME` the inliner could have seen. It
 relies on the runtime environment being populated, and it is.
 
+## Marking the authoring instance
+
+Migration 0231 gives every database a `instance_settings.is_primary`
+flag that decides whether agents can be authored on it. **It defaults
+to false**, so a freshly provisioned instance is read-only for agents
+the moment its migrations run, with no step to remember.
+
+Exactly one database is ever set to true:
+
+```sh
+npm run instance:primary -- @            # read it, change nothing
+npm run instance:primary -- @ --set      # HQ becomes the authoring instance
+npm run instance:primary -- --dev --set  # the dev clone, for local work and e2e
+```
+
+With no flag it reads and writes nothing, so the safe invocation is
+also the short one. It resolves the database through the control-plane
+registry rather than an env prefix, prints the URL it is about to
+touch, and reads the value back afterwards rather than trusting that
+the update reported success.
+
+**`npm run seed:e2e` sets it on the dev clone itself**, because the
+suite drives the Hub's editing and cannot do that against a reader.
+
+**Nothing needs doing when you provision an instance.** False is the
+default and false is what a client instance should be. The only time
+this command runs is the one-off on HQ, and on the dev clone.
+
+If the Agent Hub ever shows no controls on HQ, this flag is the first
+thing to check — that is exactly the failure this polarity was chosen
+to produce.
+
 ## The window after provisioning, before onboarding
 
 **When you provision the next instance, there is work waiting for that
@@ -244,6 +276,29 @@ fallback is a throwaway provisioned instance, deleted afterwards along
 with its registry row. The two cheaper-looking options — a suspended
 registry row for the dev clone, or pushing by connection string — were
 considered and rejected; §14e says why.
+
+### 2026-09-23: the walk moved to promiseone, deliberately
+
+Jason's call, made with the numbers in front of him rather than in
+spite of them. Waiting for a third instance meant HQ and its client
+drifting further apart with no way to close the gap, so the walk runs
+against `promiseone`.
+
+What makes that acceptable, and what would not have:
+
+- **The push can only add.** All five agents there have **zero**
+  `agent_versions`, a null live pointer and a null draft. There is no
+  published config on that instance for a push to replace. A single
+  version anywhere would have changed this answer, and the adoption
+  rule in §14g refuses exactly that case.
+- **It is reversible.** `retractFromTarget` clears the live pointer,
+  and conversations already running keep answering on the version they
+  started with.
+- **It is read-first.** The dry run is not gated and names every
+  change before the apply runs.
+
+The rest of the walk in the list above still applies, and the gate
+still only flips after it passes.
 
 ### The apply gate
 
