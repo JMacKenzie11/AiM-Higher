@@ -1,4 +1,11 @@
-import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
+import {
+  test,
+  expect,
+  signIn,
+  users,
+  FIXTURE_COMPANY_NAME,
+  chooseRowAction,
+} from "./fixtures";
 import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
@@ -50,10 +57,10 @@ async function scopeIn(page: Page) {
 
 async function openConfig(page: Page, slug: string) {
   await page.goto("/admin/agents");
-  await page
-    .locator(`[data-agent-slug="${slug}"]`)
-    .getByRole("button", { name: /^config$/i })
-    .click();
+  await chooseRowAction(
+    page.locator(`[data-agent-slug="${slug}"]`),
+    /^config$/i
+  );
   const d = panel(page, "agent-config");
   await expect(
     d.getByTestId("agent-config-edit-in-hub").or(d.getByTestId("agent-config-draft-note"))
@@ -114,7 +121,7 @@ test.describe("creating an agent from the Hub", () => {
       // out, which is the half that proves the gate works.
       await c.getByRole("checkbox", { name: /company admin/i }).check();
       await c.getByRole("checkbox", { name: /system admin/i }).check();
-      await c.getByRole("button", { name: /3\. what it says/i }).click();
+      await c.getByRole("button", { name: /3\. what it does/i }).click();
       await c.getByLabel(/^prompt$/i).fill("You are a test agent. Say PHASE3-V1 and stop.");
       await c.getByLabel(/^conversation starters$/i).fill("MADE-V1");
 
@@ -215,7 +222,7 @@ test.describe("creating an agent from the Hub", () => {
     // Slugifies to "ask-better-questions", a registry id.
     await c.getByLabel(/^name$/i).fill("Ask better questions");
     await c.getByLabel(/^description$/i).fill("Should be refused.");
-    await c.getByRole("button", { name: /3\. what it says/i }).click();
+    await c.getByRole("button", { name: /3\. what it does/i }).click();
     await c.getByLabel(/^prompt$/i).fill("Never gets created.");
     await c.getByTestId("agent-create-submit").click();
     await expect(c.getByTestId("agent-create-error")).toContainText(
@@ -232,7 +239,7 @@ test.describe("creating an agent from the Hub", () => {
     const c = panel(page, "agent-create");
     await c.getByLabel(/^name$/i).fill(`E2E No Prompt ${Date.now()}`);
     await c.getByLabel(/^description$/i).fill("Has no prompt.");
-    await c.getByRole("button", { name: /3\. what it says/i }).click();
+    await c.getByRole("button", { name: /3\. what it does/i }).click();
     await expect(c.getByTestId("agent-create-missing")).toContainText(/a prompt/i);
     await expect(c.getByTestId("agent-create-submit")).toBeDisabled();
   });

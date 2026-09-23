@@ -1,4 +1,12 @@
-import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
+import {
+  test,
+  expect,
+  signIn,
+  users,
+  chooseRowAction,
+  openRowMenu,
+  FIXTURE_COMPANY_NAME,
+} from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // The Agent Hub's two write paths, each walked in a browser and each
@@ -72,8 +80,8 @@ async function openDrawer(
   page: Page,
   which: "agent-edit" | "agent-access"
 ): Promise<void> {
-  const button = which === "agent-edit" ? /^edit$/i : /^access$/i;
-  await rowFor(page).getByRole("button", { name: button }).click();
+  const item = which === "agent-edit" ? /^edit$/i : /^access$/i;
+  await chooseRowAction(rowFor(page), item);
   await expect(drawer(page, which)).toBeVisible({ timeout: 15_000 });
 }
 
@@ -148,7 +156,10 @@ test.describe("Agent Hub", () => {
 
     const row = rowFor(page);
     await expect(row).toBeVisible();
-    await expect(row.getByTestId("agent-hub-distribute")).toBeVisible();
+    const menu = await openRowMenu(row, /^actions for /i);
+    await expect(
+      menu.getByRole("menuitem", { name: /^distribute$/i })
+    ).toBeVisible();
   });
 
   test("renames an agent, sees it in the picker, and renames it back", async ({
@@ -179,12 +190,12 @@ test.describe("Agent Hub", () => {
     // halfway through opening a chat — which surfaced as the picker
     // step failing on a URL that made no sense for it.
     //
-    // The row's buttons are disabled for exactly the life of that
-    // transition, so re-enabled is the precise signal, and a better
-    // one than a sleep or networkidle.
-    await expect(
-      rowFor(page).getByRole("button", { name: /^edit$/i })
-    ).toBeEnabled({ timeout: 15_000 });
+    // The row's action menu is disabled for exactly the life of
+    // that transition, so re-enabled is the precise signal, and a
+    // better one than a sleep or networkidle.
+    await expect(rowFor(page).getByTestId("agent-hub-row-menu")).toBeEnabled({
+      timeout: 15_000,
+    });
 
     // The edit has to reach the surface people actually use, not
     // just the screen that made it. This is the whole point of the

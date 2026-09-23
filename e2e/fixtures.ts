@@ -106,9 +106,17 @@ export async function openUserMenu(page: Page): Promise<void> {
 // the point: a previous version of this helper waited on the row and
 // passed while the menu was cut off by an ancestor's overflow, since
 // toBeVisible() is true for a clipped-but-painted element.
-export async function openRowMenu(row: Locator): Promise<Locator> {
+export async function openRowMenu(
+  row: Locator,
+  // The Agent Hub's rows label their trigger "Actions for <agent>"
+  // rather than "More actions", because it is a named button rather
+  // than a three-dot circle. Same menu underneath, same clipping
+  // assertion, so the helper takes the name instead of growing a
+  // second copy.
+  triggerName: RegExp = /more actions/i
+): Promise<Locator> {
   const page = row.page();
-  const trigger = row.getByRole("button", { name: /more actions/i });
+  const trigger = row.getByRole("button", { name: triggerName });
   await expect(trigger).toBeVisible({ timeout: 30_000 });
   const menu = page.getByRole("menu");
   await expect(async () => {
@@ -117,6 +125,20 @@ export async function openRowMenu(row: Locator): Promise<Locator> {
   }).toPass({ timeout: 30_000 });
   await expectMenuNotClipped(menu);
   return menu;
+}
+
+// Open a row's menu and pick one of its items.
+//
+// Every Agent Hub action moved behind a menu, so a spec that used to
+// click "Config" on the row now opens the menu first. One helper so
+// that stays one edit if it moves again.
+export async function chooseRowAction(
+  row: Locator,
+  item: RegExp,
+  triggerName: RegExp = /^actions for /i
+): Promise<void> {
+  const menu = await openRowMenu(row, triggerName);
+  await menu.getByRole("menuitem", { name: item }).click();
 }
 
 // Fails if any part of the menu is covered or clipped away.
