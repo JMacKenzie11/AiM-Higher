@@ -169,8 +169,8 @@ behind it. Close it with **Cancel**, the **✕**, the Escape key, or by
 clicking outside.
 
 The pencil opens that measure's settings in a panel at the side of
-the screen: name, target, value type, direction, how often to update,
-and whether the owner is reminded when it is due. The table stays
+the screen: name, target, value type, direction and how often to
+update. The table stays
 readable behind it. Close it with **Cancel**, the **✕**, the Escape
 key, or by clicking anywhere outside it.
 
@@ -224,14 +224,20 @@ Tuesday, not the weekend: the week closes on Friday, and you have
 through the end of Monday to put last week's numbers in before
 anything is raised. Nothing is created over a weekend.
 
-**No value logged** creates a **commitment** for the person who owns
-the function: *"Log last week's value for [measure]."* Due the coming
-Friday, so there is time to put it right. This is an administrative
-nudge, so it is a commitment.
+**No value logged** shows a **reminder in the notification bell** on
+Friday for the person who leads the function: *"Log this week's
+numbers."* It is a reminder and nothing more — no commitment is
+created, nothing appears on anybody's list, and nothing goes overdue.
 
 You are only asked about a week that has ended, and only when the
 number really is missing. If somebody logged it, or it came in from a
 connected spreadsheet, nobody is chased.
+
+This used to open a commitment instead, *"Log last week's value for
+[measure]"*, due the coming Friday. It was removed on 23 September
+2026: a commitment is a promise somebody made, and one the system
+wrote because a number had not been typed yet sat in the same list as
+the real ones and went red when it passed.
 
 **A value below target** raises an **issue**: *"Off target: [measure]
 (42 vs. target 55)."* Missing a target is a business problem, not an
@@ -243,10 +249,6 @@ You get **one issue per measure**, not one a week. A measure that
 stays below target keeps the same issue open, showing the number from
 when it was first raised. Resolve it and it can be raised again later
 if the measure slips back.
-
-Turn off *remind the owner when this is due* in the measure's edit
-form for numbers you track as context rather than as a target, like
-headcount.
 
 ## Connecting a measure to a spreadsheet
 
@@ -339,10 +341,14 @@ asked for anything:
 
 - the Friday reminder for a measure you lead and have not logged
 - an Issue raised automatically from a below-target value
-- a commitment raised automatically for a value nobody entered
 
-It is off for every company today, so none of those three fire. Turn
-it on in company settings when you want the chasing.
+It is off for every company today, so neither fires. Turn it on in
+company settings when you want the chasing.
+
+There was a third until 23 September 2026 — a commitment raised for a
+value nobody entered. The reminder covers it, without putting a
+promise nobody made on somebody's list. Every measure now gets that
+reminder; there is no longer a per-measure switch to turn it off.
 
 It used to work the other way round: with it off, the week columns
 disappeared and the page became a list you could never record a
@@ -360,8 +366,7 @@ single-measure page asked you to open a whole screen to type one
 number that already had a box on this one.
 
 What still tells you when something is outstanding: the notification
-bell counts what you have left this week, and the Tuesday job opens
-a commitment for anything still missing by the end of Monday.
+bell counts what you have left this week.
 
 ## Common questions
 

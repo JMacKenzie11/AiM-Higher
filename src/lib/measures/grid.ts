@@ -96,7 +96,6 @@ export type GridRow = {
   // The unit this is written in. Storage is always the true number.
   scale: MeasureScale;
   direction: TargetDirection;
-  autoTrack: boolean;
   showOnDashboard: boolean;
   targetHint: string | null;
   cells: GridCell[];
@@ -308,7 +307,6 @@ export function buildGridData(
       valueType: csf.value_type,
       scale: parseScale(csf.value_scale),
       direction: csf.target_direction,
-      autoTrack: csf.auto_track,
       showOnDashboard: csf.show_on_dashboard ?? true,
       targetHint: csf.target_hint,
       cells,

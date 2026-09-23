@@ -19,7 +19,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // One measure can appear in more than one card (e.g., a streak that
 // also hit target this week). That's fine — the story is different.
 //
-// Excludes archived and auto_track=false measures. Numeric only
+// Excludes archived measures. Numeric only
 // (text-value measures like "Yes / No" don't have a trend).
 
 export type MeasureCardItem = {
@@ -83,14 +83,13 @@ export async function getMeasureInsights(
   const { data: measureRows } = await supabase
     .from("success_measures")
     .select(
-      "id, description, target, value_type, target_direction, auto_track, function_id, archived"
+      "id, description, target, value_type, target_direction, function_id, archived"
     )
     .in(
       "function_id",
       functions.map((f) => f.id)
     )
-    .eq("archived", false)
-    .eq("auto_track", true);
+    .eq("archived", false);
   type Measure = {
     id: string;
     description: string;

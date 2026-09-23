@@ -65,7 +65,7 @@ vi.mock("@/lib/supabase/server", () => ({
 // projection widened — nothing selected here goes unread by one
 // consumer or the other.
 const CSF_COLS =
-  "id, description, detail, target, value_type, value_scale, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at, show_on_dashboard";
+  "id, description, detail, target, value_type, value_scale, target_direction, update_frequency, target_hint, function_id, sort_order, created_at, show_on_dashboard";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);

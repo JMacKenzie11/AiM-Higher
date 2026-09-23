@@ -663,10 +663,9 @@ export async function createOutcomeAction(
   );
   // A checkbox absent from the payload is unchecked, and absent from
   // a payload that never carried it is the old default of on. The
-  // hidden companion field tells the two apart.
-  const autoTrack = formData.get("auto_track_present")
-    ? formData.get("auto_track") !== null
-    : true;
+  // hidden companion field tells the two apart. It is named for the
+  // auto_track box it was introduced alongside; that box is gone
+  // (0232) and show_on_dashboard still needs the distinction.
   const showOnDashboard = formData.get("auto_track_present")
     ? formData.get("show_on_dashboard") !== null
     : true;
@@ -681,7 +680,6 @@ export async function createOutcomeAction(
       value_scale: valueScale,
       target_direction: direction,
       update_frequency: updateFrequency,
-      auto_track: autoTrack,
       show_on_dashboard: showOnDashboard,
       ...outcomeFieldsToCsf({ title, description }),
     })
@@ -889,7 +887,6 @@ export async function createMeasureAction(
   const direction = parseTargetDirection(
     String(formData.get("target_direction") ?? "higher_is_better")
   );
-  const autoTrack = formData.get("auto_track") !== null;
   const updateFrequency = parseUpdateFrequency(
     String(formData.get("update_frequency") ?? "weekly")
   );
@@ -947,7 +944,6 @@ export async function createMeasureAction(
       value_type: valueType,
       value_scale: valueScale,
       target_direction: direction,
-      auto_track: autoTrack,
       update_frequency: updateFrequency,
     })
     .select("*")
@@ -1015,7 +1011,6 @@ export async function updateMeasureAction(
   const direction = parseTargetDirection(
     String(formData.get("target_direction") ?? "higher_is_better")
   );
-  const autoTrack = formData.get("auto_track") !== null;
   const showOnDashboard = formData.get("show_on_dashboard") !== null;
   const updateFrequency = parseUpdateFrequency(
     String(formData.get("update_frequency") ?? "weekly")
@@ -1056,7 +1051,6 @@ export async function updateMeasureAction(
       value_type: valueType,
       value_scale: valueScale,
       target_direction: direction,
-      auto_track: autoTrack,
       show_on_dashboard: showOnDashboard,
       update_frequency: updateFrequency,
     })

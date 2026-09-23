@@ -175,7 +175,6 @@ const BLANK_MEASURE = {
   value_scale: "plain",
   target_direction: "higher_is_better" as const,
   update_frequency: "weekly",
-  auto_track: true,
   show_on_dashboard: true,
 };
 
@@ -1429,7 +1428,6 @@ export function MeasuresGrid({
                     value_scale: editingRow.scale,
                     target_direction: editingRow.direction,
                     update_frequency: editingRow.frequency,
-                    auto_track: editingRow.autoTrack,
                     show_on_dashboard: editingRow.showOnDashboard,
                   }
                 : BLANK_MEASURE

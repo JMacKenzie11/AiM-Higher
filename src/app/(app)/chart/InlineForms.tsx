@@ -384,29 +384,6 @@ export function AddMeasureForm({ outcomeId }: { outcomeId: string }) {
         </select>
       </label>
 
-      <label className={`${styles.formField} ${styles.formFieldFull}`}>
-        <span className={styles.formLabel}>
-          <input
-            type="checkbox"
-            name="auto_track"
-            defaultChecked
-            disabled={pending}
-            style={{ marginRight: "8px" }}
-          />
-          Auto-track weekly updates
-        </span>
-        <span
-          style={{
-            fontSize: "12px",
-            color: "var(--text-muted)",
-            marginTop: "2px",
-          }}
-        >
-          Include this measure in the Tuesday check that creates a
-          commitment when the week&rsquo;s value wasn&rsquo;t logged.
-          Turn off for context measures like headcount.
-        </span>
-      </label>
 
       {errorMessage ? (
         <p role="alert" className={styles.errorMessage}>

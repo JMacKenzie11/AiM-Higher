@@ -60,7 +60,6 @@ export type EditableMeasure = {
   value_type: MetricValueType;
   target_direction: TargetDirection;
   update_frequency: string;
-  auto_track: boolean;
   show_on_dashboard: boolean;
 };
 
@@ -229,7 +228,6 @@ export function EditMeasureForm({
       {/* Tells the action that this payload carries the checkbox at
           all, so an unchecked box reads as off rather than as a
           caller that never sent one. */}
-      <input type="hidden" name="auto_track_present" value="1" />
 
       {creating && functionChoices && functionChoices.length > 1 ? (
         <label className={chartStyles.formField}>
@@ -365,24 +363,6 @@ export function EditMeasureForm({
         </select>
       </label>
 
-      <label
-        className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}
-      >
-        <span className={chartStyles.formLabel}>
-          <input
-            type="checkbox"
-            name="auto_track"
-            defaultChecked={measure.auto_track}
-            disabled={pending}
-            style={{ marginRight: "8px" }}
-          />
-          {/* Was "Auto-track weekly updates", which said what the
-              system does rather than what happens to the person
-              reading it, and hard-coded weekly now that frequency
-              is a choice. */}
-          Remind the owner when this is due
-        </span>
-      </label>
 
       <label
         className={`${chartStyles.formField} ${chartStyles.formFieldFull}`}

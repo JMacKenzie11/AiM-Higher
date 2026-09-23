@@ -2,7 +2,7 @@ import "server-only";
 
 import { NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fridayOf, lastFriday, thisFriday } from "@/lib/dates";
+import { fridayOf, lastFriday } from "@/lib/dates";
 import type {
   MetricValueType,
   TargetDirection,
@@ -139,36 +139,30 @@ export async function POST(req: NextRequest): Promise<Response> {
         };
       });
 
-      let createdMissing = 0;
       let createdOffTarget = 0;
       const perCompany: Array<{
         companyId: string;
-        createdMissing: number;
         createdOffTarget: number;
       }> = [];
 
       for (const company of companies) {
         const result = await runForCompany(admin, company.id, company.timezone);
-        createdMissing += result.createdMissing;
         createdOffTarget += result.createdOffTarget;
         perCompany.push({
           companyId: company.id,
-          createdMissing: result.createdMissing,
           createdOffTarget: result.createdOffTarget,
         });
       }
 
       return {
         companies: companies.length,
-        createdMissing,
         createdOffTarget,
-        totalCreated: createdMissing + createdOffTarget,
+        totalCreated: createdOffTarget,
         perCompany,
       };
     },
     line: (r) =>
-      `${r.companies} companies, ${r.createdMissing} log reminders, ` +
-      `${r.createdOffTarget} off-target issues`,
+      `${r.companies} companies, ${r.createdOffTarget} off-target issues`,
   });
 
   return Response.json(summary, { status: summary.ok ? 200 : 500 });
@@ -180,45 +174,37 @@ async function runForCompany(
   admin: SupabaseClient,
   companyId: string,
   timezone: string
-): Promise<{ createdMissing: number; createdOffTarget: number }> {
-  // The week that just closed. Both branches below judge it: its
-  // numbers are final and "did anybody log this" has a real answer.
+): Promise<{ createdOffTarget: number }> {
+  // The week that just closed: its numbers are final, so "is this
+  // under target" has an answer that will not change.
   const weekJustClosed = lastFriday(timezone);
-  // The commitment is ABOUT last week and DUE this Friday. Pointing
-  // the due date at the closed week too would create every nudge
-  // already overdue, which is accurate and useless: there is nothing
-  // a person can do about a date that has passed except carry a red
-  // row around.
-  const dueDate = thisFriday(timezone);
 
+  // Functions, only to scope the measures below to this company.
+  // The lead and the title went with the commitments — a lead was
+  // who the nudge was assigned TO, and nothing here is assigned to
+  // anybody now.
   const { data: fnRows } = await admin
     .from("functions")
-    .select("id, title, lead_id")
+    .select("id")
     .eq("company_id", companyId)
     .eq("archived", false);
-  const functions = (fnRows ?? []) as Array<{
-    id: string;
-    title: string;
-    lead_id: string | null;
-  }>;
+  const functions = (fnRows ?? []) as Array<{ id: string }>;
   if (functions.length === 0) {
-    return { createdMissing: 0, createdOffTarget: 0 };
+    return { createdOffTarget: 0 };
   }
-  const fnById = new Map(functions.map((f) => [f.id, f]));
 
   // Measures by function (migration 0166). Both kinds: a CSF with a
   // target and reminders on is chased like any other measure.
   const { data: measureRows } = await admin
     .from("success_measures")
     .select(
-      "id, description, function_id, target, value_type, target_direction, update_frequency, created_at, auto_track, archived"
+      "id, description, function_id, target, value_type, target_direction, update_frequency, created_at, archived"
     )
     .in(
       "function_id",
       functions.map((f) => f.id)
     )
-    .eq("archived", false)
-    .eq("auto_track", true);
+    .eq("archived", false);
   const measures = (measureRows ?? []) as Array<{
     id: string;
     description: string;
@@ -230,7 +216,7 @@ async function runForCompany(
     created_at: string;
   }>;
   if (measures.length === 0) {
-    return { createdMissing: 0, createdOffTarget: 0 };
+    return { createdOffTarget: 0 };
   }
 
   // Only chase a measure on a Friday it is actually expected to
@@ -245,7 +231,7 @@ async function runForCompany(
     })
   );
   if (due.length === 0) {
-    return { createdMissing: 0, createdOffTarget: 0 };
+    return { createdOffTarget: 0 };
   }
 
   // Entries for the just-closed week (missing + values in one query).
@@ -267,17 +253,39 @@ async function runForCompany(
     }>).map((e) => [e.measure_id, e])
   );
 
-  // Missing values become commitments; under-target values become
-  // issues. A measure with no target can be missing but can never be
-  // off target, which is what keeps an untargeted CSF quiet.
-  const missing: typeof due = [];
+  // ---- A MISSING VALUE IS A REMINDER, NOT A COMMITMENT --------
+  //
+  // This used to open a "Log last week's value for X" commitment on
+  // the function's lead for every measure with no entry. It is gone.
+  //
+  // Why: a commitment is a promise somebody made. One the system
+  // wrote on your behalf because you had not typed a number yet is
+  // not that, and it arrived in the same list as the promises you
+  // did make, with a due date and a red row when it passed. The
+  // nudge belongs in the notification tray, which already has a
+  // Friday "Log this week's numbers" item aimed at the same person.
+  //
+  // This was already known. Migration 0166 set auto_track FALSE on
+  // every CSF it migrated, and said why: "Defaulting migrated CSFs
+  // to true would hand every function leader a pile of new
+  // commitments the moment the cron is restored." The fix there was
+  // to silence 76 of 89 measures one at a time. Removing the
+  // behaviour is the fix that does not need repeating.
+  //
+  // It also takes a bug with it. The dedupe pool was read once
+  // before the loop, so it caught a repeat from LAST week and not
+  // two measures sharing a description in THIS batch. Three measures
+  // called "# Zero Lost Time Incidents" produced three identical
+  // commitments in one run, on one real company, every week the
+  // feature was on.
+  //
+  // An under-target value still raises an Issue. That is a thing to
+  // discuss, not a reminder to type something.
   const offTarget: Array<(typeof due)[number]> = [];
   for (const m of due) {
     const entry = entryByMeasure.get(m.id);
-    if (!entry) {
-      missing.push(m);
-      continue;
-    }
+    // No entry is no longer this job's business. The tray asks.
+    if (!entry) continue;
     if (
       isOffTarget(m, { number: entry.value_number, text: entry.value_text })
     ) {
@@ -285,59 +293,7 @@ async function runForCompany(
     }
   }
 
-  if (missing.length === 0 && offTarget.length === 0) {
-    return { createdMissing: 0, createdOffTarget: 0 };
-  }
-
-  // Dedupe pool for the missing-value commitments only. Off-target
-  // now writes issues, which dedupe themselves inside
-  // raiseOffTargetIssue against any open issue with the same title.
-  const { data: existingRows } = await admin
-    .from("commitments")
-    .select("description, week_ending")
-    .eq("company_id", companyId)
-    .eq("week_ending", weekJustClosed);
-  const existingKeys = new Set(
-    ((existingRows ?? []) as Array<{
-      description: string;
-      week_ending: string;
-    }>).map((r) => `${r.week_ending}::${r.description}`)
-  );
-
-  const rowsToInsert: Array<{
-    company_id: string;
-    priority_id: null;
-    functional_area_id: string | null;
-    owner_id: string | null;
-    description: string;
-    week_ending: string;
-    due_date: string;
-    status: "open";
-    source_meeting_id: null;
-  }> = [];
-  let plannedMissing = 0;
-
-  for (const m of missing) {
-    const fn = m.function_id ? fnById.get(m.function_id) : null;
-    const description = `Log last week's value for "${m.description}"`;
-    if (existingKeys.has(`${weekJustClosed}::${description}`)) continue;
-    rowsToInsert.push({
-      company_id: companyId,
-      priority_id: null,
-      // Auto-created nudge commitments carry the function that owns
-      // the measure as their functional area link, so they show up
-      // on the company /commitments page under the correct lane and
-      // roll up to the right seat in weekly-review views.
-      functional_area_id: m.function_id ?? null,
-      owner_id: fn?.lead_id ?? null,
-      description,
-      week_ending: weekJustClosed,
-      due_date: dueDate,
-      status: "open",
-      source_meeting_id: null,
-    });
-    plannedMissing += 1;
-  }
+  if (offTarget.length === 0) return { createdOffTarget: 0 };
 
   // Off target raises issues, one call per measure, through the same
   // function an integration will call. Sequential rather than
@@ -357,16 +313,5 @@ async function runForCompany(
     if (result.raised) createdOffTarget += 1;
   }
 
-  if (rowsToInsert.length === 0) {
-    return { createdMissing: 0, createdOffTarget };
-  }
-
-  const { data: inserted } = await admin
-    .from("commitments")
-    .insert(rowsToInsert)
-    .select("id");
-  return {
-    createdMissing: (inserted ?? []).length,
-    createdOffTarget,
-  };
+  return { createdOffTarget };
 }

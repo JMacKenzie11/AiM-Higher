@@ -13,9 +13,10 @@ import { clampScore, type DisciplineScore } from "../types";
 //   - % of active measures with a target set    → 3 pts
 //   - % of active measures with an entry in the
 //     last 7 days                                → 5 pts
-//   - Any measure marked auto_track that has NO
-//     entry in the last 7 days is a broken commitment to weekly
-//     logging — dock 0.5 pts per gap, cap at 2   → up to 2 pt penalty
+// There was a third rule, removed 2026-09-23 with the auto_track
+// column it read: a penalty of 0.5 per unlogged auto_track measure,
+// capped at 2. Every measure it charged for had already lost its
+// share of the 5 cadence points, so it billed the same gap twice.
 // Cadence dominates by design: a target that's never logged tells us
 // nothing about how the business is actually doing.
 
@@ -40,7 +41,6 @@ export async function scoreMeasures(
         totalMeasures: 0,
         withTarget: 0,
         withRecentEntry: 0,
-        autoTrackGaps: 0,
       },
     };
   }
@@ -55,17 +55,27 @@ export async function scoreMeasures(
   // history. That is the score being honest about work not yet done,
   // not a regression. It recovers as leaders set targets and log.
   //
-  // Migrated CSFs carry auto_track = false, so they lower the target
-  // and cadence shares but never trigger the missed-logging penalty.
+  // THE MISSED-LOGGING PENALTY IS GONE, with the flag it read.
+  //
+  // It subtracted up to 2 points for measures marked auto_track with
+  // no recent entry. Migration 0232 drops that column, and applying
+  // the penalty to every measure instead would double-count: a
+  // measure with no recent entry has ALREADY cost the company its
+  // share of cadencePct, which is worth 5 points. Charging it twice
+  // says nothing new and makes the score harder to reason about.
+  //
+  // Consequence, stated rather than discovered: a company carrying
+  // gaps scores UP TO 2 POINTS HIGHER from the first recompute after
+  // this ships. Nothing about the company changed; the double charge
+  // stopped.
   const { data: measureRows } = await admin
     .from("success_measures")
-    .select("id, target, auto_track")
+    .select("id, target")
     .in("function_id", fnIds)
     .eq("archived", false);
   const measures = (measureRows ?? []) as Array<{
     id: string;
     target: string | null;
-    auto_track: boolean;
   }>;
   const total = measures.length;
   if (total === 0) {
@@ -76,7 +86,6 @@ export async function scoreMeasures(
         totalMeasures: 0,
         withTarget: 0,
         withRecentEntry: 0,
-        autoTrackGaps: 0,
       },
     };
   }
@@ -102,15 +111,11 @@ export async function scoreMeasures(
   );
 
   const withRecentEntry = measuresWithRecent.size;
-  const autoTrackGaps = measures.filter(
-    (m) => m.auto_track && !measuresWithRecent.has(m.id)
-  ).length;
 
   const targetPct = withTarget / total;
   const cadencePct = withRecentEntry / total;
 
-  const points =
-    targetPct * 3 + cadencePct * 5 - Math.min(2, autoTrackGaps * 0.5);
+  const points = targetPct * 3 + cadencePct * 5;
 
   return {
     key: "measures",
@@ -119,7 +124,6 @@ export async function scoreMeasures(
       totalMeasures: total,
       withTarget,
       withRecentEntry,
-      autoTrackGaps,
       targetPct: Math.round(targetPct * 100),
       cadencePct: Math.round(cadencePct * 100),
     },

@@ -253,15 +253,21 @@ describe("the external-source controls are reachable", () => {
 // made; landing the storage on its own means a later change reads
 // data people have curated rather than a column full of defaults.
 describe("show on company dashboard", () => {
-  it("is on the settings panel, under the reminder", () => {
+  it("is on the settings panel, under the cadence", () => {
+    // This used to assert it sat below the auto_track checkbox.
+    // That checkbox went with migration 0232, and indexOf returned
+    // -1 for it, so the case kept passing while asserting that
+    // show_on_dashboard came after nothing — the same field twice.
+    // Anchored to a control that still exists.
     const form = readFileSync(
       join(process.cwd(), "src/app/(app)/measures/EditMeasureForm.tsx"),
       "utf8"
     );
-    const reminder = form.indexOf('name="auto_track"');
+    const frequency = form.indexOf('name="update_frequency"');
     const dash = form.indexOf('name="show_on_dashboard"');
+    expect(frequency).toBeGreaterThan(-1);
     expect(dash).toBeGreaterThan(-1);
-    expect(dash).toBeGreaterThan(reminder);
+    expect(dash).toBeGreaterThan(frequency);
   });
 
   it("defaults to on, so nothing that reads it later blanks a card", () => {

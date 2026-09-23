@@ -487,7 +487,6 @@ export type SuccessMeasure = {
   target_direction: TargetDirection;
   // Opt-out for context measures (headcount, cash on hand) that are
   // worth tracking but shouldn't fire "you didn't update" commitments.
-  auto_track: boolean;
   update_frequency: UpdateFrequency;
   // Where this measure's weekly value comes from when it is not
   // typed. Null for an ordinary measure. Shape is checked by the

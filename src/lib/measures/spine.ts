@@ -95,7 +95,6 @@ export type SpineCsf = {
   // the true number; see measures/value-format.ts.
   value_scale: MeasureScale;
   target_direction: TargetDirection;
-  auto_track: boolean;
   update_frequency: UpdateFrequency;
   target_hint: string | null;
   function_id: string;
@@ -139,7 +138,7 @@ export type MeasuresSpine = {
 const FUNCTION_COLS =
   "id, title, sort_order, parent_function_id, lead_id, track_id";
 const CSF_COLS =
-  "id, description, detail, target, value_type, value_scale, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at, show_on_dashboard";
+  "id, description, detail, target, value_type, value_scale, target_direction, update_frequency, target_hint, function_id, sort_order, created_at, show_on_dashboard";
 const ENTRY_COLS = "measure_id, week_ending, value_number, value_text";
 const TARGET_COLS =
   "measure_id, target, value_type, value_scale, target_direction, effective_from";

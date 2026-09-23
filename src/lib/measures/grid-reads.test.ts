@@ -87,7 +87,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 // Column lists the loader uses, so fixtures can be keyed exactly.
 const CSF_COLS =
-  "id, description, detail, target, value_type, value_scale, target_direction, auto_track, update_frequency, target_hint, function_id, sort_order, created_at, show_on_dashboard";
+  "id, description, detail, target, value_type, value_scale, target_direction, update_frequency, target_hint, function_id, sort_order, created_at, show_on_dashboard";
 
 function seed(table: string, value: unknown[]) {
   mocks.rows.set(table, value);
@@ -133,7 +133,6 @@ function outcome(
     target: null,
     value_type: "number",
     target_direction: "higher_is_better",
-    auto_track: false,
     update_frequency: "weekly",
     target_hint: null,
     // Anchors the frequency rhythm. Old enough that every week in
@@ -161,7 +160,6 @@ function measure(
     target: null,
     value_type: "number",
     target_direction: "higher_is_better",
-    auto_track: true,
     update_frequency: "weekly",
     target_hint: null,
     function_id: "f_1",

@@ -390,9 +390,6 @@ function evidenceLines(
             `${n("totalMeasures")} active measures`,
             `${n("targetPct")}% have a target set`,
             `${n("cadencePct")}% logged in the last 7 days`,
-            n("autoTrackGaps") > 0
-              ? `${n("autoTrackGaps")} auto-track measures missing this week`
-              : "All auto-track measures logged",
           ];
     case "meetings":
       return [
