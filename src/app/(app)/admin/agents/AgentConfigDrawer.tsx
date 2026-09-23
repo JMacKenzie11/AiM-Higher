@@ -10,10 +10,13 @@ import {
   promptDiff,
   type ConfigShape,
 } from "@/lib/practices/config-diff";
+import { audienceSentence } from "@/lib/practices/audience";
 import type { AgentConfigView, AgentVersionDetail } from "@/lib/practices/version-service";
 import {
+  deleteAgentAction,
   discardDraftAction,
   loadAgentConfigAction,
+  unpublishAgentAction,
   publishDraftAction,
   revertToCodeAction,
   saveDraftAction,
@@ -70,6 +73,15 @@ type Props = {
   agentRowId: string;
   slug: string;
   title: string;
+  // Phase 3: an agent with no code behind it gets Unpublish and
+  // (while it has never been published) Delete, instead of "revert
+  // to code default" — there is no code to revert to.
+  hasRegistryEntry: boolean;
+  access: {
+    allowedRoles: string[];
+    accessPredicates: string[];
+    feature: string | null;
+  };
   pending: boolean;
   onClose: () => void;
 };
@@ -93,6 +105,8 @@ export function AgentConfigDrawer({
   agentRowId,
   slug,
   title,
+  hasRegistryEntry,
+  access,
   pending,
   onClose,
 }: Props) {
@@ -166,6 +180,7 @@ export function AgentConfigDrawer({
   const [publishing, setPublishing] = useState<string | null>(null);
   // Which history entry is showing its diff against what is live.
   const [diffing, setDiffing] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<"unpublish" | "delete" | null>(null);
 
   // The draft form. Seeded once; the drawer unmounts on close, so
   // reopening re-seeds from whatever was saved.
@@ -219,14 +234,27 @@ export function AgentConfigDrawer({
 
   const baselineLabel = config?.live
     ? `version ${config.live.versionNumber}, which is live now`
-    : "the code default";
+    : config?.registry
+      ? "the code default"
+      : // A net-new agent's first publish has nothing to compare
+        // against: no live version and no code entry. The panel
+        // renders the whole config instead of a diff, which is the
+        // honest thing to show somebody about to publish it.
+        "nothing yet — this is the first version";
 
   const sourceLine = !config
     ? "Loading…"
     : config.liveSource === "version" && config.live
       ? `Running version ${config.live.versionNumber}` +
-        (config.live.publishedByName ? `, published by ${config.live.publishedByName}` : "")
-      : "Running the code default. Nothing has been published for this agent.";
+        (config.live.publishedByName
+          ? `, published by ${config.live.publishedByName}`
+          : "")
+      : hasRegistryEntry
+        ? "Running the code default. Nothing has been published for this agent."
+        : // A Hub-built agent has no code default to fall back to,
+          // so saying it is "running" one would be false. It is
+          // simply not published, and nobody can see it.
+          "Not published. Only system admins can see this agent, and no conversation can start on it.";
 
   return (
     <Drawer
@@ -277,6 +305,80 @@ export function AgentConfigDrawer({
         <p className={styles.configSource} data-testid="agent-config-source">
           {sourceLine}
         </p>
+        {confirm === "unpublish" ? (
+          <div className={admin.warningMessage} data-testid="agent-config-confirm-unpublish">
+            <p>
+              Unpublishing takes this agent out of every picker and stops any
+              new conversation starting on it. Conversations already running
+              carry on exactly as they are, on the version they started with.
+              You can publish it again at any time.
+            </p>
+            <div className={styles.headActions}>
+              <button
+                type="button"
+                className={admin.dangerButton}
+                disabled={busy}
+                data-testid="agent-config-confirm-unpublish-accept"
+                onClick={() =>
+                  void act(async () => {
+                    const r = await unpublishAgentAction(agentRowId);
+                    if (r.ok) setConfirm(null);
+                    return r;
+                  })
+                }
+              >
+                Unpublish
+              </button>
+              <button
+                type="button"
+                className={admin.ghostButton}
+                onClick={() => setConfirm(null)}
+                disabled={busy}
+              >
+                Keep it published
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {confirm === "delete" ? (
+          <div className={admin.warningMessage} data-testid="agent-config-confirm-delete">
+            <p>
+              Deleting removes this agent and every draft of it for good.
+              That is only possible because it has never been published, so
+              no conversation has ever run on it. Once an agent has been
+              published it can only be unpublished or hidden: the record has
+              to stay, or the conversations that used it would lose their
+              name and their wording.
+            </p>
+            <div className={styles.headActions}>
+              <button
+                type="button"
+                className={admin.dangerButton}
+                disabled={busy}
+                data-testid="agent-config-confirm-delete-accept"
+                onClick={() =>
+                  void act(async () => {
+                    const r = await deleteAgentAction(agentRowId);
+                    if (r.ok) onClose();
+                    return r;
+                  })
+                }
+              >
+                Delete for good
+              </button>
+              <button
+                type="button"
+                className={admin.ghostButton}
+                onClick={() => setConfirm(null)}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {loadError ? (
           <p className={admin.errorMessage} role="status">
             {loadError}
@@ -304,9 +406,9 @@ export function AgentConfigDrawer({
         {view === "config" && config && !draft ? (
           <>
             <p className={admin.fieldHint}>
-              This agent&rsquo;s wording is set in the code. Editing it here
-              copies that into a draft. Nothing changes for anyone until you
-              publish.
+              {hasRegistryEntry
+                ? "This agent's wording is set in the code. Editing it here copies that into a draft. Nothing changes for anyone until you publish."
+                : "This agent was built here. Editing starts a new draft from the version that is live now. Nothing changes for anyone until you publish."}
             </p>
             <pre className={styles.promptPreview}>
               {config.live?.prompt ?? config.registry?.prompt ?? ""}
@@ -323,16 +425,38 @@ export function AgentConfigDrawer({
               >
                 Edit in Hub
               </button>
-              {config.liveSource === "version" && config.registry ? (
+              {hasRegistryEntry && config.liveSource === "version" ? (
                 <button
                   type="button"
                   className={admin.dangerGhost}
                   disabled={pending || busy}
-                  onClick={() =>
-                    void act(() => revertToCodeAction(agentRowId))
-                  }
+                  onClick={() => void act(() => revertToCodeAction(agentRowId))}
                 >
                   Revert to code default
+                </button>
+              ) : null}
+
+              {!hasRegistryEntry && config.liveSource === "version" ? (
+                <button
+                  type="button"
+                  className={admin.dangerGhost}
+                  disabled={pending || busy}
+                  data-testid="agent-config-unpublish"
+                  onClick={() => setConfirm("unpublish")}
+                >
+                  Unpublish
+                </button>
+              ) : null}
+
+              {!hasRegistryEntry && !config.everPublished ? (
+                <button
+                  type="button"
+                  className={admin.dangerGhost}
+                  disabled={pending || busy}
+                  data-testid="agent-config-delete"
+                  onClick={() => setConfirm("delete")}
+                >
+                  Delete
                 </button>
               ) : null}
             </div>
@@ -595,26 +719,55 @@ export function AgentConfigDrawer({
         ) : null}
 
         {/* ---- publish: the diff, then the notes ---- */}
-        {view === "publish" && draft && form && baseline ? (
+        {view === "publish" && draft && form ? (
           <div data-testid="agent-config-diff">
             <p className={admin.fieldHint}>
-              Comparing this draft against {baselineLabel}.
+              {baseline
+                ? `Comparing this draft against ${baselineLabel}.`
+                : "This is the first version of this agent, so there is nothing to compare it against. The whole configuration is below."}
             </p>
 
-            {fieldChanges(baseline, form).length === 0 &&
+            {baseline &&
+            fieldChanges(baseline, form).length === 0 &&
             baseline.prompt === form.prompt ? (
               <p className={admin.emptyLine}>
                 Nothing has changed against {baselineLabel}.
               </p>
             ) : null}
 
-            {fieldChanges(baseline, form).map((c) => (
-              <p key={c.label} className={styles.diffField}>
-                <strong>{c.label}</strong>: {c.before} → {c.after}
-              </p>
-            ))}
+            {baseline
+              ? fieldChanges(baseline, form).map((c) => (
+                  <p key={c.label} className={styles.diffField}>
+                    <strong>{c.label}</strong>: {c.before} → {c.after}
+                  </p>
+                ))
+              : null}
 
-            {baseline.prompt !== form.prompt ? (
+            {!baseline ? (
+              <>
+                <p className={styles.diffField}>
+                  <strong>Conversation starters</strong>:{" "}
+                  {form.chips.length ? form.chips.join(", ") : "none"}
+                </p>
+                <p className={styles.diffField}>
+                  <strong>Base prompt</strong>: {form.basePromptMode}
+                </p>
+                <p className={styles.diffField}>
+                  <strong>Model</strong>: {form.model ?? "platform default"}
+                </p>
+                <p className={styles.diffField}>
+                  <strong>Token ceiling</strong>:{" "}
+                  {form.maxTokens ?? "route default"}
+                </p>
+                <p className={styles.diffField}>
+                  <strong>What it can look up</strong>:{" "}
+                  {form.tools.length ? form.tools.join(", ") : "nothing"}
+                </p>
+                <pre className={styles.diffPrompt}>{form.prompt}</pre>
+              </>
+            ) : null}
+
+            {baseline && baseline.prompt !== form.prompt ? (
               <pre className={styles.diffPrompt}>
                 {collapseUnchanged(promptDiff(baseline.prompt, form.prompt)).map(
                   (l, i) => (
@@ -644,6 +797,13 @@ export function AgentConfigDrawer({
                 )}
               </pre>
             ) : null}
+
+            <p
+              className={styles.configSource}
+              data-testid="agent-config-audience"
+            >
+              {audienceSentence(access)}
+            </p>
 
             <div className={admin.field}>
               <label className={admin.label} htmlFor="cfg-notes">

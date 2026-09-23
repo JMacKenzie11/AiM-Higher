@@ -14,6 +14,7 @@ import { AgentRow } from "./AgentRow";
 import { AgentEditDrawer } from "./AgentEditDrawer";
 import { AgentAccessDrawer } from "./AgentAccessDrawer";
 import { AgentConfigDrawer } from "./AgentConfigDrawer";
+import { AgentCreateDrawer } from "./AgentCreateDrawer";
 import admin from "../companies/admin.module.css";
 import styles from "./hub.module.css";
 
@@ -40,6 +41,7 @@ export function AgentHubEditor({
     agentId: string;
     kind: "edit" | "access" | "config";
   } | null>(null);
+  const [creating, setCreating] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
@@ -111,7 +113,18 @@ export function AgentHubEditor({
       ) : null}
 
       <section className={admin.card} data-testid="agent-hub-agents">
-        <h2 className={`${admin.h2} ${styles.cardTitle}`}>Agents</h2>
+        <div className={styles.categoryHead}>
+          <h2 className={`${admin.h2} ${styles.cardTitle}`}>Agents</h2>
+          <button
+            type="button"
+            className={admin.primaryButton}
+            onClick={() => setCreating(true)}
+            disabled={pending}
+            data-testid="agent-hub-new"
+          >
+            New agent
+          </button>
+        </div>
         <p className={admin.fieldHint}>
           Edit changes the name, description and category. Access chooses who
           can reach it. Hide takes it off the list people pick from, and leaves
@@ -331,12 +344,25 @@ export function AgentHubEditor({
         />
       ) : null}
 
+      {creating ? (
+        <AgentCreateDrawer
+          categories={visibleCategories}
+          onClose={() => setCreating(false)}
+        />
+      ) : null}
+
       {openAgent && drawer?.kind === "config" ? (
         <AgentConfigDrawer
           key={openAgent.id}
           agentRowId={openAgent.id}
           slug={openAgent.slug}
           title={openAgent.title}
+          hasRegistryEntry={openAgent.hasRegistryEntry}
+          access={{
+            allowedRoles: openAgent.allowedRoles,
+            accessPredicates: openAgent.accessPredicates,
+            feature: openAgent.feature,
+          }}
           pending={pending}
           onClose={() => setDrawer(null)}
         />

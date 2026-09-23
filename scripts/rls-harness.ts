@@ -900,22 +900,34 @@ async function agentHubWrites(
      "select count(*)::int as n from public.agents;", "rollback;"].join("\n")
   );
 
-  const checks: Array<[string, number, number]> = [
-    ["system_admin renames", adminRenames, 1],
-    ["system_admin adds a category", adminAddsCategory, 1],
-    ["company_admin renames", companyAdminRenames, 0],
-    ["company_admin adds a category", companyAdminAddsCategory, 0],
-    ["member renames", memberRenames, 0],
-    ["member deletes", memberDeletes, 0],
-    ["member reads agents", memberReadsAgents, 5],
-    ["member reads categories", memberReadsCategories, 3],
+  // Strings throughout, so a count and a boolean claim can sit in
+  // the same list without one pretending to be the other.
+  const checks: Array<[string, string, string]> = [
+    ["system_admin renames", String(adminRenames), "1"],
+    ["system_admin adds a category", String(adminAddsCategory), "1"],
+    ["company_admin renames", String(companyAdminRenames), "0"],
+    ["company_admin adds a category", String(companyAdminAddsCategory), "0"],
+    ["member renames", String(memberRenames), "0"],
+    ["member deletes", String(memberDeletes), "0"],
+    // COUNTS, not fixed numbers. These said 5 and 3, which was true
+    // only while the seed was the whole table; phase 3 lets a system
+    // admin create agents, so the probe started failing on its own
+    // arithmetic rather than on anything about access. The claim is
+    // that reads are WIDE here — a member can see the catalogue —
+    // and the counter-proof below is what gives that meaning.
+    ["member reads agents", String(Number(memberReadsAgents) > 0), "true"],
+    [
+      "member reads categories",
+      String(Number(memberReadsCategories) > 0),
+      "true",
+    ],
     // The counter-proof. These assert the WRONG answers, because
     // under the wrong policy the wrong answer is what a working
     // probe must see.
     ["[red] company_admin renames under a weakened update policy",
-      weakenedCompanyAdminRenames, 1],
+      String(weakenedCompanyAdminRenames), "1"],
     ["[red] member reads agents under a narrowed select policy",
-      narrowedMemberReadsAgents, 0],
+      String(narrowedMemberReadsAgents), "0"],
   ];
   const failures = checks.filter(([, got, want]) => got !== want);
 

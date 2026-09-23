@@ -59,7 +59,52 @@ There is no per-company copy of an agent.
     - **Revert to code default** goes back to the version set in
       the code.
 
+## Creating an agent
+
+**New agent** at the top of the Agents card opens a three-step
+form: what it is called, who can reach it, and what it says.
+Creating saves it as a **draft**, which nobody but a system admin
+can see. It does not exist for anyone else until you publish it.
+
+Before you can publish a new agent it needs a name, a description,
+a category and a prompt. Everything else has a sensible default.
+
+**Preview it before you publish.** The Config panel has a Preview
+button that opens a real conversation running your draft, visible
+only to you and left out of every usage report. It is the only way
+to find out what the agent actually does before a client meets it.
+
+The publish screen shows a sentence saying who will be able to see
+the agent, worked out from the access settings you chose. Read it.
+It is the difference between a new agent going to one role and
+going to everybody in every company.
+
+**An agent's id never changes.** It is made from the name you first
+give it, and every conversation ever run on the agent is filed
+under it, so renaming the agent later changes what people see and
+not what it is called underneath.
+
+## Unpublishing versus deleting
+
+These are different, and only one of them is usually what you want.
+
+**Unpublish** takes the agent out of every picker. No new
+conversation can start on it, and conversations already running
+carry on exactly as they are, on the version they started with. You
+can publish it again whenever you like. This is the safe one, and
+it is what to use for an agent that is not working out.
+
+**Delete** removes the agent and its drafts for good, and is only
+offered while an agent has **never been published**. Once an agent
+has been published, conversations may have run on it, and those
+conversations need its record to keep their name and their wording.
+So a published agent can be unpublished or hidden, never deleted.
+Nothing is lost by that: an unpublished agent is invisible to
+everyone.
+
 ## What you cannot do here
+
+**Delete a published agent.** See above. Unpublish it instead.
 
 **Change an agent mid-conversation.** A conversation keeps the
 version it started with for its whole life. Publish while someone
