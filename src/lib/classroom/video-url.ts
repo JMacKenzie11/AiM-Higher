@@ -72,6 +72,29 @@ export function parseVideoUrl(input: string): ParsedVideoUrl | null {
 //   YouTube: img.youtube.com/vi/<id>/hqdefault.jpg
 //   Vimeo:   vumbnail.com/<id>.jpg (community mirror of Vimeo's
 //            oEmbed thumbnails; no auth, ~200ms typical latency)
+// Vimeo's oEmbed answers 295x166 unless asked otherwise, and nodes
+// stored before we started asking carry that small URL. Stretched to
+// the ~1400px lesson frame it is visibly soft.
+//
+// The size is a suffix on the CDN URL, so it can be rewritten in
+// place. The un-constructible part of that URL is the content digest
+// before it, which a stored poster already holds. Measured, not
+// assumed: rewriting the suffix returns the same bytes as asking
+// oEmbed for width=1280 — 1280x720, 43,333 bytes, against the same
+// 6,949 byte 295x166 original.
+//
+// Doing it here rather than in a migration means an existing node is
+// fixed on the next render, with no network call and nothing to
+// rewrite in the document. Anything that is not a Vimeo CDN poster
+// is returned untouched.
+const VIMEO_POSTER_SIZE = /^(https:\/\/[^/]*\.vimeocdn\.com\/.*)-d_\d+(?:x\d+)?(\?.*)?$/;
+
+export function upscaleVimeoPoster(url: string): string {
+  const match = VIMEO_POSTER_SIZE.exec(url);
+  if (!match) return url;
+  return `${match[1]}-d_1280${match[2] ?? ""}`;
+}
+
 // A poster for a video.
 //
 // `stored` is the URL resolved from the provider's oEmbed at insert
@@ -89,7 +112,7 @@ export function thumbnailUrl(
   videoId: string,
   stored?: string | null
 ): string {
-  if (stored) return stored;
+  if (stored) return upscaleVimeoPoster(stored);
   if (provider === "youtube") {
     return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   }

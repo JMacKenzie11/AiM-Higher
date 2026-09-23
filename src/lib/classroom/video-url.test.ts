@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseVideoUrl, thumbnailUrl, embedUrl } from "./video-url";
+import {
+  parseVideoUrl,
+  thumbnailUrl,
+  embedUrl,
+  upscaleVimeoPoster,
+} from "./video-url";
 
 // Tests for the classroom video URL parser. The editor's paste
 // handler and the "Insert video" toolbar action both rely on this
@@ -155,6 +160,41 @@ describe("unlisted Vimeo URLs carry their privacy hash", () => {
     expect(embedUrl("vimeo", "123456789", null)).toBe(
       "https://player.vimeo.com/video/123456789?autoplay=1"
     );
+  });
+
+  it("upscales a stored poster that was resolved at the default size", () => {
+    // THE BLURRY POSTER. oEmbed answers 295x166 unless asked for a
+    // width, and every node stored before we started asking carries
+    // that. Stretched to the ~1400px lesson frame it looks broken
+    // while being perfectly correct.
+    const small =
+      "https://i.vimeocdn.com/video/2204155054-6b34ac0f759a349ed508a1d71d772770b8539d32cff829737f3b49caf6370946-d_295x166?region=us";
+    const big =
+      "https://i.vimeocdn.com/video/2204155054-6b34ac0f759a349ed508a1d71d772770b8539d32cff829737f3b49caf6370946-d_1280?region=us";
+    // Not a guess: this rewritten URL was fetched and returns the
+    // same 43,333 bytes at 1280x720 that oEmbed hands back for
+    // width=1280, against 6,949 bytes at 295x166 for the original.
+    expect(upscaleVimeoPoster(small)).toBe(big);
+    expect(thumbnailUrl("vimeo", "1229485592", small)).toBe(big);
+  });
+
+  it("leaves an already-large poster alone", () => {
+    const big =
+      "https://i.vimeocdn.com/video/2204155054-b49caf6370946-d_1280?region=us";
+    expect(upscaleVimeoPoster(big)).toBe(big);
+  });
+
+  it("touches nothing that is not a sized Vimeo CDN poster", () => {
+    // A host that merely ENDS in something similar is not Vimeo's,
+    // and a poster with no size suffix has nothing to rewrite.
+    for (const url of [
+      "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+      "https://vumbnail.com/123456789.jpg",
+      "https://i.vimeocdn.com/video/2204158791-d41047ef.jpg",
+      "https://evil.example.com/x-d_295x166",
+    ]) {
+      expect(upscaleVimeoPoster(url)).toBe(url);
+    }
   });
 
   it("prefers a poster resolved from the provider over the derived one", () => {
