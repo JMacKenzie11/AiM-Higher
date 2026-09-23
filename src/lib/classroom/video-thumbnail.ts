@@ -47,6 +47,22 @@ export async function resolveVideoThumbnail(
   try {
     const oembed = new URL("https://vimeo.com/api/oembed.json");
     oembed.searchParams.set("url", url);
+    // ASK FOR A BIG ONE.
+    //
+    // oEmbed's default poster is 295x166. Stretched across a lesson
+    // page it is visibly soft, which is what shipped the first time:
+    // the poster was correct and looked broken. `width` is what
+    // moves it — `thumbnail_width` is accepted and ignored, measured
+    // against this video:
+    //
+    //   default            295x166   -d_295x166    6,949 bytes
+    //   &width=1280       1280x720   -d_1280      43,333 bytes
+    //   &thumbnail_width  295x166    (no change)
+    //
+    // 1280 rather than larger because the frame is ~1400px at its
+    // widest and this is a placeholder somebody looks at for a
+    // second before pressing play.
+    oembed.searchParams.set("width", "1280");
     const res = await fetch(oembed, {
       // The poster for a given video does not change, and a training
       // is edited rarely. A day is generous and keeps a burst of
