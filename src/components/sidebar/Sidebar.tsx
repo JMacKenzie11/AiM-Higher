@@ -127,7 +127,7 @@ const APP_ITEMS: readonly NavItem[] = [
       // reason to hide a column.
       { kind: "link", label: "Critical Success Factors", href: "/measures", icon: "measure" },
       { kind: "link", label: "Goals & Priorities", href: "/plan", icon: "calendar" },
-      { kind: "link", label: "Issues/Solutions", href: "/issues", icon: "sparkle" },
+      { kind: "link", label: "Issues/Solutions", href: "/issues", icon: "lightbulb" },
       { kind: "link", label: "Functional Commitments", href: "/commitments", icon: "check" },
       {
         kind: "link",
@@ -175,7 +175,7 @@ const APP_ITEMS: readonly NavItem[] = [
         kind: "link",
         label: "Teams",
         href: "/strengths/teams",
-        icon: "people",
+        icon: "group",
         // aims_guide behaves like company_admin on assigned
         // companies — same treatment for the Teams builder.
         roles: ADMIN_ROLES,
@@ -221,7 +221,7 @@ const GUIDE_HQ_ITEMS: readonly NavItem[] = [
         kind: "link",
         label: "Overview",
         href: "/hq",
-        icon: "dashboard",
+        icon: "compass",
         roles: ["system_admin", "aims_guide"],
       },
 
@@ -246,7 +246,7 @@ const PORTFOLIO_ITEMS: readonly NavItem[] = [
         kind: "link",
         label: "Overview",
         href: "/portfolio",
-        icon: "dashboard",
+        icon: "layers",
         roles: ["portfolio_admin", "system_admin"],
       },
     ],
@@ -279,7 +279,7 @@ function portfolioBottomItems(
           kind: "link",
           label: "Company settings",
           href: `/admin/companies/${scopedCompanyId}`,
-          icon: "building",
+          icon: "gear",
           roles: ["portfolio_admin"],
         },
       ],
@@ -301,7 +301,7 @@ const SYSTEM_ADMIN_BOTTOM_ITEMS: readonly NavItem[] = [
         kind: "link",
         label: "Platform",
         href: "/admin/dashboard",
-        icon: "measure",
+        icon: "pulse",
       },
       // Classroom authoring lives here rather than in Resources so
       // the group cleanly reads as "platform-wide tools only sysadmins
@@ -311,7 +311,7 @@ const SYSTEM_ADMIN_BOTTOM_ITEMS: readonly NavItem[] = [
         kind: "link",
         label: "Classroom admin",
         href: "/admin/classroom",
-        icon: "book",
+        icon: "bookmark",
       },
       // Same reasoning as Classroom admin: the Hub shapes what every
       // company sees in Ask Aimee, so it belongs with the
@@ -871,10 +871,110 @@ type IconName =
   | "spark"
   | "building"
   | "gauge"
-  | "hub";
+  | "hub"
+  // EVERY DESTINATION GETS ITS OWN.
+  //
+  // Six icons were doing duty for two or three destinations each,
+  // which is not a styling preference. On the collapsed rail the
+  // label is gone and the icon is the only thing telling two rows
+  // apart — "Issues/Solutions" and "Ask Aimee" both drew a sparkle,
+  // so the rail showed the same mark twice and neither meant
+  // anything.
+  //
+  // Reshuffling could not fix it: there were 14 icons and more than
+  // 14 destinations, so some had to be drawn. nav-icons.test.ts
+  // holds the line from here.
+  //
+  // The SAME destination appearing in two role-scoped menus keeps
+  // one icon on purpose. /admin/companies is "Companies" in one and
+  // "Company settings" in another; giving one place two faces is
+  // the opposite of what this is for.
+  | "lightbulb"
+  | "compass"
+  | "layers"
+  | "group"
+  | "pulse"
+  | "gear"
+  | "bookmark";
 
 function Icon({ name }: { name: IconName }): ReactNode {
   switch (name) {
+    // Issues become solutions, so the mark is the idea rather than
+    // the problem.
+    case "lightbulb":
+      return (
+        <Stroke>
+          <path d="M9.3 18h5.4M10.3 21h3.4" />
+          <path d="M12 3a6 6 0 0 0-3.4 10.9c.5.4.8 1 .8 1.6v.5h5.2v-.5c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3z" />
+        </Stroke>
+      );
+    // A guide finding their way around somebody else's company.
+    case "compass":
+      return (
+        <Stroke>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M15.5 8.5l-2 5-5 2 2-5z" />
+        </Stroke>
+      );
+    // A portfolio is companies stacked, seen from above.
+    case "layers":
+      return (
+        <Stroke>
+          <path d="M12 3l9 4.5-9 4.5-9-4.5L12 3z" />
+          <path d="M3 12.5l9 4.5 9-4.5" />
+          <path d="M3 17l9 4.5 9-4.5" />
+        </Stroke>
+      );
+    // Three people standing together.
+    //
+    // The first draft was three circles joined by lines, which put
+    // it beside "chart" and "hub" — both already node graphs — and
+    // at 18px all three read as the same mark. The whole point of
+    // this change is that two rows should not look alike, so a
+    // third one was not the fix. Heads and shoulders instead: it
+    // reads as people, and it is not "people", which is two figures
+    // rather than a row of three.
+    case "group":
+      return (
+        <Stroke>
+          <circle cx="12" cy="7" r="2.6" />
+          <path d="M7.6 19a4.4 4.4 0 0 1 8.8 0" />
+          <circle cx="4.5" cy="10" r="2.1" />
+          <path d="M1.5 18.2a3.4 3.4 0 0 1 3.6-3.3" />
+          <circle cx="19.5" cy="10" r="2.1" />
+          <path d="M22.5 18.2a3.4 3.4 0 0 0-3.6-3.3" />
+        </Stroke>
+      );
+    // Platform health: a line with a life in it.
+    case "pulse":
+      return (
+        <Stroke>
+          <path d="M2 12h4l3-7 4 14 3-7h6" />
+        </Stroke>
+      );
+    // Settings for ONE company, as against the list of them.
+    case "gear":
+      return (
+        <Stroke>
+          {/* Teeth on the RIM, not spokes to the centre. The first
+              draft ran each line from r=2.6 inward and rendered as a
+              sun — "brightness", not "settings". Short marks outside
+              a second ring read as a cog at 18px. */}
+          <circle cx="12" cy="12" r="3" />
+          <circle cx="12" cy="12" r="6.4" />
+          <path d="M12 2.4v3.2M12 18.4v3.2M21.6 12h-3.2M5.6 12h-3.2M18.8 5.2l-2.2 2.2M7.4 16.6l-2.2 2.2M18.8 18.8l-2.2-2.2M7.4 7.4L5.2 5.2" />
+        </Stroke>
+      );
+    // Authoring the classroom rather than reading it: the book with
+    // a marker in it.
+    case "bookmark":
+      return (
+        <Stroke>
+          <path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6.5A1.5 1.5 0 0 1 5 19.5v-15z" />
+          <path d="M5 17.5h14" />
+          <path d="M9.5 3v7l2.2-1.6L13.9 10V3" />
+        </Stroke>
+      );
     case "dashboard":
       return (
         <Stroke>
