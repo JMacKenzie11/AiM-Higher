@@ -154,6 +154,15 @@ async function attach(page: Page, slug: string) {
     slug === SLUG_A ? "Ask great questions" : "Prepare a hard conversation";
   await picker.getByRole("button", { name: new RegExp(title, "i") }).first().click();
   await expect(picker).toHaveCount(0, { timeout: 20_000 });
+  // Reload before reading chips.
+  //
+  // The chips come from the version pinned to the conversation and
+  // are resolved SERVER-side, then handed to ChatView as a prop. The
+  // picker updates the client's message state and calls
+  // router.refresh(), but asserting straight after races that
+  // refresh — which is what made this spec flake once. A reload is
+  // what the next visitor to the conversation gets anyway.
+  await page.reload();
 }
 
 async function revertToCode(page: Page, slug: string) {

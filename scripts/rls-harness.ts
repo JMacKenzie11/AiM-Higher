@@ -1085,10 +1085,21 @@ async function agentVersionsWall(
     ["authenticated holds SELECT", String(priv?.auth_can_select), "true"],
     ["system_admin UPDATE refused", adminUpdate, "42501"],
     ["system_admin DELETE refused", adminDelete, "42501"],
-    ["system_admin reads", adminReads, "1"],
+    // COUNTS, not a fixed number. The first version of these
+    // asserted exactly 1, which was true only while the table was
+    // nearly empty — a hundred-odd rows later the probe failed on
+    // its own arithmetic rather than on anything about access. What
+    // the claim actually is: an admin sees rows, nobody else sees
+    // any, and the widened policy shows the non-admin exactly what
+    // the admin could see all along.
+    ["system_admin reads rows", String(Number(adminReads) > 0), "true"],
     ["member reads", memberReads, "0"],
     ["company_admin reads", companyAdminReads, "0"],
-    ["[red] member reads under a widened policy", weakenedMemberReads, "1"],
+    [
+      "[red] a widened policy shows the member everything",
+      String(weakenedMemberReads === adminReads && Number(adminReads) > 0),
+      "true",
+    ],
   ];
   const failures = checks.filter(([, got, want]) => got !== want);
 
