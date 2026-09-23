@@ -16,6 +16,15 @@ plus a **Shared with you** card underneath if anyone has invited
 you into a thread. Every conversation lives in the same place —
 guided or free-form, the entry point is the same.
 
+Conversations you started **about a person** are listed here too,
+marked with their name. Opening one takes you to that person's
+coaching page, which is where it lives: their history and what
+Aimee remembers about them are on that page, not on this one.
+
+The list shows the company you are currently in. If a conversation
+seems to be missing, check which company you are scoped to before
+assuming it is gone.
+
 ## What you can do here
 
 - **Start a conversation** — click *New conversation* on the

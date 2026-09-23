@@ -575,3 +575,11 @@
   composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
+
+/* " · about Marla Benavides" after a conversation's title. Lighter
+   and regular weight, because it qualifies the title rather than
+   competing with it — the row is still picked by its heading. */
+.conversationAbout {
+  font-weight: 400;
+  color: var(--text-muted);
+}
