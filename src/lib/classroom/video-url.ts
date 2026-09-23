@@ -15,6 +15,17 @@ import type { ClassroomVideoProvider } from "./types";
 export type ParsedVideoUrl = {
   provider: ClassroomVideoProvider;
   id: string;
+  // Vimeo's PRIVACY HASH, for an unlisted video.
+  //
+  // An unlisted Vimeo URL is vimeo.com/<id>/<hash>, and the hash is
+  // not decoration: without it the player refuses the video and the
+  // thumbnail service returns a placeholder. Dropping it is what
+  // produced "Sorry. We're having a little trouble." on a link that
+  // plays perfectly in a browser.
+  //
+  // Absent for a public video and for YouTube, which has no
+  // equivalent.
+  hash?: string;
 };
 
 // Parse a YouTube or Vimeo share URL into { provider, id }.
@@ -36,10 +47,22 @@ export function parseVideoUrl(input: string): ParsedVideoUrl | null {
   // Vimeo: covers standard vimeo.com/<id>, player.vimeo.com, and
   // the /video/ prefix form. Excludes /channels/ etc. since those
   // aren't video ids on their own.
+  //
+  // The optional trailing group is the privacy hash on an UNLISTED
+  // video: vimeo.com/1229485592/75fc612f9a. Ten hex characters in
+  // practice; the pattern accepts 6-20 alphanumerics rather than
+  // pinning a length Vimeo never documented.
   const vimeo = url.match(
-    /(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d{6,15})/
+    /(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d{6,15})(?:[/?&]h=|\/)?([A-Za-z0-9]{6,20})?/
   );
-  if (vimeo) return { provider: "vimeo", id: vimeo[1]! };
+  if (vimeo) {
+    const hash = vimeo[2];
+    return {
+      provider: "vimeo",
+      id: vimeo[1]!,
+      ...(hash ? { hash } : {}),
+    };
+  }
 
   return null;
 }
@@ -49,10 +72,24 @@ export function parseVideoUrl(input: string): ParsedVideoUrl | null {
 //   YouTube: img.youtube.com/vi/<id>/hqdefault.jpg
 //   Vimeo:   vumbnail.com/<id>.jpg (community mirror of Vimeo's
 //            oEmbed thumbnails; no auth, ~200ms typical latency)
+// A poster for a video.
+//
+// `stored` is the URL resolved from the provider's oEmbed at insert
+// time and kept on the node. Preferred whenever present, because it
+// is the only thing that works for an UNLISTED Vimeo video: vumbnail
+// cannot see one, and returns a grey placeholder. Measured rather
+// than assumed — vumbnail.com/<id>.jpg and vumbnail.com/<id>_<hash>.jpg
+// return byte-identical placeholders for an unlisted video, same
+// md5, so passing the hash to it achieves nothing.
+//
+// Falls back to the derived URLs for nodes stored before this, which
+// is correct for every public video.
 export function thumbnailUrl(
   provider: ClassroomVideoProvider,
-  videoId: string
+  videoId: string,
+  stored?: string | null
 ): string {
+  if (stored) return stored;
   if (provider === "youtube") {
     return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   }
@@ -62,12 +99,17 @@ export function thumbnailUrl(
 // Embed URL that the click-to-play swap-in should load.
 export function embedUrl(
   provider: ClassroomVideoProvider,
-  videoId: string
+  videoId: string,
+  hash?: string | null
 ): string {
   if (provider === "youtube") {
     // rel=0 keeps YouTube's post-play recommendations tied to the
     // creator's own channel; modestbranding drops the giant logo.
     return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
   }
-  return `https://player.vimeo.com/video/${videoId}?autoplay=1`;
+  // h= is REQUIRED for an unlisted video. Vimeo returns its "Sorry"
+  // screen without it, which looks like a broken player rather than
+  // a missing credential.
+  const privacy = hash ? `&h=${hash}` : "";
+  return `https://player.vimeo.com/video/${videoId}?autoplay=1${privacy}`;
 }

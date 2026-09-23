@@ -17,6 +17,7 @@ import { TextAlign } from "./extensions/TextAlign";
 // mark landed with no href attribute.
 import { parseVideoUrl } from "@/lib/classroom/video-url";
 import { uploadClassroomImageAction } from "@/lib/classroom/actions";
+import { resolveVideoThumbnailAction } from "@/lib/classroom/video-thumbnail-action";
 import styles from "./Editor.module.css";
 
 // TipTap-based rich text editor. Client-side only — the editor bundle
@@ -108,9 +109,15 @@ export function TipTapEditor({
           .insertVideoEmbed({
             provider: parsed.provider,
             videoId: parsed.id,
+            videoHash: parsed.hash ?? null,
             caption: null,
           })
           .run();
+        // The poster is resolved AFTER the insert, not before. It is
+        // a network call to a third party, and a paste that stalls
+        // on it would feel broken; a thumbnail that improves a
+        // moment later does not.
+        void fillThumbnail(editor as Editor | null, text, parsed.id);
         return true;
       },
       // Also intercept drops of image files from the OS finder.
@@ -502,7 +509,45 @@ function insertVideoPrompt(editor: Editor): void {
     .insertVideoEmbed({
       provider: parsed.provider,
       videoId: parsed.id,
+      videoHash: parsed.hash ?? null,
       caption: null,
+    })
+    .run();
+  void fillThumbnail(editor, input, parsed.id);
+}
+
+// Ask the provider for the poster and write it onto the node that
+// was just inserted.
+//
+// Found by node scan rather than by holding a position: the document
+// can have moved between the insert and the answer, and an editor
+// that writes to a stale position is worse than one with a plain
+// thumbnail.
+async function fillThumbnail(
+  editor: Editor | null,
+  url: string,
+  videoId: string
+): Promise<void> {
+  if (!editor) return;
+  const thumb = await resolveVideoThumbnailAction(url);
+  if (!thumb || editor.isDestroyed) return;
+  let target: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (
+      target === null &&
+      node.type.name === "videoEmbed" &&
+      node.attrs.videoId === videoId &&
+      !node.attrs.thumbnailUrl
+    ) {
+      target = pos;
+    }
+  });
+  if (target === null) return;
+  editor
+    .chain()
+    .command(({ tr }) => {
+      tr.setNodeAttribute(target!, "thumbnailUrl", thumb);
+      return true;
     })
     .run();
 }

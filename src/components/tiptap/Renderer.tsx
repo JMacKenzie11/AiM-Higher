@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/react";
 import type { ClassroomVideoProvider } from "@/lib/classroom/types";
-import { VideoEmbedPlayer } from "./VideoEmbedPlayer";
+import { ResolvedVideoEmbed } from "./ResolvedVideoEmbed";
 import styles from "./Renderer.module.css";
 
 // Server component that renders a Tiptap JSON body as React. Walks
@@ -80,15 +80,23 @@ function renderNode(node: JSONContent, key: string): React.ReactNode {
     case "videoEmbed": {
       const provider = node.attrs?.provider as ClassroomVideoProvider | undefined;
       const videoId = node.attrs?.videoId as string | undefined;
+      const videoHash = node.attrs?.videoHash as string | undefined;
+      const storedThumbnail = node.attrs?.thumbnailUrl as string | undefined;
       const caption = (node.attrs?.caption as string | null | undefined) ?? null;
       if (!videoId || (provider !== "youtube" && provider !== "vimeo")) {
         return null;
       }
+      // ResolvedVideoEmbed is async: it fills in a poster for a node
+      // stored before posters were kept, which is every video added
+      // before this change. Returned as a promise-returning element,
+      // which a Server Component tree renders happily.
       return (
-        <VideoEmbedPlayer
+        <ResolvedVideoEmbed
           key={key}
           provider={provider}
           videoId={videoId}
+          videoHash={videoHash}
+          storedThumbnail={storedThumbnail}
           caption={caption}
         />
       );

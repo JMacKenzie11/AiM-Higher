@@ -16,10 +16,14 @@ import styles from "./VideoEmbedPlayer.module.css";
 export function VideoEmbedPlayer({
   provider,
   videoId,
+  videoHash,
+  thumbnailUrl: storedThumbnail,
   caption,
 }: {
   provider: ClassroomVideoProvider;
   videoId: string;
+  videoHash?: string | null;
+  thumbnailUrl?: string | null;
   caption?: string | null;
 }) {
   const [playing, setPlaying] = useState(false);
@@ -31,7 +35,7 @@ export function VideoEmbedPlayer({
         {playing ? (
           <iframe
             className={styles.iframe}
-            src={embedUrl(provider, videoId)}
+            src={embedUrl(provider, videoId, videoHash)}
             title={label}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -43,7 +47,7 @@ export function VideoEmbedPlayer({
             onClick={() => setPlaying(true)}
             aria-label={label}
             style={{
-              backgroundImage: `url("${thumbnailUrl(provider, videoId)}")`,
+              backgroundImage: `url("${thumbnailUrl(provider, videoId, storedThumbnail)}")`,
             }}
           >
             <span className={styles.playCircle} aria-hidden="true">

@@ -18,6 +18,10 @@ declare module "@tiptap/core" {
       insertVideoEmbed: (attrs: {
         provider: ClassroomVideoProvider;
         videoId: string;
+        // Vimeo's privacy hash, for an unlisted video. Without it
+        // the player shows Vimeo's "Sorry" screen.
+        videoHash?: string | null;
+        thumbnailUrl?: string | null;
         caption?: string | null;
       }) => ReturnType;
     };
@@ -45,6 +49,26 @@ export const VideoEmbed = Node.create({
         parseHTML: (el) => el.getAttribute("data-video-id"),
         renderHTML: (attrs) =>
           attrs.videoId ? { "data-video-id": attrs.videoId } : {},
+      },
+      // Vimeo's privacy hash for an unlisted video. Optional, so
+      // every node stored before this change parses unchanged: a
+      // missing attribute reads as null and the URLs behave exactly
+      // as they did.
+      videoHash: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-video-hash") || null,
+        renderHTML: (attrs) =>
+          attrs.videoHash ? { "data-video-hash": attrs.videoHash } : {},
+      },
+      // The poster resolved from the provider at insert time. The
+      // only thing that works for an unlisted Vimeo video; null for
+      // everything stored before this, which falls back to the
+      // derived URL.
+      thumbnailUrl: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-thumbnail-url") || null,
+        renderHTML: (attrs) =>
+          attrs.thumbnailUrl ? { "data-thumbnail-url": attrs.thumbnailUrl } : {},
       },
       caption: {
         default: null,
@@ -82,6 +106,8 @@ export const VideoEmbed = Node.create({
               type: this.name,
               attrs: {
                 provider: attrs.provider,
+                videoHash: attrs.videoHash ?? null,
+                thumbnailUrl: attrs.thumbnailUrl ?? null,
                 videoId: attrs.videoId,
                 caption: attrs.caption ?? null,
               },
