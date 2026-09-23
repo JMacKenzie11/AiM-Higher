@@ -22,13 +22,31 @@ import { PRACTICE_CATEGORIES } from "./categories";
 // cannot hold them. A database that claimed to would be describing
 // capabilities that do not exist.
 //
-// ---- A ROW WITH NO REGISTRY ENTRY IS IGNORED -------------------
+// ---- A ROW WITH NO REGISTRY ENTRY (phase 3) --------------------
 //
-// Phase 3 adds database-defined agents. Until the runtime can build
-// one — its prompt has nowhere to come from today — a row whose
-// slug matches no registry id is dropped from the merge and logged
-// ONCE per process rather than thrown. A half-defined agent that
-// reaches a picker is a conversation that opens onto nothing.
+// It is a DATABASE-DEFINED AGENT, and whether it resolves depends on
+// one thing: does it have a live version?
+//
+//   live_version_id set   a real agent. Appended to the merged set,
+//                         with its config resolved entirely from
+//                         that version.
+//   live_version_id null  Hub only. Never reaches a picker or a
+//                         launch path, because there is nothing to
+//                         run: an unpublished agent has no prompt
+//                         anybody has approved.
+//
+// Phase 1 dropped these rows and logged a warning saying phase 3
+// would handle them. It does, so the warning is gone.
+//
+// ---- THE PIN IS THE FALLBACK -----------------------------------
+//
+// A registry-backed agent can always fall back to code. A
+// database-only one cannot — there is no file to read. What makes
+// that safe is that version rows are IMMUTABLE and a conversation
+// reads the version pinned to it, so unpublishing or archiving a
+// database-defined agent takes it out of the pickers without
+// touching a single conversation in flight. Nothing in this phase
+// may weaken that.
 //
 // ---- THE FALLBACK ----------------------------------------------
 //
@@ -45,6 +63,15 @@ export type ResolvedAgent = Practice & {
   sortOrder: number;
   categorySortOrder: number;
   archived: boolean;
+  // True when no registry entry backs this agent: it exists only as
+  // a row plus its versions. Callers that would otherwise reach for
+  // a file on disk check this first.
+  isDatabaseDefined: boolean;
+  // The version new conversations are stamped from. Null means "runs
+  // from the registry", which is impossible for a database-defined
+  // agent — such an agent is not in the merged set at all without
+  // one.
+  liveVersionId: string | null;
 };
 
 type AgentRow = {
@@ -57,20 +84,9 @@ type AgentRow = {
   feature: string | null;
   access_predicates: string[] | null;
   archived: boolean;
+  live_version_id: string | null;
   agent_categories: { name: string; sort_order: number } | null;
 };
-
-let warnedSlugs: Set<string> | null = null;
-
-function warnOnce(slug: string) {
-  warnedSlugs ??= new Set();
-  if (warnedSlugs.has(slug)) return;
-  warnedSlugs.add(slug);
-  console.warn(
-    `agents: row "${slug}" matches no registry agent and was ignored. ` +
-      "Database-defined agents are phase 3."
-  );
-}
 
 // Read once per request. Every gate, the picker, and the runtime
 // ask; React's cache means they share one query rather than each
@@ -84,7 +100,7 @@ const loadAgentRows = cache(async function loadAgentRows(): Promise<
       .from("agents")
       .select(
         "id, slug, title, description, sort_order, allowed_roles, feature, " +
-          "access_predicates, archived, " +
+          "access_predicates, archived, live_version_id, " +
           "agent_categories ( name, sort_order )"
       );
     if (error) return null;
@@ -95,6 +111,67 @@ const loadAgentRows = cache(async function loadAgentRows(): Promise<
     return null;
   }
 });
+
+// A row with no registry entry, as a ResolvedAgent.
+//
+// The Practice-shaped config fields are PLACEHOLDERS and are never
+// read for one of these. Everything that actually runs — prompt,
+// base mode, chips, tools, cards, model, token ceiling — comes from
+// the pinned version through resolveRuntimeConfig, which is the only
+// thing that can read agent_versions anyway (system_admin-only, so
+// the merge runs on a client that cannot see it).
+//
+// promptFile is empty for the same reason: there is no file. Anything
+// tempted to read it must check isDatabaseDefined first.
+function fromRowOnly(row: AgentRow): ResolvedAgent {
+  return {
+    id: row.slug,
+    title: row.title,
+    description: row.description,
+    category: (row.agent_categories?.name ?? "People") as Practice["category"],
+    promptFile: "",
+    basePromptMode: "full_coach",
+    skipSetup: false,
+    allowedRoles:
+      row.allowed_roles && row.allowed_roles.length > 0
+        ? (row.allowed_roles as Practice["allowedRoles"])
+        : undefined,
+    feature: (row.feature ?? undefined) as Practice["feature"],
+    alsoFunctionLeads:
+      (row.access_predicates ?? []).includes("function_lead") || undefined,
+    agentRowId: row.id,
+    sortOrder: row.sort_order,
+    categorySortOrder:
+      row.agent_categories?.sort_order ?? PRACTICE_CATEGORIES.length,
+    archived: row.archived,
+    isDatabaseDefined: true,
+    liveVersionId: row.live_version_id,
+  };
+}
+
+// Database-defined agents: rows with no registry entry.
+//
+// `requireLive` is the difference between the two callers, and it
+// matters more than it looks:
+//
+//   true   for PICKERS. Without a live version there is no approved
+//          prompt, so the agent is not offerable.
+//
+//   false  for the runtime and the Hub. An UNPUBLISHED agent has no
+//          live version and may still have conversations pinned to
+//          its old versions — that is precisely what unpublish is
+//          for. Filtering those out here would strip the agent's
+//          name off every one of them and resolveAgent would answer
+//          null mid-conversation.
+function databaseDefined(
+  rows: AgentRow[],
+  { requireLive }: { requireLive: boolean }
+): ResolvedAgent[] {
+  return rows
+    .filter((r) => !PRACTICES.some((p) => p.id === r.slug))
+    .filter((r) => (requireLive ? r.live_version_id !== null : true))
+    .map(fromRowOnly);
+}
 
 function categoryOrder(name: string): number {
   const i = PRACTICE_CATEGORIES.indexOf(name as (typeof PRACTICE_CATEGORIES)[number]);
@@ -109,6 +186,8 @@ function fromRegistryOnly(): ResolvedAgent[] {
     sortOrder: i,
     categorySortOrder: categoryOrder(p.category),
     archived: false,
+    isDatabaseDefined: false,
+    liveVersionId: null,
   }));
 }
 
@@ -119,10 +198,6 @@ export const listAgents = cache(async function listAgents(): Promise<
   if (rows === null || rows.length === 0) return fromRegistryOnly();
 
   const bySlug = new Map(rows.map((r) => [r.slug, r]));
-  for (const row of rows) {
-    if (!PRACTICES.some((p) => p.id === row.slug)) warnOnce(row.slug);
-  }
-
   const merged: ResolvedAgent[] = [];
   for (const [i, practice] of PRACTICES.entries()) {
     const row = bySlug.get(practice.id);
@@ -136,6 +211,8 @@ export const listAgents = cache(async function listAgents(): Promise<
         sortOrder: i,
         categorySortOrder: categoryOrder(practice.category),
         archived: false,
+        isDatabaseDefined: false,
+        liveVersionId: null,
       });
       continue;
     }
@@ -161,8 +238,12 @@ export const listAgents = cache(async function listAgents(): Promise<
       categorySortOrder:
         row.agent_categories?.sort_order ?? categoryOrder(practice.category),
       archived: row.archived,
+      isDatabaseDefined: false,
+      liveVersionId: row.live_version_id,
     });
   }
+
+  merged.push(...databaseDefined(rows, { requireLive: true }));
 
   // Archived agents are dropped here, so no caller has to remember
   // to filter them. The Hub reads rows directly and sees its own.
@@ -198,7 +279,7 @@ export const listAgentsIncludingArchived = cache(
     const rows = await loadAgentRows();
     if (rows === null || rows.length === 0) return fromRegistryOnly();
     const bySlug = new Map(rows.map((r) => [r.slug, r]));
-    return PRACTICES.map((practice, i) => {
+    const fromRegistry = PRACTICES.map((practice, i) => {
       const row = bySlug.get(practice.id);
       if (!row) {
         return {
@@ -207,6 +288,8 @@ export const listAgentsIncludingArchived = cache(
           sortOrder: i,
           categorySortOrder: categoryOrder(practice.category),
           archived: false,
+          isDatabaseDefined: false,
+          liveVersionId: null,
         };
       }
       return {
@@ -227,8 +310,14 @@ export const listAgentsIncludingArchived = cache(
         categorySortOrder:
           row.agent_categories?.sort_order ?? categoryOrder(practice.category),
         archived: row.archived,
+        isDatabaseDefined: false,
+        liveVersionId: row.live_version_id,
       };
     });
+    // Archived database-defined agents are included here and only
+    // here: a conversation attached to one must keep working and
+    // keep its name, exactly as for an archived registry agent.
+    return [...fromRegistry, ...databaseDefined(rows, { requireLive: false })];
   }
 );
 

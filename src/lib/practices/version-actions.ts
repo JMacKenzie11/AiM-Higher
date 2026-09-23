@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { PRACTICES, type OutputCardName, type PracticeToolName } from "./registry";
 import { registryConfig } from "./version-config";
+import { FUNCTION_LEAD_PREDICATE } from "./hub-constants";
 import { isValidAgentModel } from "./models";
 
 // Writes for agent config. system_admin only, enforced by RLS (0228)
@@ -484,4 +485,229 @@ export async function loadAgentConfigAction(
     agent.draft_version_id
   );
   return { ok: true, view };
+}
+
+// =============================================================
+// Phase 3: net-new agents
+//
+// An agent with no registry entry behind it. It walks the SAME
+// draft, preview and publish path as everything above — this phase
+// adds no version machinery, only a way in and a way out.
+// =============================================================
+
+// ---- Create ---------------------------------------------------
+//
+// Writes the agents row and a first draft version together. Nothing
+// is visible to anybody but a system admin at this point, because
+// there is no live version and the merge layer only offers a
+// database-defined agent once there is one.
+export async function createAgentAction(input: {
+  title: string;
+  description: string;
+  categoryId: string;
+  allowedRoles: string[];
+  feature: string | null;
+  functionLead: boolean;
+  config: DraftInput;
+}): Promise<VersionResult & { agentRowId?: string; slug?: string }> {
+  const session = await requireRole(["system_admin"]);
+
+  const title = input.title.trim();
+  const description = input.description.trim();
+  if (!title) return { ok: false, message: "Give the agent a name." };
+  if (title.length > 80) {
+    return { ok: false, message: "Keep the name under 80 characters." };
+  }
+  if (!description) {
+    return {
+      ok: false,
+      message: "Give the agent a description. It is the line under the name on the card.",
+    };
+  }
+  if (!input.categoryId) {
+    return { ok: false, message: "Choose a category for the agent." };
+  }
+
+  const { slugFromTitle } = await import("./audience");
+  const base = slugFromTitle(title);
+  if (!base) {
+    return {
+      ok: false,
+      message: "Give the agent a name with some letters or numbers in it.",
+    };
+  }
+
+  // A slug that collides with a registry id would make the merge
+  // layer treat this row as an override of a code agent — the row
+  // would take over that agent's identity and its conversations.
+  // Refused rather than uniquified, because the admin means a
+  // different agent and should pick a different name.
+  if (PRACTICES.some((p) => p.id === base)) {
+    return {
+      ok: false,
+      message:
+        `"${base}" is the id of an agent that already exists in the code. ` +
+        "Choose a different name.",
+    };
+  }
+
+  const problem = validate(input.config);
+  if (problem) return { ok: false, message: problem };
+
+  const supabase = await db();
+
+  // Uniquify against other database agents. The registry check above
+  // is separate on purpose: that one refuses, this one adjusts,
+  // because two admins naming two agents similarly is ordinary.
+  const { data: taken } = await supabase
+    .from("agents")
+    .select("slug")
+    .like("slug", `${base}%`);
+  const used = new Set(((taken ?? []) as Array<{ slug: string }>).map((r) => r.slug));
+  let slug = base;
+  for (let n = 2; used.has(slug); n += 1) slug = `${base}-${n}`;
+
+  const { data: last } = await supabase
+    .from("agents")
+    .select("sort_order")
+    .eq("category_id", input.categoryId)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  const tail = (last ?? [])[0] as { sort_order: number } | undefined;
+
+  const { data: agent, error } = await supabase
+    .from("agents")
+    .insert({
+      slug,
+      category_id: input.categoryId,
+      title,
+      description,
+      sort_order: tail ? tail.sort_order + 1 : 0,
+      allowed_roles: [...new Set(input.allowedRoles)],
+      feature: input.feature || null,
+      access_predicates: input.functionLead ? [FUNCTION_LEAD_PREDICATE] : [],
+      created_by: session.profile.id,
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !agent) {
+    return { ok: false, message: "Couldn't create that agent." };
+  }
+
+  const inserted = await insertVersion(
+    supabase,
+    agent.id,
+    input.config,
+    "",
+    session.profile.id
+  );
+  if ("error" in inserted) return { ok: false, message: inserted.error };
+
+  const { error: pointerErr } = await supabase
+    .from("agents")
+    .update({ draft_version_id: inserted.id })
+    .eq("id", agent.id);
+  if (pointerErr) {
+    return { ok: false, message: "Created the agent but couldn't attach its draft." };
+  }
+
+  refresh();
+  return { ok: true, agentRowId: agent.id, slug };
+}
+
+// ---- Unpublish -------------------------------------------------
+//
+// The same pointer move as revertToCodeAction, and deliberately a
+// different action with a different name: for a database-defined
+// agent there is no code to revert TO, so calling it "revert to code
+// default" would describe something that cannot happen.
+//
+// What it does: the agent leaves every picker and no new
+// conversation can start on it. Conversations already running
+// continue on their pinned versions, because those versions are
+// immutable and nothing here touches them. That is the property the
+// whole phase rests on.
+export async function unpublishAgentAction(
+  agentRowId: string
+): Promise<VersionResult> {
+  await requireRole(["system_admin"]);
+  const supabase = await db();
+  const { error } = await supabase
+    .from("agents")
+    .update({ live_version_id: null })
+    .eq("id", agentRowId);
+  if (error) return { ok: false, message: "Couldn't unpublish that agent." };
+  refresh();
+  return { ok: true };
+}
+
+// ---- Delete ----------------------------------------------------
+//
+// Only for an agent that was NEVER published and that no
+// conversation references. Both are checked, because they can come
+// apart: a version can have been live and then unpublished with no
+// conversation ever started on it, and a conversation can exist on
+// an agent whose live pointer was cleared.
+//
+// Everything else archives. Deleting an agent that conversations
+// point at would leave rows whose practice_id names nothing, and
+// those conversations would lose their name and their config.
+export async function deleteAgentAction(
+  agentRowId: string
+): Promise<VersionResult> {
+  await requireRole(["system_admin"]);
+  const supabase = await db();
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("id, slug")
+    .eq("id", agentRowId)
+    .maybeSingle<{ id: string; slug: string }>();
+  if (!agent) return { ok: false, message: "That agent no longer exists." };
+
+  if (PRACTICES.some((p) => p.id === agent.slug)) {
+    return {
+      ok: false,
+      message:
+        "This agent is defined in the code, so it cannot be deleted here. Hide it instead.",
+    };
+  }
+
+  const { count: published } = await supabase
+    .from("agent_versions")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", agentRowId)
+    .not("published_at", "is", null);
+  if ((published ?? 0) > 0) {
+    return {
+      ok: false,
+      message:
+        "This agent has been published before, so it cannot be deleted. " +
+        "Unpublish it to take it out of every picker: conversations that " +
+        "already ran on it keep working, which is why the record has to stay.",
+    };
+  }
+
+  const { count: used } = await supabase
+    .from("coaching_conversations")
+    .select("id", { count: "exact", head: true })
+    .eq("practice_id", agent.slug);
+  if ((used ?? 0) > 0) {
+    return {
+      ok: false,
+      message:
+        "Conversations have been started on this agent, so it cannot be " +
+        "deleted. Hide it instead: the conversations keep working and keep " +
+        "its name.",
+    };
+  }
+
+  // Versions cascade with the row (0228's FK). Nothing was ever live
+  // and nothing points at it, so there is no history to lose.
+  const { error } = await supabase.from("agents").delete().eq("id", agentRowId);
+  if (error) {
+    return { ok: false, message: "Couldn't delete that agent." };
+  }
+  refresh();
+  return { ok: true };
 }

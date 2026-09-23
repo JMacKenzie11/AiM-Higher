@@ -251,9 +251,50 @@ export function configFromVersion(row: VersionRow): AgentRuntimeConfig {
 // registry-defined, which is every conversation that existed before
 // phase 2 and every conversation on an agent nobody has published.
 export const resolveRuntimeConfig = cache(async function resolveRuntimeConfig(
-  practice: Practice,
+  practice: Practice & { isDatabaseDefined?: boolean; liveVersionId?: string | null },
   pinnedVersionId: string | null
 ): Promise<AgentRuntimeConfig> {
+  // ---- a database-defined agent has NO code to fall back to ----
+  //
+  // Phase 3. `registryConfig` would try to read a prompt file that
+  // does not exist, so every path below has to be explicit about it.
+  if (practice.isDatabaseDefined) {
+    // No pin should be possible — such an agent only reaches a
+    // picker with a live version, and creation stamps from it — but
+    // if one arrives, its live version is the only honest answer.
+    const id = pinnedVersionId ?? practice.liveVersionId ?? null;
+    const row = id ? await loadVersionRow(id) : null;
+    if (row) return configFromVersion(row);
+
+    // Nothing left to run. Version rows are immutable and nothing
+    // holds DELETE, so this is close to unreachable — but "close to"
+    // is not "never", and a chat that throws is worse than one that
+    // carries on without the agent's instructions. Degrade to the
+    // base prompt and say so loudly.
+    warnOnce(
+      `orphan:${practice.id}`,
+      `agent "${practice.id}" is database-defined and its version ` +
+        `(${id ?? "none"}) could not be read. There is no code fallback, so ` +
+        "this conversation runs on the base prompt alone. Investigate: a " +
+        "version row should never be missing."
+    );
+    return {
+      source: "version",
+      versionId: id,
+      versionNumber: null,
+      prompt: "",
+      basePromptMode: "full_coach",
+      tools: [],
+      maxTokens: null,
+      model: null,
+      chips: [],
+      skipSetup: false,
+      firstTurn: null,
+      scriptedOpener: null,
+      outputCard: null,
+    };
+  }
+
   if (!pinnedVersionId) return registryConfig(practice);
 
   const row = await loadVersionRow(pinnedVersionId);
