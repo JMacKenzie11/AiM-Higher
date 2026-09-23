@@ -17,7 +17,7 @@ import { TextAlign } from "./extensions/TextAlign";
 // mark landed with no href attribute.
 import { parseVideoUrl } from "@/lib/classroom/video-url";
 import { uploadClassroomImageAction } from "@/lib/classroom/actions";
-import { resolveVideoThumbnailAction } from "@/lib/classroom/video-thumbnail";
+import { resolveVideoThumbnailAction } from "@/lib/classroom/video-thumbnail-action";
 import styles from "./Editor.module.css";
 
 // TipTap-based rich text editor. Client-side only — the editor bundle

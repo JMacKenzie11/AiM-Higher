@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { parseVideoUrl } from "./video-url";
 
@@ -26,8 +26,17 @@ import { parseVideoUrl } from "./video-url";
 // Failure is not an error. A null answer falls back to the derived
 // URL, which is what every existing node already uses, so a slow or
 // down oEmbed costs a nicer thumbnail rather than the insert.
+//
+// ---- AND IT RUNS AT RENDER TIME TOO ----------------------------
+//
+// Not only at insert. A node stored before this change carries no
+// poster, and there is no migration that could add one: the answer
+// lives at Vimeo. So the renderer asks for anything it is missing,
+// which fixes existing trainings without anybody re-adding a video.
+// The 24 hour revalidate means a lesson page pays for this once a
+// day at most, per video, across every reader.
 
-export async function resolveVideoThumbnailAction(
+export async function resolveVideoThumbnail(
   url: string
 ): Promise<string | null> {
   const parsed = parseVideoUrl(url);
@@ -58,4 +67,17 @@ export async function resolveVideoThumbnailAction(
   } catch {
     return null;
   }
+}
+
+// Rebuild a share URL from what a node stores, so the renderer can
+// ask about a video it only has an id for.
+export function shareUrlFor(
+  provider: string,
+  videoId: string,
+  hash?: string | null
+): string | null {
+  if (provider !== "vimeo") return null;
+  return hash
+    ? `https://vimeo.com/${videoId}/${hash}`
+    : `https://vimeo.com/${videoId}`;
 }
