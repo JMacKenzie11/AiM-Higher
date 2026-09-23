@@ -1130,6 +1130,209 @@ async function agentVersionsWall(
   };
 }
 
+// ---- distribution: a locked receiving side, and one door ------
+//
+// Phase 4a. Three claims, each needing its own kind of evidence.
+//
+// THE RECEIVING SIDE IS LOCKED. A managed agent (managed_from not
+// null) cannot be edited by a local system_admin — the role that
+// holds every other policy on the table. Measured as rows written,
+// with the SAME admin editing an unmanaged agent as the control
+// beside it, because a zero from a working policy and a zero from a
+// broken query look identical (E4).
+//
+// THE WALL STILL STANDS. 0228 withheld INSERT on agent_versions from
+// service_role and said why. Distribution does not change that: it
+// adds a door, not a hole. So this asserts service_role STILL cannot
+// insert the table directly, as a privilege, alongside the new
+// EXECUTE grant.
+//
+// THE DOOR REFUSES AN ANONYMOUS WRITE. The function requires an
+// actor. Called with null it raises, which is the guarantee 0228
+// wrote down kept as a database fact.
+async function agentDistributionWall(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "agent-distribution-wall";
+  const hazard =
+    "A local admin edits a fleet-managed agent, or a version is written with nobody's name on it";
+
+  const [exists] = await run<{ ok: boolean }>(
+    [
+      "begin;", pending,
+      `select count(*) > 0 as ok from information_schema.columns
+        where table_schema='public' and table_name='agents'
+          and column_name='managed_from';`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!exists?.ok) {
+    return {
+      name, hazard,
+      wrong: "column not on this schema",
+      right: "column not on this schema",
+      ok: true,
+      detail:
+        "not applicable: 0230 has not landed here yet. Runs for real under --pending 0230_agent_distribution.sql.",
+    };
+  }
+
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  const measure = async (
+    sub: string,
+    setup: string,
+    statement: string
+  ): Promise<string> => {
+    try {
+      const rows = await run<{ n: number }>(
+        ["begin;", pending, setup, "set local role authenticated;", claims(sub),
+         statement, "rollback;"].join("\n")
+      );
+      return String(rows?.[0]?.n ?? 0);
+    } catch (error) {
+      const text = String((error as Error).message ?? error);
+      const code = text.match(/ERROR:\s+(\d+)/);
+      return code ? code[1] : "ERROR";
+    }
+  };
+
+  // Two agents side by side: one managed from elsewhere, one local.
+  // Seeded before the role switch, as the connection's own role.
+  const seed = `
+    insert into public.agents
+      (slug, category_id, title, description, managed_from)
+    select 'harness-managed', c.id, 'Harness managed', 'from HQ', 'hq'
+      from public.agent_categories c limit 1;
+    insert into public.agents
+      (slug, category_id, title, description, managed_from)
+    select 'harness-local', c.id, 'Harness local', 'made here', null
+      from public.agent_categories c limit 1;`;
+
+  const renameManaged = await measure(
+    ids.systemAdmin, seed,
+    `with u as (update public.agents set title = 'rewritten'
+                 where slug = 'harness-managed' returning id)
+      select count(*)::int as n from u;`
+  );
+  const renameLocal = await measure(
+    ids.systemAdmin, seed,
+    `with u as (update public.agents set title = 'rewritten'
+                 where slug = 'harness-local' returning id)
+      select count(*)::int as n from u;`
+  );
+  const deleteManaged = await measure(
+    ids.systemAdmin, seed,
+    `with d as (delete from public.agents
+                 where slug = 'harness-managed' returning id)
+      select count(*)::int as n from d;`
+  );
+  const versionOnManaged = await measure(
+    ids.systemAdmin, seed,
+    `insert into public.agent_versions (agent_id, version_number, prompt)
+       select id, 9100, 'local edit' from public.agents
+        where slug = 'harness-managed';
+     select count(*)::int as n from public.agent_versions
+      where version_number = 9100;`
+  );
+  const versionOnLocal = await measure(
+    ids.systemAdmin, seed,
+    `insert into public.agent_versions (agent_id, version_number, prompt)
+       select id, 9101, 'local edit' from public.agents
+        where slug = 'harness-local';
+     select count(*)::int as n from public.agent_versions
+      where version_number = 9101;`
+  );
+
+  // ---- the wall, as a privilege ------------------------------
+  const [priv] = await run<{
+    svc_no_insert: boolean;
+    svc_can_execute: boolean;
+    auth_no_execute: boolean;
+  }>(
+    ["begin;", pending,
+     `select
+        not has_table_privilege('service_role', 'public.agent_versions', 'insert') as svc_no_insert,
+        has_function_privilege('service_role',
+          'public.insert_distributed_agent_version(uuid, integer, text, jsonb, text, boolean, text, text, text[], integer, text, text, uuid)',
+          'execute') as svc_can_execute,
+        not has_function_privilege('authenticated',
+          'public.insert_distributed_agent_version(uuid, integer, text, jsonb, text, boolean, text, text, text[], integer, text, text, uuid)',
+          'execute') as auth_no_execute;`,
+     "rollback;"].join("\n")
+  );
+
+  // ---- the door refuses an anonymous write -------------------
+  const doorWithoutActor = await (async () => {
+    try {
+      await run(
+        ["begin;", pending, seed,
+         `select public.insert_distributed_agent_version(
+            (select id from public.agents where slug = 'harness-managed'),
+            9200, 'p', '[]'::jsonb, 'full_coach', false, null, null,
+            '{}'::text[], null, null, 'notes', null);`,
+         "rollback;"].join("\n")
+      );
+      return "allowed";
+    } catch {
+      return "refused";
+    }
+  })();
+
+  // ---- and it refuses to be a way around the local policy ----
+  const doorOnLocalAgent = await (async () => {
+    try {
+      await run(
+        ["begin;", pending, seed,
+         `select public.insert_distributed_agent_version(
+            (select id from public.agents where slug = 'harness-local'),
+            9201, 'p', '[]'::jsonb, 'full_coach', false, null, null,
+            '{}'::text[], null, null, 'notes', '${ids.systemAdmin}');`,
+         "rollback;"].join("\n")
+      );
+      return "allowed";
+    } catch {
+      return "refused";
+    }
+  })();
+
+  const checks: Array<[string, string, string]> = [
+    ["system_admin renames a MANAGED agent", renameManaged, "0"],
+    ["control, renames a LOCAL agent", renameLocal, "1"],
+    ["system_admin deletes a MANAGED agent", deleteManaged, "0"],
+    // 42501, not "0". An INSERT that no policy admits RAISES rather
+    // than writing zero rows — which is the stronger of the two
+    // answers, and the one E8 asks for. Expecting 0 here would have
+    // been a weaker assertion that also happened to be wrong.
+    ["system_admin adds a version to a MANAGED agent", versionOnManaged, "42501"],
+    ["control, adds a version to a LOCAL agent", versionOnLocal, "1"],
+    ["service_role still cannot INSERT agent_versions", String(priv?.svc_no_insert), "true"],
+    ["service_role may EXECUTE the door", String(priv?.svc_can_execute), "true"],
+    ["authenticated may NOT execute the door", String(priv?.auth_no_execute), "true"],
+    ["the door refuses a null actor", doorWithoutActor, "refused"],
+    ["the door refuses a local agent", doorOnLocalAgent, "refused"],
+  ];
+  const failures = checks.filter(([, got, want]) => got !== want);
+
+  return {
+    name,
+    hazard,
+    wrong:
+      "a managed agent is editable locally, or a version lands with no actor, or service_role gains a blanket INSERT",
+    right:
+      "every local write to a managed agent is refused while the same admin writes a local agent beside it; " +
+      "service_role holds EXECUTE on the one door and still no INSERT on the table; " +
+      "the door refuses a null actor and refuses a local agent",
+    ok: failures.length === 0,
+    detail:
+      (failures.length === 0 ? "" : "MISMATCH: ") +
+      checks.map(([label, got]) => `${label}=${got}`).join(", "),
+  };
+}
+
 // ---- The Role Description Builder's two read tools --------------
 //
 // The claim: what get_foundation and list_functions return is what
@@ -9351,6 +9554,10 @@ async function main(): Promise<void> {
     [
       "agent-versions-wall",
       (r: Runner, i: Identities) => agentVersionsWall(r, i, pendingSql),
+    ],
+    [
+      "agent-distribution-wall",
+      (r: Runner, i: Identities) => agentDistributionWall(r, i, pendingSql),
     ],
     [
       "role-description-lead-writes",
