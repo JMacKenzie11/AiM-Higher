@@ -1,4 +1,11 @@
-import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
+import {
+  test,
+  expect,
+  signIn,
+  users,
+  FIXTURE_COMPANY_NAME,
+  chooseRowAction,
+} from "./fixtures";
 import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
@@ -90,10 +97,10 @@ async function scopeIn(page: Page) {
 
 async function openConfig(page: Page, slug: string) {
   await page.goto("/admin/agents");
-  await page
-    .locator(`[data-agent-slug="${slug}"]`)
-    .getByRole("button", { name: /^config$/i })
-    .click();
+  await chooseRowAction(
+    page.locator(`[data-agent-slug="${slug}"]`),
+    /^config$/i
+  );
   const d = panel(page, "agent-config");
   await expect(d).toBeVisible();
   // NOT just "the source line exists" — it renders "Loading…" the

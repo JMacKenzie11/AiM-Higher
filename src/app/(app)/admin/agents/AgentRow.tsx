@@ -11,7 +11,7 @@ import {
   setAgentArchivedAction,
   type HubResult,
 } from "@/lib/practices/hub-actions";
-import admin from "../companies/admin.module.css";
+import { RowMenu } from "@/components/ui/RowMenu";
 import styles from "./hub.module.css";
 
 // One agent, as a row. Presentational apart from the two actions
@@ -107,81 +107,45 @@ export function AgentRow({
                already says it is managed from AiMS HQ. */
             <span className={styles.agentDescription}>Managed centrally</span>
           ) : (
-          <>
-          <button
-            type="button"
-            className={styles.moveButton}
-            onClick={() => run(() => moveAgentAction(agent.id, "up"))}
-            disabled={pending || isFirst}
-            aria-label={`Move ${agent.title} up`}
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            className={styles.moveButton}
-            onClick={() => run(() => moveAgentAction(agent.id, "down"))}
-            disabled={pending || isLast}
-            aria-label={`Move ${agent.title} down`}
-          >
-            ↓
-          </button>
-          <button
-            type="button"
-            className={admin.ghostButton}
-            onClick={onEdit}
+          <RowMenu
+            ariaLabel={`Actions for ${agent.title}`}
             disabled={pending}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            className={admin.ghostButton}
-            onClick={onAccess}
-            disabled={pending}
-          >
-            Access
-          </button>
-          <button
-            type="button"
-            className={admin.ghostButton}
-            onClick={onConfig}
-            disabled={pending}
-          >
-            Config
-          </button>
-          <button
-            type="button"
-            className={admin.dangerGhost}
-            onClick={() =>
-              run(() => setAgentArchivedAction(agent.id, !agent.archived))
-            }
-            disabled={pending}
-          >
-            {agent.archived ? "Show again" : "Hide"}
-          </button>
-          {/* EVERY agent, not only the ones built here.
-              Phase 4b showed this only for a Hub-built agent, on the
-              reasoning that an agent defined in code already exists
-              on every instance. That reasoning was wrong about what
-              gets distributed: the push sends a published VERSION,
-              and a conversation is stamped with the agent's live
-              version when it starts (create.ts), so a pushed version
-              is what the receiving instance actually runs whether or
-              not it also has a registry entry.
-              Hiding the button meant the five seeded agents — the
-              ones most likely to be edited centrally — were the only
-              ones that could not be sent anywhere. */}
-          <button
-            type="button"
-            className={admin.ghostButton}
-            onClick={onDistribute}
-            disabled={pending}
-            data-testid="agent-hub-distribute"
-          >
-            Distribute
-          </button>
-          </>
+            testId="agent-hub-row-menu"
+            items={[
+              { label: "Edit", onSelect: onEdit },
+              { label: "Access", onSelect: onAccess },
+              { label: "Config", onSelect: onConfig },
+              // EVERY agent, not only the ones built here. The push
+              // sends a published VERSION, and create.ts stamps each
+              // new conversation with its agent's live version, so a
+              // pushed version is what the receiving instance runs
+              // whether or not it also has a registry entry.
+              { label: "Distribute", onSelect: onDistribute },
+              {
+                label: "Move up",
+                onSelect: () => run(() => moveAgentAction(agent.id, "up")),
+                disabled: isFirst,
+                separatorBefore: true,
+              },
+              {
+                label: "Move down",
+                onSelect: () => run(() => moveAgentAction(agent.id, "down")),
+                disabled: isLast,
+              },
+              {
+                // Not red, and not bare text. It reads like every
+                // other item because it is reversible: hiding takes
+                // an agent off the picker and "Show again" puts it
+                // back. Colouring it as a danger implied a
+                // destructiveness it does not have, and deleting —
+                // which IS destructive — is not offered here at all.
+                label: agent.archived ? "Show again" : "Hide",
+                onSelect: () =>
+                  run(() => setAgentArchivedAction(agent.id, !agent.archived)),
+                separatorBefore: true,
+              },
+            ]}
+          />
           )}
         </div>
       </div>

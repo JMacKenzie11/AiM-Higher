@@ -297,9 +297,15 @@ export function AgentHubEditor({
                     >
                       Rename
                     </button>
+                    {/* A button like Rename beside it, not bare red
+                        text. Hiding a category is reversible — "Show
+                        again" is the same control — so styling it as
+                        a danger promised a severity it does not have
+                        while also being the only item in the row that
+                        did not look clickable. */}
                     <button
                       type="button"
-                      className={admin.dangerGhost}
+                      className={admin.ghostButton}
                       onClick={() =>
                         run(() =>
                           setHubCategoryArchivedAction(

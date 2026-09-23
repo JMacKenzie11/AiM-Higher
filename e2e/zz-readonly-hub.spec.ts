@@ -24,12 +24,12 @@ test.describe("Agent Hub, read-only instance", () => {
 
     // The list is intact.
     expect(await rows.count()).toBeGreaterThan(0);
-    // And every affordance is ABSENT, not disabled.
+    // And every affordance is ABSENT, not disabled. The actions
+    // live behind a per-row menu now, so the assertion is that the
+    // menu itself is not there — there is nothing to open.
     await expect(page.getByTestId("agent-hub-new")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Access" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Config" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Distribute" })).toHaveCount(0);
+    await expect(page.getByTestId("agent-hub-row-menu")).toHaveCount(0);
+    await expect(page.getByRole("menuitem")).toHaveCount(0);
     await expect(page.getByLabel("Add a category")).toHaveCount(0);
     await expect(page.getByText("Managed centrally").first()).toBeVisible();
 
