@@ -17,7 +17,8 @@ import {
 import { resolveAgent, type ResolvedAgent } from "@/lib/practices/resolve";
 import { liveVersionIdFor } from "@/lib/practices/version-config";
 import { practiceGate } from "@/lib/practices/gate";
-import { cleanGeneratedTitle } from "./title";
+import { cleanGeneratedTitle, defaultTitleForToday } from "./title";
+import { createGeneralConversation } from "./create-general";
 import { logCoachTokenUsage } from "./usage";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
@@ -122,53 +123,18 @@ export async function createConversationAction(
 export async function createGeneralConversationAction(): Promise<
   CoachActionResult<CoachingConversation>
 > {
-  const session = await requireProfile();
-
-  // Single-source-of-truth resolver: regular members return their
-  // own company_id, system_admins their scope cookie, aims_guides
-  // cookie-or-single-assignment. The old version here only handled
-  // system_admin, so a guide would fail with "scope into a company
-  // first" even with a valid scope set.
-  const companyId = await getEffectiveCompanyId(session);
-  if (!companyId) {
-    return {
-      ok: false,
-      message:
-        "Scope into a company first — coaching runs against a company's context.",
-    };
-  }
-
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const title = defaultTitleForToday();
-  const { data, error } = await supabase
-    .from("coaching_conversations")
-    .insert({
-      company_id: companyId,
-      subject_profile_id: null,
-      created_by: session.profile.id,
-      title,
-      context_kind: "execution",
-      mode: "general",
-    })
-    .select("*")
-    .single<CoachingConversation>();
-  if (error || !data) {
-    // Surface the underlying DB message during rollout — the two most
-    // likely causes are the mode check constraint or the NOT NULL on
-    // subject_profile_id (both cleared by migration 0105).
-    console.error("createGeneralConversationAction insert failed", error);
-    const detail = error?.message ? ` (${error.message})` : "";
-    return { ok: false, message: `Couldn't start that conversation.${detail}` };
-  }
-
+  // A thin wrapper. The work lives in create-general.ts, which is
+  // "server-only" and touches no caches, because /ask-aimee/new
+  // renders it during a server component and revalidating there is
+  // forbidden — it 500'd the route. See that file's header.
+  //
+  // What this adds is the revalidation a BUTTON needs: somebody who
+  // starts a conversation from the list expects the list to have it
+  // when they come back.
+  const result = await createGeneralConversation();
+  if (!result.ok) return result;
   revalidatePath("/ask-aimee");
-  trackAfter(
-    session.profile.id,
-    "coach.thread_opened",
-    { mode: "general", context_kind: "execution" },
-    { company: companyId }
-    );
-  return { ok: true, item: data };
+  return { ok: true, item: result.item };
 }
 
 // ---- Attach / detach an agent to a general conversation --------
@@ -572,15 +538,6 @@ export async function generateConversationTitleAction(
 // of these defaults; a user rename to anything else is respected.
 const DEFAULT_TITLE_PATTERN =
   /^(?:Coaching · )?[A-Z][a-z]+ \d{1,2}$/;
-
-function defaultTitleForToday(): string {
-  const now = new Date();
-  const label = now.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
-  return `Coaching · ${label}`;
-}
 
 // ==============================================================
 // Sharing — grant / revoke / change / leave

@@ -139,6 +139,10 @@ vi.mock("@/lib/subscriptions/service", () => ({
 
 vi.mock("@/lib/coach/title", () => ({
   cleanGeneratedTitle: mocks.cleanGeneratedTitle,
+  // Moved here from actions.ts, which is "use server" and so can
+  // only export async functions. Real implementation rather than a
+  // stub: the assertions below read the title off the inserted row.
+  defaultTitleForToday: () => "Coaching · Jan 1",
 }));
 
 vi.mock("@/lib/coach/usage", () => ({

@@ -16,3 +16,19 @@ export function cleanGeneratedTitle(raw: string): string {
     .replace(/[.!?]+$/, "")
     .trim();
 }
+
+// The title a conversation gets before anybody has said anything.
+//
+// Moved out of actions.ts for the reason the header above gives: a
+// "use server" module can only export async functions, so nothing
+// that is not an action can live there and still be imported. The
+// render-safe creator in create-general.ts needs it, and so does
+// the action.
+export function defaultTitleForToday(): string {
+  const now = new Date();
+  const label = now.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  return `Coaching · ${label}`;
+}
