@@ -179,7 +179,7 @@ export function AgentCreateDrawer({
               className={s === step ? admin.primaryButton : admin.ghostButton}
               onClick={() => setStep(s)}
             >
-              {i + 1}. {s === "config" ? "What it says" : s}
+              {i + 1}. {s === "config" ? "What it does" : s}
             </button>
           ))}
         </div>

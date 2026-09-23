@@ -331,6 +331,13 @@
   cursor: default;
 }
 
+/* A card-level action on its own line, right-aligned. */
+.cardAction {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-4);
+}
+
 .addRow {
   display: flex;
   gap: var(--space-2);
