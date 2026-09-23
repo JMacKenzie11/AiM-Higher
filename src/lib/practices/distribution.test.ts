@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { isUntouchedSeed, type TargetState } from "./distribution";
+import {
+  isUntouchedSeed,
+  seedAdoptionWarning,
+  type TargetState,
+} from "./distribution";
 
 // Adopting a seeded copy, and refusing anything else.
 //
@@ -48,5 +52,25 @@ describe("isUntouchedSeed", () => {
     expect(
       isUntouchedSeed(state({ versionCount: 3, liveVersionNumber: null }))
     ).toBe(false);
+  });
+});
+
+describe("seedAdoptionWarning", () => {
+  const warning = seedAdoptionWarning("prepare-a-hard-conversation", 3);
+
+  it("says what the instance runs now and what it would run", () => {
+    expect(warning).toContain("prepare-a-hard-conversation");
+    expect(warning).toContain("built into the code");
+    expect(warning).toContain("version 3");
+  });
+
+  it("never mentions admins", () => {
+    // The sentence this replaced said "local admins stop being able
+    // to edit it". It named a class of person that does not exist —
+    // there are only system admins — and after 0231 it described a
+    // change that had already happened on every receiving instance.
+    // A plan is read to decide whether to press Apply, so it has to
+    // describe what Apply does, not what the schema already did.
+    expect(warning).not.toMatch(/admin/i);
   });
 });
