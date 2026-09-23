@@ -107,3 +107,86 @@ describe("embedUrl", () => {
     );
   });
 });
+
+// ---- Unlisted Vimeo: the privacy hash ---------------------------
+//
+// vimeo.com/<id>/<hash> is an UNLISTED video. The hash is not
+// decoration: the player refuses the video without it and the
+// thumbnail service returns a placeholder, which is what produced a
+// grey folder in the editor and "Sorry. We're having a little
+// trouble." on the classroom page for a link that plays fine in a
+// browser.
+describe("unlisted Vimeo URLs carry their privacy hash", () => {
+  const real = "https://vimeo.com/1229485592/75fc612f9a";
+
+  it("keeps the hash from a share URL", () => {
+    expect(parseVideoUrl(real)).toEqual({
+      provider: "vimeo",
+      id: "1229485592",
+      hash: "75fc612f9a",
+    });
+  });
+
+  it("keeps it from the player form with ?h=", () => {
+    expect(
+      parseVideoUrl("https://player.vimeo.com/video/1229485592?h=75fc612f9a")
+    ).toEqual({ provider: "vimeo", id: "1229485592", hash: "75fc612f9a" });
+  });
+
+  it("omits the hash entirely for a public video", () => {
+    // Not `hash: undefined` — absent, so a stored node for a public
+    // video is byte-identical to what it was before this change.
+    expect(parseVideoUrl("https://vimeo.com/123456789")).toEqual({
+      provider: "vimeo",
+      id: "123456789",
+    });
+  });
+
+  it("puts h= on the embed, which is what Vimeo requires", () => {
+    expect(embedUrl("vimeo", "1229485592", "75fc612f9a")).toBe(
+      "https://player.vimeo.com/video/1229485592?autoplay=1&h=75fc612f9a"
+    );
+  });
+
+  it("leaves the embed unchanged when there is no hash", () => {
+    expect(embedUrl("vimeo", "123456789")).toBe(
+      "https://player.vimeo.com/video/123456789?autoplay=1"
+    );
+    expect(embedUrl("vimeo", "123456789", null)).toBe(
+      "https://player.vimeo.com/video/123456789?autoplay=1"
+    );
+  });
+
+  it("prefers a poster resolved from the provider over the derived one", () => {
+    // The derived vumbnail URL CANNOT work for an unlisted video.
+    // Measured, not assumed: vumbnail.com/<id>.jpg and
+    // vumbnail.com/<id>_<hash>.jpg return byte-identical placeholder
+    // images for this video — same md5 — so there is no URL shape
+    // that fixes it. The poster has to come from Vimeo's oEmbed and
+    // be stored on the node, which is what this argument is.
+    const poster = "https://i.vimeocdn.com/video/2204158791-d41047ef.jpg";
+    expect(thumbnailUrl("vimeo", "1229485592", poster)).toBe(poster);
+  });
+
+  it("falls back to the derived URL when nothing was stored", () => {
+    // Every node written before this change, and every public video.
+    expect(thumbnailUrl("vimeo", "123456789")).toBe(
+      "https://vumbnail.com/123456789.jpg"
+    );
+    expect(thumbnailUrl("vimeo", "123456789", null)).toBe(
+      "https://vumbnail.com/123456789.jpg"
+    );
+    expect(thumbnailUrl("youtube", "dQw4w9WgXcQ")).toBe(
+      "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
+    );
+  });
+
+  it("never invents a hash for YouTube", () => {
+    // YouTube has no equivalent, and a trailing path segment there
+    // means something else entirely.
+    expect(parseVideoUrl("https://youtu.be/dQw4w9WgXcQ")).toEqual({
+      provider: "youtube",
+      id: "dQw4w9WgXcQ",
+    });
+  });
+});

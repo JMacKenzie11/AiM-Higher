@@ -80,6 +80,8 @@ function renderNode(node: JSONContent, key: string): React.ReactNode {
     case "videoEmbed": {
       const provider = node.attrs?.provider as ClassroomVideoProvider | undefined;
       const videoId = node.attrs?.videoId as string | undefined;
+      const videoHash = node.attrs?.videoHash as string | undefined;
+      const storedThumbnail = node.attrs?.thumbnailUrl as string | undefined;
       const caption = (node.attrs?.caption as string | null | undefined) ?? null;
       if (!videoId || (provider !== "youtube" && provider !== "vimeo")) {
         return null;
@@ -89,6 +91,8 @@ function renderNode(node: JSONContent, key: string): React.ReactNode {
           key={key}
           provider={provider}
           videoId={videoId}
+          videoHash={videoHash}
+          thumbnailUrl={storedThumbnail}
           caption={caption}
         />
       );

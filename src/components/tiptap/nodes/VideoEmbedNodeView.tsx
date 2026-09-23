@@ -18,6 +18,7 @@ import styles from "./VideoEmbedNodeView.module.css";
 export function VideoEmbedNodeView({ node, updateAttributes, selected }: NodeViewProps) {
   const provider = node.attrs.provider as ClassroomVideoProvider;
   const videoId = (node.attrs.videoId as string) ?? "";
+  const storedThumbnail = (node.attrs.thumbnailUrl as string | null) ?? null;
   const caption = (node.attrs.caption as string | null) ?? "";
 
   return (
@@ -29,7 +30,7 @@ export function VideoEmbedNodeView({ node, updateAttributes, selected }: NodeVie
         {videoId ? (
           <img
             className={styles.thumb}
-            src={thumbnailUrl(provider, videoId)}
+            src={thumbnailUrl(provider, videoId, storedThumbnail)}
             alt=""
             loading="lazy"
           />
