@@ -8,6 +8,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
 import { buildCoachTools, type CoachTool } from "@/lib/coach/tools";
+import { toolLabel } from "@/lib/coach/tool-labels";
 import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
@@ -337,6 +338,16 @@ export async function POST(req: NextRequest): Promise<Response> {
         // underneath. finalUsage above still holds only the last
         // iteration's usage (returned to the client via the done
         // event) — keep that shape for backwards compatibility.
+        // WHAT THE TURN SPENT ITSELF ON.
+        //
+        // Reconstructed by arithmetic the first time somebody asked
+        // why a turn took so long: 3,572 billed output tokens
+        // against a 215 word answer, with nothing logged in between.
+        // The ratio was the only clue, and it could not say WHICH
+        // tool. This records it.
+        const toolTally: Array<{ name: string; inputBytes: number }> = [];
+        let iterations = 0;
+
         const turnUsage = {
           input_tokens: 0,
           output_tokens: 0,
@@ -345,6 +356,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         };
 
         for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
+          iterations += 1;
           const messageStream = client.messages.stream(
             {
               model,
@@ -409,6 +421,22 @@ export async function POST(req: NextRequest): Promise<Response> {
           const toolUses = final.content.filter(
             (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
           );
+
+          // SAY WHAT IS HAPPENING. An iteration that ends in tool_use
+          // has produced no text, so without this the screen sits
+          // blank for a whole model call plus the tool round trip.
+          // Emitted BEFORE the handlers run, because the point is to
+          // cover the wait, not to report it afterwards.
+          for (const tu of toolUses) {
+            toolTally.push({
+              name: tu.name,
+              inputBytes: JSON.stringify(tu.input ?? {}).length,
+            });
+            controller.enqueue(
+              encodeEvent("tool", { name: tu.name, label: toolLabel(tu.name) })
+            );
+          }
+
           const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
             toolUses.map(async (tu) => {
               const tool = tools.find((t) => t.definition.name === tu.name);
@@ -497,6 +525,31 @@ export async function POST(req: NextRequest): Promise<Response> {
           model,
           usage: turnUsage,
         });
+
+        // The shape of the turn, so the next "why was that slow"
+        // is answered from data rather than by subtracting the
+        // visible words from the billed tokens.
+        //
+        // visible_chars beside output_tokens is the ratio that
+        // started this: tool arguments are output tokens somebody
+        // pays for and waits for and never sees.
+        trackAfter(
+          session.profile.id,
+          "coach.turn_shape",
+          {
+            conversation_id: conversationId,
+            mode: convo.mode,
+            practice: practice?.id ?? null,
+            model,
+            iterations,
+            tool_calls: toolTally.length,
+            tools: toolTally.map((t) => t.name),
+            tool_input_bytes: toolTally.reduce((n, t) => n + t.inputBytes, 0),
+            output_tokens: turnUsage.output_tokens,
+            visible_chars: assistantText.length,
+          },
+          { company: convo.company_id }
+        );
 
         // Bump updated_at so the list view re-sorts.
         await supabase

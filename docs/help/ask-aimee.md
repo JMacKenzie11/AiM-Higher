@@ -151,6 +151,12 @@ narrowly scoped:
 in the Memory card. It lists what Aimee has noted from these
 conversations, and you can delete any of it.
 
+**Why does it sometimes pause before answering?** Aimee looks things
+up before replying: past commitments, strengths results, earlier
+conversations. While that is happening the reply area tells you what
+it is reading. A first message usually takes longest, because there
+is the most to gather.
+
 ## Common questions
 
 **I opened a chat from another company and my sidebar didn't
