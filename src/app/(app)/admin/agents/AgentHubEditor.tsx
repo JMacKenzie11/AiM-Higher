@@ -115,11 +115,6 @@ export function AgentHubEditor({
 
       <section className={admin.card} data-testid="agent-hub-agents">
         <h2 className={`${admin.h2} ${styles.cardTitle}`}>Agents</h2>
-        <p className={admin.fieldHint}>
-          Edit changes the name, description and category. Access chooses who
-          can reach it. Hide takes it off the list people pick from, and leaves
-          conversations already using it untouched.
-        </p>
         {/* Its own row under the heading and its description, pushed
             right. Beside the heading it competed with it; here it
             reads as the action you take after reading what the card
