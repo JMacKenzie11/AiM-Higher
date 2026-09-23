@@ -145,7 +145,6 @@ export default async function AskAimeeChatPage({
       ? {
           ...registryAgent,
           chips: runtime.chips,
-          outputCard: runtime.outputCard ?? undefined,
           skipSetup: runtime.skipSetup,
           firstTurn: runtime.firstTurn ?? undefined,
           scriptedOpener: runtime.scriptedOpener ?? undefined,

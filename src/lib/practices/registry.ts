@@ -29,14 +29,12 @@ import type { ModuleFeature } from "@/lib/subscriptions/service";
 export { PRACTICE_CATEGORIES } from "./categories";
 export type { PracticeCategory } from "./categories";
 
-// Card renderers are wired by a small string-keyed lookup in the
-// chat view (see ChatView.tsx). Keeping outputCard values as string
-// tags rather than component references means the registry can be
-// serialized to a client component without losing shape.
-export type OutputCardName =
-  | "ScriptCard"
-  | "ChartProposalCard"
-  | "RoleDescriptionCard";
+// Card names and the tag -> card map live in ./output-cards,
+// which has no imports, because ChatView is a client component and
+// this file is server-only. Re-exported so existing callers are
+// unaffected.
+export type { OutputCardName } from "./output-cards";
+export { OUTPUT_CARD_BY_TAG } from "./output-cards";
 
 export type Practice = {
   id: string;
@@ -93,11 +91,6 @@ export type Practice = {
   //   to the scoped company; unscoped guides fall to the same denial.
   //   Absent means all members.
   allowedRoles?: readonly Role[];
-  // outputCard
-  //   Maps a fenced-block tag emitted by the practice prompt to the
-  //   card renderer that consumes it. Absent means no card
-  //   integration (plain text turns).
-  outputCard?: Readonly<Record<string, OutputCardName>>;
   // tools
   //   Tools registered for THIS practice and nowhere else. The
   //   general coach's tool list is built by buildCoachTools and is
@@ -177,7 +170,6 @@ export const PRACTICES: readonly Practice[] = [
     ],
     basePromptMode: "full_coach",
     skipSetup: false,
-    outputCard: { script: "ScriptCard" },
   },
   {
     id: "navigate-emotionally-charged-conversation",
@@ -194,7 +186,6 @@ export const PRACTICES: readonly Practice[] = [
     ],
     basePromptMode: "full_coach",
     skipSetup: false,
-    outputCard: { script: "ScriptCard" },
   },
   {
     id: "ask-better-questions",
@@ -222,7 +213,6 @@ export const PRACTICES: readonly Practice[] = [
     basePromptMode: "voice_only",
     skipSetup: false,
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
-    outputCard: { chart_proposal: "ChartProposalCard" },
   },
   {
     id: "role-description",
@@ -257,7 +247,6 @@ export const PRACTICES: readonly Practice[] = [
     // untouched section through verbatim. 2000 truncated it twice in
     // a row.
     maxTokens: 8000,
-    outputCard: { role_description: "RoleDescriptionCard" },
   },
 ] as const;
 

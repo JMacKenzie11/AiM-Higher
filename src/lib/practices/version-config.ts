@@ -5,7 +5,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import {
   loadPracticePrompt,
-  type OutputCardName,
   type Practice,
   type PracticeToolName,
 } from "./registry";
@@ -71,7 +70,6 @@ export type AgentRuntimeConfig = {
   skipSetup: boolean;
   firstTurn: "scripted" | "generate" | null;
   scriptedOpener: string | null;
-  outputCard: Readonly<Record<string, OutputCardName>> | null;
 };
 
 // The closed lists. A stored version names tools and cards as
@@ -85,12 +83,6 @@ const KNOWN_TOOLS: ReadonlySet<string> = new Set<PracticeToolName>([
   "get_foundation",
   "list_functions",
   "get_role_description",
-]);
-
-const KNOWN_CARDS: ReadonlySet<string> = new Set<OutputCardName>([
-  "ScriptCard",
-  "ChartProposalCard",
-  "RoleDescriptionCard",
 ]);
 
 function modelOrNull(value: string | null, versionId: string): string | null {
@@ -171,34 +163,11 @@ export async function registryConfig(
     skipSetup: practice.skipSetup,
     firstTurn: practice.firstTurn ?? null,
     scriptedOpener: practice.scriptedOpener ?? null,
-    outputCard: practice.outputCard ?? null,
   };
 }
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
-}
-
-function asCardMap(
-  value: unknown,
-  versionId: string
-): Readonly<Record<string, OutputCardName>> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const out: Record<string, OutputCardName> = {};
-  for (const [tag, card] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof card !== "string") continue;
-    if (!KNOWN_CARDS.has(card)) {
-      warnOnce(
-        `card:${versionId}:${card}`,
-        `agent_versions ${versionId}: output card "${card}" is not one this ` +
-          "build ships. Dropped. The card list is code, so a version can " +
-          "name one that has since been removed."
-      );
-      continue;
-    }
-    out[tag] = card as OutputCardName;
-  }
-  return Object.keys(out).length > 0 ? out : null;
 }
 
 // A version row is SELF-CONTAINED: it carries every field the
@@ -241,7 +210,6 @@ export function configFromVersion(row: VersionRow): AgentRuntimeConfig {
         ? row.first_turn
         : null,
     scriptedOpener: row.scripted_opener,
-    outputCard: asCardMap(row.output_card, row.id),
   };
 }
 
@@ -291,7 +259,6 @@ export const resolveRuntimeConfig = cache(async function resolveRuntimeConfig(
       skipSetup: false,
       firstTurn: null,
       scriptedOpener: null,
-      outputCard: null,
     };
   }
 

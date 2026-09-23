@@ -14,7 +14,6 @@ const base: ConfigShape = {
   skipSetup: false,
   firstTurn: null,
   scriptedOpener: null,
-  outputCard: {},
   tools: [],
   maxTokens: null,
   model: null,

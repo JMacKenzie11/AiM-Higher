@@ -19,7 +19,6 @@ export type ConfigShape = {
   skipSetup: boolean;
   firstTurn: string | null;
   scriptedOpener: string | null;
-  outputCard: Record<string, string>;
   tools: string[];
   maxTokens: number | null;
   model: string | null;
@@ -59,7 +58,6 @@ export function fieldChanges(
     ["Skip setup", "skipSetup"],
     ["First turn", "firstTurn"],
     ["Scripted opener", "scriptedOpener"],
-    ["Output cards", "outputCard"],
     ["Tools", "tools"],
     ["Token ceiling", "maxTokens"],
     ["Model", "model"],
