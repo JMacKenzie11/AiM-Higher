@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { PRACTICES, type OutputCardName, type PracticeToolName } from "./registry";
+import { PRACTICES, type PracticeToolName } from "./registry";
 import { registryConfig } from "./version-config";
 import { FUNCTION_LEAD_PREDICATE } from "./hub-constants";
 import { isValidAgentModel } from "./models";
@@ -31,12 +31,6 @@ const KNOWN_TOOLS = new Set<string>([
   "get_role_description",
 ] satisfies PracticeToolName[]);
 
-const KNOWN_CARDS = new Set<string>([
-  "ScriptCard",
-  "ChartProposalCard",
-  "RoleDescriptionCard",
-] satisfies OutputCardName[]);
-
 export type DraftInput = {
   prompt: string;
   chips: string[];
@@ -44,7 +38,6 @@ export type DraftInput = {
   skipSetup: boolean;
   firstTurn: "scripted" | "generate" | null;
   scriptedOpener: string | null;
-  outputCard: Record<string, string>;
   tools: string[];
   maxTokens: number | null;
   model: string | null;
@@ -68,9 +61,6 @@ function validate(input: DraftInput): string | null {
   }
   for (const t of input.tools) {
     if (!KNOWN_TOOLS.has(t)) return `"${t}" isn't a tool this system has.`;
-  }
-  for (const card of Object.values(input.outputCard)) {
-    if (!KNOWN_CARDS.has(card)) return `"${card}" isn't a card this system has.`;
   }
   // The dropdown already limits this. The action checks anyway,
   // because a dropdown is a suggestion and the action is the
@@ -130,7 +120,12 @@ async function insertVersion(
       skip_setup: input.skipSetup,
       first_turn: input.firstTurn,
       scripted_opener: input.scriptedOpener,
-      output_card: input.outputCard,
+      // Vestigial. The tag -> card map is a code constant now, so
+      // nothing reads this column. Versions are immutable, so old
+      // rows keep whatever they carried; new ones write empty rather
+      // than copying data nothing consumes. The column is a
+      // candidate for a later migration to drop.
+      output_card: {},
       tools: input.tools,
       max_tokens: input.maxTokens,
       model: input.model,
@@ -193,7 +188,6 @@ export async function startDraftAction(
           ? r.first_turn
           : null,
       scriptedOpener: (r.scripted_opener as string | null) ?? null,
-      outputCard: (r.output_card as Record<string, string>) ?? {},
       tools: (r.tools as string[]) ?? [],
       maxTokens: (r.max_tokens as number | null) ?? null,
       model: (r.model as string | null) ?? null,
@@ -215,7 +209,6 @@ export async function startDraftAction(
       skipSetup: c.skipSetup,
       firstTurn: c.firstTurn,
       scriptedOpener: c.scriptedOpener,
-      outputCard: { ...(c.outputCard ?? {}) },
       tools: [...c.tools],
       maxTokens: c.maxTokens,
       model: c.model,
@@ -313,7 +306,6 @@ export async function publishDraftAction(
         ? r.first_turn
         : null,
     scriptedOpener: (r.scripted_opener as string | null) ?? null,
-    outputCard: (r.output_card as Record<string, string>) ?? {},
     tools: (r.tools as string[]) ?? [],
     maxTokens: (r.max_tokens as number | null) ?? null,
     model: (r.model as string | null) ?? null,

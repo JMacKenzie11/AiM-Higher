@@ -21,7 +21,11 @@ import type {
   CoachingConversation,
   ConversationAccess,
 } from "@/lib/coach/service";
-import type { OutputCardName, Practice } from "@/lib/practices/registry";
+import {
+  OUTPUT_CARD_BY_TAG,
+  type OutputCardName,
+} from "@/lib/practices/output-cards";
+import type { Practice } from "@/lib/practices/registry";
 import { ScriptCard } from "@/components/practices/ScriptCard";
 import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
 import { RoleDescriptionCard } from "@/components/practices/RoleDescriptionCard";
@@ -786,7 +790,7 @@ export function ChatView({
 function MessageBubble({
   message,
   onRetry,
-  practice,
+  practice: _practice,
   conversationId,
   onFixProposal,
   senders,
@@ -854,11 +858,14 @@ function MessageBubble({
   const isStreaming = message.streaming === true;
 
   // Intercept fenced code blocks whose tag matches the current
-  // practice's outputCard mapping and swap them for the matching
+  // known tag -> card map and swap them for the matching
   // card component. Anything unmapped falls through to a plain <pre>.
   // Registry-driven so adding a new tag→card wiring is a registry
   // entry plus a component in CARD_RENDERERS below.
-  const outputCard = practice?.outputCard;
+  // The tag -> card map is global now, not per agent. Any agent
+  // whose prompt tells the model to emit one of the known tags gets
+  // the card, including one built in the Hub.
+  const outputCard = OUTPUT_CARD_BY_TAG;
   const markdownComponents: Components = {
     pre({ children }) {
       const only = Children.toArray(children)[0];

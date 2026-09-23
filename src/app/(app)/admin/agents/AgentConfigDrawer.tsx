@@ -48,11 +48,6 @@ const TOOL_OPTIONS = [
     hint: "Only used when the conversation is revising one.",
   },
 ] as const;
-const CARD_OPTIONS = [
-  "ScriptCard",
-  "ChartProposalCard",
-  "RoleDescriptionCard",
-] as const;
 
 // ConfigShape keeps its string fields loose so the diff can compare
 // anything; DraftInput is the narrow shape the action accepts. This
@@ -94,7 +89,6 @@ function shapeOf(v: AgentVersionDetail): ConfigShape {
     skipSetup: v.skipSetup,
     firstTurn: v.firstTurn,
     scriptedOpener: v.scriptedOpener,
-    outputCard: v.outputCard,
     tools: v.tools,
     maxTokens: v.maxTokens,
     model: v.model,
@@ -225,7 +219,6 @@ export function AgentConfigDrawer({
           skipSetup: config.registry.skipSetup,
           firstTurn: config.registry.firstTurn,
           scriptedOpener: config.registry.scriptedOpener,
-          outputCard: { ...(config.registry.outputCard ?? {}) },
           tools: [...config.registry.tools],
           maxTokens: config.registry.maxTokens,
           model: config.registry.model,
@@ -613,60 +606,6 @@ export function AgentConfigDrawer({
                   </label>
                 ))}
               </div>
-            </div>
-
-            <div className={admin.field}>
-              <span className={admin.label}>Formatted results</span>
-              <p className={admin.fieldHint}>
-                Some agents finish by producing something structured, like a
-                script or a draft role description, and it is shown as a
-                formatted card instead of plain text. Each pair below says:
-                when the agent marks part of its reply with this label, show
-                it as this card.
-              </p>
-              {Object.entries(form.outputCard).map(([tag, card]) => (
-                <div key={tag} className={styles.cardPair}>
-                  <label className={admin.fieldHint} htmlFor={`tag-${tag}`}>
-                    Label the agent writes
-                  </label>
-                  <input
-                    id={`tag-${tag}`}
-                    className={admin.input}
-                    value={tag}
-                    readOnly
-                    aria-label={`Label the agent writes: ${tag}`}
-                  />
-                  <label className={admin.fieldHint} htmlFor={`card-${tag}`}>
-                    Shown as
-                  </label>
-                  <select
-                    id={`card-${tag}`}
-                    className={admin.select}
-                    value={card}
-                    aria-label={`Card for ${tag}`}
-                    onChange={(e) =>
-                      set("outputCard", { ...form.outputCard, [tag]: e.target.value })
-                    }
-                  >
-                    {CARD_OPTIONS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className={admin.dangerGhost}
-                    onClick={() => {
-                      const next = { ...form.outputCard };
-                      delete next[tag];
-                      set("outputCard", next);
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
             </div>
 
             <div className={styles.headActions}>

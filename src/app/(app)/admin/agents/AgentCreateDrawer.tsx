@@ -96,7 +96,6 @@ export function AgentCreateDrawer({
           skipSetup: false,
           firstTurn: null,
           scriptedOpener: null,
-          outputCard: {},
           tools,
           maxTokens: null,
           model: model || null,

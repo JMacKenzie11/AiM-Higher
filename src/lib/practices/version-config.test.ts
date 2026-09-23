@@ -38,7 +38,6 @@ describe("configFromVersion", () => {
     expect(c.basePromptMode).toBe("voice_only");
     expect(c.maxTokens).toBe(8000);
     expect(c.chips).toEqual(["one", "two"]);
-    expect(c.outputCard).toEqual({ chart_proposal: "ChartProposalCard" });
   });
 
   it("drops a tool this build does not ship, and keeps the rest", () => {
@@ -50,20 +49,7 @@ describe("configFromVersion", () => {
     expect(c.tools).toEqual(["get_foundation"]);
   });
 
-  it("drops an output card this build does not ship", () => {
-    const c = configFromVersion(
-      row({ output_card: { a: "ScriptCard", b: "DeletedCard" } })
-    );
-    expect(c.outputCard).toEqual({ a: "ScriptCard" });
-  });
 
-  it("returns null rather than an empty map when every card is unknown", () => {
-    // ChatView checks `outputCard && outputCard[tag]`, so an empty
-    // object and null behave the same there — but null is the honest
-    // answer and stops a caller believing a contract exists.
-    const c = configFromVersion(row({ output_card: { a: "GoneCard" } }));
-    expect(c.outputCard).toBeNull();
-  });
 
   it("drops a model that is not on the allowlist", () => {
     // A typo'd model id is a broken agent found by a client. The

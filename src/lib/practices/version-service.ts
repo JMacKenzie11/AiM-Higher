@@ -32,7 +32,6 @@ export type AgentVersionDetail = AgentVersionSummary & {
   skipSetup: boolean;
   firstTurn: "scripted" | "generate" | null;
   scriptedOpener: string | null;
-  outputCard: Record<string, string>;
   tools: string[];
   maxTokens: number | null;
   model: string | null;
@@ -87,10 +86,6 @@ function toDetail(
         ? r.first_turn
         : null,
     scriptedOpener: r.scripted_opener,
-    outputCard:
-      r.output_card && typeof r.output_card === "object" && !Array.isArray(r.output_card)
-        ? (r.output_card as Record<string, string>)
-        : {},
     tools: r.tools ?? [],
     maxTokens: r.max_tokens,
     model: r.model,

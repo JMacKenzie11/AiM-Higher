@@ -84,7 +84,25 @@ test.describe("Agent Hub", () => {
   // the dev clone, where it showed up in the next run's picker as
   // though the product had been renamed. A cleanup that only runs on
   // the happy path is not a cleanup.
+  // BEFORE as well as after.
+  //
+  // afterEach puts the fixture back, but only if the run reaches it.
+  // A run killed part way — a crashed browser, a cancelled CI job,
+  // somebody pressing ctrl-c — leaves the agent renamed, and the
+  // NEXT run then fails on its first assertion with a title from
+  // last week. The suite was depending on its own cleanup having
+  // succeeded on a previous occasion, which is not something a test
+  // gets to assume.
+  test.beforeEach(async ({ page }) => {
+    await restoreFixture(page);
+  });
+
   test.afterEach(async ({ page }) => {
+    await restoreFixture(page);
+  });
+
+  async function restoreFixture(page: Page) {
+    await signIn(page, users.admin());
     await page.goto("/admin/agents");
     const row = page.locator(`[data-agent-slug="${SLUG}"]`);
     if ((await row.count()) === 0) return;
@@ -113,7 +131,7 @@ test.describe("Agent Hub", () => {
         rowFor(page).getByTestId("agent-hub-access-summary")
       ).not.toContainText(/functional leads/i, { timeout: 15_000 });
     }
-  });
+  }
 
   test("renames an agent, sees it in the picker, and renames it back", async ({
     page,
