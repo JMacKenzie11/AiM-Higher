@@ -50,6 +50,12 @@ type UiMessage = {
   // uniformly as "Coach", so we don't render their created_by.
   created_by?: string;
   streaming?: boolean;
+  // What the model is doing while it has produced no text yet.
+  // A turn that ends in a tool call streams nothing, so without
+  // this the bubble says "Thinking…" for a whole model call plus
+  // the tool round trip — measured at most of a minute on one real
+  // conversation, with 3,200 output tokens spent behind it.
+  activity?: string | null;
   // The model hit its ceiling on this turn, so the text stops
   // mid-token. Reported by the server, not guessed from the text.
   truncated?: boolean;
@@ -373,8 +379,15 @@ export function ChatView({
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: m.content + chunk }
+                  ? { ...m, content: m.content + chunk, activity: null }
                   : m
+              )
+            );
+          },
+          onTool: (label) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, activity: label } : m
               )
             );
           },
@@ -551,8 +564,15 @@ export function ChatView({
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: m.content + chunk }
+                  ? { ...m, content: m.content + chunk, activity: null }
                   : m
+              )
+            );
+          },
+          onTool: (label) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, activity: label } : m
               )
             );
           },
@@ -906,7 +926,7 @@ function MessageBubble({
               <span />
               <span />
             </span>
-            Thinking…
+            {message.activity ?? "Thinking…"}
           </p>
         ) : (
           <ReactMarkdown
@@ -1019,6 +1039,7 @@ async function consumeSse(
   signal: AbortSignal,
   handlers: {
     onDelta: (chunk: string) => void;
+    onTool: (label: string) => void;
     onError: (message: string) => void;
     // The model ran out of room. The text simply stops, with no
     // marker in it, so this is the only honest way to know.
@@ -1074,6 +1095,14 @@ async function consumeSse(
         if (event === "delta" && parsed && typeof parsed === "object" && "text" in parsed) {
           const t = (parsed as { text?: unknown }).text;
           if (typeof t === "string") handlers.onDelta(t);
+        } else if (
+          event === "tool" &&
+          parsed &&
+          typeof parsed === "object" &&
+          "label" in parsed
+        ) {
+          const label = (parsed as { label?: unknown }).label;
+          if (typeof label === "string") handlers.onTool(label);
         } else if (event === "error") {
           const message =
             parsed && typeof parsed === "object" && "message" in parsed
