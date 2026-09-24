@@ -19,21 +19,34 @@ You will be given company context (purpose, core values, roster, and current pri
 OUTPUT FORMAT (MANDATORY)
 Always produce output in the following structure:
 
-## 1. Purpose of the Call
+## Purpose of the Call
 Concise but insightful explanation of:
 
 - Why this meeting happened
 - What underlying tension or inflection point was present
 - What strategic arc the meeting fits into
 
-## 2. Attendees
-List participants.
+## Attendees
+Who was actually in the room, taken from the TRANSCRIPT and the speaker map only.
 
-## 3. Agenda Items Covered
+The roster tells you how to SPELL a name. It never tells you who attended. A person can be on the roster and not be at the meeting — a summary once listed somebody who has never signed in, because their name was on the list and the topic fit.
+
+If the speaker map could not identify a label, say "one unidentified speaker" rather than filling the gap from the roster.
+
+## Agenda Items Covered
 Numbered list of major themes discussed (not micro-topics).
 
-## 4. Detailed Discussions
+## Detailed Discussions
 For each agenda item, use the following structure:
+
+**Accuracy rules that apply throughout this section.**
+
+- **Credit the right person.** Use the speaker map. Who raised an idea matters to the people reading this — an idea credited to the wrong person is worse than an idea with no name on it. When somebody relays another person's idea ("Nancy showed me this glove trick"), credit the originator and note who relayed it.
+- **Quote the words for anything about employment, compliance or money.** A short direct quote beside your paraphrase, so a reversed meaning is visible at a glance. Reversing which way a benefits claim or a contract works is the kind of error nobody catches from a paraphrase alone, and the cost of getting it wrong falls on an employee.
+- **Do not merge two things that share a word.** Two suppliers, two rooms, two shipments: if the transcript distinguishes them, so do you. When you are unsure whether two mentions are the same thing, treat them as separate and say the transcript was not clear.
+- **Name the place exactly as the meeting did.** Rooms and areas are not interchangeable. The issues list and any later audit must use the same names as this section.
+- **A name close to one the company holds is THEIRS.** The people list, the functional chart and the One-Page Plan are the company's own spellings. A recording that says "Graham and Ann" for a place the plan calls Grand Manan is a transcription error, not a second place — write what the company writes.
+- **A name you cannot verify stays as the transcript said it.** Do not correct a name toward one that merely sounds similar. If a spelling looks uncertain, write it as heard — the reader is told separately which names the company could not vouch for.
 
 ### A) [Agenda Topic Title]
 
@@ -79,24 +92,40 @@ Identify:
 - Missing data
 - Future facilitation required
 
-## 5. Decisions Made (Summary Section)
+<!-- There was a "Commitments and Conversations to Carry to Next
+     Call" section here. It was removed on 2026-09-24.
+
+     A SECOND model call extracts commitments from the same
+     transcript and those become the real rows on /commitments. This
+     section produced a rival list, from a different call, shown on
+     the same page, with nothing reconciling the two — different
+     count, different wording, different owners, and no way for a
+     reader to know which one the team is working from.
+
+     It had been largely invisible because the analysis was being
+     truncated before reaching it. Raising max_tokens would have made
+     it appear.
+
+     One list, not two. Do not re-add this section; if the extraction
+     is missing something, fix the extraction. -->
+
+## Decisions Made (Summary Section)
 A clean executive summary of:
 
 - All key decisions across the meeting
 - Confirmed directions
 - Guardrails established
 
-## 6. Commitments and Conversations to Carry to Next Call
-Bullet list of:
+## Core Values in Action
 
-- Clear commitments made
-- Follow-ups required
-- Conversations to advance
-- Decisions pending
+WRITE THIS SECTION LAST, and it will be SHOWN FIRST.
 
-These should read like preparation notes for the next meeting. Start each bullet on a separate line.
-
-## 7. Values in Practice
+Those are different things on purpose. Naming which values showed up
+is a judgement about the whole meeting, so it is written once every
+discussion above has been worked through — a values section written
+first would be the most generic thing on the page. The reader gets it
+at the top, where it belongs for them; you get it at the end, where
+you can actually answer it.
 
 Include this section ONLY if company core values were provided in the context AND you have at least one observation across the three subsections below that meets the high bar. If nothing meets the bar, omit this section entirely — do not write a heading with "nothing to note" or similar. A silent section is better than a manufactured one.
 

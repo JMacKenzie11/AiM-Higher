@@ -1292,3 +1292,100 @@ framework injects — is structurally invisible to every check we have.
 covers this one form; it does not cover the next dev-versus-production
 divergence. A `next build && next start` run over the phone-width
 sweep is the real fix and has not been built.
+
+---
+
+### E16. Relative time resolved against now, not against the event
+
+**Symptom.** A commitment somebody made for "tonight" came out due
+three days later. The same phrase, from the same transcript, gave
+Friday on one run and Saturday on the next.
+
+**What it was.** Two places resolved relative time, and both used the
+wrong anchor.
+
+The extraction model was asked to turn "tonight" and "by end of the
+month" into dates. It got "tonight" wrong as that Friday, and gave
+the same phrase different answers on different runs — date arithmetic
+is not a judgement and a model asked to perform it will sometimes
+reach for the safer-feeling answer and sometimes just miscount.
+
+Underneath it, `createCommitmentsFromExtraction` compared each due
+date against **today** and replaced anything earlier with the current
+week's Friday:
+
+```js
+c.due_date >= todayIso.slice(0, 10) ? c.due_date : thisFri
+```
+
+A meeting analysed within minutes of ingest passes that test, because
+today IS the meeting day. A meeting analysed a day late does not, so
+every same-day commitment silently moved to Friday. The output
+depended on when the cron happened to pick the meeting up, and nothing
+recorded that it had changed anything.
+
+**The fix, in two parts.** The model now reports the PHRASE IT HEARD
+— "tonight", "by end of the month" — and `src/lib/transcripts/
+due-phrase.ts` resolves it in code against the meeting's own date in
+the **company's** timezone. Same words, same day, every time. The
+timezone matters on its own: an evening meeting on a western
+timezone is already tomorrow in UTC, and resolving against the UTC
+date would put every same-day commitment a day early for the whole
+team.
+
+The guard downstream now judges against the meeting's date rather
+than today, so a date somebody actually stated is never overwritten
+because the pipeline ran late.
+
+**The general shape.** Anywhere a job processes something after the
+fact, "now" is not the event's time. A cron that resolves anything
+relative — a deadline, a week number, a quarter — against its own
+execution time produces answers that drift with the schedule. The
+anchor belongs to the thing being processed, and it has to carry its
+own timezone with it.
+
+---
+
+### E17. A harness whose false failures look like product bugs
+
+**Symptom.** A regression run reported that five commitments were not
+being extracted. The pipeline had extracted all of them.
+
+**What it was.** Five defects in the test, not one, each producing a
+failure shaped exactly like a product defect:
+
+- **Matchers that tested wording.** The expectation looked for
+  `festival`; the extraction said "waterfront contact about container
+  availability". Reported as "not extracted".
+- **First-match claiming.** Two expectations shared the anchor
+  "danny". Whichever ran first took the other's row, and the mismatch
+  cascaded into a second false failure.
+- **Order-dependent assignment.** Matching expectations one at a time
+  let evaluation order decide the result. Fixed by scoring every
+  (expectation, row) pair and assigning the strongest first.
+- **Reading the wrong source.** A company with
+  `automated_commitment_tracking` OFF produces extractions in
+  `commitments_json` and no rows on the board, by design. The harness
+  read only the table and reported "0 commitments" for a meeting that
+  had extracted twenty.
+- **An invariant that was wrong.** "Every owner is a real person on
+  this company" flagged four commitments owned by the AiMS coach, who
+  is on the roster the extractor is given and is not on the company.
+
+Each of these cost time hunting a product bug that did not exist, and
+one of them was reported to the user as the single unsolved problem
+when it was not a problem at all.
+
+**The rule.** **A failing test gets checked against the raw output
+before the product is investigated.** Read what the pipeline actually
+produced — the stored JSON, the database row — and confirm the
+failure is real. A test that fails in the direction of "the product
+is broken" earns less trust than one that fails toward "the test is
+wrong", because the first sends people looking in the wrong place and
+the second is self-correcting.
+
+**And the design rule that follows.** Do not assert on wording a
+model chooses. Identify an item by anchors where any one counts, and
+assert on the structured fields — owner, date, presence. Wording
+varies run to run; owner and date do not, and they are what a reader
+acts on.

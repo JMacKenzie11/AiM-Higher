@@ -12,6 +12,7 @@ import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { ReanalyzeMeetingButton } from "./ReanalyzeMeetingButton";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
 import { isScoredReview } from "@/lib/leadership/facilitation/scored";
+import { splitCoreValues } from "@/lib/transcripts/section-order";
 import type {
   ExtractedCommitment,
   ExtractedIssue,
@@ -122,6 +123,9 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   // nothing".
   const isProcessing =
     meeting.status === "pending" || meeting.status === "analyzing";
+
+  // Split once: the values card and the analysis card both read it.
+  const analysisParts = splitCoreValues(analysis?.analysis_markdown ?? "");
   // Owners referenced by BOTH the created-commitments list and the
   // extracted-commitments list get fetched in one round-trip.
   const extractedCommitments =
@@ -425,6 +429,29 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           </div>
         ) : null}
 
+        {/* CORE VALUES FIRST, AND ON ITS OWN — above every other card.
+            It sat above the Analysis card, which still left the
+            commitments card ahead of it. "First" means first on the
+            page, not first among the prose sections.
+            Its own card above the analysis rather than a heading
+            inside it: values are what the leader is asked to look at
+            first, and a heading partway down a long document is not
+            "first" in any sense a reader experiences. Absent is
+            ordinary — the prompt omits the section rather than
+            manufacture one — and then no card renders at all. */}
+        {analysisParts.values ? (
+          <section className={styles.card} aria-labelledby="core-values">
+            <h2 id="core-values" className={styles.h2}>
+              Core Values in Action
+            </h2>
+            <div className="aims-prose">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {analysisParts.values}
+              </ReactMarkdown>
+            </div>
+          </section>
+        ) : null}
+
         {/* AUTO-TRACKING ON ONLY. These rows exist whenever the
             pipeline created them — or whenever an admin added one
             from the Commitments identified section below, which is
@@ -489,11 +516,28 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
             Analysis
           </h2>
           {analysis?.analysis_markdown ? (
-            <div className="aims-prose">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {analysis.analysis_markdown}
-              </ReactMarkdown>
-            </div>
+            <>
+              {/* SAY SO WHEN IT IS CUT OFF. The model stopped at the
+                  token ceiling and the text simply ends — with no
+                  marker in it, a reader has no way to tell a finished
+                  summary from half of one. Read from the recorded
+                  flag (0233), never guessed from the punctuation. */}
+              {analysis.truncated ? (
+                <p className={styles.emptyLine} role="status">
+                  This summary was cut short before it finished. The
+                  commitments and the meeting review below are complete
+                  — they come from separate passes. Reanalyze the
+                  meeting to generate the full summary.
+                </p>
+              ) : null}
+              <div className="aims-prose">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {/* Core Values has been lifted out into its own
+                      card above. See section-order.ts. */}
+                  {analysisParts.rest}
+                </ReactMarkdown>
+              </div>
+            </>
           ) : (
             <p className={styles.emptyLine}>Analysis not available.</p>
           )}

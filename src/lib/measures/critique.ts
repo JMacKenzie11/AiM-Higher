@@ -35,11 +35,11 @@ You judge three things:
 
 Return strict JSON in exactly this shape and nothing else — no prose, no code fences:
 
-{"descriptionHint": string|null, "targetHint": string|null, "fitHint": string|null}
+{"fitHint": string|null, "descriptionHint": string|null, "targetHint": string|null}
 
 Each hint is null when that dimension passes, otherwise a short coaching note (≤160 chars). Keep hints constructive and concrete — suggest a better phrasing where possible. Do not simply repeat back the problem.
 
-Important precedence rule: if the fit is bad, set descriptionHint AND targetHint to null and only return fitHint. Polishing the wording of a metric that measures the wrong thing is worse than useless — the user needs to rethink what they're counting, not sharpen the phrasing. Only critique the metric or target when the metric actually fits the parent Success Measure.`;
+Important precedence rule, and the reason fitHint comes FIRST in the shape: decide the fit before you write anything else. If the fit is bad, set descriptionHint AND targetHint to null and only return fitHint. Judging fit after writing the other two means writing hints you then have to retract, and a model does not retract — it leaves them there. Polishing the wording of a metric that measures the wrong thing is worse than useless — the user needs to rethink what they're counting, not sharpen the phrasing. Only critique the metric or target when the metric actually fits the parent Success Measure.`;
 
 export async function scoreMeasureDraft(input: {
   description: string;

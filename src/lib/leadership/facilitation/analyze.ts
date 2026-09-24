@@ -183,20 +183,50 @@ const FACILITATION_TOOL: Anthropic.Tool = {
     "Record the structured facilitation review of a leadership meeting. Emit exactly one call. Follow the generative-tone guardrails in the system prompt.",
   input_schema: {
     type: "object",
+    // Same order as `properties` below, for one reason: whoever
+    // reads this next should not have to hold two orders in mind.
     required: [
       "insufficient_transcript",
-      "executive_summary",
-      "strengths",
-      "growth_edges",
-      "experiments",
       "fourws_audit",
-      "dimensions",
-      "agenda_adherence",
       "appreciation_moments",
       "generative_questions",
       "reframes",
+      "strengths",
+      "growth_edges",
+      "experiments",
+      "agenda_adherence",
+      "dimensions",
+      "executive_summary",
     ],
     properties: {
+    // ---- ORDER IS THE FIX --------------------------------------
+    //
+    // Tool-call JSON is emitted in the order this object declares,
+    // token by token, so a field written early is written before the
+    // model has done the work described by the fields after it.
+    //
+    // executive_summary and strengths used to sit ABOVE fourws_audit.
+    // The model therefore delivered its verdict first and its
+    // evidence second, and nothing went back to reconcile them.
+    // Benson Seafood, 2026-09-22, in one stored row:
+    //
+    //   executive_summary: "the 4Ws framework wasn't applied to any
+    //                       of the issues worked through"
+    //   fourws_audit:      8 issues, every one with at least one step,
+    //                      3 with all four
+    //
+    // The same row's "what worked" said the shuttle bus gap landed
+    // with clear next moves while its own audit marked it no Way and
+    // no Who/When. The audit was right both times: it is the field
+    // that got the thinking.
+    //
+    // So: EVIDENCE FIRST, VERDICTS LAST. The per-issue audit and the
+    // observed moments are gathered before anything summarises them,
+    // and overall + executive_summary come last, with the whole
+    // review already in the model's own context.
+    //
+    // schema-order.test.ts holds this. Reordering these keys is not
+    // cosmetic and will not be caught by types.
       insufficient_transcript: {
         type: "boolean",
         description:
@@ -207,22 +237,106 @@ const FACILITATION_TOOL: Anthropic.Tool = {
         description:
           "Optional. One-line explanation of what's missing when insufficient_transcript is true.",
       },
-      overall: {
-        type: ["integer", "null"],
-        minimum: 0,
-        maximum: 10,
+      fourws_audit: {
+        type: "array",
+        minItems: 0,
+        maxItems: 10,
         description:
-          "Integer 0–10, or null when insufficient_transcript is true. Integrated read across dimensions, not a mean.",
+          "One row per issue the meeting worked through. Empty when no issues were discussed.",
+        items: {
+          type: "object",
+          required: [
+            "issue",
+            "has_what",
+            "has_want",
+            "has_way",
+            "has_who_when",
+          ],
+          properties: {
+            issue: {
+              type: "string",
+              description: "Short name for the issue as it came up.",
+            },
+            has_what: { type: "boolean" },
+            has_want: { type: "boolean" },
+            has_way: { type: "boolean" },
+            has_who_when: { type: "boolean" },
+            note: {
+              type: ["string", "null"],
+              description:
+                "Optional one-line coaching nudge on the step that didn't land. Depersonalized, forward-looking.",
+            },
+          },
+        },
       },
-      executive_summary: {
-        type: "string",
+      appreciation_moments: {
+        type: "array",
+        minItems: 0,
+        maxItems: 8,
         description:
-          "2–3 sentence read. Warm, specific to this meeting. If no meaningful analysis is possible, describe what's missing here as well.",
+          "Specific moments where the team celebrated a win, thanked someone, or acknowledged progress. Paraphrase the quote and add a one-line 'why this counts' context.",
+        items: {
+          type: "object",
+          required: ["quote", "context"],
+          properties: {
+            quote: { type: "string" },
+            context: { type: "string" },
+          },
+        },
+      },
+      generative_questions: {
+        type: "array",
+        minItems: 0,
+        maxItems: 8,
+        description:
+          "A query intentionally framed to SHIFT the conversation away " +
+          "from problem-solving and toward the discovery of new " +
+          "possibilities, strengths, and shared aspirations. Three " +
+          "places they point, all counting equally: the best of the " +
+          "past ('when have we handled this well and what made it " +
+          "work'), what is working right now ('where is this already " +
+          "working', 'what should we protect'), and what we want most " +
+          "for the future ('what would better look like', 'what's the " +
+          "version we'd be proud of'). NOT diagnostic ('why did that " +
+          "fail', 'what's blocking us') however open it sounds — those " +
+          "keep the room on the problem; note that 'what's blocking " +
+          "us' and 'where is this already working' are both about now " +
+          "and only one shifts. NOT every forward-looking question: " +
+          "'what if we tried X' is a proposal with a question mark, " +
+          "still inside problem-solving. Paraphrase + one-line context.",
+        items: {
+          type: "object",
+          required: ["quote", "context"],
+          properties: {
+            quote: { type: "string" },
+            context: { type: "string" },
+          },
+        },
+      },
+      reframes: {
+        type: "array",
+        minItems: 0,
+        maxItems: 8,
+        description:
+          "Moments where a problem was turned into an opportunity, or a complaint was reshaped into a want. Paraphrase + one-line context.",
+        items: {
+          type: "object",
+          required: ["quote", "context"],
+          properties: {
+            quote: { type: "string" },
+            context: { type: "string" },
+          },
+        },
       },
       strengths: {
         type: "array",
         minItems: 0,
         maxItems: 6,
+        // Written AFTER fourws_audit on purpose. A strength that
+        // says an issue "landed with clear next moves" while the
+        // audit marks it no Way and no Who/When is the same
+        // contradiction in a smaller box — and it happened.
+
         items: {
           type: "object",
           required: ["title", "evidence"],
@@ -301,36 +415,18 @@ const FACILITATION_TOOL: Anthropic.Tool = {
           },
         },
       },
-      fourws_audit: {
-        type: "array",
-        minItems: 0,
-        maxItems: 10,
-        description:
-          "One row per issue the meeting worked through. Empty when no issues were discussed.",
-        items: {
-          type: "object",
-          required: [
-            "issue",
-            "has_what",
-            "has_want",
-            "has_way",
-            "has_who_when",
-          ],
-          properties: {
-            issue: {
-              type: "string",
-              description: "Short name for the issue as it came up.",
-            },
-            has_what: { type: "boolean" },
-            has_want: { type: "boolean" },
-            has_way: { type: "boolean" },
-            has_who_when: { type: "boolean" },
-            note: {
-              type: ["string", "null"],
-              description:
-                "Optional one-line coaching nudge on the step that didn't land. Depersonalized, forward-looking.",
-            },
+      agenda_adherence: {
+        type: "object",
+        required: ["score_out_of_5", "notes"],
+        properties: {
+          score_out_of_5: {
+            type: ["integer", "null"],
+            minimum: 0,
+            maximum: 5,
+            description:
+              "How many of the five agenda sections the meeting meaningfully covered.",
           },
+          notes: { type: "string" },
         },
       },
       dimensions: {
@@ -394,64 +490,23 @@ const FACILITATION_TOOL: Anthropic.Tool = {
           },
         },
       },
-      appreciation_moments: {
-        type: "array",
-        minItems: 0,
-        maxItems: 8,
+      overall: {
+        type: ["integer", "null"],
+        minimum: 0,
+        maximum: 10,
         description:
-          "Specific moments where the team celebrated a win, thanked someone, or acknowledged progress. Paraphrase the quote and add a one-line 'why this counts' context.",
-        items: {
-          type: "object",
-          required: ["quote", "context"],
-          properties: {
-            quote: { type: "string" },
-            context: { type: "string" },
-          },
-        },
+          "Integer 0–10, or null when insufficient_transcript is true. Integrated read across dimensions, not a mean.",
       },
-      generative_questions: {
-        type: "array",
-        minItems: 0,
-        maxItems: 8,
+      executive_summary: {
+        type: "string",
         description:
-          "Questions that opened new possibilities — future-oriented, curious, 'what would better look like', 'what if we', 'how might we'. NOT diagnostic questions ('why did that fail'). Paraphrase + one-line context.",
-        items: {
-          type: "object",
-          required: ["quote", "context"],
-          properties: {
-            quote: { type: "string" },
-            context: { type: "string" },
-          },
-        },
-      },
-      reframes: {
-        type: "array",
-        minItems: 0,
-        maxItems: 8,
-        description:
-          "Moments where a problem was turned into an opportunity, or a complaint was reshaped into a want. Paraphrase + one-line context.",
-        items: {
-          type: "object",
-          required: ["quote", "context"],
-          properties: {
-            quote: { type: "string" },
-            context: { type: "string" },
-          },
-        },
-      },
-      agenda_adherence: {
-        type: "object",
-        required: ["score_out_of_5", "notes"],
-        properties: {
-          score_out_of_5: {
-            type: ["integer", "null"],
-            minimum: 0,
-            maximum: 5,
-            description:
-              "How many of the five agenda sections the meeting meaningfully covered.",
-          },
-          notes: { type: "string" },
-        },
+          "LAST FIELD, written with the whole review above it in view. " +
+          "2–3 sentence read. Warm, specific to this meeting. If no " +
+          "meaningful analysis is possible, describe what's missing " +
+          "here as well. It must not contradict fourws_audit: do not " +
+          "say the 4Ws were or were not applied unless the rows above " +
+          "say so, and do not count issues — the audit already " +
+          "counted them.",
       },
     },
   },
@@ -463,7 +518,48 @@ const FACILITATION_TOOL: Anthropic.Tool = {
 // checks. The model's tool-use output is trusted for shape but not
 // for staying within enum/range constraints.
 // ----------------------------------------------------------------
+// ESCAPE SEQUENCES THAT ARRIVED AS TEXT.
+//
+// A tool call came back with the six literal characters \u2014 inside
+// its strings rather than an em dash, and they rendered that way on
+// a customer's meeting page: "tightening the loop on live ideas
+// \u2014 like the Raw-side incentive".
+//
+// Only ever seen on the tool-use path — the same meeting's markdown,
+// produced by an ordinary text call, carried 54 correctly encoded em
+// dashes and no literals. So it is decoded here, where tool output
+// is normalised, rather than in the renderer where every reader of
+// this data would have to remember.
+//
+// Restricted to the escapes a model actually emits for punctuation.
+// A blanket unescape would also decode a sequence somebody wrote on
+// purpose, and there is no reason to reach further than the problem.
+function decodeStrayEscapes<T>(value: T): T {
+  if (typeof value === "string") {
+    return value.replace(/\\u([0-9a-fA-F]{4})/g, (whole, hex) => {
+      const code = parseInt(hex, 16);
+      // Punctuation and dashes only: 2000-206F is General
+      // Punctuation, which covers dashes, quotes and ellipsis.
+      return code >= 0x2000 && code <= 0x206f
+        ? String.fromCharCode(code)
+        : whole;
+    }) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => decodeStrayEscapes(v)) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = decodeStrayEscapes(v);
+    }
+    return out as unknown as T;
+  }
+  return value;
+}
+
 function normalizeReview(raw: Record<string, unknown>): FacilitationReview {
+  raw = decodeStrayEscapes(raw);
   const insufficient = Boolean(raw.insufficient_transcript);
   const dims = {
     rhythm: normalizeDimensionScore(
