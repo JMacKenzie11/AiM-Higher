@@ -28,31 +28,57 @@ import type { Page } from "@playwright/test";
 // reseed. That is stated in docs/e2e.md rather than worked around:
 // no user role may create a nudge, by design.
 
-const SETTINGS_SEAT = "AiMS champion";
-
-async function companyIdAsAdmin(page: Page): Promise<string> {
-  await page.goto("/hq");
-  const control = page.getByTestId("scope-into-company").first();
-  await expect(control).toBeVisible({ timeout: 30_000 });
-  const id = await control.getAttribute("data-company-id");
-  if (!id) throw new Error("scope-into-company carried no company id");
-  await control.click();
-  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
-  return id;
-}
-
-async function setChampion(page: Page, label: RegExp | ""): Promise<void> {
-  const select = page.getByLabel(SETTINGS_SEAT);
+// Puts the seat where the test wants it, and does nothing when it
+// is already there.
+//
+// Self-healing on purpose. A run that dies part way leaves the seat
+// filled, Save is disabled when nothing changed, and the next run
+// would fail on a click that can never land — a failure about the
+// previous run's exit code rather than about the product.
+//
+// Returns true when it actually saved, so a caller can assert on
+// the confirmation only when there was something to confirm.
+async function setChampion(page: Page, label: string): Promise<boolean> {
+  // By id, not by label. The card's <section> is labelled by its
+  // own heading, so getByLabel("AiMS champion") matches the section
+  // as well as the select.
+  const select = page.locator("#company-champion");
   await expect(select).toBeVisible({ timeout: 30_000 });
-  if (label === "") {
-    await select.selectOption({ label: "Nobody yet" });
-  } else {
-    const option = page.locator("#company-champion option", { hasText: label });
-    await select.selectOption(await option.first().getAttribute("value") ?? "");
-  }
+
+  const current = await select
+    .locator("option:checked")
+    .first()
+    .innerText()
+    .catch(() => "");
+  if (current.trim() === label) return false;
+
+  // The options carry full names, not emails: the picker is a list
+  // of this company's people as they appear everywhere else.
+  await select.selectOption({ label });
   await page.getByRole("button", { name: /save champion/i }).click();
-  await expect(page.getByRole("status")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("status").first()).toBeVisible({
+    timeout: 30_000,
+  });
+  return true;
 }
+
+// The notification bell lives in the sidebar footer, bottom-left,
+// which is exactly where `next dev` parks its own dev-tools badge.
+// The badge is a portal that swallows pointer events over that
+// corner, so a click on the bell never lands.
+//
+// It does not exist in a production build, so taking its pointer
+// capture away restores what a real user meets rather than faking
+// anything. Nothing else in the suite had clicked that corner, so
+// nothing else had met this.
+async function ignoreDevOverlay(page: Page): Promise<void> {
+  await page.addStyleTag({
+    content: "nextjs-portal { pointer-events: none !important; }",
+  });
+}
+
+const NOBODY = "Nobody yet";
+const FIXTURE_CHAMPION = "E2E Team Member";
 
 // Open a fresh chat and read the agent picker. Same shape as
 // agent-hub.spec.ts, kept local so neither spec's helper changes
@@ -64,9 +90,12 @@ async function pickerText(page: Page): Promise<string> {
     if (!String(err).includes("ERR_ABORTED")) throw err;
     await page.goto("/ask-aimee");
   }
-  const start = page.getByRole("link", { name: /new conversation/i }).first();
+  const start = page.getByRole("button", { name: /new conversation/i });
   await expect(start).toBeVisible({ timeout: 30_000 });
   await start.click();
+  await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
+    timeout: 30_000,
+  });
   await page
     .getByRole("button", { name: /change agent/i })
     .click({ timeout: 30_000 });
@@ -82,10 +111,13 @@ test.describe("the AiMS champion seat", () => {
     page,
   }) => {
     await signIn(page, users.companyAdmin());
+    // /admin/companies redirects a company_admin to their OWN
+    // company rather than showing them the fleet list, so this
+    // lands on the settings page with no link to click.
     await page.goto("/admin/companies");
-    const link = page.locator('a[href*="/admin/companies/"]').first();
-    await expect(link).toBeVisible({ timeout: 30_000 });
-    await link.click();
+    await expect(page).toHaveURL(/\/admin\/companies\/[0-9a-f-]{36}$/, {
+      timeout: 30_000,
+    });
 
     // The sentence is the control's whole explanation, and the thing
     // most likely to be quietly cut in a later edit. "Champion" next
@@ -95,7 +127,11 @@ test.describe("the AiMS champion seat", () => {
       page.getByText(/the seat grants no access/i)
     ).toBeVisible({ timeout: 30_000 });
 
-    await setChampion(page, /e2e-member/i);
+    // Cleared first, so the save below is always a real change and
+    // the confirmation is always a real assertion, whatever the
+    // previous run left behind.
+    await setChampion(page, NOBODY);
+    expect(await setChampion(page, FIXTURE_CHAMPION)).toBe(true);
     await expect(page.getByRole("status").first()).toContainText(
       /champion updated/i
     );
@@ -122,6 +158,7 @@ test.describe("the AiMS champion seat", () => {
   }) => {
     await signIn(page, users.member());
     await page.goto("/dashboard");
+    await ignoreDevOverlay(page);
 
     const bell = page.getByRole("button", { name: /notifications \(/i });
     await expect(bell).toBeVisible({ timeout: 30_000 });
@@ -144,6 +181,47 @@ test.describe("the AiMS champion seat", () => {
     const landed = page.url();
     await expect(page.getByRole("heading", { name: /debrief a meeting/i }))
       .toBeVisible({ timeout: 30_000 });
+
+    // ---- the opening turn ------------------------------------
+    //
+    // The agent's opener is GENERATED, not scripted: ChatView fires
+    // /api/coach on landing and the first thing the champion reads
+    // is a live turn that has called get_meeting_debrief. So this
+    // waits on a real model call, which is slow and which no unit
+    // test can stand in for.
+    //
+    // Asserted on SHAPE, never on wording (failure mode E17). Two
+    // things have to be true and neither varies run to run: an
+    // assistant turn arrives at all, and it is not the notification
+    // sentence again. "Your meeting was analyzed" one screen
+    // further in is the exact outcome this feature exists not to
+    // produce.
+    const assistant = page
+      .locator('[class*="bubbleRowAssistant"]')
+      .first();
+    await expect(assistant).toBeVisible({ timeout: 120_000 });
+    // Waits for the turn to SETTLE, not merely to start. Reading
+    // innerText the moment it passes a length threshold catches the
+    // stream mid-sentence, and an assertion against half a sentence
+    // is an assertion against the network.
+    let settled = "";
+    await expect
+      .poll(
+        async () => {
+          const now = (await assistant.innerText()).trim();
+          const stable = now.length > 80 && now === settled;
+          settled = now;
+          return stable;
+        },
+        { timeout: 120_000, intervals: [1000] }
+      )
+      .toBe(true);
+    const opener = settled;
+    expect(opener).not.toMatch(/was analy[sz]ed/i);
+    // Printed so the opener can be READ in the run output. An agent
+    // that reaches out first is judged on its first sentence, and
+    // there is no other place that sentence shows up.
+    console.log(`\n---- debrief opener ----\n${opener}\n------------------------\n`);
 
     // Opening it again lands on the SAME conversation. The
     // notification stays in the bar until it is read, so a second
@@ -170,10 +248,11 @@ test.describe("the AiMS champion seat", () => {
     // a supported state rather than a validation error: it is what
     // most companies will have.
     await signIn(page, users.companyAdmin());
-    await companyIdAsAdmin(page).catch(() => undefined);
     await page.goto("/admin/companies");
-    await page.locator('a[href*="/admin/companies/"]').first().click();
-    await setChampion(page, "");
+    await expect(page).toHaveURL(/\/admin\/companies\/[0-9a-f-]{36}$/, {
+      timeout: 30_000,
+    });
+    await setChampion(page, NOBODY);
     await expect(page.getByText(/those notes are not sent/i)).toBeVisible();
   });
 });
