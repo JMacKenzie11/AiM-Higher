@@ -106,13 +106,16 @@ Return a single tool-use call to `record_facilitation_review` with the structure
 
 **Rhythm** — Meeting cadence, time management, agenda adherence, preparation quality, action item tracking.
 
+Agenda adherence counts here, and it counts LESS than it reads. A meeting that walks every numbered section and never opens anything up is not a good AiMS meeting; a meeting that reorders the agenda to follow something alive is not a bad one. Score the rhythm the meeting actually needed, not its distance from the template. Reserve the low end for meetings with no shape at all — no check-in, nothing tracked, nothing closed — rather than for meetings that departed from the running order on purpose.
+
 **Accountability** — Clear ownership (Who), specific deadlines (When), progress on prior commitments, decision clarity.
 
 **Alignment** — Strategic focus (What/What We Want), shared understanding of objectives, cross-functional coordination.
 
-**Positive Framing** — Appreciative-inquiry practice. Score based on:
-- Frequency and specificity of appreciation moments (not perfunctory "thanks everyone" — real acknowledgment)
-- Balance of generative vs. diagnostic questions
+**Positive Framing** — Appreciative-inquiry practice, and the dimension that should move the overall score most. Score based on:
+- **The opening check-in.** A real one, where people bring something of themselves and the room listens, is worth points. A round of "fine, busy week" is not. This is the practice the whole meeting rests on, not a warm-up to get through.
+- **Generative questions, used well.** Not the count — the effect. A question that opens a future somebody then walks toward is worth more than five that get answered and dropped. Diagnostic questions are fine and necessary; a meeting made only of them is the thing to notice.
+- **Decisions connected to values.** When a choice is reasoned through against what the company says it stands for, or someone names a value out loud and it fits, that is the model working. Credit it whether or not the value's name was used — what counts is the reasoning, not the vocabulary.
 - Whether problems are being reframed into wants and opportunities vs. dwelt on as deficits
 - Overall energy — does the meeting feel forward-leaning and curious, or heavy and complaint-driven?
 
@@ -131,9 +134,11 @@ If you find yourself wanting to give a middle-ish score but can't cite specific 
 
 - All dimension scores are out of 10 unless noted; treat 7+ as strong, 5–6 as room to grow, below 5 as "worth a real conversation".
 - The overall score is your integrated read across all four dimensions — not a mean.
+- **They are not equal, and this is the ranking.** Positive framing leads: the check-in, generative questions that go somewhere, and decisions reasoned against the company's values. Accountability and alignment follow — a meeting that opens beautifully and closes nothing has not done its job either. Rhythm, and agenda adherence inside it, comes last. It is a real criterion and a weak one.
+- **Practically:** a meeting that ran its agenda cleanly with no check-in, no generative questions and no values in the reasoning should not clear 6. A meeting that wandered off the running order but opened well, asked questions that moved something, and tied a decision back to what the company stands for can sit at 8 or 9. Say so in the growth edges either way, so the number is never the whole message.
 - **Overall is required whenever `insufficient_transcript` is false.** Give an integer 0–10 even if the meeting doesn't look like a standard AiMS weekly leadership meeting. Grade what actually happened — an onboarding session, a strategy offsite, or any other purposeful gathering still deserves a read on rhythm/accountability/alignment/positive_framing given its intent. `overall: null` is only permitted when you also set `insufficient_transcript: true`. If you find yourself wanting to withhold the number, either mark insufficient (if the transcript truly isn't scoreable) or commit to a score.
 - Never introduce a low score without an accompanying growth edge that includes a concrete next-week experiment.
-- `positive_framing` is a real dimension — a meeting that hits its agenda but never celebrates or reframes is not a great AiMS meeting.
+- `positive_framing` is the dimension that carries the most weight — a meeting that hits its agenda but never celebrates, never asks a question that opens something, and never connects a decision to a value is not a great AiMS meeting, whatever its agenda adherence says.
 
 ---
 
