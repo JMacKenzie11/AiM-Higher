@@ -1389,3 +1389,67 @@ model chooses. Identify an item by anchors where any one counts, and
 assert on the structured fields — owner, date, presence. Wording
 varies run to run; owner and date do not, and they are what a reader
 acts on.
+
+**A second helping of the same thing, on the RLS harness (0235).**
+Three probes went red in a row while the product was correct, and two
+of them said so in shouting capitals:
+
+- **The matcher read the transport, not the error.** Every statement
+  goes through the Management API, which throws
+  `Supabase Management API POST … failed: 400` and puts the Postgres
+  message in a JSON body after the newline. `describeOutcome` kept
+  the first 70 characters, so a revoked privilege and a trigger's
+  raise both classified as an unexplained `ERROR`, and four probes
+  reported open locks that were shut. Fixed at the source with
+  `unwrapDbError`, once, rather than by teaching each matcher where
+  the real message hides.
+- **A matcher pinned to wording that a widening moves.** The column
+  guard was recognised by the literal `Only industry may be changed`.
+  Adding a second column to that list changed the sentence and broke
+  the matcher. Both alternatives now anchor on the clause that
+  survives a widening: `…may be changed on a company by a <role>`.
+- **A subselect that returned null and made the probe pass through
+  the null branch.** "Set the champion to somebody in another
+  company" embedded `(select id … where company_id = <other>)`. That
+  company has no members in the dev clone, so the statement set the
+  seat to NULL, the trigger's null branch waved it through, and the
+  probe announced THE SEAT CAN POINT OUTSIDE THE COMPANY about a
+  trigger working exactly as written. Resolve the fixture to a
+  concrete id first, and report `NOT RUN` when there isn't one — a
+  probe that cannot ask its question must say so rather than answer
+  it.
+
+**The corollary to the rule above:** the same care applies in the
+other direction. `champion seat clears` passed on all three cases
+while printing `company admins notified: 0` beside the tick, because
+the probe asserted only that the seat emptied. The zero was real: the
+trigger fired after the foreign key's `on delete set null`, found no
+company holding that person, and told nobody. **A number printed
+beside a green tick is part of the assertion or it should not be
+printed.**
+
+### E18. `create or replace` from a superseded copy
+
+**Symptom.** A migration extended `companies_restrict_admin_columns`
+to admit one new column. The harness immediately went red on
+`company-sort-order`: a `portfolio_admin` could no longer set
+`sort_order`, a grant that had nothing to do with the change.
+
+**What it was.** The new definition was built from the body in 0192,
+which is where the function's explanatory comments live and where a
+search for it lands first. 0203 had since redefined it to add
+`sort_order`. `create or replace` does not merge; the newer branch
+was silently reverted by a migration whose diff mentioned only the
+column it was adding.
+
+**Why it is hard to see.** The diff is honest about what it adds and
+says nothing about what it drops, because a whole-function replace
+has no shape for "and everything else stays". The reviewer reads a
+correct-looking function. The only signal is behavioural.
+
+**The rule.** **Before `create or replace`, find the LAST definition,
+not the best-documented one:** `grep -rln <function_name>
+supabase/migrations/ | sort | tail -1`. Build the new body from that
+file. Then run the harness — this class of mistake is invisible in
+review and obvious in a probe, which is the whole argument for having
+probes that exercise grants nobody is currently touching.

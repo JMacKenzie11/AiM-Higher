@@ -19,6 +19,7 @@ import { AssignedAccessList } from "./AssignedAccessList";
 import { FeaturesForm } from "./FeaturesForm";
 import { IndustryForm } from "./IndustryForm";
 import { TimezoneForm } from "./TimezoneForm";
+import { ChampionForm, type ChampionCandidate } from "./ChampionForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
@@ -158,6 +159,23 @@ export default async function CompanyDetailPage({
       ) as unknown as TimezoneChange[]
     : [];
 
+  // Who the champion seat may point at: this company's own active
+  // people. The membership trigger in 0235 refuses anybody else, so
+  // a wider list would be a list of options that cannot be chosen.
+  const championCandidates: ChampionCandidate[] =
+    isSystemAdmin || isCompanyAdmin
+      ? (
+          (
+            await supabase
+              .from("profiles")
+              .select("id, full_name")
+              .eq("company_id", id)
+              .eq("status", "active")
+              .order("full_name")
+          ).data ?? []
+        ) as ChampionCandidate[]
+      : [];
+
   const hasResettable =
     resetImpact.sfaCount +
       resetImpact.goalCount +
@@ -229,6 +247,25 @@ export default async function CompanyDetailPage({
             <IndustryForm
               companyId={company.id}
               initial={company.industry}
+            />
+          </section>
+        ) : null}
+
+        {/* AiMS champion — the company's own admins, not the
+            container roles. Sits with Industry rather than with
+            Timezone because it is a decision about this team, made
+            by this team, and a support request to change it would be
+            the wrong shape. The column guard in 0235 draws the same
+            line below the app. */}
+        {isSystemAdmin || isCompanyAdmin ? (
+          <section className={styles.card} aria-labelledby="champion-heading">
+            <h2 id="champion-heading" className={styles.h2}>
+              AiMS champion
+            </h2>
+            <ChampionForm
+              companyId={company.id}
+              initial={company.aims_champion_profile_id}
+              candidates={championCandidates}
             />
           </section>
         ) : null}

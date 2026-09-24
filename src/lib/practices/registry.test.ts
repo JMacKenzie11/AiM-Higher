@@ -69,3 +69,45 @@ describe("the Role Description Creator", () => {
     ]);
   });
 });
+
+describe("the meeting debrief agent", () => {
+  const debrief = PRACTICES.find((p) => p.id === "guide-meeting-debrief")!;
+
+  // Aimee reaches out first for this one. The opener has to name
+  // something that actually happened in the meeting, which means a
+  // generated turn that has read the summary — a scripted line here
+  // would be "your meeting was analyzed" one screen further in.
+  it("generates its opener rather than scripting one", () => {
+    expect(debrief.firstTurn).toBe("generate");
+    expect(debrief.scriptedOpener).toBeUndefined();
+  });
+
+  // The champion is frequently a team_member. The role list alone
+  // would refuse the person the notification was addressed to.
+  it("admits the champion on top of the three admin roles", () => {
+    expect(debrief.alsoAimsChampion).toBe(true);
+    expect([...(debrief.allowedRoles ?? [])].sort()).toEqual([
+      "aims_guide",
+      "company_admin",
+      "system_admin",
+    ]);
+  });
+
+  // The seat routes attention; it is not an access boundary. An
+  // admin can already open the meeting the debrief is about.
+  it("does not fence company admins out behind the seat", () => {
+    expect(debrief.allowedRoles).toContain("company_admin");
+  });
+
+  it("reads the meeting, and nothing that writes", () => {
+    expect([...(debrief.tools ?? [])]).toEqual(["get_meeting_debrief"]);
+  });
+
+  // Not gated on a company feature. A company without transcripts
+  // never has a meeting analysed, so no nudge is ever raised and the
+  // agent simply never comes up — a flag would be a second way to
+  // say the same thing, and a second thing to keep true.
+  it("is not gated on a company feature", () => {
+    expect(debrief.feature).toBeUndefined();
+  });
+});

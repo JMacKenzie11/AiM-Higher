@@ -6,7 +6,7 @@ import { refuseIfNotAuthoringInstance } from "@/lib/instances/primary";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
-import { HUB_ROLE_VALUES, FUNCTION_LEAD_PREDICATE } from "./hub-constants";
+import { HUB_ROLE_VALUES, mergeAccessPredicates } from "./hub-constants";
 
 // System-admin writes for the Agent Hub.
 //
@@ -68,6 +68,16 @@ export async function updateAgentIdentityAction(
   }
 
   const supabase = await db();
+
+  // Read before write, because this drawer models ONE predicate and
+  // an agent may carry others. Writing the checkbox's answer alone
+  // would revoke them silently — see mergeAccessPredicates.
+  const { data: current } = await supabase
+    .from("agents")
+    .select("access_predicates")
+    .eq("id", id)
+    .maybeSingle<{ access_predicates: string[] | null }>();
+
   const { error } = await supabase
     .from("agents")
     .update({ title, description })
@@ -201,6 +211,16 @@ export async function updateAgentAccessAction(
   }
 
   const supabase = await db();
+
+  // Read before write, because this drawer models ONE predicate and
+  // an agent may carry others. Writing the checkbox's answer alone
+  // would revoke them silently — see mergeAccessPredicates.
+  const { data: current } = await supabase
+    .from("agents")
+    .select("access_predicates")
+    .eq("id", id)
+    .maybeSingle<{ access_predicates: string[] | null }>();
+
   const { error } = await supabase
     .from("agents")
     .update({
@@ -210,7 +230,10 @@ export async function updateAgentAccessAction(
       // the help text beside the control says out loud.
       allowed_roles: roles,
       feature: fields.feature || null,
-      access_predicates: fields.functionLead ? [FUNCTION_LEAD_PREDICATE] : [],
+      access_predicates: mergeAccessPredicates(
+        current?.access_predicates,
+        fields.functionLead
+      ),
     })
     .eq("id", id);
   if (error) return { ok: false, message: "Couldn't save that access change." };
@@ -232,6 +255,16 @@ export async function setAgentArchivedAction(
   const refusal = await refuseIfNotAuthoringInstance();
   if (refusal) return refusal;
   const supabase = await db();
+
+  // Read before write, because this drawer models ONE predicate and
+  // an agent may carry others. Writing the checkbox's answer alone
+  // would revoke them silently — see mergeAccessPredicates.
+  const { data: current } = await supabase
+    .from("agents")
+    .select("access_predicates")
+    .eq("id", id)
+    .maybeSingle<{ access_predicates: string[] | null }>();
+
   const { error } = await supabase
     .from("agents")
     .update({ archived })

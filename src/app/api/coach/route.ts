@@ -10,6 +10,7 @@ import { buildCoachContext } from "@/lib/coach/context";
 import { buildCoachTools, type CoachTool } from "@/lib/coach/tools";
 import { toolLabel } from "@/lib/coach/tool-labels";
 import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
+import { buildGuideTools } from "@/lib/guide/agent-tools";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
@@ -311,7 +312,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     ...resolvePracticeTools(
       practice?.tools,
       convo.company_id,
-      (convo as { revising_role_id?: string | null }).revising_role_id ?? null
+      (convo as { revising_role_id?: string | null }).revising_role_id ?? null,
+      (convo as { debriefing_meeting_id?: string | null })
+        .debriefing_meeting_id ?? null
     ),
   ].filter(
     (t, i, all) => all.findIndex((o) => o.definition.name === t.definition.name) === i
@@ -890,7 +893,8 @@ async function generateTitleForConversation(args: {
 function resolvePracticeTools(
   names: readonly PracticeToolName[] | undefined,
   companyId: string,
-  revisingRoleId: string | null
+  revisingRoleId: string | null,
+  debriefingMeetingId: string | null
 ): CoachTool[] {
   if (!names || names.length === 0) return [];
   const wanted = new Set<string>(names);
@@ -899,6 +903,9 @@ function resolvePracticeTools(
     wanted.has("list_functions") ||
     wanted.has("get_role_description")
       ? buildRoleDescriptionTools({ companyId, revisingRoleId })
+      : []),
+    ...(wanted.has("get_meeting_debrief")
+      ? buildGuideTools({ debriefingMeetingId })
       : []),
   ];
   return available.filter((t) => wanted.has(t.definition.name));

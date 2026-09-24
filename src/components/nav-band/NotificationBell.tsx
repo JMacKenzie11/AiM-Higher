@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import type { NotificationItem } from "@/lib/notifications/service";
 import { markNotificationReadAction } from "@/lib/notifications/actions";
+import { dismissGuideNudgeAction } from "@/lib/guide/actions";
 import styles from "./NavBand.module.css";
 
 // Bell in the nav band. Click opens a small dropdown of the current
@@ -136,11 +137,42 @@ export function NotificationBell({
                     →
                   </span>
                 </Link>
+                {item.kind === "guide-nudge" ? (
+                  <DismissNudge id={item.id} />
+                ) : null}
               </li>
             ))}
           </ul>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// "Not now" on a Guide nudge.
+//
+// Declining is worth recording — see dismissGuideNudgeAction — so
+// this is a real round trip and not a local hide. It disables while
+// in flight rather than optimistically vanishing: the item leaves
+// the tray when the layout revalidates, and an item that disappears
+// before the write lands is an item that comes back.
+
+function DismissNudge({ id }: { id: string }) {
+  const [pending, startTransition] = useTransition();
+  return (
+    <div className={styles.bellMenuItemAside}>
+      <button
+        type="button"
+        className={styles.bellDismiss}
+        disabled={pending}
+        onClick={() => {
+          startTransition(async () => {
+            await dismissGuideNudgeAction(id);
+          });
+        }}
+      >
+        {pending ? "Putting it away…" : "Not now"}
+      </button>
     </div>
   );
 }
@@ -154,6 +186,7 @@ function hintFor(href: string): string {
   if (href.startsWith("/measures")) return "Go to Key Success Measures";
   if (href.startsWith("/leadership")) return "Go to Meetings";
   if (href.startsWith("/dashboard")) return "Go to Dashboard";
+  if (href.startsWith("/guide/nudge/")) return "Talk it through with Aimee";
   if (href.startsWith("/ask-aimee/")) return "Open the chat";
   if (href.startsWith("/coach/")) return "Open the coaching thread";
   return "Open";

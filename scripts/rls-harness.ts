@@ -8717,16 +8717,71 @@ export function grantSummaryLines(probes: readonly GrantProbe[]): string[] {
 // to be able to tell those apart from each other and from success.
 export type WriteOutcome = string;
 
+// The Postgres error inside the transport's error.
+//
+// Every statement here goes through the Management API, which
+// throws `Supabase Management API POST <path> failed: 400` followed
+// by a newline and a JSON body. The part that says WHAT HAPPENED is
+// in that body, past the 70 characters describeOutcome keeps.
+//
+// This cost two rounds of false failures before it was fixed at the
+// source: a privilege refusal and a trigger's raise both came back
+// as "ERROR: Supabase Management API POST /v1/projects/…", the
+// matchers below saw none of their words, and four probes reported
+// open locks that were shut. Unwrap once, here, rather than teaching
+// each matcher where the real message hides.
+export function unwrapDbError(raw: string): string {
+  const brace = raw.indexOf("{");
+  if (brace === -1) return raw;
+  try {
+    const body = JSON.parse(raw.slice(brace)) as { message?: unknown };
+    if (typeof body.message === "string" && body.message.length > 0) {
+      return body.message;
+    }
+  } catch {
+    // Not JSON, or truncated. The raw text is still the best answer.
+  }
+  return raw;
+}
+
 export function describeOutcome(rows: unknown[] | null, error?: unknown): WriteOutcome {
   if (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    // Both of the column guard's messages, not one. 0192 added a
-    // second branch to companies_restrict_admin_columns with its own
-    // wording, and a matcher that knew only the first reported it as
-    // an unexplained ERROR — which reads as a broken probe rather than
-    // as the guard working. Found by the portfolio delete probe.
+    const msg = unwrapDbError(
+      error instanceof Error ? error.message : String(error)
+    );
+    // Both of the column guard's branches, matched on the part of
+    // each message that does NOT change.
+    //
+    // 0192 added a second branch with its own wording and a matcher
+    // that knew only the first reported it as an unexplained ERROR,
+    // which reads as a broken probe rather than as the guard
+    // working. 0235 then widened the first branch's list, which
+    // moved the words "Only industry may be changed" apart and did
+    // it again: four probes went red, two of them saying THE LOCK IS
+    // OPEN about a lock that was shut. Failure mode E17.
+    //
+    // So neither alternative names a column any more. Each anchors
+    // on the clause that survives a widening — "…may be changed on a
+    // company by a <role>" and "…may change only name, timezone…".
+    // Adding a column to either list no longer touches this line.
+    // FIRST, and deliberately. A revoked privilege says "permission
+    // denied for table X" under errcode 42501, whose condition name
+    // is `insufficient_privilege` — the same name the column guard
+    // raises with. Classified after the guard, a revoked INSERT
+    // would report as "refused by the column guard", which is the
+    // wrong answer to E8's whole question.
+    //
+    // Matched on the full message, before the 70-character slice
+    // below. The transport wraps the Postgres error in its own
+    // prose, so the part that says what happened is past the cut.
+    if (/permission denied for (table|relation)/i.test(msg)) {
+      return "refused by privilege";
+    }
+    if (/champion must be a member/i.test(msg)) {
+      return "refused: champion must be a member";
+    }
     if (
-      /insufficient_privilege|Only industry may be changed|may change only name, timezone/i.test(
+      /insufficient_privilege|may be changed on a company by a|may change only name, timezone/i.test(
         msg
       )
     ) {
@@ -8806,6 +8861,308 @@ async function grantProbes(
       ? "the column guard does not apply to system_admin"
       : "THE COLUMN GUARD IS TOO WIDE: it is constraining system_admin too",
   });
+
+  // ---- The AiMS champion seat (0235) ---------------------------
+  //
+  // A role widening, so it is probed the way the convention says:
+  // the write that must now succeed, and a write the same role must
+  // still be refused, in the same probe.
+  //
+  // THREE refusals, not one, because the seat has three ways to go
+  // wrong and they are refused by three different mechanisms:
+  //
+  //   status on own company      the column guard, by raising
+  //   the seat on another        RLS, by matching no rows
+  //   a seat pointed outside     the membership trigger (section 1)
+  //
+  // The third is the one worth having. A champion in another
+  // company would be a person receiving nudges about meetings they
+  // cannot open, and it is the only one of the three that the
+  // column guard and RLS both wave through.
+
+  const setChampionToOwnMember = (company: string) =>
+    `update public.companies set aims_champion_profile_id =
+       (select id from public.profiles
+         where company_id = '${company}' and status = 'active' limit 1)
+     where id = '${company}' returning id;`;
+  // Resolved to a CONCRETE id before the probe runs, not left as a
+  // subselect in the statement.
+  //
+  // The first draft embedded the subselect. The clone's "other
+  // company" has no active members, so it returned null, the update
+  // set the seat to NULL, the trigger's null branch waved it
+  // through, and the probe reported THE SEAT CAN POINT OUTSIDE THE
+  // COMPANY about a trigger that was working perfectly. E17: a
+  // harness failure wearing a product bug's clothes.
+  //
+  // "Anybody in a different company", resolved per role, rather than
+  // "somebody in ids.otherCompany" — which the second draft used and
+  // which came back null, because that company has no members in the
+  // clone. The trigger only cares that the profile's company is not
+  // this one.
+  const outsiderFor = async (own: string): Promise<string | null> => {
+    const [row] = await run<{ id: string | null }>(
+      `select (select id from public.profiles
+                where company_id is not null
+                  and company_id <> '${own}'
+                  and status = 'active' limit 1) as id;`
+    );
+    return row?.id ?? null;
+  };
+  const setChampionToOutsider = (company: string, outsider: string) =>
+    `update public.companies set aims_champion_profile_id = '${outsider}'
+     where id = '${company}' returning id;`;
+
+  for (const [label, sub, own] of [
+    ["company_admin", ids.companyAdmin, ids.companyAdminCompany],
+    ["aims_guide", ids.guide, ids.guideCompany],
+  ] as const) {
+    const granted = await attempt(sub, setChampionToOwnMember(own));
+    const otherColumn = await attempt(sub, setStatus(own));
+    const otherCompany = await attempt(sub, setChampionToOwnMember(ids.otherCompany));
+    const outsiderId = await outsiderFor(own);
+    const outsider = outsiderId
+      ? await attempt(sub, setChampionToOutsider(own, outsiderId))
+      : "NOT RUN: no active profile outside this company";
+
+    const ok =
+      granted.includes("row(s) written") &&
+      otherColumn === "refused by the column guard" &&
+      otherCompany.startsWith("0 rows") &&
+      outsider.includes("champion must be a member");
+
+    probes.push({
+      name: `champion seat · ${label}`,
+      granted: `champion on own company: ${granted}`,
+      withheld:
+        `status on own company: ${otherColumn} | ` +
+        `champion on another company: ${otherCompany} | ` +
+        `champion from another company: ${outsider}`,
+      ok,
+      detail: ok
+        ? "names the champion on a company they hold, and nothing else"
+        : !granted.includes("row(s) written")
+          ? "THE GRANT DOES NOT WORK: the role cannot name a champion the settings page offers them"
+          : outsiderId === null
+            ? "CANNOT ANSWER: no outsider to try, so the membership trigger went untested"
+            : !outsider.includes("champion must be a member")
+              ? "THE SEAT CAN POINT OUTSIDE THE COMPANY: nudges would go to somebody who cannot open the meeting"
+              : "the grant is wider than intended",
+    });
+  }
+
+  // ---- guide_nudges: a nudge is addressed, not broadcast --------
+  //
+  // The row carries a headline generated FROM a meeting analysis,
+  // and it names a person who was singled out. Neither is a secret
+  // from the company's admins — they can open the meeting and they
+  // set the seat — but it is not for the rest of the team.
+  //
+  // THE INSERT IS PROBED AS A PRIVILEGE, not as a policy. E8: an
+  // absent policy and a revoked privilege both produce "0 rows",
+  // and only one of them survives somebody adding a permissive
+  // policy later. 42501 is the answer that means the grant is gone.
+
+  // Seeded as postgres inside the same rolled-back transaction, so
+  // "the recipient sees theirs" is a read of a row that exists. An
+  // empty table would let every assertion below pass for the wrong
+  // reason: a typo'd table name reads zero too.
+  const seedNudge = `
+insert into public.guide_nudges
+  (company_id, recipient_profile_id, trigger_kind, headline)
+values ('${ids.companyAdminCompany}', '${ids.companyAdmin}',
+        'meeting_analyzed', 'harness probe');`;
+  const attemptSeeded = async (sub: string, stmt: string): Promise<WriteOutcome> => {
+    try {
+      const rows = await run<Record<string, unknown>>(
+        asCaller(sub, `${pending}\n${seedNudge}`, stmt)
+      );
+      return describeOutcome(rows);
+    } catch (err) {
+      return describeOutcome(null, err);
+    }
+  };
+
+  const nudgeReadAsRecipient = await attemptSeeded(
+    ids.companyAdmin,
+    `select id from public.guide_nudges
+      where recipient_profile_id = '${ids.companyAdmin}';`
+  );
+  // The control beside the zero. A member reading nothing proves
+  // nothing on its own — the table could be empty, the pending
+  // migration could have failed, the probe could be querying a
+  // typo. This is the same member reading a row they SHOULD see.
+  const memberControl = await attempt(
+    ids.member,
+    `select id from public.profiles where id = '${ids.member}';`
+  );
+  const nudgeReadAsOtherMember = await attemptSeeded(
+    ids.member,
+    `select id from public.guide_nudges;`
+  );
+  const nudgeInsert = await attempt(
+    ids.member,
+    `insert into public.guide_nudges
+       (company_id, recipient_profile_id, trigger_kind, headline)
+     values ('${ids.memberCompany}', '${ids.member}', 'meeting_analyzed',
+             'harness probe') returning id;`
+  );
+  // The privilege itself, read back. `false` is the answer that
+  // means REVOKE landed; a probe that only watched the failed insert
+  // would read the same green from a policy that merely says no.
+  const insertPrivilege = await attempt(
+    ids.member,
+    `select 1 from (select has_table_privilege(
+        'authenticated', 'public.guide_nudges', 'insert') as granted) t
+      where t.granted = false;`
+  );
+
+  const nudgeOk =
+    nudgeReadAsRecipient.includes("row(s) written") &&
+    memberControl.includes("row(s) written") &&
+    nudgeReadAsOtherMember.startsWith("0 rows") &&
+    nudgeInsert === "refused by privilege" &&
+    insertPrivilege.includes("row(s) written");
+
+  probes.push({
+    name: "guide nudges · addressed, never written by hand",
+    granted: `recipient reads their own: ${nudgeReadAsRecipient} | control, a member reads their own profile: ${memberControl}`,
+    withheld: `another member reads the table: ${nudgeReadAsOtherMember} | that member inserts one: ${nudgeInsert}`,
+    ok: nudgeOk,
+    detail: nudgeOk
+      ? "a nudge reaches its recipient and its company's admins, and no user role may create one"
+      : !nudgeReadAsRecipient.includes("row(s) written")
+        ? "THE RECIPIENT CANNOT READ THEIR OWN NUDGE: the notification would lead nowhere"
+        : !memberControl.includes("row(s) written")
+          ? "THE CONTROL IS DEAD: this member reads nothing at all, so the zero above means nothing"
+          : nudgeInsert !== "refused by privilege"
+            ? "A USER ROLE CAN CREATE A NUDGE, or is refused by policy rather than privilege — E8 asks for the privilege"
+            : "the read is wider than intended",
+  });
+
+  // ---- The seat empties itself (0235) ---------------------------
+  //
+  // A deactivated champion still sitting in the seat is the worst
+  // of the three states: nudges keep being raised, they are
+  // addressed to somebody who cannot sign in, and every one of them
+  // reads in guide_nudge_weekly as an invitation the champion
+  // ignored. The trigger clears the seat in the same statement that
+  // deactivates them.
+  //
+  // Probed as POSTGRES, not as a role. The question is not "may
+  // somebody do this" — it is "does it happen at all", whoever does
+  // the deactivating, which is the property a trigger has and a line
+  // in a server action does not.
+  const seatProbe = async (
+    label: string,
+    mutation: (champion: string, company: string) => string
+  ): Promise<void> => {
+    // A champion who is NOT the company's only admin, so there is
+    // somebody left to notify. Seating the sole admin and then
+    // deactivating them is a real state, but it makes "0 admins
+    // notified" correct and the probe blind.
+    const [setup] = await run<{
+      company: string | null;
+      champion: string | null;
+      admins: number;
+    }>(
+      `select
+         '${ids.companyAdminCompany}'::uuid as company,
+         coalesce(
+           (select id from public.profiles
+             where company_id = '${ids.companyAdminCompany}'
+               and status = 'active' and role <> 'company_admin' limit 1),
+           (select id from public.profiles
+             where company_id = '${ids.companyAdminCompany}'
+               and status = 'active' limit 1)) as champion,
+         (select count(*) from public.profiles
+           where company_id = '${ids.companyAdminCompany}'
+             and status = 'active' and role = 'company_admin') as admins;`
+    );
+    const company = setup?.company ?? null;
+    const champion = setup?.champion ?? null;
+    const admins = Number(setup?.admins ?? 0);
+    if (!company || !champion) {
+      probes.push({
+        name: `champion seat clears · ${label}`,
+        granted: "NOT RUN",
+        withheld: "NOT RUN",
+        ok: false,
+        detail: "CANNOT ANSWER: no active member to seat as champion",
+      });
+      return;
+    }
+
+    let seatAfter = "ERROR";
+    let notified = "ERROR";
+    try {
+      const rows = await run<{ seat: string | null; notified: number }>(
+        [
+          "begin;",
+          pending,
+          `update public.companies set aims_champion_profile_id = '${champion}'
+             where id = '${company}';`,
+          mutation(champion, company),
+          `select
+             (select aims_champion_profile_id from public.companies
+               where id = '${company}')::text as seat,
+             (select count(*) from public.notifications
+               where company_id = '${company}'
+                 and kind = 'champion-empty') as notified;`,
+          "rollback;",
+        ].join("\n")
+      );
+      const row = rows[0];
+      seatAfter = row?.seat === null || row?.seat === undefined ? "empty" : "still set";
+      notified = String(row?.notified ?? 0);
+    } catch (err) {
+      seatAfter = describeOutcome(null, err);
+    }
+
+    // Two assertions, and the second is the one that nearly got
+    // away. The seat emptying is necessary; TELLING THE ADMINS is
+    // what keeps a company from silently going quiet. The first
+    // version of this probe asserted only the first and printed
+    // "company admins notified: 0" beside a green tick on all three
+    // cases — which is what a green over a zero looks like.
+    //
+    // A company with no other active admin has nobody to tell, and
+    // that is a fact about the clone rather than a failure, so the
+    // count is only required where there is somebody to count.
+    const ok =
+      seatAfter === "empty" && (admins === 0 || Number(notified) > 0);
+    probes.push({
+      name: `champion seat clears · ${label}`,
+      granted: `seat afterwards: ${seatAfter} | company admins notified: ${notified}`,
+      withheld: "nothing — this is a consequence, not a permission",
+      ok,
+      detail: ok
+        ? admins === 0
+          ? "the seat empties in the same statement; no other admin to tell"
+          : "the seat empties in the same statement, and the admins are told"
+        : seatAfter !== "empty"
+          ? "THE SEAT KEEPS A PERSON WHO IS GONE: nudges would go to somebody who cannot read them, and count as ignored"
+          : "NOBODY IS TOLD: the company stops hearing from Aimee with nothing on screen saying why",
+    });
+  };
+
+  await seatProbe(
+    "deactivated",
+    (champion) =>
+      `update public.profiles set status = 'inactive' where id = '${champion}';`
+  );
+  await seatProbe(
+    "moved to another company",
+    (champion) =>
+      `update public.profiles set company_id =
+         (select id from public.companies
+           where id <> '${ids.companyAdminCompany}' limit 1)
+       where id = '${champion}';`
+  );
+  await seatProbe(
+    "deleted",
+    (champion) => `delete from public.profiles where id = '${champion}';`
+  );
 
   // ---- The baseline function role, and who may touch it --------
   //

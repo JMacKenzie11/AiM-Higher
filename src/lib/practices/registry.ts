@@ -132,6 +132,18 @@ export type Practice = {
   //   and saveRoleDescriptionAction says so before the database is
   //   asked.
   alsoFunctionLeads?: boolean;
+  // alsoAimsChampion
+  //   Admits the person holding this company's AiMS champion seat,
+  //   on top of allowedRoles. Same shape as alsoFunctionLeads and
+  //   for the same reason: the champion is frequently a team_member,
+  //   and no list of platform roles can name "the person who runs
+  //   the rhythm here".
+  //
+  //   It WIDENS and never narrows. The debrief agent names it while
+  //   also admitting every company_admin, because the seat routes
+  //   Aimee's attention — it is not an access boundary, and an admin
+  //   can already read the meeting the debrief is about.
+  alsoAimsChampion?: boolean;
   // maxTokens
   //   Ceiling for one assistant turn, when the default is not
   //   enough. Absent means the route's default, which suits a
@@ -153,7 +165,8 @@ export type Practice = {
 export type PracticeToolName =
   | "get_foundation"
   | "list_functions"
-  | "get_role_description";
+  | "get_role_description"
+  | "get_meeting_debrief";
 
 export const PRACTICES: readonly Practice[] = [
   {
@@ -247,6 +260,37 @@ export const PRACTICES: readonly Practice[] = [
     // untouched section through verbatim. 2000 truncated it twice in
     // a row.
     maxTokens: 8000,
+  },
+  {
+    id: "guide-meeting-debrief",
+    title: "Debrief a meeting",
+    description:
+      "Talk through what the last leadership meeting showed about how the team is working, and decide what to carry into the next one.",
+    // Facilitation, not People. The conversation is about how the
+    // meeting ran, which is the same question the facilitation
+    // review in the summary asks.
+    category: "Facilitation",
+    promptFile: "prompts/practices/guide-meeting-debrief.md",
+    // No chips and no setup. Nobody arrives here from the picker
+    // looking for a topic: they arrive from a notification about one
+    // specific meeting, and the agent already knows which.
+    basePromptMode: "full_coach",
+    skipSetup: true,
+    // GENERATED, not scripted. The opener has to name something that
+    // actually happened in the meeting, which means a turn that has
+    // called get_meeting_debrief first. A scripted line here would
+    // be the "your meeting was analyzed" notification again, one
+    // screen further in.
+    firstTurn: "generate",
+    // Company admins, guides and system admins, PLUS whoever holds
+    // the champion seat — who is frequently a team_member. The seat
+    // routes Aimee's attention; it does not fence the agent off from
+    // the admins who can already read the meeting.
+    allowedRoles: ["company_admin", "system_admin", "aims_guide"],
+    alsoAimsChampion: true,
+    // Registers only when the conversation is pinned to a meeting,
+    // which the nudge's open path always does.
+    tools: ["get_meeting_debrief"],
   },
 ] as const;
 

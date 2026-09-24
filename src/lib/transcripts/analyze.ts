@@ -14,6 +14,7 @@ import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyz
 import { mapSpeakers, formatSpeakerMap } from "./speakers";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
+import { raiseMeetingDebriefNudge } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type {
   CompanyFoundation,
@@ -387,6 +388,29 @@ export async function analyzeMeeting(
         meeting_title: meetingRow.meeting_title ?? deriveTitle(meetingRow.file_name),
       })
       .eq("id", meetingId);
+
+    // ---- The Guide's one action in phase A --------------------
+    //
+    // The meeting is complete and its analysis is stored, so this is
+    // the moment "this meeting has been analyzed" becomes a knowable
+    // event. Until now nothing in-app fired here: the only thing
+    // listening was a PostHog call, which leaves our infrastructure
+    // and cannot drive behaviour.
+    //
+    // AFTER the analysis row is written, deliberately. A nudge that
+    // pointed at a meeting whose summary failed to save would invite
+    // somebody to debrief a blank page.
+    //
+    // Best effort, and isolated: raiseMeetingDebriefNudge never
+    // throws. A broken invitation must not break a meeting summary.
+    await raiseMeetingDebriefNudge(admin, client, {
+      model,
+      companyId: meetingRow.company_id!,
+      meetingId,
+      meetingDateIso,
+      analysisMarkdown,
+      strengths: (facilitationReview?.strengths ?? []).map((s) => s.title),
+    });
 
     // Cron-driven event; no request context, so await inline rather
     // than using next/server after(). The extra ~200ms is fine here.

@@ -139,6 +139,8 @@ function fromRowOnly(row: AgentRow): ResolvedAgent {
     feature: (row.feature ?? undefined) as Practice["feature"],
     alsoFunctionLeads:
       (row.access_predicates ?? []).includes("function_lead") || undefined,
+    alsoAimsChampion:
+      (row.access_predicates ?? []).includes("aims_champion") || undefined,
     agentRowId: row.id,
     sortOrder: row.sort_order,
     categorySortOrder:
@@ -233,6 +235,8 @@ export const listAgents = cache(async function listAgents(): Promise<
       feature: (row.feature ?? undefined) as Practice["feature"],
       alsoFunctionLeads:
         (row.access_predicates ?? []).includes("function_lead") || undefined,
+      alsoAimsChampion:
+        (row.access_predicates ?? []).includes("aims_champion") || undefined,
       agentRowId: row.id,
       sortOrder: row.sort_order,
       categorySortOrder:
@@ -305,6 +309,8 @@ export const listAgentsIncludingArchived = cache(
         feature: (row.feature ?? undefined) as Practice["feature"],
         alsoFunctionLeads:
           (row.access_predicates ?? []).includes("function_lead") || undefined,
+        alsoAimsChampion:
+          (row.access_predicates ?? []).includes("aims_champion") || undefined,
         agentRowId: row.id,
         sortOrder: row.sort_order,
         categorySortOrder:

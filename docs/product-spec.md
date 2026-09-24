@@ -1110,6 +1110,29 @@ Migration 0231, 2026-09-23. The gap 14e/14f left open, found by looking at a rea
 
 ---
 
+### 14h. The AiMS Guide, phase A (`guide_nudges`, `companies.aims_champion_profile_id`)
+
+Aimee's first proactive behaviour. One trigger, one recipient, one action: when a leadership meeting's analysis completes, the company's **AiMS champion** gets a notification inviting them to debrief it.
+
+**The Guide never converses from a job.** `coach_memories` (0194) revokes every privilege from `service_role` and writes only through `record_coach_memory()`, which raises when `auth.uid()` is null. A background job has no JWT, so it cannot read or write coaching memory — not "should not", cannot. So the job raises a **notification**, and the conversation starts when the champion opens it, under their own session, with memory, tools and RLS behaving normally. Proactive in timing, never in acting without a person.
+
+- **The champion seat** — `companies.aims_champion_profile_id`, nullable, `on delete set null`. Null is the ordinary default and means no nudges are raised for that company. A trigger (`champion_must_be_a_member`) refuses a profile from another company, which a foreign key cannot say.
+- **It is not a permission.** Holding the seat grants nothing an admin does not already have; losing it takes nothing away. It routes where Aimee's note goes. The help copy on the settings card says so in those words, because "champion" beside a person picker reads as a grant unless it is denied out loud.
+- **Who sets it** — the company's own `company_admin`s, `aims_guide`s on assigned companies, and `system_admin`. This is a **role widening**: until 0235 a company_admin could change exactly one column on their own company (`industry`, 0176). `portfolio_admin` is deliberately excluded — their four container columns are about packaging, and who runs a company's meeting rhythm is not packaging. Enforced below the app by `companies_restrict_admin_columns`, and probed by `champion seat · company_admin` / `· aims_guide`, which assert the write that must now succeed alongside three refusals: another column, another company, and a champion from outside the company.
+- **The seat empties itself.** A `before update or delete` trigger on `profiles` clears it when the champion is deactivated, moved to another company or deleted, in the same statement, and notifies the company's admins (`kind: champion-empty`) that it is empty. `before`, not `after`: the column's `on delete set null` would otherwise beat the trigger to it on a delete, emptying the seat correctly but telling nobody. A company that quietly stops hearing from Aimee is worse than one that knows why.
+- **`guide_nudges`** — what was raised, to whom, and what happened next: `pending → opened | dismissed | superseded`. Identifiers and a short generated headline only; no transcript text, no analysis content. Raising a new nudge marks any pending one for that company `superseded` **before** inserting, so a champion who missed last week does not find two waiting.
+- **RLS** — Form D throughout. The recipient reads their own; `system_admin` and the company's admins read the company's. Updates are recipient-only. **INSERT is revoked from `authenticated` as a privilege, not absent as a policy** (failure mode E8): the probe asserts SQLSTATE 42501, not "0 rows". There is no DELETE.
+- **The debrief agent** (`guide-meeting-debrief`, Facilitation) — reachable by `company_admin`, `system_admin`, `aims_guide`, **plus the champion** via the `aims_champion` access predicate, which reads the column directly and is shaped exactly like `function_lead`. The champion is frequently a `team_member`, and no list of platform roles can name "the person who runs the rhythm here". The predicate **widens and never narrows**: an admin reaches the debrief whether or not they hold the seat, because they can already read the meeting it is about.
+- **Opening a nudge** — `/guide/nudge/[id]` verifies the nudge is the caller's, creates a conversation pinned to the agent with `coaching_conversations.debriefing_meeting_id` set (mirrors `revising_role_id`, 0224), and records `opened_at` and `conversation_id`. Opening twice lands on the conversation that already exists rather than splitting a debrief across two chats.
+- **The agent's one tool** — `get_meeting_debrief` reads the pinned meeting's **analysis**, never the transcript, on the caller's own client. The meeting id is closed over, never a parameter: the model is never asked to name a meeting. The agent has no tool that writes, and the prompt says so; a decision made in the debrief is still recorded by the person, in the usual place.
+- **Dismissing** — "Not now" in the notification tray moves two rows. The notification is marked read (housekeeping) and the nudge is marked `dismissed` (a finding). Without the second, a declined invitation and an ignored one are indistinguishable, and they mean opposite things about whether the Guide is worth keeping.
+- **Measurement** — `guide_nudge_weekly`, a `security_invoker` view: per company per week, raised / opened / dismissed / superseded / still pending. It starts from the **nudges**, so a week with no row raised nothing and a week reading `raised = 3, opened = 0` was invited three times and did not come. Those are different answers and the shape keeps them apart. `npm run guide:uptake` prints it across the fleet.
+
+**What phase A is not.** No scheduling, no reminders, no watching for signals, no second trigger. One thing, measured, before anything is added to it.
+
+
+---
+
 ## 15. Classroom (Shared Training Library)
 
 Feature-gated (`classroom`). Content is authored centrally by system admins and shared across every enabled company — one library, many audiences.

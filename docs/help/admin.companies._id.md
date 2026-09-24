@@ -140,3 +140,26 @@ unrouted queue on `/admin/companies` for a system admin to route.
 **Do features affect existing data?** Turning a module off hides
 it in nav; existing data is preserved. Turning it back on brings
 everything back exactly as it was.
+
+## AiMS champion
+
+Names the one person Aimee gets in touch with after each leadership
+meeting is summarised. They get a note in their notification bar
+inviting them to talk the meeting through.
+
+**It grants nothing.** Being the champion does not open anything
+that was closed, and taking the seat away does not close anything.
+Everyone who could already read a meeting summary still can. The
+seat decides who is invited, and that is all it decides.
+
+Anyone on the company's team can hold it. It does not have to be an
+admin, and often the right person is whoever actually runs the
+meeting rhythm.
+
+**Nobody yet** is a normal setting. With the seat empty, those notes
+are simply not sent. Nothing else changes.
+
+If the person in the seat is deactivated or moves to another
+company, the seat empties itself and the company's admins get a note
+saying so, because a company that quietly stops hearing from Aimee
+is worse than one that knows why.

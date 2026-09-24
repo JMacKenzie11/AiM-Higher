@@ -15,6 +15,7 @@ import { getCurrentRoleDescription } from "@/lib/role-descriptions/roles-list";
 import { RoleDescriptionView } from "@/components/role-descriptions/RoleDescriptionView";
 import styles from "../revision.module.css";
 import { leadsAnyFunction } from "@/lib/practices/function-leads";
+import { isAimsChampion } from "@/lib/guide/champion";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 import { ShareChatButton } from "./ShareChatButton";
@@ -181,6 +182,14 @@ export default async function AskAimeeChatPage({
   const isFunctionLead =
     agents.some((p) => p.alsoFunctionLeads) &&
     (await leadsAnyFunction(session.profile.id, conversation.company_id));
+  // Same shape, same reason. A champion who is a team_member is
+  // admitted by practiceGate and would otherwise find the debrief
+  // agent only by guessing its URL — which is exactly what they do
+  // NOT do, because they arrive from a notification and then look
+  // for it again a week later.
+  const isAimsChampionHere =
+    agents.some((p) => p.alsoAimsChampion) &&
+    (await isAimsChampion(session.profile.id, conversation.company_id));
   const agentPickerPractices =
     access === "owner"
       ? agents.filter((p) => {
@@ -197,7 +206,10 @@ export default async function AskAimeeChatPage({
           // The card and the gate have to agree. A lead who is
           // refused here and admitted by practiceGate would find the
           // agent only by guessing the URL.
-          return p.alsoFunctionLeads === true && isFunctionLead;
+          return (
+            (p.alsoFunctionLeads === true && isFunctionLead) ||
+            (p.alsoAimsChampion === true && isAimsChampionHere)
+          );
         })
       : null;
 

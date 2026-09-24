@@ -302,3 +302,19 @@ because creating a commitment exercises the whole chain: a client
 component holding form state, a server action posted through it, an
 authorization check, a write, a revalidate, and the result rendering
 back into the list.
+
+## One fixture the suite consumes: the Guide nudge
+
+`e2e/guide-champion.spec.ts` opens a pending nudge, and opening one
+moves it to `opened` for good. It is not pending again afterwards
+and the spec cannot put it back: `guide_nudges` has its INSERT
+revoked from `authenticated`, on purpose (failure mode E8), so no
+user role can create one and neither can a browser test.
+
+So that file needs a fresh `npm run seed:e2e` before each full run.
+The seed rebuilds the meeting, the analysis, the nudge and its
+notification from scratch, and empties the champion seat, which is
+also the state the spec expects to start from.
+
+Every other spec in the suite restores what it changed and does not
+need this.

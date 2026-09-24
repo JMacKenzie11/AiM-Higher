@@ -563,3 +563,37 @@
     padding: var(--space-2) var(--space-4);
   }
 }
+
+/* ---- "Not now", on a Guide nudge only ----------------------------
+ *
+ * Sits BELOW the link rather than inside it. A button nested in an
+ * anchor is invalid markup and, more to the point, a dismiss control
+ * inside the click target is a dismiss control people press when
+ * they meant to open it.
+ */
+.bellMenuItemAside {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+.bellDismiss {
+  background: none;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bellDismiss:hover {
+  background: var(--aims-cobalt-tint);
+  color: var(--text);
+}
+
+.bellDismiss:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

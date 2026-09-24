@@ -68,6 +68,12 @@ export type Company = {
   // reorder rewrites only the rows that moved, so ties are normal and
   // resolve by name.
   sort_order: number | null;
+  // The person Aimee invites to debrief each leadership meeting
+  // (migration 0235). Null is the ordinary state for a company that
+  // has not picked one, and it means no nudges are sent rather than
+  // that they go to somebody else. Not a permission: see the header
+  // in 0235 and the help line on the settings card.
+  aims_champion_profile_id: string | null;
   created_at: string;
   updated_at: string;
   // Soft-delete timestamp (migration 0148). Non-null rows are
