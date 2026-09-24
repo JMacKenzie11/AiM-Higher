@@ -7,7 +7,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { resolveAgent } from "@/lib/practices/resolve";
 import { practiceGate } from "@/lib/practices/gate";
 import { createPracticeConversation } from "@/lib/practices/create";
-import { createGeneralConversationAction } from "@/lib/coach/actions";
+import { createGeneralConversation } from "@/lib/coach/create-general";
 import { PageShell } from "@/components/ui/PageShell";
 
 // Unified launch route. Two shapes:
@@ -67,11 +67,16 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
 
   const session = await requireProfile();
 
-  // Plain start — no agent — hands off to createGeneralConversationAction,
+  // Plain start — no agent — hands off to createGeneralConversation,
   // which handles the getEffectiveCompanyId resolution for us and
   // returns a friendly error if the caller has no scope.
+  //
+  // The PLAIN function, not the server action. The action ends in
+  // revalidatePath, and revalidating during render is forbidden —
+  // calling it here is what made this route 500 on every visit
+  // without an ?agent= parameter.
   if (!agentId) {
-    const result = await createGeneralConversationAction();
+    const result = await createGeneralConversation();
     if (!result.ok) return notAvailable(result.message);
     const target = from
       ? `/ask-aimee/${result.item.id}?from=${encodeURIComponent(from)}`
