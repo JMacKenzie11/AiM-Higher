@@ -27,13 +27,26 @@ Concise but insightful explanation of:
 - What strategic arc the meeting fits into
 
 ## Attendees
-List participants.
+Who was actually in the room, taken from the TRANSCRIPT and the speaker map only.
+
+The roster tells you how to SPELL a name. It never tells you who attended. A person can be on the roster and not be at the meeting — a summary once listed somebody who has never signed in, because their name was on the list and the topic fit.
+
+If the speaker map could not identify a label, say "one unidentified speaker" rather than filling the gap from the roster.
 
 ## Agenda Items Covered
 Numbered list of major themes discussed (not micro-topics).
 
 ## Detailed Discussions
 For each agenda item, use the following structure:
+
+**Accuracy rules that apply throughout this section.**
+
+- **Credit the right person.** Use the speaker map. Who raised an idea matters to the people reading this — an idea credited to the wrong person is worse than an idea with no name on it. When somebody relays another person's idea ("Nancy showed me this glove trick"), credit the originator and note who relayed it.
+- **Quote the words for anything about employment, compliance or money.** A short direct quote beside your paraphrase, so a reversed meaning is visible at a glance. Reversing which way a benefits claim or a contract works is the kind of error nobody catches from a paraphrase alone, and the cost of getting it wrong falls on an employee.
+- **Do not merge two things that share a word.** Two suppliers, two rooms, two shipments: if the transcript distinguishes them, so do you. When you are unsure whether two mentions are the same thing, treat them as separate and say the transcript was not clear.
+- **Name the place exactly as the meeting did.** Rooms and areas are not interchangeable. The issues list and any later audit must use the same names as this section.
+- **A name close to one the company holds is THEIRS.** The people list, the functional chart and the One-Page Plan are the company's own spellings. A recording that says "Graham and Ann" for a place the plan calls Grand Manan is a transcription error, not a second place — write what the company writes.
+- **A name you cannot verify stays as the transcript said it.** Do not correct a name toward one that merely sounds similar. If a spelling looks uncertain, write it as heard — the reader is told separately which names the company could not vouch for.
 
 ### A) [Agenda Topic Title]
 

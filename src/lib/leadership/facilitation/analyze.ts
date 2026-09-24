@@ -518,7 +518,48 @@ const FACILITATION_TOOL: Anthropic.Tool = {
 // checks. The model's tool-use output is trusted for shape but not
 // for staying within enum/range constraints.
 // ----------------------------------------------------------------
+// ESCAPE SEQUENCES THAT ARRIVED AS TEXT.
+//
+// A tool call came back with the six literal characters \u2014 inside
+// its strings rather than an em dash, and they rendered that way on
+// a customer's meeting page: "tightening the loop on live ideas
+// \u2014 like the Raw-side incentive".
+//
+// Only ever seen on the tool-use path — the same meeting's markdown,
+// produced by an ordinary text call, carried 54 correctly encoded em
+// dashes and no literals. So it is decoded here, where tool output
+// is normalised, rather than in the renderer where every reader of
+// this data would have to remember.
+//
+// Restricted to the escapes a model actually emits for punctuation.
+// A blanket unescape would also decode a sequence somebody wrote on
+// purpose, and there is no reason to reach further than the problem.
+function decodeStrayEscapes<T>(value: T): T {
+  if (typeof value === "string") {
+    return value.replace(/\\u([0-9a-fA-F]{4})/g, (whole, hex) => {
+      const code = parseInt(hex, 16);
+      // Punctuation and dashes only: 2000-206F is General
+      // Punctuation, which covers dashes, quotes and ellipsis.
+      return code >= 0x2000 && code <= 0x206f
+        ? String.fromCharCode(code)
+        : whole;
+    }) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => decodeStrayEscapes(v)) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = decodeStrayEscapes(v);
+    }
+    return out as unknown as T;
+  }
+  return value;
+}
+
 function normalizeReview(raw: Record<string, unknown>): FacilitationReview {
+  raw = decodeStrayEscapes(raw);
   const insufficient = Boolean(raw.insufficient_transcript);
   const dims = {
     rhythm: normalizeDimensionScore(

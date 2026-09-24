@@ -45,3 +45,7 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 .next-e2e-unresolved/
+
+# Real client content used for regression runs. Transcripts and the
+# expected values derived from them are never committed.
+.regression/

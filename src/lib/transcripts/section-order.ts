@@ -33,6 +33,36 @@
 const HEADING = /^##\s+(?:\d+\.\s+)?(?:Core Values in Action|Values in Practice)\s*$/im;
 const ANY_H2 = /^##\s+/m;
 
+// The Core Values section on its own, and everything else.
+//
+// It gets its own card above the analysis rather than a heading
+// inside it: values are what the leader is asked to look at first,
+// and a heading inside a long document is not "first" in any sense
+// a reader experiences.
+//
+// `values` is null when the section is absent, which is ORDINARY —
+// the prompt says to omit it rather than manufacture one — and the
+// caller then renders no card at all rather than an empty one.
+export function splitCoreValues(markdown: string): {
+  values: string | null;
+  rest: string;
+} {
+  const match = HEADING.exec(markdown);
+  if (!match) return { values: null, rest: markdown };
+
+  const start = match.index;
+  const after = start + match[0].length;
+  const tail = markdown.slice(after);
+  const nextRel = tail.search(ANY_H2);
+  const end = nextRel === -1 ? markdown.length : after + nextRel;
+
+  // The heading itself goes with the card's own title, so the body
+  // is what sits between this heading and the next one.
+  const body = markdown.slice(after, end).trim();
+  const rest = (markdown.slice(0, start) + markdown.slice(end)).trim();
+  return { values: body.length > 0 ? body : null, rest };
+}
+
 export function coreValuesFirst(markdown: string): string {
   const match = HEADING.exec(markdown);
   if (!match) return markdown;

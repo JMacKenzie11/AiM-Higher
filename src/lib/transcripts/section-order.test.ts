@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { coreValuesFirst } from "./section-order";
+import { coreValuesFirst, splitCoreValues } from "./section-order";
 
 // Written last, shown first — and nothing else moves.
 
@@ -74,5 +74,39 @@ describe("coreValuesFirst", () => {
     const out = coreValuesFirst(DOC);
     expect(out).toContain("## Decisions Made (Summary Section)");
     expect(out).toContain("- Shutdown Oct 18–25");
+  });
+});
+
+describe("splitCoreValues", () => {
+  it("returns the section body without its heading, and the rest", () => {
+    const { values, rest } = splitCoreValues(DOC);
+    expect(values).toContain("Nancy shared her glove tip");
+    expect(values).not.toContain("## Core Values in Action");
+    expect(rest).toContain("## Purpose of the Call");
+    expect(rest).not.toContain("Nancy shared her glove tip");
+  });
+
+  it("loses nothing between the two halves", () => {
+    const { values, rest } = splitCoreValues(DOC);
+    const lines = (md: string) =>
+      md.split("\n").map((l) => l.trim()).filter(Boolean);
+    const out = [...lines(values ?? ""), ...lines(rest)].sort();
+    const original = lines(DOC)
+      .filter((l) => l !== "## Core Values in Action")
+      .sort();
+    expect(out).toEqual(original);
+  });
+
+  it("reports no values section rather than an empty one", () => {
+    // The caller renders no card at all in this case, which is the
+    // ordinary outcome — the prompt omits the section rather than
+    // manufacture one.
+    const plain = "## Purpose of the Call\nA meeting.\n";
+    expect(splitCoreValues(plain)).toEqual({ values: null, rest: plain });
+  });
+
+  it("handles an empty document", () => {
+    // The page calls this with "" before an analysis exists.
+    expect(splitCoreValues("")).toEqual({ values: null, rest: "" });
   });
 });
