@@ -59,6 +59,27 @@ describe("facilitation scoring weight", () => {
     expect(PROMPT).toContain("It is a real criterion and a weak one");
   });
 
+  it("defines a generative question by the SHIFT, not by sounding open", () => {
+    // The definition is the load-bearing part now that positive
+    // framing leads the score. Two ways to get it wrong, and the
+    // prompt has to refuse both:
+    //
+    //   a diagnostic question that sounds open — "what's blocking
+    //   us" — keeps the room on the problem;
+    //
+    //   a forward-looking proposal — "what if we tried X" — is still
+    //   inside problem-solving with a suggestion attached.
+    //
+    // Without these, any open question scores, and the dimension
+    // carrying the most weight is the easiest one to inflate.
+    const def = PROMPT.slice(PROMPT.indexOf("2. **Generative Questions**"));
+    const section = def.slice(0, def.indexOf("3. **Reframes**"));
+    expect(section).toMatch(/away from problem-solving/i);
+    expect(section).toMatch(/possibilities, strengths, and shared aspirations/i);
+    expect(section, "the diagnostic counter-example").toMatch(/blocking us/i);
+    expect(section, "the proposal counter-example").toMatch(/what if we tried/i);
+  });
+
   it("gives the model a worked case in both directions", () => {
     // A ranking with no example is a preference; a ranking with a
     // number attached is an instruction.

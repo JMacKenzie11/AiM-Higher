@@ -289,7 +289,16 @@ const FACILITATION_TOOL: Anthropic.Tool = {
         minItems: 0,
         maxItems: 8,
         description:
-          "Questions that opened new possibilities — future-oriented, curious, 'what would better look like', 'what if we', 'how might we'. NOT diagnostic questions ('why did that fail'). Paraphrase + one-line context.",
+          "A query intentionally framed to SHIFT the conversation away " +
+          "from problem-solving and toward the discovery of new " +
+          "possibilities, strengths, and shared aspirations. The shift " +
+          "is the test: 'what would better look like', 'what's the " +
+          "version we'd be proud of', 'when have we handled this well " +
+          "and what made it work'. NOT diagnostic ('why did that fail', " +
+          "'what's blocking us') however open it sounds — those keep " +
+          "the room on the problem. NOT every forward-looking question: " +
+          "'what if we tried X' is a proposal with a question mark, " +
+          "still inside problem-solving. Paraphrase + one-line context.",
         items: {
           type: "object",
           required: ["quote", "context"],

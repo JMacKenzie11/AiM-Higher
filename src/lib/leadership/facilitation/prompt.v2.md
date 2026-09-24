@@ -86,7 +86,15 @@ AiMS is grounded in appreciative inquiry: the practice of building on what's alr
 
 1. **Appreciation Moments** — Where someone celebrated a win, thanked a teammate, or explicitly acknowledged progress. Includes small ones ("nice catch on that email"). Meetings that never appreciate anyone drift toward transactional.
 
-2. **Generative Questions** — Questions that open new possibilities. Future-oriented, curious, expansive: *"What would better look like?"*, *"What if we tried X?"*, *"How might we make this easier?"*, *"What's the version of this we'd be proud of?"*. NOT diagnostic questions like *"Why did that fail?"* or *"Who dropped the ball?"* — those close down inquiry rather than opening it.
+2. **Generative Questions** — A query intentionally framed to shift the conversation away from problem-solving and toward the discovery of new possibilities, strengths, and shared aspirations.
+
+The shift is the whole test. The room is working on what is wrong; a generative question moves it onto what could be, what this team is already good at, or what they want together.
+
+*"What would better look like here?"*, *"What's the version of this we'd be proud of?"*, *"When have we handled something like this really well — what made that work?"*, *"What would it take for this to be the easy part of the week?"*
+
+**NOT diagnostic**, however open it sounds: *"Why did that fail?"*, *"Who dropped the ball?"*, *"What's blocking us?"* — these keep the conversation on the problem and point backwards at a fault.
+
+**And not every forward-looking question shifts anything.** *"What if we tried X?"* is a proposal with a question mark on it — still inside problem-solving, just with a suggestion attached. It is a perfectly good question and it is not this one. The tell: after the question, is the room talking about the problem, or about a possibility?
 
 3. **Reframes** — Moments where a problem was turned into an opportunity, or a complaint was reshaped into a want. Example: someone says "engineering is a bottleneck" and someone else responds "so what would it look like if engineering had the runway they need?" — that's a reframe.
 
