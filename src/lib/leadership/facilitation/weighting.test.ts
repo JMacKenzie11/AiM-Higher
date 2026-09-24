@@ -80,6 +80,23 @@ describe("facilitation scoring weight", () => {
     expect(section, "the proposal counter-example").toMatch(/what if we tried/i);
   });
 
+  it("points at all three time horizons, not just the aspirational one", () => {
+    // Best of the past, what is working now, what we want most.
+    // The PRESENT is the one that goes missing — an earlier draft of
+    // this prompt had the past and the future and no "where is this
+    // already working", which is the axis a leader can act on
+    // fastest and the one that distinguishes a generative question
+    // from a wish.
+    const def = PROMPT.slice(PROMPT.indexOf("2. **Generative Questions**"));
+    const section = def.slice(0, def.indexOf("3. **Reframes**"));
+    expect(section, "best of the past").toMatch(/best of the past|moments of excellence/i);
+    expect(section, "what is working now").toMatch(/working right now/i);
+    expect(section, "what we want for the future").toMatch(/want most for the future/i);
+    // And they weigh the same. Without this the model reads the list
+    // as a ranking and scores the future-facing ones highest.
+    expect(section).toMatch(/all three count|counting equally/i);
+  });
+
   it("gives the model a worked case in both directions", () => {
     // A ranking with no example is a preference; a ranking with a
     // number attached is an instruction.

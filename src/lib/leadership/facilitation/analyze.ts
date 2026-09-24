@@ -291,12 +291,17 @@ const FACILITATION_TOOL: Anthropic.Tool = {
         description:
           "A query intentionally framed to SHIFT the conversation away " +
           "from problem-solving and toward the discovery of new " +
-          "possibilities, strengths, and shared aspirations. The shift " +
-          "is the test: 'what would better look like', 'what's the " +
-          "version we'd be proud of', 'when have we handled this well " +
-          "and what made it work'. NOT diagnostic ('why did that fail', " +
-          "'what's blocking us') however open it sounds — those keep " +
-          "the room on the problem. NOT every forward-looking question: " +
+          "possibilities, strengths, and shared aspirations. Three " +
+          "places they point, all counting equally: the best of the " +
+          "past ('when have we handled this well and what made it " +
+          "work'), what is working right now ('where is this already " +
+          "working', 'what should we protect'), and what we want most " +
+          "for the future ('what would better look like', 'what's the " +
+          "version we'd be proud of'). NOT diagnostic ('why did that " +
+          "fail', 'what's blocking us') however open it sounds — those " +
+          "keep the room on the problem; note that 'what's blocking " +
+          "us' and 'where is this already working' are both about now " +
+          "and only one shifts. NOT every forward-looking question: " +
           "'what if we tried X' is a proposal with a question mark, " +
           "still inside problem-solving. Paraphrase + one-line context.",
         items: {

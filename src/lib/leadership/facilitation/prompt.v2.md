@@ -88,11 +88,17 @@ AiMS is grounded in appreciative inquiry: the practice of building on what's alr
 
 2. **Generative Questions** — A query intentionally framed to shift the conversation away from problem-solving and toward the discovery of new possibilities, strengths, and shared aspirations.
 
-The shift is the whole test. The room is working on what is wrong; a generative question moves it onto what could be, what this team is already good at, or what they want together.
+The shift is the test. The room is working on what is wrong; a generative question moves it onto what could be, what is already working, or what this team wants together.
 
-*"What would better look like here?"*, *"What's the version of this we'd be proud of?"*, *"When have we handled something like this really well — what made that work?"*, *"What would it take for this to be the easy part of the week?"*
+**Three places they point, and all three count:**
 
-**NOT diagnostic**, however open it sounds: *"Why did that fail?"*, *"Who dropped the ball?"*, *"What's blocking us?"* — these keep the conversation on the problem and point backwards at a fault.
+- **The best of the past — moments of excellence.** *"When have we handled a shutdown really well — what made that work?"*, *"Who's done this well before, and what did they do?"*
+- **What's working right now.** *"What's going well in the raw room that we should protect?"*, *"Where is this already working, even a little?"*
+- **What we want most for the future.** *"What would better look like here?"*, *"What's the version of this we'd be proud of?"*, *"What would it take for this to be the easy part of the week?"*
+
+A meeting that asks about the present is doing this as much as one that asks about the future. Do not privilege the aspirational ones.
+
+**NOT diagnostic**, however open it sounds: *"Why did that fail?"*, *"Who dropped the ball?"*, *"What's blocking us?"* — these keep the conversation on the problem and point backwards at a fault. Note the difference between *"what's blocking us"* and *"where is this already working"*: both are about right now, and only one of them shifts.
 
 **And not every forward-looking question shifts anything.** *"What if we tried X?"* is a proposal with a question mark on it — still inside problem-solving, just with a suggestion attached. It is a perfectly good question and it is not this one. The tell: after the question, is the room talking about the problem, or about a possibility?
 
