@@ -30,7 +30,19 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // language is treated as text to analyze, not directives.
 
 const DEFAULT_MODEL = "claude-sonnet-5";
-const MAX_TOKENS_ANALYSIS = 5000;
+// Raised from 5000 on 2026-09-24. At 5000 a real leadership meeting
+// did not fit: Benson Seafood's ran to roughly 6,300 output tokens
+// and stopped on the words "current stock to be". Of 36 stored
+// analyses, 6 were missing sections 5, 6 and 7 outright.
+//
+// The cut always landed on the most useful part, because the prompt
+// puts Decisions Made and the carry-forward list last.
+//
+// 10000 is headroom rather than a measured need — the longest
+// observed output was ~6,300 — and the truncation flag below is what
+// tells us if it is ever not enough. A ceiling with nothing watching
+// it is how this went unnoticed for 36 meetings.
+const MAX_TOKENS_ANALYSIS = 10000;
 // Bumped from 2000 → 4000 after seeing empty extractions on
 // meetings that generated both commitments AND issues. The dual-
 // array output plus clarity_note strings on every commitment can
@@ -108,6 +120,24 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("");
+
+    // DID IT FINISH? The extraction call below has asked this since
+    // it was written; the analysis call never did, so a summary that
+    // stopped mid-sentence was stored looking complete and rendered
+    // without a mark on it.
+    //
+    // Recorded from stop_reason, not guessed from the text. A
+    // summary that legitimately ends on a bullet has no terminal
+    // punctuation either, and a warning on a complete document is
+    // its own kind of wrong.
+    const analysisTruncated = analysisMessage.stop_reason === "max_tokens";
+    if (analysisTruncated) {
+      console.warn(
+        `[analyze] Analysis hit max_tokens for meeting ${meetingId} — ` +
+          `cap=${MAX_TOKENS_ANALYSIS}, chars=${analysisMarkdown.length}. ` +
+          `The summary is cut off; the page says so.`
+      );
+    }
 
     // ---- Call 2: extraction ----
     const rawExtraction = await client.messages.create({
@@ -197,6 +227,7 @@ export async function analyzeMeeting(meetingId: string): Promise<AnalysisResult>
     await admin.from("meeting_analyses").insert({
       meeting_id: meetingId,
       analysis_markdown: analysisMarkdown,
+      truncated: analysisTruncated,
       commitments_json: validated,
       issues_json: validatedIssues,
       facilitation_review_json: facilitationReview,

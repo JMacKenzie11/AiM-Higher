@@ -716,6 +716,12 @@ export type MeetingAnalysis = {
   id: string;
   meeting_id: string;
   analysis_markdown: string;
+  // True when the analysis call ended on stop_reason=max_tokens, so
+  // the markdown stops mid-flow (migration 0233). Recorded at write
+  // time from the API response, never inferred from the text —
+  // a summary legitimately ending on a bullet reads the same.
+  // Optional so rows written before 0233 still type.
+  truncated?: boolean;
   commitments_json: ExtractedCommitment[];
   // Second array on the extraction pipeline (migration 0144).
   // Null when the extraction pre-dated the issues rollout OR the

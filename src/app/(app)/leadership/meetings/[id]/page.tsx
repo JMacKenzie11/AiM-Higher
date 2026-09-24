@@ -12,6 +12,7 @@ import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { ReanalyzeMeetingButton } from "./ReanalyzeMeetingButton";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
 import { isScoredReview } from "@/lib/leadership/facilitation/scored";
+import { coreValuesFirst } from "@/lib/transcripts/section-order";
 import type {
   ExtractedCommitment,
   ExtractedIssue,
@@ -489,11 +490,29 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
             Analysis
           </h2>
           {analysis?.analysis_markdown ? (
-            <div className="aims-prose">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {analysis.analysis_markdown}
-              </ReactMarkdown>
-            </div>
+            <>
+              {/* SAY SO WHEN IT IS CUT OFF. The model stopped at the
+                  token ceiling and the text simply ends — with no
+                  marker in it, a reader has no way to tell a finished
+                  summary from half of one. Read from the recorded
+                  flag (0233), never guessed from the punctuation. */}
+              {analysis.truncated ? (
+                <p className={styles.emptyLine} role="status">
+                  This summary was cut short before it finished. The
+                  commitments and the meeting review below are complete
+                  — they come from separate passes. Reanalyze the
+                  meeting to generate the full summary.
+                </p>
+              ) : null}
+              <div className="aims-prose">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {/* Core Values in Action is written last, with the
+                      whole meeting in view, and shown first, where the
+                      leader wants it. See section-order.ts. */}
+                  {coreValuesFirst(analysis.analysis_markdown)}
+                </ReactMarkdown>
+              </div>
+            </>
           ) : (
             <p className={styles.emptyLine}>Analysis not available.</p>
           )}
