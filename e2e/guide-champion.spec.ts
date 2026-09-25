@@ -107,7 +107,7 @@ async function pickerText(page: Page): Promise<string> {
 test.describe.configure({ mode: "serial" });
 
 test.describe("the AiMS champion seat", () => {
-  test("a company_admin names one, and the card says it grants nothing", async ({
+  test("a company_admin names one, and the card says what the seat is", async ({
     page,
   }) => {
     await signIn(page, users.companyAdmin());
@@ -119,12 +119,10 @@ test.describe("the AiMS champion seat", () => {
       timeout: 30_000,
     });
 
-    // The sentence is the control's whole explanation, and the thing
-    // most likely to be quietly cut in a later edit. "Champion" next
-    // to a person picker reads as a grant unless it is denied out
-    // loud.
+    // The card's one sentence, which defines the seat by the
+    // relationship rather than by the meeting note.
     await expect(
-      page.getByText(/the seat grants no access/i)
+      page.getByText(/the lead on implementing AiMS/i)
     ).toBeVisible({ timeout: 30_000 });
 
     // Cleared first, so the save below is always a real change and
@@ -253,6 +251,8 @@ test.describe("the AiMS champion seat", () => {
       timeout: 30_000,
     });
     await setChampion(page, NOBODY);
-    await expect(page.getByText(/those notes are not sent/i)).toBeVisible();
+    await expect(
+      page.locator("#company-champion option:checked")
+    ).toHaveText(NOBODY);
   });
 });
