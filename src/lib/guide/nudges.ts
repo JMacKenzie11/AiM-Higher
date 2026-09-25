@@ -60,6 +60,43 @@ export async function raiseMeetingDebriefNudge(
       return { raised: false, reason: "no champion" };
     }
 
+    // ---- IS THERE ANYTHING TO OPEN? ---------------------------
+    //
+    // The agent is seeded by migration 0235 and reaches each
+    // instance when that migration is applied there. Until it has
+    // been, or if somebody archives the row from the Hub, the open
+    // path resolves nothing and the champion gets a notification
+    // that lands on "That agent isn't available."
+    //
+    // A notification that leads nowhere is worse than no
+    // notification: it is the product asking for attention and then
+    // wasting it, from a feature whose entire premise is that it
+    // only interrupts people when it has something. So the check is
+    // here, before anything is raised, rather than at the door.
+    //
+    // Checked per raise rather than cached. It is one indexed read
+    // against a tiny table, on a path that already makes two model
+    // calls, and caching it would mean an instance that just
+    // received the migration still refusing to raise.
+    const { data: agent, error: agentError } = await admin
+      .from("agents")
+      .select("slug, archived")
+      .eq("slug", DEBRIEF_AGENT_ID)
+      .maybeSingle<{ slug: string; archived: boolean }>();
+    if (agentError || !agent || agent.archived) {
+      console.log(
+        `[guide] no nudge for meeting ${input.meetingId}: the ` +
+          `"${DEBRIEF_AGENT_ID}" agent is ${
+            agentError
+              ? `unreadable (${agentError.message})`
+              : !agent
+                ? "not installed on this instance"
+                : "archived"
+          }. Nothing would open.`
+      );
+      return { raised: false, reason: "agent unavailable" };
+    }
+
     const headline = await generateHeadline(client, {
       model: input.model,
       meetingDate: input.meetingDateIso,

@@ -126,31 +126,6 @@ const PATTERNS: ReadonlyArray<[label: string, re: RegExp]> = [
   ],
   ["land (as a metaphor)", /\b(?:where|whether|if)\s+(?:it|that|the\s+\w+)\s+lands?\b/gi],
   ["land in the room", /\bland(?:ed|s)?\s+in\s+the\s+room\b/gi],
-  // "The fix wasn't another patch, it was tracing it to the root."
-  //
-  // Two faults in one construction, which is why it is worth
-  // matching: it defines the good thing by what it is not, the same
-  // fault as "not a small thing"; and it joins two independent
-  // clauses with a comma.
-  //
-  // Only this shape. General comma-splice detection needs to know
-  // whether the first clause is independent, which a regex does
-  // not: "When the team met, it was clear" is correct and looks
-  // identical to a splice from here.
-  [
-    "not X, it was Y",
-    /\b(?:wasn'?t|isn'?t|was\s+not|is\s+not)\s+[^,.;]{2,60},\s*(?:it|that|they|this)\s+(?:was|is|were|are)\b/gi,
-  ],
-  // Minimisers. "Just" earns its place by how often it arrives
-  // attached to the thing being said, shrinking it on the way out.
-  // Matched as the constructions that minimise rather than as the
-  // bare word, which is ordinary in "just the three of them".
-  [
-    "just (minimiser)",
-    /\b(?:I\s+)?just\s+(?:wanted|want|thought|a\s+quick|quickly|checking|to\s+say|to\s+check)\b/gi,
-  ],
-  ["just (minimiser)", /\b(?:it'?s|that'?s|this\s+is)\s+just\s+/gi],
-  ["simply (minimiser)", /\bsimply\s+(?:put|a|the|wanted)\b/gi],
   // The intransitive metaphor, which is the shape that kept
   // slipping past: "two weeks of it not landing", "that never
   // landed". A message that does or does not land, with no object.

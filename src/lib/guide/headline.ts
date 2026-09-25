@@ -3,6 +3,11 @@ import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
+import {
+  findBannedPhrases,
+  describeHits,
+  retryInstruction,
+} from "@/lib/voice/banned";
 
 // THE NOTIFICATION LINE IS THE PRODUCT.
 //
@@ -38,7 +43,7 @@ They were IN the meeting. They do not need a recap, and being told what happened
 WHAT TO WRITE
 - One thing worth their attention: something that worked, or a pattern visible from outside the room and not from inside it.
 - Warm, specific, second person. It should read as though somebody paid attention.
-- End with a light invitation: "Five minutes?", "Want to think about how to build on that?". Not an instruction.
+- End with a light invitation, written as a COMPLETE question: "Do you want to think about how to build on that?", "Is it worth five minutes to look at what made it work?". Never a fragment: not "Five minutes?", not "Worth a look?". An invitation, not an instruction.
 
 Two that hit the target:
   "Tuesday's meeting showed a team that looks after its people. One thing you said about the branded boxes stuck with me. Five minutes?"
@@ -76,28 +81,63 @@ export async function generateHeadline(
             .map((s) => `- ${s}`)
             .join("\n")}`
         : "";
-    const response = await client.messages.create({
-      model: input.model,
-      // Writing one sentence from material already in front of it.
-      // Thinking consumed the entire budget and emitted nothing on
-      // the analysis call; see the note in analyze.ts.
-      thinking: { type: "disabled" },
-      max_tokens: 300,
-      system: [{ type: "text", text: SYSTEM }],
-      messages: [
-        {
-          role: "user",
-          content:
-            `Company: ${input.companyName}\nMeeting date: ${input.meetingDate}` +
-            `${strengths}\n\n<analysis>\n${input.analysisMarkdown.slice(0, 12000)}\n</analysis>`,
-        },
-      ],
-    });
-    const text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-      .trim();
+    const userTurn =
+      `Company: ${input.companyName}\nMeeting date: ${input.meetingDate}` +
+      `${strengths}\n\n<analysis>\n${input.analysisMarkdown.slice(0, 12000)}\n</analysis>`;
+
+    const ask = async (
+      messages: Anthropic.MessageParam[]
+    ): Promise<string> => {
+      const response = await client.messages.create({
+        model: input.model,
+        // Writing one sentence from material already in front of it.
+        // Thinking consumed the entire budget and emitted nothing on
+        // the analysis call; see the note in analyze.ts.
+        thinking: { type: "disabled" },
+        max_tokens: 300,
+        system: [{ type: "text", text: SYSTEM }],
+        messages,
+      });
+      return response.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("")
+        .trim();
+    };
+
+    let text = await ask([{ role: "user", content: userTurn }]);
+
+    // ---- ONE RETRY, NAMING WHAT WAS WRONG -----------------------
+    //
+    // The rules are in the prompt and the model breaks them anyway,
+    // in small habitual ways. Asking again with the offending
+    // phrases quoted back fixes most of it, and one retry is where
+    // this stops: a loop would spend a client's money arguing about
+    // a notification, and the fallback headline is a perfectly
+    // serviceable outcome.
+    //
+    // Cheap here in a way it is not everywhere. This runs in a
+    // background job, writes 40 words, and nobody is waiting on a
+    // screen for it.
+    const hits = findBannedPhrases(text);
+    if (hits.length > 0) {
+      console.log(`[guide] headline retry, first attempt used: ${describeHits(hits)}`);
+      text = await ask([
+        { role: "user", content: userTurn },
+        { role: "assistant", content: text },
+        { role: "user", content: retryInstruction(hits) },
+      ]);
+      const stillWrong = findBannedPhrases(text);
+      if (stillWrong.length > 0) {
+        // Twice is a signal about the prompt, not about this
+        // meeting. Said loudly so it is visible in the logs rather
+        // than only in what a champion reads.
+        console.error(
+          `[guide] headline still breaking the rules after a retry: ${describeHits(stillWrong)}`
+        );
+      }
+    }
+
     return sanitiseHeadline(text) ?? fallback;
   } catch (err) {
     console.error(

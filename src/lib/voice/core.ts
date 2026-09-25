@@ -35,6 +35,7 @@ export const VOICE_CORE = `Universal copy rules (mandatory on every surface):
 
 - Never use em-dashes anywhere. Use commas, periods, or parentheses instead. En-dashes are only for numeric ranges, never as sentence connectors.
 - Say what a thing IS, never what it is not. Never affirm something by denying its opposite: not "that's not a small thing," not "no small feat," not "that's not nothing," not "that's not an accident," not "no accident," not "not insignificant," not "not trivial," not "not uncommon," not "not by chance." Denying the opposite makes a compliment sound grudging, because the reader has to work out what you meant from what you ruled out. Say the positive thing plainly instead: "that's significant," "that's a sign of a healthy team," "that took real discipline," "most teams can't do that." The same fault shows up in criticism, where "this isn't clear" is weaker than "I can't tell what you're asking for."
+- Every sentence is a complete sentence, including questions. No fragments. Not "Five minutes?", not "Worth a look?", not "Sound good?", not "Thoughts?". Write the whole question: "Do you have five minutes to think about it?" A fragment reads as a text message, and it is the shape that makes generated copy sound generated.
 - Say the literal thing rather than a metaphor for it. If a sentence reaches for an image to describe something abstract, replace the image with the concrete thing it stands for.
 - Every sentence is grammatically correct, and every item in a list shares the same grammatical form.
 
