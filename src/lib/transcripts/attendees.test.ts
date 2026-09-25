@@ -85,3 +85,56 @@ describe("requirePresentOwners", () => {
     log.mockRestore();
   });
 });
+
+// The real Geo-Sci 06 Aug attendee section, written as prose. The
+// bullet-only parser found nobody here and cleared every one of Jeff's
+// commitments on three runs out of three (2026-09-25).
+const PROSE = `## Attendees
+
+Jeff Bouwman, Woody Aboumrad, George Aboumrad, Andy Hunt, Kyle Carey. One unidentified speaker also participated throughout the call. Jordan Bogdan and Chris Hemme were referenced extensively as absent (Jordan on a job site, Chris on vacation) but did not attend.
+
+## Agenda Items Covered`;
+
+describe("attendees written as prose", () => {
+  it("reads the names, and skips the unidentified and absent sentences", () => {
+    expect(attendeesFromSummary(PROSE)).toEqual([
+      "Jeff Bouwman",
+      "Woody Aboumrad",
+      "George Aboumrad",
+      "Andy Hunt",
+      "Kyle Carey",
+    ]);
+  });
+
+  it("strips roles from bullets, in either shape", () => {
+    expect(
+      attendeesFromSummary(`## Attendees\n- Casey Benson (CEO)\n- Darlene Clinch (Processing Plant Manager, Acting)\n- Sherri Alderman — HR Manager\n- Likely Shawn Warman, unconfirmed\n`)
+    ).toEqual(["Casey Benson", "Darlene Clinch", "Sherri Alderman"]);
+  });
+});
+
+describe("assigned AiMS guides count as present", () => {
+  const roster = [
+    { id: "jeff-admin", full_name: "Jeff Bouwman" },
+    { id: "chris", full_name: "Chris Hemme" },
+  ];
+
+  it("keeps Jeff's commitments from the real prose section, and still clears absent Chris", () => {
+    const present = presentOwnerIds(roster, [], attendeesFromSummary(PROSE), ["jeff-guide", "jeff-admin"])!;
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const out = requirePresentOwners(
+      [
+        { due_date: "2026-08-13", priority_id: null, owner_profile_id: "jeff-admin", description: "Jeff will record the meeting and share the replay." },
+        { due_date: "2026-08-13", priority_id: null, owner_profile_id: "chris", description: "Chris will provide weekly reports." },
+      ],
+      present,
+      "m1"
+    );
+    expect(out.map((c) => c.owner_profile_id)).toEqual(["jeff-admin", null]);
+    log.mockRestore();
+  });
+
+  it("counts an assigned guide the summary never lists", () => {
+    expect(presentOwnerIds(roster, [], [], ["jeff-admin"])).toEqual(new Set(["jeff-admin"]));
+  });
+});
