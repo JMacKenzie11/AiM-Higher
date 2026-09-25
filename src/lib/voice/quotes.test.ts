@@ -143,3 +143,72 @@ describe("quote marks inside a quote", () => {
     ).toHaveLength(1);
   });
 });
+
+describe("a quote with a stretch left out", () => {
+  // Real, 2026-09-25: a Benson summary quote lost its marks because
+  // the "..." was compared as text.
+  const SAID =
+    "Speaker 1: Technically, all of the foreign workers are under Benson Seafood, well, no, under Benson Lobster.";
+
+  it("keeps it when every piece is there, in order", () => {
+    const input = `"Technically, all of the foreign workers are under Benson Seafood... under Benson Lobster,"`;
+    expect(unquoteUnsupported(input, SAID).unquoted).toEqual([]);
+    expect(findUnsupportedQuotes(input.replace("...", "…"), SAID)).toEqual([]);
+  });
+
+  it("catches pieces that are there but out of order", () => {
+    expect(
+      findUnsupportedQuotes(`"under Benson Lobster... all of the foreign workers"`, SAID)
+    ).toHaveLength(1);
+  });
+
+  it("catches a piece that is not there at all", () => {
+    expect(
+      findUnsupportedQuotes(`"all of the foreign workers... are paid weekly"`, SAID)
+    ).toHaveLength(1);
+  });
+});
+
+describe("fillers and stutters", () => {
+  const SAID = "Speaker 1: if if Nancy's winning every week, yeah, I might need to come up with something to.";
+
+  it("keeps a real quote that was tidied", () => {
+    expect(
+      findUnsupportedQuotes(`"If Nancy's winning every week, I might need to come up with something"`, SAID)
+    ).toEqual([]);
+  });
+
+  it("still catches a change of words", () => {
+    expect(
+      findUnsupportedQuotes(`"If Nancy keeps winning every week, I might need to come up with something"`, SAID)
+    ).toHaveLength(1);
+  });
+});
+
+describe("a bracketed insertion", () => {
+  const SAID = "Speaker 2: Are they coming printed or just the phone? Like a file.";
+  it("keeps a quote whose only change is a bracketed word", () => {
+    expect(findUnsupportedQuotes(`"Are they coming printed or just the phone [file]?"`, SAID)).toEqual([]);
+  });
+  it("still checks what is outside the brackets", () => {
+    expect(findUnsupportedQuotes(`"Are they coming laminated [file] or just the phone?"`, SAID)).toHaveLength(1);
+  });
+});
+
+describe("a sentence split by a speaker marker", () => {
+  const SAID = `Speaker 4  13:30
+you kind of need to lock in for the season, right? But whether you use it
+
+Speaker 1  13:34
+for the month or not, you still have to pay for that kind of thing.`;
+
+  it("keeps a real quote that runs across the marker", () => {
+    expect(
+      findUnsupportedQuotes(`"whether you use it for the month or not, you still have to pay"`, SAID)
+    ).toEqual([]);
+  });
+
+  it("does not drop a line of speech", () => {
+    expect(findUnsupportedQuotes(`"right? But for the month or not"`, SAID)).toHaveLength(1);
+  });
+});
