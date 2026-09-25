@@ -6,6 +6,7 @@ import {
   allFaults,
   generateMeetingQuestions,
   readOpened,
+  unwrapRaw,
 } from "./questions";
 
 // Real lines, from the Benson summary and the fixture summary.
@@ -186,5 +187,41 @@ describe("allFaults", () => {
         moment: "Darlene noticed scissors had quietly disappeared from the floor.",
       }).join(" ")
     ).toMatch(/From" line uses "quietly"/);
+  });
+});
+
+describe("unwrapRaw", () => {
+  it("unwraps an answer returned as a JSON string inside questions", () => {
+    // The real shape from the Benson run on dev.
+    const inner = { questions: [{ moment: "m", question: "q?" }], opened: [{ asker: "a", asked: "b", opened: "c" }] };
+    expect(unwrapRaw({ questions: JSON.stringify(inner) })).toEqual(inner);
+  });
+
+  it("leaves a normal answer alone, and a non-JSON string finds nothing", () => {
+    const normal = { questions: [], opened: [] };
+    expect(unwrapRaw(normal)).toBe(normal);
+    expect(unwrapRaw({ questions: "not json" })).toEqual({ questions: "not json" });
+  });
+});
+
+describe("the retry's picks", () => {
+  it("are used when the first answer had none", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { client } = stub(
+      { questions: "garbage" },
+      {
+        questions: GOOD,
+        opened: [{ asker: "Darlene Clinch", asked: "whether anybody was using the scissors", opened: "Nobody was, so they went" }],
+      }
+    );
+    const out = await generateMeetingQuestions(client, {
+      model: "m", analysisMarkdown: "", strengths: [], asked: [], transcript: "", speakerBlock: "",
+      attendees: ["Darlene Clinch"],
+    });
+    expect(out.nextWeek).toHaveLength(3);
+    expect(out.opened.map((o) => o.asker)).toEqual(["Darlene"]);
+    err.mockRestore();
+    log.mockRestore();
   });
 });

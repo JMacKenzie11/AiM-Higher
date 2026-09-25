@@ -206,6 +206,25 @@ const TOOL: Anthropic.Tool = {
 
 type RawOut = { questions?: unknown; opened?: unknown };
 
+// The model sometimes returns its whole answer as a JSON STRING inside
+// the first field: { questions: "{\"questions\":[...],\"opened\":[...]}" }.
+// Seen on the Benson run, 2026-09-25, where it read as "no questions"
+// and both blocks came out empty. Unwrapped here, once, for every reader.
+export function unwrapRaw(raw: RawOut): RawOut {
+  if (typeof raw.questions !== "string") return raw;
+  try {
+    const inner = JSON.parse(raw.questions) as unknown;
+    if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+      const o = inner as RawOut;
+      return { questions: o.questions, opened: raw.opened ?? o.opened };
+    }
+    if (Array.isArray(inner)) return { questions: inner, opened: raw.opened };
+  } catch {
+    // Not JSON: leave it, and the readers find nothing.
+  }
+  return raw;
+}
+
 function readQuestions(raw: RawOut): NextWeekQuestion[] {
   if (!Array.isArray(raw.questions)) return [];
   return raw.questions
@@ -298,13 +317,13 @@ export async function generateMeetingQuestions(
       messages,
     });
     const block = res.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-    return (block?.input as RawOut) ?? {};
+    return unwrapRaw((block?.input as RawOut) ?? {});
   };
 
   try {
     const first = await ask([{ role: "user", content: userTurn }]);
     let questions = readQuestions(first);
-    const opened = readOpened(first, input.attendees);
+    let opened = readOpened(first, input.attendees);
 
     const faulty = questions
       .map((q, index) => ({ index, faults: allFaults(q) }))
@@ -326,6 +345,10 @@ export async function generateMeetingQuestions(
       ]);
       const retried = readQuestions(second);
       if (retried.length > 0) questions = retried;
+      // The retry's picks count too. They used to be ignored, so a
+      // malformed first answer lost the block even when the retry
+      // was fine.
+      if (opened.length === 0) opened = readOpened(second, input.attendees);
     }
 
     // Anything still wrong is dropped, and said so. A block of two
@@ -337,6 +360,11 @@ export async function generateMeetingQuestions(
       }
       return faults.length === 0;
     });
+    // Empty is a failure to hear, not a result (failure mode E13):
+    // a meeting always has something that went well to ask from.
+    if (kept.length === 0) {
+      console.error("[questions] no next-week questions survived; the block will be empty");
+    }
     return { nextWeek: kept, opened };
   } catch (err) {
     console.error("[questions] generation failed:", err instanceof Error ? err.message : err);
