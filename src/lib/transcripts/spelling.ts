@@ -168,3 +168,18 @@ export function describeChanges(changes: readonly SpellingChange[]): string {
   }
   return [...counts].map(([k, n]) => (n > 1 ? `${k} (x${n})` : k)).join(", ");
 }
+
+// What is stored (meeting_analyses.spelling_changes, 0238) and what
+// the weekly report reads: each distinct change once, with its count.
+export function summariseChanges(
+  changes: readonly SpellingChange[]
+): Array<{ from: string; to: string; count: number }> {
+  const out = new Map<string, { from: string; to: string; count: number }>();
+  for (const c of changes) {
+    const k = `${c.from}\u0000${c.to}`;
+    const hit = out.get(k);
+    if (hit) hit.count += 1;
+    else out.set(k, { from: c.from, to: c.to, count: 1 });
+  }
+  return [...out.values()];
+}

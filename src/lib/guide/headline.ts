@@ -188,11 +188,17 @@ export async function generateHeadline(
       ];
       if (stillWrong.length > 0) {
         // Twice is a signal about the prompt, not about this
-        // meeting. Said loudly so it is visible in the logs rather
-        // than only in what a champion reads.
+        // meeting. And the line is NOT sent: it used to be, so a
+        // banned phrase or an invented quote reached the champion
+        // whenever the retry failed too (audit, 2026-09-25). The
+        // plain line is serviceable and true. Said loudly, with what
+        // was refused, so a champion getting the plain line is never
+        // a mystery (failure mode E13).
         console.error(
-          `[guide] headline still breaking the rules after a retry: ${describeHits(stillWrong)}`
+          `[guide] headline still breaking the rules after a retry, sending the fallback: ` +
+            describeHits(stillWrong)
         );
+        return fallback;
       }
     }
 

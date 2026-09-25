@@ -1172,6 +1172,19 @@ result, found only because the pipeline audit metered every call's
 stop reason. Now the limit is 8000 and a max_tokens stop counts as
 unscored, logged and retried, never stored.
 
+**Fallbacks that hid each other** (2026-09-25, the pipeline audit).
+Two guards above had a fallback that overreached. The review guard
+threw away a whole review when one score part was missing after the
+retry, and the strengths and the questions generated from them went
+with it: the fix for a row that looked complete had become a quiet
+loss of the notes. Now the second answer keeps its notes, marked
+`score_withheld` with the parts it lacked, and every surface says
+"no score" rather than showing a blank (`isShowableReview`). The
+headline had the opposite gap: a line still breaking the rules after
+its retry was sent anyway. Now it gets the plain fallback, and the
+log names what was refused. A fallback should drop exactly the part
+that failed, and say so.
+
 **The rule it adds.** Any fallback that stands in for generated
 output logs the output it replaced. A fallback is where a failure
 becomes indistinguishable from a result, so it is the one place that

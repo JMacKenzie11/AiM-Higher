@@ -7,7 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationListChip } from "@/components/leadership/FacilitationReview";
 import type { StoredScoreRow } from "@/lib/leadership/facilitation/score";
-import { isScoredReview } from "@/lib/leadership/facilitation/scored";
+import { isShowableReview } from "@/lib/leadership/facilitation/scored";
 import { PageShell } from "@/components/ui/PageShell";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type { MeetingListRow } from "@/lib/types";
@@ -83,13 +83,13 @@ export default async function LeadershipPage() {
         // The same parts the detail page reads, so the chip and the
         // page show the same number.
         scoreRowByMeetingId.set(row.meeting_id, row);
-        // isScoredReview, so this list and the meeting detail page
+        // isShowableReview, so this list and the meeting detail page
         // agree about whether a review exists. They disagreed for
         // meeting 4d235cd3: a stored review with every score null
         // rendered a card on the detail page and an empty cell here.
         if (
           row.facilitation_review_json &&
-          isScoredReview(row.facilitation_review_json)
+          isShowableReview(row.facilitation_review_json)
         ) {
           reviewByMeetingId.set(row.meeting_id, row.facilitation_review_json);
         }

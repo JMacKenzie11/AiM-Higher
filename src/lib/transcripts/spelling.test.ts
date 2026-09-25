@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSpeller, describeChanges, withinOneEdit } from "./spelling";
+import { buildSpeller, describeChanges, summariseChanges, withinOneEdit } from "./spelling";
 
 const roster = [
   { full_name: "Sherri Mallock" },
@@ -165,5 +165,21 @@ describe("withinOneEdit", () => {
     expect(withinOneEdit("woody", "woodys")).toBe(true);
     expect(withinOneEdit("casey", "casey")).toBe(false);
     expect(withinOneEdit("andy", "andre")).toBe(false);
+  });
+});
+
+describe("summariseChanges", () => {
+  it("stores each distinct change once, with its count", () => {
+    expect(
+      summariseChanges([
+        { from: "Graham and Ann", to: "Grand Manan" },
+        { from: "Sherry", to: "Sherri" },
+        { from: "Graham and Ann", to: "Grand Manan" },
+      ])
+    ).toEqual([
+      { from: "Graham and Ann", to: "Grand Manan", count: 2 },
+      { from: "Sherry", to: "Sherri", count: 1 },
+    ]);
+    expect(summariseChanges([])).toEqual([]);
   });
 });

@@ -10,7 +10,7 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationReview } from "@/components/leadership/FacilitationReview";
 import { ReanalyzeMeetingButton } from "./ReanalyzeMeetingButton";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
-import { isScoredReview } from "@/lib/leadership/facilitation/scored";
+import { isShowableReview } from "@/lib/leadership/facilitation/scored";
 import { splitCoreValues } from "@/lib/transcripts/section-order";
 import { attendeesFromSummary } from "@/lib/transcripts/attendees";
 import { scoreForRow } from "@/lib/leadership/facilitation/score";
@@ -110,16 +110,18 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     ? false
     : await isAimsChampion(session.profile.id, meeting.company_id);
   const facilitationOn = facilitationFeatureOn && (isAdmin || isChampion);
-  // isScoredReview, not just "a row is present". A review that
+  // isShowableReview, not just "a row is present". A review that
   // scored nothing renders as a card full of dashes while the
   // meetings list shows an empty Facilitation cell for the same
   // meeting, and the two disagree about whether a review exists.
   // The analyzer no longer stores these; this handles the ones
-  // already stored, without needing them re-analysed.
+  // already stored, without needing them re-analysed. A review whose
+  // score was withheld after its retry is marked, and is shown with a
+  // line saying there is no score.
   const storedReview = (analysis?.facilitation_review_json ??
     null) as FacilitationReviewData | null;
   const facilitationReview =
-    facilitationOn && storedReview && isScoredReview(storedReview)
+    facilitationOn && storedReview && isShowableReview(storedReview)
       ? storedReview
       : null;
 

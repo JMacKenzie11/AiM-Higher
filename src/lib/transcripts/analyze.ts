@@ -19,7 +19,7 @@ import {
   replaceSpeakerLabels,
 } from "./speakers";
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
-import { buildSpeller, describeChanges, type SpellingChange, type SpellingEntry } from "./spelling";
+import { buildSpeller, describeChanges, summariseChanges, type SpellingChange, type SpellingEntry } from "./spelling";
 import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/score";
 import { generateMeetingQuestions } from "@/lib/leadership/questions";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
@@ -498,6 +498,9 @@ export async function analyzeMeeting(
       analysis_markdown: stripEmDashes(analysisMarkdown),
       truncated: analysisTruncated,
       coverage_json: coverage,
+      // Everything corrected up to here; the headline's own changes
+      // come later and are logged only (0238).
+      spelling_changes: summariseChanges(spellingChanges),
       score_positive_framing: scoreParts?.positive_framing ?? null,
       score_rhythm: scoreParts?.rhythm ?? null,
       score_accountability: scoreParts?.accountability ?? null,

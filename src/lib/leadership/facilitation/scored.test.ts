@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isScoredReview } from "./scored";
+import { isScoredReview, isShowableReview } from "./scored";
 
 // The rule that stops three surfaces disagreeing about whether a
 // facilitation review exists.
@@ -48,5 +48,20 @@ describe("isScoredReview", () => {
     expect(
       isScoredReview({ insufficient_transcript: true, overall: 4 })
     ).toBe(true);
+  });
+});
+
+describe("isShowableReview", () => {
+  it("shows a review whose score was withheld, which says so", () => {
+    expect(isShowableReview({ ...base, score_withheld: { missing: ["agenda"] } })).toBe(true);
+  });
+
+  it("still hides an unmarked review that scored nothing (4d235cd3)", () => {
+    expect(isShowableReview(base)).toBe(false);
+  });
+
+  it("shows scored and deliberately unscored reviews, as before", () => {
+    expect(isShowableReview({ ...base, overall: 6 })).toBe(true);
+    expect(isShowableReview({ ...base, insufficient_transcript: true })).toBe(true);
   });
 });

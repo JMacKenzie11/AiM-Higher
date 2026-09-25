@@ -83,16 +83,50 @@ describe("analyzeMeetingFacilitation retry", () => {
     expect(review?.overall).toBe(7);
   });
 
-  it("gives up after the second, leaving the meeting with no review", async () => {
-    // Exactly where this stood before the retry existed. The retry
-    // can only improve the odds; it never makes things worse.
+  it("after a second unscored answer, drops the score and keeps the review", async () => {
+    // It used to discard the review, and the strengths and questions
+    // generated from it went too (audit, 2026-09-25).
     const { analyzeMeetingFacilitation } = await import("./analyze");
-    const { client, create } = clientReturning(UNSCORED, UNSCORED);
+    const withStrength = { ...UNSCORED, strengths: [{ title: "Owners named", evidence: "" }] };
+    const { client, create } = clientReturning(UNSCORED, withStrength);
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const review = await analyzeMeetingFacilitation(client, input);
 
     expect(create).toHaveBeenCalledTimes(2);
-    expect(review).toBeNull();
+    expect(review?.overall).toBeNull();
+    expect(review?.strengths.map((s) => s.title)).toEqual(["Owners named"]);
+    expect(review?.score_withheld?.missing).toEqual([
+      "positive_framing",
+      "accountability",
+      "rhythm",
+      "alignment",
+    ]);
+    expect(err.mock.calls.map((c) => String(c[0])).join("\n")).toMatch(/kept without a score/);
+    err.mockRestore();
+  });
+
+  it("drops only the score when a single part is missing", async () => {
+    const { analyzeMeetingFacilitation } = await import("./analyze");
+    const oneMissing = {
+      ...SCORED,
+      dimensions: { ...SCORED.dimensions, positive_framing: undefined },
+    };
+    const { client } = clientReturning(oneMissing, oneMissing);
+
+    const review = await analyzeMeetingFacilitation(client, input);
+
+    expect(review?.overall).toBeNull();
+    expect(review?.dimensions.rhythm.score).toBe(7);
+    expect(review?.score_withheld?.missing).toEqual(["positive_framing"]);
+  });
+
+  it("still stores nothing when the second answer has nothing to say", async () => {
+    const { analyzeMeetingFacilitation } = await import("./analyze");
+    const empty = { ...UNSCORED, executive_summary: "" };
+    const { client } = clientReturning(empty, empty);
+
+    expect(await analyzeMeetingFacilitation(client, input)).toBeNull();
   });
 
   it("never retries more than once", async () => {
