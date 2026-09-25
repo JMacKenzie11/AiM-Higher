@@ -33,7 +33,11 @@ export async function createPracticeConversation(
   // it, so a second person revising it is always somewhere new, and
   // nothing about the new conversation would otherwise say which
   // document it is about. Migration 0224.
-  options?: { revisingRoleId?: string }
+  // The meeting a debrief was opened about. Same reasoning as
+  // revisingRoleId: the conversation is new, it was opened from a
+  // notification, and nothing else on the row would say which
+  // meeting it came from. Migration 0235.
+  options?: { revisingRoleId?: string; debriefingMeetingId?: string }
 ): Promise<CreateResult> {
   const practice = await resolveAgent(practiceId);
   if (!practice) {
@@ -79,6 +83,7 @@ export async function createPracticeConversation(
       // this conversation says.
       agent_version_id: await liveVersionIdFor(practice.agentRowId),
       revising_role_id: options?.revisingRoleId ?? null,
+      debriefing_meeting_id: options?.debriefingMeetingId ?? null,
     })
     .select("*")
     .single<CoachingConversation>();

@@ -1,5 +1,6 @@
 import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
+import { unquoteUnsupported } from "@/lib/voice/quotes";
 import "server-only";
 
 import fs from "node:fs/promises";
@@ -14,6 +15,7 @@ import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyz
 import { mapSpeakers, formatSpeakerMap } from "./speakers";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
+import { raiseMeetingDebriefNudge } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type {
   CompanyFoundation,
@@ -193,10 +195,27 @@ export async function analyzeMeeting(
         usage: analysisMessage.usage,
       });
     }
-    const analysisMarkdown = analysisMessage.content
+    const rawAnalysisMarkdown = analysisMessage.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("");
+
+    // QUOTATION MARKS MEAN THE EXACT WORDS. A summary quoted "who
+    // owns the calendar", which nobody said, and the debrief opener
+    // quoted it back to the champion as a record of their meeting.
+    // The prompt says so; this makes it true whatever the model did,
+    // by taking the marks off any span the transcript does not
+    // contain. The words stay, as the summary's own paraphrase.
+    const { text: analysisMarkdown, unquoted } = unquoteUnsupported(
+      rawAnalysisMarkdown,
+      meetingRow.transcript_text
+    );
+    if (unquoted.length > 0) {
+      console.log(
+        `[analyze] unquoted ${unquoted.length} paraphrase(s) in meeting ${meetingId}: ` +
+          unquoted.map((q) => `"${q}"`).join(", ")
+      );
+    }
 
     // DID IT FINISH? The extraction call below has asked this since
     // it was written; the analysis call never did, so a summary that
@@ -342,9 +361,10 @@ export async function analyzeMeeting(
     const { error: analysisErr } = await admin.from("meeting_analyses").insert({
       meeting_id: meetingId,
       // Stripped on the way IN, not on the way out. The markdown is
-      // read by the meeting page and by anything added later;
-      // cleaning it at one reader leaves the rest reading the
-      // dashes. Stored clean, it is clean everywhere, once.
+      // read by the meeting page, by the debrief agent's tool, by
+      // the headline generator and by anything added later; cleaning
+      // it at one reader leaves the rest reading the dashes. Stored
+      // clean, it is clean everywhere, once.
       analysis_markdown: stripEmDashes(analysisMarkdown),
       truncated: analysisTruncated,
       coverage_json: coverage,
@@ -387,6 +407,30 @@ export async function analyzeMeeting(
         meeting_title: meetingRow.meeting_title ?? deriveTitle(meetingRow.file_name),
       })
       .eq("id", meetingId);
+
+    // ---- The Guide's one action in phase A --------------------
+    //
+    // The meeting is complete and its analysis is stored, so this is
+    // the moment "this meeting has been analyzed" becomes a knowable
+    // event. Until now nothing in-app fired here: the only thing
+    // listening was a PostHog call, which leaves our infrastructure
+    // and cannot drive behaviour.
+    //
+    // AFTER the analysis row is written, deliberately. A nudge that
+    // pointed at a meeting whose summary failed to save would invite
+    // somebody to debrief a blank page.
+    //
+    // Best effort, and isolated: raiseMeetingDebriefNudge never
+    // throws. A broken invitation must not break a meeting summary.
+    await raiseMeetingDebriefNudge(admin, client, {
+      model,
+      companyId: meetingRow.company_id!,
+      meetingId,
+      meetingDateIso,
+      analysisMarkdown,
+      transcript: meetingRow.transcript_text,
+      strengths: (facilitationReview?.strengths ?? []).map((s) => s.title),
+    });
 
     // Cron-driven event; no request context, so await inline rather
     // than using next/server after(). The extra ~200ms is fine here.

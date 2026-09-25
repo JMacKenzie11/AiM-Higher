@@ -6,6 +6,7 @@ vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: vi.fn() })
 
 import { configFromVersion } from "./version-config";
 import { isValidAgentModel, VALID_AGENT_MODELS } from "./models";
+import { PRACTICES } from "./registry";
 
 // A stored version row, with everything the runtime needs on it.
 function row(over: Record<string, unknown> = {}) {
@@ -95,5 +96,38 @@ describe("the model allowlist", () => {
   it("refuses anything else", () => {
     expect(isValidAgentModel("gpt-4")).toBe(false);
     expect(isValidAgentModel("claude-sonnet-5 ")).toBe(false);
+  });
+});
+
+// ---- the two allowlists, held against the union ----------------
+//
+// A tool absent from either list is DROPPED, silently, in the
+// direction that hurts: publishing an agent from the Hub would take
+// a tool away from it and the agent would keep running without the
+// thing it cannot work without. `satisfies PracticeToolName[]`
+// catches a name that is not a tool; nothing catches a tool that is
+// not on the list, which is what these do.
+//
+// Found by adding get_meeting_debrief and noticing it was on
+// neither. The debrief agent has exactly one tool, so the first
+// publish from the Hub would have left it with nothing to read and
+// an opener apologising for a summary it could not fetch.
+describe("every tool a practice may declare is publishable", () => {
+  it("is known to the version reader", async () => {
+    const { KNOWN_TOOLS_FOR_TEST } = await import("./version-config");
+    for (const p of PRACTICES) {
+      for (const tool of p.tools ?? []) {
+        expect(KNOWN_TOOLS_FOR_TEST.has(tool), `${p.id} → ${tool}`).toBe(true);
+      }
+    }
+  });
+
+  it("has a label, so the wait does not show a function name", async () => {
+    const { LABELLED_TOOLS } = await import("@/lib/coach/tool-labels");
+    for (const p of PRACTICES) {
+      for (const tool of p.tools ?? []) {
+        expect(LABELLED_TOOLS, `${p.id} → ${tool}`).toContain(tool);
+      }
+    }
   });
 });

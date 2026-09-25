@@ -36,7 +36,18 @@ export type NotificationKind =
   | "friday-metrics"
   | "overdue-commitments"
   | "due-today-commitments"
-  | "chat_shared";
+  | "chat_shared"
+  // Aimee inviting the AiMS champion to debrief a meeting. The only
+  // kind in the tray that carries its own "Not now": the others are
+  // either a state that is still true or news that has already been
+  // delivered, and neither has a second thing to record when the
+  // reader waves it away. A nudge does — see guide_nudges in 0235.
+  | "guide-nudge"
+  // The champion seat is empty, so nobody is being invited. Raised
+  // by the database itself (0235) at the moment the seat is
+  // vacated, because the alternative is a company that quietly
+  // stops hearing from Aimee with nothing on screen saying why.
+  | "champion-empty";
 
 export type NotificationItem = {
   // Stable id for React key. Synthetic (kind-prefixed) for computed

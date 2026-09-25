@@ -74,15 +74,17 @@ export async function practiceGate(
   companyId: string
 ): Promise<PracticeGateResult> {
   const role = practiceRoleGate(practice, profile, companyId);
-  // A refusal by ROLE is not final when the practice admits function
-  // leads: a seat's Lead is usually a team_member, and no list of
-  // platform roles can say "the person who runs a function". The
-  // relationship is asked only when the role list has already said
-  // no, so the extra read costs nothing for an admin.
+  // A refusal by ROLE is not final when the practice names an access
+  // PREDICATE. A seat's Lead is usually a team_member, and the AiMS
+  // champion often is too; no list of platform roles can say "the
+  // person who runs a function" or "the person who runs the rhythm
+  // here". A relationship can. Predicates are asked only once the
+  // role list has already said no, so the extra read costs nothing
+  // for an admin, who was admitted on the first line.
   if (!role.ok) {
-    if (!practice.alsoFunctionLeads) return role;
-    const { leadsAnyFunction } = await import("./function-leads");
-    if (!(await leadsAnyFunction(profile.id, companyId))) return role;
+    if (!(await admittedByPredicate(practice, profile, companyId))) {
+      return role;
+    }
   }
   if (!practice.feature) return { ok: true };
   const { companyHasFeature } = await import("@/lib/subscriptions/service");
@@ -90,4 +92,26 @@ export async function practiceGate(
     practice,
     await companyHasFeature(companyId, practice.feature)
   );
+}
+
+// Does a relationship admit somebody the role list refused?
+//
+// Each predicate is one round trip and they are asked in order, so
+// the common case — an agent naming one predicate — is one read.
+// Imported lazily, per predicate, to keep this module loadable from
+// the client-side picker, which calls practiceRoleGate alone.
+async function admittedByPredicate(
+  practice: Practice,
+  profile: GateProfile,
+  companyId: string
+): Promise<boolean> {
+  if (practice.alsoFunctionLeads) {
+    const { leadsAnyFunction } = await import("./function-leads");
+    if (await leadsAnyFunction(profile.id, companyId)) return true;
+  }
+  if (practice.alsoAimsChampion) {
+    const { isAimsChampion } = await import("@/lib/guide/champion");
+    if (await isAimsChampion(profile.id, companyId)) return true;
+  }
+  return false;
 }

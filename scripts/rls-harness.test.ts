@@ -362,6 +362,45 @@ describe("describeOutcome", () => {
     ).toBe("refused by RLS");
   });
 
+  // The transport wraps every Postgres error in its own prose and a
+  // JSON body, and the 70-character slice below cuts the body off.
+  // Two rounds of false failures came from matchers reading the
+  // wrapper: a revoked privilege and a trigger's raise both reported
+  // as "ERROR: Supabase Management API POST …", and four probes
+  // announced open locks that were shut.
+  const wrapped = (message: string) =>
+    new Error(
+      "Supabase Management API POST /v1/projects/abc/database/query failed: 400\n" +
+        JSON.stringify({ message, code: "P0001" })
+    );
+
+  it("reads the column guard through the transport's wrapper", () => {
+    expect(
+      describeOutcome(
+        null,
+        wrapped("Only industry and the AiMS champion may be changed on a company by a company_admin")
+      )
+    ).toBe("refused by the column guard");
+  });
+
+  it("reads a revoked privilege as a privilege, not as the column guard", () => {
+    // E8. 42501's condition name is `insufficient_privilege`, which
+    // the column guard also raises with, so the privilege case has
+    // to be matched first and on its own words.
+    expect(
+      describeOutcome(null, wrapped("permission denied for table guide_nudges"))
+    ).toBe("refused by privilege");
+  });
+
+  it("reads the champion membership trigger", () => {
+    expect(
+      describeOutcome(
+        null,
+        wrapped("The AiMS champion must be a member of this company")
+      )
+    ).toBe("refused: champion must be a member");
+  });
+
   it("keeps an unexpected error visible rather than calling it a denial", () => {
     // An error the probe does not recognise must not be reported as a
     // refusal: a typo'd column name would otherwise read as "the

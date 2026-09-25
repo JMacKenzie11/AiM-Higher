@@ -83,7 +83,13 @@ const KNOWN_TOOLS: ReadonlySet<string> = new Set<PracticeToolName>([
   "get_foundation",
   "list_functions",
   "get_role_description",
+  "get_meeting_debrief",
 ]);
+
+// Exported for the test that holds this list against
+// PracticeToolName. Not for runtime use: callers ask
+// configForVersion, which applies it.
+export const KNOWN_TOOLS_FOR_TEST = KNOWN_TOOLS;
 
 function modelOrNull(value: string | null, versionId: string): string | null {
   if (!value) return null;

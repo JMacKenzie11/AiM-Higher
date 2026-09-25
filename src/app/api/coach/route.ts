@@ -10,6 +10,15 @@ import { buildCoachContext } from "@/lib/coach/context";
 import { buildCoachTools, type CoachTool } from "@/lib/coach/tools";
 import { toolLabel } from "@/lib/coach/tool-labels";
 import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
+import { buildGuideTools } from "@/lib/guide/agent-tools";
+import {
+  checkOpener,
+  describeFaults,
+  faultCount,
+  openerRetryInstruction,
+  OPENER_MAX_WORDS_PER_SENTENCE,
+  type OpenerSources,
+} from "@/lib/guide/opener-checks";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
@@ -311,7 +320,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     ...resolvePracticeTools(
       practice?.tools,
       convo.company_id,
-      (convo as { revising_role_id?: string | null }).revising_role_id ?? null
+      (convo as { revising_role_id?: string | null }).revising_role_id ?? null,
+      (convo as { debriefing_meeting_id?: string | null })
+        .debriefing_meeting_id ?? null
     ),
   ].filter(
     (t, i, all) => all.findIndex((o) => o.definition.name === t.definition.name) === i
@@ -415,9 +426,24 @@ export async function POST(req: NextRequest): Promise<Response> {
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
             ) {
-              controller.enqueue(
-                encodeEvent("delta", { text: event.delta.text })
-              );
+              // THE OPENER IS BUFFERED, NOT STREAMED.
+              //
+              // Everything else streams, because a person who has
+              // just typed wants to see movement. The opener is the
+              // one turn nobody typed: Aimee reached out first, and
+              // the reader is only there because they clicked a
+              // notification.
+              //
+              // That difference is what makes a retry possible. A
+              // banned phrase cannot be fixed mid-stream without the
+              // text changing under somebody's eyes, which is worse
+              // than the phrase. Held back, the turn can be checked
+              // and rewritten before anybody has read a word of it.
+              if (!isGenerateOpener) {
+                controller.enqueue(
+                  encodeEvent("delta", { text: event.delta.text })
+                );
+              }
             }
           }
 
@@ -509,7 +535,140 @@ export async function POST(req: NextRequest): Promise<Response> {
           ];
         }
 
-        const assistantText = combinedAssistantText.trim();
+        let assistantText = combinedAssistantText.trim();
+
+        // ---- ONE RETRY, ON THE OPENER ONLY -----------------------
+        //
+        // The rules are in the prompt and the model breaks them
+        // anyway, in small habitual ways rather than in sentences it
+        // chose. "What made that reframe LAND in the room" came out
+        // of a turn whose prompt banned "land" by name, and a
+        // speaker label came out of a turn told never to print one.
+        //
+        // Named back to it rather than repeated at it: the rules
+        // were already there and were already ignored, so the retry
+        // quotes the offending phrase instead.
+        //
+        // No tools on the retry. It already holds every tool result
+        // in currentMessages; it is rewriting a paragraph, not
+        // gathering anything.
+        if (isGenerateOpener && assistantText.length > 0) {
+          // The sources this turn is checked against, when it is about
+          // a meeting. Read here rather than threaded down from the
+          // tool, because the tool result is the model's to use and
+          // these checks have to hold whether it called the tool or
+          // not.
+          //
+          // The TRANSCRIPT is read for the quote check and never goes
+          // near the model. A summary can put its own paraphrase in
+          // quotation marks, so "it is in the summary" proved nothing;
+          // what was said is the only fair test. Read under the
+          // champion's own session: same-company members can read the
+          // meeting row (0142), and this is server code.
+          //
+          // A quote nobody said is the worst thing this feature can
+          // produce: it hands a leader a false record of their own
+          // meeting, which is the shape that cost trust before.
+          const debriefing =
+            (convo as { debriefing_meeting_id?: string | null })
+              .debriefing_meeting_id ?? null;
+          const sources: OpenerSources = {
+            transcript: "",
+            summary: "",
+            headline: null,
+            maxWordsPerSentence: debriefing
+              ? OPENER_MAX_WORDS_PER_SENTENCE
+              : null,
+          };
+          if (debriefing) {
+            const [{ data: meeting }, { data: src }, { data: nudge }] =
+              await Promise.all([
+                supabase
+                  .from("meetings")
+                  .select("transcript_text")
+                  .eq("id", debriefing)
+                  .maybeSingle<{ transcript_text: string | null }>(),
+                supabase
+                  .from("meeting_analyses")
+                  .select("analysis_markdown")
+                  .eq("meeting_id", debriefing)
+                  .maybeSingle<{ analysis_markdown: string }>(),
+                // The same read get_meeting_debrief makes, so the
+                // check compares against the line the model was shown.
+                supabase
+                  .from("guide_nudges")
+                  .select("headline")
+                  .eq("meeting_id", debriefing)
+                  .order("raised_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle<{ headline: string }>(),
+              ]);
+            sources.transcript = meeting?.transcript_text ?? "";
+            sources.summary = src?.analysis_markdown ?? "";
+            sources.headline = nudge?.headline ?? null;
+            if (sources.transcript.length === 0) {
+              console.warn(
+                `[coach] opener for ${conversationId}: transcript unreadable, ` +
+                  `checking quotes against the summary instead`
+              );
+            }
+          }
+
+          const faults = checkOpener(assistantText, sources);
+          if (faultCount(faults) > 0) {
+            console.log(
+              `[coach] opener retry for ${conversationId}: ${describeFaults(faults)}`
+            );
+            try {
+              const retry = await client.messages.create({
+                model,
+                max_tokens: agentConfig?.maxTokens ?? MAX_TOKENS,
+                system: [{ type: "text", text: systemPromptText }],
+                messages: [
+                  ...currentMessages,
+                  { role: "assistant", content: assistantText },
+                  {
+                    role: "user",
+                    content: openerRetryInstruction(faults, sources.headline),
+                  },
+                ],
+              });
+              const retried = retry.content
+                .filter((b): b is Anthropic.TextBlock => b.type === "text")
+                .map((b) => b.text)
+                .join("")
+                .trim();
+              // Only if it actually helped. A retry that returns
+              // nothing, or no better than the first attempt, leaves
+              // the first in place: a blank opener is worse than one
+              // with a fault in it. "Better" is fewer faults, so a
+              // retry that fixes the repeat and keeps one long
+              // sentence still wins.
+              const retriedFaults = checkOpener(retried, sources);
+              if (
+                retried.length > 0 &&
+                faultCount(retriedFaults) < faultCount(faults)
+              ) {
+                assistantText = retried;
+              }
+              if (retried.length === 0 || faultCount(retriedFaults) > 0) {
+                console.error(
+                  `[coach] opener still breaking the rules after a retry` +
+                    `${retried.length === 0 ? " (empty retry)" : `: ${describeFaults(retriedFaults)}`}`
+                );
+              }
+            } catch (err) {
+              console.error(
+                "[coach] opener retry failed, keeping the first attempt:",
+                err instanceof Error ? err.message : err
+              );
+            }
+          }
+          // Whatever it ended up being, send it now. This is the
+          // first and only text the reader gets for this turn.
+          controller.enqueue(encodeEvent("delta", { text: assistantText }));
+        }
+
         const { data: assistantRow } = await supabase
           .from("coaching_messages")
           .insert({
@@ -890,7 +1049,8 @@ async function generateTitleForConversation(args: {
 function resolvePracticeTools(
   names: readonly PracticeToolName[] | undefined,
   companyId: string,
-  revisingRoleId: string | null
+  revisingRoleId: string | null,
+  debriefingMeetingId: string | null
 ): CoachTool[] {
   if (!names || names.length === 0) return [];
   const wanted = new Set<string>(names);
@@ -899,6 +1059,9 @@ function resolvePracticeTools(
     wanted.has("list_functions") ||
     wanted.has("get_role_description")
       ? buildRoleDescriptionTools({ companyId, revisingRoleId })
+      : []),
+    ...(wanted.has("get_meeting_debrief")
+      ? buildGuideTools({ debriefingMeetingId })
       : []),
   ];
   return available.filter((t) => wanted.has(t.definition.name));

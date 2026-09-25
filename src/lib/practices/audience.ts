@@ -1,5 +1,9 @@
 import { COMPANY_FEATURES } from "@/lib/companies/features";
-import { HUB_ROLE_OPTIONS, FUNCTION_LEAD_PREDICATE } from "./hub-constants";
+import {
+  HUB_ROLE_OPTIONS,
+  FUNCTION_LEAD_PREDICATE,
+  AIMS_CHAMPION_PREDICATE,
+} from "./hub-constants";
 
 // Who a publish is about to expose an agent to, in a sentence.
 //
@@ -42,6 +46,9 @@ export function audienceSentence(access: AudienceAccess): string {
   const parts = access.allowedRoles.map(pluralRoleLabel);
   if (access.accessPredicates.includes(FUNCTION_LEAD_PREDICATE)) {
     parts.push("anyone who leads a function");
+  }
+  if (access.accessPredicates.includes(AIMS_CHAMPION_PREDICATE)) {
+    parts.push("the AiMS champion");
   }
 
   return `This agent will be visible to ${joinWords(parts)} in ${where}.`;

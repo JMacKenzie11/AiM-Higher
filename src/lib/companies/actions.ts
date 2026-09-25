@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/current-user";
-import { canViewCompany } from "@/lib/auth/permissions";
+import { canViewCompany, isAdminForCompany } from "@/lib/auth/permissions";
 import { recordPortfolioEvent } from "@/lib/portfolio/audit";
 import { createCompany } from "@/lib/companies/create-company";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
@@ -400,4 +400,54 @@ export async function deleteCompanyAction(
   revalidatePath("/portfolio");
   revalidatePath(`/admin/companies/${companyId}`);
   return { ok: true };
+}
+
+// ---- The AiMS champion seat ------------------------------------
+//
+// Names the one person Aimee sends the week's nudge to. Nothing
+// else: holding the seat grants nothing an admin does not already
+// have, and losing it takes nothing away. See 0235.
+//
+// The company's OWN administrators, and no wider. portfolio_admin
+// is deliberately absent — their four container columns are about
+// packaging, and who runs a company's meeting rhythm is not a
+// packaging decision. The column guard in 0235 says the same thing
+// below the app, so this list is courtesy and that is the boundary.
+export async function setAimsChampionAction(
+  companyId: string,
+  profileId: string | null
+): Promise<CompanyResult> {
+  const session = await requireRole([
+    "system_admin",
+    "company_admin",
+    "aims_guide",
+  ]);
+  if (!isAdminForCompany(session.profile, companyId)) {
+    return { ok: false, message: "Not your company to edit." };
+  }
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase
+    .from("companies")
+    .update({ aims_champion_profile_id: profileId })
+    .eq("id", companyId)
+    .select("*")
+    .single<Company>();
+  if (error || !data) {
+    // The membership trigger raises here when somebody points the
+    // seat outside the company, and it is the one failure worth
+    // naming: every other path through this action is "couldn't
+    // save", and that one is "you picked the wrong person".
+    if (error?.message?.includes("champion must be a member")) {
+      return {
+        ok: false,
+        message: "The champion has to be someone on this company's team.",
+      };
+    }
+    return { ok: false, message: "Couldn't update the AiMS champion." };
+  }
+
+  revalidatePath("/admin/companies");
+  revalidatePath(`/admin/companies/${companyId}`);
+  return { ok: true, company: data };
 }

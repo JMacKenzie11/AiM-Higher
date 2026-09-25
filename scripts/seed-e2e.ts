@@ -398,6 +398,193 @@ async function main() {
     `  cleared ${(cleared ?? []).length} coaching conversation(s) left by earlier test runs`
   );
 
+  // ---- a Foundation, so the summariser has values to notice ----
+  //
+  // Without core values on the company, every meeting summary ends
+  // with "No stated core values were provided in the company
+  // context for this account, so this section is omitted." Core
+  // Values in Action is the section that renders FIRST on the
+  // meeting page, so the fixture was rendering its most prominent
+  // card as an apology.
+  //
+  // Three values, written so a real meeting can plausibly show them
+  // and the transcript in scripts/fixtures/ actually does: somebody
+  // owns the problem, the bad news arrives early, the fix outlasts
+  // the incident.
+  const { error: foundationError } = await admin
+    .from("company_foundation")
+    .upsert(
+      {
+        company_id: companyId,
+        purpose_statement:
+          "Keep the lights on for the people who keep the lights on.",
+        vision:
+          "The contractor other contractors call when the job has to be right.",
+      },
+      { onConflict: "company_id" }
+    );
+  if (foundationError) throw foundationError;
+
+  const VALUES = [
+    {
+      title: "Own it out loud",
+      body: "When something is yours, say so before anybody has to ask.",
+    },
+    {
+      title: "Bad news travels fast",
+      body: "The person who needs to know hears it from you, early, plainly.",
+    },
+    {
+      title: "Fix the cause, not the Tuesday",
+      body: "If it has happened three times, stop patching and find what makes it happen.",
+    },
+  ];
+  await admin
+    .from("foundation_items")
+    .delete()
+    .eq("company_id", companyId)
+    .eq("kind", "core_value");
+  const { error: valuesError } = await admin.from("foundation_items").insert(
+    VALUES.map((v, i) => ({
+      company_id: companyId,
+      kind: "core_value",
+      title: v.title,
+      body: v.body,
+      sort_order: i,
+    }))
+  );
+  if (valuesError) throw valuesError;
+  console.log(`  foundation → purpose, vision and ${VALUES.length} core values`);
+
+  // ---- a meeting to debrief, and an invitation to debrief it ----
+  //
+  // The Guide's open path (0235) turns a NOTIFICATION into a
+  // conversation, and no user role may create either — the nudge's
+  // INSERT is revoked from `authenticated` on purpose. So the
+  // fixture has to come from here, on the service client, the same
+  // way the analysis pipeline would have produced it.
+  //
+  // Rebuilt from scratch on every seed, because the spec CONSUMES
+  // it: opening a nudge moves it to `opened` and it is not pending
+  // again afterwards. A suite that only works on a fresh seed is
+  // worse than one that resets its own fixture, and this is the
+  // reset.
+  const GUIDE_FILE = "e2e-guide-debrief.txt";
+  // Select-then-insert rather than upsert. PostgREST resolves
+  // `onConflict` against a unique constraint it can see, and this
+  // table's has moved once already; a seed that breaks on a
+  // constraint rename is a seed somebody deletes.
+  const FIXTURE_FOLDER = "e2e-guide-fixture-folder";
+  const { data: existingSource } = await admin
+    .from("transcript_sources")
+    .select("id")
+    .eq("folder_id", FIXTURE_FOLDER)
+    .maybeSingle<{ id: string }>();
+  let guideSourceId = existingSource?.id ?? null;
+  if (!guideSourceId) {
+    const { data: created, error: sourceError } = await admin
+      .from("transcript_sources")
+      .insert({
+        company_id: companyId,
+        // google_drive because the column's check constraint admits
+        // two values and neither is "manual". Nothing ever polls it:
+        // the folder id is a fixture string, not a Drive id.
+        provider: "google_drive",
+        folder_id: FIXTURE_FOLDER,
+        folder_name: "E2E Guide fixture",
+      })
+      .select("id")
+      .single<{ id: string }>();
+    if (sourceError || !created) {
+      throw sourceError ?? new Error("transcript source insert returned nothing");
+    }
+    guideSourceId = created.id;
+  }
+
+  // Nudges first: guide_nudges.meeting_id cascades on delete, so
+  // clearing the meeting would take them with it anyway. Doing it in
+  // this order keeps the intent visible rather than relying on that.
+  await admin.from("guide_nudges").delete().eq("company_id", companyId);
+  await admin
+    .from("notifications")
+    .delete()
+    .eq("company_id", companyId)
+    .in("kind", ["guide-nudge", "champion-empty"]);
+  await admin
+    .from("meetings")
+    .delete()
+    .eq("source_id", guideSourceId)
+    .eq("file_name", GUIDE_FILE);
+
+  const { data: guideMeeting, error: meetingError } = await admin
+    .from("meetings")
+    .insert({
+      company_id: companyId,
+      source_id: guideSourceId,
+      provider_file_id: `e2e-guide-${Date.now()}`,
+      file_name: GUIDE_FILE,
+      content_hash: "e2e-guide-fixture",
+      meeting_title: "E2E Leadership Meeting",
+      transcript_text:
+        "Fixture transcript. The debrief agent reads the ANALYSIS, " +
+        "never this, so its content is deliberately uninteresting.",
+      status: "complete",
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (meetingError) throw meetingError;
+
+  const { error: analysisError } = await admin
+    .from("meeting_analyses")
+    .insert({
+      meeting_id: guideMeeting!.id,
+      analysis_markdown:
+        "## Core Values in Action\n\n" +
+        "The team gave one another room to disagree without it " +
+        "becoming personal.\n\n" +
+        "## Decisions\n\nThe pricing review moves to next month.\n",
+      commitments_json: [],
+      model: "e2e-fixture",
+    });
+  if (analysisError) throw analysisError;
+
+  const { data: guideNudge, error: nudgeError } = await admin
+    .from("guide_nudges")
+    .insert({
+      company_id: companyId,
+      recipient_profile_id: memberId,
+      trigger_kind: "meeting_analyzed",
+      meeting_id: guideMeeting!.id,
+      headline:
+        "The team disagreed openly about pricing and nobody took it personally.",
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (nudgeError) throw nudgeError;
+
+  const { error: notifyError } = await admin.from("notifications").insert({
+    recipient_id: memberId,
+    company_id: companyId,
+    kind: "guide-nudge",
+    eyebrow: "Aimee",
+    title:
+      "The team disagreed openly about pricing and nobody took it personally.",
+    href: `/guide/nudge/${guideNudge!.id}`,
+    payload: { nudge_id: guideNudge!.id, meeting_id: guideMeeting!.id },
+  });
+  if (notifyError) throw notifyError;
+  console.log(`  guide nudge → ${memberEmail}, about "E2E Leadership Meeting"`);
+
+  // The seat starts EMPTY on every seed. The spec fills it, reads
+  // what changed, and empties it again; starting from empty means a
+  // spec that died mid-way does not leave the next run asserting
+  // against a seat somebody else set.
+  const { error: seatError } = await admin
+    .from("companies")
+    .update({ aims_champion_profile_id: null })
+    .eq("id", companyId);
+  if (seatError) throw seatError;
+
   // ---- the clone is an authoring instance --------------------
   //
   // 0231 makes the agent tables writable only where is_primary is

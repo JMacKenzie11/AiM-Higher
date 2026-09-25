@@ -77,3 +77,41 @@ describe("slugFromTitle", () => {
     expect(slugFromTitle("!!!")).toBe("");
   });
 });
+
+// The champion seat, named in the sentence an admin reads before
+// they publish. An agent that admits somebody the role list does not
+// name has to say so here, or the only place that tells the truth
+// about who can reach it is the source.
+describe("audienceSentence · the AiMS champion", () => {
+  it("names the champion alongside the roles", () => {
+    expect(
+      audienceSentence({
+        allowedRoles: ["company_admin"],
+        accessPredicates: ["aims_champion"],
+        feature: null,
+      })
+    ).toBe(
+      "This agent will be visible to company admins and the AiMS champion in all companies."
+    );
+  });
+
+  it("names both predicates when an agent carries both", () => {
+    const sentence = audienceSentence({
+      allowedRoles: ["company_admin"],
+      accessPredicates: ["function_lead", "aims_champion"],
+      feature: null,
+    });
+    expect(sentence).toContain("anyone who leads a function");
+    expect(sentence).toContain("the AiMS champion");
+  });
+
+  it("says nothing about it when the agent does not name it", () => {
+    expect(
+      audienceSentence({
+        allowedRoles: ["company_admin"],
+        accessPredicates: [],
+        feature: null,
+      })
+    ).not.toContain("champion");
+  });
+});
