@@ -143,8 +143,8 @@ everything back exactly as it was.
 
 ## AiMS champion
 
-This is the person who will lead your implementation of AiMS, and who
-Aimee will coach through the process.
+The AiMS Champion is the lead on implementing AiMS and the person who
+Aimee will help guide through the process.
 
 Today that means Aimee gets in touch after each leadership meeting is
 summarised, inviting them to talk it through. That is where it starts
