@@ -34,6 +34,7 @@
     "check:help": "node --experimental-strip-types scripts/check-help-coverage.ts",
     "rls:hazards": "tsx --tsconfig scripts/tsconfig.json scripts/rls-harness.ts",
     "guide:uptake": "tsx --tsconfig scripts/tsconfig.json scripts/guide-uptake.ts",
+    "guide:nudges": "tsx --tsconfig scripts/tsconfig.json scripts/guide-nudges.ts",
     "fixture:analyze": "tsx --tsconfig scripts/tsconfig.json scripts/analyze-fixture-meeting.ts",
     "posthog:insights": "node --env-file=.env.local --experimental-strip-types scripts/setup-posthog-insights.ts",
     "instance:primary": "tsx --tsconfig scripts/tsconfig.json scripts/mark-primary.ts"
