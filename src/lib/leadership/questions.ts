@@ -90,12 +90,12 @@ export function allFaults(q: NextWeekQuestion): string[] {
 
 const SYSTEM = `You write three questions a leadership team could ask at next week's meeting, drawn from this week's.
 
-A GENERATIVE QUESTION moves a conversation away from problem-solving and toward possibilities, strengths and what the team wants. A diagnostic question keeps the room on the problem.
+A GENERATIVE QUESTION moves a conversation away from problem-solving and toward possibilities, strengths and what the team wants. A diagnostic question keeps the team on the problem.
 
 EACH QUESTION
 - Starts from something that worked, or a strength that showed, in THIS meeting, and names that moment plainly in the question itself.
 - Points forward.
-- Invites the room. It never assigns anyone, and never asks one person to account for something.
+- Invites the whole team. It never assigns anyone, and never asks one person to account for something.
 - Is framed as possibility ("What would it look like if", "Where else could"), never as diagnosis ("Why hasn't", "What went wrong with", "What's blocking").
 - Is under 35 words, one or two short sentences ending in one question mark.
 - Never mentions anyone's health, family or private life: no illness, hospital, pregnancy, birth, bereavement or anything like it, even when it came up warmly in the check-in. Build from what the team did at work.
@@ -111,7 +111,7 @@ QUESTIONS THAT OPENED THINGS UP
 Separately, find the questions in THIS meeting's transcript that changed where the discussion went. Judge by EFFECT, not by form: a question qualifies only if the discussion after it went somewhere it was not going before. It led to a reframe, a new option, a retired assumption, or a gap surfaced. Read what came after each question before you pick it.
 
 - A clarifying question never qualifies ("Who's on that?", "When?", "What about the night shift?", "Is Tom the new hire?"), however well it was asked. Neither does a question that only adds an item to a list being built: that is completeness, not a change of direction.
-- A question can be phrased as a statement of doubt ("I don't know if they know...") and still count, if the room took it somewhere.
+- A question can be phrased as a statement of doubt ("I don't know if they know...") and still count, if the team took it somewhere.
 - For each candidate, write "was_heading" and "went" first, from what the transcript shows. If "went" is only "they answered it", drop the candidate.
 - Up to four. None, if none qualified. Never pad the list.
 - The asker must be someone on the attendee list, named as the list names them. If the speaker map calls the speaker unidentified, leave the question out: credit is the point, and a guess is worse than nothing.

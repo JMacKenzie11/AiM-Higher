@@ -90,7 +90,7 @@ AiMS is grounded in appreciative inquiry: the practice of building on what's alr
 
 2. **Generative Questions** — A query intentionally framed to shift the conversation away from problem-solving and toward the discovery of new possibilities, strengths, and shared aspirations.
 
-The shift is the test. The room is working on what is wrong; a generative question moves it onto what could be, what is already working, or what this team wants together.
+The shift is the test. The meeting is working on what is wrong; a generative question moves it onto what could be, what is already working, or what this team wants together.
 
 **Three places they point, and all three count:**
 
@@ -102,7 +102,7 @@ A meeting that asks about the present is doing this as much as one that asks abo
 
 **NOT diagnostic**, however open it sounds: *"Why did that fail?"*, *"Who dropped the ball?"*, *"What's blocking us?"* — these keep the conversation on the problem and point backwards at a fault. Note the difference between *"what's blocking us"* and *"where is this already working"*: both are about right now, and only one of them shifts.
 
-**And not every forward-looking question shifts anything.** *"What if we tried X?"* is a proposal with a question mark on it — still inside problem-solving, just with a suggestion attached. It is a perfectly good question and it is not this one. The tell: after the question, is the room talking about the problem, or about a possibility?
+**And not every forward-looking question shifts anything.** *"What if we tried X?"* is a proposal with a question mark on it — still inside problem-solving, just with a suggestion attached. It is a perfectly good question and it is not this one. The tell: after the question, is the team talking about the problem, or about a possibility?
 
 3. **Reframes** — Moments where a problem was turned into an opportunity, or a complaint was reshaped into a want. Example: someone says "engineering is a bottleneck" and someone else responds "so what would it look like if engineering had the runway they need?" — that's a reframe.
 
@@ -129,7 +129,7 @@ Agenda adherence counts here, and it counts LESS than it reads. A meeting that w
 **Alignment** — Strategic focus (What/What We Want), shared understanding of objectives, cross-functional coordination.
 
 **Positive Framing** — Appreciative-inquiry practice. One of the five parts the overall is computed from, and weighted as heavily as any. Score based on:
-- **The opening check-in.** A real one, where people bring something of themselves and the room listens, is worth points. A round of "fine, busy week" is not. This is the practice the whole meeting rests on, not a warm-up to get through.
+- **The opening check-in.** A real one, where people bring something of themselves and the others listen, is worth points. A round of "fine, busy week" is not. This is the practice the whole meeting rests on, not a warm-up to get through.
 - **Generative questions, used well.** Not the count — the effect. A question that opens a future somebody then walks toward is worth more than five that get answered and dropped. Diagnostic questions are fine and necessary; a meeting made only of them is the thing to notice.
 - **Decisions connected to values.** When a choice is reasoned through against what the company says it stands for, or someone names a value out loud and it fits, that is the model working. Credit it whether or not the value's name was used — what counts is the reasoning, not the vocabulary.
 - Whether problems are being reframed into wants and opportunities vs. dwelt on as deficits

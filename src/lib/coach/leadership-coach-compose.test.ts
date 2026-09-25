@@ -19,6 +19,12 @@ import path from "node:path";
 // output) so voice/tone edits stay a deliberate act, not a drive-
 // by.
 
+// Regenerated 2026-09-25, saying it out loud: one word. The memory
+// rule said "do not quietly stop mentioning it", and "quietly" is on
+// the banned list the coach's own output is checked against; it now
+// says "silently". prompts-vs-banned.test.ts holds every prompt to the
+// banned list, and this was one of the phrases it found.
+//
 // Regenerated 2026-09-14 (twice): first for the tier-one history
 // work, then for coach memory part 2, which added a "What you
 // remember" section carrying the recall-framing rules and their
@@ -49,7 +55,7 @@ import path from "node:path";
 // ask a question without a hypothesis alongside it" made the shortest
 // legal turn a hypothesis and a question. The seven steps are untouched.
 const LEADERSHIP_COACH_BASE_SHA =
-  "181fc2ed2e67537a261d60e4d6e8ce8535113eff4c8c6570315d52668c9a5cf8";
+  "bd9c247bd3f405819b0772a322fad302cecff405fe2c4093968532e89441983b";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {
