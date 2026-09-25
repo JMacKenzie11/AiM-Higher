@@ -97,6 +97,11 @@ const PHRASES: readonly string[] = [
   "the note i sent",
   "my note",
   "the notification",
+  // "The room" as a stand-in for the people in it. "You were in the
+  // room for that one" opened a debrief with a phrase that sounds
+  // like attention and says nothing about who did what. Say the
+  // meeting, the team, or the person.
+  "the room",
   // "Quietly" as an intensifier. Banned in the rules since before
   // this checker existed, and it went straight through a generated
   // headline: "you quietly ran out three Tuesdays of conflict".
@@ -141,6 +146,19 @@ const PATTERNS: ReadonlyArray<[label: string, re: RegExp]> = [
     "not X, it was Y",
     /\b(?:wasn'?t|isn'?t|was\s+not|is\s+not)\s+[^,.;]{2,60},\s*(?:it|that|they|this)\s+(?:was|is|were|are)\b/gi,
   ],
+  // "Stopped at who owns the calendar instead of another patch."
+  //
+  // The same fault as "not X, it was Y" in a different construction:
+  // the good thing is defined by the thing that did not happen. One
+  // debrief opener used it three times in four sentences.
+  //
+  // Same limit as that pattern: the other half is 2 to 60 characters
+  // and stays inside its clause. It is broad on purpose. "Use the
+  // new sheet instead of the old one" also matches, and on the
+  // surfaces this runs on (a headline, an opener) the cost of that
+  // is one retry that says the plain thing, never a wrong word shown
+  // to anybody.
+  ["X instead of Y", /\binstead\s+of\s+[^,.;:?!]{2,60}/gi],
   // Minimisers. "Just" earns its place by how often it arrives
   // attached to the thing being said, shrinking it on the way out.
   // Matched as the constructions that minimise rather than as the
@@ -216,7 +234,8 @@ export function retryInstruction(hits: readonly BannedHit[]): string {
       .map((p) => `"${p}"`)
       .join(", ")}, which the rules forbid. Write it again without ` +
     `${phrases.length === 1 ? "that" : "those"}. Do not substitute a ` +
-    `synonym for the same move: say the plain thing instead. If the ` +
+    `synonym for the same move: say the plain thing. Where it was a ` +
+    `contrast, say what happened without what did not. If the ` +
     `problem is a speaker label, you do not know who spoke, so refer ` +
     `to the moment without naming anybody.`
   );

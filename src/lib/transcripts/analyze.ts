@@ -1,5 +1,6 @@
 import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
+import { unquoteUnsupported } from "@/lib/voice/quotes";
 import "server-only";
 
 import fs from "node:fs/promises";
@@ -194,10 +195,27 @@ export async function analyzeMeeting(
         usage: analysisMessage.usage,
       });
     }
-    const analysisMarkdown = analysisMessage.content
+    const rawAnalysisMarkdown = analysisMessage.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("");
+
+    // QUOTATION MARKS MEAN THE EXACT WORDS. A summary quoted "who
+    // owns the calendar", which nobody said, and the debrief opener
+    // quoted it back to the champion as a record of their meeting.
+    // The prompt says so; this makes it true whatever the model did,
+    // by taking the marks off any span the transcript does not
+    // contain. The words stay, as the summary's own paraphrase.
+    const { text: analysisMarkdown, unquoted } = unquoteUnsupported(
+      rawAnalysisMarkdown,
+      meetingRow.transcript_text
+    );
+    if (unquoted.length > 0) {
+      console.log(
+        `[analyze] unquoted ${unquoted.length} paraphrase(s) in meeting ${meetingId}: ` +
+          unquoted.map((q) => `"${q}"`).join(", ")
+      );
+    }
 
     // DID IT FINISH? The extraction call below has asked this since
     // it was written; the analysis call never did, so a summary that
@@ -410,6 +428,7 @@ export async function analyzeMeeting(
       meetingId,
       meetingDateIso,
       analysisMarkdown,
+      transcript: meetingRow.transcript_text,
       strengths: (facilitationReview?.strengths ?? []).map((s) => s.title),
     });
 

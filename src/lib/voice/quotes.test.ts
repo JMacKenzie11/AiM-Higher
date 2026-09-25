@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { findUnsupportedQuotes, quoteRetryInstruction } from "./quotes";
+import {
+  findUnsupportedQuotes,
+  quoteRetryInstruction,
+  unquoteUnsupported,
+} from "./quotes";
 
 const SUMMARY = `
 ## Scheduling Ownership
@@ -58,5 +62,65 @@ describe("quoteRetryInstruction", () => {
     const text = quoteRetryInstruction([{ quote: "who screwed up the Tuesday" }]);
     expect(text).toContain("Nobody said that");
     expect(text).toMatch(/describe it in your own\s+words/);
+  });
+});
+
+// The transcript is the source now, and the real case is why: the
+// summary quoted "who owns the calendar", nobody said it, and an
+// opener quoting the summary passed a check against the summary.
+const TRANSCRIPT = `Speaker 1: So what's actually underneath it? Because we keep fixing the
+Tuesday and we don't fix the thing that makes Tuesdays collide.
+
+Speaker 2: Honestly? Nobody owns the calendar. I assume Ray's updating it.`;
+
+describe("checked against the transcript", () => {
+  it("catches a quote the summary invented and the opener repeated", () => {
+    const hits = findUnsupportedQuotes(
+      `This time it stopped at "who owns the calendar" instead of another patch.`,
+      TRANSCRIPT
+    );
+    expect(hits.map((h) => h.quote)).toEqual(["who owns the calendar"]);
+  });
+
+  it("passes a real quote that runs across a line break", () => {
+    expect(
+      findUnsupportedQuotes(
+        `"we keep fixing the Tuesday and we don't fix the thing"`,
+        TRANSCRIPT
+      )
+    ).toEqual([]);
+  });
+
+  it("checks curly quotes, which the first version never matched", () => {
+    expect(
+      findUnsupportedQuotes(`It stopped at “who owns the calendar” this time.`, TRANSCRIPT)
+    ).toHaveLength(1);
+  });
+
+  it("names the transcript in the retry", () => {
+    expect(quoteRetryInstruction([{ quote: "who owns the calendar" }])).toContain(
+      "not in the meeting transcript"
+    );
+  });
+});
+
+describe("unquoteUnsupported", () => {
+  it("takes the marks off a paraphrase and keeps the words", () => {
+    const { text, unquoted } = unquoteUnsupported(
+      `The discussion moved from "who moved the crew" to "who owns the calendar".`,
+      TRANSCRIPT
+    );
+    expect(text).toBe(
+      "The discussion moved from who moved the crew to who owns the calendar."
+    );
+    expect(unquoted).toEqual(["who moved the crew", "who owns the calendar"]);
+  });
+
+  it("leaves a real quote and a short term alone", () => {
+    const input = `She said "Nobody owns the calendar." It was the "Tuesday" problem.`;
+    expect(unquoteUnsupported(input, TRANSCRIPT)).toEqual({
+      text: input,
+      unquoted: [],
+    });
   });
 });

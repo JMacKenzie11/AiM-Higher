@@ -39,6 +39,7 @@ export async function raiseMeetingDebriefNudge(
     meetingId: string;
     meetingDateIso: string;
     analysisMarkdown: string;
+    transcript: string;
     strengths: string[];
   }
 ): Promise<RaiseResult> {
@@ -97,11 +98,22 @@ export async function raiseMeetingDebriefNudge(
       return { raised: false, reason: "agent unavailable" };
     }
 
+    // The headline is addressed to this person, and says "you" only
+    // for what they did. A missing name is not fatal: the prompt
+    // then falls back to "your team" for everything.
+    const { data: champion } = await admin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", company.aims_champion_profile_id)
+      .maybeSingle<{ full_name: string | null }>();
+
     const headline = await generateHeadline(client, {
       model: input.model,
       meetingDate: input.meetingDateIso,
       companyName: company.name,
       analysisMarkdown: input.analysisMarkdown,
+      transcript: input.transcript,
+      championName: champion?.full_name ?? null,
       strengths: input.strengths,
     });
 
