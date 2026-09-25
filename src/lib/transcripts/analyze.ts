@@ -354,7 +354,8 @@ export async function analyzeMeeting(
         presentOwnerIds(
           context.roster,
           identifiedSpeakers(speakerMap),
-          attendeesFromSummary(analysisMarkdown)
+          attendeesFromSummary(analysisMarkdown),
+          context.assignedGuideIds
         ),
         meetingId
       );
@@ -427,9 +428,8 @@ export async function analyzeMeeting(
           ...new Set(
             [
               ...identifiedSpeakers(speakerMap),
-              ...attendeesFromSummary(analysisMarkdown).map((a) =>
-                a.replace(/\s*\([^)]*\)/g, "").split(",")[0].trim()
-              ),
+              // Names already, bullets or prose (attendees.ts).
+              ...attendeesFromSummary(analysisMarkdown),
             ].filter((a) => a.length > 0)
           ),
         ],
@@ -606,13 +606,16 @@ type CompanyContext = {
   coreValues: FoundationItem[];
   roster: RosterMember[];
   priorities: Array<Pick<Priority, "id" | "title" | "owner_id" | "quarter_id">>;
+  // Every profile assigned to guide this company (guide_assignments).
+  // They count as present at its meetings (attendees.ts).
+  assignedGuideIds: string[];
 };
 
 export async function loadCompanyContext(
   admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   companyId: string
 ): Promise<CompanyContext> {
-  const [companyRes, foundationRes, itemsRes, rosterRes, coachesRes] =
+  const [companyRes, foundationRes, itemsRes, rosterRes, coachesRes, guidesRes] =
     await Promise.all([
       admin
         .from("companies")
@@ -645,6 +648,10 @@ export async function loadCompanyContext(
         .select("id, full_name, position, status")
         .eq("role", "system_admin")
         .neq("status", "inactive"),
+      admin
+        .from("guide_assignments")
+        .select("guide_id")
+        .eq("company_id", companyId),
     ]);
 
   // The ADMIN client, not getCurrentQuarter().
@@ -705,6 +712,7 @@ export async function loadCompanyContext(
     vision: foundationRes.data?.vision ?? null,
     coreValues: (itemsRes.data ?? []) as FoundationItem[],
     roster: [...companyMembers, ...coaches],
+    assignedGuideIds: ((guidesRes.data ?? []) as Array<{ guide_id: string }>).map((g) => g.guide_id),
     priorities,
   };
 }

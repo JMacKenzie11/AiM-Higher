@@ -386,10 +386,9 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
 
   // Names only, from the summary's own attendee list: the same list
   // the owner check reads (attendees.ts), hedged lines left out.
-  // Names only: "Casey Benson (CEO)" is Casey Benson on the strip.
-  const attendees = attendeesFromSummary(analysis?.analysis_markdown ?? "")
-    .map((a) => a.replace(/\s*\([^)]*\)/g, "").split(",")[0].trim())
-    .filter((a) => a.length > 0);
+  // Names only, from bullets or prose: the same names the owner check
+  // reads (attendees.ts), so the two cannot disagree.
+  const attendees = attendeesFromSummary(analysis?.analysis_markdown ?? "");
   const score = facilitationReview
     ? scoreForRow(analysis, facilitationReview)
     : null;
