@@ -184,3 +184,31 @@ describe("fillers and stutters", () => {
     ).toHaveLength(1);
   });
 });
+
+describe("a bracketed insertion", () => {
+  const SAID = "Speaker 2: Are they coming printed or just the phone? Like a file.";
+  it("keeps a quote whose only change is a bracketed word", () => {
+    expect(findUnsupportedQuotes(`"Are they coming printed or just the phone [file]?"`, SAID)).toEqual([]);
+  });
+  it("still checks what is outside the brackets", () => {
+    expect(findUnsupportedQuotes(`"Are they coming laminated [file] or just the phone?"`, SAID)).toHaveLength(1);
+  });
+});
+
+describe("a sentence split by a speaker marker", () => {
+  const SAID = `Speaker 4  13:30
+you kind of need to lock in for the season, right? But whether you use it
+
+Speaker 1  13:34
+for the month or not, you still have to pay for that kind of thing.`;
+
+  it("keeps a real quote that runs across the marker", () => {
+    expect(
+      findUnsupportedQuotes(`"whether you use it for the month or not, you still have to pay"`, SAID)
+    ).toEqual([]);
+  });
+
+  it("does not drop a line of speech", () => {
+    expect(findUnsupportedQuotes(`"right? But for the month or not"`, SAID)).toHaveLength(1);
+  });
+});

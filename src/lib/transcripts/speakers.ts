@@ -329,6 +329,19 @@ export function replaceSpeakerLabels(
     }
   }
   let replaced = 0;
+  // Plural first: "Five unidentified speakers (Speakers 5, 7, 8)".
+  // A parenthesis holding nothing but labels says nothing to a reader
+  // and goes; a list of labels anywhere else becomes one phrase.
+  const plural = /\bSpeakers\s+\d+(?:\s*(?:,|and|&)\s*\d+)*/gi;
+  text = text
+    .replace(/\s*\(\s*Speakers\s+\d+(?:\s*(?:,|and|&)\s*\d+)*\s*\)/gi, () => {
+      replaced++;
+      return "";
+    })
+    .replace(plural, () => {
+      replaced++;
+      return "unidentified speakers";
+    });
   const out = text.replace(
     /\bSpeaker\s+(\d+)(?:\s*\((?:likely|possibly|probably)[^)]*\))?/gi,
     (_whole, n: string, offset: number, all: string) => {

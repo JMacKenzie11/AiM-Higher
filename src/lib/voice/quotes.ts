@@ -61,13 +61,23 @@ function normalise(text: string): string {
     .join(" ");
 }
 
+// "Speaker 1  13:34" on a line of its own: the transcript's speaker
+// and timestamp marker. Otter often splits one sentence across two of
+// them ("whether you use it" / Speaker 1 13:34 / "for the month or
+// not"), and a quote of that sentence failed because the marker sat
+// in the middle of it. Only whole lines of that exact shape go; a
+// line of speech is never touched.
+function withoutTimestampLines(source: string): string {
+  return source.replace(/^[ \t]*[A-Z][\w'.-]*(?:[ \t]+[\w'.-]+){0,4}[ \t]+\d{1,2}:\d{2}(?::\d{2})?[ \t]*$/gm, " ");
+}
+
 const FILLERS = new Set(["um", "umm", "uh", "uhh", "er", "ah", "yeah"]);
 
 export function findUnsupportedQuotes(
   text: string,
   source: string
 ): UnsupportedQuote[] {
-  const haystack = normalise(source);
+  const haystack = normalise(withoutTimestampLines(source));
   const out: UnsupportedQuote[] = [];
   const seen = new Set<string>();
 
@@ -98,7 +108,10 @@ function isUnsupported(raw: string, haystack: string): boolean {
   // Each piece has to be there, in order, which an invented quote
   // does not start satisfying because it has dots in it.
   const pieces = raw
-    .split(/\s*(?:\.{3}|…)\s*/)
+    // A bracket is the same kind of gap from the other side: words
+    // the summary put in to make a quote readable ("the phone
+    // [file]"). What is outside the brackets still has to be there.
+    .split(/\s*(?:\.{3}|…|\[[^\]]*\])\s*/)
     .map(normalise)
     .filter((p) => p.length > 0);
   if (pieces.length === 0) return false;
@@ -132,7 +145,7 @@ export function unquoteUnsupported(
   text: string,
   source: string
 ): { text: string; unquoted: string[] } {
-  const haystack = normalise(source);
+  const haystack = normalise(withoutTimestampLines(source));
   const unquoted: string[] = [];
   const out = text.replace(QUOTED, (whole, inner: string) => {
     if (!isUnsupported(inner.trim(), haystack)) return whole;

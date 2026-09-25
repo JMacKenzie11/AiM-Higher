@@ -63,3 +63,17 @@ describe("replaceSpeakerLabels", () => {
     expect(replaceSpeakerLabels(input, MAP)).toEqual({ text: input, replaced: 0 });
   });
 });
+
+describe("plural labels", () => {
+  it("drops a parenthesis of labels from the real attendee line", () => {
+    expect(
+      replaceSpeakerLabels("- Five unidentified speakers (Speakers 5, 7, 8, 9, 10, 11, 12, 13)", MAP).text
+    ).toBe("- Five unidentified speakers");
+  });
+
+  it("turns a list of labels in a sentence into one phrase", () => {
+    expect(replaceSpeakerLabels("Speakers 7 and 8 agreed.", MAP).text).toBe(
+      "unidentified speakers agreed."
+    );
+  });
+});
