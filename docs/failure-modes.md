@@ -1138,6 +1138,37 @@ and makes the two agree. The analyzer logs the keys the model
 actually sent, because the cause is upstream of anything we can
 assert.
 
+**Second specimen: the Guide headline's fallback** (2026-09-25, #317).
+The headline generator had one retry for the rules it could check,
+banned phrases and invented quotes, and then a final sanitiser that
+refuses a line over 45 words and returns the fallback: "Your
+leadership meeting from 2026-09-25 is ready to debrief with Aimee."
+The prompt asks for under 40. Word count was not one of the retry's
+checks, so a 46-word headline went past the retry untouched, was
+refused by the sanitiser, and was replaced. Nothing was logged.
+
+The model's line was good. The fixture run's output was a pending
+nudge with a complete, grammatical, on-brand headline, which is what
+success looks like. It was the one line the feature exists not to
+send, and the only way to tell was to recognise the fallback's
+wording. A champion getting it every week would have read as a
+working Guide with little to say.
+
+The fix is the same two moves as the first specimen. The limit that
+refuses output became a check the retry names back ("Your line is 46
+words"), so a line that is slightly wrong is asked for again rather
+than thrown away. And the refusal says so, printing the line it
+refused, so a fallback in the log is a reason rather than a result.
+Pinned by `src/lib/guide/headline.test.ts`: a 46-word reply followed
+by a short one returns the short one; two long ones return the
+fallback and log why.
+
+**The rule it adds.** Any fallback that stands in for generated
+output logs the output it replaced. A fallback is where a failure
+becomes indistinguishable from a result, so it is the one place that
+must never be silent. That is also E14's rule, reached from the other
+side.
+
 **The general shape.** Defensive normalization is right at the edges
 and wrong at the centre. Filling in a missing field is a kindness;
 deriving an aggregate from nothing and storing the result is an

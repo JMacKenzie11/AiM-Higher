@@ -124,3 +124,22 @@ describe("unquoteUnsupported", () => {
     });
   });
 });
+
+describe("quote marks inside a quote", () => {
+  // The real false positive, 2026-09-25: the transcript has double
+  // quotes inside the line, the summary nested single ones, and a
+  // real quote lost its marks as though it were a paraphrase.
+  const SAID = `Speaker 1: Yes. Not as a blame thing. As a "this is what it cost"\nthing.`;
+
+  it("keeps a real quote whose inner marks changed", () => {
+    const input = `Speaker 1 said "Yes. Not as a blame thing. As a 'this is what it cost' thing."`;
+    expect(unquoteUnsupported(input, SAID).unquoted).toEqual([]);
+    expect(findUnsupportedQuotes(input, SAID)).toEqual([]);
+  });
+
+  it("still catches an invented one", () => {
+    expect(
+      findUnsupportedQuotes(`She said "this is what it cost us all".`, SAID)
+    ).toHaveLength(1);
+  });
+});

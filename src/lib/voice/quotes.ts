@@ -39,8 +39,12 @@ const MIN_WORDS = 4;
 function normalise(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[‘’ʼ]/g, "'")
-    .replace(/[“”]/g, '"')
+    // Quote marks of every kind go, apostrophes with them, on both
+    // sides alike. A summary quoted Speaker 1 as "As a 'this is what
+    // it cost' thing" where the transcript has double quotes inside
+    // the line, and a real quote was unquoted as a paraphrase.
+    // Nesting changes the mark, never the words.
+    .replace(/[‘’ʼ“”"']/g, "")
     .replace(/[–—]/g, " ")
     .replace(/[.,;:!?]/g, "")
     .replace(/\s+/g, " ")
