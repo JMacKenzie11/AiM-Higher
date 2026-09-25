@@ -15,6 +15,10 @@ import {
   type LongSentence,
 } from "@/lib/voice/sentences";
 import {
+  findJoinedQuestions,
+  joinedQuestionRetryInstruction,
+} from "@/lib/voice/questions";
+import {
   findHeadlineRepeat,
   headlineRepeatRetryInstruction,
   type HeadlineRepeat,
@@ -49,6 +53,7 @@ export type OpenerFaults = {
   invented: UnsupportedQuote[];
   banned: BannedHit[];
   long: LongSentence[];
+  joined: string[];
   repeat: HeadlineRepeat | null;
 };
 
@@ -62,6 +67,7 @@ export function checkOpener(text: string, src: OpenerSources): OpenerFaults {
       src.maxWordsPerSentence === null
         ? []
         : findLongSentences(text, src.maxWordsPerSentence),
+    joined: findJoinedQuestions(text),
     repeat: findHeadlineRepeat(text, src.headline),
   };
 }
@@ -70,7 +76,13 @@ export function checkOpener(text: string, src: OpenerSources): OpenerFaults {
 // preferred to the attempt that had all four. Each fault counts
 // once: two banned phrases are two things to fix.
 export function faultCount(f: OpenerFaults): number {
-  return f.invented.length + f.banned.length + f.long.length + (f.repeat ? 1 : 0);
+  return (
+    f.invented.length +
+    f.banned.length +
+    f.long.length +
+    f.joined.length +
+    (f.repeat ? 1 : 0)
+  );
 }
 
 // For the log: what is wrong, where, in one line.
@@ -85,6 +97,7 @@ export function describeFaults(f: OpenerFaults): string {
     f.long.length > 0
       ? `long sentence(s) ${f.long.map((s) => `${s.words} words`).join(", ")}`
       : null,
+    f.joined.length > 0 ? `two questions joined by "and"` : null,
     f.banned.length > 0 ? describeHits(f.banned) : null,
   ]
     .filter(Boolean)
@@ -104,6 +117,7 @@ export function openerRetryInstruction(
     f.long.length > 0
       ? longSentenceRetryInstruction(f.long, OPENER_MAX_WORDS_PER_SENTENCE)
       : null,
+    f.joined.length > 0 ? joinedQuestionRetryInstruction(f.joined) : null,
     f.banned.length > 0 ? retryInstruction(f.banned) : null,
   ]
     .filter(Boolean)

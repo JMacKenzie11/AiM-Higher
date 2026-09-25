@@ -62,6 +62,15 @@ describe("checkOpener", () => {
     expect(f.long).toEqual([]);
   });
 
+  it("counts two questions joined by and as a fault", () => {
+    const f = checkOpener(
+      "You're carrying two pieces of the margin picture now. How's the margin model coming, and did the supplier pricing data you need actually show up?",
+      debrief
+    );
+    expect(f.joined).toHaveLength(1);
+    expect(openerRetryInstruction(f, HEADLINE)).toContain("Ask one question");
+  });
+
   it("names the invented quote first in the retry", () => {
     const text = openerRetryInstruction(checkOpener(REAL_OPENER, debrief), HEADLINE);
     expect(text.indexOf("not in the meeting transcript")).toBeLessThan(

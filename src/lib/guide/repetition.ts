@@ -123,15 +123,17 @@ export function findHeadlineRepeat(
 }
 
 // Says what to do rather than only what was wrong, and names the
-// ground the opener should look at instead: the two openings this
-// run actually had and did not take.
+// ground the opener should look at instead. Not the champion's own
+// commitments as a subject: asking how a task from this meeting is
+// going is a status check, and the debrief is not one.
 export function headlineRepeatRetryInstruction(headline: string): string {
   return (
     `They have already read this line, and your turn says it again: ` +
     `"${headline}". Start from something new in the summary. Good ` +
-    `places to look: the commitments the person you are talking to ` +
-    `took on themselves, or a decision the meeting made that nobody ` +
-    `took on. Do not mention the line they read, and do not ask what ` +
+    `places to look: a decision the meeting made that nobody took on, ` +
+    `or another moment that showed how the team works. Their own ` +
+    `commitments can be context, never a question about how they are ` +
+    `going. Do not mention the line they read, and do not ask what ` +
     `made the same moment work.`
   );
 }

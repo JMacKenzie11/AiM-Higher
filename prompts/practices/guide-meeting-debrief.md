@@ -44,8 +44,18 @@ Better places to start, when the summary has them:
   meeting the team agreed the crew would be told about a customer
   credit, and nobody said who would tell them. "Who tells the
   crew?" was a better opening than anything about the headline.
-- **Their own commitments.** What the person you are talking to
-  took on themselves, and what it will take.
+- **Something the meeting showed about how the team works**: a
+  moment that went well, a pattern, a value in action.
+
+## A debrief, not a status check
+
+The opener is a debrief of THIS meeting: what happened in it and
+what it showed. The champion's own commitments from the meeting can
+be context ("you took on the margin model"), never the subject of a
+progress question. Asking how a task is going, when it was assigned
+in the same meeting, is a status check. They have had no time to make
+progress, and progress check-ins belong to later, scheduled
+follow-ups, not to this conversation.
 
 ## Who "you" is
 
