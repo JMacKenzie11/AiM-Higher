@@ -53,6 +53,36 @@ export const SCORE_PART_LABELS: Readonly<Record<ScorePartKey, string>> = {
   agenda: "Agenda sections",
 };
 
+// The AiMS Weekly Leadership Meeting's five sections, exactly as the
+// facilitation prompt names them (prompt.v2.md, "Agenda Structure"),
+// in order. The classroom's Weekly Rhythm lesson describes the rhythm
+// in prose and names none of these, so the prompt is the source.
+// "Solve, Together" carries a comma in its own name, which is why the
+// list below is joined with semicolons.
+export const AIMS_WEEKLY_SECTIONS = [
+  "Positive Check-In",
+  "Functional Updates",
+  "Forward Momentum on Strategy",
+  "Solve, Together",
+  "Review Commitments",
+] as const;
+
+const SECTION_LIST = AIMS_WEEKLY_SECTIONS.join("; ");
+
+// What each part measures, for the (i) beside its name in "How this
+// is scored" and for the help page. Jason's copy, 2026-09-25. Kept
+// here with the weights and the labels so the three cannot drift.
+export const SCORE_PART_DESCRIPTIONS: Readonly<Record<ScorePartKey, string>> = {
+  positive_framing:
+    "How much the meeting looked for what's working and built on it. Strong meetings ask what's going well and how to get more of it before they ask what's wrong.",
+  accountability:
+    "Whether the things people agreed to do left the meeting with a name and a date. Strong meetings turn good conversation into commitments someone owns.",
+  rhythm: `How closely the meeting followed the AiMS weekly flow: ${SECTION_LIST}. Strong meetings give each part its own time rather than letting updates take over.`,
+  alignment:
+    "Whether the team connected what it discussed to the company's goals and priorities. Strong meetings make it clear why each item matters to where the business is going.",
+  agenda: `How many of the five sections of the AiMS weekly meeting happened: ${SECTION_LIST}. Scored out of 5, then doubled to match the others.`,
+};
+
 // Display order, heaviest first.
 export const SCORE_PART_ORDER: readonly ScorePartKey[] = [
   "positive_framing",
@@ -85,9 +115,11 @@ export type OverallScore = {
   lines: ScoreLine[];
   // Exact, in hundredths: 705 means 7.05.
   hundredths: number;
-  // 7.1: shown in the "How this is scored" expander.
+  // 7.5: shown in the "How this is scored" expander.
   oneDecimal: string;
-  // 7: shown on the strip.
+  // 8: shown on the strip. Rounded FROM the one-decimal figure, half
+  // up, so the strip always agrees with the number beside it: 7.45
+  // shows as 7.5 and so as 8, never "7.5, shown as 7".
   rounded: number;
 };
 
@@ -133,7 +165,7 @@ export function computeOverall(
     lines,
     hundredths,
     oneDecimal: `${Math.floor(tenths / 10)}.${tenths % 10}`,
-    rounded: roundDiv(hundredths, 100),
+    rounded: roundDiv(tenths, 10),
   };
 }
 

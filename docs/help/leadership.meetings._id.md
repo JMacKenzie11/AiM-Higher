@@ -84,15 +84,31 @@ As an admin or guide, you can also:
   and a *what to try next week* section. The score, the
   *Facilitation signal*, sits on the strip at the top of the page.
 - **See how the score is made.** Open *How this is scored* in the
-  "How the meeting was run" panel. Aimee rates five parts: Positive framing,
-  Accountability, Rhythm and Alignment out of 10, and Agenda
-  sections out of 5 (doubled to put it on the same scale). The
-  score is a weighted average: Positive framing 25%,
+  "How the meeting was run" panel. It shows the five parts, the
+  score for each, and its weight: Positive framing 25%,
   Accountability 25%, Rhythm 20%, Alignment 15%, Agenda sections
-  15%. The panel shows this meeting's arithmetic to one decimal;
-  the strip shows it rounded. Meetings analysed before 25
-  September 2026 keep the score they were given at the time, with
-  no breakdown.
+  15%. The score is the weighted average, shown to one decimal
+  there and rounded on the strip (half or more rounds up, so 7.5
+  shows as 8). The ⓘ beside each part says what it measures, the
+  same words as here:
+  - **Positive framing:** How much the meeting looked for what's
+    working and built on it. Strong meetings ask what's going well
+    and how to get more of it before they ask what's wrong.
+  - **Accountability:** Whether the things people agreed to do left
+    the meeting with a name and a date. Strong meetings turn good
+    conversation into commitments someone owns.
+  - **Rhythm:** How closely the meeting followed the AiMS weekly
+    flow: Positive Check-In; Functional Updates; Forward Momentum on Strategy; Solve, Together; Review Commitments. Strong meetings give each part its own time
+    rather than letting updates take over.
+  - **Alignment:** Whether the team connected what it discussed to
+    the company's goals and priorities. Strong meetings make it
+    clear why each item matters to where the business is going.
+  - **Agenda sections:** How many of the five sections of the AiMS
+    weekly meeting happened: Positive Check-In; Functional Updates; Forward Momentum on Strategy; Solve, Together; Review Commitments. Scored out of 5, then
+    doubled to match the others.
+
+  Meetings analysed before 25 September 2026 keep the score they
+  were given at the time, with no breakdown.
 - **Take a question into next week.** *Questions worth asking next
   week* offers three, each drawn from something that went well in
   this meeting. *Questions that opened things up* credits the questions

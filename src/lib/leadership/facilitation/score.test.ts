@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { computeOverall, scoreForRow, SCORE_WEIGHTS, SCORE_CUTOVER_ISO } from "./score";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  computeOverall,
+  scoreForRow,
+  SCORE_WEIGHTS,
+  SCORE_CUTOVER_ISO,
+  SCORE_PART_DESCRIPTIONS,
+  AIMS_WEEKLY_SECTIONS,
+} from "./score";
+import { findBannedPhrases } from "@/lib/voice/banned";
 
 const parts = (pf: number | null, a: number | null, r: number | null, al: number | null, ag: number | null) => ({
   positive_framing: pf,
@@ -39,11 +49,13 @@ describe("computeOverall", () => {
 
   it("rounds half up at each precision on its own, without floating point drift", () => {
     // 7*25 + 6*25 + 7*20 + 6*15 + 6*15 = 175 + 150 + 140 + 90 + 90 = 645:
-    // 6.45 is 6.5 to one decimal, and 6 on the strip.
+    // 6.45 is 6.5 to one decimal, and so 7 on the strip. The strip
+    // rounds the figure shown beside it (Jason, 2026-09-25: "7.5, shown
+    // as 7" read as a mistake).
     expect(computeOverall(parts(7, 6, 7, 6, 3))).toMatchObject({
       hundredths: 645,
       oneDecimal: "6.5",
-      rounded: 6,
+      rounded: 7,
     });
     // 7*25 + 6*25 + 6*20 + 6*15 + 4*15 = 175 + 150 + 120 + 90 + 60 = 595:
     // 5.95 is 6.0 to one decimal, and 6 on the strip.
@@ -126,5 +138,47 @@ describe("scoreForRow", () => {
   it("has no score for an insufficient transcript, or a review without one", () => {
     expect(scoreForRow(null, { insufficient_transcript: true, overall: null })).toBeNull();
     expect(scoreForRow({ created_at: "2026-09-01T00:00:00Z" }, { insufficient_transcript: false, overall: null })).toBeNull();
+  });
+});
+
+describe("the real Benson case", () => {
+  it("7.45 shows as 7.5 and as 8", () => {
+    // 7*25 + 7*25 + 7*20 + 7*15 + 10*15 = 175 + 175 + 140 + 105 + 150 = 745
+    expect(computeOverall(parts(7, 7, 7, 7, 5))).toMatchObject({ hundredths: 745, oneDecimal: "7.5", rounded: 8 });
+  });
+});
+
+describe("SCORE_PART_DESCRIPTIONS", () => {
+  it("has one for every weighted part, and nothing else", () => {
+    expect(Object.keys(SCORE_PART_DESCRIPTIONS).sort()).toEqual(Object.keys(SCORE_WEIGHTS).sort());
+  });
+
+  it("names the same five sections, in the same order, in Rhythm and Agenda sections", () => {
+    const list = AIMS_WEEKLY_SECTIONS.join("; ");
+    expect(SCORE_PART_DESCRIPTIONS.rhythm).toContain(list);
+    expect(SCORE_PART_DESCRIPTIONS.agenda).toContain(list);
+  });
+
+  it("names them as the facilitation prompt does", () => {
+    const prompt = readFileSync(join(process.cwd(), "src/lib/leadership/facilitation/prompt.v2.md"), "utf8");
+    AIMS_WEEKLY_SECTIONS.forEach((name, i) => {
+      expect(prompt).toContain(`**Section ${i + 1} — ${name}**`);
+    });
+  });
+
+  it("passes the voice checks like any user-facing copy", () => {
+    for (const text of Object.values(SCORE_PART_DESCRIPTIONS)) {
+      expect(findBannedPhrases(text)).toEqual([]);
+      expect(text).not.toMatch(/[—–]/);
+    }
+  });
+});
+
+describe("the help page", () => {
+  it("carries the same five definitions as the tooltips, word for word", () => {
+    const help = readFileSync(join(process.cwd(), "docs/help/leadership.meetings._id.md"), "utf8").replace(/\s+/g, " ");
+    for (const text of Object.values(SCORE_PART_DESCRIPTIONS)) {
+      expect(help).toContain(text);
+    }
   });
 });
