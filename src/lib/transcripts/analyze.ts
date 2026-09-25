@@ -1,4 +1,5 @@
 import { VOICE_CORE } from "@/lib/voice/core";
+import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import "server-only";
 
 import fs from "node:fs/promises";
@@ -341,7 +342,12 @@ export async function analyzeMeeting(
     // this is the same shape.
     const { error: analysisErr } = await admin.from("meeting_analyses").insert({
       meeting_id: meetingId,
-      analysis_markdown: analysisMarkdown,
+      // Stripped on the way IN, not on the way out. The markdown is
+      // read by the meeting page, by the debrief agent's tool, by
+      // the headline generator and by anything added later; cleaning
+      // it at one reader leaves the rest reading the dashes. Stored
+      // clean, it is clean everywhere, once.
+      analysis_markdown: stripEmDashes(analysisMarkdown),
       truncated: analysisTruncated,
       coverage_json: coverage,
       commitments_json: validated,

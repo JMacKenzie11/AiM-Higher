@@ -398,6 +398,64 @@ async function main() {
     `  cleared ${(cleared ?? []).length} coaching conversation(s) left by earlier test runs`
   );
 
+  // ---- a Foundation, so the summariser has values to notice ----
+  //
+  // Without core values on the company, every meeting summary ends
+  // with "No stated core values were provided in the company
+  // context for this account, so this section is omitted." Core
+  // Values in Action is the section that renders FIRST on the
+  // meeting page, so the fixture was rendering its most prominent
+  // card as an apology.
+  //
+  // Three values, written so a real meeting can plausibly show them
+  // and the transcript in scripts/fixtures/ actually does: somebody
+  // owns the problem, the bad news arrives early, the fix outlasts
+  // the incident.
+  const { error: foundationError } = await admin
+    .from("company_foundation")
+    .upsert(
+      {
+        company_id: companyId,
+        purpose_statement:
+          "Keep the lights on for the people who keep the lights on.",
+        vision:
+          "The contractor other contractors call when the job has to be right.",
+      },
+      { onConflict: "company_id" }
+    );
+  if (foundationError) throw foundationError;
+
+  const VALUES = [
+    {
+      title: "Own it out loud",
+      body: "When something is yours, say so before anybody has to ask.",
+    },
+    {
+      title: "Bad news travels fast",
+      body: "The person who needs to know hears it from you, early, plainly.",
+    },
+    {
+      title: "Fix the cause, not the Tuesday",
+      body: "If it has happened three times, stop patching and find what makes it happen.",
+    },
+  ];
+  await admin
+    .from("foundation_items")
+    .delete()
+    .eq("company_id", companyId)
+    .eq("kind", "core_value");
+  const { error: valuesError } = await admin.from("foundation_items").insert(
+    VALUES.map((v, i) => ({
+      company_id: companyId,
+      kind: "core_value",
+      title: v.title,
+      body: v.body,
+      sort_order: i,
+    }))
+  );
+  if (valuesError) throw valuesError;
+  console.log(`  foundation → purpose, vision and ${VALUES.length} core values`);
+
   // ---- a meeting to debrief, and an invitation to debrief it ----
   //
   // The Guide's open path (0235) turns a NOTIFICATION into a

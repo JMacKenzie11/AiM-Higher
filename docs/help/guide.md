@@ -47,6 +47,52 @@ not been.
 The chat is private to you, like every other conversation you start.
 It appears in your Ask Aimee list afterwards.
 
+## What Aimee looks at
+
+Worth knowing before you reply to her, because a coach you cannot
+see the edges of is a coach people hedge with.
+
+**The meeting summary, not the recording.** Aimee reads the written
+summary of the meeting and the commitments that came out of it. She
+does not read the transcript. Nothing anybody said word for word is
+in front of her.
+
+**The shared record, the same as you see it.** Past commitments and
+whether they were met, the scorecard trend, issues and how they were
+worked, previous plans. All of it runs under your own account, so
+Aimee sees exactly what you would see if you opened those pages, and
+nothing you could not.
+
+**What she remembers about you.** Ask Aimee keeps notes about your
+own coaching over time. Those are yours. You can read them and
+delete them at **Ask Aimee → What Aimee remembers**.
+
+**Not other people's conversations.** Aimee cannot read anybody
+else's chats, and nobody can read yours.
+
+## Who gets these
+
+Only the AiMS champion. One person per company.
+
+Not the leadership team, not the people named in the meeting, not
+your manager. If a commitment in the summary belongs to somebody
+else, they are not told that Aimee mentioned it to you.
+
+Your company's admins can see **that** invitations were sent and
+whether they were opened. They cannot see what was said in the
+chat.
+
+## What stays private
+
+The debrief conversation is private to you, the same as every other
+conversation you start. It shows in your Ask Aimee list and nowhere
+else. If you want somebody to read it, you share it deliberately,
+the same way you would any other.
+
+The record Aimee keeps of the invitation itself holds the date, the
+meeting it was about, and the one line you saw in your notification
+bar. None of the conversation goes into it.
+
 ## Being the champion does not change what you can see
 
 The seat is about who Aimee works with. It grants nothing and takes

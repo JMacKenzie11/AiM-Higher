@@ -2,6 +2,7 @@ import "server-only";
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { VOICE_CORE } from "@/lib/voice/core";
+import { stripEmDashes } from "@/lib/voice/strip-dashes";
 
 // THE NOTIFICATION LINE IS THE PRODUCT.
 //
@@ -112,13 +113,17 @@ export async function generateHeadline(
 // engage, so one that goes out wrong costs more than one that never
 // goes out.
 export function sanitiseHeadline(raw: string): string | null {
-  const text = raw
+  const withoutDashes = raw
     .trim()
     .replace(/^["'“”]+|["'“”]+$/g, "")
     .replace(/\s+/g, " ")
     // Em dashes read as machine-written in a line meant to sound
-    // like a person.
-    .replace(/\s*—\s*/g, ", ");
+    // like a person. The shared pass, so a headline and a summary
+    // resolve the same dash the same way; this one also caught the
+    // en dash and the no-space form, which the local version here
+    // did not.
+    .replace(/\s+/g, " ");
+  const text = stripEmDashes(withoutDashes);
   if (text.length < 15) return null;
   if (text.split(/\s+/).length > 45) return null;
   // The banned opening. A model told not to recap still sometimes

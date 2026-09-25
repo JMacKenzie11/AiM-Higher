@@ -83,6 +83,34 @@ export async function raiseMeetingDebriefNudge(
       .eq("state", "pending")
       .select("id");
 
+    // AND THE NOTIFICATIONS THEY RAISED.
+    //
+    // Superseding the nudge row alone left the old invitation
+    // sitting in the champion's bell. "Only the most recent
+    // invitation is live at any time" was then true in the table and
+    // false on the one screen anybody looks at — and the help page
+    // says it out loud, so the product was contradicting its own
+    // documentation.
+    //
+    // Matched by the nudge id in the payload rather than by kind, so
+    // this can never reach a notification belonging to a different
+    // nudge or a different person.
+    for (const old of bumped ?? []) {
+      const { error: sweepError } = await admin
+        .from("notifications")
+        .update({ read_at: new Date().toISOString() })
+        .eq("payload->>nudge_id", old.id)
+        .is("read_at", null);
+      if (sweepError) {
+        // Loud, and not fatal. A stale notification is worse than no
+        // log line and better than no new nudge.
+        console.error(
+          `[guide] superseded nudge ${old.id} but could not clear its notification:`,
+          sweepError.message
+        );
+      }
+    }
+
     const { data: nudge, error } = await admin
       .from("guide_nudges")
       .insert({
