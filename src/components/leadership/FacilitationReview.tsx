@@ -3,7 +3,9 @@ import type {
   FacilitationReview as FacilitationReviewData,
   FacilitationDimensionScore,
 } from "@/lib/leadership/facilitation/types";
+import { PartInfo } from "./PartInfo";
 import {
+  SCORE_PART_DESCRIPTIONS,
   scoreForRow,
   type MeetingScore,
   type OverallScore,
@@ -278,19 +280,20 @@ function ScoreExplainer({ score }: { score: OverallScore }) {
               <th>Part</th>
               <th>Score</th>
               <th>Weight</th>
-              <th>Adds</th>
             </tr>
           </thead>
           <tbody>
             {score.lines.map((l) => (
               <tr key={l.key}>
-                <td>{l.label}</td>
+                <td>
+                  {l.label}
+                  <PartInfo label={l.label} text={SCORE_PART_DESCRIPTIONS[l.key]} />
+                </td>
                 <td>
                   {l.raw}/{l.outOf}
                   {l.outOf === 5 ? ` (${l.scaled}/10)` : ""}
                 </td>
                 <td>{l.weight}%</td>
-                <td>{decimal(l.scaled * l.weight)}</td>
               </tr>
             ))}
           </tbody>

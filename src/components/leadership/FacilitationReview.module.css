@@ -559,3 +559,69 @@
   font: var(--text-body-sm);
   color: var(--text-muted);
 }
+
+/* ---- The (i) beside each part name, and its popover ---- */
+
+.partInfo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: inherit;
+  line-height: 1;
+  vertical-align: -0.125em;
+  border-radius: 50%;
+  cursor: help;
+}
+
+.partInfo:hover,
+.partInfo[aria-expanded="true"] {
+  color: var(--primary);
+}
+
+.partInfo:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.partInfoPop {
+  position: fixed;
+  /* A tooltip, not a menu: nothing in it to press, so it never takes
+     the pointer from the icon. A tap on it passes through and counts
+     as a tap away. */
+  pointer-events: none;
+  z-index: 60;
+  width: min(300px, calc(100vw - 16px));
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font: var(--text-body-sm);
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.partInfoLabel {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
