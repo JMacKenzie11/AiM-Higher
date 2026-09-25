@@ -1163,6 +1163,15 @@ Pinned by `src/lib/guide/headline.test.ts`: a 46-word reply followed
 by a short one returns the short one; two long ones return the
 fallback and log why.
 
+**Third specimen: the facilitation review cut off at its limit**
+(2026-09-25). At max_tokens 3500, three of nine Geo-Sci regression
+runs stopped mid-review. The tool schema writes evidence first and the
+executive summary last, so each cut-off review had every score and an
+empty summary, and was stored as complete: a failure that looks like a
+result, found only because the pipeline audit metered every call's
+stop reason. Now the limit is 8000 and a max_tokens stop counts as
+unscored, logged and retried, never stored.
+
 **The rule it adds.** Any fallback that stands in for generated
 output logs the output it replaced. A fallback is where a failure
 becomes indistinguishable from a result, so it is the one place that
