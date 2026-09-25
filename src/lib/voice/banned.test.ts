@@ -209,3 +209,35 @@ describe("minimisers", () => {
     expect(findBannedPhrases("They finished just before five.")).toEqual([]);
   });
 });
+
+// Jason's additions, 2026-09-25, from a debrief opener that used
+// both: "You were in the room for that one", and "instead of" three
+// times in four sentences.
+describe("the room, and X instead of Y", () => {
+  it("catches the room", () => {
+    expect(
+      findBannedPhrases("You were in the room for that one.").map((h) => h.phrase)
+    ).toContain("the room");
+  });
+
+  it("catches each instead-of contrast in the real opener", () => {
+    const hits = findBannedPhrases(
+      'This time it stopped at "who owns the calendar" instead of another patch. ' +
+        "That took someone asking what was underneath the pattern instead of just fixing the latest instance."
+    ).filter((h) => h.phrase === "X instead of Y");
+    expect(hits).toHaveLength(2);
+  });
+
+  it("holds the other half to one clause, like not X, it was Y", () => {
+    const hits = findBannedPhrases(
+      "They chose the crew instead of us, and the rest of this sentence is not part of it."
+    ).filter((h) => h.phrase === "X instead of Y");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].context).not.toContain("rest of this sentence is not");
+  });
+
+  it("tells the retry to drop the contrast", () => {
+    const text = retryInstruction(findBannedPhrases("It worked instead of stalling."));
+    expect(text).toMatch(/without what did not/);
+  });
+});

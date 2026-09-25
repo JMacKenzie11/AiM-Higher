@@ -12,14 +12,13 @@ import { toolLabel } from "@/lib/coach/tool-labels";
 import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
 import { buildGuideTools } from "@/lib/guide/agent-tools";
 import {
-  findBannedPhrases,
-  describeHits,
-  retryInstruction,
-} from "@/lib/voice/banned";
-import {
-  findUnsupportedQuotes,
-  quoteRetryInstruction,
-} from "@/lib/voice/quotes";
+  checkOpener,
+  describeFaults,
+  faultCount,
+  openerRetryInstruction,
+  OPENER_MAX_WORDS_PER_SENTENCE,
+  type OpenerSources,
+} from "@/lib/guide/opener-checks";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
@@ -554,11 +553,18 @@ export async function POST(req: NextRequest): Promise<Response> {
         // in currentMessages; it is rewriting a paragraph, not
         // gathering anything.
         if (isGenerateOpener && assistantText.length > 0) {
-          // The summary this turn is about, when there is one. Read
-          // here rather than threaded down from the tool, because
-          // the tool result is the model's to use and this check has
-          // to hold against the SOURCE whether the model called the
-          // tool or not.
+          // The sources this turn is checked against, when it is about
+          // a meeting. Read here rather than threaded down from the
+          // tool, because the tool result is the model's to use and
+          // these checks have to hold whether it called the tool or
+          // not.
+          //
+          // The TRANSCRIPT is read for the quote check and never goes
+          // near the model. A summary can put its own paraphrase in
+          // quotation marks, so "it is in the summary" proved nothing;
+          // what was said is the only fair test. Read under the
+          // champion's own session: same-company members can read the
+          // meeting row (0142), and this is server code.
           //
           // A quote nobody said is the worst thing this feature can
           // produce: it hands a leader a false record of their own
@@ -566,26 +572,52 @@ export async function POST(req: NextRequest): Promise<Response> {
           const debriefing =
             (convo as { debriefing_meeting_id?: string | null })
               .debriefing_meeting_id ?? null;
-          let sourceSummary = "";
+          const sources: OpenerSources = {
+            transcript: "",
+            summary: "",
+            headline: null,
+            maxWordsPerSentence: debriefing
+              ? OPENER_MAX_WORDS_PER_SENTENCE
+              : null,
+          };
           if (debriefing) {
-            const { data: src } = await supabase
-              .from("meeting_analyses")
-              .select("analysis_markdown")
-              .eq("meeting_id", debriefing)
-              .maybeSingle<{ analysis_markdown: string }>();
-            sourceSummary = src?.analysis_markdown ?? "";
+            const [{ data: meeting }, { data: src }, { data: nudge }] =
+              await Promise.all([
+                supabase
+                  .from("meetings")
+                  .select("transcript_text")
+                  .eq("id", debriefing)
+                  .maybeSingle<{ transcript_text: string | null }>(),
+                supabase
+                  .from("meeting_analyses")
+                  .select("analysis_markdown")
+                  .eq("meeting_id", debriefing)
+                  .maybeSingle<{ analysis_markdown: string }>(),
+                // The same read get_meeting_debrief makes, so the
+                // check compares against the line the model was shown.
+                supabase
+                  .from("guide_nudges")
+                  .select("headline")
+                  .eq("meeting_id", debriefing)
+                  .order("raised_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle<{ headline: string }>(),
+              ]);
+            sources.transcript = meeting?.transcript_text ?? "";
+            sources.summary = src?.analysis_markdown ?? "";
+            sources.headline = nudge?.headline ?? null;
+            if (sources.transcript.length === 0) {
+              console.warn(
+                `[coach] opener for ${conversationId}: transcript unreadable, ` +
+                  `checking quotes against the summary instead`
+              );
+            }
           }
 
-          const hits = findBannedPhrases(assistantText);
-          const invented =
-            sourceSummary.length > 0
-              ? findUnsupportedQuotes(assistantText, sourceSummary)
-              : [];
-          if (hits.length > 0 || invented.length > 0) {
+          const faults = checkOpener(assistantText, sources);
+          if (faultCount(faults) > 0) {
             console.log(
-              `[coach] opener retry for ${conversationId}:` +
-                `${invented.length > 0 ? ` invented quote(s) ${invented.map((q) => `"${q.quote}"`).join(", ")};` : ""}` +
-                `${hits.length > 0 ? ` ${describeHits(hits)}` : ""}`
+              `[coach] opener retry for ${conversationId}: ${describeFaults(faults)}`
             );
             try {
               const retry = await client.messages.create({
@@ -597,14 +629,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                   { role: "assistant", content: assistantText },
                   {
                     role: "user",
-                    content: [
-                      invented.length > 0
-                        ? quoteRetryInstruction(invented)
-                        : null,
-                      hits.length > 0 ? retryInstruction(hits) : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" "),
+                    content: openerRetryInstruction(faults, sources.headline),
                   },
                 ],
               });
@@ -614,19 +639,22 @@ export async function POST(req: NextRequest): Promise<Response> {
                 .join("")
                 .trim();
               // Only if it actually helped. A retry that returns
-              // nothing, or returns the same fault, leaves the first
-              // attempt in place: a blank opener is worse than one
-              // with a banned word in it.
-              const retriedClean =
-                findBannedPhrases(retried).length === 0 &&
-                (sourceSummary.length === 0 ||
-                  findUnsupportedQuotes(retried, sourceSummary).length === 0);
-              if (retried.length > 0 && retriedClean) {
+              // nothing, or no better than the first attempt, leaves
+              // the first in place: a blank opener is worse than one
+              // with a fault in it. "Better" is fewer faults, so a
+              // retry that fixes the repeat and keeps one long
+              // sentence still wins.
+              const retriedFaults = checkOpener(retried, sources);
+              if (
+                retried.length > 0 &&
+                faultCount(retriedFaults) < faultCount(faults)
+              ) {
                 assistantText = retried;
-              } else {
+              }
+              if (retried.length === 0 || faultCount(retriedFaults) > 0) {
                 console.error(
                   `[coach] opener still breaking the rules after a retry` +
-                    `${retried.length === 0 ? " (empty retry)" : `: ${describeHits(findBannedPhrases(retried))}`}`
+                    `${retried.length === 0 ? " (empty retry)" : `: ${describeFaults(retriedFaults)}`}`
                 );
               }
             } catch (err) {

@@ -45,8 +45,8 @@ const SYSTEM = `You write the one line that invites a leader to debrief their we
 They were IN the meeting. They do not need a recap, and being told what happened reads as a machine reciting their own week back at them.
 
 WHAT TO WRITE
-- One thing worth their attention: something that worked, or a pattern visible from outside the room and not from inside it.
-- Warm, specific, second person. It should read as though somebody paid attention.
+- One thing worth their attention: something that worked, or a pattern visible from outside the meeting and not from inside it.
+- Warm, specific, addressed to them. It should read as though somebody paid attention.
 - End with a light invitation, written as a COMPLETE question: "Do you want to think about how to build on that?", "Is it worth five minutes to look at what made it work?". Never a fragment: not "Five minutes?", not "Worth a look?". An invitation, not an instruction.
 
 Two that hit the target:
@@ -56,13 +56,22 @@ Two that hit the target:
 HARD RULES
 - Under 40 words.
 - Never a recap of the agenda, never a count of issues or commitments, never a score or a grade, never "your meeting was analyzed".
-- LEAD WITH THE STRENGTH. The first clause names what the team did well. What they had been doing before it goes second, or goes nowhere. "The team traced the collisions to the real cause and named an owner" opens correctly; "Three people assumed someone else owned the calendar" opens on the problem and is wrong, even when the sentence recovers later. The reader sees the first clause in a notification bar and may not read the rest.
-- Quote only words that appear in the summary. If you need a contrast, describe it in your own words. Never invent the other half of one and put it in somebody's mouth.
-- Name only people on the leadership team. Somebody on the floor may be described by what they did, such as "a supervisor" or "one of the pickers", but a person who is not in the room does not get named in a notification others may later see.
+- LEAD WITH THE STRENGTH. What the team did well comes first. A short context clause before it is fine ("When Dunleavy's credit came up, the team split the fault honestly"), as long as the line does not open on the problem. What they had been doing before goes second, or goes nowhere. "The team traced the collisions to the real cause and named an owner" opens correctly; "Three people assumed someone else owned the calendar" opens on the problem and is wrong, even when the sentence recovers later. The reader sees the opening words in a notification bar and may not read the rest.
+- WHO DID IT. "You" only when the person reading did the thing themselves; you are told who they are. When somebody else did it, write "your team", or that person's name when the summary says who it was. "You traced the conflict to its root" sent to somebody who only agreed with the diagnosis credits them with a colleague's work.
+- Quote only words the summary itself puts in quotation marks. If you need a contrast, describe it in your own words. Never invent the other half of one and put it in somebody's mouth.
+- Name only people on the leadership team. Somebody on the floor may be described by what they did, such as "a supervisor" or "one of the pickers", but a person who was not at the meeting does not get named in a notification others may later see.
 - No promises. You cannot remind, schedule or follow up in this phase.
 - Plain sentences.
 
 ${VOICE_CORE}`;
+
+// The prompt's limit. sanitiseHeadline's own ceiling is 45, a
+// margin for the retry, never a target.
+const HEADLINE_MAX_WORDS = 40;
+
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
 
 // Exported for the shared voice test, which holds every generated
 // surface against the same handful of rules. Not for runtime use.
@@ -75,6 +84,13 @@ export async function generateHeadline(
     meetingDate: string;
     companyName: string;
     analysisMarkdown: string;
+    // What was actually said. Quotes are checked against this, never
+    // shown to the model: a summary can put its own paraphrase in
+    // quotation marks, so "it is in the summary" proved nothing.
+    transcript: string;
+    // Who "you" is. Without it the model cannot follow the rule
+    // about crediting the right person.
+    championName: string | null;
     strengths: string[];
   }
 ): Promise<string> {
@@ -88,6 +104,7 @@ export async function generateHeadline(
         : "";
     const userTurn =
       `Company: ${input.companyName}\nMeeting date: ${input.meetingDate}` +
+      `\nWritten to: ${input.championName ?? "the company's AiMS champion (name unknown)"}` +
       `${strengths}\n\n<analysis>\n${input.analysisMarkdown.slice(0, 12000)}\n</analysis>`;
 
     const ask = async (
@@ -128,16 +145,28 @@ export async function generateHeadline(
     // of the two: a banned word is a tic, and a quote nobody said
     // is the product handing somebody a false record of their own
     // meeting. Named first in the retry for that reason.
+    //
+    // LENGTH is one of the checks. It was not: a 46-word headline
+    // went straight to sanitiseHeadline, which refuses anything over
+    // 45, and the champion got the fallback line with nothing in the
+    // log. A line four words too long wants to be asked for again,
+    // not thrown away.
     const hits = findBannedPhrases(text);
-    const invented = findUnsupportedQuotes(text, input.analysisMarkdown);
-    if (hits.length > 0 || invented.length > 0) {
+    const invented = findUnsupportedQuotes(text, input.transcript);
+    const words = wordCount(text);
+    const tooLong = words >= HEADLINE_MAX_WORDS;
+    if (hits.length > 0 || invented.length > 0 || tooLong) {
       console.log(
         `[guide] headline retry:` +
           `${invented.length > 0 ? ` invented quote(s) ${invented.map((q) => `"${q.quote}"`).join(", ")};` : ""}` +
+          `${tooLong ? ` ${words} words;` : ""}` +
           `${hits.length > 0 ? ` ${describeHits(hits)}` : ""}`
       );
       const instruction = [
         invented.length > 0 ? quoteRetryInstruction(invented) : null,
+        tooLong
+          ? `Your line is ${words} words. Write it again in under ${HEADLINE_MAX_WORDS} words, keeping the same point.`
+          : null,
         hits.length > 0 ? retryInstruction(hits) : null,
       ]
         .filter(Boolean)
@@ -149,7 +178,10 @@ export async function generateHeadline(
       ]);
       const stillWrong = [
         ...findBannedPhrases(text),
-        ...findUnsupportedQuotes(text, input.analysisMarkdown).map((q) => ({
+        ...(wordCount(text) >= HEADLINE_MAX_WORDS
+          ? [{ phrase: `${wordCount(text)} words`, context: text }]
+          : []),
+        ...findUnsupportedQuotes(text, input.transcript).map((q) => ({
           phrase: `invented quote "${q.quote}"`,
           context: q.quote,
         })),
@@ -164,7 +196,17 @@ export async function generateHeadline(
       }
     }
 
-    return sanitiseHeadline(text) ?? fallback;
+    const clean = sanitiseHeadline(text);
+    if (clean === null) {
+      // Said out loud. The fallback is a serviceable line, and a
+      // champion getting it every week is a failure that looks like
+      // success unless somebody can see why.
+      console.error(
+        `[guide] headline refused by the final check, sending the fallback: "${text}"`
+      );
+      return fallback;
+    }
+    return clean;
   } catch (err) {
     console.error(
       "[guide] headline generation failed:",
