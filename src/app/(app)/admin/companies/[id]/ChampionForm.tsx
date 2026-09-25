@@ -68,20 +68,33 @@ export function ChampionForm({
       </div>
 
       {/* The help line, which is the whole explanation this control
-          needs and is deliberately about ATTENTION rather than
-          permission. Somebody reading "champion" next to a person
-          picker will assume it grants something unless told plainly
-          that it does not. */}
+          needs.
+
+          It names the RELATIONSHIP, not the mechanism. The meeting
+          debrief is the first thing Aimee does for this person and
+          it will not be the last; copy that defined the seat as
+          "gets a note after a meeting" would be wrong the day the
+          second trigger ships, while reading — to the person who
+          holds it — like the whole job.
+
+          The second sentence stays whatever else changes. Somebody
+          reading "champion" next to a person picker will assume it
+          grants something unless told plainly that it does not. */}
       <p className={styles.subtitleInline}>
-        After each leadership meeting is summarised, Aimee sends this person
-        a note in their notification bar inviting them to talk it through.
+        This is the person who will lead your implementation of AiMS, and
+        who Aimee will coach through the process. Today that starts after
+        each leadership meeting is summarised, with a note in their
+        notification bar inviting them to talk it through.
+      </p>
+      <p className={styles.subtitleInline}>
         It changes nothing else: the seat grants no access, and anyone who
-        could already read the meeting still can.
+        could already see this company&rsquo;s work still can.
       </p>
 
       {saved === "" ? (
         <p role="status" className={styles.subtitleInline}>
-          With nobody in the seat, those notes are not sent.
+          With nobody in the seat, Aimee has no one to work with here
+          and those notes are not sent.
         </p>
       ) : null}
 

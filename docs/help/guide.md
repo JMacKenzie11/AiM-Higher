@@ -7,10 +7,19 @@ roles: [team_member, company_admin, system_admin, aims_guide]
 
 Most of the time you go to Aimee. Sometimes Aimee comes to you.
 
-After a leadership meeting is summarised, one person at your company
-gets a note in their notification bar inviting them to talk the
-meeting through. That person is the **AiMS champion**. Clicking the
-note opens a chat about that specific meeting.
+Your company has named one person to lead its implementation of AiMS.
+That person is the **AiMS champion**, and Aimee coaches them through
+it. If that is you, Aimee will get in touch from time to time with
+something worth your attention, as a note in your notification bar.
+
+## What you get today
+
+After a leadership meeting is summarised, Aimee invites the champion
+to talk it through. Clicking the note opens a chat about that
+specific meeting.
+
+That is the first of these, not the whole of it. More will follow as
+the implementation goes on.
 
 ## Why you got this
 
@@ -18,8 +27,8 @@ Your company named you the AiMS champion in company settings. It is
 the only reason. Aimee is not watching how you work, scoring you, or
 picking people out.
 
-If you would rather somebody else had it, a company admin can change
-the seat on the company's settings page, and the notes follow it.
+If you would rather somebody else led it, a company admin can change
+the seat on the company's settings page, and Aimee follows it.
 
 ## What happens in the chat
 
@@ -38,15 +47,21 @@ not been.
 The chat is private to you, like every other conversation you start.
 It appears in your Ask Aimee list afterwards.
 
+## Being the champion does not change what you can see
+
+The seat is about who Aimee works with. It grants nothing and takes
+nothing away: everything you could open before, you can open now,
+and nothing new has been opened to you.
+
 ## If you do not want it
 
 Click **Not now** underneath the note. It goes away and nothing
 happens.
 
-You will be invited again after the next meeting. If you would
-rather not be invited at all, ask a company admin to take you out of
-the champion seat. Leaving the seat empty is a normal thing to do:
-nobody is nudged and nothing else changes.
+Aimee will be in touch again after the next meeting. If you would
+rather not be, ask a company admin to take you out of the champion
+seat. Leaving the seat empty is a normal thing to do: nobody is
+contacted and nothing else changes.
 
 ## If you miss one
 
