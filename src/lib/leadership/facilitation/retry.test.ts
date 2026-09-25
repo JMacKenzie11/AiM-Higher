@@ -19,10 +19,11 @@ import type Anthropic from "@anthropic-ai/sdk";
 const usage = vi.hoisted(() => ({ log: vi.fn() }));
 vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: usage.log }));
 
-function toolResponse(input: Record<string, unknown>) {
+function toolResponse(input: Record<string, unknown>, stop_reason = "tool_use") {
   return {
     content: [{ type: "tool_use", name: "record_facilitation_review", input }],
     usage: { input_tokens: 10, output_tokens: 10 },
+    stop_reason,
   };
 }
 
@@ -125,5 +126,34 @@ describe("analyzeMeetingFacilitation retry", () => {
     await analyzeMeetingFacilitation(client, input);
 
     expect(usage.log).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a review cut off at the token limit as unscored, and retries it", async () => {
+    // The Geo-Sci specimen, 2026-09-25: every score present, the
+    // executive summary (the last field) empty, stop_reason max_tokens.
+    // It was stored as a complete review.
+    const { analyzeMeetingFacilitation } = await import("./analyze");
+    const create = vi.fn();
+    create.mockResolvedValueOnce(toolResponse({ ...SCORED, executive_summary: "" }, "max_tokens"));
+    create.mockResolvedValueOnce(toolResponse(SCORED));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const review = await analyzeMeetingFacilitation({ messages: { create } } as unknown as Anthropic, input);
+
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(review?.executive_summary).toBe(SCORED.executive_summary);
+    expect(err.mock.calls.map((c) => String(c[0])).join("\n")).toMatch(/cut off at max_tokens/);
+    err.mockRestore();
+  });
+
+  it("never stores a cut-off review, even when the retry is cut off too", async () => {
+    const { analyzeMeetingFacilitation } = await import("./analyze");
+    const create = vi.fn();
+    create.mockResolvedValue(toolResponse(SCORED, "max_tokens"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await analyzeMeetingFacilitation({ messages: { create } } as unknown as Anthropic, input)).toBeNull();
+    expect(create).toHaveBeenCalledTimes(2);
+    err.mockRestore();
   });
 });
