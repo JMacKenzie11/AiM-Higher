@@ -8,11 +8,15 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationReview } from "@/components/leadership/FacilitationReview";
-import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { ReanalyzeMeetingButton } from "./ReanalyzeMeetingButton";
 import type { FacilitationReview as FacilitationReviewData } from "@/lib/leadership/facilitation/types";
 import { isScoredReview } from "@/lib/leadership/facilitation/scored";
 import { splitCoreValues } from "@/lib/transcripts/section-order";
+import { attendeesFromSummary } from "@/lib/transcripts/attendees";
+import { overallForRow } from "@/lib/leadership/facilitation/score";
+import { dueLabel } from "@/lib/commitments/due-label";
+import { AnalysisTabs } from "./AnalysisTabs";
+import tabStyles from "./analysis-tabs.module.css";
 import type {
   ExtractedCommitment,
   ExtractedIssue,
@@ -82,7 +86,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       .maybeSingle<MeetingAnalysis>(),
     supabase
       .from("commitments")
-      .select("id, description, owner_id, due_date")
+      .select("id, description, owner_id, due_date, due_date_defaulted")
       .eq("source_meeting_id", id),
   ]);
 
@@ -115,6 +119,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     description: string;
     owner_id: string | null;
     due_date: string;
+    due_date_defaulted: boolean | null;
   }>;
   // Reanalyze (and first-run) leave meeting.status in "pending" or
   // "analyzing" until the LLM call returns. The summary body renders
@@ -370,6 +375,145 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     title: string;
   }>;
 
+  // Names only, from the summary's own attendee list: the same list
+  // the owner check reads (attendees.ts), hedged lines left out.
+  const attendees = attendeesFromSummary(analysis?.analysis_markdown ?? "");
+  const overall = facilitationReview
+    ? overallForRow(analysis, facilitationReview)
+    : null;
+
+  // ---- Tab 1: Coaching notes ----------------------------------
+  const coachingNotes = (
+    <>
+      {/* Core Values first on the tab, in its own card. Absent is
+          ordinary: the prompt omits the section rather than
+          manufacture one, and then no card renders. */}
+      {analysisParts.values ? (
+        <section className={styles.card} aria-labelledby="core-values">
+          <h2 id="core-values" className={styles.h2}>
+            Core Values in Action
+          </h2>
+          <div className="aims-prose">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {analysisParts.values}
+            </ReactMarkdown>
+          </div>
+        </section>
+      ) : null}
+      {facilitationReview ? (
+        <FacilitationReview
+          review={facilitationReview}
+          score={overall?.score ?? null}
+          weightsFrom={overall?.weightsFrom ?? null}
+        />
+      ) : null}
+      {!analysisParts.values && !facilitationReview ? (
+        <p className={styles.emptyLine}>No coaching notes for this meeting.</p>
+      ) : null}
+    </>
+  );
+
+  // ---- Tab 2: Issues and commitments --------------------------
+  const hasTab2 =
+    (autoTrackOn && commitmentRows.length > 0) ||
+    (!autoTrackOn && commitmentExtractionRows.length > 0) ||
+    issueRows.length > 0;
+  const issuesAndCommitments = (
+    <>
+      {/* AUTO-TRACKING ON ONLY. These rows exist whenever the
+          pipeline created them, or whenever an admin added one from
+          Commitments identified, which is how a company with
+          tracking OFF ends up with both. Only one is ever the right
+          answer, and with tracking off it is the other one. */}
+      {autoTrackOn && commitmentRows.length > 0 ? (
+        <section className={styles.card} aria-labelledby="cmt">
+          <h2 id="cmt" className={styles.h2}>
+            Commitments created
+          </h2>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+            {commitmentRows.map((c) => (
+              <li
+                key={c.id}
+                style={{
+                  padding: "var(--space-3) 0",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>{c.description}</div>
+                <div className={styles.mutedCell}>
+                  {c.owner_id
+                    ? rosterById.get(c.owner_id) ?? "Unknown"
+                    : "Unassigned"}
+                  {" · "}
+                  {c.due_date_defaulted ? dueLabel(c) : `Due ${dueLabel(c)}`}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* Auto-tracking OFF: extracted but not created. The routing
+          UI lets an admin add each with the intended link. */}
+      {!autoTrackOn && commitmentExtractionRows.length > 0 ? (
+        <ExtractedCommitmentsSection
+          meetingId={meeting.id}
+          rows={commitmentExtractionRows}
+          priorityOptions={priorityOptions}
+          functionalAreaOptions={functionalAreaOptions}
+          canAdd={isAdmin}
+        />
+      ) : null}
+
+      {/* Issues are NEVER auto-created, whatever the flag. */}
+      {issueRows.length > 0 ? (
+        <ExtractedIssuesSection
+          meetingId={meeting.id}
+          rows={issueRows}
+          canAdd={isAdmin}
+        />
+      ) : null}
+
+      {!hasTab2 ? (
+        <p className={styles.emptyLine}>
+          No commitments or issues came out of this meeting.
+        </p>
+      ) : null}
+    </>
+  );
+
+  // ---- Tab 3: Full record -------------------------------------
+  const fullRecord = (
+    <section className={styles.card} aria-labelledby="analysis">
+      <h2 id="analysis" className={styles.h2}>
+        Full record
+      </h2>
+      {analysis?.analysis_markdown ? (
+        <>
+          {/* SAY SO WHEN IT IS CUT OFF, from the recorded flag
+              (0233), never guessed from the punctuation. */}
+          {analysis.truncated ? (
+            <p className={styles.emptyLine} role="status">
+              This summary was cut short before it finished. The
+              commitments and the meeting review are complete, because
+              they come from separate passes. Reanalyze the meeting to
+              generate the full summary.
+            </p>
+          ) : null}
+          <div className="aims-prose">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {/* Core Values lives on the Coaching notes tab. See
+                  section-order.ts. */}
+              {analysisParts.rest}
+            </ReactMarkdown>
+          </div>
+        </>
+      ) : (
+        <p className={styles.emptyLine}>Analysis not available.</p>
+      )}
+    </section>
+  );
+
   return (
     <div className={styles.stage}>
       <section className={styles.hero} aria-label="Meeting analysis">
@@ -399,16 +543,6 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       </section>
 
       <div className={styles.content}>
-        <div style={{ display: "flex" }}>
-          <PrivacyNote tone="managerial">
-            This meeting analysis is visible to everyone at this company.
-            Facilitation reviews and raw transcripts stay admin-only.
-            Commitments extracted from the meeting appear in each owner&rsquo;s
-            Commitments list and scorecard — same visibility as any other
-            commitment.
-          </PrivacyNote>
-        </div>
-
         {isProcessing ? (
           <div
             className={processingStyles.processingBanner}
@@ -429,123 +563,58 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           </div>
         ) : null}
 
-        {/* CORE VALUES FIRST, AND ON ITS OWN — above every other card.
-            It sat above the Analysis card, which still left the
-            commitments card ahead of it. "First" means first on the
-            page, not first among the prose sections.
-            Its own card above the analysis rather than a heading
-            inside it: values are what the leader is asked to look at
-            first, and a heading partway down a long document is not
-            "first" in any sense a reader experiences. Absent is
-            ordinary — the prompt omits the section rather than
-            manufacture one — and then no card renders at all. */}
-        {analysisParts.values ? (
-          <section className={styles.card} aria-labelledby="core-values">
-            <h2 id="core-values" className={styles.h2}>
-              Core Values in Action
-            </h2>
-            <div className="aims-prose">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {analysisParts.values}
-              </ReactMarkdown>
+        {/* THE STRIP. Above the tabs, so it stays on every tab: when,
+            who, and (for the people who can see the review) the score,
+            rounded. The exact figure is in the review's "How this is
+            scored". */}
+        <div className={tabStyles.strip} aria-label="Meeting at a glance">
+          <div className={tabStyles.stripItem}>
+            <span className={tabStyles.stripLabel}>Date</span>
+            <span className={tabStyles.stripValue}>
+              {new Date(meeting.created_at).toLocaleDateString(undefined, {
+                weekday: "short",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+          </div>
+          {attendees.length > 0 ? (
+            <div className={tabStyles.stripItem}>
+              <span className={tabStyles.stripLabel}>Attendees</span>
+              <span className={tabStyles.stripValue}>{attendees.join(", ")}</span>
             </div>
-          </section>
-        ) : null}
+          ) : null}
+          {facilitationReview && overall ? (
+            <div className={tabStyles.stripItem}>
+              <span className={tabStyles.stripLabel}>Score</span>
+              <span className={tabStyles.stripScore}>
+                {overall.score.rounded}
+                <span className={tabStyles.stripScoreDenom}>/10</span>
+              </span>
+            </div>
+          ) : null}
+        </div>
 
-        {/* AUTO-TRACKING ON ONLY. These rows exist whenever the
-            pipeline created them — or whenever an admin added one
-            from the Commitments identified section below, which is
-            how a company with tracking OFF ends up rendering both
-            headings for the same meeting. Only one of them is ever
-            the right answer, and when tracking is off it is the
-            other one: that section already marks what has been
-            added and where it went. */}
-        {autoTrackOn && commitmentRows.length > 0 ? (
-          <section className={styles.card} aria-labelledby="cmt">
-            <h2 id="cmt" className={styles.h2}>
-              Commitments created
-            </h2>
-            <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-              {commitmentRows.map((c) => (
-                <li
-                  key={c.id}
-                  style={{
-                    padding: "var(--space-3) 0",
-                    borderBottom: "1px solid var(--border)",
-                  }}
-                >
-                  <div style={{ fontWeight: 600 }}>{c.description}</div>
-                  <div className={styles.mutedCell}>
-                    {c.owner_id
-                      ? rosterById.get(c.owner_id) ?? "Unknown"
-                      : "Unassigned"}{" "}
-                    · Due {c.due_date}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {/* Auto-tracking OFF: the extraction pipeline stored the
-            commitments in analysis.commitments_json but didn't
-            create rows. Render the routing UI so an admin can
-            add each with the intended link. */}
-        {!autoTrackOn && commitmentExtractionRows.length > 0 ? (
-          <ExtractedCommitmentsSection
-            meetingId={meeting.id}
-            rows={commitmentExtractionRows}
-            priorityOptions={priorityOptions}
-            functionalAreaOptions={functionalAreaOptions}
-            canAdd={isAdmin}
-          />
-        ) : null}
-
-        {/* Extracted issues — always surfaced regardless of the
-            auto-tracking flag; issues are NEVER auto-created. */}
-        {issueRows.length > 0 ? (
-          <ExtractedIssuesSection
-            meetingId={meeting.id}
-            rows={issueRows}
-            canAdd={isAdmin}
-          />
-        ) : null}
-
-        <section className={styles.card} aria-labelledby="analysis">
-          <h2 id="analysis" className={styles.h2}>
-            Analysis
-          </h2>
-          {analysis?.analysis_markdown ? (
-            <>
-              {/* SAY SO WHEN IT IS CUT OFF. The model stopped at the
-                  token ceiling and the text simply ends — with no
-                  marker in it, a reader has no way to tell a finished
-                  summary from half of one. Read from the recorded
-                  flag (0233), never guessed from the punctuation. */}
-              {analysis.truncated ? (
-                <p className={styles.emptyLine} role="status">
-                  This summary was cut short before it finished. The
-                  commitments and the meeting review below are complete
-                  — they come from separate passes. Reanalyze the
-                  meeting to generate the full summary.
-                </p>
-              ) : null}
-              <div className="aims-prose">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {/* Core Values has been lifted out into its own
-                      card above. See section-order.ts. */}
-                  {analysisParts.rest}
-                </ReactMarkdown>
-              </div>
-            </>
-          ) : (
-            <p className={styles.emptyLine}>Analysis not available.</p>
-          )}
-        </section>
-
-        {facilitationReview ? (
-          <FacilitationReview review={facilitationReview} />
-        ) : null}
+        <AnalysisTabs
+          tabs={[
+            {
+              hash: "coaching-notes",
+              label: "Coaching notes",
+              content: coachingNotes,
+            },
+            {
+              hash: "issues-and-commitments",
+              label: "Issues and commitments",
+              content: issuesAndCommitments,
+            },
+            {
+              hash: "full-record",
+              label: "Full record",
+              content: fullRecord,
+            },
+          ]}
+        />
 
         {/* System admins only, and only for a meeting with no
             commitments or issues created from it: Reanalyze replaces

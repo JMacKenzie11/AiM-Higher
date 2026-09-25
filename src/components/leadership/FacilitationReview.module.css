@@ -331,7 +331,6 @@
   font: var(--text-body-sm);
   color: var(--text-muted);
   margin: 0 0 var(--space-3);
-  max-width: 68ch;
 }
 
 .auditTableWrap {
@@ -446,4 +445,124 @@
     align-self: flex-start;
     justify-content: flex-start;
   }
+}
+
+/* ---- The score: one line under it, and how it is made ---- */
+
+.mirrorLine {
+  margin: var(--space-1) 0 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  grid-column: 1;
+}
+
+.scoreDetails {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+}
+
+.scoreDetails > summary {
+  cursor: pointer;
+  font: var(--text-button-sm);
+  color: var(--primary);
+  padding: var(--space-1) 0;
+}
+
+.scoreTableWrap {
+  overflow-x: auto;
+  margin-top: var(--space-2);
+}
+
+.scoreTable {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body-sm);
+}
+
+.scoreTable th,
+.scoreTable td {
+  text-align: left;
+  padding: var(--space-1) var(--space-3) var(--space-1) 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.scoreTable th {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.scoreArithmetic {
+  margin: var(--space-3) 0 var(--space-1);
+  font: var(--text-body-sm);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.scoreNote {
+  margin: 0 0 var(--space-1);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+/* ---- Questions ---- */
+
+.questionsBlock {
+  padding-top: var(--space-2);
+}
+
+.questionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.questionItem {
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-cobalt-tint);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--aims-cobalt);
+}
+
+.questionText {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-heading);
+  font-size: 15px;
+}
+
+.questionMoment {
+  margin-top: 4px;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.questionsHelp {
+  margin: var(--space-3) 0 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.askedItem {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.askedItem:last-child {
+  border-bottom: none;
+}
+
+.askedQuestion {
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.askedBy {
+  margin-top: 2px;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
 }

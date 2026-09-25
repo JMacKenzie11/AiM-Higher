@@ -96,4 +96,12 @@ export type FacilitationReview = {
   appreciation_moments?: FacilitationMoment[];
   generative_questions?: FacilitationMoment[];
   reframes?: FacilitationMoment[];
+  // Added by the pipeline after the review, not by the review call.
+  // See src/lib/leadership/questions.ts.
+  //
+  // Generated: three questions for next week, each tied to a moment.
+  next_week_questions?: { question: string; moment: string }[];
+  // Parsed, never written: the best questions people asked, with who
+  // asked them.
+  opening_questions?: { question: string; asker: string }[];
 };

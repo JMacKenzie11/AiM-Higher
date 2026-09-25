@@ -634,6 +634,8 @@ export async function rescheduleCommitmentAction(
     .update({
       due_date: trimmedDate,
       week_ending: fridayOf(trimmedDate),
+      // A date somebody chose is a date. See migration 0236.
+      due_date_defaulted: false,
       // Reason stored in the audit column when supplied; may be null
       // for admin-driven reschedules with no reason attached.
       missed_reason: trimmedReason,
@@ -725,6 +727,8 @@ export async function unparkCommitmentAction(
       parked_at: null,
       due_date: trimmedDate,
       week_ending: fridayOf(trimmedDate),
+      // A date somebody chose is a date. See migration 0236.
+      due_date_defaulted: false,
     })
     .eq("id", commitmentId)
     .select("*")
@@ -1208,6 +1212,7 @@ async function recordOngoingResolution(
     .update({
       due_date: nextDueDate,
       week_ending: nextWeekEnding,
+      due_date_defaulted: false,
     })
     .eq("id", commitment.id)
     .select("*")

@@ -1,0 +1,102 @@
+/* The measures board's view toggle (measures/board), same tokens.
+   Wraps rather than scrolls at phone width: three short labels fit
+   on two lines, and a scrolling tab row hides a tab. */
+
+.tabRow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: var(--space-4);
+  max-width: 100%;
+}
+
+.tab,
+.tabActive {
+  padding: 6px var(--space-4);
+  border-radius: var(--radius-pill);
+  font: var(--text-button-sm);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.tab {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.tab:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text);
+}
+
+.tabActive {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
+}
+
+.tab:focus-visible,
+.tabActive:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+/* ---- The strip above the tabs ------------------------------- */
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.stripItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stripLabel {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stripValue {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.stripScore {
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--primary);
+}
+
+.stripScoreDenom {
+  font-weight: 400;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}

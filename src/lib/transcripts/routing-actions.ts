@@ -186,6 +186,9 @@ export async function addExtractedCommitmentAction(input: {
   meetingId: string;
   description: string;
   dueDate: string | null;
+  // The extraction's due_defaulted: the date is the one-week floor,
+  // shown as "By next meeting". See migration 0236.
+  dueDefaulted?: boolean;
   ownerId: string | null;
   target: ExtractedCommitmentTarget;
 }): Promise<RoutingResult> {
@@ -265,6 +268,7 @@ export async function addExtractedCommitmentAction(input: {
     description,
     week_ending: weekEnding,
     due_date: dueDate,
+    due_date_defaulted: input.dueDate !== null && input.dueDefaulted === true,
     status: "open",
     source_meeting_id: input.meetingId,
   });

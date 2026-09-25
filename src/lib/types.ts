@@ -231,6 +231,9 @@ export type Commitment = {
   description: string;
   week_ending: string;
   due_date: string;
+  // The one-week floor supplied this date because nobody named a
+  // day. Shown as "By next meeting". See migration 0236.
+  due_date_defaulted: boolean;
   status: CommitmentStatus;
   completed_at: string | null;
   missed_reason: string | null;
@@ -677,6 +680,9 @@ export type ExtractedCommitment = {
   // the same words always give the same day. See due-phrase.ts.
   due_phrase?: string | null;
   due_date: string | null;
+  // True when the date came from the one-week floor, not from
+  // anything said. Carried onto the commitment row.
+  due_defaulted?: boolean;
   priority_id: string | null;
   // Clarity scoring: analyzer's assessment of whether the
   // commitment as spoken meets each of the two AiMS criteria,
@@ -744,6 +750,15 @@ export type MeetingAnalysis = {
   // meeting_facilitation_review feature is off or the second pass
   // failed. Rendered by the FacilitationReview component.
   facilitation_review_json: unknown | null;
+  // The score's parts, its computed overall, and the weights used
+  // (migration 0236). Null on rows written before it; the page then
+  // computes from the review JSON (score.ts, overallForRow).
+  score_rhythm?: number | null;
+  score_accountability?: number | null;
+  score_alignment?: number | null;
+  score_agenda?: number | null;
+  score_overall?: number | null;
+  score_weights?: Record<string, number> | null;
   model: string;
   created_at: string;
 };

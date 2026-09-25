@@ -174,6 +174,7 @@ describe("validateExtracted", () => {
           // Kept on purpose since 2026-09-25, so a date traces to what
           // was said. Typed, and capped at 80 characters.
           "due_phrase",
+          "due_defaulted",
           "owner_profile_id",
           "priority_id",
         ].sort()

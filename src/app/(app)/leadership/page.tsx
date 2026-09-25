@@ -6,6 +6,7 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationListChip } from "@/components/leadership/FacilitationReview";
+import type { overallForRow } from "@/lib/leadership/facilitation/score";
 import { isScoredReview } from "@/lib/leadership/facilitation/scored";
 import { PageShell } from "@/components/ui/PageShell";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
@@ -56,6 +57,7 @@ export default async function LeadershipPage() {
   );
   const facilitationOn = facilitationFeatureOn && isAdmin;
   const reviewByMeetingId = new Map<string, FacilitationReview>();
+  const scoreRowByMeetingId = new Map<string, Parameters<typeof overallForRow>[0]>();
   if (facilitationOn) {
     const completeIds = meetings
       .filter((m) => m.status === "complete")
@@ -63,12 +65,22 @@ export default async function LeadershipPage() {
     if (completeIds.length > 0) {
       const { data: analysisRows } = await supabase
         .from("meeting_analyses")
-        .select("meeting_id, facilitation_review_json")
+        .select(
+          "meeting_id, facilitation_review_json, score_rhythm, score_accountability, score_alignment, score_agenda, score_weights"
+        )
         .in("meeting_id", completeIds);
       for (const row of (analysisRows ?? []) as Array<{
         meeting_id: string;
         facilitation_review_json: FacilitationReview | null;
+        score_rhythm: number | null;
+        score_accountability: number | null;
+        score_alignment: number | null;
+        score_agenda: number | null;
+        score_weights: unknown;
       }>) {
+        // The same parts the detail page reads, so the chip and the
+        // page show the same number.
+        scoreRowByMeetingId.set(row.meeting_id, row);
         // isScoredReview, so this list and the meeting detail page
         // agree about whether a review exists. They disagreed for
         // meeting 4d235cd3: a stored review with every score null
@@ -138,7 +150,10 @@ export default async function LeadershipPage() {
                       {facilitationOn ? (
                         <td>
                           {review ? (
-                            <FacilitationListChip review={review} />
+                            <FacilitationListChip
+                              review={review}
+                              row={scoreRowByMeetingId.get(m.id) ?? null}
+                            />
                           ) : (
                             <span className={styles.mutedCell}>—</span>
                           )}

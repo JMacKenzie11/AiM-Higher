@@ -329,6 +329,10 @@ export function replaceSpeakerLabels(
     }
   }
   let replaced = 0;
+  // A label glossed with another label, "Speaker 7 (Speaker 7)",
+  // came out as "An unidentified speaker (an unidentified speaker)".
+  // The parenthesis adds nothing, so it goes before anything else.
+  text = text.replace(/(\bSpeaker\s+\d+)\s*\(\s*Speaker\s+\d+\s*\)/gi, "$1");
   // Plural first: "Five unidentified speakers (Speakers 5, 7, 8)".
   // A parenthesis holding nothing but labels says nothing to a reader
   // and goes; a list of labels anywhere else becomes one phrase.

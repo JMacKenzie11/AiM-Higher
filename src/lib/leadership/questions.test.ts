@@ -1,0 +1,124 @@
+import { describe, it, expect, vi } from "vitest";
+import type Anthropic from "@anthropic-ai/sdk";
+import {
+  parseOpeningQuestions,
+  questionFaults,
+  generateMeetingQuestions,
+} from "./questions";
+
+// Real lines, from the Benson summary and the fixture summary.
+const SUMMARY = `### A) Check-In
+
+**Key Questions That Facilitated the Discussion**
+- Darlene Clinch: "What about sanitation?" (surfaced a gap in the proposed dashboard)
+
+**Decisions Made (Within This Topic)**
+None.
+
+### B) Staffing
+
+**Key Questions That Facilitated the Discussion**
+- An unidentified speaker: "Five persons a shift, or six or four?" (grounded the staffing conversation)
+- Susan Benson: Are they coming printed or just the phone? (not in quotation marks, so not verified)
+- Casey Benson, checking his own reasoning: "If people want to not bank hours but bank money for the next three or four weeks... do we even offer that?" (a possible benefit)
+- "What's dragging it?" (E2E Company Admin, moving from the top-line number to root cause)
+- Casey: asking whether the venue runs fixed hours.
+
+## Decisions Made (Summary Section)
+- "Not a question at all" (Casey Benson, a decision)`;
+
+describe("parseOpeningQuestions", () => {
+  it("credits named askers of quoted questions, in both formats", () => {
+    expect(parseOpeningQuestions(SUMMARY)).toEqual([
+      { question: "What about sanitation?", asker: "Darlene Clinch" },
+      {
+        question:
+          "If people want to not bank hours but bank money for the next three or four weeks... do we even offer that?",
+        asker: "Casey Benson",
+      },
+      { question: "What's dragging it?", asker: "E2E Company Admin" },
+    ]);
+  });
+
+  it("gives no credit to an unidentified speaker, or to an unquoted paraphrase", () => {
+    const askers = parseOpeningQuestions(SUMMARY).map((q) => q.asker);
+    expect(askers).not.toContain("An unidentified speaker");
+    expect(parseOpeningQuestions(SUMMARY).map((q) => q.question)).not.toContain(
+      "Are they coming printed or just the phone?"
+    );
+  });
+
+  it("reads only the Key Questions lists", () => {
+    expect(parseOpeningQuestions(SUMMARY).map((q) => q.question)).not.toContain("Not a question at all");
+  });
+});
+
+describe("questionFaults", () => {
+  it("passes the target question", () => {
+    expect(
+      questionFaults(
+        "Nancy's technique spread because she showed it to people. Where else on our floor is someone doing something well that nobody has watched yet?"
+      )
+    ).toEqual([]);
+  });
+
+  it("refuses diagnosis, length, a missing question mark and a banned phrase", () => {
+    expect(questionFaults("Why hasn't the calendar had an owner until now?")).toContain(
+      "opens as a diagnosis, not a possibility"
+    );
+    expect(questionFaults("What went wrong with the Tuesday schedule?")).toContain(
+      "opens as a diagnosis, not a possibility"
+    );
+    expect(questionFaults(`${"word ".repeat(35)}?`)[0]).toMatch(/needs to be under 35/);
+    expect(questionFaults("Where else could we try that")).toContain("does not end in a question mark");
+    expect(questionFaults("What would it look like to unpack that together?").join(" ")).toMatch(/unpack/);
+  });
+});
+
+function stub(...outputs: Array<Record<string, unknown>>) {
+  const create = vi.fn();
+  for (const o of outputs) {
+    create.mockResolvedValueOnce({ content: [{ type: "tool_use", id: "t", name: "record_questions", input: o }] });
+  }
+  return { client: { messages: { create } } as unknown as Anthropic, create };
+}
+
+const GOOD = [
+  { moment: "Nancy showed her technique", question: "Nancy's technique spread because she showed it. Where else is someone doing something well that nobody has watched yet?" },
+  { moment: "the shutdown plan", question: "The shutdown plan took care of both groups of workers. What would it look like to plan the next one that early?" },
+  { moment: "Grand Manan booth", question: "Sharing a booth came up as a way to spread the cost. Where else could island businesses do more together?" },
+];
+
+describe("generateMeetingQuestions", () => {
+  const asked = parseOpeningQuestions(SUMMARY);
+  const base = { model: "m", analysisMarkdown: SUMMARY, strengths: [], asked };
+
+  it("keeps good questions and credits the picks from the parsed list, never the model's words", async () => {
+    const { client, create } = stub({ questions: GOOD, best_asked: [3, 1, 99] });
+    const out = await generateMeetingQuestions(client, base);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(out.nextWeek).toHaveLength(3);
+    // 99 is out of range and ignored.
+    expect(out.opened).toEqual([asked[2], asked[0]]);
+  });
+
+  it("retries once naming the fault, then drops a question still wrong, and strips em dashes", async () => {
+    const bad = [{ moment: "x", question: "Why hasn't anyone owned the calendar?" }, GOOD[1], GOOD[2]];
+    const stillBad = [
+      { moment: "x", question: "What went wrong with the calendar?" },
+      { moment: "y", question: "The shutdown plan landed early — what made that possible for us?" },
+      GOOD[2],
+    ];
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { client, create } = stub({ questions: bad, best_asked: [] }, { questions: stillBad, best_asked: [] });
+    const out = await generateMeetingQuestions(client, base);
+    expect(create).toHaveBeenCalledTimes(2);
+    const retry = create.mock.calls[1][0].messages.at(-1).content as string;
+    expect(retry).toContain("opens as a diagnosis");
+    expect(out.nextWeek.map((q) => q.question)).toHaveLength(2);
+    expect(out.nextWeek.every((q) => !q.question.includes("—"))).toBe(true);
+    err.mockRestore();
+    log.mockRestore();
+  });
+});

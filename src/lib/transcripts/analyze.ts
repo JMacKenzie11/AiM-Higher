@@ -19,6 +19,8 @@ import {
   replaceSpeakerLabels,
 } from "./speakers";
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
+import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/score";
+import { generateMeetingQuestions, parseOpeningQuestions } from "@/lib/leadership/questions";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
@@ -378,6 +380,38 @@ export async function analyzeMeeting(
       }
     }
 
+    // ---- Questions, for the Coaching notes tab ----
+    //
+    // After the review, because the generated questions start from
+    // what it found went well. Best effort, like the review: an empty
+    // block is a smaller loss than a failed analysis.
+    if (facilitationReview && !facilitationReview.insufficient_transcript) {
+      const questions = await generateMeetingQuestions(client, {
+        model,
+        analysisMarkdown,
+        strengths: facilitationReview.strengths.map((s) => s.title),
+        asked: parseOpeningQuestions(analysisMarkdown),
+      });
+      facilitationReview = {
+        ...facilitationReview,
+        next_week_questions: questions.nextWeek,
+        opening_questions: questions.opened,
+      };
+    }
+
+    // The score, computed from the four parts and stored with the
+    // weights that made it (migration 0236). Null throughout when the
+    // review did not run or could not score.
+    const scoreParts = facilitationReview && !facilitationReview.insufficient_transcript
+      ? {
+          rhythm: facilitationReview.dimensions.rhythm.score,
+          accountability: facilitationReview.dimensions.accountability.score,
+          alignment: facilitationReview.dimensions.alignment.score,
+          agenda: facilitationReview.agenda_adherence.score_out_of_5,
+        }
+      : null;
+    const overallScore = scoreParts ? computeOverall(scoreParts) : null;
+
     // Store the analysis row so system_admin / company_admin can
     // read the markdown.
     // THE ERROR IS CHECKED. It was not, and that turned a failed
@@ -398,6 +432,12 @@ export async function analyzeMeeting(
       analysis_markdown: stripEmDashes(analysisMarkdown),
       truncated: analysisTruncated,
       coverage_json: coverage,
+      score_rhythm: scoreParts?.rhythm ?? null,
+      score_accountability: scoreParts?.accountability ?? null,
+      score_alignment: scoreParts?.alignment ?? null,
+      score_agenda: scoreParts?.agenda ?? null,
+      score_overall: overallScore ? overallScore.hundredths / 100 : null,
+      score_weights: overallScore ? SCORE_WEIGHTS : null,
       commitments_json: validated,
       issues_json: validatedIssues,
       // Every string in the review, through the same label pass as
@@ -934,11 +974,16 @@ export function validateExtracted(
         ? item.due_date
         : null);
     let due: string;
+    // Whether the floor supplied the date rather than anything said:
+    // shown as "By next meeting" instead of a date nobody agreed.
+    let defaulted = false;
     if (!rawDate) {
       due = floorIso;
+      defaulted = true;
     } else if (fromPhrase !== null || claTimeline === true) {
       due = rawDate;
     } else {
+      defaulted = rawDate <= floorIso;
       due = rawDate < floorIso ? floorIso : rawDate;
     }
 
@@ -953,6 +998,7 @@ export function validateExtracted(
           ? item.due_phrase.trim().slice(0, 80)
           : null,
       due_date: due,
+      due_defaulted: defaulted,
       priority_id: priority,
       clarity_timeline: claTimeline,
       clarity_success: claSuccess,
@@ -1061,6 +1107,8 @@ async function createCommitmentsFromExtraction(
       description: c.description,
       week_ending: thisFri,
       due_date: due,
+      // Only when the date that lands is the one the floor supplied.
+      due_date_defaulted: c.due_defaulted === true && due === c.due_date,
       status: "open" as const,
       source_meeting_id: meeting.id,
       clarity_timeline: c.clarity_timeline,
