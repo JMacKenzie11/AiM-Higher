@@ -490,11 +490,11 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     </>
   );
 
-  // ---- Tab 3: Full record -------------------------------------
+  // ---- Tab 3: Meeting Analysis --------------------------------
   const fullRecord = (
     <section className={styles.card} aria-labelledby="analysis">
       <h2 id="analysis" className={styles.h2}>
-        Full record
+        Meeting Analysis
       </h2>
       {analysis?.analysis_markdown ? (
         <>
@@ -617,8 +617,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
               content: issuesAndCommitments,
             },
             {
-              hash: "full-record",
-              label: "Full record",
+              hash: "meeting-analysis",
+              label: "Meeting Analysis",
               content: fullRecord,
             },
           ]}

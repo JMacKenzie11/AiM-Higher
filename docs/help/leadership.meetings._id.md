@@ -22,11 +22,11 @@ score. It stays in view on every tab. Below it are three tabs:
 - **Issues and commitments**: the commitments the meeting created
   and the issues it raised, with the controls to add or resolve
   them.
-- **Full record**: purpose, attendees, agenda, the discussion
+- **Meeting Analysis**: purpose, attendees, agenda, the discussion
   section by section, decisions and support needed.
 
 Each tab has its own link. Add `#coaching-notes`,
-`#issues-and-commitments` or `#full-record` to the page address to
+`#issues-and-commitments` or `#meeting-analysis` to the page address to
 send someone straight to that tab.
 
 A commitment where nobody named a day shows **By next meeting**
