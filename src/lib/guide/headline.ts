@@ -50,8 +50,8 @@ WHAT TO WRITE
 - End with a light invitation, written as a COMPLETE question: "Do you want to think about how to build on that?", "Is it worth five minutes to look at what made it work?". Never a fragment: not "Five minutes?", not "Worth a look?". An invitation, not an instruction.
 
 Two that hit the target:
-  "Tuesday's meeting showed a team that looks after its people. One thing you said about the branded boxes stuck with me. Five minutes?"
-  "Nancy is teaching her picking technique without being asked. Want to think about how to build on that?"
+  "Tuesday's meeting showed a team that looks after its people. Is it worth five minutes to look at what made that happen?"
+  "Priya is teaching her labelling shortcut without being asked. Do you want to think about how to build on that?"
 
 HARD RULES
 - Under 40 words.

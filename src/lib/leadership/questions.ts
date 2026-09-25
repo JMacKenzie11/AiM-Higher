@@ -80,7 +80,7 @@ EACH QUESTION
 - Is under 35 words, one or two short sentences ending in one question mark.
 
 The target, from a real meeting:
-  "Nancy's technique spread because she showed it to people. Where else on our floor is someone doing something well that nobody has watched yet?"
+  "Priya's labelling shortcut spread because she showed it to people. Where else on our floor is someone doing something well that nobody has watched yet?"
 
 For each question also give "moment": the thing that happened in the meeting it is drawn from, in a few plain words.
 
@@ -88,7 +88,7 @@ QUESTIONS THAT OPENED THINGS UP
 
 Separately, find the questions in THIS meeting's transcript that changed where the discussion went. Judge by EFFECT, not by form: a question qualifies only if the discussion after it went somewhere it was not going before. It led to a reframe, a new option, a retired assumption, or a gap surfaced. Read what came after each question before you pick it.
 
-- A clarifying question never qualifies ("Who's on that?", "When?", "What about sanitation?", "Is Nancy the new one?"), however well it was asked.
+- A clarifying question never qualifies ("Who's on that?", "When?", "What about the night shift?", "Is Tom the new hire?"), however well it was asked.
 - A question can be phrased as a statement of doubt ("I don't know if they know...") and still count, if the room took it somewhere.
 - For each candidate, write "was_heading" and "went" first, from what the transcript shows. If "went" is only "they answered it", drop the candidate.
 - Up to four. None, if none qualified. Never pad the list.
@@ -96,11 +96,11 @@ Separately, find the questions in THIS meeting's transcript that changed where t
 - "asked": a lightly cleaned paraphrase that completes "<first name> asked ...". No quotation marks. Keep their meaning, drop the stumbles.
 - "opened": what the discussion did next, in plain words, one short sentence.
 
-Four that qualified, from ANOTHER company's meeting. They show the standard. Never reuse their names, places or details:
-  asked: "how an end buyer would ever come back to Benson directly"  opened: "Set the branding inserts' real goal: reaching the buyers behind the brokers."
-  asked: "whether the container could be a Grand Manan one that other island businesses join, instead of a Benson one"  opened: "Turned a cost question into a shared island partnership."
-  asked: "whether anybody was actually using the scissors"  opened: "Nobody was, so the scissors went, and the knuckle technique spread."
-  asked: "whether the Raw crew knows RTE has an incentive"  opened: "Surfaced that the two crews never meet, so Raw may not know."
+Four that qualified, from an invented company. They show the standard. Never reuse their names, places or details:
+  asked: "how a customer who buys through the distributor would ever come to us directly"  opened: "Set the brochure's real goal: reaching the customers behind the distributor."
+  asked: "whether the market stall could be an Elmendale one that other local businesses join, instead of ours alone"  opened: "Turned a cost question into a shared local partnership."
+  asked: "whether anybody was actually using the label printer on line two"  opened: "Nobody was, so it went, and the hand-labelling shortcut spread."
+  asked: "whether the day shift knows the night shift has a bonus scheme"  opened: "Surfaced that the two shifts never meet, so the day shift may not know."
 
 ${VOICE_CORE}`;
 

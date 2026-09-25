@@ -118,8 +118,8 @@ mentions several administrative things".
 Company terms come from the same list, plus the functional chart and
 the One-Page Plan you were given. When the transcript's spelling of a
 place, a supplier or a person is close to one of those, use THEIRS —
-a recording that says "Graham and Ann" for a place the company calls
-Grand Manan is a transcription error, not a second place. Only
+a recording that says "Elm and Dale" for a place the company calls
+Elmendale is a transcription error, not a second place. Only
 correct toward a name the company actually holds; never toward one
 that merely sounds similar.
 

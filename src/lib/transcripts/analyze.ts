@@ -829,12 +829,12 @@ WHO OWNS A COMMITMENT
 You are given a <speaker_map> resolved before this step. Use it. Do not re-examine who "Speaker 4" is.
 
 - "I'll do X" or "I'm going to do X" — the SPEAKER owns it. Look their label up in the speaker map.
-- "Ashley will follow up" or "Sherri's going to call them" — the NAMED PERSON owns it, whoever said it, **provided they are in the meeting**. A commitment whose text names its DOER must never come back unassigned.
-- **Somebody who is not in the meeting cannot take on a commitment in it.** When a person in the meeting says they will get an absent colleague to do something ("I'll see if John can get them added in here", "I got to go work with John"), the person who said it owns it: their commitment is to go and get it done with John. Write it that way ("Casey to work with John to add his weekly numbers"), owned by Casey. The server clears any owner who was not identified as present.
-- **The person named is not always the one doing it.** "Send the SOPs to Darlene" — the sender owns it, Darlene receives it. "Talk to Vern", "let Chrissy know", "check with Andre": the owner is the speaker, and the named person is who they will contact. A name after to / for / with / from is a recipient, not an owner. Getting this backwards puts the work on the wrong person's list.
+- "Maya will follow up" or "Leo's going to call them" — the NAMED PERSON owns it, whoever said it, **provided they are in the meeting**. A commitment whose text names its DOER must never come back unassigned.
+- **Somebody who is not in the meeting cannot take on a commitment in it.** When a person in the meeting says they will get an absent colleague to do something ("I'll see if Tom can get them added in here", "I got to go work with Tom"), the person who said it owns it: their commitment is to go and get it done with Tom. Write it that way ("Dana to work with Tom to add his weekly numbers"), owned by Dana. The server clears any owner who was not identified as present.
+- **The person named is not always the one doing it.** "Send the SOPs to Elena" — the sender owns it, Elena receives it. "Talk to Marcus", "let Ruth know", "check with Omar": the owner is the speaker, and the named person is who they will contact. A name after to / for / with / from is a recipient, not an owner. Getting this backwards puts the work on the wrong person's list.
 - When the speaker map calls a label unidentified, leave owner_profile_id null and do not guess who it was in the description. Never write "Likely <name>" and never reach for a roster name because it fits the topic. An Unassigned commitment is visible and one click to fix; a wrong name is neither.
 - Never write a transcript label ("Speaker 4") in a description or an issue title.
-- **Spell names and places the way the company does.** The company context block holds the company's own spellings. A recording that says "Graham and Ann" where the company writes Grand Manan is a transcription error: write Grand Manan, in commitments and issue titles alike.
+- **Spell names and places the way the company does.** The company context block holds the company's own spellings. A recording that says "Elm and Dale" where the company writes Elmendale is a transcription error: write Elmendale, in commitments and issue titles alike.
 
 **PRECEDENCE, and this one is not optional.** A name written in the commitment itself beats the speaker map's silence. If you write "Andy will create the spreadsheet", set owner_profile_id to Andy's id from the roster — it does not matter that the map could not place Andy's label. The map exists to resolve "I'll", not to veto a name you have already decided on. A commitment whose own text names a doer and whose owner is null is self-contradictory, and it puts the work on nobody's list while telling the reader whose it is.
 
@@ -844,7 +844,7 @@ Rules for commitments:
 - owner_profile_id: an id from the provided roster or null. Never invent ids or names.
 - priority_id: an id from the provided priorities or null. Never invent.
 - Return at most 20 commitments; if the transcript has more, keep the clearest 20.
-- **One commitment per action, and do not consolidate.** "Update and number the SOPs, then send the others to Darlene" is two commitments with two owners and possibly two dates. Merging them loses one of the people.
+- **One commitment per action, and do not consolidate.** "Update and number the SOPs, then send the others to Elena" is two commitments with two owners and possibly two dates. Merging them loses one of the people.
 - **Administrative actions count.** Posting an announcement to staff, notifying somebody of a date, sending a list — these are commitments as much as a decision is. A meeting whose extracted commitments are only the interesting ones has dropped most of the week's actual work.
 
 Rules for issues:
