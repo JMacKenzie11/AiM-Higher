@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clampScore, type DisciplineScore } from "../types";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
+import { scoreForRow, type StoredScoreRow } from "@/lib/leadership/facilitation/score";
 
 // Meetings score. Only computed when the company has
 // meeting_facilitation_review on (the review provides the quality
@@ -8,13 +9,13 @@ import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 //
 //   - Cadence: distinct weeks in the last 8 that had ≥1 meeting
 //              8/8 → 5 pts (weekly rhythm), 4/8 → 2.5, 0/8 → 0
-//   - Quality: mean of the review `overall` (0–10) across meetings
+//   - Quality: mean of each meeting's score (0–10) across meetings
 //              in the window that have a review, mapped 0–5 pts
 //              (halved to keep cadence + quality on equal footing)
 // Rolling by construction: an 8-week meeting drought will drag both
 // cadence and quality down as recent scores age out.
 
-type MeetingAnalysisRow = {
+type MeetingAnalysisRow = StoredScoreRow & {
   meeting_id: string;
   facilitation_review_json: FacilitationReview | null;
   meetings: { created_at: string; company_id: string | null } | null;
@@ -32,7 +33,7 @@ export async function scoreMeetings(
   const { data: rows } = await admin
     .from("meeting_analyses")
     .select(
-      "meeting_id, facilitation_review_json, meetings!inner(created_at, company_id)"
+      "meeting_id, created_at, facilitation_review_json, score_positive_framing, score_accountability, score_rhythm, score_alignment, score_agenda, score_weights, meetings!inner(created_at, company_id)"
     )
     .eq("meetings.company_id", companyId)
     .gte("meetings.created_at", cutoffIso);
@@ -46,6 +47,10 @@ export async function scoreMeetings(
     return {
       created_at: meeting?.created_at ?? null,
       review: r.facilitation_review_json,
+      // The same rule as the meeting page (score.ts): the computed
+      // score for meetings analysed since the cutover, the original
+      // score for everything older. Never back-computed.
+      score: scoreForRow(r, r.facilitation_review_json)?.value ?? null,
     };
   });
 
@@ -62,7 +67,7 @@ export async function scoreMeetings(
   // Quality: average `overall` across meetings that produced a review
   // with a non-null score.
   const qualityScores = flat
-    .map((r) => r.review?.overall)
+    .map((r) => r.score)
     .filter((s): s is number => typeof s === "number" && s >= 0);
   const meanQuality =
     qualityScores.length > 0

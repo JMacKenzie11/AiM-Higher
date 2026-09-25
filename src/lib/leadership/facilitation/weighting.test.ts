@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { SCORE_WEIGHTS } from "./score";
 
 // WHAT THE SCORE IS FOR.
 //
@@ -10,17 +11,21 @@ import { join } from "node:path";
 // the model to reward is a product decision, and a silent edit to it
 // moves every customer's number.
 //
-// The decision, 2026-09-24: appreciative practice leads — a real
-// check-in, generative questions that go somewhere, decisions
-// reasoned against the company's values. Agenda adherence stays a
-// criterion and becomes a weak one. A meeting that walked every
-// numbered section and opened nothing should not outscore a meeting
-// that went off the running order and moved something.
+// The decision, 2026-09-25, replacing the one of 2026-09-24: the
+// overall is COMPUTED, as a weighted average of five parts, with the
+// weights in score.ts: Positive framing 25, Accountability 25, Rhythm
+// 20, Alignment 15, Agenda sections 15. The model scores the parts
+// and gives no overall. Positive framing stays a part, weighted as
+// heavily as any: Jason's first draft dropped it and he reversed that
+// the same day. Meetings before the cutover keep their original score.
 //
-// This test does not check the model's judgement — no source test
-// can. It checks that the instruction is still there, because it is
-// one paragraph in a long prompt and the failure mode is somebody
-// tidying it out and nobody noticing until a scorecard drifts.
+// (The 2026-09-24 decision had the model rank positive framing first
+// and agenda last inside a judged overall. That is superseded, not
+// forgotten: see the git history of this file.)
+//
+// This test checks the instruction is still there and still agrees
+// with the code, because the failure mode is the prompt and score.ts
+// drifting apart and nobody noticing until a scorecard moves.
 
 const PROMPT = readFileSync(
   join(process.cwd(), "src/lib/leadership/facilitation/prompt.v2.md"),
@@ -35,12 +40,28 @@ describe("facilitation scoring weight", () => {
     expect(PROMPT.length).toBeGreaterThan(2000);
   });
 
-  it("states the ranking rather than leaving the dimensions equal", () => {
-    expect(PROMPT).toContain("They are not equal, and this is the ranking");
-    const ranking = PROMPT.slice(PROMPT.indexOf("They are not equal"));
-    const para = ranking.slice(0, 400);
-    expect(para).toMatch(/Positive framing leads/i);
-    expect(para).toMatch(/Rhythm.*comes last/is);
+  it("tells the model not to give an overall, and to score every part", () => {
+    expect(PROMPT).toContain("You score the parts. You do not give an overall.");
+    expect(PROMPT).toMatch(/Every part is required whenever `insufficient_transcript` is false/);
+    // And none of the old ranking survives to contradict the code.
+    expect(PROMPT).not.toContain("They are not equal, and this is the ranking");
+    expect(PROMPT).not.toMatch(/should move the overall score most/i);
+  });
+
+  it("weighs exactly the five parts the prompt names, summing to 100", () => {
+    expect(Object.keys(SCORE_WEIGHTS).sort()).toEqual(
+      ["accountability", "agenda", "alignment", "positive_framing", "rhythm"]
+    );
+    expect(Object.values(SCORE_WEIGHTS).reduce((a, b) => a + b, 0)).toBe(100);
+    expect(PROMPT).toContain(
+      "computed from Positive framing, Accountability, Rhythm, Alignment and Agenda sections"
+    );
+  });
+
+  it("keeps positive framing in the overall, and as heavy as any part", () => {
+    // The draft that dropped it is the failure this guards.
+    const heaviest = Math.max(...Object.values(SCORE_WEIGHTS));
+    expect(SCORE_WEIGHTS.positive_framing).toBe(heaviest);
   });
 
   it("names the three things that should earn the most", () => {
@@ -51,17 +72,15 @@ describe("facilitation scoring weight", () => {
     expect(section, "values in the reasoning").toMatch(/values/i);
   });
 
-  it("keeps agenda adherence as a criterion, and says it is a weak one", () => {
-    // Not removed — the user asked for it to count less, not to stop
-    // counting. A prompt that dropped it entirely would be a
-    // different product decision made by accident.
+  it("keeps agenda adherence as a criterion", () => {
+    // It carries a weight in the overall now, rather than a rank.
     expect(PROMPT).toMatch(/agenda adherence/i);
-    expect(PROMPT).toContain("It is a real criterion and a weak one");
+    expect(SCORE_WEIGHTS.agenda).toBeGreaterThan(0);
   });
 
   it("defines a generative question by the SHIFT, not by sounding open", () => {
-    // The definition is the load-bearing part now that positive
-    // framing leads the score. Two ways to get it wrong, and the
+    // The definition is what the positive framing score, and the
+    // questions block, stand on. Two ways to get it wrong, and the
     // prompt has to refuse both:
     //
     //   a diagnostic question that sounds open — "what's blocking
@@ -70,8 +89,8 @@ describe("facilitation scoring weight", () => {
     //   a forward-looking proposal — "what if we tried X" — is still
     //   inside problem-solving with a suggestion attached.
     //
-    // Without these, any open question scores, and the dimension
-    // carrying the most weight is the easiest one to inflate.
+    // Without these, any open question scores, and the dimension is
+    // the easiest one to inflate.
     const def = PROMPT.slice(PROMPT.indexOf("2. **Generative Questions**"));
     const section = def.slice(0, def.indexOf("3. **Reframes**"));
     expect(section).toMatch(/away from problem-solving/i);
@@ -97,11 +116,4 @@ describe("facilitation scoring weight", () => {
     expect(section).toMatch(/all three count|counting equally/i);
   });
 
-  it("gives the model a worked case in both directions", () => {
-    // A ranking with no example is a preference; a ranking with a
-    // number attached is an instruction.
-    const practical = PROMPT.slice(PROMPT.indexOf("**Practically:**"));
-    expect(practical.slice(0, 500)).toMatch(/should not clear 6/);
-    expect(practical.slice(0, 500)).toMatch(/8 or 9/);
-  });
 });

@@ -3,6 +3,12 @@ import type {
   FacilitationReview as FacilitationReviewData,
   FacilitationDimensionScore,
 } from "@/lib/leadership/facilitation/types";
+import {
+  scoreForRow,
+  type MeetingScore,
+  type OverallScore,
+  type StoredScoreRow,
+} from "@/lib/leadership/facilitation/score";
 import styles from "./FacilitationReview.module.css";
 
 // Panel that renders a structured facilitation review as a coaching
@@ -17,13 +23,17 @@ import styles from "./FacilitationReview.module.css";
 
 export function FacilitationReview({
   review,
+  score,
 }: {
   review: FacilitationReviewData;
+  // scoreForRow: computed from the five parts for meetings analysed
+  // since the cutover, the original score for everything older.
+  score: MeetingScore | null;
 }) {
   if (review.insufficient_transcript) {
     return (
       <section className={styles.card} aria-labelledby="facilitation">
-        <Header review={review} />
+        <Header />
         <p className={styles.insufficient}>
           {review.missing_context ??
             "The transcript was too sparse for a meaningful facilitation read this week."}
@@ -32,15 +42,29 @@ export function FacilitationReview({
     );
   }
 
+  const nextWeek = review.next_week_questions ?? [];
+  // Only the current shape: rows from before the change hold a quoted
+  // `question`, which is exactly what this block no longer shows.
+  const opened = (review.opening_questions ?? []).filter(
+    (q): q is { asker: string; asked: string; opened: string } =>
+      typeof q.asked === "string" && typeof q.opened === "string"
+  );
+
   return (
     <section className={styles.card} aria-labelledby="facilitation">
-      <Header review={review} />
+      <Header />
+
+      {score?.kind === "computed" ? <ScoreExplainer score={score.score} /> : null}
+      {score?.kind === "original" ? (
+        <p className={styles.scoreNote}>
+          Scored before the current method, so there is no breakdown for
+          this meeting.
+        </p>
+      ) : null}
 
       {review.executive_summary ? (
         <p className={styles.summary}>{review.executive_summary}</p>
       ) : null}
-
-      <SignalHeader review={review} />
 
       {review.strengths.length > 0 ? (
         <div className={styles.strengthsBlock}>
@@ -131,13 +155,50 @@ export function FacilitationReview({
         </div>
       ) : null}
 
+      {nextWeek.length > 0 ? (
+        <div className={styles.questionsBlock}>
+          <h3 className={styles.sectionHeading}>Questions worth asking next week</h3>
+          <ul className={styles.questionList}>
+            {nextWeek.map((q, i) => (
+              <li key={i} className={styles.questionItem}>
+                <div className={styles.questionText}>{q.question}</div>
+                {q.moment ? (
+                  <div className={styles.questionMoment}>From: {q.moment}</div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <p className={styles.questionsHelp}>
+            A generative question starts from something that went well and
+            asks where it could go next. A diagnostic question starts from a
+            problem and asks what caused it. These three are the first kind.
+          </p>
+        </div>
+      ) : null}
+
+      {opened.length > 0 ? (
+        <div className={styles.questionsBlock}>
+          <h3 className={styles.sectionHeading}>Questions that opened things up</h3>
+          <ul className={styles.questionList}>
+            {opened.map((q, i) => (
+              <li key={i} className={styles.askedItem}>
+                <div className={styles.askedQuestion}>
+                  {q.asker} asked {q.asked}.
+                </div>
+                <div className={styles.askedBy}>{q.opened}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {review.fourws_audit.length > 0 ? (
         <div className={styles.audit}>
           <h3 className={styles.sectionHeading}>4Ws audit</h3>
           <p className={styles.auditCaption}>
-            For each issue the meeting worked through, whether the four
-            steps landed. A hollow circle means the flow didn&apos;t get there
-            — it&apos;s an invitation, not a grade.
+            For each issue the meeting worked through, which of the four steps
+            it reached. Where a circle is hollow, the note under the issue is
+            a question to ask next time.
           </p>
           <div className={styles.auditTableWrap}>
             <table className={styles.auditTable}>
@@ -182,108 +243,68 @@ export function FacilitationReview({
   );
 }
 
-function Header({ review }: { review: FacilitationReviewData }) {
+// The number on the panel and the strip: rounded either way.
+export function displayScore(score: MeetingScore): number {
+  return score.kind === "computed" ? score.score.rounded : Math.round(score.value);
+}
+
+// No score here: it is on the strip above the tabs, once, in this
+// panel's old "Facilitation signal" style. Jason, 2026-09-25: it was
+// in both places.
+function Header() {
   return (
     <div className={styles.header}>
       <h2 id="facilitation" className={styles.h2}>
         How the meeting was run
       </h2>
-      <p className={styles.subhead}>
-        A coaching-tone read of this meeting against the AiMS Weekly
-        Leadership Meeting framework. Meant as a mirror, not a grade
-        — cadence over any single week is what matters.
+    </div>
+  );
+}
+
+// "How this is scored": the four parts, their weights, and this
+// meeting's arithmetic, so the number is never a black box.
+function ScoreExplainer({ score }: { score: OverallScore }) {
+  const decimal = (n: number) => (n / 100).toFixed(2);
+  const arithmetic = score.lines
+    .map((l) => `(${l.scaled} \u00d7 ${decimal(l.weight)})`)
+    .join(" + ");
+  return (
+    <details className={styles.scoreDetails}>
+      <summary>How this is scored</summary>
+      <div className={styles.scoreTableWrap}>
+        <table className={styles.scoreTable}>
+          <thead>
+            <tr>
+              <th>Part</th>
+              <th>Score</th>
+              <th>Weight</th>
+              <th>Adds</th>
+            </tr>
+          </thead>
+          <tbody>
+            {score.lines.map((l) => (
+              <tr key={l.key}>
+                <td>{l.label}</td>
+                <td>
+                  {l.raw}/{l.outOf}
+                  {l.outOf === 5 ? ` (${l.scaled}/10)` : ""}
+                </td>
+                <td>{l.weight}%</td>
+                <td>{decimal(l.scaled * l.weight)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className={styles.scoreArithmetic}>
+        {arithmetic} = <strong>{score.oneDecimal}</strong>, shown as{" "}
+        {score.rounded}.
       </p>
-      {!review.insufficient_transcript && review.overall !== null ? (
-        <OverallSignal score={review.overall} />
-      ) : null}
-    </div>
-  );
-}
-
-function OverallSignal({ score }: { score: number }) {
-  const tone = signalTone(score);
-  return (
-    <div className={styles.overall} data-tone={tone}>
-      <span className={styles.overallLabel}>Facilitation signal</span>
-      <span className={styles.overallNumber}>{score}</span>
-      <span className={styles.overallDenom}>/10</span>
-    </div>
-  );
-}
-
-function SignalHeader({ review }: { review: FacilitationReviewData }) {
-  const items: Array<{
-    key: string;
-    label: string;
-    score: number | null;
-    denom: number;
-    notes: string;
-  }> = [
-    {
-      key: "agenda",
-      label: "Agenda sections",
-      score: review.agenda_adherence.score_out_of_5,
-      denom: 5,
-      notes: review.agenda_adherence.notes,
-    },
-    {
-      key: "rhythm",
-      label: "Rhythm",
-      score: review.dimensions.rhythm.score,
-      denom: 10,
-      notes: review.dimensions.rhythm.notes,
-    },
-    {
-      key: "accountability",
-      label: "Accountability",
-      score: review.dimensions.accountability.score,
-      denom: 10,
-      notes: review.dimensions.accountability.notes,
-    },
-    {
-      key: "alignment",
-      label: "Alignment",
-      score: review.dimensions.alignment.score,
-      denom: 10,
-      notes: review.dimensions.alignment.notes,
-    },
-  ];
-  return (
-    <div className={styles.signals}>
-      {items.map((item) => (
-        <DimensionChip
-          key={item.key}
-          label={item.label}
-          score={item.score}
-          denom={item.denom}
-          notes={item.notes}
-        />
-      ))}
-    </div>
-  );
-}
-
-function DimensionChip({
-  label,
-  score,
-  denom,
-  notes,
-}: {
-  label: string;
-  score: number | null;
-  denom: number;
-  notes: string;
-}) {
-  const scaled =
-    score == null ? null : Math.round((score / denom) * 10);
-  const tone = scaled == null ? "neutral" : signalTone(scaled);
-  return (
-    <div className={styles.chip} data-tone={tone} title={notes || undefined}>
-      <span className={styles.chipLabel}>{label}</span>
-      <span className={styles.chipValue}>
-        {score == null ? "—" : `${score}/${denom}`}
-      </span>
-    </div>
+      <p className={styles.scoreNote}>
+        Agenda sections is scored out of 5 and doubled to put it on the same
+        scale as the others.
+      </p>
+    </details>
   );
 }
 
@@ -336,7 +357,7 @@ function labelFor(dim: FacilitationDimension): string {
 // Warm-forward tone scale: cobalt-tint on the low end, chartreuse-tint
 // on the high end. Never red. See CSS module for the actual colours;
 // the data-tone attribute keeps CSS in charge of the palette.
-function signalTone(score: number): "low" | "mid" | "high" {
+export function signalTone(score: number): "low" | "mid" | "high" {
   if (score >= 8) return "high";
   if (score >= 5) return "mid";
   return "low";
@@ -357,8 +378,10 @@ function signalTone(score: number): "low" | "mid" | "high" {
 //   - Real overall score: coloured chip with the number.
 export function FacilitationListChip({
   review,
+  row,
 }: {
   review: FacilitationReviewData;
+  row?: StoredScoreRow | null;
 }) {
   if (review.insufficient_transcript) {
     return (
@@ -372,12 +395,16 @@ export function FacilitationListChip({
       </span>
     );
   }
-  if (review.overall == null) return null;
-  const tone = signalTone(review.overall);
+  // The same number the meeting page shows: computed from the parts,
+  // from the row's stored parts when it has them.
+  const score = scoreForRow(row ?? null, review);
+  const overall = score ? displayScore(score) : null;
+  if (overall == null) return null;
+  const tone = signalTone(overall);
   return (
     <span className={styles.listChip} data-tone={tone}>
       <span className={styles.listChipDot} aria-hidden="true" />
-      Facilitation {review.overall}/10
+      Facilitation {overall}/10
     </span>
   );
 }

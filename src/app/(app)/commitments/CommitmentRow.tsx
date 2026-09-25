@@ -17,7 +17,7 @@ import {
 } from "@/lib/commitments/actions";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { formatShortDate } from "@/lib/dates";
+import { dueLabel, BY_NEXT_MEETING_TITLE } from "@/lib/commitments/due-label";
 import type { Priority, Profile } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import { CommitmentLinkChip } from "@/components/plan/CommitmentLinkChip";
@@ -665,9 +665,11 @@ export function CommitmentRow({
 
       {(() => {
         const dueAssigned = commitment.clarity_timeline === false;
-        const assignedTitle = dueAssigned
-          ? "No deadline was agreed in the meeting — this date is a placeholder. Reschedule to lock in a real one."
-          : undefined;
+        const assignedTitle = commitment.due_date_defaulted
+          ? BY_NEXT_MEETING_TITLE
+          : dueAssigned
+            ? "No deadline was agreed in the meeting — this date is a placeholder. Reschedule to lock in a real one."
+            : undefined;
 
         if (isParked) {
           return (
@@ -702,7 +704,7 @@ export function CommitmentRow({
               ) : dueAssigned ? (
                 <span className={styles.rowDueAssignedDot} aria-hidden />
               ) : null}
-              {formatShortDate(commitment.due_date)}
+              {dueLabel(commitment)}
             </button>
           );
         }
@@ -717,7 +719,7 @@ export function CommitmentRow({
             ) : dueAssigned ? (
               <span className={styles.rowDueAssignedDot} aria-hidden />
             ) : null}
-            {formatShortDate(commitment.due_date)}
+            {dueLabel(commitment)}
           </span>
         );
       })()}

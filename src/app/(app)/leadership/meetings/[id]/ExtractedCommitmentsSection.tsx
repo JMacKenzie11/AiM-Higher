@@ -1,5 +1,7 @@
 "use client";
 
+import { BY_NEXT_MEETING } from "@/lib/commitments/due-label";
+import { formatShortDate } from "@/lib/dates";
 import { useState, useTransition } from "react";
 import {
   addExtractedCommitmentAction,
@@ -131,6 +133,7 @@ function ExtractedCommitmentRowItem({
         meetingId,
         description: row.commitment.description,
         dueDate: row.commitment.due_date ?? null,
+        dueDefaulted: row.commitment.due_defaulted === true,
         ownerId: row.commitment.owner_profile_id ?? null,
         target:
           target.type === "priority"
@@ -180,7 +183,13 @@ function ExtractedCommitmentRowItem({
         <p className={styles.rowText}>{row.commitment.description}</p>
         <p className={styles.rowMeta}>
           {row.ownerName ?? "Unassigned"}
-          {row.commitment.due_date ? ` · Due ${row.commitment.due_date}` : ""}
+          {row.commitment.due_date
+            ? ` · ${
+                row.commitment.due_defaulted
+                  ? BY_NEXT_MEETING
+                  : `Due ${formatShortDate(row.commitment.due_date)}`
+              }`
+            : ""}
         </p>
         {row.similar ? <SimilarMatchBadge match={row.similar} /> : null}
         {error ? (

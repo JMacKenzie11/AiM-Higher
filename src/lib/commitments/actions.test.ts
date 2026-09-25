@@ -374,6 +374,8 @@ describe("markKeptAction", () => {
     expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith({
       due_date: "2026-08-28",
       week_ending: "2026-08-28",
+      // A date set on purpose is a date (migration 0236).
+      due_date_defaulted: false,
     });
   });
 });
@@ -514,6 +516,7 @@ describe("unparkCommitmentAction", () => {
       parked_at: null,
       due_date: "2026-08-28",
       week_ending: "2026-08-28",
+      due_date_defaulted: false,
     });
   });
 });

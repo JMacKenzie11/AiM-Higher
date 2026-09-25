@@ -77,3 +77,11 @@ describe("plural labels", () => {
     );
   });
 });
+
+describe("a label glossed with a label", () => {
+  it("does not come out doubled", () => {
+    expect(replaceSpeakerLabels("- Speaker 7 (Speaker 7): asked about pay.", MAP).text).toBe(
+      "- An unidentified speaker: asked about pay."
+    );
+  });
+});

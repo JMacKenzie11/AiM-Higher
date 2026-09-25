@@ -10,6 +10,7 @@ import type {
 } from "./types";
 import { FACILITATION_REVIEW_VERSION } from "./types";
 import { isScoredReview } from "./scored";
+import { computeOverall } from "./score";
 
 // Second LLM pass on a meeting transcript. Runs after the summary +
 // commitment-extraction pipeline, only when the routed company has
@@ -230,7 +231,7 @@ const FACILITATION_TOOL: Anthropic.Tool = {
       insufficient_transcript: {
         type: "boolean",
         description:
-          "True when the transcript is too sparse to assess the meeting. When true, overall + all dimension scores must be null and missing_context should explain what's missing.",
+          "True when the transcript is too sparse to assess the meeting. When true, all dimension scores must be null and missing_context should explain what's missing.",
       },
       missing_context: {
         type: ["string", "null"],
@@ -264,7 +265,7 @@ const FACILITATION_TOOL: Anthropic.Tool = {
             note: {
               type: ["string", "null"],
               description:
-                "Optional one-line coaching nudge on the step that didn't land. Depersonalized, forward-looking.",
+                "When WANT, WAY or WHO/WHEN did not land: the question to ask next time about this issue, ending in a question mark. Never says a step was missed.",
             },
           },
         },
@@ -490,13 +491,9 @@ const FACILITATION_TOOL: Anthropic.Tool = {
           },
         },
       },
-      overall: {
-        type: ["integer", "null"],
-        minimum: 0,
-        maximum: 10,
-        description:
-          "Integer 0–10, or null when insufficient_transcript is true. Integrated read across dimensions, not a mean.",
-      },
+      // No `overall`. It is computed in code from the four parts
+      // (score.ts), never judged by the model: a judged overall never
+      // derived from the parts shown beside it.
       executive_summary: {
         type: "string",
         description:
@@ -580,33 +577,19 @@ function normalizeReview(raw: Record<string, unknown>): FacilitationReview {
     ),
   };
 
-  // The model is instructed to give an integer `overall` whenever
-  // insufficient_transcript is false, but occasionally emits null
-  // anyway (usually when the meeting doesn't fit the AiMS agenda
-  // and the model hedges). If we have real dimension scores, fall
-  // back to their rounded mean so the list chip never reads as
-  // "no review" when a review actually ran. When insufficient, we
-  // force null — no invented score.
-  let overall: number | null;
-  if (insufficient) {
-    overall = null;
-  } else {
-    const modelOverall = clampInt(raw.overall, 0, 10);
-    if (modelOverall !== null) {
-      overall = modelOverall;
-    } else {
-      const scored = [
-        dims.rhythm.score,
-        dims.accountability.score,
-        dims.alignment.score,
-        dims.positive_framing.score,
-      ].filter((n): n is number => typeof n === "number");
-      overall =
-        scored.length > 0
-          ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length)
-          : null;
-    }
-  }
+  // COMPUTED, never judged. See score.ts. `overall` stays on the
+  // review as the rounded number, because the list chip, the scorecard
+  // and isScoredReview read it; the exact figure and its parts are
+  // stored as columns on meeting_analyses by the pipeline.
+  const overall = insufficient
+    ? null
+    : computeOverall({
+        positive_framing: dims.positive_framing.score,
+        rhythm: dims.rhythm.score,
+        accountability: dims.accountability.score,
+        alignment: dims.alignment.score,
+        agenda: agendaScore(raw.agenda_adherence),
+      })?.rounded ?? null;
 
   return {
     version: FACILITATION_REVIEW_VERSION,
@@ -648,6 +631,13 @@ function normalizeMoments(
       context: typeof x.context === "string" ? x.context.trim() : "",
     }))
     .filter((x) => x.quote.length > 0);
+}
+
+// The agenda part as the model scored it, before normalisation, so
+// the overall reads the same number the review stores.
+function agendaScore(raw: unknown): number | null {
+  if (!raw || typeof raw !== "object") return null;
+  return clampInt((raw as { score_out_of_5?: unknown }).score_out_of_5, 0, 5);
 }
 
 function clampInt(v: unknown, min: number, max: number): number | null {

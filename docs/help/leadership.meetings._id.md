@@ -10,6 +10,28 @@ Automated Commitment Tracking is on, or waiting to be routed
 below when it's off) and issues (never auto-created — an admin
 or guide adds them to the open list one at a time).
 
+## How the page is laid out
+
+A strip at the top shows the meeting date, who attended and the
+score. It stays in view on every tab. Below it are three tabs:
+
+- **Coaching notes** opens first. Core values in action, then the
+  facilitation review: the score, what worked, growth edges, what
+  to try next week, questions worth asking next week, the
+  questions that opened things up, and the 4Ws audit.
+- **Issues and commitments**: the commitments the meeting created
+  and the issues it raised, with the controls to add or resolve
+  them.
+- **Meeting Analysis**: purpose, attendees, agenda, the discussion
+  section by section, decisions and support needed.
+
+Each tab has its own link. Add `#coaching-notes`,
+`#issues-and-commitments` or `#meeting-analysis` to the page address to
+send someone straight to that tab.
+
+A commitment where nobody named a day shows **By next meeting**
+instead of a date. A date appears only where somebody said one.
+
 ## What you can do here
 
 ::: role team_member
@@ -20,6 +42,10 @@ As a team member, you can:
 - **See the commitments the meeting created** — the list up top
   links each one back to `/commitments` where owners resolve or
   reschedule.
+- **Read the full coaching notes if you are the AiMS champion.**
+  The champion sees the whole Coaching notes tab, the score and
+  the facilitation review included, the same as the company's
+  admins. Everyone else on the team sees Core values in action.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -53,12 +79,28 @@ As an admin or guide, you can also:
   *Resolved in meeting* in its *Commitment* column rather than
   showing a blank, so you can tell later how it got there.
 - **Read the facilitation review** *(when Meeting Facilitation
-  Review is on)* — the "How the meeting was run" panel is a
-  coaching-tone read against the AiMS Weekly Leadership Meeting
-  framework. Strengths first, growth edges framed as
-  opportunities, and a *what to try next week* section. The
-  overall number is a signal, not a grade — shape over several
-  meetings matters more than any single week.
+  Review is on)*: the "How the meeting was run" panel on Coaching
+  notes. Strengths first, growth edges framed as opportunities,
+  and a *what to try next week* section. The score, the
+  *Facilitation signal*, sits on the strip at the top of the page.
+- **See how the score is made.** Open *How this is scored* in the
+  "How the meeting was run" panel. Aimee rates five parts: Positive framing,
+  Accountability, Rhythm and Alignment out of 10, and Agenda
+  sections out of 5 (doubled to put it on the same scale). The
+  score is a weighted average: Positive framing 25%,
+  Accountability 25%, Rhythm 20%, Alignment 15%, Agenda sections
+  15%. The panel shows this meeting's arithmetic to one decimal;
+  the strip shows it rounded. Meetings analysed before 25
+  September 2026 keep the score they were given at the time, with
+  no breakdown.
+- **Take a question into next week.** *Questions worth asking next
+  week* offers three, each drawn from something that went well in
+  this meeting. *Questions that opened things up* credits the questions
+  that changed where the discussion went, with who asked and what
+  each one opened. They are put in plain words rather than quoted
+  word for word. In the 4Ws
+  audit, a step the meeting didn't reach comes with the question
+  to ask next time.
 :::
 
 ## How duplicate awareness works

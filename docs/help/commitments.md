@@ -151,6 +151,10 @@ and a well-defined finish line. Three states:
   date turns red too when the deadline is the half that failed:
   the date is a placeholder the analyzer filled in because nobody
   named one, not a date anyone committed to.
+
+When nobody in the meeting named a day, the due date reads **By next
+meeting** rather than a date. Reschedule it to set a real one, and
+from then on it shows the date you chose.
 - **Hollow** — nobody has judged it yet.
 
 Click the dot and the clarity check slides in from the right. It

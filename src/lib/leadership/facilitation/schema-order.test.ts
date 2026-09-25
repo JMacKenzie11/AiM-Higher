@@ -76,7 +76,8 @@ describe("facilitation review schema order", () => {
   it("scores and summarises last, with the whole review in view", () => {
     const last = order.length - 1;
     expect(at("executive_summary")).toBe(last);
-    expect(at("overall")).toBe(last - 1);
+    // No `overall` at all: it is computed from the parts (score.ts).
+    expect(order).not.toContain("overall");
   });
 
   it("asks for the same order in `required`", () => {

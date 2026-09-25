@@ -19,6 +19,8 @@ import {
   replaceSpeakerLabels,
 } from "./speakers";
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
+import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/score";
+import { generateMeetingQuestions } from "@/lib/leadership/questions";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
@@ -93,6 +95,23 @@ export type AnalyzeOptions = {
   // but writes no commitment rows and touches none of the existing
   // ones.
   preserveCommitments?: boolean;
+
+  // SUMMARY-ONLY. Regenerate the summary, the coaching notes, the
+  // questions and the score, and leave everything the meeting already
+  // put on people's lists exactly as it is.
+  //
+  // The extraction call is skipped and these lists, read from the
+  // previous analysis row, are stored again unchanged. That matters
+  // beyond the commitment rows: the page matches "already added"
+  // issues and commitments by exact text, so a regenerated list with
+  // new wording would offer Add again on work already added, and one
+  // click would duplicate it. No commitment rows are written, no Guide
+  // nudge is raised and no analytics event fires.
+  // scripts/resummarize-once.ts is the one caller.
+  carryOver?: {
+    commitments_json: ExtractedCommitment[];
+    issues_json: ExtractedIssue[] | null;
+  };
 };
 
 export async function analyzeMeeting(
@@ -254,63 +273,6 @@ export async function analyzeMeeting(
       );
     }
 
-    // ---- Call 2: extraction ----
-    const rawExtraction = await client.messages.create({
-      model,
-      ...NO_THINKING,
-      max_tokens: MAX_TOKENS_EXTRACTION,
-      system: [{ type: "text", text: EXTRACTION_SYSTEM_PROMPT }],
-      messages: [
-        {
-          role: "user",
-          content: buildExtractionUserMessage(
-            context,
-            meetingRow.transcript_text,
-            speakerBlock,
-            meetingDateIn(meetingRow.created_at, context.timezone ?? "UTC"),
-            companyBlock
-          ),
-        },
-      ],
-    });
-    if (rawExtraction.usage) {
-      void logCoachTokenUsage({
-        conversationId: null,
-        companyId: meetingRow.company_id,
-        purpose: "analyzer",
-        model,
-        usage: rawExtraction.usage,
-      });
-    }
-    const rawText = rawExtraction.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("");
-    const { commitments: rawCommitments, issues: rawIssues } =
-      parseExtractionJson(rawText);
-    // Verbose logging when the extraction lands empty. The pipeline
-    // silently accepts an empty result today (LLM stochasticity is a
-    // legit outcome), so without this trail an empty landing was
-    // indistinguishable from "response truncated at max_tokens" or
-    // "model returned the wrong shape". Log everything needed to
-    // diagnose from Vercel logs alone: stop_reason, character count,
-    // and the first + last chunks of the raw output.
-    if (rawCommitments.length === 0 && rawIssues.length === 0) {
-      const stopReason = rawExtraction.stop_reason ?? "unknown";
-      const preview = rawText.slice(0, 400);
-      const tail = rawText.length > 800 ? rawText.slice(-400) : "";
-      console.warn(
-        `[analyze] Empty extraction for meeting ${meetingId} — ` +
-          `stop_reason=${stopReason}, chars=${rawText.length}. ` +
-          `Head: ${JSON.stringify(preview)}${
-            tail ? ` … Tail: ${JSON.stringify(tail)}` : ""
-          }`
-      );
-    }
-
-    // Server-side validation. Any row that fails ownership or content
-    // checks is dropped; date violations are ADJUSTED (not dropped) to
-    // preserve extraction work per the date-floor rule below.
     // The company's day, not the server's. An evening meeting on a
     // western timezone is already tomorrow in UTC, and every
     // same-day commitment would land a day early for the whole team.
@@ -318,26 +280,93 @@ export async function analyzeMeeting(
       meetingRow.created_at,
       context.timezone ?? "UTC"
     );
-    const validated = requirePresentOwners(
-      validateCommitments(rawCommitments, context, meetingDateIso).map((c) => ({
-        ...c,
-        description: replaceSpeakerLabels(c.description, speakerMap).text,
-      })),
-      presentOwnerIds(
-        context.roster,
-        identifiedSpeakers(speakerMap),
-        attendeesFromSummary(analysisMarkdown)
-      ),
-      meetingId
-    );
-    // Issues get their own validator (title-only shape). NEVER
-    // auto-created; the meeting summary surfaces them with an
-    // explicit "Add to open issues" action regardless of the
-    // automatic_commitment_tracking flag.
-    const validatedIssues = validateIssues(rawIssues).map((i) => ({
-      ...i,
-      title: replaceSpeakerLabels(i.title, speakerMap).text,
-    }));
+
+    // SUMMARY-ONLY runs skip extraction altogether and carry the
+    // meeting's existing lists over unchanged. See AnalyzeOptions.
+    let validated: ExtractedCommitment[];
+    let validatedIssues: ExtractedIssue[];
+    if (options.carryOver) {
+      validated = options.carryOver.commitments_json;
+      validatedIssues = options.carryOver.issues_json ?? [];
+    } else {
+      // ---- Call 2: extraction ----
+      const rawExtraction = await client.messages.create({
+        model,
+        ...NO_THINKING,
+        max_tokens: MAX_TOKENS_EXTRACTION,
+        system: [{ type: "text", text: EXTRACTION_SYSTEM_PROMPT }],
+        messages: [
+          {
+            role: "user",
+            content: buildExtractionUserMessage(
+              context,
+              meetingRow.transcript_text,
+              speakerBlock,
+              meetingDateIn(meetingRow.created_at, context.timezone ?? "UTC"),
+              companyBlock
+            ),
+          },
+        ],
+      });
+      if (rawExtraction.usage) {
+        void logCoachTokenUsage({
+          conversationId: null,
+          companyId: meetingRow.company_id,
+          purpose: "analyzer",
+          model,
+          usage: rawExtraction.usage,
+        });
+      }
+      const rawText = rawExtraction.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("");
+      const { commitments: rawCommitments, issues: rawIssues } =
+        parseExtractionJson(rawText);
+      // Verbose logging when the extraction lands empty. The pipeline
+      // silently accepts an empty result today (LLM stochasticity is a
+      // legit outcome), so without this trail an empty landing was
+      // indistinguishable from "response truncated at max_tokens" or
+      // "model returned the wrong shape". Log everything needed to
+      // diagnose from Vercel logs alone: stop_reason, character count,
+      // and the first + last chunks of the raw output.
+      if (rawCommitments.length === 0 && rawIssues.length === 0) {
+        const stopReason = rawExtraction.stop_reason ?? "unknown";
+        const preview = rawText.slice(0, 400);
+        const tail = rawText.length > 800 ? rawText.slice(-400) : "";
+        console.warn(
+          `[analyze] Empty extraction for meeting ${meetingId} — ` +
+            `stop_reason=${stopReason}, chars=${rawText.length}. ` +
+            `Head: ${JSON.stringify(preview)}${
+              tail ? ` … Tail: ${JSON.stringify(tail)}` : ""
+            }`
+        );
+      }
+
+      // Server-side validation. Any row that fails ownership or content
+      // checks is dropped; date violations are ADJUSTED (not dropped) to
+      // preserve extraction work per the date-floor rule below.
+      validated = requirePresentOwners(
+        validateCommitments(rawCommitments, context, meetingDateIso).map((c) => ({
+          ...c,
+          description: replaceSpeakerLabels(c.description, speakerMap).text,
+        })),
+        presentOwnerIds(
+          context.roster,
+          identifiedSpeakers(speakerMap),
+          attendeesFromSummary(analysisMarkdown)
+        ),
+        meetingId
+      );
+      // Issues get their own validator (title-only shape). NEVER
+      // auto-created; the meeting summary surfaces them with an
+      // explicit "Add to open issues" action regardless of the
+      // automatic_commitment_tracking flag.
+      validatedIssues = validateIssues(rawIssues).map((i) => ({
+        ...i,
+        title: replaceSpeakerLabels(i.title, speakerMap).text,
+      }));
+    }
 
     // ---- Did the extraction miss anything? --------------------
     //
@@ -378,6 +407,53 @@ export async function analyzeMeeting(
       }
     }
 
+    // ---- Questions, for the Coaching notes tab ----
+    //
+    // After the review, because the generated questions start from
+    // what it found went well. Best effort, like the review: an empty
+    // block is a smaller loss than a failed analysis.
+    if (facilitationReview && !facilitationReview.insufficient_transcript) {
+      const questions = await generateMeetingQuestions(client, {
+        model,
+        analysisMarkdown,
+        strengths: facilitationReview.strengths.map((s) => s.title),
+        transcript: meetingRow.transcript_text,
+        speakerBlock,
+        // Who may be credited: the people identified as present, by the
+        // speaker map or the summary's own attendee list (attendees.ts),
+        // names only.
+        attendees: [
+          ...new Set(
+            [
+              ...identifiedSpeakers(speakerMap),
+              ...attendeesFromSummary(analysisMarkdown).map((a) =>
+                a.replace(/\s*\([^)]*\)/g, "").split(",")[0].trim()
+              ),
+            ].filter((a) => a.length > 0)
+          ),
+        ],
+      });
+      facilitationReview = {
+        ...facilitationReview,
+        next_week_questions: questions.nextWeek,
+        opening_questions: questions.opened,
+      };
+    }
+
+    // The score, computed from the four parts and stored with the
+    // weights that made it (migration 0236). Null throughout when the
+    // review did not run or could not score.
+    const scoreParts = facilitationReview && !facilitationReview.insufficient_transcript
+      ? {
+          positive_framing: facilitationReview.dimensions.positive_framing?.score ?? null,
+          rhythm: facilitationReview.dimensions.rhythm.score,
+          accountability: facilitationReview.dimensions.accountability.score,
+          alignment: facilitationReview.dimensions.alignment.score,
+          agenda: facilitationReview.agenda_adherence.score_out_of_5,
+        }
+      : null;
+    const overallScore = scoreParts ? computeOverall(scoreParts) : null;
+
     // Store the analysis row so system_admin / company_admin can
     // read the markdown.
     // THE ERROR IS CHECKED. It was not, and that turned a failed
@@ -398,12 +474,24 @@ export async function analyzeMeeting(
       analysis_markdown: stripEmDashes(analysisMarkdown),
       truncated: analysisTruncated,
       coverage_json: coverage,
+      score_positive_framing: scoreParts?.positive_framing ?? null,
+      score_rhythm: scoreParts?.rhythm ?? null,
+      score_accountability: scoreParts?.accountability ?? null,
+      score_alignment: scoreParts?.alignment ?? null,
+      score_agenda: scoreParts?.agenda ?? null,
+      score_overall: overallScore ? overallScore.hundredths / 100 : null,
+      score_weights: overallScore ? SCORE_WEIGHTS : null,
       commitments_json: validated,
       issues_json: validatedIssues,
       // Every string in the review, through the same label pass as
       // the summary: it is read on the same page.
+      // Em dashes too: a 4Ws note came back as "Which lighting option
+      // do we try first — the peak-mounted floodlight or a pole
+      // light", because only the summary went through the dash pass.
       facilitation_review_json: facilitationReview
-        ? mapStrings(facilitationReview, (t) => replaceSpeakerLabels(t, speakerMap).text)
+        ? mapStrings(facilitationReview, (t) =>
+            stripEmDashes(replaceSpeakerLabels(t, speakerMap).text)
+          )
         : null,
       model,
     });
@@ -423,7 +511,7 @@ export async function analyzeMeeting(
       admin,
       meetingRow.company_id
     );
-    const created = autoTrackOn && !options.preserveCommitments
+    const created = autoTrackOn && !options.preserveCommitments && !options.carryOver
       ? await createCommitmentsFromExtraction(
           admin,
           meetingRow,
@@ -456,19 +544,24 @@ export async function analyzeMeeting(
     //
     // Best effort, and isolated: raiseMeetingDebriefNudge never
     // throws. A broken invitation must not break a meeting summary.
-    const nudge = await raiseMeetingDebriefNudge(admin, client, {
-      model,
-      companyId: meetingRow.company_id!,
-      meetingId,
-      meetingDateIso,
-      analysisMarkdown,
-      transcript: meetingRow.transcript_text,
-      strengths: (facilitationReview?.strengths ?? []).map((s) => s.title),
-    });
+    // Not on a summary-only run: the meeting was already analysed,
+    // and a second invitation about it would be noise.
+    const nudge: RaiseResult = options.carryOver
+      ? { raised: false, reason: "summary-only regeneration" }
+      : await raiseMeetingDebriefNudge(admin, client, {
+          model,
+          companyId: meetingRow.company_id!,
+          meetingId,
+          meetingDateIso,
+          analysisMarkdown,
+          transcript: meetingRow.transcript_text,
+          strengths: (facilitationReview?.strengths ?? []).map((s) => s.title),
+        });
 
     // Cron-driven event; no request context, so await inline rather
     // than using next/server after(). The extra ~200ms is fine here.
-    await track(
+    // Nor the analytics event: one meeting, analysed once, counts once.
+    if (!options.carryOver) await track(
       "system:transcript-cron",
       "meeting.analyzed",
       {
@@ -736,12 +829,12 @@ WHO OWNS A COMMITMENT
 You are given a <speaker_map> resolved before this step. Use it. Do not re-examine who "Speaker 4" is.
 
 - "I'll do X" or "I'm going to do X" — the SPEAKER owns it. Look their label up in the speaker map.
-- "Ashley will follow up" or "Sherri's going to call them" — the NAMED PERSON owns it, whoever said it, **provided they are in the meeting**. A commitment whose text names its DOER must never come back unassigned.
-- **Somebody who is not in the meeting cannot take on a commitment in it.** When a person in the meeting says they will get an absent colleague to do something ("I'll see if John can get them added in here", "I got to go work with John"), the person who said it owns it: their commitment is to go and get it done with John. Write it that way ("Casey to work with John to add his weekly numbers"), owned by Casey. The server clears any owner who was not identified as present.
-- **The person named is not always the one doing it.** "Send the SOPs to Darlene" — the sender owns it, Darlene receives it. "Talk to Vern", "let Chrissy know", "check with Andre": the owner is the speaker, and the named person is who they will contact. A name after to / for / with / from is a recipient, not an owner. Getting this backwards puts the work on the wrong person's list.
+- "Maya will follow up" or "Leo's going to call them" — the NAMED PERSON owns it, whoever said it, **provided they are in the meeting**. A commitment whose text names its DOER must never come back unassigned.
+- **Somebody who is not in the meeting cannot take on a commitment in it.** When a person in the meeting says they will get an absent colleague to do something ("I'll see if Tom can get them added in here", "I got to go work with Tom"), the person who said it owns it: their commitment is to go and get it done with Tom. Write it that way ("Dana to work with Tom to add his weekly numbers"), owned by Dana. The server clears any owner who was not identified as present.
+- **The person named is not always the one doing it.** "Send the SOPs to Elena" — the sender owns it, Elena receives it. "Talk to Marcus", "let Ruth know", "check with Omar": the owner is the speaker, and the named person is who they will contact. A name after to / for / with / from is a recipient, not an owner. Getting this backwards puts the work on the wrong person's list.
 - When the speaker map calls a label unidentified, leave owner_profile_id null and do not guess who it was in the description. Never write "Likely <name>" and never reach for a roster name because it fits the topic. An Unassigned commitment is visible and one click to fix; a wrong name is neither.
 - Never write a transcript label ("Speaker 4") in a description or an issue title.
-- **Spell names and places the way the company does.** The company context block holds the company's own spellings. A recording that says "Graham and Ann" where the company writes Grand Manan is a transcription error: write Grand Manan, in commitments and issue titles alike.
+- **Spell names and places the way the company does.** The company context block holds the company's own spellings. A recording that says "Elm and Dale" where the company writes Elmendale is a transcription error: write Elmendale, in commitments and issue titles alike.
 
 **PRECEDENCE, and this one is not optional.** A name written in the commitment itself beats the speaker map's silence. If you write "Andy will create the spreadsheet", set owner_profile_id to Andy's id from the roster — it does not matter that the map could not place Andy's label. The map exists to resolve "I'll", not to veto a name you have already decided on. A commitment whose own text names a doer and whose owner is null is self-contradictory, and it puts the work on nobody's list while telling the reader whose it is.
 
@@ -751,7 +844,7 @@ Rules for commitments:
 - owner_profile_id: an id from the provided roster or null. Never invent ids or names.
 - priority_id: an id from the provided priorities or null. Never invent.
 - Return at most 20 commitments; if the transcript has more, keep the clearest 20.
-- **One commitment per action, and do not consolidate.** "Update and number the SOPs, then send the others to Darlene" is two commitments with two owners and possibly two dates. Merging them loses one of the people.
+- **One commitment per action, and do not consolidate.** "Update and number the SOPs, then send the others to Elena" is two commitments with two owners and possibly two dates. Merging them loses one of the people.
 - **Administrative actions count.** Posting an announcement to staff, notifying somebody of a date, sending a list — these are commitments as much as a decision is. A meeting whose extracted commitments are only the interesting ones has dropped most of the week's actual work.
 
 Rules for issues:
@@ -934,11 +1027,16 @@ export function validateExtracted(
         ? item.due_date
         : null);
     let due: string;
+    // Whether the floor supplied the date rather than anything said:
+    // shown as "By next meeting" instead of a date nobody agreed.
+    let defaulted = false;
     if (!rawDate) {
       due = floorIso;
+      defaulted = true;
     } else if (fromPhrase !== null || claTimeline === true) {
       due = rawDate;
     } else {
+      defaulted = rawDate <= floorIso;
       due = rawDate < floorIso ? floorIso : rawDate;
     }
 
@@ -953,6 +1051,7 @@ export function validateExtracted(
           ? item.due_phrase.trim().slice(0, 80)
           : null,
       due_date: due,
+      due_defaulted: defaulted,
       priority_id: priority,
       clarity_timeline: claTimeline,
       clarity_success: claSuccess,
@@ -1061,6 +1160,8 @@ async function createCommitmentsFromExtraction(
       description: c.description,
       week_ending: thisFri,
       due_date: due,
+      // Only when the date that lands is the one the floor supplied.
+      due_date_defaulted: c.due_defaulted === true && due === c.due_date,
       status: "open" as const,
       source_meeting_id: meeting.id,
       clarity_timeline: c.clarity_timeline,
