@@ -12,10 +12,22 @@ commit to it. Additions arrive as a follow-up PR, stacked on that branch when
 they need its content to edit. Worked example: #72 extends failure mode E5 by
 stacking on #71 rather than committing into it.
 
-**One worktree per concurrent session.** Branch ownership does not help while
-the checkout is shared, because a `git checkout` in one session moves the
-branch under the other. That is what happened between the sessions behind #71
-and #72.
+**Work in the main checkout by default.** `git checkout -b <branch>` in
+`AiMHigher` itself. Jason's editor is open on that folder, and a branch
+living in a sibling directory means the file he is asking about is not
+where he looks for it.
+
+**One worktree per CONCURRENT session.** Branch ownership does not help
+while the checkout is shared, because a `git checkout` in one session
+moves the branch under the other. That is what happened between the
+sessions behind #71 and #72, and it is still the hazard.
+
+So the rule is conditional rather than blanket: **before checking a
+branch out in the main folder, establish that no other session is
+mid-task on this repo.** `git status`, `git worktree list`, and
+`gh pr list` for a branch this session did not create. If another
+session is working, take a worktree and say so. If you cannot tell,
+ask rather than moving somebody's checkout.
 
 ```sh
 git worktree add "../AiMHigher-<topic>" -b <branch> main
@@ -34,6 +46,10 @@ copy anything holding a secret: one source of truth, and no second copy to
 forget about. `node_modules/`, `.next/` and test output are per-worktree and
 generated, never shared. The dev clone is shared by every worktree: harness
 probes roll back and are safe to run concurrently, seed scripts are not.
+
+`git worktree remove` refuses a directory holding `node_modules`, and
+leaves the tree deregistered but still on disk. `git worktree prune`
+then `rm -rf` it; check first that nothing untracked is in there.
 
 ## Gates
 
