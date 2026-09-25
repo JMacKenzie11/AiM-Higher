@@ -9,23 +9,34 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { processPendingMeetings } from "@/lib/transcripts/ingest";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
-// Admin/guide-only reanalyze action. Wipes the meeting's downstream
-// artifacts (analysis row + auto-created commitments + issues added
-// from it), resets meeting.status to 'pending', then fires the
-// analysis pipeline out-of-band via after() so the response returns
-// quickly and the model call runs on the server without holding
-// the action open.
+// Reanalyze: regenerate a meeting's analysis from scratch.
 //
-// after() lets the serverless function continue running past the
-// response — the user can refresh the summary in ~30-90s to see
-// the fresh output. If after() isn't available in this runtime
-// (test / older Next), we fall back to fire-and-forget; the
-// transcripts cron will pick up the pending meeting on its next
-// scheduled run either way, so the meeting always eventually
-// re-analyzes.
+// ---- IT NO LONGER TOUCHES ANYBODY'S WORK ------------------------
+//
+// It used to hard-delete every commitment and issue the meeting had
+// created, and their weekly history with them (commitment_occurrences
+// cascades), then recreate a fresh open set with new ids. On a meeting
+// whose commitments were live, that erased completions, rescheduled
+// dates, reassignments and reworded descriptions underneath the people
+// working from them. Jason closed it on 2026-09-25, before any
+// production re-analysis of Benson.
+//
+// Now it is refused outright for any meeting with a commitment or an
+// issue sourced from it, soft-deleted ones included, and it deletes
+// neither: with none present there is nothing to delete, which makes
+// "it cannot destroy work" structural rather than a check that could
+// drift. It still suits the case it exists for, a meeting whose
+// analysis failed or produced nothing. Regenerating the summary of a
+// meeting with live work is scripts/resummarize-once.ts, on a go.
+//
+// system_admin only. A company admin or guide can no longer run it.
+//
+// after() lets the serverless function continue past the response;
+// if it is unavailable the transcripts cron picks the pending meeting
+// up on its next run.
 
 export type ReanalyzeResult =
-  | { ok: true; deletedCommitments: number; deletedIssues: number }
+  | { ok: true }
   | { ok: false; message: string };
 
 export async function reanalyzeMeetingAction(
@@ -40,32 +51,39 @@ export async function reanalyzeMeetingAction(
     .eq("id", meetingId)
     .maybeSingle<{ id: string; company_id: string }>();
   if (!meeting) return { ok: false, message: "Meeting not found." };
-  if (!isAdminForCompany(session.profile, meeting.company_id)) {
-    return {
-      ok: false,
-      message: "Only admins and guides can reanalyze a meeting.",
-    };
+  if (
+    session.profile.role !== "system_admin" ||
+    !isAdminForCompany(session.profile, meeting.company_id)
+  ) {
+    return { ok: false, message: "Only a system admin can reanalyze a meeting." };
   }
 
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
-  // Wipe downstream artifacts. Hard delete rather than soft so a
-  // reanalyze test doesn't leave zombie rows behind. Counts flow
-  // back to the caller so the confirm dialog / result message can
-  // say what happened.
-  const [{ data: deletedCommitments }, { data: deletedIssues }] =
+  // Counted with the admin client, so RLS cannot hide a row and let
+  // the check pass. Soft-deleted rows count: they are still history.
+  const [{ count: commitmentCount, error: cErr }, { count: issueCount, error: iErr }] =
     await Promise.all([
       admin
         .from("commitments")
-        .delete()
-        .eq("source_meeting_id", meetingId)
-        .select("id"),
+        .select("id", { count: "exact", head: true })
+        .eq("source_meeting_id", meetingId),
       admin
         .from("issues")
-        .delete()
-        .eq("source_meeting_id", meetingId)
-        .select("id"),
+        .select("id", { count: "exact", head: true })
+        .eq("source_meeting_id", meetingId),
     ]);
+  if (cErr || iErr || commitmentCount === null || issueCount === null) {
+    // Fail closed: unable to prove there is no work to destroy.
+    return { ok: false, message: "Couldn't check this meeting's commitments and issues." };
+  }
+  if (commitmentCount > 0 || issueCount > 0) {
+    return {
+      ok: false,
+      message:
+        "This meeting has commitments or issues created from it, so it can't be reanalyzed.",
+    };
+  }
 
   await admin
     .from("meeting_analyses")
@@ -77,12 +95,6 @@ export async function reanalyzeMeetingAction(
     .update({ status: "pending", error: null })
     .eq("id", meetingId);
 
-  // Kick off the analysis without blocking the response. after() is
-  // Vercel's supported way to run post-response work on the same
-  // serverless invocation. If the runtime lacks it (older Next,
-  // test env), fall back to a fire-and-forget promise; the
-  // transcripts cron will still process the pending row within
-  // 15 min as a safety net.
   try {
     after(async () => {
       try {
@@ -104,9 +116,5 @@ export async function reanalyzeMeetingAction(
   }
 
   revalidatePath(`/leadership/meetings/${meetingId}`);
-  return {
-    ok: true,
-    deletedCommitments: (deletedCommitments ?? []).length,
-    deletedIssues: (deletedIssues ?? []).length,
-  };
+  return { ok: true };
 }

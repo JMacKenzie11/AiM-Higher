@@ -59,12 +59,6 @@ As an admin or guide, you can also:
   opportunities, and a *what to try next week* section. The
   overall number is a signal, not a grade — shape over several
   meetings matters more than any single week.
-- **Reanalyze the meeting** — a *Reanalyze meeting* button at the
-  bottom wipes this meeting's analysis, any commitments the
-  pipeline auto-created from it, and any issues added from it,
-  then re-runs the extraction. Use it after fixing the roster or
-  the transcript, or when the extraction landed thin. The
-  facilitation review regenerates as part of the same pass.
 :::
 
 ## How duplicate awareness works
@@ -86,14 +80,16 @@ doesn't decorate every row with the badge.
 
 ## How reanalyze behaves
 
-Clicking *Reanalyze meeting* immediately:
+*Reanalyze meeting* is for system admins, and only appears on a
+meeting that has no commitments or issues created from it, such as
+one whose analysis failed or came back empty. It replaces the
+analysis and runs the extraction again. It never touches anybody's
+commitments or issues: a meeting that has any cannot be
+reanalyzed.
 
-1. Deletes the current analysis row.
-2. Deletes commitments this meeting created (only rows tagged
-   with `source_meeting_id = this meeting`).
-3. Deletes issues added from this meeting.
-4. Resets the meeting to `pending` and kicks off the extraction
-   pipeline in the background.
+If a meeting with commitments on people's lists needs a better
+summary, ask your AiMS contact. It can be regenerated without
+changing the commitments or issues.
 
 While the re-run is in flight, a pulsing *Analyzing this meeting*
 banner sits above the analysis card and the *Reanalyze* button
@@ -134,5 +130,6 @@ usually recovers.
 **Why is there no facilitation review?** Either Meeting
 Facilitation Review is off for the company, the transcript was
 flagged insufficient (too short or too fragmented), or the
-review pipeline hasn't run against this meeting yet. Reanalyze
-regenerates it as part of the same pass.
+review pipeline hasn't run against this meeting yet. Ask your AiMS
+contact to regenerate it; that leaves commitments and issues as
+they are.

@@ -547,7 +547,14 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           <FacilitationReview review={facilitationReview} />
         ) : null}
 
-        {isAdmin && !isProcessing ? (
+        {/* System admins only, and only for a meeting with no
+            commitments or issues created from it: Reanalyze replaces
+            the analysis, and on a meeting with live work that used to
+            mean deleting it. The action refuses the same cases. */}
+        {session.profile.role === "system_admin" &&
+        !isProcessing &&
+        commitmentRows.length === 0 &&
+        addedIssueRows.length === 0 ? (
           <section
             aria-label="Meeting analysis actions"
             style={{
