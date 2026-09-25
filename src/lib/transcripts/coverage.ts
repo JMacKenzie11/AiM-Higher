@@ -1,6 +1,7 @@
 import "server-only";
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { prefixed, transcriptInMessage, type SharedPrefix } from "@/lib/transcripts/shared-prefix";
 
 // DID THE EXTRACTION MISS ANYTHING?
 //
@@ -44,7 +45,7 @@ export type CoverageReport = {
   checked: number;
 };
 
-const TOOL: Anthropic.Tool = {
+export const COVERAGE_TOOL: Anthropic.Tool = {
   name: "record_coverage",
   description:
     "Record commitments present in the transcript that are missing from the extracted list.",
@@ -107,6 +108,7 @@ export async function checkCoverage(
     transcript: string;
     extracted: string[];
     speakerBlock: string;
+    shared?: SharedPrefix;
   }
 ): Promise<CoverageReport | null> {
   try {
@@ -121,15 +123,13 @@ export async function checkCoverage(
       // the note in analyze.ts.
       thinking: { type: "disabled" },
       max_tokens: 3000,
-      system: [{ type: "text", text: SYSTEM }],
-      tools: [TOOL],
-      tool_choice: { type: "tool", name: "record_coverage" },
+      ...prefixed(input.shared, SYSTEM, COVERAGE_TOOL),
       messages: [
         {
           role: "user",
           content:
             `${input.speakerBlock}\n\n<already_extracted>\n${list}\n</already_extracted>\n\n` +
-            `<transcript>\n${input.transcript}\n</transcript>`,
+            transcriptInMessage(input.shared, input.transcript),
         },
       ],
     });

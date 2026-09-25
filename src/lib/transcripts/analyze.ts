@@ -11,8 +11,9 @@ import type { Quarter } from "@/lib/types";
 import { fridayOf, todayInTimezone } from "@/lib/dates";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { track } from "@/lib/analytics/track";
-import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyze";
+import { analyzeMeetingFacilitation, FACILITATION_TOOL } from "@/lib/leadership/facilitation/analyze";
 import {
+  SPEAKER_MAP_TOOL,
   mapSpeakers,
   formatSpeakerMap,
   identifiedSpeakers,
@@ -21,9 +22,10 @@ import {
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
 import { buildSpeller, describeChanges, summariseChanges, type SpellingChange, type SpellingEntry } from "./spelling";
 import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/score";
-import { generateMeetingQuestions } from "@/lib/leadership/questions";
+import { generateMeetingQuestions, QUESTIONS_TOOL } from "@/lib/leadership/questions";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
-import { checkCoverage } from "./coverage";
+import { checkCoverage, COVERAGE_TOOL } from "./coverage";
+import { buildSharedPrefix, transcriptInMessage } from "./shared-prefix";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type {
@@ -190,10 +192,22 @@ export async function analyzeMeeting(
     // Best effort: a null map means the later calls see no
     // <speaker_map> block and behave as they did before, which is
     // worse but not broken.
+    // Every call below starts with the same tools and the same cached
+    // transcript, so the speaker map writes the cache entry and the
+    // rest read it (shared-prefix.ts). The order of the tools is part
+    // of the prefix: never build this list twice.
+    const shared = buildSharedPrefix(meetingRow.transcript_text, [
+      SPEAKER_MAP_TOOL,
+      COVERAGE_TOOL,
+      QUESTIONS_TOOL,
+      FACILITATION_TOOL,
+    ]);
+
     const speakerMap = await mapSpeakers(client, {
       model,
       transcript: meetingRow.transcript_text,
       companyContextBlock: companyBlock,
+      shared,
     });
     const speakerBlock = formatSpeakerMap(speakerMap);
     if (!speakerMap) {
@@ -234,13 +248,16 @@ export async function analyzeMeeting(
           model,
           ...NO_THINKING,
           max_tokens: MAX_TOKENS_EXTRACTION,
+          // Not on the shared prefix: a text call cannot carry the
+          // tools (shared-prefix.ts), and started beside the analysis
+          // it could not read a cache entry anyway. Sent as before.
           system: [{ type: "text", text: EXTRACTION_SYSTEM_PROMPT }],
           messages: [
             {
               role: "user",
               content: buildExtractionUserMessage(
                 context,
-                meetingRow.transcript_text,
+                transcriptInMessage(undefined, meetingRow.transcript_text),
                 speakerBlock,
                 meetingDateIso,
                 companyBlock
@@ -266,6 +283,7 @@ export async function analyzeMeeting(
           companyContextBlock: speakerBlock
             ? `${companyBlock}\n\n${speakerBlock}`
             : companyBlock,
+          shared,
         }).catch((err) => {
           console.error(
             `[facilitation] review failed for meeting ${meetingId}:`,
@@ -280,11 +298,12 @@ export async function analyzeMeeting(
       model,
       ...NO_THINKING,
       max_tokens: MAX_TOKENS_ANALYSIS,
+      // As the extraction: sent as before, not on the shared prefix.
       system: [{ type: "text", text: analyzerPrompt }],
       messages: [
         {
           role: "user",
-          content: `${companyBlock}\n\n${speakerBlock}\n\n<transcript>\n${meetingRow.transcript_text}\n</transcript>`,
+          content: `${companyBlock}\n\n${speakerBlock}\n\n${transcriptInMessage(undefined, meetingRow.transcript_text)}`,
         },
       ],
     });
@@ -448,6 +467,7 @@ export async function analyzeMeeting(
       transcript: meetingRow.transcript_text,
       extracted: validated.map((c) => c.description),
       speakerBlock,
+      shared,
     });
 
     // The review, started with the analysis above (Call 3).
@@ -466,6 +486,7 @@ export async function analyzeMeeting(
         companyBlock,
         transcript: meetingRow.transcript_text,
         speakerBlock,
+        shared,
         // Who may be credited: the people identified as present, by the
         // speaker map or the summary's own attendee list (attendees.ts),
         // names only.
@@ -961,7 +982,8 @@ Due-date resolution rules:
 
 function buildExtractionUserMessage(
   ctx: CompanyContext,
-  transcript: string,
+  // Already wrapped: transcriptInMessage (shared-prefix.ts).
+  transcriptPart: string,
   speakerBlock: string,
   meetingDateIso: string,
   // The same block the summary is written from. The extraction call
@@ -986,7 +1008,7 @@ function buildExtractionUserMessage(
   // month") are meaningless without it, and the model cannot know
   // when the meeting happened from the transcript alone.
   const company = companyBlock ? `${companyBlock}\n\n` : "";
-  return `${company}Meeting date: ${meetingDateIso}\n\nRoster:\n${roster || "- (empty)"}\n\nPriorities:\n${priorities}${speakers}\n\n<transcript>\n${transcript}\n</transcript>`;
+  return `${company}Meeting date: ${meetingDateIso}\n\nRoster:\n${roster || "- (empty)"}\n\nPriorities:\n${priorities}${speakers}\n\n${transcriptPart}`;
 }
 
 export function parseExtractionJson(raw: string): {

@@ -28,11 +28,18 @@ vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({})
 vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: vi.fn() }));
 vi.mock("@/lib/analytics/track", () => ({ track: h.track }));
 vi.mock("@/lib/guide/nudges", () => ({ raiseMeetingDebriefNudge: h.nudge }));
-vi.mock("@/lib/leadership/facilitation/analyze", () => ({ analyzeMeetingFacilitation: h.facilitation }));
+vi.mock("@/lib/leadership/facilitation/analyze", () => ({
+  analyzeMeetingFacilitation: h.facilitation,
+  FACILITATION_TOOL: { name: "record_facilitation_review", input_schema: { type: "object" } },
+}));
 vi.mock("@/lib/leadership/questions", () => ({
   generateMeetingQuestions: vi.fn(async () => ({ nextWeek: [], opened: [] })),
+  QUESTIONS_TOOL: { name: "record_questions", input_schema: { type: "object" } },
 }));
-vi.mock("./coverage", () => ({ checkCoverage: vi.fn(async () => ({ missed: [], checked: 0 })) }));
+vi.mock("./coverage", () => ({
+  checkCoverage: vi.fn(async () => ({ missed: [], checked: 0 })),
+  COVERAGE_TOOL: { name: "record_coverage", input_schema: { type: "object" } },
+}));
 vi.mock("./speakers", async (orig) => ({
   ...(await orig<typeof import("./speakers")>()),
   mapSpeakers: vi.fn(async () => null),
@@ -90,8 +97,10 @@ vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: async () => 
 const SUMMARY = "## Attendees\n\n- Pat\n\n## Summary\n\nThe team agreed the quote goes out Friday.";
 const EXTRACTION = JSON.stringify({ commitments: [], issues: [{ title: "Quote timing" }] });
 
+// The call's own instructions are the LAST system block; the first is
+// the shared transcript (shared-prefix.ts).
 const kindOf = (req: { system: Array<{ text: string }> }) =>
-  req.system[0].text.startsWith("You extract commitments") ? "extraction" : "analysis";
+  req.system.at(-1)!.text.startsWith("You extract commitments") ? "extraction" : "analysis";
 const text = (t: string) => ({ content: [{ type: "text", text: t }], stop_reason: "end_turn", usage: null });
 
 beforeEach(() => {
@@ -172,5 +181,41 @@ describe("one failing call fails the meeting cleanly", () => {
       status: "complete",
     });
     err.mockRestore();
+  });
+});
+
+describe("the shared cached transcript", () => {
+  it("hands the tool calls one prefix, and sends the text calls exactly as before", async () => {
+    const requests: Array<{ system: Array<{ text: string; cache_control?: unknown }>; tools?: unknown; messages: Array<{ content: string }> }> = [];
+    h.create.mockImplementation(async (req) => {
+      requests.push(req);
+      return text(kindOf(req) === "analysis" ? SUMMARY : EXTRACTION);
+    });
+    h.facilitation.mockResolvedValue(null);
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    // Analysis and extraction: one system block, no tools, no cache
+    // mark, the transcript in the message. A text call given the
+    // tools came back empty (shared-prefix.ts).
+    expect(requests).toHaveLength(2);
+    for (const r of requests) {
+      expect(r.system).toHaveLength(1);
+      expect(r.system[0].cache_control).toBeUndefined();
+      expect(r.tools).toBeUndefined();
+      expect(r.messages[0].content).toContain("I will send the quote on Friday.");
+    }
+    // The review is handed the shared prefix: the cached transcript,
+    // and all four tools in their fixed order.
+    const reviewArgs = h.facilitation.mock.calls[0][1];
+    expect(reviewArgs.shared.transcript.cache_control).toEqual({ type: "ephemeral" });
+    expect(reviewArgs.shared.transcript.text).toContain("I will send the quote on Friday.");
+    expect(reviewArgs.shared.tools.map((t: { name: string }) => t.name)).toEqual([
+      "record_speaker_map",
+      "record_coverage",
+      "record_questions",
+      "record_facilitation_review",
+    ]);
   });
 });

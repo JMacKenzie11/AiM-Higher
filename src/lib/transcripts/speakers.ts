@@ -1,6 +1,7 @@
 import "server-only";
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { prefixed, transcriptInMessage, type SharedPrefix } from "@/lib/transcripts/shared-prefix";
 
 // WHO WAS SPEAKING — resolved once, before anything else runs.
 //
@@ -56,7 +57,7 @@ export type SpeakerMap = {
   speakers: SpeakerMapping[];
 };
 
-const TOOL: Anthropic.Tool = {
+export const SPEAKER_MAP_TOOL: Anthropic.Tool = {
   name: "record_speaker_map",
   description:
     "Record who each transcript speaker label refers to. One entry per label that appears in the transcript.",
@@ -196,6 +197,8 @@ export async function mapSpeakers(
     // any company glossary, so spellings resolve here rather than
     // three times downstream.
     companyContextBlock: string;
+    // The meeting's cached transcript and tools (shared-prefix.ts).
+    shared?: SharedPrefix;
   }
 ): Promise<SpeakerMap | null> {
   try {
@@ -210,13 +213,11 @@ export async function mapSpeakers(
       // with no complete tool_use block, so the mapping silently
       // returned null and every section went back to guessing.
       max_tokens: 8000,
-      system: [{ type: "text", text: SYSTEM }],
-      tools: [TOOL],
-      tool_choice: { type: "tool", name: "record_speaker_map" },
+      ...prefixed(input.shared, SYSTEM, SPEAKER_MAP_TOOL),
       messages: [
         {
           role: "user",
-          content: `${input.companyContextBlock}\n\n<transcript>\n${input.transcript}\n</transcript>`,
+          content: `${input.companyContextBlock}\n\n${transcriptInMessage(input.shared, input.transcript)}`,
         },
       ],
     });

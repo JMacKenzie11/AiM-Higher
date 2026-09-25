@@ -1,4 +1,5 @@
 import "server-only";
+import { prefixed, transcriptInMessage, type SharedPrefix } from "@/lib/transcripts/shared-prefix";
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -43,6 +44,8 @@ type FacilitationInput = {
   transcript: string;
   companyContextBlock: string;
   model?: string;
+  // The meeting's cached transcript and tools (shared-prefix.ts).
+  shared?: SharedPrefix;
 };
 
 // ONE RETRY, AND ONLY FOR AN UNSCORED ANSWER.
@@ -82,7 +85,7 @@ const FACILITATION_ATTEMPTS = 2;
 
 export async function analyzeMeetingFacilitation(
   client: Anthropic,
-  { transcript, companyContextBlock, model }: FacilitationInput
+  { transcript, companyContextBlock, model, shared }: FacilitationInput
 ): Promise<FacilitationReview | null> {
   const systemPrompt = await loadFacilitationPrompt();
   const useModel =
@@ -96,6 +99,7 @@ export async function analyzeMeetingFacilitation(
       transcript,
       companyContextBlock,
       attempt,
+      shared,
     });
     if (!review) continue;
     if (isScoredReview(review)) return review;
@@ -139,24 +143,24 @@ async function requestFacilitationReview(
     transcript,
     companyContextBlock,
     attempt,
+    shared,
   }: {
     systemPrompt: string;
     useModel: string;
     transcript: string;
     companyContextBlock: string;
     attempt: number;
+    shared?: SharedPrefix;
   }
 ): Promise<FacilitationReview | null> {
   const response = await client.messages.create({
     model: useModel,
     max_tokens: MAX_TOKENS,
-    system: [{ type: "text", text: systemPrompt }],
-    tool_choice: { type: "tool", name: "record_facilitation_review" },
-    tools: [FACILITATION_TOOL],
+    ...prefixed(shared, systemPrompt, FACILITATION_TOOL),
     messages: [
       {
         role: "user",
-        content: `${companyContextBlock}\n\n<transcript>\n${transcript}\n</transcript>`,
+        content: `${companyContextBlock}\n\n${transcriptInMessage(shared, transcript)}`,
       },
     ],
   });
@@ -225,7 +229,7 @@ async function requestFacilitationReview(
 // in types.ts. Keep the two in lock-step when iterating on the shape.
 // ----------------------------------------------------------------
 
-const FACILITATION_TOOL: Anthropic.Tool = {
+export const FACILITATION_TOOL: Anthropic.Tool = {
   name: "record_facilitation_review",
   description:
     "Record the structured facilitation review of a leadership meeting. Emit exactly one call. Follow the generative-tone guardrails in the system prompt.",

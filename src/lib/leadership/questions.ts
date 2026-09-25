@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import { prefixed, transcriptInMessage, type SharedPrefix } from "@/lib/transcripts/shared-prefix";
 import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
@@ -126,7 +127,7 @@ Four that qualified, from an invented company. They show the standard. Never reu
 
 ${VOICE_CORE}`;
 
-const TOOL: Anthropic.Tool = {
+export const QUESTIONS_TOOL: Anthropic.Tool = {
   name: "record_questions",
   description: "Record next week's questions and the best questions asked this week.",
   input_schema: {
@@ -280,6 +281,10 @@ export async function generateMeetingQuestions(
     // Read to judge what a question actually did. Never shown.
     transcript: string;
     speakerBlock: string;
+    // The meeting's cached transcript and tools (shared-prefix.ts).
+    // With it the whole transcript is read, cached, rather than the
+    // first 60,000 characters sent fresh.
+    shared?: SharedPrefix;
     // The people identified as present: the only names that may be
     // credited (attendees.ts).
     attendees: string[];
@@ -294,16 +299,14 @@ export async function generateMeetingQuestions(
       input.attendees.length > 0 ? input.attendees.map((a) => `- ${a}`).join("\n") : "(none identified)"
     }\n\n` +
     `<summary>\n${input.analysisMarkdown.slice(0, 14000)}\n</summary>\n\n` +
-    `${input.speakerBlock}\n\n<transcript>\n${input.transcript.slice(0, 60000)}\n</transcript>`;
+    `${input.speakerBlock}\n\n${transcriptInMessage(input.shared, input.transcript.slice(0, 60000))}`;
 
   const ask = async (messages: Anthropic.MessageParam[]): Promise<RawOut> => {
     const res = await client.messages.create({
       model: input.model,
       thinking: { type: "disabled" },
       max_tokens: 1500,
-      system: [{ type: "text", text: SYSTEM }],
-      tools: [TOOL],
-      tool_choice: { type: "tool", name: TOOL.name },
+      ...prefixed(input.shared, SYSTEM, QUESTIONS_TOOL),
       messages,
     });
     const block = res.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
