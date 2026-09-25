@@ -212,3 +212,21 @@ describe("a From line that breaks the rules after the retry", () => {
     log.mockRestore();
   });
 });
+
+describe("a pick that breaks the voice rules", () => {
+  it("is named in the retry and the reworded pick is kept", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const bad = { asker: "Darlene Clinch", asked: "whether the stall could be shared instead of ours alone", opened: "Opened a partnership" };
+    const good = { asker: "Darlene Clinch", asked: "whether the stall could be shared with other businesses", opened: "Opened a partnership" };
+    const { client, create } = stub({ questions: GOOD, opened: [bad] }, { questions: GOOD, opened: [good] });
+    const out = await generateMeetingQuestions(client, {
+      model: "m", analysisMarkdown: "", strengths: [], transcript: "", speakerBlock: "", attendees: ["Darlene Clinch"],
+    });
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[1][0].messages.at(-1).content as string).toContain("Keep the pick and reword it");
+    expect(out.opened).toEqual([
+      { asker: "Darlene", asked: "whether the stall could be shared with other businesses", opened: "Opened a partnership." },
+    ]);
+    log.mockRestore();
+  });
+});

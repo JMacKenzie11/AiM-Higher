@@ -88,7 +88,7 @@ QUESTIONS THAT OPENED THINGS UP
 
 Separately, find the questions in THIS meeting's transcript that changed where the discussion went. Judge by EFFECT, not by form: a question qualifies only if the discussion after it went somewhere it was not going before. It led to a reframe, a new option, a retired assumption, or a gap surfaced. Read what came after each question before you pick it.
 
-- A clarifying question never qualifies ("Who's on that?", "When?", "What about the night shift?", "Is Tom the new hire?"), however well it was asked.
+- A clarifying question never qualifies ("Who's on that?", "When?", "What about the night shift?", "Is Tom the new hire?"), however well it was asked. Neither does a question that only adds an item to a list being built: that is completeness, not a change of direction.
 - A question can be phrased as a statement of doubt ("I don't know if they know...") and still count, if the room took it somewhere.
 - For each candidate, write "was_heading" and "went" first, from what the transcript shows. If "went" is only "they answered it", drop the candidate.
 - Up to four. None, if none qualified. Never pad the list.
@@ -98,7 +98,7 @@ Separately, find the questions in THIS meeting's transcript that changed where t
 
 Four that qualified, from an invented company. They show the standard. Never reuse their names, places or details:
   asked: "how a customer who buys through the distributor would ever come to us directly"  opened: "Set the brochure's real goal: reaching the customers behind the distributor."
-  asked: "whether the market stall could be an Elmendale one that other local businesses join, instead of ours alone"  opened: "Turned a cost question into a shared local partnership."
+  asked: "whether the market stall could be a shared Elmendale one that other local businesses join"  opened: "Turned a cost question into a shared local partnership."
   asked: "whether anybody was actually using the label printer on line two"  opened: "Nobody was, so it went, and the hand-labelling shortcut spread."
   asked: "whether the day shift knows the night shift has a bonus scheme"  opened: "Surfaced that the two shifts never meet, so the day shift may not know."
 
@@ -197,7 +197,19 @@ function readQuestions(raw: RawOut): NextWeekQuestion[] {
 // nothing here is verbatim; and a line that breaks the voice rules is
 // dropped rather than shown.
 export function readOpened(raw: { opened?: unknown }, attendees: readonly string[]): OpenedQuestion[] {
-  if (!Array.isArray(raw.opened)) return [];
+  return inspectOpened(raw, attendees).kept;
+}
+
+// The kept picks, and the ones dropped for breaking the voice rules,
+// named so the one retry can ask for them again. An asker who is not
+// an attendee is dropped without a retry: that is a credit the model
+// may not give, not wording to fix.
+export function inspectOpened(
+  raw: { opened?: unknown },
+  attendees: readonly string[]
+): { kept: OpenedQuestion[]; faults: string[] } {
+  const faults: string[] = [];
+  if (!Array.isArray(raw.opened)) return { kept: [], faults };
   const byName = new Map(attendees.map((a) => [a.toLowerCase(), a]));
   const firstNames = attendees.map((a) => a.split(/\s+/)[0].toLowerCase());
   const out: OpenedQuestion[] = [];
@@ -221,15 +233,15 @@ export function readOpened(raw: { opened?: unknown }, attendees: readonly string
     const words = (t: string) => t.split(/\s+/).filter(Boolean).length;
     const banned = [...findBannedPhrases(asked), ...findBannedPhrases(opened)];
     if (!asked || !opened || words(asked) > 30 || words(opened) > 25 || banned.length > 0) {
-      console.log(
-        `[questions] opened: dropped "${asked}"${banned.length ? `: ${describeHits(banned)}` : ": empty or too long"}`
-      );
+      const why = banned.length ? `uses ${describeHits(banned)}` : "is empty or too long";
+      console.log(`[questions] opened: dropped "${asked}": ${why}`);
+      faults.push(`In "opened", ${asker} asked "${asked}" ${why}. Keep the pick and reword it.`);
       continue;
     }
     out.push({ asker, asked, opened: `${opened}.` });
     if (out.length >= 4) break;
   }
-  return out;
+  return { kept: out, faults };
 }
 
 export async function generateMeetingQuestions(
@@ -273,32 +285,39 @@ export async function generateMeetingQuestions(
   try {
     const first = await ask([{ role: "user", content: userTurn }]);
     let questions = readQuestions(first);
-    let opened = readOpened(first, input.attendees);
+    const firstOpened = inspectOpened(first, input.attendees);
+    let opened = firstOpened.kept;
 
     const faulty = questions
       .map((q, index) => ({ index, faults: allFaults(q) }))
       .filter((f) => f.faults.length > 0);
-    if (faulty.length > 0 || questions.length < 3) {
+    if (faulty.length > 0 || questions.length < 3 || firstOpened.faults.length > 0) {
       console.log(
-        `[questions] retry: ${faulty.map((f) => `#${f.index + 1} ${f.faults.join(", ")}`).join("; ") || "fewer than three"}`
+        `[questions] retry: ${[
+          ...faulty.map((f) => `#${f.index + 1} ${f.faults.join(", ")}`),
+          ...(questions.length < 3 ? ["fewer than three"] : []),
+          ...firstOpened.faults,
+        ].join("; ")}`
       );
       const instruction =
-        `Write all three again. ` +
+        `Write both lists again. ` +
         faulty
           .map((f) => `Question ${f.index + 1}, "${questions[f.index].question}": ${f.faults.join("; ")}.`)
           .join(" ") +
-        ` Keep what was right about the others.`;
+        (firstOpened.faults.length > 0 ? ` ${firstOpened.faults.join(" ")}` : "") +
+        ` Keep what was right about the rest.`;
       const second = await ask([
         { role: "user", content: userTurn },
-        { role: "assistant", content: JSON.stringify({ questions, opened: [] }) },
+        { role: "assistant", content: JSON.stringify({ questions, opened: first.opened ?? [] }) },
         { role: "user", content: instruction },
       ]);
       const retried = readQuestions(second);
       if (retried.length > 0) questions = retried;
-      // The retry's picks count too. They used to be ignored, so a
-      // malformed first answer lost the block even when the retry
-      // was fine.
-      if (opened.length === 0) opened = readOpened(second, input.attendees);
+      // The retry's picks count too: when the first had none, or when
+      // the retry kept at least as many, having been asked to reword
+      // the ones the first lost to the voice rules.
+      const secondOpened = readOpened(second, input.attendees);
+      if (secondOpened.length >= opened.length) opened = secondOpened;
     }
 
     // Anything still wrong is dropped, and said so. A block of two
