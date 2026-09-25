@@ -214,6 +214,14 @@
   .strip {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* Two tabs to the first line on a phone, not one per line. */
+  .tabRow {
+    gap: 0 var(--space-4);
+  }
+  .tab,
+  .tabActive {
+    font-size: 14px;
+  }
   .signal {
     justify-self: start;
   }

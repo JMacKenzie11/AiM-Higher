@@ -534,19 +534,15 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
             {meeting.meeting_title ?? meeting.file_name}
           </h1>
           <span className={styles.rule} aria-hidden="true" />
-          <p className={styles.subtitle}>
-            {new Date(meeting.created_at).toLocaleString()}
-            {/* Same gate as the section below. With tracking off,
-                "0 commitments created" is true and misleading: the
-                pipeline was never asked to create any. */}
-            {autoTrackOn ? (
-              <>
-                {" · "}
-                {commitmentRows.length} commitment
-                {commitmentRows.length === 1 ? "" : "s"} created
-              </>
-            ) : null}
-          </p>
+          {/* The date is on the strip below; saying it here too was the
+              same fact twice. With tracking off, "0 commitments created"
+              is true and misleading, so it is left out. */}
+          {autoTrackOn ? (
+            <p className={styles.subtitle}>
+              {commitmentRows.length} commitment
+              {commitmentRows.length === 1 ? "" : "s"} created
+            </p>
+          ) : null}
         </div>
       </section>
 
