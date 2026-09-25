@@ -203,8 +203,80 @@ export async function analyzeMeeting(
       );
     }
 
+    // The company's day, not the server's. An evening meeting on a
+    // western timezone is already tomorrow in UTC, and every
+    // same-day commitment would land a day early for the whole team.
+    const meetingDateIso = meetingDateIn(
+      meetingRow.created_at,
+      context.timezone ?? "UTC"
+    );
+
+    // ---- THREE CALLS AT ONCE ----------------------------------
+    //
+    // The analysis, the extraction and the facilitation review each
+    // need only the transcript, the company block and the speaker map,
+    // all settled by now, so they run together rather than one after
+    // another. The audit measured them at about 75s, 30s and 60s of a
+    // 166 to 212s meeting (2026-09-25).
+    //
+    // Nothing is written until all three are back, so a call that
+    // fails fails the meeting exactly as it did in sequence: the
+    // analysis or the extraction throwing rejects Promise.all, the
+    // catch at the bottom marks the meeting failed, and no analysis
+    // row, commitment or nudge exists yet to be left half-made. The
+    // review is best effort, as before: its own failure is caught
+    // here and becomes "no review".
+
+    // ---- Call 2: extraction (not on a summary-only run) ----
+    const extractionP = options.carryOver
+      ? Promise.resolve(null)
+      : client.messages.create({
+          model,
+          ...NO_THINKING,
+          max_tokens: MAX_TOKENS_EXTRACTION,
+          system: [{ type: "text", text: EXTRACTION_SYSTEM_PROMPT }],
+          messages: [
+            {
+              role: "user",
+              content: buildExtractionUserMessage(
+                context,
+                meetingRow.transcript_text,
+                speakerBlock,
+                meetingDateIso,
+                companyBlock
+              ),
+            },
+          ],
+        });
+
+    // ---- Call 3: facilitation review (feature flag) ----
+    // Best-effort: a failure here never blocks the summary/commitments
+    // pipeline. The review is additive coaching; the summary is the
+    // load-bearing output.
+    const facilitationP: Promise<FacilitationReview | null> = (await companyHasFacilitationReview(
+      admin,
+      meetingRow.company_id
+    ))
+      ? analyzeMeetingFacilitation(client, {
+          transcript: meetingRow.transcript_text,
+          // The same settled mapping. The review credits ideas to
+          // people ("Nancy's glove tip") and used to resolve labels
+          // on its own, so it could disagree with the summary beside
+          // it about who said what.
+          companyContextBlock: speakerBlock
+            ? `${companyBlock}\n\n${speakerBlock}`
+            : companyBlock,
+        }).catch((err) => {
+          console.error(
+            `[facilitation] review failed for meeting ${meetingId}:`,
+            err instanceof Error ? err.message : err
+          );
+          return null;
+        })
+      : Promise.resolve(null);
+
     // ---- Call 1: analysis ----
-    const analysisMessage = await client.messages.create({
+    const analysisP = client.messages.create({
       model,
       ...NO_THINKING,
       max_tokens: MAX_TOKENS_ANALYSIS,
@@ -216,6 +288,12 @@ export async function analyzeMeeting(
         },
       ],
     });
+
+    const [analysisMessage, rawExtraction, reviewFromCall] = await Promise.all([
+      analysisP,
+      extractionP,
+      facilitationP,
+    ]);
     if (analysisMessage.usage) {
       void logCoachTokenUsage({
         conversationId: null,
@@ -291,41 +369,14 @@ export async function analyzeMeeting(
       );
     }
 
-    // The company's day, not the server's. An evening meeting on a
-    // western timezone is already tomorrow in UTC, and every
-    // same-day commitment would land a day early for the whole team.
-    const meetingDateIso = meetingDateIn(
-      meetingRow.created_at,
-      context.timezone ?? "UTC"
-    );
-
     // SUMMARY-ONLY runs skip extraction altogether and carry the
     // meeting's existing lists over unchanged. See AnalyzeOptions.
     let validated: ExtractedCommitment[];
     let validatedIssues: ExtractedIssue[];
-    if (options.carryOver) {
-      validated = options.carryOver.commitments_json;
-      validatedIssues = options.carryOver.issues_json ?? [];
+    if (options.carryOver || !rawExtraction) {
+      validated = options.carryOver?.commitments_json ?? [];
+      validatedIssues = options.carryOver?.issues_json ?? [];
     } else {
-      // ---- Call 2: extraction ----
-      const rawExtraction = await client.messages.create({
-        model,
-        ...NO_THINKING,
-        max_tokens: MAX_TOKENS_EXTRACTION,
-        system: [{ type: "text", text: EXTRACTION_SYSTEM_PROMPT }],
-        messages: [
-          {
-            role: "user",
-            content: buildExtractionUserMessage(
-              context,
-              meetingRow.transcript_text,
-              speakerBlock,
-              meetingDateIn(meetingRow.created_at, context.timezone ?? "UTC"),
-              companyBlock
-            ),
-          },
-        ],
-      });
       if (rawExtraction.usage) {
         void logCoachTokenUsage({
           conversationId: null,
@@ -399,32 +450,8 @@ export async function analyzeMeeting(
       speakerBlock,
     });
 
-    // ---- Optional: facilitation review ----
-    // Second LLM pass gated on the meeting_facilitation_review feature.
-    // Best-effort: a failure here never blocks the summary/commitments
-    // pipeline — the review is additive coaching, the summary is the
-    // load-bearing output.
-    let facilitationReview: FacilitationReview | null = null;
-    if (await companyHasFacilitationReview(admin, meetingRow.company_id)) {
-      try {
-        facilitationReview = await analyzeMeetingFacilitation(client, {
-          transcript: meetingRow.transcript_text,
-          // The same settled mapping. The review credits ideas to
-          // people ("Nancy's glove tip") and used to resolve labels
-          // on its own, so it could disagree with the summary beside
-          // it about who said what.
-          companyContextBlock: speakerBlock
-            ? `${companyBlock}\n\n${speakerBlock}`
-            : companyBlock,
-        });
-      } catch (err) {
-        // Swallow: log to server logs, keep pipeline moving.
-        console.error(
-          `[facilitation] review failed for meeting ${meetingId}:`,
-          err instanceof Error ? err.message : err
-        );
-      }
-    }
+    // The review, started with the analysis above (Call 3).
+    let facilitationReview: FacilitationReview | null = reviewFromCall;
 
     // ---- Questions, for the Coaching notes tab ----
     //
