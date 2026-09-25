@@ -26,10 +26,16 @@ export type VersionResult =
   | { ok: true; versionId?: string }
   | { ok: false; message: string };
 
+// `satisfies` catches a name that is NOT a tool. It cannot catch a
+// tool that is missing from the list, which is the direction that
+// hurts: a tool absent here is dropped on save, so publishing an
+// agent from the Hub silently takes a tool away from it. See
+// version-config.test.ts, which holds both lists against the union.
 const KNOWN_TOOLS = new Set<string>([
   "get_foundation",
   "list_functions",
   "get_role_description",
+  "get_meeting_debrief",
 ] satisfies PracticeToolName[]);
 
 export type DraftInput = {

@@ -20,6 +20,7 @@ const LABELS: Record<string, string> = {
   get_foundation: "Reading the company's foundation",
   list_functions: "Looking at the functional chart",
   get_role_description: "Reading the role description",
+  get_meeting_debrief: "Reading the meeting summary",
   get_strengths_profile: "Checking strengths results",
   commitment_history: "Looking back through commitments",
   issue_casefiles: "Reading the issue history",
