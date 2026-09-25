@@ -118,3 +118,19 @@ rather than stacking up.
 
 You can always open any meeting summary yourself from **Meetings**
 and read it without the chat.
+
+::: role system_admin
+## For system admins: what the Guide has raised
+
+`npm run guide:nudges -- --company <name>` lists every note the Guide
+has raised for that company in the last 30 days (`--since` changes
+the window, `--instance` the instance): when it was raised, which
+meeting it was about, the headline the champion saw, whether it is
+pending, opened, dismissed or superseded, and when that changed.
+Without `--company` it shows only how many each company raised and
+what happened to them, with no headlines. It signs in as you and reads
+only what a system admin can see. It deliberately shows nothing of the
+chat that follows a note: the debrief is the champion's own
+conversation, and this command never reads it, links to it or counts
+it.
+:::
