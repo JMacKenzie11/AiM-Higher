@@ -19,6 +19,7 @@ import {
   replaceSpeakerLabels,
 } from "./speakers";
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
+import { buildSpeller, describeChanges, type SpellingChange, type SpellingEntry } from "./spelling";
 import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/score";
 import { generateMeetingQuestions } from "@/lib/leadership/questions";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
@@ -241,8 +242,25 @@ export async function analyzeMeeting(
     );
     // After the quote pass, so a quote is compared with the transcript
     // exactly as the model wrote it. See replaceSpeakerLabels.
-    const { text: analysisMarkdown, replaced: labelsReplaced } =
+    const { text: labelledMarkdown, replaced: labelsReplaced } =
       replaceSpeakerLabels(unquotedMarkdown, speakerMap);
+
+    // The company's spellings, enforced rather than asked for. Every
+    // generated string passes through `spelled` before it is stored
+    // or handed to a later call, and every change is logged once, at
+    // the end. See spelling.ts.
+    const spell = buildSpeller({
+      roster: context.roster,
+      entries: context.spellings,
+      transcript: meetingRow.transcript_text,
+    });
+    const spellingChanges: SpellingChange[] = [];
+    const spelled = (t: string): string => {
+      const r = spell(t);
+      spellingChanges.push(...r.changes);
+      return r.text;
+    };
+    const analysisMarkdown = spelled(labelledMarkdown);
     if (labelsReplaced > 0) {
       console.log(
         `[analyze] replaced ${labelsReplaced} speaker label(s) in the summary for meeting ${meetingId}`
@@ -349,7 +367,7 @@ export async function analyzeMeeting(
       validated = requirePresentOwners(
         validateCommitments(rawCommitments, context, meetingDateIso).map((c) => ({
           ...c,
-          description: replaceSpeakerLabels(c.description, speakerMap).text,
+          description: spelled(replaceSpeakerLabels(c.description, speakerMap).text),
         })),
         presentOwnerIds(
           context.roster,
@@ -365,7 +383,7 @@ export async function analyzeMeeting(
       // automatic_commitment_tracking flag.
       validatedIssues = validateIssues(rawIssues).map((i) => ({
         ...i,
-        title: replaceSpeakerLabels(i.title, speakerMap).text,
+        title: spelled(replaceSpeakerLabels(i.title, speakerMap).text),
       }));
     }
 
@@ -465,6 +483,11 @@ export async function analyzeMeeting(
     //
     // A write whose failure nobody can hear is failure mode E14, and
     // this is the same shape.
+    const reviewForStorage = facilitationReview
+      ? mapStrings(facilitationReview, (t) =>
+          stripEmDashes(spelled(replaceSpeakerLabels(t, speakerMap).text))
+        )
+      : null;
     const { error: analysisErr } = await admin.from("meeting_analyses").insert({
       meeting_id: meetingId,
       // Stripped on the way IN, not on the way out. The markdown is
@@ -489,11 +512,7 @@ export async function analyzeMeeting(
       // Em dashes too: a 4Ws note came back as "Which lighting option
       // do we try first — the peak-mounted floodlight or a pole
       // light", because only the summary went through the dash pass.
-      facilitation_review_json: facilitationReview
-        ? mapStrings(facilitationReview, (t) =>
-            stripEmDashes(replaceSpeakerLabels(t, speakerMap).text)
-          )
-        : null,
+      facilitation_review_json: reviewForStorage,
       model,
     });
     if (analysisErr) {
@@ -557,7 +576,16 @@ export async function analyzeMeeting(
           analysisMarkdown,
           transcript: meetingRow.transcript_text,
           strengths: (facilitationReview?.strengths ?? []).map((s) => s.title),
+          spell: spelled,
         });
+
+    // One line for every correction this run made, the headline's
+    // included, so a wrong one is findable in the logs.
+    if (spellingChanges.length > 0) {
+      console.log(
+        `[analyze] spelling on meeting ${meetingId}: ${describeChanges(spellingChanges)}`
+      );
+    }
 
     // Cron-driven event; no request context, so await inline rather
     // than using next/server after(). The extra ~200ms is fine here.
@@ -609,13 +637,17 @@ type CompanyContext = {
   // Every profile assigned to guide this company (guide_assignments).
   // They count as present at its meetings (attendees.ts).
   assignedGuideIds: string[];
+  // company_spellings (0237). Empty when the company has none, or the
+  // read failed, which is logged: a missing list costs corrections,
+  // never the meeting.
+  spellings: SpellingEntry[];
 };
 
 export async function loadCompanyContext(
   admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
   companyId: string
 ): Promise<CompanyContext> {
-  const [companyRes, foundationRes, itemsRes, rosterRes, coachesRes, guidesRes] =
+  const [companyRes, foundationRes, itemsRes, rosterRes, coachesRes, guidesRes, spellingsRes] =
     await Promise.all([
       admin
         .from("companies")
@@ -652,7 +684,17 @@ export async function loadCompanyContext(
         .from("guide_assignments")
         .select("guide_id")
         .eq("company_id", companyId),
+      admin
+        .from("company_spellings")
+        .select("spelling, heard_as")
+        .eq("company_id", companyId),
     ]);
+  if (spellingsRes.error) {
+    console.warn(
+      `[analyze] company_spellings unreadable for company ${companyId}, ` +
+        `no list corrections this run: ${spellingsRes.error.message}`
+    );
+  }
 
   // The ADMIN client, not getCurrentQuarter().
   //
@@ -713,6 +755,7 @@ export async function loadCompanyContext(
     coreValues: (itemsRes.data ?? []) as FoundationItem[],
     roster: [...companyMembers, ...coaches],
     assignedGuideIds: ((guidesRes.data ?? []) as Array<{ guide_id: string }>).map((g) => g.guide_id),
+    spellings: spellingsRes.error ? [] : ((spellingsRes.data ?? []) as SpellingEntry[]),
     priorities,
   };
 }

@@ -41,6 +41,9 @@ export async function raiseMeetingDebriefNudge(
     analysisMarkdown: string;
     transcript: string;
     strengths: string[];
+    // The company's spellings (transcripts/spelling.ts), applied to the
+    // headline like every other generated string the pipeline stores.
+    spell?: (text: string) => string;
   }
 ): Promise<RaiseResult> {
   try {
@@ -107,7 +110,8 @@ export async function raiseMeetingDebriefNudge(
       .eq("id", company.aims_champion_profile_id)
       .maybeSingle<{ full_name: string | null }>();
 
-    const headline = await generateHeadline(client, {
+    const spell = input.spell ?? ((t: string) => t);
+    const headline = spell(await generateHeadline(client, {
       model: input.model,
       meetingDate: input.meetingDateIso,
       companyName: company.name,
@@ -115,7 +119,7 @@ export async function raiseMeetingDebriefNudge(
       transcript: input.transcript,
       championName: champion?.full_name ?? null,
       strengths: input.strengths,
-    });
+    }));
 
     // ---- one active nudge per company -------------------------
     //
