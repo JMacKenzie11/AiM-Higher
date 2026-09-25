@@ -68,7 +68,6 @@ const MAX_TOKENS_ANALYSIS = 10000;
 const MAX_TOKENS_EXTRACTION = 4000;
 const MAX_COMMITMENTS = 20;
 const DESCRIPTION_MAX = 300;
-const DUE_DATE_HORIZON_DAYS = 30;
 
 export type AnalysisResult = {
   analysisMarkdown: string;
@@ -82,21 +81,6 @@ export type AnalysisResult = {
 };
 
 export type AnalyzeOptions = {
-  // Regenerate the write-up and leave the commitments standing.
-  //
-  // The ordinary reanalyze deletes a meeting's commitments and
-  // re-extracts, which is right when the extraction itself was
-  // wrong. It is NOT right when only the summary changed: those
-  // rows are on people's lists, some are resolved, and recreating
-  // them changes their ids, their wording and their owners
-  // underneath whoever is working from them.
-  //
-  // With this set, the pipeline still extracts — the analysis row
-  // records what it found, and the coverage check needs the list —
-  // but writes no commitment rows and touches none of the existing
-  // ones.
-  preserveCommitments?: boolean;
-
   // SUMMARY-ONLY. Regenerate the summary, the coaching notes, the
   // questions and the score, and leave everything the meeting already
   // put on people's lists exactly as it is.
@@ -561,7 +545,7 @@ export async function analyzeMeeting(
       admin,
       meetingRow.company_id
     );
-    const created = autoTrackOn && !options.preserveCommitments && !options.carryOver
+    const created = autoTrackOn && !options.carryOver
       ? await createCommitmentsFromExtraction(
           admin,
           meetingRow,
@@ -1207,14 +1191,11 @@ async function createCommitmentsFromExtraction(
 
   const { iso: todayIso } = todayInTimezone(ctx.timezone);
   const thisFri = fridayOf(todayIso);
-  const horizon = new Date(todayIso);
-  horizon.setDate(horizon.getDate() + DUE_DATE_HORIZON_DAYS);
-  const horizonIso = horizon.toISOString().slice(0, 10);
 
   const rows = commitments.map((c) => {
     // Due date arrives already resolved against the MEETING's date
     // (due-phrase.ts) and floored by validateExtracted. The guard
-    // here is only for a date outside any sane band.
+    // here is only for a date before the meeting.
     //
     // IT USED TO COMPARE AGAINST TODAY, and that quietly undid the
     // work: a commitment somebody made for "tonight" resolves to the
@@ -1227,14 +1208,11 @@ async function createCommitmentsFromExtraction(
     // before the meeting is genuinely wrong and still falls back; a
     // date on or after it is what somebody actually said.
     const meetingDay = meetingDateIn(meeting.created_at, timezone);
-    const due =
-      c.due_date &&
-      c.due_date <= horizonIso &&
-      c.due_date >= meetingDay
-        ? c.due_date
-        : c.due_date && c.due_date > horizonIso
-          ? c.due_date // future beyond horizon is fine — meetings can plan ahead
-          : thisFri;
+    //
+    // There was a 30-day horizon here too. Both of its branches kept
+    // the date, so it never changed one (audit, 2026-09-25): a date
+    // on or after the meeting stands, however far ahead.
+    const due = c.due_date && c.due_date >= meetingDay ? c.due_date : thisFri;
     return {
       company_id: meeting.company_id!,
       priority_id: c.priority_id,
