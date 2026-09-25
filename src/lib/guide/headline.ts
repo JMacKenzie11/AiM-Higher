@@ -65,6 +65,14 @@ HARD RULES
 
 ${VOICE_CORE}`;
 
+// The prompt's limit. sanitiseHeadline's own ceiling is 45, a
+// margin for the retry, never a target.
+const HEADLINE_MAX_WORDS = 40;
+
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
 // Exported for the shared voice test, which holds every generated
 // surface against the same handful of rules. Not for runtime use.
 export const HEADLINE_RULES_FOR_TEST = SYSTEM;
@@ -137,16 +145,28 @@ export async function generateHeadline(
     // of the two: a banned word is a tic, and a quote nobody said
     // is the product handing somebody a false record of their own
     // meeting. Named first in the retry for that reason.
+    //
+    // LENGTH is one of the checks. It was not: a 46-word headline
+    // went straight to sanitiseHeadline, which refuses anything over
+    // 45, and the champion got the fallback line with nothing in the
+    // log. A line four words too long wants to be asked for again,
+    // not thrown away.
     const hits = findBannedPhrases(text);
     const invented = findUnsupportedQuotes(text, input.transcript);
-    if (hits.length > 0 || invented.length > 0) {
+    const words = wordCount(text);
+    const tooLong = words >= HEADLINE_MAX_WORDS;
+    if (hits.length > 0 || invented.length > 0 || tooLong) {
       console.log(
         `[guide] headline retry:` +
           `${invented.length > 0 ? ` invented quote(s) ${invented.map((q) => `"${q.quote}"`).join(", ")};` : ""}` +
+          `${tooLong ? ` ${words} words;` : ""}` +
           `${hits.length > 0 ? ` ${describeHits(hits)}` : ""}`
       );
       const instruction = [
         invented.length > 0 ? quoteRetryInstruction(invented) : null,
+        tooLong
+          ? `Your line is ${words} words. Write it again in under ${HEADLINE_MAX_WORDS} words, keeping the same point.`
+          : null,
         hits.length > 0 ? retryInstruction(hits) : null,
       ]
         .filter(Boolean)
@@ -158,6 +178,9 @@ export async function generateHeadline(
       ]);
       const stillWrong = [
         ...findBannedPhrases(text),
+        ...(wordCount(text) >= HEADLINE_MAX_WORDS
+          ? [{ phrase: `${wordCount(text)} words`, context: text }]
+          : []),
         ...findUnsupportedQuotes(text, input.transcript).map((q) => ({
           phrase: `invented quote "${q.quote}"`,
           context: q.quote,
@@ -173,7 +196,17 @@ export async function generateHeadline(
       }
     }
 
-    return sanitiseHeadline(text) ?? fallback;
+    const clean = sanitiseHeadline(text);
+    if (clean === null) {
+      // Said out loud. The fallback is a serviceable line, and a
+      // champion getting it every week is a failure that looks like
+      // success unless somebody can see why.
+      console.error(
+        `[guide] headline refused by the final check, sending the fallback: "${text}"`
+      );
+      return fallback;
+    }
+    return clean;
   } catch (err) {
     console.error(
       "[guide] headline generation failed:",
