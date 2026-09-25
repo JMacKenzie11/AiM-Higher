@@ -7,14 +7,22 @@ import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
 //
 // Two blocks, and only one of them is generated.
 //
-// "Questions that opened things up" is CREDIT: the best two or three
-// of the questions people actually asked, with who asked. Nothing is
-// written here. The candidates are parsed out of the summary's own
-// "Key Questions That Facilitated the Discussion" lists, a question
-// only counts while it is still in quotation marks (the summary's
-// quotes are checked against the transcript when it is written, see
-// unquoteUnsupported), and the model is only asked to pick among
-// them by number. It cannot reword a question or move the credit.
+// "Questions that opened things up" is CREDIT for questions picked by
+// their EFFECT: the discussion after them went somewhere it was not
+// going before (a reframe, a new option, a retired assumption, a gap
+// surfaced). Clarifying questions never qualify. Jason, 2026-09-25,
+// replacing a version that parsed the summary's own "Key Questions"
+// list and so picked by form: it credited "What about sanitation?"
+// and missed Darlene's "is anybody using these", which retired the
+// scissors.
+//
+// Each is shown as a lightly cleaned paraphrase, "Casey asked how an
+// end buyer would ever come back to Benson directly", never in
+// quotation marks, so nothing is presented as verbatim and the
+// transcript's stumbles stay off the page; and one plain line on what
+// it opened. The model reads the transcript with the settled speaker
+// map to judge effect. Code holds the credit: an asker who is not
+// among the people identified as present is dropped, not guessed.
 //
 // "Questions worth asking next week" is generated: three generative
 // questions, each tied to something that happened. The rules that
@@ -23,7 +31,13 @@ import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
 // mark, and none of the diagnostic openings. One retry names what was
 // wrong; a question still wrong after it is dropped rather than shown.
 
+// The summary's own quoted questions, still parsed: they tell the
+// model which questions were recorded, as a starting point. They are
+// no longer what is shown.
 export type OpeningQuestion = { question: string; asker: string };
+
+// What the block shows. `asked` completes "<asker> asked ...".
+export type OpenedQuestion = { asker: string; asked: string; opened: string };
 export type NextWeekQuestion = { question: string; moment: string };
 
 // ---- Credit ---------------------------------------------------------
@@ -128,7 +142,22 @@ The target, from a real meeting:
 
 For each question also give "moment": the thing that happened in the meeting it is drawn from, in a few plain words.
 
-You are also given a numbered list of questions people asked in the meeting. Pick the two or three that did the most to open the conversation up, by number. Pick none if none did.
+QUESTIONS THAT OPENED THINGS UP
+
+Separately, find the questions in THIS meeting's transcript that changed where the discussion went. Judge by EFFECT, not by form: a question qualifies only if the discussion after it went somewhere it was not going before. It led to a reframe, a new option, a retired assumption, or a gap surfaced. Read what came after each question before you pick it.
+
+- A clarifying question never qualifies ("Who's on that?", "When?", "What about sanitation?", "Is Nancy the new one?"), however well it was asked.
+- A question can be phrased as a statement of doubt ("I don't know if they know...") and still count, if the room took it somewhere.
+- Up to four. None, if none qualified. Never pad the list.
+- The asker must be someone on the attendee list, named as the list names them. If the speaker map calls the speaker unidentified, leave the question out: credit is the point, and a guess is worse than nothing.
+- "asked": a lightly cleaned paraphrase that completes "<first name> asked ...". No quotation marks. Keep their meaning, drop the stumbles.
+- "opened": what the discussion did next, in plain words, one short sentence.
+
+Four that qualified, from ANOTHER company's meeting. They show the standard. Never reuse their names, places or details:
+  asked: "how an end buyer would ever come back to Benson directly"  opened: "Set the branding inserts' real goal: reaching the buyers behind the brokers."
+  asked: "whether the container could be a Grand Manan one that other island businesses join, instead of a Benson one"  opened: "Turned a cost question into a shared island partnership."
+  asked: "whether anybody was actually using the scissors"  opened: "Nobody was, so the scissors went, and the knuckle technique spread."
+  asked: "whether the Raw crew knows RTE has an incentive"  opened: "Surfaced that the two crews never meet, so Raw may not know."
 
 ${VOICE_CORE}`;
 
@@ -137,7 +166,7 @@ const TOOL: Anthropic.Tool = {
   description: "Record next week's questions and the best questions asked this week.",
   input_schema: {
     type: "object",
-    required: ["questions", "best_asked"],
+    required: ["questions", "opened"],
     properties: {
       questions: {
         type: "array",
@@ -152,17 +181,30 @@ const TOOL: Anthropic.Tool = {
           },
         },
       },
-      best_asked: {
+      opened: {
         type: "array",
-        maxItems: 3,
-        items: { type: "integer", minimum: 1 },
-        description: "Numbers from the list of questions asked, best first.",
+        maxItems: 4,
+        description:
+          "Questions from THIS meeting that changed where the discussion went. None if none did.",
+        items: {
+          type: "object",
+          required: ["asker", "asked", "opened"],
+          properties: {
+            asker: { type: "string", description: "Full name, exactly as the attendee list gives it." },
+            asked: {
+              type: "string",
+              description:
+                "Completes the sentence '<first name> asked ...'. A lightly cleaned paraphrase, no quotation marks.",
+            },
+            opened: { type: "string", description: "What it opened, in plain words. One short sentence." },
+          },
+        },
       },
     },
   },
 };
 
-type RawOut = { questions?: unknown; best_asked?: unknown };
+type RawOut = { questions?: unknown; opened?: unknown };
 
 function readQuestions(raw: RawOut): NextWeekQuestion[] {
   if (!Array.isArray(raw.questions)) return [];
@@ -175,13 +217,44 @@ function readQuestions(raw: RawOut): NextWeekQuestion[] {
     .slice(0, 3);
 }
 
-function readPicks(raw: RawOut, count: number): number[] {
-  if (!Array.isArray(raw.best_asked)) return [];
-  const picks: number[] = [];
-  for (const n of raw.best_asked) {
-    if (typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= count && !picks.includes(n)) picks.push(n);
+// Credit, held in code. An asker not identified as present is
+// dropped rather than guessed; quotation marks come off, because
+// nothing here is verbatim; and a line that breaks the voice rules is
+// dropped rather than shown.
+export function readOpened(raw: { opened?: unknown }, attendees: readonly string[]): OpenedQuestion[] {
+  if (!Array.isArray(raw.opened)) return [];
+  const byName = new Map(attendees.map((a) => [a.toLowerCase(), a]));
+  const firstNames = attendees.map((a) => a.split(/\s+/)[0].toLowerCase());
+  const out: OpenedQuestion[] = [];
+  for (const item of raw.opened) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    if (typeof o.asker !== "string" || typeof o.asked !== "string" || typeof o.opened !== "string") continue;
+    const full = byName.get(o.asker.trim().toLowerCase());
+    if (!full) {
+      console.log(`[questions] opened: dropped, "${o.asker}" is not an identified attendee`);
+      continue;
+    }
+    const first = full.split(/\s+/)[0];
+    // First name when it is unique among the attendees, as a person
+    // would say it; the full name when two share it.
+    const asker = firstNames.filter((f) => f === first.toLowerCase()).length === 1 ? first : full;
+    const clean = (t: string) =>
+      stripEmDashes(t.replace(/["“”]/g, "").replace(/\s+/g, " ").trim()).replace(/[.?]+$/, "");
+    const asked = clean(o.asked).replace(new RegExp(`^${first}\\s+asked\\s+`, "i"), "");
+    const opened = clean(o.opened);
+    const words = (t: string) => t.split(/\s+/).filter(Boolean).length;
+    const banned = [...findBannedPhrases(asked), ...findBannedPhrases(opened)];
+    if (!asked || !opened || words(asked) > 30 || words(opened) > 25 || banned.length > 0) {
+      console.log(
+        `[questions] opened: dropped "${asked}"${banned.length ? `: ${describeHits(banned)}` : ": empty or too long"}`
+      );
+      continue;
+    }
+    out.push({ asker, asked, opened: `${opened}.` });
+    if (out.length >= 4) break;
   }
-  return picks.slice(0, 3);
+  return out;
 }
 
 export async function generateMeetingQuestions(
@@ -191,24 +264,34 @@ export async function generateMeetingQuestions(
     analysisMarkdown: string;
     strengths: string[];
     asked: OpeningQuestion[];
+    // Read to judge what a question actually did. Never shown.
+    transcript: string;
+    speakerBlock: string;
+    // The people identified as present: the only names that may be
+    // credited (attendees.ts).
+    attendees: string[];
   }
-): Promise<{ nextWeek: NextWeekQuestion[]; opened: OpeningQuestion[] }> {
+): Promise<{ nextWeek: NextWeekQuestion[]; opened: OpenedQuestion[] }> {
   const asked =
     input.asked.length > 0
-      ? input.asked.map((q, i) => `${i + 1}. ${q.asker}: "${q.question}"`).join("\n")
+      ? input.asked.map((q) => `- ${q.asker}: "${q.question}"`).join("\n")
       : "(none recorded)";
   const strengths =
     input.strengths.length > 0 ? input.strengths.map((s) => `- ${s}`).join("\n") : "(none recorded)";
   const userTurn =
     `What went well, from the facilitation review:\n${strengths}\n\n` +
-    `Questions people asked in the meeting:\n${asked}\n\n` +
-    `<summary>\n${input.analysisMarkdown.slice(0, 14000)}\n</summary>`;
+    `Attendees (the only people who may be credited):\n${
+      input.attendees.length > 0 ? input.attendees.map((a) => `- ${a}`).join("\n") : "(none identified)"
+    }\n\n` +
+    `Questions the summary recorded, a starting point only:\n${asked}\n\n` +
+    `<summary>\n${input.analysisMarkdown.slice(0, 14000)}\n</summary>\n\n` +
+    `${input.speakerBlock}\n\n<transcript>\n${input.transcript.slice(0, 60000)}\n</transcript>`;
 
   const ask = async (messages: Anthropic.MessageParam[]): Promise<RawOut> => {
     const res = await client.messages.create({
       model: input.model,
       thinking: { type: "disabled" },
-      max_tokens: 800,
+      max_tokens: 1500,
       system: [{ type: "text", text: SYSTEM }],
       tools: [TOOL],
       tool_choice: { type: "tool", name: TOOL.name },
@@ -221,7 +304,7 @@ export async function generateMeetingQuestions(
   try {
     const first = await ask([{ role: "user", content: userTurn }]);
     let questions = readQuestions(first);
-    const opened = readPicks(first, input.asked.length).map((n) => input.asked[n - 1]);
+    const opened = readOpened(first, input.attendees);
 
     const faulty = questions
       .map((q, index) => ({ index, faults: allFaults(q) }))
@@ -238,7 +321,7 @@ export async function generateMeetingQuestions(
         ` Keep what was right about the others.`;
       const second = await ask([
         { role: "user", content: userTurn },
-        { role: "assistant", content: JSON.stringify({ questions, best_asked: [] }) },
+        { role: "assistant", content: JSON.stringify({ questions, opened: [] }) },
         { role: "user", content: instruction },
       ]);
       const retried = readQuestions(second);

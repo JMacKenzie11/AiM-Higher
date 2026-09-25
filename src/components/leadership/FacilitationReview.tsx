@@ -43,7 +43,12 @@ export function FacilitationReview({
   }
 
   const nextWeek = review.next_week_questions ?? [];
-  const opened = review.opening_questions ?? [];
+  // Only the current shape: rows from before the change hold a quoted
+  // `question`, which is exactly what this block no longer shows.
+  const opened = (review.opening_questions ?? []).filter(
+    (q): q is { asker: string; asked: string; opened: string } =>
+      typeof q.asked === "string" && typeof q.opened === "string"
+  );
 
   return (
     <section className={styles.card} aria-labelledby="facilitation">
@@ -177,8 +182,10 @@ export function FacilitationReview({
           <ul className={styles.questionList}>
             {opened.map((q, i) => (
               <li key={i} className={styles.askedItem}>
-                <div className={styles.askedQuestion}>&ldquo;{q.question}&rdquo;</div>
-                <div className={styles.askedBy}>Asked by {q.asker}</div>
+                <div className={styles.askedQuestion}>
+                  {q.asker} asked {q.asked}.
+                </div>
+                <div className={styles.askedBy}>{q.opened}</div>
               </li>
             ))}
           </ul>

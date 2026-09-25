@@ -418,6 +418,21 @@ export async function analyzeMeeting(
         analysisMarkdown,
         strengths: facilitationReview.strengths.map((s) => s.title),
         asked: parseOpeningQuestions(analysisMarkdown),
+        transcript: meetingRow.transcript_text,
+        speakerBlock,
+        // Who may be credited: the people identified as present, by the
+        // speaker map or the summary's own attendee list (attendees.ts),
+        // names only.
+        attendees: [
+          ...new Set(
+            [
+              ...identifiedSpeakers(speakerMap),
+              ...attendeesFromSummary(analysisMarkdown).map((a) =>
+                a.replace(/\s*\([^)]*\)/g, "").split(",")[0].trim()
+              ),
+            ].filter((a) => a.length > 0)
+          ),
+        ],
       });
       facilitationReview = {
         ...facilitationReview,

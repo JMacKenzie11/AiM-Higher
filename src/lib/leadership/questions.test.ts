@@ -5,6 +5,7 @@ import {
   questionFaults,
   allFaults,
   generateMeetingQuestions,
+  readOpened,
 } from "./questions";
 
 // Real lines, from the Benson summary and the fixture summary.
@@ -92,15 +93,67 @@ const GOOD = [
 
 describe("generateMeetingQuestions", () => {
   const asked = parseOpeningQuestions(SUMMARY);
-  const base = { model: "m", analysisMarkdown: SUMMARY, strengths: [], asked };
+  const base = {
+    model: "m",
+    analysisMarkdown: SUMMARY,
+    strengths: [],
+    asked,
+    transcript: "Speaker 1: I don't know if they know that Raw is getting that RTEs have any incentive stuff.",
+    speakerBlock: "<speaker_map>- Speaker 1 = Casey Benson (high)</speaker_map>",
+    attendees: ["Casey Benson", "Darlene Clinch"],
+  };
 
-  it("keeps good questions and credits the picks from the parsed list, never the model's words", async () => {
-    const { client, create } = stub({ questions: GOOD, best_asked: [3, 1, 99] });
+  it("keeps good questions, and credits only identified attendees, by first name, with no quotation marks", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { client, create } = stub({
+      questions: GOOD,
+      opened: [
+        {
+          asker: "Casey Benson",
+          asked: 'Casey asked "whether the Raw crew knows RTE has an incentive?"',
+          opened: "Surfaced that the two crews never meet, so Raw may not know.",
+        },
+        { asker: "Darlene Clinch", asked: "whether anybody was actually using the scissors", opened: "Nobody was, so the scissors went" },
+        // Not an identified attendee: dropped, never guessed.
+        { asker: "Shawn Warman", asked: "how many to a shift", opened: "Grounded the staffing numbers." },
+      ],
+    });
     const out = await generateMeetingQuestions(client, base);
     expect(create).toHaveBeenCalledTimes(1);
     expect(out.nextWeek).toHaveLength(3);
-    // 99 is out of range and ignored.
-    expect(out.opened).toEqual([asked[2], asked[0]]);
+    expect(out.opened).toEqual([
+      {
+        asker: "Casey",
+        asked: "whether the Raw crew knows RTE has an incentive",
+        opened: "Surfaced that the two crews never meet, so Raw may not know.",
+      },
+      { asker: "Darlene", asked: "whether anybody was actually using the scissors", opened: "Nobody was, so the scissors went." },
+    ]);
+    // The model reads the transcript and the speaker map to judge effect.
+    const turn = create.mock.calls[0][0].messages[0].content as string;
+    expect(turn).toContain("<transcript>");
+    expect(turn).toContain("Casey Benson (high)");
+    log.mockRestore();
+  });
+
+  it("drops an opened line that breaks the voice rules", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(
+      readOpened(
+        { opened: [{ asker: "Casey Benson", asked: "whether we could unpack the pricing", opened: "It opened the pricing up." }] },
+        ["Casey Benson"]
+      )
+    ).toEqual([]);
+    log.mockRestore();
+  });
+
+  it("uses the full name when two attendees share a first name", () => {
+    expect(
+      readOpened(
+        { opened: [{ asker: "Casey Benson", asked: "how buyers could come back directly", opened: "Set the inserts' real goal." }] },
+        ["Casey Benson", "Casey Smith"]
+      )[0].asker
+    ).toBe("Casey Benson");
   });
 
   it("retries once naming the fault, then drops a question still wrong, and strips em dashes", async () => {
@@ -112,7 +165,7 @@ describe("generateMeetingQuestions", () => {
     ];
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { client, create } = stub({ questions: bad, best_asked: [] }, { questions: stillBad, best_asked: [] });
+    const { client, create } = stub({ questions: bad, opened: [] }, { questions: stillBad, opened: [] });
     const out = await generateMeetingQuestions(client, base);
     expect(create).toHaveBeenCalledTimes(2);
     const retry = create.mock.calls[1][0].messages.at(-1).content as string;

@@ -95,8 +95,10 @@ As an admin or guide, you can also:
   no breakdown.
 - **Take a question into next week.** *Questions worth asking next
   week* offers three, each drawn from something that went well in
-  this meeting. *Questions that opened things up* credits the best
-  questions people actually asked, and who asked them. In the 4Ws
+  this meeting. *Questions that opened things up* credits the questions
+  that changed where the discussion went, with who asked and what
+  each one opened. They are put in plain words rather than quoted
+  word for word. In the 4Ws
   audit, a step the meeting didn't reach comes with the question
   to ask next time.
 :::

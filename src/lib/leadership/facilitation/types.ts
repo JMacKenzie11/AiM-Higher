@@ -101,7 +101,9 @@ export type FacilitationReview = {
   //
   // Generated: three questions for next week, each tied to a moment.
   next_week_questions?: { question: string; moment: string }[];
-  // Parsed, never written: the best questions people asked, with who
-  // asked them.
-  opening_questions?: { question: string; asker: string }[];
+  // Picked by effect, shown as "<asker> asked <asked>" with what it
+  // opened. Never in quotation marks. Rows written before 2026-09-25
+  // late may hold the older { question, asker } shape; the component
+  // skips those.
+  opening_questions?: { asker: string; asked?: string; opened?: string; question?: string }[];
 };
