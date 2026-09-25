@@ -27,7 +27,7 @@ Concise but insightful explanation of:
 - What strategic arc the meeting fits into
 
 ## Attendees
-Who was actually in the room, taken from the TRANSCRIPT and the speaker map only.
+Who was actually at the meeting, taken from the TRANSCRIPT and the speaker map only.
 
 The roster tells you how to SPELL a name. It never tells you who attended. A person can be on the roster and not be at the meeting — a summary once listed somebody who has never signed in, because their name was on the list and the topic fit.
 
@@ -47,7 +47,7 @@ For each agenda item, use the following structure:
 - **Do not merge two things that share a word.** Two suppliers, two rooms, two shipments: if the transcript distinguishes them, so do you. When you are unsure whether two mentions are the same thing, treat them as separate and say the transcript was not clear.
 - **Name the place exactly as the meeting did.** Rooms and areas are not interchangeable. The issues list and any later audit must use the same names as this section.
 - **A name close to one the company holds is THEIRS.** The people list, the functional chart and the One-Page Plan are the company's own spellings. A recording that says "Elm and Dale" for a place the plan calls Elmendale is a transcription error, not a second place — write what the company writes.
-- **A name you cannot verify stays as the transcript said it.** Do not correct a name toward one that merely sounds similar. If a spelling looks uncertain, write it as heard — the reader is told separately which names the company could not vouch for.
+- **A name you cannot verify stays as the transcript said it.** Do not correct a name toward one that merely sounds similar. If a spelling looks uncertain, write it as heard.
 
 ### A) [Agenda Topic Title]
 

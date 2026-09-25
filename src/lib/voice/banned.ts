@@ -25,7 +25,9 @@
 
 export type BannedHit = { phrase: string; context: string };
 
-const PHRASES: readonly string[] = [
+// Exported for the prompt guard (prompts-vs-banned.test.ts): no prompt
+// may use a phrase its own checker bans.
+export const PHRASES: readonly string[] = [
   // Generic LLM vocabulary.
   "delve",
   "dive in",

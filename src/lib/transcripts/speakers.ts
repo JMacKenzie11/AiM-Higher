@@ -109,7 +109,7 @@ THE CANDIDATE SET IS THE COMPANY'S PEOPLE LIST, GIVEN TO YOU ABOVE.
 
 Work down that list and ask, for each person: is anybody in this
 transcript them? A label is far easier to place when you start from
-who could be in the room than when you start from the label and
+who could be at the meeting than when you start from the label and
 search for anyone who fits. Somebody whose role is Office Manager
 talking about the website, the printer and a savings plan is that
 Office Manager; reading the same turn cold, they are "a speaker who
