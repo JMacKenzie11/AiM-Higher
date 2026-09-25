@@ -31,7 +31,13 @@ import { computeOverall } from "./score";
 // renderer. DB stays schemaless so history is preserved.
 
 const DEFAULT_MODEL = "claude-sonnet-5";
-const MAX_TOKENS = 3500;
+// Room for the whole review. At 3500 a Geo-Sci review ran out in 3 of
+// 9 regression runs (2026-09-25): the executive summary is the LAST
+// field written (evidence first, verdicts last), so a cut-off review
+// was stored with an empty summary and nothing said so. Observed
+// complete reviews run to about 3500 output tokens; 8000 leaves
+// headroom and stays under the non-streaming ceiling.
+const MAX_TOKENS = 8000;
 
 type FacilitationInput = {
   transcript: string;
@@ -135,6 +141,18 @@ async function requestFacilitationReview(
       model: useModel,
       usage: response.usage,
     });
+  }
+
+  // CUT OFF IS NOT COMPLETE. A review that stopped at the token limit
+  // is missing its last fields, the executive summary first of them,
+  // however complete the rest looks. It counts as unscored: said
+  // loudly, retried once like any unscored answer, and never stored.
+  if (response.stop_reason === "max_tokens") {
+    console.error(
+      `[facilitation] attempt ${attempt}/${FACILITATION_ATTEMPTS}: cut off at max_tokens ` +
+        `(${response.usage?.output_tokens ?? "?"} output tokens); discarding`
+    );
+    return null;
   }
 
   const toolUse = response.content.find(
