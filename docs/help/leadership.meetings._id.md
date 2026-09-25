@@ -113,6 +113,18 @@ on `/commitments` — click through and edit it there (reassign,
 reschedule, or fix the description). Issue-linked commitments
 edit inline from `/issues` instead.
 
+**A commitment came out Unassigned.** Aimee only gives a
+commitment to someone she can tell was at the meeting. If she
+could not tell who said it, or it named someone who was not
+there ("I'll see if John can do it"), it comes out Unassigned
+rather than on the wrong person's list. Open it on
+`/commitments` and pick the owner.
+
+**The summary says "an unidentified speaker".** The recording
+labels people by number, and Aimee names someone only when she
+is confident who it was. Where she is not, she says so rather
+than guess.
+
 **The extraction returned nothing after Reanalyze.** The
 pipeline logged what happened (stop_reason, response length,
 head/tail of the raw JSON) — a system admin can pull the log

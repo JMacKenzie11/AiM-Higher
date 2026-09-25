@@ -48,8 +48,20 @@ function normalise(text: string): string {
     .replace(/[–—]/g, " ")
     .replace(/[.,;:!?]/g, "")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    // Fillers and stutters, dropped on both sides alike. A summary
+    // quoted Casey as "If Nancy's winning every week, I might need to
+    // come up with something"; he said "if if Nancy's winning every
+    // week, yeah, I might need to". Same words, same meaning, tidied.
+    // None of these carries meaning, so dropping them can make a real
+    // quote match and cannot make an invented one match.
+    .split(" ")
+    .filter((w) => !FILLERS.has(w))
+    .filter((w, i, all) => i === 0 || w !== all[i - 1])
+    .join(" ");
 }
+
+const FILLERS = new Set(["um", "umm", "uh", "uhh", "er", "ah", "yeah"]);
 
 export function findUnsupportedQuotes(
   text: string,
@@ -79,8 +91,24 @@ const QUOTED = /["\u201C]([^"\u201C\u201D\n]{1,300})["\u201D]/g;
 function isUnsupported(raw: string, haystack: string): boolean {
   if (raw.length === 0) return false;
   if (raw.split(/\s+/).length < MIN_WORDS) return false;
-  const needle = normalise(raw);
-  return needle.length > 0 && !haystack.includes(needle);
+  // AN ELLIPSIS IS A GAP, NOT A CHARACTER. "Technically, all of the
+  // foreign workers are under Benson Seafood... under Benson
+  // Lobster" is a real quote with a stretch left out, and it lost its
+  // quotation marks because the check looked for one unbroken string.
+  // Each piece has to be there, in order, which an invented quote
+  // does not start satisfying because it has dots in it.
+  const pieces = raw
+    .split(/\s*(?:\.{3}|…)\s*/)
+    .map(normalise)
+    .filter((p) => p.length > 0);
+  if (pieces.length === 0) return false;
+  let from = 0;
+  for (const piece of pieces) {
+    const at = haystack.indexOf(piece, from);
+    if (at === -1) return true;
+    from = at + piece.length;
+  }
+  return false;
 }
 
 // THE SUMMARISER'S QUOTATION MARKS, MADE TRUE.

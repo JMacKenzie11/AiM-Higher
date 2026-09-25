@@ -12,7 +12,13 @@ import { fridayOf, todayInTimezone } from "@/lib/dates";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { track } from "@/lib/analytics/track";
 import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyze";
-import { mapSpeakers, formatSpeakerMap } from "./speakers";
+import {
+  mapSpeakers,
+  formatSpeakerMap,
+  identifiedSpeakers,
+  replaceSpeakerLabels,
+} from "./speakers";
+import { attendeesFromSummary, presentOwnerIds } from "./attendees";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
@@ -210,10 +216,19 @@ export async function analyzeMeeting(
     // The prompt says so; this makes it true whatever the model did,
     // by taking the marks off any span the transcript does not
     // contain. The words stay, as the summary's own paraphrase.
-    const { text: analysisMarkdown, unquoted } = unquoteUnsupported(
+    const { text: unquotedMarkdown, unquoted } = unquoteUnsupported(
       rawAnalysisMarkdown,
       meetingRow.transcript_text
     );
+    // After the quote pass, so a quote is compared with the transcript
+    // exactly as the model wrote it. See replaceSpeakerLabels.
+    const { text: analysisMarkdown, replaced: labelsReplaced } =
+      replaceSpeakerLabels(unquotedMarkdown, speakerMap);
+    if (labelsReplaced > 0) {
+      console.log(
+        `[analyze] replaced ${labelsReplaced} speaker label(s) in the summary for meeting ${meetingId}`
+      );
+    }
     if (unquoted.length > 0) {
       console.log(
         `[analyze] unquoted ${unquoted.length} paraphrase(s) in meeting ${meetingId}: ` +
@@ -252,7 +267,8 @@ export async function analyzeMeeting(
             context,
             meetingRow.transcript_text,
             speakerBlock,
-            meetingDateIn(meetingRow.created_at, context.timezone ?? "UTC")
+            meetingDateIn(meetingRow.created_at, context.timezone ?? "UTC"),
+            companyBlock
           ),
         },
       ],
@@ -302,16 +318,26 @@ export async function analyzeMeeting(
       meetingRow.created_at,
       context.timezone ?? "UTC"
     );
-    const validated = validateCommitments(
-      rawCommitments,
-      context,
-      meetingDateIso
+    const validated = requirePresentOwners(
+      validateCommitments(rawCommitments, context, meetingDateIso).map((c) => ({
+        ...c,
+        description: replaceSpeakerLabels(c.description, speakerMap).text,
+      })),
+      presentOwnerIds(
+        context.roster,
+        identifiedSpeakers(speakerMap),
+        attendeesFromSummary(analysisMarkdown)
+      ),
+      meetingId
     );
     // Issues get their own validator (title-only shape). NEVER
     // auto-created; the meeting summary surfaces them with an
     // explicit "Add to open issues" action regardless of the
     // automatic_commitment_tracking flag.
-    const validatedIssues = validateIssues(rawIssues);
+    const validatedIssues = validateIssues(rawIssues).map((i) => ({
+      ...i,
+      title: replaceSpeakerLabels(i.title, speakerMap).text,
+    }));
 
     // ---- Did the extraction miss anything? --------------------
     //
@@ -374,7 +400,11 @@ export async function analyzeMeeting(
       coverage_json: coverage,
       commitments_json: validated,
       issues_json: validatedIssues,
-      facilitation_review_json: facilitationReview,
+      // Every string in the review, through the same label pass as
+      // the summary: it is read on the same page.
+      facilitation_review_json: facilitationReview
+        ? mapStrings(facilitationReview, (t) => replaceSpeakerLabels(t, speakerMap).text)
+        : null,
       model,
     });
     if (analysisErr) {
@@ -706,10 +736,12 @@ WHO OWNS A COMMITMENT
 You are given a <speaker_map> resolved before this step. Use it. Do not re-examine who "Speaker 4" is.
 
 - "I'll do X" or "I'm going to do X" — the SPEAKER owns it. Look their label up in the speaker map.
-- "Ashley will follow up" or "Sherri's going to call them" — the NAMED PERSON owns it, whoever said it. A commitment whose text names its DOER must never come back unassigned.
+- "Ashley will follow up" or "Sherri's going to call them" — the NAMED PERSON owns it, whoever said it, **provided they are in the meeting**. A commitment whose text names its DOER must never come back unassigned.
+- **Somebody who is not in the meeting cannot take on a commitment in it.** When a person in the meeting says they will get an absent colleague to do something ("I'll see if John can get them added in here", "I got to go work with John"), the person who said it owns it: their commitment is to go and get it done with John. Write it that way ("Casey to work with John to add his weekly numbers"), owned by Casey. The server clears any owner who was not identified as present.
 - **The person named is not always the one doing it.** "Send the SOPs to Darlene" — the sender owns it, Darlene receives it. "Talk to Vern", "let Chrissy know", "check with Andre": the owner is the speaker, and the named person is who they will contact. A name after to / for / with / from is a recipient, not an owner. Getting this backwards puts the work on the wrong person's list.
-- When the speaker map gives that label a low confidence, put "Likely <name>, please confirm" at the START of the description and still set owner_profile_id to that person. A hedge the reader can see beats a silent guess or a blank.
-- When the speaker map gives no name at all, leave owner_profile_id null and say in the description who it sounded like, if anything. Never reach for a roster name because it fits the topic.
+- When the speaker map calls a label unidentified, leave owner_profile_id null and do not guess who it was in the description. Never write "Likely <name>" and never reach for a roster name because it fits the topic. An Unassigned commitment is visible and one click to fix; a wrong name is neither.
+- Never write a transcript label ("Speaker 4") in a description or an issue title.
+- **Spell names and places the way the company does.** The company context block holds the company's own spellings. A recording that says "Graham and Ann" where the company writes Grand Manan is a transcription error: write Grand Manan, in commitments and issue titles alike.
 
 **PRECEDENCE, and this one is not optional.** A name written in the commitment itself beats the speaker map's silence. If you write "Andy will create the spreadsheet", set owner_profile_id to Andy's id from the roster — it does not matter that the map could not place Andy's label. The map exists to resolve "I'll", not to veto a name you have already decided on. A commitment whose own text names a doer and whose owner is null is self-contradictory, and it puts the work on nobody's list while telling the reader whose it is.
 
@@ -756,7 +788,13 @@ function buildExtractionUserMessage(
   ctx: CompanyContext,
   transcript: string,
   speakerBlock: string,
-  meetingDateIso: string
+  meetingDateIso: string,
+  // The same block the summary is written from. The extraction call
+  // writes issue titles, and without the company's own spellings it
+  // titled one "(Graham and Ann model)" while the summary beside it
+  // said Grand Manan: the purpose statement holding "Grand Manan"
+  // never reached this call.
+  companyBlock = ""
 ): string {
   const roster = ctx.roster
     .map(
@@ -772,7 +810,8 @@ function buildExtractionUserMessage(
   // Relative anchors ("later today", "this week", "end of the
   // month") are meaningless without it, and the model cannot know
   // when the meeting happened from the transcript alone.
-  return `Meeting date: ${meetingDateIso}\n\nRoster:\n${roster || "- (empty)"}\n\nPriorities:\n${priorities}${speakers}\n\n<transcript>\n${transcript}\n</transcript>`;
+  const company = companyBlock ? `${companyBlock}\n\n` : "";
+  return `${company}Meeting date: ${meetingDateIso}\n\nRoster:\n${roster || "- (empty)"}\n\nPriorities:\n${priorities}${speakers}\n\n<transcript>\n${transcript}\n</transcript>`;
 }
 
 export function parseExtractionJson(raw: string): {
@@ -906,6 +945,13 @@ export function validateExtracted(
     out.push({
       owner_profile_id: owner,
       description: desc,
+      // Kept, so a date can be traced to what was said. A null here
+      // with the meeting + 7 date means nobody named a day and the
+      // floor supplied it; without the phrase the two looked alike.
+      due_phrase:
+        typeof item.due_phrase === "string" && item.due_phrase.trim()
+          ? item.due_phrase.trim().slice(0, 80)
+          : null,
       due_date: due,
       priority_id: priority,
       clarity_timeline: claTimeline,
@@ -928,6 +974,36 @@ export function validateCommitments(
     new Set(ctx.priorities.map((p) => p.id)),
     meetingDateIso
   );
+}
+
+// Applies fn to every string inside a JSON-shaped value.
+function mapStrings<T>(value: T, fn: (s: string) => string): T {
+  if (typeof value === "string") return fn(value) as T;
+  if (Array.isArray(value)) return value.map((v) => mapStrings(v, fn)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, mapStrings(v, fn)])
+    ) as T;
+  }
+  return value;
+}
+
+// An owner has to have been at the meeting. See attendees.ts for
+// where "present" comes from and why a null set skips the check.
+export function requirePresentOwners(
+  commitments: ExtractedCommitment[],
+  present: Set<string> | null,
+  meetingId: string
+): ExtractedCommitment[] {
+  if (!present) return commitments;
+  return commitments.map((c) => {
+    if (!c.owner_profile_id || present.has(c.owner_profile_id)) return c;
+    console.log(
+      `[analyze] owner cleared on meeting ${meetingId}: not identified as ` +
+        `present, "${c.description.slice(0, 80)}"`
+    );
+    return { ...c, owner_profile_id: null };
+  });
 }
 
 function addIsoDays(iso: string, days: number): string {

@@ -275,16 +275,72 @@ export function formatSpeakerMap(map: SpeakerMap | null): string {
         ? " — this label covers more than one voice, so attribute with care"
         : "";
       lines.push(`- ${s.label} = ${s.name} (${s.confidence})${shared}`);
-    } else if (s.name) {
-      // Low confidence still names somebody, and the rule for that is
-      // the same everywhere: say so rather than assert or discard.
-      lines.push(
-        `- ${s.label} = likely ${s.name}, unconfirmed — when this speaker owns a commitment, write the owner as "Likely ${s.name}, please confirm"`
-      );
     } else {
+      // LOW CONFIDENCE IS UNIDENTIFIED. It used to be passed on as
+      // "likely <name>, unconfirmed", and the hedge was worse than the
+      // gap: a Benson summary put five of Casey's commitments on
+      // "Likely Colby Benson, please confirm", and listed "Likely
+      // Shawn Warman" as an attendee. A reader acts on the name and
+      // skims past the "likely". A low guess is still a guess.
       lines.push(`- ${s.label} = unidentified. Do not guess a name for them.`);
     }
   }
   lines.push("</speaker_map>");
   return lines.join("\n");
+}
+
+// Who the map placed with confidence. Low and unknown are left out
+// for the same reason formatSpeakerMap leaves them out.
+export function identifiedSpeakers(map: SpeakerMap | null): string[] {
+  if (!map) return [];
+  return [
+    ...new Set(
+      map.speakers
+        .filter(
+          (s) => s.name && (s.confidence === "high" || s.confidence === "medium")
+        )
+        .map((s) => s.name as string)
+    ),
+  ];
+}
+
+// "SPEAKER 5" NEVER REACHES A READER.
+//
+// The prompts say so, and a Benson summary still wrote "Speaker 5
+// (likely Shawn Warman) confirmed the plan" and "Sherri Alderman
+// (referred to by Speaker 4)". A label is a transcript artefact: to
+// the people who were in the meeting it reads as proof the summary
+// does not know who they are.
+//
+// Unlike a banned word this can be fixed safely from outside, because
+// the right replacement is known. A label the map placed with
+// confidence becomes that person's name. Any other becomes "an
+// unidentified speaker", which is what the prompt asks for anyway.
+// A "(likely X)" hedge attached to a label goes with it, since the
+// map did not stand behind that name.
+export function replaceSpeakerLabels(
+  text: string,
+  map: SpeakerMap | null
+): { text: string; replaced: number } {
+  const named = new Map<string, string>();
+  for (const s of map?.speakers ?? []) {
+    if (s.name && (s.confidence === "high" || s.confidence === "medium")) {
+      named.set(s.label.toLowerCase(), s.name);
+    }
+  }
+  let replaced = 0;
+  const out = text.replace(
+    /\bSpeaker\s+(\d+)(?:\s*\((?:likely|possibly|probably)[^)]*\))?/gi,
+    (_whole, n: string, offset: number, all: string) => {
+      replaced++;
+      const name = named.get(`speaker ${n}`);
+      if (name) return name;
+      // Capitalised at the start of a sentence, a line or a list item.
+      const before = all.slice(0, offset);
+      const opensSentence =
+        before.trim().length === 0 || /(?:[.!?]\s+|(?:^|\n)\s*(?:[-*]\s+)?|\*\*\s*|:\s+)$/.test(before);
+      return opensSentence ? "An unidentified speaker" : "an unidentified speaker";
+    }
+  );
+  return { text: out, replaced };
 }
