@@ -6,11 +6,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // analysis row), flips the meeting to 'pending', and kicks off
 // the pipeline via next/server after().
 //
-// Contracts:
-// - Admin-for-company only. Team members and members of other
-//   companies get rejected before any delete fires.
-// - Returns the counts of what was deleted so the confirm dialog
-//   can say what happened.
+// Contracts, since 2026-09-25:
+// - system_admin only. A company admin, a guide and a team member are
+//   refused before anything is written.
+// - Refused for any meeting with a commitment or an issue sourced from
+//   it, and it never deletes either. Only the analysis row goes.
+// - Fails closed when the counts cannot be read.
 // - after() failure falls back to fire-and-forget; either way,
 //   processPendingMeetings gets called with the meeting id.
 
@@ -18,6 +19,8 @@ const mocks = vi.hoisted(() => {
   const meetingsSelectMaybeSingle = vi.fn();
   const commitmentsDelete = vi.fn();
   const issuesDelete = vi.fn();
+  const commitmentsCount = vi.fn();
+  const issuesCount = vi.fn();
   const analysesDelete = vi.fn();
   // Typed with a `_patch` arg so the mock signature matches the
   // adapter below and `.mock.calls[N][0]` is well-typed at the
@@ -31,6 +34,7 @@ const mocks = vi.hoisted(() => {
   const adminFrom = (table: string) => {
     if (table === "commitments") {
       return {
+        select: () => ({ eq: () => commitmentsCount() }),
         delete: () => ({
           eq: () => ({
             select: () => commitmentsDelete(),
@@ -40,6 +44,7 @@ const mocks = vi.hoisted(() => {
     }
     if (table === "issues") {
       return {
+        select: () => ({ eq: () => issuesCount() }),
         delete: () => ({
           eq: () => ({
             select: () => issuesDelete(),
@@ -94,6 +99,8 @@ const mocks = vi.hoisted(() => {
 
   return {
     meetingsSelectMaybeSingle,
+    commitmentsCount,
+    issuesCount,
     commitmentsDelete,
     issuesDelete,
     analysesDelete,
@@ -140,6 +147,11 @@ import { reanalyzeMeetingAction } from "./reanalyze-action";
 
 const ADMIN = {
   id: "u_admin",
+  role: "system_admin" as const,
+  company_id: null,
+};
+const COMPANY_ADMIN = {
+  id: "u_company_admin",
   role: "company_admin" as const,
   company_id: "co_acme",
 };
@@ -152,8 +164,10 @@ const MEMBER = {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.isAdminForCompany.mockImplementation((profile: { id: string }) =>
-    profile.id === ADMIN.id
+    profile.id === ADMIN.id || profile.id === COMPANY_ADMIN.id
   );
+  mocks.commitmentsCount.mockResolvedValue({ count: 0, error: null });
+  mocks.issuesCount.mockResolvedValue({ count: 0, error: null });
   mocks.meetingsSelectMaybeSingle.mockResolvedValue({
     data: { id: "m_1", company_id: "co_acme" },
   });
@@ -179,31 +193,55 @@ describe("reanalyzeMeetingAction", () => {
     mocks.requireProfile.mockResolvedValue({ profile: MEMBER });
     const result = await reanalyzeMeetingAction("m_1");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toMatch(/admins and guides/i);
+    if (!result.ok) expect(result.message).toMatch(/system admin/i);
+    expect(mocks.analysesDelete).not.toHaveBeenCalled();
+    expect(mocks.processPendingMeetings).not.toHaveBeenCalled();
+  });
+
+  it("blocks a company admin now: system_admin only", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: COMPANY_ADMIN });
+    const result = await reanalyzeMeetingAction("m_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.analysesDelete).not.toHaveBeenCalled();
+    expect(mocks.meetingsUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a meeting with commitments from it, and deletes nothing", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.commitmentsCount.mockResolvedValue({ count: 3, error: null });
+    const result = await reanalyzeMeetingAction("m_1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/commitments or issues/i);
+    expect(mocks.analysesDelete).not.toHaveBeenCalled();
     expect(mocks.commitmentsDelete).not.toHaveBeenCalled();
     expect(mocks.processPendingMeetings).not.toHaveBeenCalled();
   });
 
-  it("wipes commitments + issues + analysis and returns deletion counts", async () => {
+  it("refuses a meeting with issues from it, and deletes nothing", async () => {
     mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
-    mocks.commitmentsDelete.mockResolvedValue({
-      data: [{ id: "c_1" }, { id: "c_2" }, { id: "c_3" }],
-    });
-    mocks.issuesDelete.mockResolvedValue({
-      data: [{ id: "i_1" }],
-    });
-
+    mocks.issuesCount.mockResolvedValue({ count: 1, error: null });
     const result = await reanalyzeMeetingAction("m_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.analysesDelete).not.toHaveBeenCalled();
+    expect(mocks.issuesDelete).not.toHaveBeenCalled();
+  });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.deletedCommitments).toBe(3);
-      expect(result.deletedIssues).toBe(1);
-    }
-    // All three destructive calls hit the admin client.
-    expect(mocks.commitmentsDelete).toHaveBeenCalledTimes(1);
-    expect(mocks.issuesDelete).toHaveBeenCalledTimes(1);
+  it("fails closed when it cannot count", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.commitmentsCount.mockResolvedValue({ count: null, error: { message: "boom" } });
+    const result = await reanalyzeMeetingAction("m_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.analysesDelete).not.toHaveBeenCalled();
+  });
+
+  it("with no commitments or issues, replaces only the analysis", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    const result = await reanalyzeMeetingAction("m_1");
+    expect(result).toEqual({ ok: true });
     expect(mocks.analysesDelete).toHaveBeenCalledTimes(1);
+    // Never, on any path.
+    expect(mocks.commitmentsDelete).not.toHaveBeenCalled();
+    expect(mocks.issuesDelete).not.toHaveBeenCalled();
   });
 
   it("flips meeting.status back to pending and clears any prior error", async () => {
