@@ -32,3 +32,14 @@ export function isScoredReview(
   if (review.insufficient_transcript) return true;
   return review.overall !== null;
 }
+
+// Should a stored review be shown at all? A scored one, a
+// deliberately unscored one, or one whose score was withheld after its
+// retry, which is marked and says so. Not an unmarked review that
+// scored nothing: those rows predate the marker (4d235cd3) and would
+// read as present with nothing to show for it.
+export function isShowableReview(
+  review: Pick<FacilitationReview, "insufficient_transcript" | "overall" | "score_withheld">
+): boolean {
+  return isScoredReview(review) || !!review.score_withheld;
+}

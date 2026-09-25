@@ -69,10 +69,15 @@ type FacilitationInput = {
 // meeting is already two model calls; a third on the failures is
 // affordable, an unbounded retry on a busy pass is not.
 //
-// A second unscored answer changes nothing: the review is discarded
-// and the meeting reads as having no review, which is where this
-// stood before the retry existed. The retry can only improve the
-// odds.
+// A SECOND UNSCORED ANSWER DROPS THE SCORE, NOT THE REVIEW.
+//
+// It used to discard the whole review, and with it the strengths and
+// the questions generated from them: one part missing, and the
+// coaching notes went too (audit, 2026-09-25). Now the second answer
+// is kept when it has something to say, marked `score_withheld` with
+// the parts it lacked, and every surface reads that marker: no score,
+// no chip, and a line saying so. What is still never stored is a
+// review with nothing in it, or one cut off at the token limit.
 const FACILITATION_ATTEMPTS = 2;
 
 export async function analyzeMeetingFacilitation(
@@ -83,6 +88,7 @@ export async function analyzeMeetingFacilitation(
   const useModel =
     model || process.env.ANTHROPIC_FACILITATION_MODEL || DEFAULT_MODEL;
 
+  let unscored: FacilitationReview | null = null;
   for (let attempt = 1; attempt <= FACILITATION_ATTEMPTS; attempt += 1) {
     const review = await requestFacilitationReview(client, {
       systemPrompt,
@@ -91,13 +97,40 @@ export async function analyzeMeetingFacilitation(
       companyContextBlock,
       attempt,
     });
-    if (review) return review;
+    if (!review) continue;
+    if (isScoredReview(review)) return review;
+    unscored = review;
+  }
+  if (unscored && hasContent(unscored)) {
+    const missing = missingScoreParts(unscored);
+    console.error(
+      `[facilitation] kept without a score after ${FACILITATION_ATTEMPTS} attempts; ` +
+        `missing: ${missing.join(", ")}`
+    );
+    return { ...unscored, overall: null, score_withheld: { missing } };
   }
   return null;
 }
 
-// One attempt. Returns the review, or null when the model gave no
-// tool call or gave one that scored nothing.
+// The five parts the score is computed from (score.ts), named as the
+// weights name them.
+export function missingScoreParts(review: FacilitationReview): string[] {
+  const parts: Array<[string, number | null | undefined]> = [
+    ["positive_framing", review.dimensions.positive_framing?.score],
+    ["accountability", review.dimensions.accountability.score],
+    ["rhythm", review.dimensions.rhythm.score],
+    ["alignment", review.dimensions.alignment.score],
+    ["agenda", review.agenda_adherence.score_out_of_5],
+  ];
+  return parts.filter(([, v]) => v === null || v === undefined).map(([k]) => k);
+}
+
+function hasContent(review: FacilitationReview): boolean {
+  return review.executive_summary.trim().length > 0 || review.strengths.length > 0;
+}
+
+// One attempt. Returns the review, scored or not, or null when the
+// model gave no tool call or was cut off.
 async function requestFacilitationReview(
   client: Anthropic,
   {
@@ -168,24 +201,20 @@ async function requestFacilitationReview(
   const raw = toolUse.input as Record<string, unknown>;
   const review = normalizeReview(raw);
 
-  // A review that scored nothing is not a review. Returning null
-  // stores null, which is what "the review did not run" already
-  // means everywhere downstream — rather than a row that reads as
-  // present and renders as dashes.
-  //
-  // The log names what the model actually sent, because the cause is
-  // upstream of anything we can assert: `dimensions` is in the tool
-  // schema's required list and was omitted anyway.
+  // Unscored goes back to the loop, which retries it once and then
+  // decides (analyzeMeetingFacilitation). The log names what the
+  // model actually sent, because the cause is upstream of anything
+  // we can assert: `dimensions` is in the tool schema's required list
+  // and was omitted anyway.
   if (!isScoredReview(review)) {
     console.error(
-      `[facilitation] attempt ${attempt}/${FACILITATION_ATTEMPTS}: review scored nothing; discarding`,
+      `[facilitation] attempt ${attempt}/${FACILITATION_ATTEMPTS}: unscored, missing ` +
+        `${missingScoreParts(review).join(", ")}`,
       {
         keys: Object.keys(raw).sort(),
         dimensionsType: typeof raw.dimensions,
-        insufficientTranscript: review.insufficient_transcript,
       }
     );
-    return null;
   }
 
   return review;

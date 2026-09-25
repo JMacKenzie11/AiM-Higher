@@ -53,8 +53,21 @@ describe("generateHeadline", () => {
     const { client } = stubClient([FORTY_SIX, FORTY_SIX]);
     expect(await generateHeadline(client, INPUT)).toBe(HEADLINE_FALLBACK("2026-09-25"));
     expect(err.mock.calls.map((c) => String(c[0])).join("\n")).toMatch(
-      /refused by the final check/
+      /still breaking the rules after a retry, sending the fallback: "46 words"/
     );
+    err.mockRestore();
+  });
+
+  it("sends the plain line, not the broken one, when the retry breaks the rules too", async () => {
+    // It used to send the second line anyway: a banned phrase or an
+    // invented quote reached the champion whenever the retry failed
+    // as well (audit, 2026-09-25).
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const broken =
+      "Your team read the room well on the calendar question. Is it worth five minutes to look at what made that work?";
+    const { client } = stubClient([broken, broken]);
+    expect(await generateHeadline(client, INPUT)).toBe(HEADLINE_FALLBACK("2026-09-25"));
+    expect(err.mock.calls.map((c) => String(c[0])).join("\n")).toMatch(/the room/);
     err.mockRestore();
   });
 

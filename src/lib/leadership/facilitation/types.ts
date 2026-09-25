@@ -96,6 +96,11 @@ export type FacilitationReview = {
   appreciation_moments?: FacilitationMoment[];
   generative_questions?: FacilitationMoment[];
   reframes?: FacilitationMoment[];
+  // Set when the review still lacked score parts after its retry.
+  // The notes and questions are kept; the score is not, and every
+  // surface says so rather than showing a blank. See
+  // analyzeMeetingFacilitation.
+  score_withheld?: { missing: string[] } | null;
   // Added by the pipeline after the review, not by the review call.
   // See src/lib/leadership/questions.ts.
   //

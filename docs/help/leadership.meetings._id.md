@@ -109,6 +109,10 @@ As an admin or guide, you can also:
 
   Meetings analysed before 25 September 2026 keep the score they
   were given at the time, with no breakdown.
+
+  Now and then a meeting has coaching notes and no score. That
+  happens when the review leaves out one of the five parts; the notes
+  and questions are still there, and the page says there is no score.
 - **Take a question into next week.** *Questions worth asking next
   week* offers three, each drawn from something that went well in
   this meeting. *Questions that opened things up* credits the questions

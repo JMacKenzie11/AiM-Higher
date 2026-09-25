@@ -57,6 +57,12 @@ export function FacilitationReview({
       <Header />
 
       {score?.kind === "computed" ? <ScoreExplainer score={score.score} /> : null}
+      {review.score_withheld ? (
+        <p className={styles.scoreNote}>
+          No score for this meeting. The review left out part of what the
+          score is built from, so only the notes are shown.
+        </p>
+      ) : null}
       {score?.kind === "original" ? (
         <p className={styles.scoreNote}>
           Scored before the current method, so there is no breakdown for
