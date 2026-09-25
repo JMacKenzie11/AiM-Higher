@@ -6,6 +6,7 @@ import {
   generateMeetingQuestions,
   readOpened,
   unwrapRaw,
+  personalFault,
 } from "./questions";
 
 // Real lines, from the Benson summary and the fixture summary.
@@ -228,5 +229,54 @@ describe("a pick that breaks the voice rules", () => {
       { asker: "Darlene", asked: "whether the stall could be shared with other businesses", opened: "Opened a partnership." },
     ]);
     log.mockRestore();
+  });
+});
+
+describe("nothing personal", () => {
+  it("refuses the real production question", () => {
+    expect(
+      questionFaults(
+        "Our check-in this week let real news like Darlene's hospital countdown come out naturally. What would it look like if we made room for that kind of unhurried sharing every meeting?"
+      ).join(" ")
+    ).toMatch(/personal or health detail \("hospital"\)/);
+  });
+
+  it("catches the plain words, and leaves work alone", () => {
+    for (const t of ["her surgery next week", "on maternity leave", "a grandchild's birth", "covering for sick supervisors"]) {
+      expect(personalFault(t)).not.toBeNull();
+    }
+    for (const t of ["the shutdown plan", "a healthy competition on the floor", "the operation ran smoothly", "a new baseline for sanitation"]) {
+      expect(personalFault(t)).toBeNull();
+    }
+  });
+
+  it("drops a From line that mentions one, and keeps the question", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const q = { question: GOOD[0].question, moment: "Right after Darlene shared her hospital news." };
+    const { client } = stub({ questions: [q, GOOD[1], GOOD[2]], opened: [] }, { questions: [q, GOOD[1], GOOD[2]], opened: [] });
+    const out = await generateMeetingQuestions(client, {
+      model: "m", analysisMarkdown: "", strengths: [], transcript: "", speakerBlock: "", attendees: [],
+    });
+    expect(out.nextWeek[0]).toEqual({ question: GOOD[0].question, moment: "" });
+    log.mockRestore();
+  });
+
+  it("drops a pick whose lines mention one", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(
+      readOpened({ opened: [{ asker: "Casey Benson", asked: "how the surgery went", opened: "Opened a warm moment." }] }, ["Casey Benson"])
+    ).toEqual([]);
+    log.mockRestore();
+  });
+});
+
+describe("the company's spellings", () => {
+  it("reach the questions call", async () => {
+    const { client, create } = stub({ questions: GOOD, opened: [] });
+    await generateMeetingQuestions(client, {
+      model: "m", analysisMarkdown: "", strengths: [], transcript: "", speakerBlock: "", attendees: [],
+      companyBlock: "<company_context>Elmendale</company_context>",
+    });
+    expect(create.mock.calls[0][0].messages[0].content as string).toContain("<company_context>Elmendale</company_context>");
   });
 });

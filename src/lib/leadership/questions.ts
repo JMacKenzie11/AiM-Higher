@@ -46,6 +46,22 @@ const DIAGNOSTIC =
 
 export type QuestionFault = { index: number; faults: string[] };
 
+// NOTHING PERSONAL. A Benson question on production read "Our check-in
+// this week let real news like Darlene's hospital countdown come out
+// naturally": a person's medical situation, lifted from the check-in
+// into coaching copy that admins, guides and the champion read. The
+// prompt forbids it; this catches the plain words for it, so a slip is
+// retried and then dropped rather than shown. Deliberately the obvious
+// words only: a check-in may be warm, and what it may not become is
+// somebody's health, family or private life on a page about their work.
+const PERSONAL =
+  /\b(hospital\w*|surger\w*|surgical|pregnan\w*|maternity|paternity|cancer|chemo\w*|diagnos\w*|illness|sick|injur\w*|doctor\w*|medical|medication|therap\w*|mental health|funeral|passed away|died|death|grie(?:f|ving)|bereave\w*|divorc\w*|grandchild\w*|grandbab\w*|baby|babies|newborn|birth)\b/i;
+
+export function personalFault(text: string): string | null {
+  const m = PERSONAL.exec(text);
+  return m ? `mentions a personal or health detail ("${m[0]}")` : null;
+}
+
 export function questionFaults(q: string): string[] {
   const faults: string[] = [];
   const words = q.trim().split(/\s+/).filter(Boolean).length;
@@ -54,6 +70,8 @@ export function questionFaults(q: string): string[] {
   if (DIAGNOSTIC.test(q.trim())) faults.push("opens as a diagnosis, not a possibility");
   const banned = findBannedPhrases(q);
   if (banned.length > 0) faults.push(`uses ${describeHits(banned)}`);
+  const personal = personalFault(q);
+  if (personal) faults.push(personal);
   return faults;
 }
 
@@ -62,9 +80,11 @@ export function questionFaults(q: string): string[] {
 // when only the question was checked.
 export function allFaults(q: NextWeekQuestion): string[] {
   const moment = findBannedPhrases(q.moment);
+  const personal = personalFault(q.moment);
   return [
     ...questionFaults(q.question),
     ...(moment.length > 0 ? [`its "From" line uses ${describeHits(moment)}`] : []),
+    ...(personal ? [`its "From" line ${personal}`] : []),
   ];
 }
 
@@ -78,6 +98,8 @@ EACH QUESTION
 - Invites the room. It never assigns anyone, and never asks one person to account for something.
 - Is framed as possibility ("What would it look like if", "Where else could"), never as diagnosis ("Why hasn't", "What went wrong with", "What's blocking").
 - Is under 35 words, one or two short sentences ending in one question mark.
+- Never mentions anyone's health, family or private life: no illness, hospital, pregnancy, birth, bereavement or anything like it, even when it came up warmly in the check-in. Build from what the team did at work.
+- Spells people, places and companies the way the company context does. A transcript can mishear a place; the company's own spelling wins.
 
 The target, from a real meeting:
   "Priya's labelling shortcut spread because she showed it to people. Where else on our floor is someone doing something well that nobody has watched yet?"
@@ -232,8 +254,9 @@ export function inspectOpened(
     const opened = clean(o.opened);
     const words = (t: string) => t.split(/\s+/).filter(Boolean).length;
     const banned = [...findBannedPhrases(asked), ...findBannedPhrases(opened)];
-    if (!asked || !opened || words(asked) > 30 || words(opened) > 25 || banned.length > 0) {
-      const why = banned.length ? `uses ${describeHits(banned)}` : "is empty or too long";
+    const personal = personalFault(`${asked} ${opened}`);
+    if (!asked || !opened || words(asked) > 30 || words(opened) > 25 || banned.length > 0 || personal) {
+      const why = banned.length ? `uses ${describeHits(banned)}` : personal ?? "is empty or too long";
       console.log(`[questions] opened: dropped "${asked}": ${why}`);
       faults.push(`In "opened", ${asker} asked "${asked}" ${why}. Keep the pick and reword it.`);
       continue;
@@ -250,6 +273,10 @@ export async function generateMeetingQuestions(
     model: string;
     analysisMarkdown: string;
     strengths: string[];
+    // The company's own spellings (the summary's company context
+    // block). Without it this call wrote "Graham and Ann" for Grand
+    // Manan on production while the summary beside it was corrected.
+    companyBlock?: string;
     // Read to judge what a question actually did. Never shown.
     transcript: string;
     speakerBlock: string;
@@ -262,6 +289,7 @@ export async function generateMeetingQuestions(
     input.strengths.length > 0 ? input.strengths.map((s) => `- ${s}`).join("\n") : "(none recorded)";
   const userTurn =
     `What went well, from the facilitation review:\n${strengths}\n\n` +
+    `${input.companyBlock ? `${input.companyBlock}\n\n` : ""}` +
     `Attendees (the only people who may be credited):\n${
       input.attendees.length > 0 ? input.attendees.map((a) => `- ${a}`).join("\n") : "(none identified)"
     }\n\n` +
@@ -336,7 +364,7 @@ export async function generateMeetingQuestions(
       })
       .map((q) => {
         const moment = findBannedPhrases(q.moment);
-        if (moment.length === 0) return q;
+        if (moment.length === 0 && !personalFault(q.moment)) return q;
         console.log(`[questions] From line dropped, question kept: ${describeHits(moment)}`);
         return { ...q, moment: "" };
       });
