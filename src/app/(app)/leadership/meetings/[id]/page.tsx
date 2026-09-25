@@ -14,7 +14,7 @@ import { isScoredReview } from "@/lib/leadership/facilitation/scored";
 import { splitCoreValues } from "@/lib/transcripts/section-order";
 import { attendeesFromSummary } from "@/lib/transcripts/attendees";
 import { scoreForRow } from "@/lib/leadership/facilitation/score";
-import { displayScore } from "@/components/leadership/FacilitationReview";
+import { displayScore, signalTone } from "@/components/leadership/FacilitationReview";
 import { dueLabel } from "@/lib/commitments/due-label";
 import { isAimsChampion } from "@/lib/guide/champion";
 import { AnalysisTabs } from "./AnalysisTabs";
@@ -578,7 +578,11 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
         <div className={tabStyles.strip} aria-label="Meeting at a glance">
           <div className={tabStyles.stripItem}>
             <span className={tabStyles.stripLabel}>Date</span>
-            <span className={tabStyles.stripValue}>
+            <span className={tabStyles.stripDate}>
+              <svg viewBox="0 0 16 16" width={16} height={16} aria-hidden="true">
+                <rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
               {new Date(meeting.created_at).toLocaleDateString(undefined, {
                 weekday: "short",
                 year: "numeric",
@@ -587,19 +591,36 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
               })}
             </span>
           </div>
-          {attendees.length > 0 ? (
-            <div className={tabStyles.stripItem}>
-              <span className={tabStyles.stripLabel}>Attendees</span>
-              <span className={tabStyles.stripValue}>{attendees.join(", ")}</span>
-            </div>
-          ) : null}
+          <div className={tabStyles.stripItem}>
+            {attendees.length > 0 ? (
+              <>
+                <span className={tabStyles.stripLabel}>Attendees</span>
+                <ul className={tabStyles.people}>
+                  {attendees.map((name) => (
+                    <li key={name} className={tabStyles.person}>
+                      <span className={tabStyles.initials} aria-hidden="true">
+                        {name
+                          .split(/\s+/)
+                          .map((w) => w[0])
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase()}
+                      </span>
+                      {name}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </div>
           {facilitationReview && score ? (
-            <div className={tabStyles.stripItem}>
-              <span className={tabStyles.stripLabel}>Score</span>
-              <span className={tabStyles.stripScore}>
-                {displayScore(score)}
-                <span className={tabStyles.stripScoreDenom}>/10</span>
-              </span>
+            <div
+              className={tabStyles.signal}
+              data-tone={signalTone(displayScore(score))}
+            >
+              <span className={tabStyles.signalLabel}>Facilitation signal</span>
+              <span className={tabStyles.signalNumber}>{displayScore(score)}</span>
+              <span className={tabStyles.signalDenom}>/10</span>
             </div>
           ) : null}
         </div>
@@ -614,6 +635,9 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
             {
               hash: "issues-and-commitments",
               label: "Issues and commitments",
+              count:
+                (autoTrackOn ? commitmentRows.length : commitmentExtractionRows.length) +
+                issueRows.length,
               content: issuesAndCommitments,
             },
             {

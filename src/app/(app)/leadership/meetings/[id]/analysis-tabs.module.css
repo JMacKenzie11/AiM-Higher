@@ -2,48 +2,80 @@
    Wraps rather than scrolls at phone width: three short labels fit
    on two lines, and a scrolling tab row hides a tab. */
 
+/* An underline tab bar. The active tab carries the brand's gradient
+   rule, the same bar that sits under the page title, so the tabs read
+   as part of this page's identity rather than as a generic toggle. */
 .tabRow {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  padding: 4px;
-  gap: 4px;
-  margin-bottom: var(--space-4);
-  max-width: 100%;
+  gap: 0 var(--space-6);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-5);
 }
 
 .tab,
 .tabActive {
-  padding: 6px var(--space-4);
-  border-radius: var(--radius-pill);
-  font: var(--text-button-sm);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  transition: color var(--duration-fast) var(--ease-out);
 }
 
 .tab {
-  background: transparent;
   color: var(--text-muted);
 }
 
 .tab:hover {
-  background: var(--aims-navy-tint);
-  color: var(--text);
+  color: var(--text-heading);
 }
 
 .tabActive {
-  background: var(--aims-cobalt-tint);
-  color: var(--primary);
+  color: var(--text-heading);
+}
+
+.tabActive::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--grad-rule);
 }
 
 .tab:focus-visible,
 .tabActive:focus-visible {
   outline: 2px solid var(--primary);
-  outline-offset: 2px;
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.tabCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabActive .tabCount {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
 }
 
 .panel {
@@ -59,44 +91,130 @@
 /* ---- The strip above the tabs ------------------------------- */
 
 .strip {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2) var(--space-6);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-4) var(--space-6);
+  padding: var(--space-4) var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-6);
 }
 
 .stripItem {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .stripLabel {
-  font: var(--text-caption);
-  color: var(--text-muted);
+  font: var(--text-subhead);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.stripValue {
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-.stripScore {
-  font-weight: 700;
-  font-size: 1.25rem;
-  color: var(--primary);
-}
-
-.stripScoreDenom {
-  font-weight: 400;
-  font-size: 0.875rem;
+  letter-spacing: 0.12em;
   color: var(--text-muted);
+}
+
+.stripDate {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-heading);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stripDate svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 3px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--aims-cobalt);
+  color: var(--aims-white);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* The score: the review's "Facilitation signal", moved here so it is
+   shown once, on every tab. Toned by value, never red. */
+.signal {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--aims-navy-tint);
+  border: 1px solid var(--border);
+  justify-self: end;
+}
+
+.signal[data-tone="high"] {
+  background: var(--aims-chartreuse-tint);
+  border-color: color-mix(in srgb, var(--aims-chartreuse) 45%, transparent);
+}
+
+.signal[data-tone="mid"] {
+  background: var(--aims-cobalt-tint);
+  border-color: color-mix(in srgb, var(--aims-cobalt) 25%, transparent);
+}
+
+.signalLabel {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-right: var(--space-2);
+  align-self: center;
+}
+
+.signalNumber {
+  font: var(--text-stat);
+  color: var(--text-heading);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.signalDenom {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+@media (max-width: 720px) {
+  .strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .signal {
+    justify-self: start;
+  }
 }

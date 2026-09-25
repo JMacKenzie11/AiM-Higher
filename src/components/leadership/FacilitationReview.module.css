@@ -449,13 +449,6 @@
 
 /* ---- The score: one line under it, and how it is made ---- */
 
-.mirrorLine {
-  margin: var(--space-1) 0 0;
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  grid-column: 1;
-}
-
 .scoreDetails {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

@@ -33,7 +33,7 @@ export function FacilitationReview({
   if (review.insufficient_transcript) {
     return (
       <section className={styles.card} aria-labelledby="facilitation">
-        <Header score={null} />
+        <Header />
         <p className={styles.insufficient}>
           {review.missing_context ??
             "The transcript was too sparse for a meaningful facilitation read this week."}
@@ -52,7 +52,7 @@ export function FacilitationReview({
 
   return (
     <section className={styles.card} aria-labelledby="facilitation">
-      <Header score={score} />
+      <Header />
 
       {score?.kind === "computed" ? <ScoreExplainer score={score.score} /> : null}
       {score?.kind === "original" ? (
@@ -248,25 +248,15 @@ export function displayScore(score: MeetingScore): number {
   return score.kind === "computed" ? score.score.rounded : Math.round(score.value);
 }
 
-function Header({ score }: { score: MeetingScore | null }) {
+// No score here: it is on the strip above the tabs, once, in this
+// panel's old "Facilitation signal" style. Jason, 2026-09-25: it was
+// in both places.
+function Header() {
   return (
     <div className={styles.header}>
       <h2 id="facilitation" className={styles.h2}>
         How the meeting was run
       </h2>
-      {score ? <OverallSignal score={displayScore(score)} /> : null}
-      {score ? <p className={styles.mirrorLine}>A mirror, not a grade.</p> : null}
-    </div>
-  );
-}
-
-function OverallSignal({ score }: { score: number }) {
-  const tone = signalTone(score);
-  return (
-    <div className={styles.overall} data-tone={tone}>
-      <span className={styles.overallLabel}>Facilitation signal</span>
-      <span className={styles.overallNumber}>{score}</span>
-      <span className={styles.overallDenom}>/10</span>
     </div>
   );
 }
@@ -367,7 +357,7 @@ function labelFor(dim: FacilitationDimension): string {
 // Warm-forward tone scale: cobalt-tint on the low end, chartreuse-tint
 // on the high end. Never red. See CSS module for the actual colours;
 // the data-tone attribute keeps CSS in charge of the palette.
-function signalTone(score: number): "low" | "mid" | "high" {
+export function signalTone(score: number): "low" | "mid" | "high" {
   if (score >= 8) return "high";
   if (score >= 5) return "mid";
   return "low";

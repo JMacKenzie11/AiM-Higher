@@ -31,67 +31,9 @@ import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
 // mark, and none of the diagnostic openings. One retry names what was
 // wrong; a question still wrong after it is dropped rather than shown.
 
-// The summary's own quoted questions, still parsed: they tell the
-// model which questions were recorded, as a starting point. They are
-// no longer what is shown.
-export type OpeningQuestion = { question: string; asker: string };
-
 // What the block shows. `asked` completes "<asker> asked ...".
 export type OpenedQuestion = { asker: string; asked: string; opened: string };
 export type NextWeekQuestion = { question: string; moment: string };
-
-// ---- Credit ---------------------------------------------------------
-
-const KEY_QUESTIONS_HEADING = /key questions that facilitated the discussion/i;
-
-// `- Name: "Q?" (why)` and `- Name, qualifier: "Q?"` and `- "Q?" (Name, why)`.
-const NAME_FIRST = /^[-*]\s+(?:\*\*)?([^:"“”*]{2,80}?)(?:\*\*)?:\s*(?:\*\*)?["“]([^"“”]+\?)["”]/;
-const QUOTE_FIRST = /^[-*]\s+(?:\*\*)?["“]([^"“”]+\?)["”](?:\*\*)?\s*\(([^,)]+)/;
-
-function cleanAsker(raw: string): string | null {
-  // "Casey Benson, checking his own reasoning" and "Casey Benson
-  // (implicit reframe)" both credit Casey Benson.
-  const name = raw.split(/[,(]/)[0].trim();
-  if (!name || /unidentified|speaker|\bteam\b|\bgroup\b/i.test(name)) return null;
-  if (!/^[A-Z]/.test(name) || name.split(/\s+/).length > 4) return null;
-  return name;
-}
-
-export function parseOpeningQuestions(markdown: string): OpeningQuestion[] {
-  const out: OpeningQuestion[] = [];
-  const seen = new Set<string>();
-  let inList = false;
-  for (const line of markdown.split("\n")) {
-    const t = line.trim();
-    if (KEY_QUESTIONS_HEADING.test(t)) {
-      inList = true;
-      continue;
-    }
-    if (!inList) continue;
-    if (t.length === 0) continue;
-    if (!/^[-*]\s/.test(t)) {
-      inList = false;
-      continue;
-    }
-    let question: string | null = null;
-    let asker: string | null = null;
-    const a = NAME_FIRST.exec(t);
-    const b = a ? null : QUOTE_FIRST.exec(t);
-    if (a) {
-      asker = cleanAsker(a[1]);
-      question = a[2].trim();
-    } else if (b) {
-      question = b[1].trim();
-      asker = cleanAsker(b[2]);
-    }
-    if (!question || !asker) continue;
-    const key = question.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ question: stripEmDashes(question), asker });
-  }
-  return out;
-}
 
 // ---- The generated block -------------------------------------------
 
@@ -148,6 +90,7 @@ Separately, find the questions in THIS meeting's transcript that changed where t
 
 - A clarifying question never qualifies ("Who's on that?", "When?", "What about sanitation?", "Is Nancy the new one?"), however well it was asked.
 - A question can be phrased as a statement of doubt ("I don't know if they know...") and still count, if the room took it somewhere.
+- For each candidate, write "was_heading" and "went" first, from what the transcript shows. If "went" is only "they answered it", drop the candidate.
 - Up to four. None, if none qualified. Never pad the list.
 - The asker must be someone on the attendee list, named as the list names them. If the speaker map calls the speaker unidentified, leave the question out: credit is the point, and a guess is worse than nothing.
 - "asked": a lightly cleaned paraphrase that completes "<first name> asked ...". No quotation marks. Keep their meaning, drop the stumbles.
@@ -188,8 +131,21 @@ const TOOL: Anthropic.Tool = {
           "Questions from THIS meeting that changed where the discussion went. None if none did.",
         items: {
           type: "object",
-          required: ["asker", "asked", "opened"],
+          // EVIDENCE FIRST: where the discussion was heading, then where
+          // it went, and only then who asked. The same ordering that
+          // stopped the facilitation review writing verdicts before
+          // its evidence; without it the pick is made by form.
+          required: ["was_heading", "went", "asker", "asked", "opened"],
           properties: {
+            was_heading: {
+              type: "string",
+              description: "Where the discussion was going just before the question.",
+            },
+            went: {
+              type: "string",
+              description:
+                "Where it went after, from the transcript. If it only got an answer and moved on, this question does not qualify: leave it out.",
+            },
             asker: { type: "string", description: "Full name, exactly as the attendee list gives it." },
             asked: {
               type: "string",
@@ -282,7 +238,6 @@ export async function generateMeetingQuestions(
     model: string;
     analysisMarkdown: string;
     strengths: string[];
-    asked: OpeningQuestion[];
     // Read to judge what a question actually did. Never shown.
     transcript: string;
     speakerBlock: string;
@@ -291,10 +246,6 @@ export async function generateMeetingQuestions(
     attendees: string[];
   }
 ): Promise<{ nextWeek: NextWeekQuestion[]; opened: OpenedQuestion[] }> {
-  const asked =
-    input.asked.length > 0
-      ? input.asked.map((q) => `- ${q.asker}: "${q.question}"`).join("\n")
-      : "(none recorded)";
   const strengths =
     input.strengths.length > 0 ? input.strengths.map((s) => `- ${s}`).join("\n") : "(none recorded)";
   const userTurn =
@@ -302,7 +253,6 @@ export async function generateMeetingQuestions(
     `Attendees (the only people who may be credited):\n${
       input.attendees.length > 0 ? input.attendees.map((a) => `- ${a}`).join("\n") : "(none identified)"
     }\n\n` +
-    `Questions the summary recorded, a starting point only:\n${asked}\n\n` +
     `<summary>\n${input.analysisMarkdown.slice(0, 14000)}\n</summary>\n\n` +
     `${input.speakerBlock}\n\n<transcript>\n${input.transcript.slice(0, 60000)}\n</transcript>`;
 

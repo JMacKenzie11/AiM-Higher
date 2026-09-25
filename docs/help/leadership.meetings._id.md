@@ -81,10 +81,10 @@ As an admin or guide, you can also:
 - **Read the facilitation review** *(when Meeting Facilitation
   Review is on)*: the "How the meeting was run" panel on Coaching
   notes. Strengths first, growth edges framed as opportunities,
-  and a *what to try next week* section. The score is a mirror,
-  not a grade.
-- **See how the score is made.** Open *How this is scored* under
-  the score. Aimee rates five parts: Positive framing,
+  and a *what to try next week* section. The score, the
+  *Facilitation signal*, sits on the strip at the top of the page.
+- **See how the score is made.** Open *How this is scored* in the
+  "How the meeting was run" panel. Aimee rates five parts: Positive framing,
   Accountability, Rhythm and Alignment out of 10, and Agenda
   sections out of 5 (doubled to put it on the same scale). The
   score is a weighted average: Positive framing 25%,

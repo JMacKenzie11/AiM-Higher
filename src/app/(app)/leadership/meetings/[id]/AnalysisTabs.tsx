@@ -15,13 +15,16 @@ import styles from "./analysis-tabs.module.css";
 // arrival, which reads as the page lurching. The hash names the tab;
 // the panel is found through it.
 //
-// The pill style is the measures board's view toggle (BoardView),
-// the same tokens, so this is the app's existing segmented control
-// rather than a new one.
+// An underline tab bar whose active tab carries the brand's gradient
+// rule, the bar under the page title. Jason found the pill toggle it
+// replaced too plain.
 
 export type AnalysisTab = {
   hash: string;
   label: string;
+  // Shown beside the label when it adds something, e.g. how many
+  // commitments and issues the meeting produced.
+  count?: number;
   content: ReactNode;
 };
 
@@ -58,6 +61,9 @@ export function AnalysisTabs({ tabs }: { tabs: AnalysisTab[] }) {
             }}
           >
             {t.label}
+            {typeof t.count === "number" && t.count > 0 ? (
+              <span className={styles.tabCount}>{t.count}</span>
+            ) : null}
           </a>
         ))}
       </div>

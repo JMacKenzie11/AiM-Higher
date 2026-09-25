@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import {
-  parseOpeningQuestions,
   questionFaults,
   allFaults,
   generateMeetingQuestions,
@@ -29,32 +28,6 @@ None.
 
 ## Decisions Made (Summary Section)
 - "Not a question at all" (Casey Benson, a decision)`;
-
-describe("parseOpeningQuestions", () => {
-  it("credits named askers of quoted questions, in both formats", () => {
-    expect(parseOpeningQuestions(SUMMARY)).toEqual([
-      { question: "What about sanitation?", asker: "Darlene Clinch" },
-      {
-        question:
-          "If people want to not bank hours but bank money for the next three or four weeks... do we even offer that?",
-        asker: "Casey Benson",
-      },
-      { question: "What's dragging it?", asker: "E2E Company Admin" },
-    ]);
-  });
-
-  it("gives no credit to an unidentified speaker, or to an unquoted paraphrase", () => {
-    const askers = parseOpeningQuestions(SUMMARY).map((q) => q.asker);
-    expect(askers).not.toContain("An unidentified speaker");
-    expect(parseOpeningQuestions(SUMMARY).map((q) => q.question)).not.toContain(
-      "Are they coming printed or just the phone?"
-    );
-  });
-
-  it("reads only the Key Questions lists", () => {
-    expect(parseOpeningQuestions(SUMMARY).map((q) => q.question)).not.toContain("Not a question at all");
-  });
-});
 
 describe("questionFaults", () => {
   it("passes the target question", () => {
@@ -93,12 +66,10 @@ const GOOD = [
 ];
 
 describe("generateMeetingQuestions", () => {
-  const asked = parseOpeningQuestions(SUMMARY);
   const base = {
     model: "m",
     analysisMarkdown: SUMMARY,
     strengths: [],
-    asked,
     transcript: "Speaker 1: I don't know if they know that Raw is getting that RTEs have any incentive stuff.",
     speakerBlock: "<speaker_map>- Speaker 1 = Casey Benson (high)</speaker_map>",
     attendees: ["Casey Benson", "Darlene Clinch"],
@@ -134,6 +105,8 @@ describe("generateMeetingQuestions", () => {
     const turn = create.mock.calls[0][0].messages[0].content as string;
     expect(turn).toContain("<transcript>");
     expect(turn).toContain("Casey Benson (high)");
+    // Not the summary's recorded list: that pulled the pick toward form.
+    expect(turn).not.toContain("Questions the summary recorded");
     log.mockRestore();
   });
 
@@ -216,7 +189,7 @@ describe("the retry's picks", () => {
       }
     );
     const out = await generateMeetingQuestions(client, {
-      model: "m", analysisMarkdown: "", strengths: [], asked: [], transcript: "", speakerBlock: "",
+      model: "m", analysisMarkdown: "", strengths: [], transcript: "", speakerBlock: "",
       attendees: ["Darlene Clinch"],
     });
     expect(out.nextWeek).toHaveLength(3);

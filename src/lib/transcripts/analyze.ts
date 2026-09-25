@@ -20,7 +20,7 @@ import {
 } from "./speakers";
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
 import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/score";
-import { generateMeetingQuestions, parseOpeningQuestions } from "@/lib/leadership/questions";
+import { generateMeetingQuestions } from "@/lib/leadership/questions";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
@@ -417,7 +417,6 @@ export async function analyzeMeeting(
         model,
         analysisMarkdown,
         strengths: facilitationReview.strengths.map((s) => s.title),
-        asked: parseOpeningQuestions(analysisMarkdown),
         transcript: meetingRow.transcript_text,
         speakerBlock,
         // Who may be credited: the people identified as present, by the
