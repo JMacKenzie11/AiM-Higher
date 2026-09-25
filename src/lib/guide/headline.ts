@@ -1,6 +1,7 @@
 import "server-only";
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { VOICE_CORE } from "@/lib/voice/core";
 
 // THE NOTIFICATION LINE IS THE PRODUCT.
 //
@@ -48,8 +49,9 @@ HARD RULES
 - Lead with what is working, or with a pattern. Never open on a gap.
 - Name only people on the leadership team. Somebody on the floor may be described by what they did, such as "a supervisor" or "one of the pickers", but a person who is not in the room does not get named in a notification others may later see.
 - No promises. You cannot remind, schedule or follow up in this phase.
-- Say what a thing IS, never what it is not. Not "that's not a small thing", not "no small feat", not "that's not an accident". Say "that's significant", "that took discipline", "most teams can't do that". Denying the opposite makes a compliment sound grudging.
-- Plain sentences. No em dashes.`;
+- Plain sentences.
+
+${VOICE_CORE}`;
 
 // Exported for the shared voice test, which holds every generated
 // surface against the same handful of rules. Not for runtime use.
