@@ -13,8 +13,10 @@ import type { FacilitationReview as FacilitationReviewData } from "@/lib/leaders
 import { isScoredReview } from "@/lib/leadership/facilitation/scored";
 import { splitCoreValues } from "@/lib/transcripts/section-order";
 import { attendeesFromSummary } from "@/lib/transcripts/attendees";
-import { overallForRow } from "@/lib/leadership/facilitation/score";
+import { scoreForRow } from "@/lib/leadership/facilitation/score";
+import { displayScore } from "@/components/leadership/FacilitationReview";
 import { dueLabel } from "@/lib/commitments/due-label";
+import { isAimsChampion } from "@/lib/guide/champion";
 import { AnalysisTabs } from "./AnalysisTabs";
 import tabStyles from "./analysis-tabs.module.css";
 import type {
@@ -45,9 +47,9 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // Full meeting analysis + commitments the meeting spawned. Reached
 // from /leadership. Open to every same-company member; RLS on
 // meetings + meeting_analyses admits authenticated users whose
-// profile.company_id matches. Facilitation review + rerun button
-// stay admin-gated in the render below (grades the meeting leader —
-// wrong default to share with the person being graded).
+// profile.company_id matches. The facilitation review is for the
+// company's admins, guides, system admins and the AiMS champion; the
+// rerun button is system_admin only. Both gated in the render below.
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -91,16 +93,23 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   ]);
 
   // Facilitation review only surfaces when the feature is on, the
-  // caller can manage this company, AND the analysis row actually
-  // carries a review (older rows, or rows analyzed while the flag
-  // was off, stay null and render nothing). Non-admins never see
-  // the review — it grades the meeting leader, and that's not the
-  // right shared artefact for participants.
+  // caller is one of the people it is for (below), AND the analysis
+  // row actually carries a review (older rows, or rows analyzed while
+  // the flag was off, stay null and render nothing). Other members
+  // do not see it: it grades the meeting leader.
   const facilitationFeatureOn = await companyHasFeature(
     meeting.company_id,
     "meeting_facilitation_review"
   );
-  const facilitationOn = facilitationFeatureOn && isAdmin;
+  // Who sees the full Coaching notes tab, scores included: the
+  // company's admins, its guides and system admins (all of whom
+  // isAdminForCompany admits), and the AiMS champion, who is often a
+  // team_member and is the person the notes are for. Jason,
+  // 2026-09-25. Everyone else at the company sees Core Values.
+  const isChampion = isAdmin
+    ? false
+    : await isAimsChampion(session.profile.id, meeting.company_id);
+  const facilitationOn = facilitationFeatureOn && (isAdmin || isChampion);
   // isScoredReview, not just "a row is present". A review that
   // scored nothing renders as a card full of dashes while the
   // meetings list shows an empty Facilitation cell for the same
@@ -378,8 +387,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   // Names only, from the summary's own attendee list: the same list
   // the owner check reads (attendees.ts), hedged lines left out.
   const attendees = attendeesFromSummary(analysis?.analysis_markdown ?? "");
-  const overall = facilitationReview
-    ? overallForRow(analysis, facilitationReview)
+  const score = facilitationReview
+    ? scoreForRow(analysis, facilitationReview)
     : null;
 
   // ---- Tab 1: Coaching notes ----------------------------------
@@ -401,11 +410,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
         </section>
       ) : null}
       {facilitationReview ? (
-        <FacilitationReview
-          review={facilitationReview}
-          score={overall?.score ?? null}
-          weightsFrom={overall?.weightsFrom ?? null}
-        />
+        <FacilitationReview review={facilitationReview} score={score} />
       ) : null}
       {!analysisParts.values && !facilitationReview ? (
         <p className={styles.emptyLine}>No coaching notes for this meeting.</p>
@@ -585,11 +590,11 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
               <span className={tabStyles.stripValue}>{attendees.join(", ")}</span>
             </div>
           ) : null}
-          {facilitationReview && overall ? (
+          {facilitationReview && score ? (
             <div className={tabStyles.stripItem}>
               <span className={tabStyles.stripLabel}>Score</span>
               <span className={tabStyles.stripScore}>
-                {overall.score.rounded}
+                {displayScore(score)}
                 <span className={tabStyles.stripScoreDenom}>/10</span>
               </span>
             </div>

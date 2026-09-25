@@ -1,39 +1,60 @@
 import { describe, it, expect } from "vitest";
-import { computeOverall, overallForRow, SCORE_WEIGHTS } from "./score";
+import { computeOverall, scoreForRow, SCORE_WEIGHTS, SCORE_CUTOVER_ISO } from "./score";
+
+const parts = (pf: number | null, a: number | null, r: number | null, al: number | null, ag: number | null) => ({
+  positive_framing: pf,
+  accountability: a,
+  rhythm: r,
+  alignment: al,
+  agenda: ag,
+});
 
 describe("SCORE_WEIGHTS", () => {
-  it("sums to 100", () => {
+  it("is Jason's five, summing to 100", () => {
+    expect(SCORE_WEIGHTS).toEqual({
+      positive_framing: 25,
+      accountability: 25,
+      rhythm: 20,
+      alignment: 15,
+      agenda: 15,
+    });
     expect(Object.values(SCORE_WEIGHTS).reduce((a, b) => a + b, 0)).toBe(100);
   });
 });
 
 describe("computeOverall", () => {
-  // Jason's worked example: (6 x 0.30) + (7 x 0.25) + (6 x 0.25) + (10 x 0.20) = 7.05.
-  it("matches the worked example, with agenda 5/5 scaled to 10", () => {
-    const s = computeOverall({ accountability: 6, rhythm: 7, alignment: 6, agenda: 5 })!;
-    expect(s.hundredths).toBe(705);
-    expect(s.oneDecimal).toBe("7.1");
-    expect(s.rounded).toBe(7);
-    expect(s.lines.find((l) => l.key === "agenda")).toMatchObject({ raw: 5, outOf: 5, scaled: 10 });
+  it("weights the five parts, with agenda 5/5 scaled to 10", () => {
+    // 8*25 + 6*25 + 7*20 + 6*15 + 10*15 = 200 + 150 + 140 + 90 + 150 = 730
+    const s = computeOverall(parts(8, 6, 7, 6, 5))!;
+    expect(s).toMatchObject({ hundredths: 730, oneDecimal: "7.3", rounded: 7 });
+    expect(s.lines.map((l) => l.key)).toEqual([
+      "positive_framing",
+      "accountability",
+      "rhythm",
+      "alignment",
+      "agenda",
+    ]);
+    expect(s.lines.at(-1)).toMatchObject({ raw: 5, outOf: 5, scaled: 10, weight: 15 });
   });
 
-  it("rounds half up at both precisions, without floating point drift", () => {
-    // 5*30 + 7*25 + 7*25 + (4*2)*20 = 150 + 175 + 175 + 160 = 660 -> 6.60.
-    expect(computeOverall({ accountability: 5, rhythm: 7, alignment: 7, agenda: 4 })).toMatchObject({
-      hundredths: 660,
-      oneDecimal: "6.6",
-      rounded: 7,
+  it("rounds half up at each precision on its own, without floating point drift", () => {
+    // 7*25 + 6*25 + 7*20 + 6*15 + 6*15 = 175 + 150 + 140 + 90 + 90 = 645:
+    // 6.45 is 6.5 to one decimal, and 6 on the strip.
+    expect(computeOverall(parts(7, 6, 7, 6, 3))).toMatchObject({
+      hundredths: 645,
+      oneDecimal: "6.5",
+      rounded: 6,
     });
-    // 5*30 + 6*25 + 7*25 + (3*2)*20 = 150 + 150 + 175 + 120 = 595 -> 5.95:
-    // one decimal rounds up to 6.0, the strip to 6.
-    expect(computeOverall({ accountability: 5, rhythm: 6, alignment: 7, agenda: 3 })).toMatchObject({
+    // 7*25 + 6*25 + 6*20 + 6*15 + 4*15 = 175 + 150 + 120 + 90 + 60 = 595:
+    // 5.95 is 6.0 to one decimal, and 6 on the strip.
+    expect(computeOverall(parts(7, 6, 6, 6, 2))).toMatchObject({
       hundredths: 595,
       oneDecimal: "6.0",
       rounded: 6,
     });
-    // 6*30 + 6*25 + 7*25 + (2*2)*20 = 180 + 150 + 175 + 80 = 585 -> 5.85:
-    // 5.9 at one decimal, and 6 on the strip because 5.85 rounds up.
-    expect(computeOverall({ accountability: 6, rhythm: 6, alignment: 7, agenda: 2 })).toMatchObject({
+    // 6*25 + 6*25 + 6*20 + 5*15 + 6*15 = 150 + 150 + 120 + 75 + 90 = 585:
+    // 5.85 is 5.9 to one decimal, and 6 on the strip.
+    expect(computeOverall(parts(6, 6, 6, 5, 3))).toMatchObject({
       hundredths: 585,
       oneDecimal: "5.9",
       rounded: 6,
@@ -41,73 +62,69 @@ describe("computeOverall", () => {
   });
 
   it("scores a perfect and an empty meeting at the ends of the scale", () => {
-    expect(computeOverall({ accountability: 10, rhythm: 10, alignment: 10, agenda: 5 })).toMatchObject({
+    expect(computeOverall(parts(10, 10, 10, 10, 5))).toMatchObject({
       hundredths: 1000,
       oneDecimal: "10.0",
       rounded: 10,
     });
-    expect(computeOverall({ accountability: 0, rhythm: 0, alignment: 0, agenda: 0 })).toMatchObject({
-      hundredths: 0,
-      oneDecimal: "0.0",
-      rounded: 0,
-    });
+    expect(computeOverall(parts(0, 0, 0, 0, 0))).toMatchObject({ hundredths: 0, oneDecimal: "0.0", rounded: 0 });
   });
 
   it("gives no overall when any part is missing", () => {
-    // The E13 case: a review with an agenda score and no dimensions
-    // block must stay unscored, so its one retry fires.
-    expect(computeOverall({ accountability: null, rhythm: null, alignment: null, agenda: 3 })).toBeNull();
-    expect(computeOverall({ accountability: 6, rhythm: 7, alignment: 6, agenda: null })).toBeNull();
-  });
-
-  it("returns null when nothing was scored", () => {
-    expect(computeOverall({ accountability: null, rhythm: null, alignment: null, agenda: null })).toBeNull();
+    // Including positive framing: it is a part now, not an extra.
+    expect(computeOverall(parts(null, 6, 7, 6, 5))).toBeNull();
+    // The E13 case: an agenda score and no dimensions block must stay
+    // unscored, so the review's one retry fires.
+    expect(computeOverall(parts(null, null, null, null, 3))).toBeNull();
   });
 
   it("clamps out-of-range parts rather than trusting them", () => {
-    const s = computeOverall({ accountability: 14, rhythm: 7, alignment: 6, agenda: 9 })!;
+    const s = computeOverall(parts(8, 14, 7, 6, 9))!;
     expect(s.lines.find((l) => l.key === "accountability")!.raw).toBe(10);
     expect(s.lines.find((l) => l.key === "agenda")!.raw).toBe(5);
   });
 
   it("takes other weights without touching anything else", () => {
-    const s = computeOverall(
-      { accountability: 6, rhythm: 7, alignment: 6, agenda: 5 },
-      { accountability: 25, rhythm: 25, alignment: 25, agenda: 25 }
-    )!;
-    // (6 + 7 + 6 + 10) / 4 = 7.25
-    expect(s.hundredths).toBe(725);
-    expect(s.oneDecimal).toBe("7.3");
-    expect(s.rounded).toBe(7);
+    const even = { positive_framing: 20, accountability: 20, rhythm: 20, alignment: 20, agenda: 20 };
+    // (8 + 6 + 7 + 6 + 10) / 5 = 7.4
+    expect(computeOverall(parts(8, 6, 7, 6, 5), even)).toMatchObject({ hundredths: 740, oneDecimal: "7.4" });
   });
 });
 
-describe("overallForRow", () => {
-  const review = {
-    insufficient_transcript: false,
-    dimensions: { rhythm: { score: 7 }, accountability: { score: 6 }, alignment: { score: 6 } },
-    agenda_adherence: { score_out_of_5: 5 },
+describe("scoreForRow", () => {
+  const review = { insufficient_transcript: false, overall: 9 };
+  const stored = {
+    score_positive_framing: 8,
+    score_accountability: 6,
+    score_rhythm: 7,
+    score_alignment: 6,
+    score_agenda: 5,
+    score_weights: { ...SCORE_WEIGHTS },
   };
 
-  it("uses a row's own stored parts and weights", () => {
-    const out = overallForRow(
-      {
-        score_rhythm: 7, score_accountability: 6, score_alignment: 6, score_agenda: 5,
-        score_weights: { accountability: 25, rhythm: 25, alignment: 25, agenda: 25 },
-      },
-      review
-    )!;
-    expect(out.weightsFrom).toBe("stored");
-    expect(out.score.hundredths).toBe(725);
+  it("computes a meeting analysed on or after the cutover, from its own stored parts", () => {
+    const out = scoreForRow({ ...stored, created_at: SCORE_CUTOVER_ISO }, review)!;
+    expect(out.kind).toBe("computed");
+    expect(out.value).toBe(7.3);
   });
 
-  it("computes an older row from its review parts with today's weights, never its judged overall", () => {
-    const out = overallForRow({}, { ...review, overall: 9 } as typeof review)!;
-    expect(out.weightsFrom).toBe("current");
-    expect(out.score.hundredths).toBe(705);
+  it("uses the weights stored on the row, not today's", () => {
+    const even = { positive_framing: 20, accountability: 20, rhythm: 20, alignment: 20, agenda: 20 };
+    const out = scoreForRow({ ...stored, score_weights: even, created_at: "2026-10-01T00:00:00Z" }, review)!;
+    expect(out.value).toBe(7.4);
   });
 
-  it("has nothing to say about an insufficient transcript", () => {
-    expect(overallForRow(null, { ...review, insufficient_transcript: true })).toBeNull();
+  it("keeps an older meeting's original score, and never back-computes it", () => {
+    const out = scoreForRow({ ...stored, created_at: "2026-09-24T23:59:59Z" }, review)!;
+    expect(out).toEqual({ kind: "original", value: 9 });
+  });
+
+  it("keeps the original when a later row has no stored parts", () => {
+    expect(scoreForRow({ created_at: "2026-10-01T00:00:00Z" }, review)).toEqual({ kind: "original", value: 9 });
+  });
+
+  it("has no score for an insufficient transcript, or a review without one", () => {
+    expect(scoreForRow(null, { insufficient_transcript: true, overall: null })).toBeNull();
+    expect(scoreForRow({ created_at: "2026-09-01T00:00:00Z" }, { insufficient_transcript: false, overall: null })).toBeNull();
   });
 });

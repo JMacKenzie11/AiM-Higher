@@ -3,7 +3,12 @@ import type {
   FacilitationReview as FacilitationReviewData,
   FacilitationDimensionScore,
 } from "@/lib/leadership/facilitation/types";
-import { overallForRow, type OverallScore } from "@/lib/leadership/facilitation/score";
+import {
+  scoreForRow,
+  type MeetingScore,
+  type OverallScore,
+  type StoredScoreRow,
+} from "@/lib/leadership/facilitation/score";
 import styles from "./FacilitationReview.module.css";
 
 // Panel that renders a structured facilitation review as a coaching
@@ -19,13 +24,11 @@ import styles from "./FacilitationReview.module.css";
 export function FacilitationReview({
   review,
   score,
-  weightsFrom,
 }: {
   review: FacilitationReviewData;
-  // Computed from the four parts (score.ts), never the model's judged
-  // overall. Null when the parts are incomplete.
-  score: OverallScore | null;
-  weightsFrom: "stored" | "current" | null;
+  // scoreForRow: computed from the five parts for meetings analysed
+  // since the cutover, the original score for everything older.
+  score: MeetingScore | null;
 }) {
   if (review.insufficient_transcript) {
     return (
@@ -46,7 +49,13 @@ export function FacilitationReview({
     <section className={styles.card} aria-labelledby="facilitation">
       <Header score={score} />
 
-      {score ? <ScoreExplainer score={score} weightsFrom={weightsFrom} /> : null}
+      {score?.kind === "computed" ? <ScoreExplainer score={score.score} /> : null}
+      {score?.kind === "original" ? (
+        <p className={styles.scoreNote}>
+          Scored before the current method, so there is no breakdown for
+          this meeting.
+        </p>
+      ) : null}
 
       {review.executive_summary ? (
         <p className={styles.summary}>{review.executive_summary}</p>
@@ -227,13 +236,18 @@ export function FacilitationReview({
   );
 }
 
-function Header({ score }: { score: OverallScore | null }) {
+// The number on the panel and the strip: rounded either way.
+export function displayScore(score: MeetingScore): number {
+  return score.kind === "computed" ? score.score.rounded : Math.round(score.value);
+}
+
+function Header({ score }: { score: MeetingScore | null }) {
   return (
     <div className={styles.header}>
       <h2 id="facilitation" className={styles.h2}>
         How the meeting was run
       </h2>
-      {score ? <OverallSignal score={score.rounded} /> : null}
+      {score ? <OverallSignal score={displayScore(score)} /> : null}
       {score ? <p className={styles.mirrorLine}>A mirror, not a grade.</p> : null}
     </div>
   );
@@ -252,13 +266,7 @@ function OverallSignal({ score }: { score: number }) {
 
 // "How this is scored": the four parts, their weights, and this
 // meeting's arithmetic, so the number is never a black box.
-function ScoreExplainer({
-  score,
-  weightsFrom,
-}: {
-  score: OverallScore;
-  weightsFrom: "stored" | "current" | null;
-}) {
+function ScoreExplainer({ score }: { score: OverallScore }) {
   const decimal = (n: number) => (n / 100).toFixed(2);
   const arithmetic = score.lines
     .map((l) => `(${l.scaled} \u00d7 ${decimal(l.weight)})`)
@@ -298,9 +306,6 @@ function ScoreExplainer({
       <p className={styles.scoreNote}>
         Agenda sections is scored out of 5 and doubled to put it on the same
         scale as the others.
-        {weightsFrom === "current"
-          ? " This meeting was analysed before scores were stored, so it uses today's weights."
-          : ""}
       </p>
     </details>
   );
@@ -379,7 +384,7 @@ export function FacilitationListChip({
   row,
 }: {
   review: FacilitationReviewData;
-  row?: Parameters<typeof overallForRow>[0];
+  row?: StoredScoreRow | null;
 }) {
   if (review.insufficient_transcript) {
     return (
@@ -395,7 +400,8 @@ export function FacilitationListChip({
   }
   // The same number the meeting page shows: computed from the parts,
   // from the row's stored parts when it has them.
-  const overall = overallForRow(row ?? null, review)?.score.rounded ?? null;
+  const score = scoreForRow(row ?? null, review);
+  const overall = score ? displayScore(score) : null;
   if (overall == null) return null;
   const tone = signalTone(overall);
   return (

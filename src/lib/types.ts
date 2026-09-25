@@ -753,6 +753,7 @@ export type MeetingAnalysis = {
   // The score's parts, its computed overall, and the weights used
   // (migration 0236). Null on rows written before it; the page then
   // computes from the review JSON (score.ts, overallForRow).
+  score_positive_framing?: number | null;
   score_rhythm?: number | null;
   score_accountability?: number | null;
   score_alignment?: number | null;

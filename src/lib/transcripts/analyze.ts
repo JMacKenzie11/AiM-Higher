@@ -95,6 +95,23 @@ export type AnalyzeOptions = {
   // but writes no commitment rows and touches none of the existing
   // ones.
   preserveCommitments?: boolean;
+
+  // SUMMARY-ONLY. Regenerate the summary, the coaching notes, the
+  // questions and the score, and leave everything the meeting already
+  // put on people's lists exactly as it is.
+  //
+  // The extraction call is skipped and these lists, read from the
+  // previous analysis row, are stored again unchanged. That matters
+  // beyond the commitment rows: the page matches "already added"
+  // issues and commitments by exact text, so a regenerated list with
+  // new wording would offer Add again on work already added, and one
+  // click would duplicate it. No commitment rows are written, no Guide
+  // nudge is raised and no analytics event fires.
+  // scripts/resummarize-once.ts is the one caller.
+  carryOver?: {
+    commitments_json: ExtractedCommitment[];
+    issues_json: ExtractedIssue[] | null;
+  };
 };
 
 export async function analyzeMeeting(
@@ -256,63 +273,6 @@ export async function analyzeMeeting(
       );
     }
 
-    // ---- Call 2: extraction ----
-    const rawExtraction = await client.messages.create({
-      model,
-      ...NO_THINKING,
-      max_tokens: MAX_TOKENS_EXTRACTION,
-      system: [{ type: "text", text: EXTRACTION_SYSTEM_PROMPT }],
-      messages: [
-        {
-          role: "user",
-          content: buildExtractionUserMessage(
-            context,
-            meetingRow.transcript_text,
-            speakerBlock,
-            meetingDateIn(meetingRow.created_at, context.timezone ?? "UTC"),
-            companyBlock
-          ),
-        },
-      ],
-    });
-    if (rawExtraction.usage) {
-      void logCoachTokenUsage({
-        conversationId: null,
-        companyId: meetingRow.company_id,
-        purpose: "analyzer",
-        model,
-        usage: rawExtraction.usage,
-      });
-    }
-    const rawText = rawExtraction.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("");
-    const { commitments: rawCommitments, issues: rawIssues } =
-      parseExtractionJson(rawText);
-    // Verbose logging when the extraction lands empty. The pipeline
-    // silently accepts an empty result today (LLM stochasticity is a
-    // legit outcome), so without this trail an empty landing was
-    // indistinguishable from "response truncated at max_tokens" or
-    // "model returned the wrong shape". Log everything needed to
-    // diagnose from Vercel logs alone: stop_reason, character count,
-    // and the first + last chunks of the raw output.
-    if (rawCommitments.length === 0 && rawIssues.length === 0) {
-      const stopReason = rawExtraction.stop_reason ?? "unknown";
-      const preview = rawText.slice(0, 400);
-      const tail = rawText.length > 800 ? rawText.slice(-400) : "";
-      console.warn(
-        `[analyze] Empty extraction for meeting ${meetingId} — ` +
-          `stop_reason=${stopReason}, chars=${rawText.length}. ` +
-          `Head: ${JSON.stringify(preview)}${
-            tail ? ` … Tail: ${JSON.stringify(tail)}` : ""
-          }`
-      );
-    }
-
-    // Server-side validation. Any row that fails ownership or content
-    // checks is dropped; date violations are ADJUSTED (not dropped) to
-    // preserve extraction work per the date-floor rule below.
     // The company's day, not the server's. An evening meeting on a
     // western timezone is already tomorrow in UTC, and every
     // same-day commitment would land a day early for the whole team.
@@ -320,26 +280,93 @@ export async function analyzeMeeting(
       meetingRow.created_at,
       context.timezone ?? "UTC"
     );
-    const validated = requirePresentOwners(
-      validateCommitments(rawCommitments, context, meetingDateIso).map((c) => ({
-        ...c,
-        description: replaceSpeakerLabels(c.description, speakerMap).text,
-      })),
-      presentOwnerIds(
-        context.roster,
-        identifiedSpeakers(speakerMap),
-        attendeesFromSummary(analysisMarkdown)
-      ),
-      meetingId
-    );
-    // Issues get their own validator (title-only shape). NEVER
-    // auto-created; the meeting summary surfaces them with an
-    // explicit "Add to open issues" action regardless of the
-    // automatic_commitment_tracking flag.
-    const validatedIssues = validateIssues(rawIssues).map((i) => ({
-      ...i,
-      title: replaceSpeakerLabels(i.title, speakerMap).text,
-    }));
+
+    // SUMMARY-ONLY runs skip extraction altogether and carry the
+    // meeting's existing lists over unchanged. See AnalyzeOptions.
+    let validated: ExtractedCommitment[];
+    let validatedIssues: ExtractedIssue[];
+    if (options.carryOver) {
+      validated = options.carryOver.commitments_json;
+      validatedIssues = options.carryOver.issues_json ?? [];
+    } else {
+      // ---- Call 2: extraction ----
+      const rawExtraction = await client.messages.create({
+        model,
+        ...NO_THINKING,
+        max_tokens: MAX_TOKENS_EXTRACTION,
+        system: [{ type: "text", text: EXTRACTION_SYSTEM_PROMPT }],
+        messages: [
+          {
+            role: "user",
+            content: buildExtractionUserMessage(
+              context,
+              meetingRow.transcript_text,
+              speakerBlock,
+              meetingDateIn(meetingRow.created_at, context.timezone ?? "UTC"),
+              companyBlock
+            ),
+          },
+        ],
+      });
+      if (rawExtraction.usage) {
+        void logCoachTokenUsage({
+          conversationId: null,
+          companyId: meetingRow.company_id,
+          purpose: "analyzer",
+          model,
+          usage: rawExtraction.usage,
+        });
+      }
+      const rawText = rawExtraction.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("");
+      const { commitments: rawCommitments, issues: rawIssues } =
+        parseExtractionJson(rawText);
+      // Verbose logging when the extraction lands empty. The pipeline
+      // silently accepts an empty result today (LLM stochasticity is a
+      // legit outcome), so without this trail an empty landing was
+      // indistinguishable from "response truncated at max_tokens" or
+      // "model returned the wrong shape". Log everything needed to
+      // diagnose from Vercel logs alone: stop_reason, character count,
+      // and the first + last chunks of the raw output.
+      if (rawCommitments.length === 0 && rawIssues.length === 0) {
+        const stopReason = rawExtraction.stop_reason ?? "unknown";
+        const preview = rawText.slice(0, 400);
+        const tail = rawText.length > 800 ? rawText.slice(-400) : "";
+        console.warn(
+          `[analyze] Empty extraction for meeting ${meetingId} — ` +
+            `stop_reason=${stopReason}, chars=${rawText.length}. ` +
+            `Head: ${JSON.stringify(preview)}${
+              tail ? ` … Tail: ${JSON.stringify(tail)}` : ""
+            }`
+        );
+      }
+
+      // Server-side validation. Any row that fails ownership or content
+      // checks is dropped; date violations are ADJUSTED (not dropped) to
+      // preserve extraction work per the date-floor rule below.
+      validated = requirePresentOwners(
+        validateCommitments(rawCommitments, context, meetingDateIso).map((c) => ({
+          ...c,
+          description: replaceSpeakerLabels(c.description, speakerMap).text,
+        })),
+        presentOwnerIds(
+          context.roster,
+          identifiedSpeakers(speakerMap),
+          attendeesFromSummary(analysisMarkdown)
+        ),
+        meetingId
+      );
+      // Issues get their own validator (title-only shape). NEVER
+      // auto-created; the meeting summary surfaces them with an
+      // explicit "Add to open issues" action regardless of the
+      // automatic_commitment_tracking flag.
+      validatedIssues = validateIssues(rawIssues).map((i) => ({
+        ...i,
+        title: replaceSpeakerLabels(i.title, speakerMap).text,
+      }));
+    }
 
     // ---- Did the extraction miss anything? --------------------
     //
@@ -404,6 +431,7 @@ export async function analyzeMeeting(
     // review did not run or could not score.
     const scoreParts = facilitationReview && !facilitationReview.insufficient_transcript
       ? {
+          positive_framing: facilitationReview.dimensions.positive_framing?.score ?? null,
           rhythm: facilitationReview.dimensions.rhythm.score,
           accountability: facilitationReview.dimensions.accountability.score,
           alignment: facilitationReview.dimensions.alignment.score,
@@ -432,6 +460,7 @@ export async function analyzeMeeting(
       analysis_markdown: stripEmDashes(analysisMarkdown),
       truncated: analysisTruncated,
       coverage_json: coverage,
+      score_positive_framing: scoreParts?.positive_framing ?? null,
       score_rhythm: scoreParts?.rhythm ?? null,
       score_accountability: scoreParts?.accountability ?? null,
       score_alignment: scoreParts?.alignment ?? null,
@@ -463,7 +492,7 @@ export async function analyzeMeeting(
       admin,
       meetingRow.company_id
     );
-    const created = autoTrackOn && !options.preserveCommitments
+    const created = autoTrackOn && !options.preserveCommitments && !options.carryOver
       ? await createCommitmentsFromExtraction(
           admin,
           meetingRow,
@@ -496,19 +525,24 @@ export async function analyzeMeeting(
     //
     // Best effort, and isolated: raiseMeetingDebriefNudge never
     // throws. A broken invitation must not break a meeting summary.
-    const nudge = await raiseMeetingDebriefNudge(admin, client, {
-      model,
-      companyId: meetingRow.company_id!,
-      meetingId,
-      meetingDateIso,
-      analysisMarkdown,
-      transcript: meetingRow.transcript_text,
-      strengths: (facilitationReview?.strengths ?? []).map((s) => s.title),
-    });
+    // Not on a summary-only run: the meeting was already analysed,
+    // and a second invitation about it would be noise.
+    const nudge: RaiseResult = options.carryOver
+      ? { raised: false, reason: "summary-only regeneration" }
+      : await raiseMeetingDebriefNudge(admin, client, {
+          model,
+          companyId: meetingRow.company_id!,
+          meetingId,
+          meetingDateIso,
+          analysisMarkdown,
+          transcript: meetingRow.transcript_text,
+          strengths: (facilitationReview?.strengths ?? []).map((s) => s.title),
+        });
 
     // Cron-driven event; no request context, so await inline rather
     // than using next/server after(). The extra ~200ms is fine here.
-    await track(
+    // Nor the analytics event: one meeting, analysed once, counts once.
+    if (!options.carryOver) await track(
       "system:transcript-cron",
       "meeting.analyzed",
       {

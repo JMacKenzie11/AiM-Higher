@@ -6,7 +6,7 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationListChip } from "@/components/leadership/FacilitationReview";
-import type { overallForRow } from "@/lib/leadership/facilitation/score";
+import type { StoredScoreRow } from "@/lib/leadership/facilitation/score";
 import { isScoredReview } from "@/lib/leadership/facilitation/scored";
 import { PageShell } from "@/components/ui/PageShell";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
@@ -57,7 +57,7 @@ export default async function LeadershipPage() {
   );
   const facilitationOn = facilitationFeatureOn && isAdmin;
   const reviewByMeetingId = new Map<string, FacilitationReview>();
-  const scoreRowByMeetingId = new Map<string, Parameters<typeof overallForRow>[0]>();
+  const scoreRowByMeetingId = new Map<string, StoredScoreRow>();
   if (facilitationOn) {
     const completeIds = meetings
       .filter((m) => m.status === "complete")
@@ -66,12 +66,14 @@ export default async function LeadershipPage() {
       const { data: analysisRows } = await supabase
         .from("meeting_analyses")
         .select(
-          "meeting_id, facilitation_review_json, score_rhythm, score_accountability, score_alignment, score_agenda, score_weights"
+          "meeting_id, created_at, facilitation_review_json, score_positive_framing, score_rhythm, score_accountability, score_alignment, score_agenda, score_weights"
         )
         .in("meeting_id", completeIds);
       for (const row of (analysisRows ?? []) as Array<{
         meeting_id: string;
         facilitation_review_json: FacilitationReview | null;
+        created_at: string;
+        score_positive_framing: number | null;
         score_rhythm: number | null;
         score_accountability: number | null;
         score_alignment: number | null;

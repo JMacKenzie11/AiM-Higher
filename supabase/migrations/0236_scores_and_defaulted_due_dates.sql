@@ -9,19 +9,20 @@
 -- The facilitation overall used to be a separate model judgement,
 -- which is why it never derived from the four parts shown beside it.
 -- It is now computed in code (src/lib/leadership/facilitation/
--- score.ts) as a weighted average of Rhythm, Accountability,
--- Alignment (each 0 to 10) and Agenda sections (0 to 5, scaled to
--- 10 before weighting).
+-- score.ts) as a weighted average of Positive framing,
+-- Accountability, Rhythm, Alignment (each 0 to 10) and Agenda
+-- sections (0 to 5, scaled to 10 before weighting), for meetings
+-- analysed from the cutover in the same file. Older meetings keep the
+-- score they were given; nothing is back-computed.
 --
 -- The parts, the result AND the weights used are stored, so a
 -- historical score is reproducible from its own row, and a later
 -- change of weights can be re-applied to past meetings deliberately
 -- rather than silently by reading them through today's constant.
 --
--- Null on every row written before this. The parts of older rows do
--- exist inside facilitation_review_json and can be back-filled from
--- there by a script, on a separate go; this migration does not write
--- data.
+-- Null on every row written before this, and staying null: an older
+-- meeting keeps its original score by decision, so there is nothing
+-- to back-fill. This migration writes no data.
 --
 -- ---- 2. commitments.due_date_defaulted --------------------------
 --
@@ -39,6 +40,8 @@
 -- =============================================================
 
 alter table public.meeting_analyses
+  add column if not exists score_positive_framing smallint
+    check (score_positive_framing between 0 and 10),
   add column if not exists score_rhythm smallint
     check (score_rhythm between 0 and 10),
   add column if not exists score_accountability smallint
@@ -52,13 +55,14 @@ alter table public.meeting_analyses
   add column if not exists score_weights jsonb;
 
 comment on column public.meeting_analyses.score_overall is
-  'Weighted average of the four score_* parts, computed in code '
+  'Weighted average of the five score_* parts, computed in code '
   '(facilitation/score.ts), exact to two decimals. Never a model '
-  'judgement. Null when any part is missing or the transcript was '
-  'insufficient.';
+  'judgement. Null when any part is missing, the transcript was '
+  'insufficient, or the meeting was analysed before the cutover.';
 comment on column public.meeting_analyses.score_weights is
   'The weights, in percent, that produced score_overall, e.g. '
-  '{"accountability":30,"rhythm":25,"alignment":25,"agenda":20}.';
+  '{"positive_framing":25,"accountability":25,"rhythm":20,'
+  '"alignment":15,"agenda":15}.';
 comment on column public.meeting_analyses.score_agenda is
   'Agenda sections, 0 to 5, as judged. Scaled to 10 before weighting.';
 

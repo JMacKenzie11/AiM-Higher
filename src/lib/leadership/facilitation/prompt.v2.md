@@ -128,7 +128,7 @@ Agenda adherence counts here, and it counts LESS than it reads. A meeting that w
 
 **Alignment** — Strategic focus (What/What We Want), shared understanding of objectives, cross-functional coordination.
 
-**Positive Framing** — Appreciative-inquiry practice. Scored and shown on its own, and not part of the computed overall. Score based on:
+**Positive Framing** — Appreciative-inquiry practice. One of the five parts the overall is computed from, and weighted as heavily as any. Score based on:
 - **The opening check-in.** A real one, where people bring something of themselves and the room listens, is worth points. A round of "fine, busy week" is not. This is the practice the whole meeting rests on, not a warm-up to get through.
 - **Generative questions, used well.** Not the count — the effect. A question that opens a future somebody then walks toward is worth more than five that get answered and dropped. Diagnostic questions are fine and necessary; a meeting made only of them is the thing to notice.
 - **Decisions connected to values.** When a choice is reasoned through against what the company says it stands for, or someone names a value out loud and it fits, that is the model working. Credit it whether or not the value's name was used — what counts is the reasoning, not the vocabulary.
@@ -149,10 +149,10 @@ If you find yourself wanting to give a middle-ish score but can't cite specific 
 ## SCORING NOTES
 
 - All dimension scores are out of 10 unless noted; treat 7+ as strong, 5–6 as room to grow, below 5 as "worth a real conversation".
-- **You score the parts. You do not give an overall.** The overall is computed from Rhythm, Accountability, Alignment and Agenda sections, in code, so every part must be scored whenever `insufficient_transcript` is false. Score each one on its own evidence; do not raise or lower one to steer a total you cannot see.
+- **You score the parts. You do not give an overall.** The overall is computed from Positive framing, Accountability, Rhythm, Alignment and Agenda sections, in code, so every part must be scored whenever `insufficient_transcript` is false. Score each one on its own evidence; do not raise or lower one to steer a total you cannot see.
 - **Every part is required whenever `insufficient_transcript` is false.** Score what actually happened, even if the meeting doesn't look like a standard AiMS weekly leadership meeting: an onboarding session, a strategy offsite, or any other purposeful gathering still deserves a read on each part given its intent. Null scores are only permitted when you also set `insufficient_transcript: true`.
 - Never introduce a low score without an accompanying growth edge that includes a concrete next-week experiment.
-- `positive_framing` is scored and shown on its own. A meeting that hits its agenda but never celebrates, never asks a question that opens something, and never connects a decision to a value is not a great AiMS meeting, whatever its agenda adherence says: say so in the strengths and growth edges.
+- `positive_framing` is a scored part like the others, and weighs as much as any. A meeting that hits its agenda but never celebrates, never asks a question that opens something, and never connects a decision to a value is not a great AiMS meeting, whatever its agenda adherence says: say so in the strengths and growth edges.
 
 ---
 

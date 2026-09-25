@@ -12,10 +12,12 @@ import { SCORE_WEIGHTS } from "./score";
 // moves every customer's number.
 //
 // The decision, 2026-09-25, replacing the one of 2026-09-24: the
-// overall is COMPUTED, as a weighted average of Rhythm,
-// Accountability, Alignment and Agenda sections, with the weights in
-// score.ts. The model scores the parts and gives no overall. Positive
-// framing is scored and shown but is not in the overall.
+// overall is COMPUTED, as a weighted average of five parts, with the
+// weights in score.ts: Positive framing 25, Accountability 25, Rhythm
+// 20, Alignment 15, Agenda sections 15. The model scores the parts
+// and gives no overall. Positive framing stays a part, weighted as
+// heavily as any: Jason's first draft dropped it and he reversed that
+// the same day. Meetings before the cutover keep their original score.
 //
 // (The 2026-09-24 decision had the model rank positive framing first
 // and agenda last inside a judged overall. That is superseded, not
@@ -46,11 +48,20 @@ describe("facilitation scoring weight", () => {
     expect(PROMPT).not.toMatch(/should move the overall score most/i);
   });
 
-  it("weighs exactly the four parts the prompt names, summing to 100", () => {
+  it("weighs exactly the five parts the prompt names, summing to 100", () => {
     expect(Object.keys(SCORE_WEIGHTS).sort()).toEqual(
-      ["accountability", "agenda", "alignment", "rhythm"]
+      ["accountability", "agenda", "alignment", "positive_framing", "rhythm"]
     );
     expect(Object.values(SCORE_WEIGHTS).reduce((a, b) => a + b, 0)).toBe(100);
+    expect(PROMPT).toContain(
+      "computed from Positive framing, Accountability, Rhythm, Alignment and Agenda sections"
+    );
+  });
+
+  it("keeps positive framing in the overall, and as heavy as any part", () => {
+    // The draft that dropped it is the failure this guards.
+    const heaviest = Math.max(...Object.values(SCORE_WEIGHTS));
+    expect(SCORE_WEIGHTS.positive_framing).toBe(heaviest);
   });
 
   it("names the three things that should earn the most", () => {

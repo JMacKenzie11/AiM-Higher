@@ -12,15 +12,13 @@ or guide adds them to the open list one at a time).
 
 ## How the page is laid out
 
-A strip at the top shows the meeting date, who attended and, for
-admins and guides, the score. It stays in view on every tab. Below
-it are three tabs:
+A strip at the top shows the meeting date, who attended and the
+score. It stays in view on every tab. Below it are three tabs:
 
-- **Coaching notes** opens first. Core values in action, and for
-  admins and guides the facilitation review: the score, what
-  worked, growth edges, what to try next week, questions worth
-  asking next week, the questions that opened things up, and the
-  4Ws audit.
+- **Coaching notes** opens first. Core values in action, then the
+  facilitation review: the score, what worked, growth edges, what
+  to try next week, questions worth asking next week, the
+  questions that opened things up, and the 4Ws audit.
 - **Issues and commitments**: the commitments the meeting created
   and the issues it raised, with the controls to add or resolve
   them.
@@ -44,6 +42,10 @@ As a team member, you can:
 - **See the commitments the meeting created** — the list up top
   links each one back to `/commitments` where owners resolve or
   reschedule.
+- **Read the full coaching notes if you are the AiMS champion.**
+  The champion sees the whole Coaching notes tab, the score and
+  the facilitation review included, the same as the company's
+  admins. Everyone else on the team sees Core values in action.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -82,12 +84,15 @@ As an admin or guide, you can also:
   and a *what to try next week* section. The score is a mirror,
   not a grade.
 - **See how the score is made.** Open *How this is scored* under
-  the score. Aimee rates four parts: Accountability, Rhythm and
-  Alignment out of 10, and Agenda sections out of 5 (doubled to
-  put it on the same scale). The score is a weighted average of
-  the four: Accountability 30%, Rhythm 25%, Alignment 25%, Agenda
-  sections 20%. The panel shows this meeting's arithmetic to one
-  decimal; the strip shows it rounded.
+  the score. Aimee rates five parts: Positive framing,
+  Accountability, Rhythm and Alignment out of 10, and Agenda
+  sections out of 5 (doubled to put it on the same scale). The
+  score is a weighted average: Positive framing 25%,
+  Accountability 25%, Rhythm 20%, Alignment 15%, Agenda sections
+  15%. The panel shows this meeting's arithmetic to one decimal;
+  the strip shows it rounded. Meetings analysed before 25
+  September 2026 keep the score they were given at the time, with
+  no breakdown.
 - **Take a question into next week.** *Questions worth asking next
   week* offers three, each drawn from something that went well in
   this meeting. *Questions that opened things up* credits the best

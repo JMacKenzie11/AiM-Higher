@@ -584,6 +584,7 @@ function normalizeReview(raw: Record<string, unknown>): FacilitationReview {
   const overall = insufficient
     ? null
     : computeOverall({
+        positive_framing: dims.positive_framing.score,
         rhythm: dims.rhythm.score,
         accountability: dims.accountability.score,
         alignment: dims.alignment.score,
