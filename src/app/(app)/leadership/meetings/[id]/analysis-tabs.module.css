@@ -2,60 +2,58 @@
    Wraps rather than scrolls at phone width: three short labels fit
    on two lines, and a scrolling tab row hides a tab. */
 
-/* An underline tab bar. The active tab carries the brand's gradient
-   rule, the same bar that sits under the page title, so the tabs read
-   as part of this page's identity rather than as a generic toggle. */
+/* Tabs in the app's button style (ui.module.css .btnSecondary: the
+   outlined button, same height, radius and border), so they read as
+   things to press. The selected tab is the pressed state: cobalt tint,
+   a stronger cobalt border drawn at 2px, cobalt text. Jason found the
+   underline version too plain, with the selection too easy to miss. */
 .tabRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 var(--space-6);
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-2);
   margin-bottom: var(--space-5);
 }
 
 .tab,
 .tabActive {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) 0;
-  font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 600;
+  height: var(--control-h-btn);
+  padding: 0 var(--space-4);
+  font: var(--text-button);
+  border-radius: var(--radius-btn);
+  border: 1px solid var(--border-interactive);
+  background: var(--surface);
   text-decoration: none;
   white-space: nowrap;
-  transition: color var(--duration-fast) var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .tab {
-  color: var(--text-muted);
+  color: var(--text);
 }
 
 .tab:hover {
-  color: var(--text-heading);
+  background: var(--aims-cobalt-tint);
+  border-color: var(--border-strong);
+  color: var(--primary);
 }
 
 .tabActive {
-  color: var(--text-heading);
-}
-
-.tabActive::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--grad-rule);
+  background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+  color: var(--primary);
+  font-weight: 700;
 }
 
 .tab:focus-visible,
 .tabActive:focus-visible {
   outline: 2px solid var(--primary);
-  outline-offset: 4px;
-  border-radius: var(--radius-sm);
+  outline-offset: 2px;
 }
 
 .tabCount {
@@ -214,12 +212,10 @@
   .strip {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* Two tabs to the first line on a phone, not one per line. */
-  .tabRow {
-    gap: 0 var(--space-4);
-  }
+  /* Smaller buttons on a phone so two share the first line. */
   .tab,
   .tabActive {
+    padding: 0 var(--space-3);
     font-size: 14px;
   }
   .signal {
