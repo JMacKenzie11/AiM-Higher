@@ -3,6 +3,19 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // The dev-tools badge, off.
+  //
+  // It parks itself in the bottom-left corner, which is exactly
+  // where the notification bell lives in the sidebar footer. It
+  // covers the bell, and it swallows clicks aimed at it — so in
+  // local dev the bell could neither be read nor pressed, and the
+  // Playwright suite timed out clicking a control that was plainly
+  // visible on screen.
+  //
+  // Dev-only chrome that does not exist in a production build, so
+  // turning it off removes a thing sitting on top of the product
+  // rather than changing the product.
+  devIndicators: false,
   // Lets a second dev server run alongside the first with its own
   // build output. The Playwright suite needs one server with the
   // LOCAL_INSTANCE_* override on and one with it off, and two `next

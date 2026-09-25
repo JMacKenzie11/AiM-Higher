@@ -1,3 +1,5 @@
+import { VOICE_CORE } from "@/lib/voice/core";
+import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import "server-only";
 
 import fs from "node:fs/promises";
@@ -339,7 +341,11 @@ export async function analyzeMeeting(
     // this is the same shape.
     const { error: analysisErr } = await admin.from("meeting_analyses").insert({
       meeting_id: meetingId,
-      analysis_markdown: analysisMarkdown,
+      // Stripped on the way IN, not on the way out. The markdown is
+      // read by the meeting page and by anything added later;
+      // cleaning it at one reader leaves the rest reading the
+      // dashes. Stored clean, it is clean everywhere, once.
+      analysis_markdown: stripEmDashes(analysisMarkdown),
       truncated: analysisTruncated,
       coverage_json: coverage,
       commitments_json: validated,
@@ -573,7 +579,29 @@ export function formatCompanyContext(ctx: CompanyContext): string {
 
 async function loadAnalyzerPrompt(): Promise<string> {
   const file = path.join(process.cwd(), "prompts", "meeting-analyzer.md");
-  return fs.readFile(file, "utf8");
+  const prompt = await fs.readFile(file, "utf8");
+  // The summariser had no voice rules at all: a four-line style
+  // guide of adjectives ("Executive. Clear. Direct.") and nothing
+  // about vocabulary or punctuation, while every other generated
+  // surface in the app carried a banned list. These summaries are
+  // the most-read thing Aimee writes.
+  //
+  // VOICE_CORE only, never the coach block. The two contradict each
+  // other on purpose — the coach writes in contractions and avoids
+  // bullets, this writes a board-ready memo in neither — and the
+  // shared half is the vocabulary and punctuation, which is wrong
+  // everywhere it appears.
+  //
+  // Appended rather than prepended, so it is the freshest
+  // instruction in context when generation starts.
+  return withVoiceRules(prompt);
+}
+
+// Pure, and exported, so the shared-voice test can hold this
+// surface against the same list as the others without reading a
+// file or standing up the pipeline.
+export function withVoiceRules(prompt: string): string {
+  return `${prompt}\n\n${VOICE_CORE}`;
 }
 
 // Feature check using the admin client so the pipeline (which runs
