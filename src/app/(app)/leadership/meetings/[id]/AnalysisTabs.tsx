@@ -15,9 +15,9 @@ import styles from "./analysis-tabs.module.css";
 // arrival, which reads as the page lurching. The hash names the tab;
 // the panel is found through it.
 //
-// An underline tab bar whose active tab carries the brand's gradient
-// rule, the bar under the page title. Jason found the pill toggle it
-// replaced too plain.
+// Tabs in the app's outlined button style; the selected one is the
+// pressed state. Jason found an underline bar too plain, and the
+// selection too easy to miss.
 
 export type AnalysisTab = {
   hash: string;
