@@ -1,11 +1,18 @@
 // Compare the dev clone's current analysis of a staged meeting
 // against expected values.
 //
-//   npx tsx --tsconfig scripts/tsconfig.json scripts/regression-benson.ts
+//   npx tsx --tsconfig scripts/tsconfig.json scripts/regression-check.ts <name>
 //
-// The expectations, and the transcript they came from, are REAL
-// CLIENT CONTENT and live in .regression/, which is gitignored. This
-// file reads them and is itself safe to commit.
+// <name> is a file in .regression/expected/ without ".json", e.g.
+// benson-2026-09-22. The expectations are REAL CLIENT CONTENT and live
+// in a private repository cloned into .regression/ (see
+// lib/regression-repo.ts). The transcripts are never there: they are
+// in the dev database. This file reads both and is safe to commit.
+//
+// Checked against the analysis's extracted list (commitments_json),
+// not the board rows: that is the pipeline's own output, it exists
+// whether or not the company has commitment tracking on, and a person
+// editing a row on the board does not make the pipeline pass or fail.
 //
 // Structured fields only — owners, dates, attendee exclusions, a few
 // facts that must not reverse. Model wording varies between runs and
@@ -14,6 +21,7 @@
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { isEntryPoint } from "./lib/entry-point.ts";
+import { REGRESSION_DIR, requireRegressionRepo } from "./lib/regression-repo.ts";
 
 for (const f of [".env.local", ".env.provisioning"]) {
   try {
@@ -26,6 +34,8 @@ for (const f of [".env.local", ".env.provisioning"]) {
 
 type Expected = {
   meetingId: string;
+  // "provisional" until somebody who was in the meeting has checked it.
+  status: "confirmed" | "provisional";
   attendeesMustNotInclude: string[];
   commitments: Array<{
     label: string;
@@ -35,15 +45,20 @@ type Expected = {
     // that WAS extracted in different words. That is a false failure
     // shaped exactly like a product bug, and it cost a day.
     anchors: string[];
-    owner: string;
+    // First name, or null for "must come out Unassigned".
+    owner: string | null;
+    // null: the date is not checked.
     due: string | null;
   }>;
   facts: Record<string, { mustContain: string[]; mustNotContain: string[] }>;
 };
 
 async function main() {
+  requireRegressionRepo();
+  const name = process.argv.slice(2).find((a) => a !== "--");
+  if (!name) throw new Error("pass an expectations name, e.g. benson-2026-09-22");
   const expected: Expected = JSON.parse(
-    readFileSync(".regression/benson-expected.json", "utf8")
+    readFileSync(`${REGRESSION_DIR}/expected/${name}.json`, "utf8")
   );
   const db = createClient(
     process.env.LOCAL_INSTANCE_SUPABASE_URL!,
@@ -59,14 +74,19 @@ async function main() {
     console.log("NO ANALYSIS — run the reanalyze first");
     process.exit(1);
   }
-  const { data: rows } = await db
-    .from("commitments")
-    .select("description, due_date, owner_id")
-    .eq("source_meeting_id", expected.meetingId);
+  const rows = ((analysis.commitments_json ?? []) as Array<{
+    description: string;
+    due_date: string;
+    owner_profile_id: string | null;
+  }>).map((c) => ({ description: c.description, due_date: c.due_date, owner_id: c.owner_profile_id }));
   const { data: people } = await db.from("profiles").select("id, full_name");
   const nameOf = (id: string | null) =>
     people?.find((p) => p.id === id)?.full_name ?? null;
 
+  const ownerIs = (id: string | null, want: string | null) =>
+    want === null
+      ? id === null
+      : (nameOf(id) ?? "").toLowerCase().startsWith(want.toLowerCase());
   const md: string = analysis.analysis_markdown;
   let pass = 0;
   let fail = 0;
@@ -75,8 +95,9 @@ async function main() {
     ok ? pass++ : fail++;
   };
 
+  console.log(`${name} (${expected.status})`);
   console.log(`markdown ${md.length} chars | truncated=${analysis.truncated} | ` +
-    `${(rows ?? []).length} commitment rows\n`);
+    `${rows.length} extracted commitments\n`);
 
   console.log("COMMITMENTS (owner, due):");
   // GLOBAL ASSIGNMENT, not sequential.
@@ -94,9 +115,7 @@ async function main() {
       const text = row.description.toLowerCase();
       const hits = want.anchors.filter((a) => text.includes(a.toLowerCase())).length;
       if (hits === 0) continue;
-      const ownerMatches = (nameOf(row.owner_id) ?? "")
-        .toLowerCase()
-        .includes(want.owner.toLowerCase());
+      const ownerMatches = ownerIs(row.owner_id, want.owner);
       const dueMatches = want.due === null || row.due_date === want.due;
       pairs.push({
         want,
@@ -121,14 +140,12 @@ async function main() {
       continue;
     }
     const owner = nameOf(got.owner_id);
-    const ownerOk =
-      owner?.toLowerCase().includes(want.owner.toLowerCase()) ||
-      got.description.toLowerCase().includes(`likely ${want.owner.toLowerCase()}`);
+    const ownerOk = ownerIs(got.owner_id, want.owner);
     const dueOk = want.due === null ? true : got.due_date === want.due;
     check(
       ownerOk && dueOk,
       want.label,
-      `owner=${owner ?? "unassigned"}${ownerOk ? "" : ` (want ${want.owner})`}` +
+      `owner=${owner ?? "unassigned"}${ownerOk ? "" : ` (want ${want.owner ?? "unassigned"})`}` +
         ` due=${got.due_date}${dueOk ? "" : ` (want ${want.due})`}`
     );
   }
@@ -148,7 +165,13 @@ async function main() {
     }
   }
 
-  console.log(`\n${pass} pass, ${fail} fail`);
+  console.log(
+    `\n${pass} pass, ${fail} fail` +
+      (expected.status === "provisional" && fail > 0
+        ? "   (PROVISIONAL expectations: a failure may be the file, not the pipeline)"
+        : "")
+  );
+  if (fail > 0) process.exitCode = 1;
 }
 
 if (isEntryPoint(import.meta.url)) {
