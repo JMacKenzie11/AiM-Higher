@@ -46,6 +46,7 @@ next-env.d.ts
 /playwright/.cache/
 .next-e2e-unresolved/
 
-# Real client content used for regression runs. Transcripts and the
-# expected values derived from them are never committed.
+# A clone of the private aimhigher-regression repo: expected values for
+# real meetings, which are client content and never committed here.
+# See scripts/lib/regression-repo.ts.
 .regression/

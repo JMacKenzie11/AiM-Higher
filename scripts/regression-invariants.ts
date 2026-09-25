@@ -15,12 +15,14 @@
 // summary must be complete. Then it records the run so three runs
 // can be compared for drift.
 //
-// Output goes to .regression/, which is gitignored: these runs are
-// real client content.
+// Output goes to .regression/runs/, inside the private expectations
+// clone and ignored by it as well: a run is one day's model output,
+// real client content, and not an expected value.
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { isEntryPoint } from "./lib/entry-point.ts";
+import { REGRESSION_DIR, requireRegressionRepo } from "./lib/regression-repo.ts";
 
 for (const f of [".env.local", ".env.provisioning"]) {
   try {
@@ -35,6 +37,7 @@ async function main() {
   const id = process.argv[2];
   const label = process.argv[3] ?? "run";
   if (!id) throw new Error("pass a meeting id");
+  requireRegressionRepo();
 
   const db = createClient(
     process.env.LOCAL_INSTANCE_SUPABASE_URL!,
@@ -75,8 +78,17 @@ async function main() {
         due_date: c.due_date,
         owner_id: c.owner_profile_id,
       }));
-  const { data: people } = await db
-    .from("profiles").select("id, full_name").eq("company_id", meeting!.company_id);
+  // The company's people AND every owner, wherever their profile sits.
+  // The AiMS coach is on the extractor's roster but on no company, and
+  // a lookup by company alone printed every one of Jeff's commitments
+  // on Geo-Sci 03 Sep as Unassigned when the pipeline had given them
+  // to him. That misreport was then chased as a pipeline bug.
+  const ownerIdsForNames = [...new Set((rows ?? []).map((r) => r.owner_id).filter(Boolean))] as string[];
+  const [{ data: members }, { data: owners }] = await Promise.all([
+    db.from("profiles").select("id, full_name").eq("company_id", meeting!.company_id),
+    db.from("profiles").select("id, full_name").in("id", ownerIdsForNames),
+  ]);
+  const people = [...(members ?? []), ...(owners ?? [])];
 
   const nameOf = (pid: string | null) =>
     people?.find((p) => p.id === pid)?.full_name ?? null;
@@ -141,7 +153,7 @@ async function main() {
   check(early.length === 0, "no commitment is due before the meeting", `${early.length} early`);
 
   // Record for cross-run comparison.
-  mkdirSync(".regression/runs", { recursive: true });
+  mkdirSync(`${REGRESSION_DIR}/runs`, { recursive: true });
   const record = {
     meetingId: id, label, meetingDay,
     markdownChars: md.length,
@@ -155,7 +167,7 @@ async function main() {
       .sort((a, b) => a.description.localeCompare(b.description)),
   };
   writeFileSync(
-    `.regression/runs/${id.slice(0, 8)}-${label}.json`,
+    `${REGRESSION_DIR}/runs/${id.slice(0, 8)}-${label}.json`,
     JSON.stringify(record, null, 2)
   );
   console.log(`\n${pass} pass, ${fail} fail   (recorded as ${id.slice(0, 8)}-${label})`);
