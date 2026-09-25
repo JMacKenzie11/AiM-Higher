@@ -8,6 +8,10 @@ import {
   describeHits,
   retryInstruction,
 } from "@/lib/voice/banned";
+import {
+  findUnsupportedQuotes,
+  quoteRetryInstruction,
+} from "@/lib/voice/quotes";
 
 // THE NOTIFICATION LINE IS THE PRODUCT.
 //
@@ -52,7 +56,8 @@ Two that hit the target:
 HARD RULES
 - Under 40 words.
 - Never a recap of the agenda, never a count of issues or commitments, never a score or a grade, never "your meeting was analyzed".
-- Lead with what is working, or with a pattern. Never open on a gap.
+- LEAD WITH THE STRENGTH. The first clause names what the team did well. What they had been doing before it goes second, or goes nowhere. "The team traced the collisions to the real cause and named an owner" opens correctly; "Three people assumed someone else owned the calendar" opens on the problem and is wrong, even when the sentence recovers later. The reader sees the first clause in a notification bar and may not read the rest.
+- Quote only words that appear in the summary. If you need a contrast, describe it in your own words. Never invent the other half of one and put it in somebody's mouth.
 - Name only people on the leadership team. Somebody on the floor may be described by what they did, such as "a supervisor" or "one of the pickers", but a person who is not in the room does not get named in a notification others may later see.
 - No promises. You cannot remind, schedule or follow up in this phase.
 - Plain sentences.
@@ -119,15 +124,36 @@ export async function generateHeadline(
     // Cheap here in a way it is not everywhere. This runs in a
     // background job, writes 40 words, and nobody is waiting on a
     // screen for it.
+    // Both checks, one retry. An invented quote is the more serious
+    // of the two: a banned word is a tic, and a quote nobody said
+    // is the product handing somebody a false record of their own
+    // meeting. Named first in the retry for that reason.
     const hits = findBannedPhrases(text);
-    if (hits.length > 0) {
-      console.log(`[guide] headline retry, first attempt used: ${describeHits(hits)}`);
+    const invented = findUnsupportedQuotes(text, input.analysisMarkdown);
+    if (hits.length > 0 || invented.length > 0) {
+      console.log(
+        `[guide] headline retry:` +
+          `${invented.length > 0 ? ` invented quote(s) ${invented.map((q) => `"${q.quote}"`).join(", ")};` : ""}` +
+          `${hits.length > 0 ? ` ${describeHits(hits)}` : ""}`
+      );
+      const instruction = [
+        invented.length > 0 ? quoteRetryInstruction(invented) : null,
+        hits.length > 0 ? retryInstruction(hits) : null,
+      ]
+        .filter(Boolean)
+        .join(" ");
       text = await ask([
         { role: "user", content: userTurn },
         { role: "assistant", content: text },
-        { role: "user", content: retryInstruction(hits) },
+        { role: "user", content: instruction },
       ]);
-      const stillWrong = findBannedPhrases(text);
+      const stillWrong = [
+        ...findBannedPhrases(text),
+        ...findUnsupportedQuotes(text, input.analysisMarkdown).map((q) => ({
+          phrase: `invented quote "${q.quote}"`,
+          context: q.quote,
+        })),
+      ];
       if (stillWrong.length > 0) {
         // Twice is a signal about the prompt, not about this
         // meeting. Said loudly so it is visible in the logs rather

@@ -173,3 +173,39 @@ describe("self-narration", () => {
     }
   );
 });
+
+// Two faults in one construction: it defines the good thing by what
+// it is not, and it joins two independent clauses with a comma.
+describe("not X, it was Y", () => {
+  it.each([
+    "The fix wasn't another patch, it was tracing it to the root.",
+    "That isn't a small change, it is a different way of working.",
+    "The problem was not the Tuesday, it was the ownership.",
+  ])("catches %s", (text) => {
+    expect(findBannedPhrases(text).map((h) => h.phrase)).toContain(
+      "not X, it was Y"
+    );
+  });
+
+  // The limit, stated. Knowing whether the first clause is
+  // independent is what separates a splice from correct writing,
+  // and a regex does not know.
+  it("does not attempt general comma splices", () => {
+    expect(findBannedPhrases("When the team met, it was clear.")).toEqual([]);
+  });
+});
+
+describe("minimisers", () => {
+  it.each([
+    "I just wanted to flag one thing.",
+    "Just a quick thought on the calendar.",
+    "It's just a scheduling problem.",
+  ])("catches %s", (text) => {
+    expect(findBannedPhrases(text)).not.toEqual([]);
+  });
+
+  it("leaves the ordinary uses of just alone", () => {
+    expect(findBannedPhrases("Just the three of them were there.")).toEqual([]);
+    expect(findBannedPhrases("They finished just before five.")).toEqual([]);
+  });
+});

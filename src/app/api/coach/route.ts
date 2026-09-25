@@ -16,6 +16,10 @@ import {
   describeHits,
   retryInstruction,
 } from "@/lib/voice/banned";
+import {
+  findUnsupportedQuotes,
+  quoteRetryInstruction,
+} from "@/lib/voice/quotes";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
@@ -550,10 +554,38 @@ export async function POST(req: NextRequest): Promise<Response> {
         // in currentMessages; it is rewriting a paragraph, not
         // gathering anything.
         if (isGenerateOpener && assistantText.length > 0) {
+          // The summary this turn is about, when there is one. Read
+          // here rather than threaded down from the tool, because
+          // the tool result is the model's to use and this check has
+          // to hold against the SOURCE whether the model called the
+          // tool or not.
+          //
+          // A quote nobody said is the worst thing this feature can
+          // produce: it hands a leader a false record of their own
+          // meeting, which is the shape that cost trust before.
+          const debriefing =
+            (convo as { debriefing_meeting_id?: string | null })
+              .debriefing_meeting_id ?? null;
+          let sourceSummary = "";
+          if (debriefing) {
+            const { data: src } = await supabase
+              .from("meeting_analyses")
+              .select("analysis_markdown")
+              .eq("meeting_id", debriefing)
+              .maybeSingle<{ analysis_markdown: string }>();
+            sourceSummary = src?.analysis_markdown ?? "";
+          }
+
           const hits = findBannedPhrases(assistantText);
-          if (hits.length > 0) {
+          const invented =
+            sourceSummary.length > 0
+              ? findUnsupportedQuotes(assistantText, sourceSummary)
+              : [];
+          if (hits.length > 0 || invented.length > 0) {
             console.log(
-              `[coach] opener retry for ${conversationId}: ${describeHits(hits)}`
+              `[coach] opener retry for ${conversationId}:` +
+                `${invented.length > 0 ? ` invented quote(s) ${invented.map((q) => `"${q.quote}"`).join(", ")};` : ""}` +
+                `${hits.length > 0 ? ` ${describeHits(hits)}` : ""}`
             );
             try {
               const retry = await client.messages.create({
@@ -563,7 +595,17 @@ export async function POST(req: NextRequest): Promise<Response> {
                 messages: [
                   ...currentMessages,
                   { role: "assistant", content: assistantText },
-                  { role: "user", content: retryInstruction(hits) },
+                  {
+                    role: "user",
+                    content: [
+                      invented.length > 0
+                        ? quoteRetryInstruction(invented)
+                        : null,
+                      hits.length > 0 ? retryInstruction(hits) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" "),
+                  },
                 ],
               });
               const retried = retry.content
@@ -575,7 +617,11 @@ export async function POST(req: NextRequest): Promise<Response> {
               // nothing, or returns the same fault, leaves the first
               // attempt in place: a blank opener is worse than one
               // with a banned word in it.
-              if (retried.length > 0 && findBannedPhrases(retried).length === 0) {
+              const retriedClean =
+                findBannedPhrases(retried).length === 0 &&
+                (sourceSummary.length === 0 ||
+                  findUnsupportedQuotes(retried, sourceSummary).length === 0);
+              if (retried.length > 0 && retriedClean) {
                 assistantText = retried;
               } else {
                 console.error(
