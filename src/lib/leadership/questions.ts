@@ -101,6 +101,17 @@ export function questionFaults(q: string): string[] {
   return faults;
 }
 
+// The "From:" line is shown too, so its words are held to the same
+// list. "Darlene noticed scissors had quietly disappeared" came through
+// when only the question was checked.
+export function allFaults(q: NextWeekQuestion): string[] {
+  const moment = findBannedPhrases(q.moment);
+  return [
+    ...questionFaults(q.question),
+    ...(moment.length > 0 ? [`its "From" line uses ${describeHits(moment)}`] : []),
+  ];
+}
+
 const SYSTEM = `You write three questions a leadership team could ask at next week's meeting, drawn from this week's.
 
 A GENERATIVE QUESTION moves a conversation away from problem-solving and toward possibilities, strengths and what the team wants. A diagnostic question keeps the room on the problem.
@@ -213,7 +224,7 @@ export async function generateMeetingQuestions(
     const opened = readPicks(first, input.asked.length).map((n) => input.asked[n - 1]);
 
     const faulty = questions
-      .map((q, index) => ({ index, faults: questionFaults(q.question) }))
+      .map((q, index) => ({ index, faults: allFaults(q) }))
       .filter((f) => f.faults.length > 0);
     if (faulty.length > 0 || questions.length < 3) {
       console.log(
@@ -237,7 +248,7 @@ export async function generateMeetingQuestions(
     // Anything still wrong is dropped, and said so. A block of two
     // good questions beats three with a diagnosis in it.
     const kept = questions.filter((q) => {
-      const faults = questionFaults(q.question);
+      const faults = allFaults(q);
       if (faults.length > 0) {
         console.error(`[questions] dropped after a retry: "${q.question}": ${faults.join("; ")}`);
       }

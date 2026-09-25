@@ -471,8 +471,13 @@ export async function analyzeMeeting(
       issues_json: validatedIssues,
       // Every string in the review, through the same label pass as
       // the summary: it is read on the same page.
+      // Em dashes too: a 4Ws note came back as "Which lighting option
+      // do we try first — the peak-mounted floodlight or a pole
+      // light", because only the summary went through the dash pass.
       facilitation_review_json: facilitationReview
-        ? mapStrings(facilitationReview, (t) => replaceSpeakerLabels(t, speakerMap).text)
+        ? mapStrings(facilitationReview, (t) =>
+            stripEmDashes(replaceSpeakerLabels(t, speakerMap).text)
+          )
         : null,
       model,
     });

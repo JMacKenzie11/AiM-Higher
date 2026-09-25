@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   parseOpeningQuestions,
   questionFaults,
+  allFaults,
   generateMeetingQuestions,
 } from "./questions";
 
@@ -120,5 +121,17 @@ describe("generateMeetingQuestions", () => {
     expect(out.nextWeek.every((q) => !q.question.includes("—"))).toBe(true);
     err.mockRestore();
     log.mockRestore();
+  });
+});
+
+describe("allFaults", () => {
+  it("holds the From line to the banned list as well", () => {
+    // Real, from the Benson run on dev, 2026-09-25.
+    expect(
+      allFaults({
+        question: "Where else on the floor could one person's technique become everyone's technique?",
+        moment: "Darlene noticed scissors had quietly disappeared from the floor.",
+      }).join(" ")
+    ).toMatch(/From" line uses "quietly"/);
   });
 });
