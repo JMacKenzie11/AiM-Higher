@@ -303,13 +303,24 @@ export async function generateMeetingQuestions(
 
     // Anything still wrong is dropped, and said so. A block of two
     // good questions beats three with a diagnosis in it.
-    const kept = questions.filter((q) => {
-      const faults = allFaults(q);
-      if (faults.length > 0) {
-        console.error(`[questions] dropped after a retry: "${q.question}": ${faults.join("; ")}`);
-      }
-      return faults.length === 0;
-    });
+    // Anything still wrong after the retry: a question that breaks the
+    // rules is dropped (two good questions beat three with a diagnosis
+    // in them); a From line that breaks them is dropped and its
+    // question kept, because the From line is only context.
+    const kept = questions
+      .filter((q) => {
+        const faults = questionFaults(q.question);
+        if (faults.length > 0) {
+          console.error(`[questions] dropped after a retry: "${q.question}": ${faults.join("; ")}`);
+        }
+        return faults.length === 0;
+      })
+      .map((q) => {
+        const moment = findBannedPhrases(q.moment);
+        if (moment.length === 0) return q;
+        console.log(`[questions] From line dropped, question kept: ${describeHits(moment)}`);
+        return { ...q, moment: "" };
+      });
     // Empty is a failure to hear, not a result (failure mode E13):
     // a meeting always has something that went well to ask from.
     if (kept.length === 0) {

@@ -198,3 +198,17 @@ describe("the retry's picks", () => {
     log.mockRestore();
   });
 });
+
+describe("a From line that breaks the rules after the retry", () => {
+  it("is dropped, and its question kept", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const bad = { moment: "They chose technique instead of treating it as talent.", question: GOOD[0].question };
+    const { client } = stub({ questions: [bad, GOOD[1], GOOD[2]], opened: [] }, { questions: [bad, GOOD[1], GOOD[2]], opened: [] });
+    const out = await generateMeetingQuestions(client, {
+      model: "m", analysisMarkdown: "", strengths: [], transcript: "", speakerBlock: "", attendees: [],
+    });
+    expect(out.nextWeek).toHaveLength(3);
+    expect(out.nextWeek[0]).toEqual({ question: GOOD[0].question, moment: "" });
+    log.mockRestore();
+  });
+});
