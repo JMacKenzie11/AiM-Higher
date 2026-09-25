@@ -318,3 +318,35 @@ also the state the spec expects to start from.
 
 Every other spec in the suite restores what it changed and does not
 need this.
+
+# Regression runs for meeting analysis
+
+Real meetings, replayed through the current pipeline on the dev clone
+and compared with what a person who was there says should come out.
+
+**The expected values live in a private repository, never here.** They
+name real people and paraphrase what those people committed to. Clone
+it into `.regression/`, which this repo ignores:
+
+```sh
+gh repo clone JMacKenzie11/aimhigher-regression .regression
+```
+
+The scripts refuse to run without that clone and print the line above.
+Transcripts are never in it; they stay in the dev database.
+
+```sh
+# compare the dev clone's current analysis with one expectations file
+npx tsx --tsconfig scripts/tsconfig.json scripts/regression-check.ts benson-2026-09-22
+
+# content-free invariants for any meeting, and a run record for drift
+npx tsx --tsconfig scripts/tsconfig.json scripts/regression-invariants.ts <meeting-id> run1
+```
+
+A file marked `provisional` has not yet been confirmed by somebody who
+was in the meeting, so a failure against it may be the file's fault.
+Run records go to `.regression/runs/`, which that repository ignores:
+they are one day's output, not expectations.
+
+Replaying a meeting (`scripts/replay-meeting.ts`) writes to dev, so it
+needs Jason's go per run. The two scripts above only read.
