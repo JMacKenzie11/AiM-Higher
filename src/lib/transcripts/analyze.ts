@@ -417,6 +417,7 @@ export async function analyzeMeeting(
         model,
         analysisMarkdown,
         strengths: facilitationReview.strengths.map((s) => s.title),
+        companyBlock,
         transcript: meetingRow.transcript_text,
         speakerBlock,
         // Who may be credited: the people identified as present, by the
