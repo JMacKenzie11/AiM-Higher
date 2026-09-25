@@ -15,7 +15,7 @@ import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyz
 import { mapSpeakers, formatSpeakerMap } from "./speakers";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
-import { raiseMeetingDebriefNudge } from "@/lib/guide/nudges";
+import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type {
   CompanyFoundation,
@@ -66,6 +66,10 @@ export type AnalysisResult = {
   commitments: ExtractedCommitment[];
   model: string;
   createdCommitmentCount: number;
+  // Whether this run raised a Guide nudge, and why not when it
+  // didn't. Returned so a caller can report THIS run's nudge rather
+  // than reading the latest row and presenting an older one as new.
+  nudge: RaiseResult;
 };
 
 export type AnalyzeOptions = {
@@ -422,7 +426,7 @@ export async function analyzeMeeting(
     //
     // Best effort, and isolated: raiseMeetingDebriefNudge never
     // throws. A broken invitation must not break a meeting summary.
-    await raiseMeetingDebriefNudge(admin, client, {
+    const nudge = await raiseMeetingDebriefNudge(admin, client, {
       model,
       companyId: meetingRow.company_id!,
       meetingId,
@@ -450,6 +454,7 @@ export async function analyzeMeeting(
       commitments: validated,
       model,
       createdCommitmentCount: created,
+      nudge,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -218,9 +218,7 @@ async function main() {
   console.log(`  transcript:${transcript.length} chars`);
   console.log(`\n  analysing for real…\n`);
 
-  await runWithInstance(instance, async () => {
-    await analyzeMeeting(meetingId);
-  });
+  const result = await runWithInstance(instance, () => analyzeMeeting(meetingId));
 
   // Read back. "No error" is not evidence.
   const { data: analysis } = await db
@@ -239,12 +237,19 @@ async function main() {
     .from("commitments")
     .select("description, due_date, owner_id")
     .eq("source_meeting_id", meetingId);
-  const { data: nudge } = await db
-    .from("guide_nudges")
-    .select("state, headline")
-    .eq("company_id", company.id)
-    .order("raised_at", { ascending: false })
-    .limit(1);
+  // THIS run's nudge, by the id the raise returned. Reading the
+  // company's latest row instead printed an earlier run's headline
+  // whenever this one raised nothing (no champion set, which is the
+  // state seed:e2e leaves), and it read as this run's result.
+  const nudge = result.nudge.raised
+    ? (
+        await db
+          .from("guide_nudges")
+          .select("state, headline")
+          .eq("id", result.nudge.nudgeId)
+          .maybeSingle<{ state: string; headline: string }>()
+      ).data
+    : null;
 
   console.log(`\n  model:       ${analysis.model}`);
   console.log(`  summary:     ${analysis.analysis_markdown.length} chars, truncated=${analysis.truncated}`);
@@ -253,7 +258,15 @@ async function main() {
   for (const c of commitments ?? []) {
     console.log(`    - ${c.due_date ?? "no date"}  ${c.description.slice(0, 70)}`);
   }
-  console.log(`  nudge:       ${nudge?.[0] ? `${nudge[0].state} — "${nudge[0].headline}"` : "none raised"}`);
+  console.log(
+    `  nudge:       ${
+      !result.nudge.raised
+        ? `no nudge raised: ${result.nudge.reason}`
+        : nudge
+          ? `${nudge.state}: "${nudge.headline}"`
+          : `raised (${result.nudge.nudgeId}) but could not be read back`
+    }`
+  );
   console.log(`\n  Read it at /leadership/meetings/${meetingId}\n`);
 }
 
