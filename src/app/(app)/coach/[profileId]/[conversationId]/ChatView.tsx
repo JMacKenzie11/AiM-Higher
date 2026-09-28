@@ -26,6 +26,8 @@ import {
   type OutputCardName,
 } from "@/lib/practices/output-cards";
 import type { Practice } from "@/lib/practices/registry";
+import { linkDecision } from "@/lib/pages/registry";
+import Link from "next/link";
 import { ScriptCard } from "@/components/practices/ScriptCard";
 import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
 import { RoleDescriptionCard } from "@/components/practices/RoleDescriptionCard";
@@ -99,6 +101,7 @@ export function ChatView({
   currentUserId,
   senders,
   shareHeader,
+  openablePatterns,
 }: {
   conversation: CoachingConversation;
   // Null in general (Ask Aimee) mode — no subject on file.
@@ -149,6 +152,10 @@ export function ChatView({
   // (non-owners). Passed in from the page so the client doesn't
   // need to import the share modal at this layer.
   shareHeader?: ReactNode;
+  // The pages this person can open (pages/registry.ts,
+  // openablePatternsFor), for the link check in replies. Undefined
+  // leaves links as they are.
+  openablePatterns?: readonly string[];
 }) {
   const isOwner = access === "owner";
   const canWrite = access === "owner" || access === "write";
@@ -750,6 +757,7 @@ export function ChatView({
               senders={senders}
               currentUserId={currentUserId}
               showAttribution={showAttribution}
+              openablePatterns={openablePatterns}
             />
           ))
         )}
@@ -816,6 +824,7 @@ function MessageBubble({
   senders,
   currentUserId,
   showAttribution,
+  openablePatterns,
 }: {
   message: UiMessage;
   onRetry?: () => void;
@@ -831,6 +840,7 @@ function MessageBubble({
   senders: Record<string, SenderInfo>;
   currentUserId: string;
   showAttribution: boolean;
+  openablePatterns?: readonly string[];
 }) {
   if (message.role === "user") {
     const author =
@@ -910,6 +920,20 @@ function MessageBubble({
         }
       }
       return <pre>{children}</pre>;
+    },
+    // LINKS ARE CHECKED WHERE THEY ARE DRAWN. Aimee is told the pages
+    // this person can open, and only links to those; this makes it
+    // hold whatever she writes. An in-app link to a page outside
+    // openablePatterns renders as plain text, so a team member is never
+    // offered a door to an admin page. Checked here rather than by
+    // rewriting the saved reply because replies stream: the reader
+    // sees the link as it arrives. The page itself still refuses anyone
+    // it should (its own guard and RLS); this is about not advertising.
+    a({ href, children }) {
+      const decision = linkDecision(href, openablePatterns);
+      if (decision === "text") return <span>{children}</span>;
+      if (decision === "in-app") return <Link href={href as string}>{children}</Link>;
+      return <a href={href}>{children}</a>;
     },
   };
 

@@ -22,6 +22,7 @@ const SOURCES = [
   "src/lib/coach/memory-tool.ts",
   "src/lib/role-descriptions/agent-tools.ts",
   "src/lib/guide/agent-tools.ts",
+  "src/lib/help/tool.ts",
 ];
 
 function registeredToolNames(): string[] {
