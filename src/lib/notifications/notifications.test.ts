@@ -261,3 +261,41 @@ describe("markNotificationReadAction", () => {
     expect(db.notifications[0].read_at).toBe(originalReadAt);
   });
 });
+
+// "Mark all as read" in the tray (NotificationBell's MarkAllRead).
+describe("markAllNotificationsReadAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    reset();
+  });
+
+  const row = (id: string, recipient: string, readAt: string | null): NotificationRow => ({
+    id,
+    recipient_id: recipient,
+    company_id: "co_acme",
+    kind: id === "nudge" ? "guide-nudge" : "chat_shared",
+    title: "x",
+    href: "/",
+    eyebrow: null,
+    payload: {},
+    read_at: readAt,
+    created_by: null,
+    created_at: "t",
+  });
+
+  it("marks every one of the caller's unread rows read, and nobody else's", async () => {
+    const earlier = "2026-01-01T00:00:00.000Z";
+    db.notifications.push(row("nudge", "me", null), row("shared", "me", null), row("old", "me", earlier), row("theirs", "other", null));
+    requireProfileMock.mockResolvedValue({ profile: { id: "me", role: "team_member", company_id: "co_acme" } });
+
+    const { markAllNotificationsReadAction } = await import("./actions");
+    const res = await markAllNotificationsReadAction();
+
+    expect(res.ok).toBe(true);
+    const byId = Object.fromEntries(db.notifications.map((n) => [n.id, n.read_at]));
+    expect(byId.nudge).not.toBe(null);
+    expect(byId.shared).not.toBe(null);
+    expect(byId.old).toBe(earlier);
+    expect(byId.theirs).toBe(null);
+  });
+});

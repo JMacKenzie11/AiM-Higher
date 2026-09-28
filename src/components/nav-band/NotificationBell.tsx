@@ -5,7 +5,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransitio
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import type { NotificationItem } from "@/lib/notifications/service";
-import { markNotificationReadAction } from "@/lib/notifications/actions";
+import {
+  markAllNotificationsReadAction,
+  markNotificationReadAction,
+} from "@/lib/notifications/actions";
 import { dismissGuideNudgeAction } from "@/lib/guide/actions";
 import styles from "./NavBand.module.css";
 
@@ -148,7 +151,10 @@ export function NotificationBell({
         <div ref={menuRef} className={styles.bellMenu} role="menu" style={pos}>
           <div className={styles.bellMenuHeader}>
             <span>Notifications</span>
-            <span className={styles.bellMenuHeaderCount}>{count}</span>
+            <span className={styles.bellMenuHeaderAside}>
+              {items.some((i) => i.dismissible) ? <MarkAllRead /> : null}
+              <span className={styles.bellMenuHeaderCount}>{count}</span>
+            </span>
           </div>
           <ul className={styles.bellMenuList}>
             {items.map((item) => (
@@ -234,6 +240,36 @@ function DismissNudge({ id }: { id: string }) {
         {pending ? "Putting it away…" : "Not now"}
       </button>
     </div>
+  );
+}
+
+// "Mark all as read". Clears every stored notification in one go:
+// Aimee's invitations and the event notices. The live counts ("7
+// overdue commitments") are not messages and are not stored; they
+// are worked out from the data on each render and leave when the
+// data changes, so there is nothing to mark and the button only
+// shows when there is at least one stored item.
+//
+// A Guide invitation marked read this way is put away, not declined:
+// its nudge stays pending, and only "Not now" records a dismissal.
+// Same round-trip shape as "Not now": disabled while in flight, and
+// the items leave when the layout revalidates.
+
+function MarkAllRead() {
+  const [pending, startTransition] = useTransition();
+  return (
+    <button
+      type="button"
+      className={styles.bellMarkAll}
+      disabled={pending}
+      onClick={() => {
+        startTransition(async () => {
+          await markAllNotificationsReadAction();
+        });
+      }}
+    >
+      {pending ? "Marking…" : "Mark all as read"}
+    </button>
   );
 }
 
