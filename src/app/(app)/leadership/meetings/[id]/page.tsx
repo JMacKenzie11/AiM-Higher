@@ -623,11 +623,13 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
         </div>
 
         <AnalysisTabs
+          // Meeting Analysis first, so the page opens on it; Coaching
+          // notes last (Jason, 2026-09-28). The first tab is the default.
           tabs={[
             {
-              hash: "coaching-notes",
-              label: "Coaching notes",
-              content: coachingNotes,
+              hash: "meeting-analysis",
+              label: "Meeting Analysis",
+              content: fullRecord,
             },
             {
               hash: "issues-and-commitments",
@@ -638,9 +640,9 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
               content: issuesAndCommitments,
             },
             {
-              hash: "meeting-analysis",
-              label: "Meeting Analysis",
-              content: fullRecord,
+              hash: "coaching-notes",
+              label: "Coaching notes",
+              content: coachingNotes,
             },
           ]}
         />

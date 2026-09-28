@@ -321,6 +321,37 @@
   font-weight: 600;
 }
 
+.bellMenuHeaderAside {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The header is uppercase and tracked; the button is ordinary text,
+   so it reads as an action rather than part of the title. */
+.bellMarkAll {
+  background: none;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.bellMarkAll:hover {
+  background: var(--aims-cobalt-tint);
+}
+
+.bellMarkAll:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .bellMenuList {
   list-style: none;
   margin: 0;
