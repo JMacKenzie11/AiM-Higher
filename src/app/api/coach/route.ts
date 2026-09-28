@@ -20,6 +20,8 @@ import {
   type OpenerSources,
 } from "@/lib/guide/opener-checks";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
+import { debriefReplyFaults } from "@/lib/guide/reply-checks";
+import { describeHits } from "@/lib/voice/banned";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { trackAfter } from "@/lib/analytics/track";
@@ -667,6 +669,19 @@ export async function POST(req: NextRequest): Promise<Response> {
           // Whatever it ended up being, send it now. This is the
           // first and only text the reader gets for this turn.
           controller.enqueue(encodeEvent("delta", { text: assistantText }));
+        } else if (
+          (convo as { debriefing_meeting_id?: string | null }).debriefing_meeting_id
+        ) {
+          // A debrief reply after the opener has already streamed, so
+          // it cannot be sent back. Logged instead, to measure how
+          // often the voice rules break (reply-checks.ts).
+          const faults = debriefReplyFaults(assistantText);
+          if (faults.length > 0) {
+            console.warn(
+              `[coach] debrief reply broke the voice rules (${conversationId}, sent as written): ` +
+                describeHits(faults)
+            );
+          }
         }
 
         const { data: assistantRow } = await supabase
