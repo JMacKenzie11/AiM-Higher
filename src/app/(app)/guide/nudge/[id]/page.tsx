@@ -125,6 +125,18 @@ export default async function GuideNudgePage({ params }: PageProps) {
     console.error(`[guide] nudge ${nudge.id} opened but not recorded:`, error.message);
   }
 
+  // Opened is read, however they got here. The bell click marks its
+  // notification read on the way; a direct link does not, and the
+  // invitation stayed in the bell after its conversation existed.
+  // The champion's own row, under their session (RLS: recipient only).
+  await db
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("kind", "guide-nudge")
+    .eq("recipient_id", session.profile.id)
+    .eq("payload->>nudge_id", nudge.id)
+    .is("read_at", null);
+
   redirect(`/ask-aimee/${conversationId}`);
 }
 
