@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { filterRoleSections } from "./loader";
+import {
+  candidateSlugs,
+  filterRoleSections,
+  helpDocProblems,
+  loadHelpForRoute,
+  parseRoles,
+} from "./loader";
+
+vi.mock("server-only", () => ({}));
 
 describe("filterRoleSections", () => {
   it("returns the doc unchanged when it has no role blocks", () => {
@@ -129,5 +137,63 @@ describe("filterRoleSections", () => {
     ].join("\n");
     expect(filterRoleSections(md, "team_member")).toContain("Kept.");
     expect(filterRoleSections(md, "aims_guide")).not.toContain("Kept.");
+  });
+});
+
+// ---- Which doc a route gets, and for whom -------------------------
+//
+// Two bugs found by the Aimee panel investigation (2026-09-28): a
+// portfolio admin got no help on /portfolio, because the loader dropped
+// the role; and the role-description version page's doc never loaded,
+// because the loader looks for `_id` and the file was named `_version`.
+describe("candidateSlugs", () => {
+  it("turns ids and numbers into _id and walks up to the parent", () => {
+    expect(candidateSlugs("/leadership/meetings/0bcab5ff-c991-45dd-9b0d-348e2a5fe458")).toEqual([
+      "leadership.meetings._id",
+      "leadership.meetings",
+      "leadership",
+    ]);
+    expect(candidateSlugs("/chart/function/0bcab5ff-c991-45dd-9b0d-348e2a5fe458/role-description/v/3")[0]).toBe(
+      "chart.function._id.role-description.v._id"
+    );
+  });
+});
+
+describe("parseRoles", () => {
+  it("keeps every real role, portfolio_admin included", () => {
+    expect(parseRoles(["portfolio_admin", "system_admin"])).toEqual(["portfolio_admin", "system_admin"]);
+  });
+
+  it("fails closed on a role that does not exist, never widening to everyone", () => {
+    expect(() => parseRoles(["portfolio_adimn"], "portfolio")).toThrow(/unknown role/);
+  });
+
+  it("means every role when there is no list", () => {
+    expect(parseRoles(undefined)).toBeNull();
+  });
+});
+
+describe("loadHelpForRoute", () => {
+  it("gives a portfolio admin the Portfolio help", async () => {
+    const doc = await loadHelpForRoute("/portfolio", "portfolio_admin");
+    expect(doc?.slug).toBe("portfolio");
+  });
+
+  it("still refuses the Portfolio help to a team member", async () => {
+    expect(await loadHelpForRoute("/portfolio", "team_member")).toBeNull();
+  });
+
+  it("loads the published role description version's own doc", async () => {
+    const doc = await loadHelpForRoute(
+      "/chart/function/0bcab5ff-c991-45dd-9b0d-348e2a5fe458/role-description/v/3",
+      "company_admin"
+    );
+    expect(doc?.slug).toBe("chart.function._id.role-description.v._id");
+  });
+});
+
+describe("every help doc", () => {
+  it("names only real roles and closes every role block", async () => {
+    expect(await helpDocProblems()).toEqual([]);
   });
 });

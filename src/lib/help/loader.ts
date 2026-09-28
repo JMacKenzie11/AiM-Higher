@@ -2,7 +2,7 @@ import "server-only";
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { Role } from "@/lib/types";
+import { ROLES, type Role } from "@/lib/types";
 
 // Resolves an in-app help doc for a given URL pathname and caller
 // role. Docs live in `docs/help/*.md` and use a naming convention:
@@ -89,17 +89,24 @@ function parseFrontmatter(source: string): {
   return { meta, body };
 }
 
-function parseRoles(value: string | string[] | undefined): Role[] | null {
+// A doc's `roles:` list, checked against every role there is.
+//
+// FAIL CLOSED. This used to keep only four roles and drop the rest, so
+// `portfolio_admin` vanished from every list: portfolio.md read as
+// system-admin-only and a portfolio admin on /portfolio got no help.
+// Worse, a list whose every name was dropped came out EMPTY, and empty
+// means "everyone": a doc marked `roles: [portfolio_admin]` would have
+// shown to all roles. An unknown name now fails the doc loudly, and
+// helpDocProblems (tested over every file) catches it before it ships.
+export function parseRoles(value: string | string[] | undefined, slug = "?"): Role[] | null {
   if (!value) return null;
-  const list = Array.isArray(value) ? value : [value];
-  const roles = list.filter(
-    (r): r is Role =>
-      r === "system_admin" ||
-      r === "company_admin" ||
-      r === "team_member" ||
-      r === "aims_guide"
-  );
-  return roles.length > 0 ? roles : null;
+  const list = (Array.isArray(value) ? value : [value]).map((r) => r.trim()).filter(Boolean);
+  if (list.length === 0) return null;
+  const unknown = list.filter((r) => !(ROLES as readonly string[]).includes(r));
+  if (unknown.length > 0) {
+    throw new Error(`help doc ${slug}: unknown role(s) in roles: ${unknown.join(", ")}`);
+  }
+  return list as Role[];
 }
 
 async function readDoc(slug: string): Promise<HelpDoc | null> {
@@ -112,7 +119,7 @@ async function readDoc(slug: string): Promise<HelpDoc | null> {
   }
   const { meta, body } = parseFrontmatter(source);
   const title = typeof meta.title === "string" ? meta.title : slug;
-  const roles = parseRoles(meta.roles);
+  const roles = parseRoles(meta.roles, slug);
   return { slug, title, roles, markdown: body.trim() };
 }
 
@@ -200,4 +207,50 @@ export async function loadHelpForRoute(
     return { ...doc, markdown: filterRoleSections(doc.markdown, role) };
   }
   return null;
+}
+
+// ---- Every doc, checked --------------------------------------------
+//
+// What would make a doc show to a role it should not, or fail to show
+// to one it should. Run over every file by a test, so a mistake fails
+// CI rather than shipping. The role-block filter above fails OPEN on
+// an unclosed block (a broken doc still shows something), which is a
+// reasonable way to render and a poor way to gate: this is what makes
+// that fail-open unreachable in practice.
+//
+//   - frontmatter `roles:` naming a role that does not exist
+//   - a `::: role` block naming a role that does not exist
+//   - a `::: role` block opened and never closed, or a closer with no
+//     opener
+export async function helpDocProblems(): Promise<string[]> {
+  const problems: string[] = [];
+  const files = (await fs.readdir(HELP_DIR)).filter((f) => f.endsWith(".md") && f !== "README.md");
+  for (const file of files) {
+    const slug = file.replace(/\.md$/, "");
+    const source = await fs.readFile(path.join(HELP_DIR, file), "utf8");
+    const { meta, body } = parseFrontmatter(source);
+    try {
+      parseRoles(meta.roles, slug);
+    } catch (err) {
+      problems.push(err instanceof Error ? err.message : String(err));
+    }
+    let open = false;
+    for (const [i, line] of body.split("\n").entries()) {
+      const opener = ROLE_BLOCK_OPEN.exec(line);
+      if (opener) {
+        if (open) problems.push(`help doc ${slug}: role block opened inside another (line ${i + 1})`);
+        open = true;
+        for (const r of opener[1].split(",").map((x) => x.trim()).filter(Boolean)) {
+          if (!(ROLES as readonly string[]).includes(r)) {
+            problems.push(`help doc ${slug}: unknown role "${r}" in a role block (line ${i + 1})`);
+          }
+        }
+      } else if (ROLE_BLOCK_CLOSE.test(line)) {
+        if (!open) problems.push(`help doc ${slug}: role block closed without an opener (line ${i + 1})`);
+        open = false;
+      }
+    }
+    if (open) problems.push(`help doc ${slug}: a role block is never closed`);
+  }
+  return problems;
 }

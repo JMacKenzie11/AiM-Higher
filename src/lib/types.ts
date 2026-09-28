@@ -17,6 +17,21 @@ export type Role =
   // true for one tenant. See migration 0190.
   | "portfolio_admin";
 
+// Every role, as a value. For code that has to check a string against
+// the list at runtime, like a help doc's `roles:` frontmatter. The
+// `satisfies` and the exhaustiveness check below keep it and the type
+// the same list: a role added to one and not the other fails the build.
+export const ROLES = [
+  "system_admin",
+  "company_admin",
+  "team_member",
+  "aims_guide",
+  "portfolio_admin",
+] as const satisfies readonly Role[];
+type MissingFromRoles = Exclude<Role, (typeof ROLES)[number]>;
+const rolesAreComplete: MissingFromRoles extends never ? true : never = true;
+void rolesAreComplete;
+
 // A single (guide -> company) assignment. Guides have no primary
 // company_id on their profile; their access is derived from these
 // rows via the is_guide_for() SQL helper.
