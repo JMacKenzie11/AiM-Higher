@@ -9477,6 +9477,109 @@ export type PortfolioFixtures = {
   spare_feature: string | null;
 };
 
+// ---- Hiding a swapped-out opener (0239) --------------------------
+//
+// Swapping the agent before the first user turn replaces the old
+// agent's opener. Messages are never deleted (no delete policy, and
+// Jason's rule), so the old one is HIDDEN, through one definer
+// function. The grant is narrow on three axes, and each gets a refusal:
+//
+//   whose       the conversation's owner, nobody else
+//   when        only while the conversation has no user message
+//   how         only through the function: no direct UPDATE, no DELETE
+//
+// And the granted half is proved by what the owner can SEE afterwards,
+// not by the function's return value: hiding means the select policy
+// stops returning the row.
+//
+// Red before 0239: the function does not exist, so the granted call
+// errors and the probe fails. That is the "shown failing first" (E5).
+async function hiddenOpenerProbes(
+  run: Runner,
+  ids: Identities,
+  pending: string
+): Promise<GrantProbe[]> {
+  const fresh = "a0239000-0000-4000-8000-000000000001"; // opener only
+  const started = "a0239000-0000-4000-8000-000000000002"; // has a user turn
+  const setup = `${pending}
+insert into public.coaching_conversations (id, company_id, created_by, title, mode)
+values ('${fresh}', '${ids.memberCompany}', '${ids.member}', 'harness 0239 fresh', 'general'),
+       ('${started}', '${ids.memberCompany}', '${ids.member}', 'harness 0239 started', 'general');
+insert into public.coaching_messages (conversation_id, created_by, role, content)
+values ('${fresh}', '${ids.member}', 'assistant', 'an opener from the old agent'),
+       ('${started}', '${ids.member}', 'assistant', 'an opener'),
+       ('${started}', '${ids.member}', 'user', 'a reply');`;
+
+  const ask = async (sub: string, stmt: string): Promise<string> => {
+    try {
+      const rows = await run<Record<string, unknown>>(asCaller(sub, setup, stmt));
+      return JSON.stringify(rows[0] ?? {});
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/not your conversation/i.test(msg)) return "refused: not your conversation";
+      if (/has started/i.test(msg)) return "refused: the conversation has started";
+      if (/permission denied/i.test(msg)) return "refused by privilege";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 90)}`;
+    }
+  };
+  const countVisible = (id: string) =>
+    `select count(*)::int as visible from public.coaching_messages where conversation_id = '${id}';`;
+
+  const before = await ask(ids.member, countVisible(fresh));
+  const hidden = await ask(
+    ids.member,
+    `select public.hide_conversation_openers('${fresh}');\n${countVisible(fresh)}`
+  );
+  const notOwner = await ask(ids.companyAdmin, `select public.hide_conversation_openers('${fresh}') as n;`);
+  const afterStart = await ask(ids.member, `select public.hide_conversation_openers('${started}') as n;`);
+  // Without RETURNING, and judged by what is still visible: with
+  // RETURNING the update is refused just for asking to see a row the
+  // select policy now hides, which proves nothing about the update.
+  const directUpdate = await ask(
+    ids.member,
+    `update public.coaching_messages set hidden_at = now() where conversation_id = '${fresh}';\n${countVisible(fresh)}`
+  );
+  const rewrite = await ask(
+    ids.member,
+    `update public.coaching_messages set content = 'rewritten' where conversation_id = '${fresh}';
+     select count(*)::int as rewritten from public.coaching_messages
+      where conversation_id = '${fresh}' and content = 'rewritten';`
+  );
+  const directDelete = await ask(
+    ids.member,
+    `with d as (delete from public.coaching_messages
+                where conversation_id = '${fresh}' returning id)
+     select count(*)::int as n from d;`
+  );
+
+  const ok =
+    before === '{"visible":1}' &&
+    hidden === '{"visible":0}' &&
+    notOwner === "refused: not your conversation" &&
+    afterStart === "refused: the conversation has started" &&
+    (directUpdate === '{"visible":1}' || directUpdate === "refused by privilege") &&
+    (rewrite === '{"rewritten":0}' || rewrite === "refused by privilege") &&
+    (directDelete === '{"n":0}' || directDelete === "refused by privilege");
+
+  return [
+    {
+      name: "hide a swapped-out opener · owner",
+      granted: `owner sees the opener: ${before} | after hiding it: ${hidden}`,
+      withheld:
+        `another user hides it: ${notOwner} | ` +
+        `owner, after the first user turn: ${afterStart} | ` +
+        `owner, direct update of hidden_at: ${directUpdate} | ` +
+        `owner rewrites Aimee's words: ${rewrite} | owner, direct delete: ${directDelete}`,
+      ok,
+      detail: ok
+        ? "the owner can hide an opener before the conversation starts, only through the function, and nothing is ever deleted"
+        : hidden.startsWith("ERROR") || !hidden.includes('"visible":0')
+          ? "THE GRANT DOES NOT WORK: the owner cannot hide the old opener (is 0239 applied?)"
+          : "the grant is wider than intended",
+    },
+  ];
+}
+
 async function portfolioProbes(
   run: Runner,
   ids: Identities,
@@ -10219,7 +10322,8 @@ async function main(): Promise<void> {
   }
   const probes = await grantProbes(run, ids, pendingSql);
   const portfolio = await portfolioProbes(run, ids, pendingSql);
-  console.log(grantSummaryLines([...probes, ...portfolio]).join("\n"));
+  const openers = await hiddenOpenerProbes(run, ids, pendingSql);
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

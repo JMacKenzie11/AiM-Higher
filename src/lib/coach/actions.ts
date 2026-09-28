@@ -239,14 +239,23 @@ export async function setConversationAgentAction(
     nextPractice = candidate;
   }
 
-  // Wipe any prior auto-openers. Safe because we're pre-lock —
-  // by definition no user message exists, so every assistant row
-  // is an opener.
-  await supabase
-    .from("coaching_messages")
-    .delete()
-    .eq("conversation_id", conversationId)
-    .eq("role", "assistant");
+  // HIDE the prior agent's opener, never delete it. This used to be a
+  // DELETE on the caller's client, which matched nothing because
+  // coaching_messages has no delete policy, so the old opener came
+  // back above the new one on reload. hide_conversation_openers
+  // (migration 0239) is the one way to set hidden_at: owner only, and
+  // only while no user message exists, which the lock check above has
+  // just established. Hidden rows are left out by the select policy.
+  const { error: hideError } = await supabase.rpc("hide_conversation_openers", {
+    p_conversation_id: conversationId,
+  });
+  if (hideError) {
+    console.error(
+      `[coach] could not hide the old opener on ${conversationId}:`,
+      hideError.message
+    );
+    return { ok: false, message: "Couldn't switch agents. Try again." };
+  }
 
   // RE-PIN ON SWAP, and clear the pin on detach.
   //

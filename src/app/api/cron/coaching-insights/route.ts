@@ -118,6 +118,9 @@ async function handle(req: NextRequest): Promise<Response> {
       "conversation_id",
       batch.map((c) => c.id)
     )
+    // An opener hidden by an agent swap (0239) was never part of the
+    // conversation; the service role bypasses the policy that hides it.
+    .is("hidden_at", null)
     .order("created_at", { ascending: true });
   const msgsByConvo = new Map<
     string,

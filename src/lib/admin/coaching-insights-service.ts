@@ -209,7 +209,10 @@ export async function getCoachingInsightsAdoption(
   const { data: msgsData } = await admin
     .from("coaching_messages")
     .select("conversation_id, role, created_by")
-    .in("conversation_id", convoIds);
+    .in("conversation_id", convoIds)
+    // Openers hidden by an agent swap (0239) are not part of the
+    // conversation anybody saw.
+    .is("hidden_at", null);
   const msgs = ((msgsData ?? []) as Array<{
     conversation_id: string;
     role: "user" | "assistant";
