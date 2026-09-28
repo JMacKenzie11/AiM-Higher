@@ -95,8 +95,11 @@ test("a function opens in a drawer over the chart, not on its own page", async (
 
   // ---- Nothing in it hides under the help widget --------------
   const overlap = (await page.evaluate(`(() => {
-    const help = document.querySelector('button[aria-label="Open help"], button[aria-label="Close help"]');
-    if (!help) return "no help widget on the page";
+    // The corner button: the "?" for most roles, Aimee's icon for a
+    // system admin while the panel is released to them only. Both
+    // carry this test id and sit in the same corner.
+    const help = document.querySelector('[data-testid="corner-launcher"]');
+    if (!help) return "no corner button on the page";
     const h = help.getBoundingClientRect();
     const panel = document.querySelector('[data-drawer-name="chart-function"][role="dialog"]');
     if (!panel) return "no function drawer on the page";

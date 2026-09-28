@@ -46,3 +46,15 @@
     padding: var(--space-5) var(--page-gutter);
   }
 }
+
+/* AIMEE'S PANEL SITS BESIDE THE PAGE, NOT OVER IT (desktop). While it
+   is open, AimeeLauncher sets data-aimee-panel on <html> and the frame
+   makes room on the right for the panel's width, so it covers nothing
+   and the page stays usable. On a phone the panel covers the screen
+   and this does not apply. */
+@media (min-width: 769px) {
+  :global(html[data-aimee-panel="open"]) .frame {
+    padding-right: min(400px, 100vw);
+    transition: padding-right var(--duration-normal) var(--ease-out);
+  }
+}

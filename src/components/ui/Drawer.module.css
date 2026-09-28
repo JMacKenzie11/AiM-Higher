@@ -35,6 +35,13 @@
   will-change: transform;
 }
 
+/* Beside the page, not over it (the `side` prop). Narrower, and the
+   app layout makes room for it while it is open (data-aimee-panel on
+   <html>, layout.module.css), so it covers nothing. */
+.side {
+  width: min(400px, 100vw);
+}
+
 /* KEPT MOUNTED MEANS KEPT IN THE DOM, so `hidden` has to actually
    hide: .panel sets display: flex, which beats the user-agent rule
    for [hidden] on its own. Without this the closed drawer covers the
