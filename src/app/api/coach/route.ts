@@ -597,6 +597,16 @@ export async function POST(req: NextRequest): Promise<Response> {
                   { role: "user", content: first.instruction },
                 ],
               });
+              // The retry is part of this turn's cost. It was left out, so
+              // the usage log (and every cost report built on it)
+              // undercounted each turn that needed one (investigation,
+              // 2026-09-28).
+              if (retry.usage) {
+                turnUsage.input_tokens += retry.usage.input_tokens ?? 0;
+                turnUsage.output_tokens += retry.usage.output_tokens ?? 0;
+                turnUsage.cache_creation_input_tokens += retry.usage.cache_creation_input_tokens ?? 0;
+                turnUsage.cache_read_input_tokens += retry.usage.cache_read_input_tokens ?? 0;
+              }
               const retried = retry.content
                 .filter((b): b is Anthropic.TextBlock => b.type === "text")
                 .map((b) => b.text)

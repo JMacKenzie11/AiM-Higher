@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   create: vi.fn(),
   stream: vi.fn(),
   inserts: [] as Array<{ table: string; payload: unknown }>,
+  usage: vi.fn(),
 }));
 
 vi.mock("@anthropic-ai/sdk", () => {
@@ -32,7 +33,7 @@ vi.mock("@/lib/auth/current-user", () => ({
 }));
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({}) }));
 vi.mock("@/lib/analytics/track", () => ({ trackAfter: vi.fn(), track: vi.fn() }));
-vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: vi.fn() }));
+vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: h.usage }));
 vi.mock("@/lib/coach/service", async (orig) => ({
   ...(await orig<typeof import("@/lib/coach/service")>()),
   getAccessForConversation: async () => "owner",
@@ -98,7 +99,10 @@ beforeEach(() => {
   h.inserts.length = 0;
   process.env.ANTHROPIC_API_KEY = "test";
   h.stream.mockImplementation(() => streamOf(DRAFT));
-  h.create.mockResolvedValue({ content: [{ type: "text", text: FIXED }], usage: {} });
+  h.create.mockResolvedValue({
+    content: [{ type: "text", text: FIXED }],
+    usage: { input_tokens: 500, output_tokens: 40, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+  });
 });
 
 describe("a debrief reply", () => {
@@ -118,5 +122,20 @@ describe("a debrief reply", () => {
     // What is saved is what was shown.
     const saved = h.inserts.filter((i) => i.table === "coaching_messages").map((i) => (i.payload as { role: string; content: string }));
     expect(saved.find((m) => m.role === "assistant")?.content).toBe(FIXED);
+  });
+
+  it("counts the retry in the turn's logged cost", async () => {
+    // The first pass costs 1 in, 1 out (streamOf); the retry 500 in, 40
+    // out. The turn's one usage row must carry both. It carried only the
+    // first, so every turn that needed a retry was undercounted.
+    const req = new Request("http://localhost/api/coach", {
+      method: "POST",
+      body: JSON.stringify({ conversationId: "conv1", userMessage: "Sure" }),
+    });
+    await (await POST(req as never)).text();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const turn = h.usage.mock.calls.map((c) => c[0]).find((c) => c.purpose === "turn");
+    expect(turn?.usage).toMatchObject({ input_tokens: 501, output_tokens: 41 });
   });
 });
