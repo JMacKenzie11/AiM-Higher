@@ -18,8 +18,12 @@ import {
   openerRetryInstruction,
 } from "@/lib/guide/opener-checks";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
-import { debriefReplyFaults } from "@/lib/guide/reply-checks";
-import { describeHits } from "@/lib/voice/banned";
+import {
+  checkDebriefReply,
+  describeReplyFaults,
+  replyFaultCount,
+  replyRetryInstruction,
+} from "@/lib/guide/reply-checks";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { trackAfter } from "@/lib/analytics/track";
@@ -342,6 +346,21 @@ export async function POST(req: NextRequest): Promise<Response> {
   );
   const toolDefs = tools.map((t) => t.definition);
 
+  // ---- TURNS HELD BACK AND CHECKED ------------------------------
+  //
+  // Two kinds of turn are buffered rather than streamed, checked,
+  // sent back once with what was wrong, and only then shown: a
+  // generated opener (nobody typed it; Aimee reached out first), and
+  // every reply in a meeting debrief, which on dev broke a countable
+  // rule every time, invented quotes included (reply-checks.ts). The
+  // cost is the typing effect: the reader sees "Thinking…" until the
+  // checked turn arrives whole. Everything else streams.
+  const checkedTurn: CheckedTurnKind | null = isGenerateOpener
+    ? "opener"
+    : convo.debriefing_meeting_id
+      ? "debrief reply"
+      : null;
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
@@ -439,20 +458,13 @@ export async function POST(req: NextRequest): Promise<Response> {
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
             ) {
-              // THE OPENER IS BUFFERED, NOT STREAMED.
-              //
-              // Everything else streams, because a person who has
-              // just typed wants to see movement. The opener is the
-              // one turn nobody typed: Aimee reached out first, and
-              // the reader is only there because they clicked a
-              // notification.
-              //
-              // That difference is what makes a retry possible. A
-              // banned phrase cannot be fixed mid-stream without the
-              // text changing under somebody's eyes, which is worse
-              // than the phrase. Held back, the turn can be checked
-              // and rewritten before anybody has read a word of it.
-              if (!isGenerateOpener) {
+              // A CHECKED TURN IS BUFFERED, NOT STREAMED (see
+              // checkedTurn above). A banned phrase or an invented
+              // quote cannot be fixed mid-stream without the text
+              // changing under somebody's eyes, which is worse than
+              // the fault. Held back, the turn can be checked and
+              // rewritten before anybody has read a word of it.
+              if (!checkedTurn) {
                 controller.enqueue(
                   encodeEvent("delta", { text: event.delta.text })
                 );
@@ -553,13 +565,12 @@ export async function POST(req: NextRequest): Promise<Response> {
         // first (the check just before the save).
         let savedOpener: CoachingMessage | null = null;
 
-        // ---- ONE RETRY, ON THE OPENER ONLY -----------------------
+        // ---- ONE RETRY, ON A CHECKED TURN --------------------------
         //
         // The rules are in the prompt and the model breaks them
         // anyway, in small habitual ways rather than in sentences it
         // chose. "What made that reframe LAND in the room" came out
-        // of a turn whose prompt banned "land" by name, and a
-        // speaker label came out of a turn told never to print one.
+        // of a turn whose prompt banned "land" by name.
         //
         // Named back to it rather than repeated at it: the rules
         // were already there and were already ignored, so the retry
@@ -568,11 +579,12 @@ export async function POST(req: NextRequest): Promise<Response> {
         // No tools on the retry. It already holds every tool result
         // in currentMessages; it is rewriting a paragraph, not
         // gathering anything.
-        if (isGenerateOpener && assistantText.length > 0) {
-          const faults = checkOpener(assistantText);
-          if (faultCount(faults) > 0) {
+        if (checkedTurn && assistantText.length > 0) {
+          const check = await turnCheckFor(checkedTurn, supabase, convo);
+          const first = check(assistantText);
+          if (first.count > 0) {
             console.log(
-              `[coach] opener retry for ${conversationId}: ${describeFaults(faults)}`
+              `[coach] ${checkedTurn} retry for ${conversationId}: ${first.describe}`
             );
             try {
               const retry = await client.messages.create({
@@ -582,10 +594,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                 messages: [
                   ...currentMessages,
                   { role: "assistant", content: assistantText },
-                  {
-                    role: "user",
-                    content: openerRetryInstruction(faults),
-                  },
+                  { role: "user", content: first.instruction },
                 ],
               });
               const retried = retry.content
@@ -595,62 +604,42 @@ export async function POST(req: NextRequest): Promise<Response> {
                 .trim();
               // Only if it actually helped. A retry that returns
               // nothing, or no better than the first attempt, leaves
-              // the first in place: a blank opener is worse than one
+              // the first in place: a blank turn is worse than one
               // with a fault in it. "Better" is fewer faults, so a
               // retry that fixes two and keeps one still wins.
-              const retriedFaults = checkOpener(retried);
-              if (
-                retried.length > 0 &&
-                faultCount(retriedFaults) < faultCount(faults)
-              ) {
+              const second = check(retried);
+              if (retried.length > 0 && second.count < first.count) {
                 assistantText = retried;
               }
-              if (retried.length === 0 || faultCount(retriedFaults) > 0) {
+              if (retried.length === 0 || second.count > 0) {
                 console.error(
-                  `[coach] opener still breaking the rules after a retry` +
-                    `${retried.length === 0 ? " (empty retry)" : `: ${describeFaults(retriedFaults)}`}`
+                  `[coach] ${checkedTurn} still breaking the rules after a retry (${conversationId})` +
+                    `${retried.length === 0 ? " (empty retry)" : `: ${second.describe}`}`
                 );
               }
             } catch (err) {
               console.error(
-                "[coach] opener retry failed, keeping the first attempt:",
+                `[coach] ${checkedTurn} retry failed, keeping the first attempt:`,
                 err instanceof Error ? err.message : err
               );
             }
           }
-          // Two requests that both passed the check at the top: the
-          // one that saves first wins, and this one shows that opener
-          // instead of saving a second.
-          const raced = await firstAssistantMessage(supabase, conversationId);
-          if (raced) {
-            console.log(
-              `[coach] opener for ${conversationId} already saved by a parallel request; sending that one`
-            );
-            savedOpener = raced;
-            assistantText = raced.content;
+          if (checkedTurn === "opener") {
+            // Two requests that both passed the check at the top: the
+            // one that saves first wins, and this one shows that opener
+            // instead of saving a second.
+            const raced = await firstAssistantMessage(supabase, conversationId);
+            if (raced) {
+              console.log(
+                `[coach] opener for ${conversationId} already saved by a parallel request; sending that one`
+              );
+              savedOpener = raced;
+              assistantText = raced.content;
+            }
           }
           // Whatever it ended up being, send it now. This is the
           // first and only text the reader gets for this turn.
           controller.enqueue(encodeEvent("delta", { text: assistantText }));
-        } else if (convo.debriefing_meeting_id) {
-          // A debrief reply has already streamed, so it cannot be sent
-          // back. Logged instead, to measure how often the voice rules
-          // break (reply-checks.ts). The transcript is read for the quote
-          // check only, under the champion's own session (same-company
-          // members can read the meeting row, 0142), and never reaches
-          // the model.
-          const { data: meeting } = await supabase
-            .from("meetings")
-            .select("transcript_text")
-            .eq("id", convo.debriefing_meeting_id)
-            .maybeSingle<{ transcript_text: string | null }>();
-          const faults = debriefReplyFaults(assistantText, meeting?.transcript_text ?? "");
-          if (faults.length > 0) {
-            console.warn(
-              `[coach] debrief reply broke the voice rules (${conversationId}, sent as written): ` +
-                describeHits(faults)
-            );
-          }
         }
 
         const { data: assistantRow } = savedOpener
@@ -938,6 +927,46 @@ function buildMessages(
     }
   });
   return messages;
+}
+
+// ---- Checked turns -----------------------------------------------
+
+type CheckedTurnKind = "opener" | "debrief reply";
+
+type TurnCheckResult = { count: number; describe: string; instruction: string };
+
+// One check function per kind of held-back turn, the same shape for
+// both so the route runs one flow. A debrief reply's quotes are checked
+// against what was said: the meeting transcript, read once here under
+// the caller's own session (same-company members can read the meeting
+// row, 0142) and never shown to the model.
+async function turnCheckFor(
+  kind: CheckedTurnKind,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  convo: CoachingConversation
+): Promise<(text: string) => TurnCheckResult> {
+  if (kind === "opener") {
+    return (text) => {
+      const f = checkOpener(text);
+      return { count: faultCount(f), describe: describeFaults(f), instruction: openerRetryInstruction(f) };
+    };
+  }
+  const { data: meeting } = convo.debriefing_meeting_id
+    ? await supabase
+        .from("meetings")
+        .select("transcript_text")
+        .eq("id", convo.debriefing_meeting_id)
+        .maybeSingle<{ transcript_text: string | null }>()
+    : { data: null };
+  const transcript = meeting?.transcript_text ?? "";
+  return (text) => {
+    const f = checkDebriefReply(text, transcript);
+    return {
+      count: replyFaultCount(f),
+      describe: describeReplyFaults(f),
+      instruction: replyRetryInstruction(f),
+    };
+  };
 }
 
 // The conversation's first assistant message: its opener, when there
