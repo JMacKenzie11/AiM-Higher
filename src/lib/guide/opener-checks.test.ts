@@ -74,7 +74,7 @@ describe("checkOpener", () => {
   it("names the invented quote first in the retry", () => {
     const text = openerRetryInstruction(checkOpener(REAL_OPENER, debrief), HEADLINE);
     expect(text.indexOf("not in the meeting transcript")).toBeLessThan(
-      text.indexOf("Start from something new")
+      text.indexOf("Keep its subject")
     );
     expect(text).toContain("(30 words)");
   });

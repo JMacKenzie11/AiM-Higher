@@ -20,7 +20,9 @@ import {
 } from "@/lib/voice/questions";
 import {
   findHeadlineRepeat,
+  findOffThread,
   headlineRepeatRetryInstruction,
+  offThreadRetryInstruction,
   type HeadlineRepeat,
 } from "./repetition";
 
@@ -55,6 +57,8 @@ export type OpenerFaults = {
   long: LongSentence[];
   joined: string[];
   repeat: HeadlineRepeat | null;
+  // About a different moment from the line they clicked (repetition.ts).
+  offThread: boolean;
 };
 
 export function checkOpener(text: string, src: OpenerSources): OpenerFaults {
@@ -69,6 +73,7 @@ export function checkOpener(text: string, src: OpenerSources): OpenerFaults {
         : findLongSentences(text, src.maxWordsPerSentence),
     joined: findJoinedQuestions(text),
     repeat: findHeadlineRepeat(text, src.headline),
+    offThread: findOffThread(text, src.headline),
   };
 }
 
@@ -81,7 +86,8 @@ export function faultCount(f: OpenerFaults): number {
     f.banned.length +
     f.long.length +
     f.joined.length +
-    (f.repeat ? 1 : 0)
+    (f.repeat ? 1 : 0) +
+    (f.offThread ? 1 : 0)
   );
 }
 
@@ -94,6 +100,7 @@ export function describeFaults(f: OpenerFaults): string {
     f.repeat
       ? `repeats the headline (event: ${f.repeat.sharedEvent.join(", ")}; question: ${f.repeat.sharedQuestion.join(", ")})`
       : null,
+    f.offThread ? "leaves the headline's subject" : null,
     f.long.length > 0
       ? `long sentence(s) ${f.long.map((s) => `${s.words} words`).join(", ")}`
       : null,
@@ -114,6 +121,7 @@ export function openerRetryInstruction(
   return [
     f.invented.length > 0 ? quoteRetryInstruction(f.invented) : null,
     f.repeat && headline ? headlineRepeatRetryInstruction(headline) : null,
+    f.offThread && headline ? offThreadRetryInstruction(headline) : null,
     f.long.length > 0
       ? longSentenceRetryInstruction(f.long, OPENER_MAX_WORDS_PER_SENTENCE)
       : null,

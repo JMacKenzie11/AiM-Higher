@@ -129,11 +129,45 @@ export function findHeadlineRepeat(
 export function headlineRepeatRetryInstruction(headline: string): string {
   return (
     `They have already read this line, and your turn says it again: ` +
-    `"${headline}". Start from something new in the summary. Good ` +
-    `places to look: a decision the meeting made that nobody took on, ` +
-    `or another moment that showed how the team works. Their own ` +
+    `"${headline}". Keep its subject and ask the next question about it: ` +
+    `where else the team could use what happened, or who is best placed ` +
+    `to take a decision from that part of the meeting forward. Their own ` +
     `commitments can be context, never a question about how they are ` +
     `going. Do not mention the line they read, and do not ask what ` +
     `made the same moment work.`
+  );
+}
+
+// THE OTHER WAY TO GET IT WRONG: leaving the subject altogether.
+//
+// They clicked a line about one moment of the meeting. An opener about
+// a different moment reads as changing the subject, and makes the
+// invitation look like bait: a line about the Tuesday scheduling
+// clashes, answered with a question about the new quoting sheet (dev,
+// 2026-09-28, three openers in four after the prompt said to stay on
+// the thread).
+//
+// Counted against the line's STATEMENTS only. Its question is close to
+// boilerplate ("Is it worth five minutes to look at..."), and a shared
+// "five" or "minutes" is not the same subject. Words any debrief could
+// use are left out for the same reason.
+const GENERIC = new Set(
+  ["team", "meeting", "people", "work", "good", "real", "new", "first", "right"].map(stem)
+);
+
+export function findOffThread(opener: string, headline: string | null | undefined): boolean {
+  if (!headline) return false;
+  const subject = [...contentWords(split(headline).statements)].filter((w) => !GENERIC.has(w));
+  if (subject.length === 0) return false;
+  const said = contentWords(opener);
+  return !subject.some((w) => said.has(w));
+}
+
+export function offThreadRetryInstruction(headline: string): string {
+  return (
+    `They opened this conversation from this line: "${headline}". Your ` +
+    `turn is about a different part of the meeting, which reads as ` +
+    `changing the subject. Stay on what that line was about, and ask ` +
+    `the next question about it. Do not mention the line itself.`
   );
 }

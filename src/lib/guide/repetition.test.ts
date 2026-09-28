@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findHeadlineRepeat, headlineRepeatRetryInstruction } from "./repetition";
+import { findOffThread, findHeadlineRepeat, headlineRepeatRetryInstruction } from "./repetition";
 
 // The real pair from the 2026-09-25 fixture run.
 const HEADLINE =
@@ -54,9 +54,46 @@ describe("findHeadlineRepeat", () => {
     expect(findHeadlineRepeat(REPEATING_OPENER, null)).toBeNull();
   });
 
-  it("points the retry at new ground", () => {
+  it("keeps the subject and asks the next question, rather than sending it elsewhere", () => {
+    // It used to say "Start from something new in the summary", which
+    // pushed the retry onto a different moment of the meeting.
     const text = headlineRepeatRetryInstruction(HEADLINE);
-    expect(text).toContain("Start from something new");
-    expect(text).toMatch(/nobody\s+took on/);
+    expect(text).toContain("Keep its subject");
+    expect(text).not.toContain("something new");
+  });
+});
+
+describe("findOffThread", () => {
+  const SCHEDULING =
+    "Your team traced the Tuesday scheduling clashes back to a real gap: nobody owned the calendar. Is it worth five minutes to look at what made that diagnosis stick?";
+
+  it("catches the real jump: a scheduling line answered about the quoting sheet", () => {
+    expect(
+      findOffThread(
+        "The quoting sheet held up through three live quotes with no confusion reported. Where else could a new process get that kind of clean run?",
+        SCHEDULING
+      )
+    ).toBe(true);
+  });
+
+  it("passes an opener that stays on the subject with a new question", () => {
+    expect(
+      findOffThread(
+        "The calendar question got a real answer this time: operations owns it. Where else is something bouncing between people the way that Tuesday schedule was?",
+        SCHEDULING
+      )
+    ).toBe(false);
+  });
+
+  it("does not count the line's stock question or generic words as the subject", () => {
+    // "five", "minutes" and "team" are in the line, and in this opener,
+    // and are not the subject.
+    expect(
+      findOffThread("Your team spent five minutes on the quoting sheet. Where else could that work?", SCHEDULING)
+    ).toBe(true);
+  });
+
+  it("has nothing to check when they arrived without a line", () => {
+    expect(findOffThread("Anything at all.", null)).toBe(false);
   });
 });
