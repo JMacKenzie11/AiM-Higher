@@ -1,41 +1,62 @@
 import { describe, it, expect } from "vitest";
-import { debriefReplyFaults } from "./reply-checks";
+import {
+  checkDebriefReply,
+  describeReplyFaults,
+  replyFaultCount,
+  replyRetryInstruction,
+} from "./reply-checks";
 
-// The real second turn, dev, 2026-09-28.
+// The fixture meeting's real lines (scripts/fixtures/leadership-meeting.txt).
+const TRANSCRIPT =
+  "Speaker 1: Is it ours?\n\nSpeaker 2: Partly. About half of it is genuinely on us.\n\n" +
+  "Speaker 2: I want it to stop happening, so yes.";
+
+// Jason's dev debrief, 2026-09-28, the first reply after "Sure".
 const REAL =
-  "That's a fair place to start. Nobody had a bad intent here, and that's usually how a gap like this survives: everyone's answer sounds reasonable on its own. " +
-  "Ray assuming the office had it, the office waiting on leadership, that's two people each making a quiet, sensible guess instead of one person asking out loud.";
+  'That instinct, splitting the credit fifty-fifty instead of arguing it to zero or caving to the whole amount, came straight from someone cutting to "is it ours" before anyone talked numbers. ' +
+  'That\'s a different starting question than "how much do they want" or "how do we make this go away." ' +
+  'You were in the room for that.';
 
-describe("debriefReplyFaults", () => {
-  it("names both faults in the real reply", () => {
-    const labels = debriefReplyFaults(REAL, "").map((h) => h.phrase);
-    expect(labels).toContain("X instead of Y");
-    expect(labels).toContain("affirming by denial");
+describe("checkDebriefReply", () => {
+  it("finds every fault in the real reply, and passes its real quote", () => {
+    const f = checkDebriefReply(REAL, TRANSCRIPT);
+    expect(f.invented.map((q) => q.quote)).toEqual(["how much do they want", "how do we make this go away."]);
+    expect(f.banned.map((h) => h.phrase)).toEqual(expect.arrayContaining(["the room", "X instead of Y"]));
+    expect(replyFaultCount(f)).toBe(f.invented.length + f.banned.length);
   });
 
-  it("catches the other denials the prompt names", () => {
-    // "not a small thing" is on the banned list too, so it is named twice.
-    expect(debriefReplyFaults("That's not a small thing to notice.", "").map((h) => h.phrase)).toContain(
-      "affirming by denial"
-    );
-    expect(debriefReplyFaults("This isn't about blame.", "").map((h) => h.phrase)).toEqual(["affirming by denial"]);
+  it("catches affirming by denial", () => {
+    const f = checkDebriefReply("Nobody had a bad intent here, and that's how a gap survives.", TRANSCRIPT);
+    expect(f.denials).toEqual(["Nobody had a bad intent here, and that's how a gap survives"]);
+    expect(checkDebriefReply("This isn't about blame.", "").denials).toHaveLength(1);
   });
 
-  it("leaves an ordinary reply alone", () => {
+  it("skips the quote check when the transcript could not be read", () => {
+    expect(checkDebriefReply('"how much do they want"', "").invented).toEqual([]);
+  });
+
+  it("passes a clean reply", () => {
     expect(
-      debriefReplyFaults(
-        "Everyone's answer made sense on its own. Who's best placed to tell the crew before Friday?",
-        ""
+      replyFaultCount(
+        checkDebriefReply(
+          'Everyone\'s answer made sense on its own. "I want it to stop happening, so yes" is a clean claim. Who tells the crew?',
+          TRANSCRIPT
+        )
       )
-    ).toEqual([]);
+    ).toBe(0);
+  });
+});
+
+describe("the retry", () => {
+  it("names the invented quote first, then the rest", () => {
+    const text = replyRetryInstruction(checkDebriefReply(REAL, TRANSCRIPT));
+    expect(text.startsWith('You quoted "how much do they want"')).toBe(true);
+    expect(text).toContain("the room");
   });
 
-  it("catches a quote nobody said, and passes one somebody did", () => {
-    // The real reply, dev, 2026-09-28, against the fixture's own line 79.
-    const transcript = "Speaker 2: I want it to stop happening, so yes.\n\nSpeaker 1: Good.";
-    const reply =
-      'The group didn\'t stop at "who screwed up the schedule this time." "I want it to stop happening, so yes" is about as clean a claim as you\'ll get.';
-    const invented = debriefReplyFaults(reply, transcript).filter((h) => h.phrase === "invented quote");
-    expect(invented.map((h) => h.context)).toEqual(["who screwed up the schedule this time."]);
+  it("says what was wrong in one log line", () => {
+    const line = describeReplyFaults(checkDebriefReply(REAL, TRANSCRIPT));
+    expect(line).toMatch(/^invented quote\(s\) "how much do they want"/);
+    expect(line).toContain("X instead of Y");
   });
 });
