@@ -18,6 +18,7 @@ type ConvoRow = {
   mode: "about" | "general";
   subject_profile_id: string | null;
   archived: boolean;
+  is_preview: boolean;
   updated_at: string;
 };
 
@@ -76,6 +77,7 @@ function convo(over: Partial<ConvoRow>): ConvoRow {
     mode: "general",
     subject_profile_id: null,
     archived: false,
+    is_preview: false,
     updated_at: "2026-09-23T13:00:00Z",
     ...over,
   };
@@ -136,5 +138,14 @@ describe("listConversationsForUser", () => {
     ];
     const rows = await listConversationsForUser(ME, CO);
     expect(rows.map((r) => r.id)).toEqual(["mine"]);
+  });
+
+  it("leaves out the Agent Hub previews a system admin rehearses", async () => {
+    db.coaching_conversations = [
+      convo({ id: "real" }),
+      convo({ id: "preview", is_preview: true }),
+    ];
+    const rows = await listConversationsForUser(ME, CO);
+    expect(rows.map((r) => r.id)).toEqual(["real"]);
   });
 });
