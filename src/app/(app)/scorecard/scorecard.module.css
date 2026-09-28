@@ -155,8 +155,15 @@
   }
 }
 
+/* The two sky circles in the top-right corner, as on the dashboard's
+   cards. The background form, not <CardAccent />: that needs the card
+   to clip its overflow, and each card here holds an (i) tooltip and a
+   "needs attention" list that opens below its trigger. See
+   CardAccent.module.css. background-color, not background, so the
+   circles painted by accentSurface are not reset. */
 .card {
-  background: var(--aims-white);
+  composes: accentSurface from "../../../components/ui/CardAccent.module.css";
+  background-color: var(--aims-white);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
