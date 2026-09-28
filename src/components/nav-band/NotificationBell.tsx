@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import type { NotificationItem } from "@/lib/notifications/service";
 import { markNotificationReadAction } from "@/lib/notifications/actions";
@@ -19,6 +20,15 @@ import styles from "./NavBand.module.css";
 // layout render without waiting for the action to round-trip.
 // Computed items (dismissible=false) recompute from live state on
 // every render, so there's nothing to mark on click.
+//
+// ---- THE TRAY IS PORTALLED -------------------------------------
+//
+// It used to be positioned inside the bell's own wrapper. In the
+// sidebar footer that put a 300 to 360px tray inside a rail about
+// 260px wide that clips its overflow, so the right edge was cut off,
+// "Not now" included (2026-09-28, the first Aimee invitation seen on
+// dev). Drawn into document.body and placed from the bell's position,
+// nothing it sits inside can clip it. The same pattern as PartInfo.
 
 export function NotificationBell({
   items,
@@ -31,25 +41,61 @@ export function NotificationBell({
   placement?: "down" | "up";
 }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<React.CSSProperties | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
-  // Close on outside click or Escape.
+  // Up: above the bell, starting at its left edge. Down: below it,
+  // ending at its right edge. Either way the tray is kept 8px inside
+  // the window, so on a phone it narrows rather than running off.
+  const place = useCallback(() => {
+    const r = buttonRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const width = Math.min(360, window.innerWidth - 16);
+    if (placement === "up") {
+      setPos({
+        width,
+        left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)),
+        bottom: window.innerHeight - r.top + 8,
+      });
+    } else {
+      setPos({
+        width,
+        left: Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8)),
+        top: r.bottom + 8,
+      });
+    }
+  }, [placement]);
+
+  useLayoutEffect(() => {
+    if (open) place();
+    else setPos(null);
+  }, [open, place]);
+
+  // Close on outside click or Escape. "Outside" is outside both the
+  // bell and the tray, which is no longer inside the bell's wrapper.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!wrapRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
     };
-  }, [open]);
+  }, [open, place]);
 
   // Close automatically when the route changes — a click on a
   // notification link navigates and this makes the tray disappear
@@ -84,6 +130,7 @@ export function NotificationBell({
       data-placement={placement}
     >
       <button
+        ref={buttonRef}
         type="button"
         className={styles.bellButton}
         onClick={() => setOpen((prev) => !prev)}
@@ -96,8 +143,9 @@ export function NotificationBell({
           {count}
         </span>
       </button>
-      {open ? (
-        <div className={styles.bellMenu} role="menu">
+      {open && pos
+        ? createPortal(
+        <div ref={menuRef} className={styles.bellMenu} role="menu" style={pos}>
           <div className={styles.bellMenuHeader}>
             <span>Notifications</span>
             <span className={styles.bellMenuHeaderCount}>{count}</span>
@@ -126,7 +174,17 @@ export function NotificationBell({
                         {item.eyebrow}
                       </span>
                     ) : null}
-                    <span className={styles.bellMenuItemTitle}>
+                    {/* Aimee's invitation in full: it is the whole
+                        message, and capped at 45 words where it is
+                        written. The two-line clamp is for commitment
+                        and measure descriptions, which can run long. */}
+                    <span
+                      className={
+                        item.kind === "guide-nudge"
+                          ? styles.bellMenuItemTitleFull
+                          : styles.bellMenuItemTitle
+                      }
+                    >
                       {item.title}
                     </span>
                     <span className={styles.bellMenuItemHint}>
@@ -143,8 +201,10 @@ export function NotificationBell({
               </li>
             ))}
           </ul>
-        </div>
-      ) : null}
+        </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
