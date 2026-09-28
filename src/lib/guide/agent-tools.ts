@@ -91,23 +91,6 @@ function makeGetMeetingDebriefTool(meetingId: string): CoachTool {
         };
       }
 
-      // The line the champion already read in their notification
-      // bar. They clicked BECAUSE of it, so opening by saying it
-      // again is the conversation's first move being a repeat.
-      //
-      // Read from the nudge rather than passed in, because the tool
-      // runs under the champion's own session and the nudge is
-      // theirs to read. A meeting with no nudge (an admin opening
-      // the agent from the picker) returns null, and the prompt
-      // treats that as "nothing has been said yet".
-      const { data: nudge } = await db
-        .from("guide_nudges")
-        .select("headline")
-        .eq("meeting_id", meetingId)
-        .order("raised_at", { ascending: false })
-        .limit(1)
-        .maybeSingle<{ headline: string }>();
-
       const { data: analysis } = await db
         .from("meeting_analyses")
         .select("analysis_markdown, commitments_json, truncated, created_at")
@@ -142,10 +125,9 @@ function makeGetMeetingDebriefTool(meetingId: string): CoachTool {
         // that" tells the leader something untrue about their
         // meeting.
         summary_was_cut_off: analysis?.truncated === true,
-        // Null when they arrived from the picker rather than from a
-        // notification, which means nothing has been said to them
-        // yet and you are opening cold.
-        headline_they_already_read: nudge?.headline ?? null,
+        // No headline here any more. When they came from an invitation
+        // its line is the conversation's first message, already in the
+        // history the model reads (practices/create.ts).
       };
     },
   };

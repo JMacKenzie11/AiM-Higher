@@ -276,12 +276,22 @@ export const PRACTICES: readonly Practice[] = [
     // specific meeting, and the agent already knows which.
     basePromptMode: "full_coach",
     skipSetup: true,
-    // GENERATED, not scripted. The opener has to name something that
-    // actually happened in the meeting, which means a turn that has
-    // called get_meeting_debrief first. A scripted line here would
-    // be the "your meeting was analyzed" notification again, one
-    // screen further in.
-    firstTurn: "generate",
+    // SCRIPTED, both ways in. From a Guide invitation the first turn
+    // is the invitation's own line, supplied at launch by the nudge
+    // page (practices/create.ts): written and checked when it was
+    // raised, and read by the champion before they clicked. This line
+    // is the other way in, the agent list, where no meeting is
+    // attached and get_meeting_debrief is not available, so there is
+    // nothing meeting-specific a generated opener could say.
+    //
+    // It was "generate" until 2026-09-28. The generated opener had to
+    // avoid repeating the line the champion had just read, and in
+    // doing so kept leaving its subject, turning its strength into a
+    // post-mortem, or breaking voice rules the line had already been
+    // held to.
+    firstTurn: "scripted",
+    scriptedOpener:
+      "I talk through a leadership meeting with you once its summary is written. What happened in your last one that you want to think through?",
     // Company admins, guides and system admins, PLUS whoever holds
     // the champion seat — who is frequently a team_member. The seat
     // routes Aimee's attention; it does not fence the agent off from

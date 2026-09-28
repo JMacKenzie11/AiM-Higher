@@ -19,6 +19,16 @@ import { PageShell } from "@/components/ui/PageShell";
 // client, which is what makes the agent's tools return what THEY can
 // see rather than what a background job could.
 //
+// ---- THE LINE THEY CLICKED IS AIMEE'S FIRST MESSAGE ----------------
+//
+// The headline is handed to createPracticeConversation as the
+// conversation's opener, persisted with no model call, the same way an
+// agent's scripted opener is. The champion answers the question they
+// already read, and the agent takes over from their reply. It used to
+// generate a second opener here, and that turn kept repeating the
+// line, leaving its subject, or breaking the voice rules the line had
+// been checked against when it was raised (dev, 2026-09-28).
+//
 // ---- OPENING TWICE ---------------------------------------------
 //
 // The notification stays in the bar after it is clicked, so the
@@ -45,7 +55,7 @@ export default async function GuideNudgePage({ params }: PageProps) {
   const { data: nudge } = await db
     .from("guide_nudges")
     .select(
-      "id, company_id, recipient_profile_id, meeting_id, state, conversation_id"
+      "id, company_id, recipient_profile_id, meeting_id, state, conversation_id, headline"
     )
     .eq("id", id)
     .maybeSingle<{
@@ -55,6 +65,7 @@ export default async function GuideNudgePage({ params }: PageProps) {
       meeting_id: string | null;
       state: string;
       conversation_id: string | null;
+      headline: string | null;
     }>();
 
   // The select policy lets admins read these, so "found" is not the
@@ -84,6 +95,7 @@ export default async function GuideNudgePage({ params }: PageProps) {
   try {
     const result = await createPracticeConversation(practice.id, {
       debriefingMeetingId: nudge.meeting_id ?? undefined,
+      opener: nudge.headline ?? undefined,
     });
     if (!result.ok) return notAvailable(result.message);
     conversationId = result.item.id;

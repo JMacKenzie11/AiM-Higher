@@ -16,10 +16,10 @@ import {
   describeFaults,
   faultCount,
   openerRetryInstruction,
-  OPENER_MAX_WORDS_PER_SENTENCE,
-  type OpenerSources,
 } from "@/lib/guide/opener-checks";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
+import { debriefReplyFaults } from "@/lib/guide/reply-checks";
+import { describeHits } from "@/lib/voice/banned";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { trackAfter } from "@/lib/analytics/track";
@@ -553,68 +553,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         // in currentMessages; it is rewriting a paragraph, not
         // gathering anything.
         if (isGenerateOpener && assistantText.length > 0) {
-          // The sources this turn is checked against, when it is about
-          // a meeting. Read here rather than threaded down from the
-          // tool, because the tool result is the model's to use and
-          // these checks have to hold whether it called the tool or
-          // not.
-          //
-          // The TRANSCRIPT is read for the quote check and never goes
-          // near the model. A summary can put its own paraphrase in
-          // quotation marks, so "it is in the summary" proved nothing;
-          // what was said is the only fair test. Read under the
-          // champion's own session: same-company members can read the
-          // meeting row (0142), and this is server code.
-          //
-          // A quote nobody said is the worst thing this feature can
-          // produce: it hands a leader a false record of their own
-          // meeting, which is the shape that cost trust before.
-          const debriefing =
-            (convo as { debriefing_meeting_id?: string | null })
-              .debriefing_meeting_id ?? null;
-          const sources: OpenerSources = {
-            transcript: "",
-            summary: "",
-            headline: null,
-            maxWordsPerSentence: debriefing
-              ? OPENER_MAX_WORDS_PER_SENTENCE
-              : null,
-          };
-          if (debriefing) {
-            const [{ data: meeting }, { data: src }, { data: nudge }] =
-              await Promise.all([
-                supabase
-                  .from("meetings")
-                  .select("transcript_text")
-                  .eq("id", debriefing)
-                  .maybeSingle<{ transcript_text: string | null }>(),
-                supabase
-                  .from("meeting_analyses")
-                  .select("analysis_markdown")
-                  .eq("meeting_id", debriefing)
-                  .maybeSingle<{ analysis_markdown: string }>(),
-                // The same read get_meeting_debrief makes, so the
-                // check compares against the line the model was shown.
-                supabase
-                  .from("guide_nudges")
-                  .select("headline")
-                  .eq("meeting_id", debriefing)
-                  .order("raised_at", { ascending: false })
-                  .limit(1)
-                  .maybeSingle<{ headline: string }>(),
-              ]);
-            sources.transcript = meeting?.transcript_text ?? "";
-            sources.summary = src?.analysis_markdown ?? "";
-            sources.headline = nudge?.headline ?? null;
-            if (sources.transcript.length === 0) {
-              console.warn(
-                `[coach] opener for ${conversationId}: transcript unreadable, ` +
-                  `checking quotes against the summary instead`
-              );
-            }
-          }
-
-          const faults = checkOpener(assistantText, sources);
+          const faults = checkOpener(assistantText);
           if (faultCount(faults) > 0) {
             console.log(
               `[coach] opener retry for ${conversationId}: ${describeFaults(faults)}`
@@ -629,7 +568,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                   { role: "assistant", content: assistantText },
                   {
                     role: "user",
-                    content: openerRetryInstruction(faults, sources.headline),
+                    content: openerRetryInstruction(faults),
                   },
                 ],
               });
@@ -642,9 +581,8 @@ export async function POST(req: NextRequest): Promise<Response> {
               // nothing, or no better than the first attempt, leaves
               // the first in place: a blank opener is worse than one
               // with a fault in it. "Better" is fewer faults, so a
-              // retry that fixes the repeat and keeps one long
-              // sentence still wins.
-              const retriedFaults = checkOpener(retried, sources);
+              // retry that fixes two and keeps one still wins.
+              const retriedFaults = checkOpener(retried);
               if (
                 retried.length > 0 &&
                 faultCount(retriedFaults) < faultCount(faults)
@@ -667,6 +605,19 @@ export async function POST(req: NextRequest): Promise<Response> {
           // Whatever it ended up being, send it now. This is the
           // first and only text the reader gets for this turn.
           controller.enqueue(encodeEvent("delta", { text: assistantText }));
+        } else if (
+          (convo as { debriefing_meeting_id?: string | null }).debriefing_meeting_id
+        ) {
+          // A debrief reply has already streamed, so it cannot be sent
+          // back. Logged instead, to measure how often the voice rules
+          // break (reply-checks.ts).
+          const faults = debriefReplyFaults(assistantText);
+          if (faults.length > 0) {
+            console.warn(
+              `[coach] debrief reply broke the voice rules (${conversationId}, sent as written): ` +
+                describeHits(faults)
+            );
+          }
         }
 
         const { data: assistantRow } = await supabase
