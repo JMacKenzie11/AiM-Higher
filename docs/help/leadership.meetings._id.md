@@ -15,18 +15,18 @@ or guide adds them to the open list one at a time).
 A strip at the top shows the meeting date, who attended and the
 score. It stays in view on every tab. Below it are three tabs:
 
-- **Coaching notes** opens first. Core values in action, then the
-  facilitation review: the score, what worked, growth edges, what
-  to try next week, questions worth asking next week, the
-  questions that opened things up, and the 4Ws audit.
+- **Meeting Analysis** opens first: purpose, attendees, agenda, the
+  discussion section by section, decisions and support needed.
 - **Issues and commitments**: the commitments the meeting created
   and the issues it raised, with the controls to add or resolve
   them.
-- **Meeting Analysis**: purpose, attendees, agenda, the discussion
-  section by section, decisions and support needed.
+- **Coaching notes**: core values in action, then the facilitation
+  review: the score, what worked, growth edges, what to try next
+  week, questions worth asking next week, the questions that opened
+  things up, and the 4Ws audit.
 
-Each tab has its own link. Add `#coaching-notes`,
-`#issues-and-commitments` or `#meeting-analysis` to the page address to
+Each tab has its own link. Add `#meeting-analysis`,
+`#issues-and-commitments` or `#coaching-notes` to the page address to
 send someone straight to that tab.
 
 A commitment where nobody named a day shows **By next meeting**
