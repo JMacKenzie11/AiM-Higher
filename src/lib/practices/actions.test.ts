@@ -293,6 +293,61 @@ describe("createPracticeConversationAction", () => {
     );
   });
 
+  // THE LAUNCH'S OPENER. Whatever opened the conversation may already
+  // have said something to this person: a Guide invitation's line,
+  // written and checked when it was raised. That line is the first
+  // turn, persisted with no model call, and it wins over the agent's
+  // own first turn, generated or scripted.
+  it("persists an opener supplied at launch, ahead of the agent's own", async () => {
+    const line = "Your team traced the Tuesday clashes to a calendar nobody owned. Is it worth five minutes?";
+    mocks.findPractice.mockReturnValueOnce({
+      id: "guide-meeting-debrief",
+      title: "Debrief a meeting",
+      firstTurn: "scripted",
+      scriptedOpener: "I talk through a leadership meeting with you once its summary is written.",
+    });
+    mocks.requireProfile.mockResolvedValue(sessionFor({ id: "champ_1" }));
+    const { createPracticeConversation } = await import("./create");
+
+    const res = await createPracticeConversation("guide-meeting-debrief", { opener: `  ${line} ` });
+
+    expect(res.ok).toBe(true);
+    expect(mocks.messagesInsertPatch).toHaveBeenCalledTimes(1);
+    expect(mocks.messagesInsertPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ created_by: "champ_1", role: "assistant", content: line })
+    );
+  });
+
+  it("persists a launch opener even for an agent that would generate its own", async () => {
+    // A persisted first message is also what stops ChatView from
+    // generating one: it only generates into an EMPTY conversation.
+    mocks.findPractice.mockReturnValueOnce({ id: "some-agent", title: "Some agent", firstTurn: "generate" });
+    mocks.requireProfile.mockResolvedValue(sessionFor({}));
+    const { createPracticeConversation } = await import("./create");
+
+    await createPracticeConversation("some-agent", { opener: "What happened?" });
+
+    expect(mocks.messagesInsertPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ role: "assistant", content: "What happened?" })
+    );
+  });
+
+  it("treats a blank launch opener as none, and falls back to the agent's", async () => {
+    const own = "I talk through a leadership meeting with you once its summary is written.";
+    mocks.findPractice.mockReturnValueOnce({
+      id: "guide-meeting-debrief",
+      title: "Debrief a meeting",
+      firstTurn: "scripted",
+      scriptedOpener: own,
+    });
+    mocks.requireProfile.mockResolvedValue(sessionFor({}));
+    const { createPracticeConversation } = await import("./create");
+
+    await createPracticeConversation("guide-meeting-debrief", { opener: "   " });
+
+    expect(mocks.messagesInsertPatch).toHaveBeenCalledWith(expect.objectContaining({ content: own }));
+  });
+
   it("does not insert a scripted opener when the practice has none", async () => {
     // The three legacy practices don't declare a scriptedOpener; a
     // stray insert would show a phantom assistant message on load.

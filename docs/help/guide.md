@@ -32,9 +32,11 @@ the seat on the company's settings page, and Aimee follows it.
 
 ## What happens in the chat
 
-Aimee has read the meeting summary and opens with something from it.
-The conversation is about how the meeting went: what worked, where
-it got stuck, whether decisions landed with an owner and a date.
+The chat opens with the same line you clicked, from Aimee, ending
+with her question. Answer it and she picks up from there, having read
+the meeting summary. The conversation is about how the meeting went:
+what worked, where it got stuck, whether decisions ended up with an
+owner and a date.
 
 Three or four exchanges is a good one. There is no form to fill in.
 

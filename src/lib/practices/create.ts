@@ -37,7 +37,10 @@ export async function createPracticeConversation(
   // revisingRoleId: the conversation is new, it was opened from a
   // notification, and nothing else on the row would say which
   // meeting it came from. Migration 0235.
-  options?: { revisingRoleId?: string; debriefingMeetingId?: string }
+  //
+  // `opener`: a scripted first turn supplied by whatever launched the
+  // conversation, rather than by the agent. See OPENING TURN below.
+  options?: { revisingRoleId?: string; debriefingMeetingId?: string; opener?: string }
 ): Promise<CreateResult> {
   const practice = await resolveAgent(practiceId);
   if (!practice) {
@@ -92,15 +95,41 @@ export async function createPracticeConversation(
     return { ok: false, message: "Couldn't start that practice." };
   }
 
-  // Persist the scripted opener up-front. Only for firstTurn:
-  // "scripted" (or omitted for backward compat) — practices with
-  // firstTurn: "generate" get their opener streamed by ChatView
-  // right after landing on the chat page (a client-side effect
-  // fires /api/coach with generateOpener: true).
-  const shouldPersistScripted =
+  // ---- OPENING TURN ------------------------------------------
+  //
+  // Scripted openers are persisted here, up-front, as the first
+  // assistant message with no model call. Two sources, in order:
+  //
+  //   1. The launch. Whatever opened the conversation already said
+  //      something to this person, and that is the conversation's
+  //      first turn. A Guide invitation is the case: its line was
+  //      written and checked when it was raised (guide/headline.ts),
+  //      the champion read it in the notification bar, and clicking it
+  //      is answering it. Generating a second opener made the agent
+  //      repeat the line, drift to another part of the meeting, or
+  //      break voice rules the line had already been held to.
+  //
+  //   2. The agent. firstTurn "scripted" (or omitted, for backward
+  //      compat) with a scriptedOpener.
+  //
+  // With neither, a firstTurn "generate" agent gets its opener
+  // streamed by ChatView right after landing on the chat page (a
+  // client-side effect fires /api/coach with generateOpener: true).
+  // ChatView only does that for an EMPTY conversation, so a persisted
+  // opener here is also what stops a generated one.
+  //
+  // If the insert fails the conversation is empty, and a "generate"
+  // agent falls back to writing its own opener, with the opener checks
+  // in /api/coach. Logged below; the person still lands in a working
+  // conversation.
+  const launchOpener = options?.opener?.trim() || null;
+  const agentOpener =
     practice.scriptedOpener &&
-    (practice.firstTurn === "scripted" || practice.firstTurn === undefined);
-  if (shouldPersistScripted) {
+    (practice.firstTurn === "scripted" || practice.firstTurn === undefined)
+      ? practice.scriptedOpener
+      : null;
+  const opener = launchOpener ?? agentOpener;
+  if (opener) {
     try {
       const { error: openerErr } = await supabase
         .from("coaching_messages")
@@ -108,7 +137,7 @@ export async function createPracticeConversation(
           conversation_id: data.id,
           created_by: session.profile.id,
           role: "assistant",
-          content: practice.scriptedOpener,
+          content: opener,
         });
       if (openerErr) {
         console.error(

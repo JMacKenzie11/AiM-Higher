@@ -42,6 +42,11 @@ export type CoachingConversation = {
   // Stamped at creation and re-stamped when the agent is swapped;
   // never rewritten by a publish, which is the point of it.
   agent_version_id: string | null;
+  // The role description a conversation was opened to revise (0224),
+  // and the meeting a debrief was opened about (0235). Set once at
+  // creation (practices/create.ts); null on every other conversation.
+  revising_role_id: string | null;
+  debriefing_meeting_id: string | null;
   partner_profile_id: string | null;
   created_at: string;
   updated_at: string;

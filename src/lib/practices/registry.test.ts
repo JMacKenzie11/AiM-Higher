@@ -73,13 +73,14 @@ describe("the Role Description Creator", () => {
 describe("the meeting debrief agent", () => {
   const debrief = PRACTICES.find((p) => p.id === "guide-meeting-debrief")!;
 
-  // Aimee reaches out first for this one. The opener has to name
-  // something that actually happened in the meeting, which means a
-  // generated turn that has read the summary — a scripted line here
-  // would be "your meeting was analyzed" one screen further in.
-  it("generates its opener rather than scripting one", () => {
-    expect(debrief.firstTurn).toBe("generate");
-    expect(debrief.scriptedOpener).toBeUndefined();
+  // Scripted both ways in (2026-09-28). From an invitation the first
+  // turn is the invitation's line, supplied at launch; from the agent
+  // list, where no meeting is attached, this fixed line. A generated
+  // opener kept repeating the invitation, leaving its subject or
+  // breaking voice rules the line had already passed.
+  it("scripts its opener rather than generating one", () => {
+    expect(debrief.firstTurn).toBe("scripted");
+    expect(debrief.scriptedOpener).toMatch(/\?$/);
   });
 
   // The champion is frequently a team_member. The role list alone
