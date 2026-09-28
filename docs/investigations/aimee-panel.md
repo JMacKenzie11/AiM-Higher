@@ -17,48 +17,173 @@ The goal, in Jason's words, condensed:
 
 ---
 
-## Decisions I need from you first
+## Decisions (Jason, 2026-09-28)
 
-1. **Can people use the page while Aimee is open?** The house drawer
-   today is modal: it dims the page and blocks it. For "help me use the
-   app", people need to follow Aimee's instructions on the page with the
-   panel still open. I recommend **side by side on desktop** (the page
-   stays usable), **full screen on a phone**. This is the biggest design
-   choice, because it changes the drawer rather than just reusing it.
+1. **The page stays usable on desktop; the panel is full screen on a
+   phone.** How keyboard and screen reader use works is under "A panel
+   that does not block the page".
+2. **Plain Aimee plus help search in the panel, no agent picker** at
+   first.
+3. **The panel reopens the person's last plain Aimee conversation** (no
+   agent, not the last conversation with any agent), with a "New
+   conversation" button.
+4. **"About this page" stays**, at the top of the panel.
+5. **Guide nudges and shared chats move to the Aimee icon first.**
+   Everything else stays in the bell.
+6. **The icon is not chosen yet.** A preview page shows the three
+   directions at real size, with the unread dot, in light and dark mode.
+7. **Build the page list, with CI checking it stays complete.**
+8. **Fix the five problems first, as small separate PRs, starting with
+   the Agent Hub tools.** For the agent-switch problem, **hide** the old
+   opener; message deletes stay forbidden.
 
-2. **Which Aimee answers in the panel?** I recommend plain Aimee (the
-   general coach, with her memory and tools) plus the new help search,
-   with no agent picker in the panel at first. The other agents stay on
-   the Aimee page. The picker is the part that least fits a panel today
-   (see "Panel behaviour").
+**Coach memory in the panel (decided):**
+- A conversation started in the panel **never writes** to coach memory,
+  even if it is later opened on the Aimee page.
+- Aimee in the panel **may read** coach memory, so she still knows the
+  person.
+- When a panel conversation turns into real coaching, Aimee offers to
+  continue on the Aimee page, with a link that starts a **new** coaching
+  conversation there. Memory works there as it does today.
+- A test shows a panel conversation leaves coach memory unchanged.
 
-3. **One running conversation, or a fresh one each time?** I recommend
-   the panel reopens the conversation you had open, with a clear "New
-   conversation" button. Either way, panel conversations are ordinary
-   Aimee conversations and show on the Aimee page.
+**Build order (decided, replacing the phases at the end):** Step 2
+(page list and help search, on the Aimee page) first. Steps 1 and 3 as
+separate PRs, with the panel switched off for everyone except system
+admins until Step 3 has merged, then released together. In Step 4 the
+server loads the record under the person's own login, so the
+database's access rules apply; the browser never sends a record's
+contents.
 
-4. **Does "help for this page" still exist as something you can read,
-   or only through Aimee?** I recommend keeping it: a short "About this
-   page" section at the top of the panel, from the same help file as
-   today. It costs nothing, needs no model call, and means phase 1 is
-   useful before the chat moves in.
+---
 
-5. **Which notifications move first?** I recommend Guide nudges and
-   "someone shared an Aimee chat with you" (both are Aimee
-   conversations). The rest stay in the bell for now. The full list is
-   under "Notifications".
+## Marking a conversation as started in the panel
 
-6. **The icon.** Three directions are described under "The icon". Pick
-   one, or tell me what none of them gets right.
+**A new column: `coaching_conversations.origin`**, `text not null
+default 'page'`, `check (origin in ('page', 'panel'))`, set once at
+creation by the panel's create action. **Yes, it needs a migration**
+(0239-something, a fleet run like any other), because nothing on the row
+today can carry it:
+- `mode` is `general`/`about` and is constrained by a shape check;
+- `context_kind` is `execution`/`strengths`;
+- `practice_id` is null for plain Aimee on both surfaces, so it cannot
+  tell them apart;
+- a title prefix or a browser flag would be forgeable and invisible to
+  the database.
 
-7. **A list of every page, kept honest by CI.** Linking to pages and
-   checking who can open them needs a page registry that does not exist
-   today. OK to build it and have CI fail when a page is missing from it?
+**What reads it, and why it is enough for "never writes":**
+- **The memory sweep** (`memory-actions.ts`, `summarizeFinishedConversationsAction`)
+  skips `origin = 'panel'`, beside the existing `practice_id` skip. It
+  reads the row, not the surface, so opening the conversation later on
+  the Aimee page changes nothing.
+- **The write tools.** `remember_this` (and the memory update tool) can
+  write in the middle of a conversation, not only at the sweep. The
+  route leaves them out of the tool list whenever the conversation's
+  `origin` is `panel`. `memory_lookup` stays: reading is allowed.
+- **Not an access boundary.** The owner could in principle flip their
+  own row's `origin` through the update policy, but it only governs
+  their own memory, so there is nothing to protect against. The column
+  is a routing fact, not a permission, and needs no RLS probe of its
+  own. The migration still runs through the harness like any other.
 
-8. **Fix the problems I found first, as small separate PRs?** Five
-   existing bugs came up (listed under "Things this investigation
-   found"). Two of them change what people see today. I would fix them
-   before building on top.
+**The test (decided):** a panel conversation, with a turn that would
+normally trigger `remember_this` and a sweep run afterwards, leaves
+`coach_memories` for that person exactly as it was (count and rows,
+before and after), including after the same conversation is opened
+through the Aimee page's route. A second test: the same turn in a page
+conversation does write, so the test cannot pass by the memory path
+simply being broken (red first, E4).
+
+**"Continue on the Aimee page."** The prompt tells panel Aimee to offer
+it when the conversation turns to the person's own development rather
+than using the app. The link goes to `/ask-aimee/new` (a new `page`
+conversation), never to the same conversation, so memory rules never
+change mid-conversation.
+
+---
+
+## A panel that does not block the page
+
+On desktop the panel is a **complementary region**, not a dialog:
+- `role="complementary"` with `aria-label="Aimee"`, no `aria-modal`, no
+  dimmed backdrop, no focus trap. The page behind stays in the tab
+  order and usable.
+- **Opening** moves focus to the panel's message box, so a keyboard user
+  can type at once. The Aimee button carries `aria-expanded` and
+  `aria-controls`.
+- **Escape** closes the panel from anywhere inside it and returns focus
+  to the Aimee button. Closing never loses the conversation.
+- **Getting back into it:** the panel is a landmark, so screen reader
+  users reach it with their landmark navigation. For everyone, a
+  keyboard shortcut (proposed: Alt+A, shown in the button's tooltip)
+  focuses the panel's message box when it is open, and opens it when it
+  is not.
+- **New replies are announced** through a polite live region when the
+  reply is complete, never token by token (a streamed reply read out as
+  it arrives is unusable). Checked turns already arrive whole.
+- **Reduced motion** skips the slide, as the house drawer does.
+
+On a phone the panel covers the screen, so it behaves as a **dialog**:
+`aria-modal`, focus trapped inside, Escape and a visible close button,
+focus back to the Aimee button on close. One component, two behaviours,
+chosen by the same breakpoint the sidebar uses (768px).
+
+Tested with an axe check on both widths and a keyboard-only e2e: open
+with the button, type, Escape, confirm focus is back on the button, and
+confirm the page's own controls are reachable with the panel open on
+desktop.
+
+---
+
+## What a panel message costs
+
+**Measured today, production, the last 70 Aimee turns:** on average
+2,600 fresh input tokens, 7,000 read from cache, 3,000 written to cache
+and 650 output. At Sonnet 5 rates ($2 in, $10 out, $2.50 cache write,
+$0.20 cache read, per million tokens) that is about **2 cents a turn**.
+Dev, 105 turns, comes out the same (about 2 to 3 cents).
+
+**Added by the panel:**
+- **The page index**, about 1,000 tokens in the cached system prompt:
+  about 0.25 cents on the first message of a conversation (cache write),
+  about 0.02 cents on each message after (cache read).
+- **A help search**, when she runs one: a few sections back, about 3,000
+  tokens, read again on the tool loop's next pass: about 0.6 to 1 cent
+  on that message only.
+- **Page context** (Step 4): a few hundred tokens: under 0.1 cent.
+
+**Estimate: about 2 to 3 cents for a panel message, about 3 to 4 cents
+when she searches the help.** The per-conversation figure on the admin
+dashboard (Step 3) replaces this estimate with a measurement.
+
+---
+
+## Counting panel use and help answers
+
+`npm run aimee:uptake`, read-only, every active instance, one line per
+company per week, shaped like `guide:uptake`:
+
+| column | from |
+|---|---|
+| panel opens | a `aimee_panel_events` row per open (see below) |
+| panel conversations started | `coaching_conversations` where `origin = 'panel'` |
+| panel messages | `coaching_messages` joined to those conversations, counted, never read |
+| help answers | turns that ran `search_help`, from the same events table |
+| help searches with no result | the same, where the search returned nothing |
+| moved to the Aimee page | "Continue on the Aimee page" clicks |
+
+**Why a table and not only analytics.** PostHog already takes events, but
+this app's own reports (`guide:uptake`, `analysis:weekly`) read the
+database, and a weekly decision should not depend on a third party's
+retention. So a small `aimee_panel_events` table (migration, same PR as
+`origin`): `company_id`, `profile_id`, `kind` (`opened`, `help_search`,
+`continue_on_page`), `found` (for searches), `created_at`. **No query
+text and no page content**: a search can contain personal detail, and
+coaching is private, so the table records that a search happened and
+whether it found anything, never what was asked. RLS: insert own rows
+only; read by system admins (for the script, which uses the service
+role anyway). It gets an RLS probe (a member cannot read another
+person's rows) because it is a new table with user writes.
 
 ---
 
@@ -466,119 +591,106 @@ tint and a chartreuse accent. None says "AI"; she is "Aimee".
 
 ---
 
-## Phased build plan
+## Build plan (in the decided order)
 
-Each phase is its own PR, useful on its own, merged before the next
-starts.
+Each step is its own PR, useful on its own, merged before the next
+starts unless said otherwise.
 
-### Phase 0: fix what's broken underneath (small separate PRs)
+### Step 0: the five fixes (small separate PRs, first)
 
-- **Delivers:**
-  - portfolio admins get their help;
-  - the role-description version doc loads;
-  - Hub-published tools apply;
-  - old openers really are removed on agent swap;
-  - previews leave the admin's list;
-  - checked-turn retries are counted in cost.
-- **Changes:** `loader.ts` and `check-help-coverage.ts`; the route's
-  tool resolution; a delete path for openers (a narrow delete policy,
-  or a definer function); `listConversationsForUser`; usage logging.
-- **Migrations:** one, if the opener fix is a policy or function. It is
-  RLS, so it needs a harness probe with red first (E5).
-- **Tests:**
-  - loader tests for `candidateSlugs` and `parseRoles`;
-  - a route test that pinned tools win;
-  - a harness probe: the owner can delete only their conversation's
-    assistant opener before the first user turn, and nobody else can;
-  - list test;
-  - usage test.
-- **Decide first:** decision 8.
+In order, Agent Hub tools first:
+1. **Pinned tools apply**: the route takes an agent's tools from the
+   pinned version, not the code registry.
+2. **Old openers are hidden on agent swap**, never deleted. A
+   `hidden_at` on `coaching_messages` (migration), set through a
+   definer function the owner may call only before the first user turn,
+   and filtered out of the history the page and the route read. It gets
+   an RLS probe with red first (E5): the owner can hide their own
+   conversation's opener before the first user turn; nobody else can,
+   and nobody can hide anything after.
+3. **Portfolio admins get their help**; the role-description version
+   doc loads (`loader.ts`, `check-help-coverage.ts`, new loader tests).
+4. **Hub previews leave the admin's conversation list.**
+5. **Checked-turn retries are counted in cost.**
 
-### Phase 1: the icon and panel, with page help (small)
+### Step 2 (first): the page list and help search, on the Aimee page
 
-- **Delivers:** the Aimee icon replaces the "?". It opens a right-side
-  panel showing "About this page", the same help as today and still
-  role-filtered, plus an "Ask Aimee" button that opens the full Aimee
-  page for now. No chat in the panel yet.
-- **Changes:**
-  - a new `AimeeLauncher` in the layout, replacing `HelpWidget`;
-  - the `Drawer` gets a non-modal option;
-  - the widget-driven z-index and footer rules are cleaned up.
+- **Delivers:** Aimee answers "how do I" about any page, with links the
+  person can open, on the existing Aimee page.
+- **Changes:** `src/lib/pages/registry.ts` with its CI completeness test;
+  a per-person page index in the prompt; the `search_help` tool; the
+  server-side link check on replies.
 - **Migrations:** none.
-- **Tests:**
-  - the two e2e specs updated to the new label;
-  - a unit test that a member gets no admin-only help in the panel;
-  - an e2e check that the panel opens, shows the page's help, and
-    doesn't block the page on desktop.
-- **Docs:** `docs/help/*` wherever the "?" is mentioned; a help file
-  for the panel; spec §16.
-- **Decide first:** decisions 1, 4 and 6.
+- **Tests:** a member cannot get admin-only help; `::: role` text does
+  not leak through search; the index for a member has no admin pages and
+  no pages behind features the company lacks; a link to a page the
+  person cannot open is removed from a reply; the registry completeness
+  test fails for a page with no entry.
 
-### Phase 2: the page registry and help search, on the Aimee page first
+### Step 1: the icon and panel, with "About this page" (system admins only)
 
-- **Delivers:** Aimee can answer "how do I…" about any page, with links,
-  on the existing Aimee page. It ships behind no panel change, so it can
-  be judged on its own.
-- **Changes:**
-  - `src/lib/pages/registry.ts` and its CI test;
-  - a page index in the prompt, built per person;
-  - the `search_help` tool;
-  - the server-side link check on replies.
+- **Delivers:** the Aimee icon replaces the "?", opening the panel with
+  "About this page" (today's help, role-filtered). Shown to system admins
+  only until Step 3 merges.
+- **Changes:** `AimeeLauncher` in the app layout; the house `Drawer` gets
+  a non-modal mode (desktop) and keeps its dialog mode (phone); the
+  z-index and footer rules that existed for the "?" are settled.
 - **Migrations:** none.
-- **Tests:** the access tests listed under "Role and access", including
-  that a member can't get admin-only help and that no unreachable link
-  survives.
-- **Decide first:** decision 7.
+- **Tests:** the two e2e specs that find the "?" by label; keyboard and
+  axe checks at both widths; a non-admin still sees the "?" and not the
+  icon.
 
-### Phase 3: the whole conversation in the panel
+### Step 3: the conversation in the panel (system admins only, then release)
 
-- **Delivers:** chatting in the panel. The conversation survives
-  navigation, is shared with the Aimee page both ways, and works on a
-  phone.
-- **Changes:**
-  - a panel mode for `ChatView`, which scrolls inside itself and uses
-    no `router.refresh`;
-  - a server action returning the chat bundle;
-  - a keep-mounted panel;
-  - `MemorySweep` moves into the layout;
-  - "Open full page" and "Continue in panel";
-  - a per-conversation cost figure on the admin dashboard.
-- **Migrations:** none expected.
-- **Tests:** the first component tests for the panel chat; e2e for
-  starting in the panel, following a link and finding the conversation
-  still there, and opening the same conversation on the Aimee page;
-  `memory-sweep-mount` updated; the mobile layout spec.
-- **Decide first:** decisions 2 and 3.
+- **Delivers:** chatting in the panel; the last plain Aimee conversation
+  reopens; "New conversation"; the conversation survives following a
+  link; it shows on the Aimee page; panel conversations never write
+  coach memory; "Continue on the Aimee page"; the per-conversation cost
+  figure; `aimee:uptake`.
+- **Changes:** a panel mode for `ChatView` (scrolls inside itself, no
+  `router.refresh`); a server action returning the chat bundle; the
+  panel kept mounted; `MemorySweep` into the layout; the `origin` column
+  and `aimee_panel_events` table.
+- **Migrations:** `origin` and `aimee_panel_events` (one migration, fleet
+  run on Jason's go, dry run shown first).
+- **Tests:** the coach memory tests above (panel leaves memory unchanged,
+  page still writes, red first); the events table RLS probe; component
+  tests for the panel chat; e2e for start in panel, follow a link, still
+  there, open the same conversation on the Aimee page.
+- **Release:** Steps 1 and 3 switch on for everyone together, after this
+  merges.
 
-### Phase 4: page context
+### Step 4: page context
 
 - **Delivers:** "help me with this" knows the page and the record.
-- **Changes:**
-  - `{ path, pattern, recordId }` sent per message;
-  - the route resolves the record under RLS and adds it to the turn;
-  - a shared "what's open" context for drawer-opened records.
-- **Migrations:** none.
-- **Tests:**
-  - a record the person can't read resolves to nothing;
-  - the ID is the only thing taken from the browser;
-  - e2e: on a meeting page, "summarise this" names that meeting.
+- **Changes:** the panel sends `{ path, pattern, recordId }`; the server
+  loads the record **under the person's own login**, so RLS applies, and
+  adds a short description of it to the turn. The browser never sends a
+  record's contents. A shared "what is open" context for records opened
+  in a drawer.
+- **Tests (decided):** a team member cannot get Aimee to read a record
+  they cannot open (the ID of another company's meeting, or an
+  admin-only record, resolves to nothing and nothing about it reaches
+  the prompt); the route ignores anything but the ID from the browser.
 
-### Phase 5: nudges on the Aimee icon
+### Step 5: nudges and shared chats on the Aimee icon
 
-- **Delivers:** the icon's badge; a nudge opens its debrief in the
-  panel; chat shares move too (decision 5).
-- **Changes:**
-  - notification queries split by kind;
-  - the nudge open logic becomes a server action;
-  - the champion card copy and `guide.md` updated.
+- **Delivers:** the icon's badge; a nudge opens its debrief in the panel;
+  shared chats open in the panel. Everything else stays in the bell.
+- **Changes:** notification queries split by kind; the nudge open logic
+  becomes a server action; the champion card copy and `guide.md`.
 - **Migrations:** none. The champion-only rule is unchanged.
-- **Tests:**
-  - only the champion sees the badge;
-  - "Not now" still records a dismissal;
-  - opening from the panel marks it read and opened;
-  - the bell no longer shows moved kinds.
+- **Tests:** only the champion sees the nudge badge; "Not now" still
+  records a dismissal; opening from the panel marks it read and opened;
+  the bell no longer shows the moved kinds.
 
 ### Later: automatic agent choice
 
-This rests on the groundwork described above: one server-side choosing
-function, a record of why an agent was chosen, and pinned tools fixed.
+Groundwork as described above: one server-side choosing function, a
+record of why an agent was chosen, pinned tools fixed (Step 0.1).
+
+### Separately: the icon preview
+
+A preview page with the three directions at real size, the unread dot,
+light and dark mode, for Jason to choose from. System admins only, no
+effect on anything else. Before Step 1.
