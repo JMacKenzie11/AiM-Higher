@@ -320,9 +320,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     ...resolvePracticeTools(
       practice?.tools,
       convo.company_id,
-      (convo as { revising_role_id?: string | null }).revising_role_id ?? null,
-      (convo as { debriefing_meeting_id?: string | null })
-        .debriefing_meeting_id ?? null
+      convo.revising_role_id ?? null,
+      convo.debriefing_meeting_id ?? null
     ),
   ].filter(
     (t, i, all) => all.findIndex((o) => o.definition.name === t.definition.name) === i
@@ -605,13 +604,19 @@ export async function POST(req: NextRequest): Promise<Response> {
           // Whatever it ended up being, send it now. This is the
           // first and only text the reader gets for this turn.
           controller.enqueue(encodeEvent("delta", { text: assistantText }));
-        } else if (
-          (convo as { debriefing_meeting_id?: string | null }).debriefing_meeting_id
-        ) {
+        } else if (convo.debriefing_meeting_id) {
           // A debrief reply has already streamed, so it cannot be sent
           // back. Logged instead, to measure how often the voice rules
-          // break (reply-checks.ts).
-          const faults = debriefReplyFaults(assistantText);
+          // break (reply-checks.ts). The transcript is read for the quote
+          // check only, under the champion's own session (same-company
+          // members can read the meeting row, 0142), and never reaches
+          // the model.
+          const { data: meeting } = await supabase
+            .from("meetings")
+            .select("transcript_text")
+            .eq("id", convo.debriefing_meeting_id)
+            .maybeSingle<{ transcript_text: string | null }>();
+          const faults = debriefReplyFaults(assistantText, meeting?.transcript_text ?? "");
           if (faults.length > 0) {
             console.warn(
               `[coach] debrief reply broke the voice rules (${conversationId}, sent as written): ` +

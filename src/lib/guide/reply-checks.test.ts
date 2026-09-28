@@ -8,24 +8,34 @@ const REAL =
 
 describe("debriefReplyFaults", () => {
   it("names both faults in the real reply", () => {
-    const labels = debriefReplyFaults(REAL).map((h) => h.phrase);
+    const labels = debriefReplyFaults(REAL, "").map((h) => h.phrase);
     expect(labels).toContain("X instead of Y");
     expect(labels).toContain("affirming by denial");
   });
 
   it("catches the other denials the prompt names", () => {
     // "not a small thing" is on the banned list too, so it is named twice.
-    expect(debriefReplyFaults("That's not a small thing to notice.").map((h) => h.phrase)).toContain(
+    expect(debriefReplyFaults("That's not a small thing to notice.", "").map((h) => h.phrase)).toContain(
       "affirming by denial"
     );
-    expect(debriefReplyFaults("This isn't about blame.").map((h) => h.phrase)).toEqual(["affirming by denial"]);
+    expect(debriefReplyFaults("This isn't about blame.", "").map((h) => h.phrase)).toEqual(["affirming by denial"]);
   });
 
   it("leaves an ordinary reply alone", () => {
     expect(
       debriefReplyFaults(
-        "Everyone's answer made sense on its own. Who's best placed to tell the crew before Friday?"
+        "Everyone's answer made sense on its own. Who's best placed to tell the crew before Friday?",
+        ""
       )
     ).toEqual([]);
+  });
+
+  it("catches a quote nobody said, and passes one somebody did", () => {
+    // The real reply, dev, 2026-09-28, against the fixture's own line 79.
+    const transcript = "Speaker 2: I want it to stop happening, so yes.\n\nSpeaker 1: Good.";
+    const reply =
+      'The group didn\'t stop at "who screwed up the schedule this time." "I want it to stop happening, so yes" is about as clean a claim as you\'ll get.';
+    const invented = debriefReplyFaults(reply, transcript).filter((h) => h.phrase === "invented quote");
+    expect(invented.map((h) => h.context)).toEqual(["who screwed up the schedule this time."]);
   });
 });

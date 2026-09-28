@@ -167,7 +167,7 @@ export default async function AskAimeeChatPage({
   // latency, and eventually produce something that is nearly the
   // document.
   const revisingRoleId =
-    (conversation as { revising_role_id?: string | null }).revising_role_id ??
+    conversation.revising_role_id ??
     null;
   const revisingDoc = revisingRoleId
     ? await getCurrentRoleDescription(revisingRoleId)
