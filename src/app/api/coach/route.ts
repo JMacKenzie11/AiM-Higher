@@ -148,6 +148,20 @@ export async function POST(req: NextRequest): Promise<Response> {
     return new Response("Forbidden", { status: 403 });
   }
 
+  // ONE OPENER PER CONVERSATION. A second request to open a
+  // conversation that already has one gets the saved opener back,
+  // not a new one. Seen on dev, 2026-09-28: React's development
+  // double-run of the chat page's effect sent the request twice. The
+  // browser cancelled the first, the server finished it anyway, and
+  // the champion's debrief opened with two openers asking the same
+  // question. In production a double click or a refresh mid-reply
+  // does the same. Checked again just before the save, below, for
+  // two requests that both got past this point.
+  if (isGenerateOpener) {
+    const prior = await firstAssistantMessage(supabase, conversationId);
+    if (prior) return streamSavedMessage(prior);
+  }
+
   // Persist the user message immediately so it can't be lost if the
   // API call below fails. On retry the row already exists — reuse
   // it. On the opener-generation path there IS no user message;
@@ -535,6 +549,9 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
 
         let assistantText = combinedAssistantText.trim();
+        // Set when a parallel request saved this conversation's opener
+        // first (the check just before the save).
+        let savedOpener: CoachingMessage | null = null;
 
         // ---- ONE RETRY, ON THE OPENER ONLY -----------------------
         //
@@ -601,6 +618,17 @@ export async function POST(req: NextRequest): Promise<Response> {
               );
             }
           }
+          // Two requests that both passed the check at the top: the
+          // one that saves first wins, and this one shows that opener
+          // instead of saving a second.
+          const raced = await firstAssistantMessage(supabase, conversationId);
+          if (raced) {
+            console.log(
+              `[coach] opener for ${conversationId} already saved by a parallel request; sending that one`
+            );
+            savedOpener = raced;
+            assistantText = raced.content;
+          }
           // Whatever it ended up being, send it now. This is the
           // first and only text the reader gets for this turn.
           controller.enqueue(encodeEvent("delta", { text: assistantText }));
@@ -625,16 +653,18 @@ export async function POST(req: NextRequest): Promise<Response> {
           }
         }
 
-        const { data: assistantRow } = await supabase
-          .from("coaching_messages")
-          .insert({
-            conversation_id: conversationId,
-            created_by: session.profile.id,
-            role: "assistant",
-            content: assistantText,
-          })
-          .select("*")
-          .single<CoachingMessage>();
+        const { data: assistantRow } = savedOpener
+          ? { data: savedOpener }
+          : await supabase
+              .from("coaching_messages")
+              .insert({
+                conversation_id: conversationId,
+                created_by: session.profile.id,
+                role: "assistant",
+                content: assistantText,
+              })
+              .select("*")
+              .single<CoachingMessage>();
 
         // ---- COACH MEMORY, PART 2: READ THIS FIRST ---------------
         //
@@ -908,6 +938,41 @@ function buildMessages(
     }
   });
   return messages;
+}
+
+// The conversation's first assistant message: its opener, when there
+// is one.
+async function firstAssistantMessage(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  conversationId: string
+): Promise<CoachingMessage | null> {
+  const { data } = await supabase
+    .from("coaching_messages")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .eq("role", "assistant")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle<CoachingMessage>();
+  return data ?? null;
+}
+
+// A message already saved, sent in the same shape as a fresh reply,
+// so the chat shows it exactly as if it had just been written.
+function streamSavedMessage(row: CoachingMessage): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encodeEvent("delta", { text: row.content }));
+      controller.enqueue(encodeEvent("done", { assistantMessageId: row.id, usage: null }));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-store, no-transform",
+    },
+  });
 }
 
 function streamErrorResponse(message: string): Response {
