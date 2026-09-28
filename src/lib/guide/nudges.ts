@@ -136,32 +136,39 @@ export async function raiseMeetingDebriefNudge(
       .eq("state", "pending")
       .select("id");
 
-    // AND THE NOTIFICATIONS THEY RAISED.
+    // AND EVERY EARLIER INVITATION STILL IN THE BELL.
     //
-    // Superseding the nudge row alone left the old invitation
-    // sitting in the champion's bell. "Only the most recent
-    // invitation is live at any time" was then true in the table and
-    // false on the one screen anybody looks at — and the help page
-    // says it out loud, so the product was contradicting its own
-    // documentation.
+    // Superseding the nudge row alone left the old invitation sitting
+    // in the champion's bell. "Only the most recent invitation is live
+    // at any time" was then true in the table and false on the one
+    // screen anybody looks at, and the help page says it out loud.
     //
-    // Matched by the nudge id in the payload rather than by kind, so
-    // this can never reach a notification belonging to a different
-    // nudge or a different person.
-    for (const old of bumped ?? []) {
-      const { error: sweepError } = await admin
-        .from("notifications")
-        .update({ read_at: new Date().toISOString() })
-        .eq("payload->>nudge_id", old.id)
-        .is("read_at", null);
-      if (sweepError) {
-        // Loud, and not fatal. A stale notification is worse than no
-        // log line and better than no new nudge.
-        console.error(
-          `[guide] superseded nudge ${old.id} but could not clear its notification:`,
-          sweepError.message
-        );
-      }
+    // This used to clear only the notifications of the nudges bumped
+    // just above, which are the PENDING ones. An invitation that had
+    // been opened without clicking it in the bell (a direct link; the
+    // bell click is what marked it read) was never pending again, so
+    // it was never cleared, and they piled up: eleven in one
+    // champion's bell on dev, 2026-09-28. So: every unread Guide
+    // invitation for this company, whatever became of its nudge. The
+    // new one is inserted after this, so it is never swept.
+    //
+    // By kind and company: guide-nudge notifications are only ever
+    // raised here, for this company, so this cannot reach anything
+    // else. A former champion's leftover invitation goes too, which is
+    // right: it was superseded for them as well.
+    const { error: sweepError } = await admin
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("kind", "guide-nudge")
+      .eq("company_id", input.companyId)
+      .is("read_at", null);
+    if (sweepError) {
+      // Loud, and not fatal. A stale notification is worse than no
+      // log line and better than no new nudge.
+      console.error(
+        `[guide] could not clear earlier invitations for ${input.companyId}:`,
+        sweepError.message
+      );
     }
 
     const { data: nudge, error } = await admin
