@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 
 // One opener per conversation (route.ts, "ONE OPENER PER
 // CONVERSATION"). On dev the chat page's start effect ran twice and
@@ -70,8 +70,16 @@ beforeEach(() => {
   process.env.ANTHROPIC_API_KEY = "test";
 });
 
+// The route pulls in the whole coach stack, and importing it cold
+// inside a test ran past the 5s limit under the full suite's load
+// (2026-09-28): a timing failure, not a behaviour one. Loaded once,
+// with its own allowance, so the test times only what it tests.
+let POST: typeof import("./route").POST;
+beforeAll(async () => {
+  ({ POST } = await import("./route"));
+}, 60_000);
+
 const post = async () => {
-  const { POST } = await import("./route");
   const req = new Request("http://localhost/api/coach", {
     method: "POST",
     body: JSON.stringify({ conversationId: "conv1", generateOpener: true }),
