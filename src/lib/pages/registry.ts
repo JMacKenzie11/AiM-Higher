@@ -104,6 +104,8 @@ export const PAGES: readonly PageEntry[] = [
 
   // ---- System admin ---------------------------------------------------
   { pattern: "/admin/agents", roles: ["system_admin"], feature: null, link: true },
+  // A temporary preview for choosing Aimee's icon; deleted once chosen.
+  { pattern: "/admin/agents/aimee-icons", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/admin/classroom", roles: ["system_admin"], feature: null, link: true },
   { pattern: "/admin/classroom/lessons/[id]/edit", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/admin/classroom/trainings/[id]/edit", roles: ["system_admin"], feature: null, link: false },
