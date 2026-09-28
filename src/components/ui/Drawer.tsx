@@ -48,6 +48,7 @@ export function Drawer({
   side = false,
   trapFocus = false,
   initialFocusRef,
+  testId = "drawer-panel",
 }: {
   open: boolean;
   onClose: () => void;
@@ -80,6 +81,11 @@ export function Drawer({
   trapFocus?: boolean;
   // Where focus goes on open, instead of the panel itself.
   initialFocusRef?: React.RefObject<HTMLElement | null>;
+  // The panel's data-testid. "drawer-panel" for the drawers a page
+  // opens, which specs find as THE drawer. Aimee's panel is on every
+  // page and kept mounted, so it takes its own, or every one of those
+  // specs would find two.
+  testId?: string;
 }) {
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -162,7 +168,7 @@ export function Drawer({
         role={side ? "complementary" : "dialog"}
         aria-modal={side ? undefined : "true"}
         aria-labelledby={titleId}
-        data-testid="drawer-panel"
+        data-testid={testId}
         data-drawer-name={name}
       >
         <div className={styles.head}>

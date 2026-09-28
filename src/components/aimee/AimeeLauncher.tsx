@@ -119,6 +119,7 @@ export function AimeeLauncher() {
         trapFocus={phone}
         keepMounted
         name="aimee-panel"
+        testId="aimee-panel"
         initialFocusRef={firstFocus}
       >
         <div id="aimee-panel" className={styles.body}>

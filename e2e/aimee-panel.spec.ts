@@ -17,7 +17,7 @@ test.describe("Aimee's panel, desktop", () => {
     await expect(launcher).toHaveAttribute("aria-label", "Aimee");
 
     await launcher.click();
-    const panel = page.locator('[data-testid="drawer-panel"][data-drawer-name="aimee-panel"]');
+    const panel = page.locator('[data-testid="aimee-panel"]');
     await expect(panel).toBeVisible();
     // A labelled region, not a dialog: nothing hidden from a screen
     // reader, nothing modal.
@@ -43,7 +43,7 @@ test.describe("Aimee's panel, desktop", () => {
     await signIn(page, users.admin());
     await page.goto("/admin/companies");
     await page.keyboard.press("Control+Period");
-    await expect(page.locator('[data-testid="drawer-panel"][data-drawer-name="aimee-panel"]')).toBeVisible();
+    await expect(page.locator('[data-testid="aimee-panel"]')).toBeVisible();
   });
 });
 
@@ -54,7 +54,7 @@ test.describe("Aimee's panel, phone", () => {
     await signIn(page, users.admin());
     await page.goto("/admin/companies");
     await page.getByTestId("corner-launcher").click();
-    const panel = page.locator('[data-testid="drawer-panel"][data-drawer-name="aimee-panel"]');
+    const panel = page.locator('[data-testid="aimee-panel"]');
     await expect(panel).toHaveAttribute("role", "dialog");
     await expect(panel).toHaveAttribute("aria-modal", "true");
     for (let i = 0; i < 8; i++) {
@@ -71,5 +71,5 @@ test("a team member still has the help button, not Aimee", async ({ page }) => {
   await signIn(page, users.member());
   await page.goto("/plan");
   await expect(page.getByTestId("corner-launcher")).toHaveAttribute("aria-label", "Open help");
-  await expect(page.locator('[data-testid="drawer-panel"][data-drawer-name="aimee-panel"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="aimee-panel"]')).toHaveCount(0);
 });
