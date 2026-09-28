@@ -144,11 +144,24 @@
 }
 
 /* ---- Chat view ---- */
+/* THE CONVERSATION IS ONE CARD: header, thread and composer inside a
+   white panel that grows with the thread (Jason, 2026-09-28: the
+   replies read as floating on the page background). Replies and the
+   box you type into use --surface-inset so they hold their shape on
+   white. No overflow here: clipping would break the sticky header and
+   composer, which carry their own matching corners. */
 .chatWrap {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 200px);
+  /* Grows with the conversation. A floor, not a full screen: pinned to
+     the window height, a one-message debrief sat in a mostly empty
+     card. */
+  min-height: 24rem;
   gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .chatHeader {
@@ -226,13 +239,13 @@
 
 .thread {
   flex: 1 1 auto;
-  background: var(--aims-sand, var(--surface));
-  /* Extra bottom room so the sticky composer never covers the last
-     line of a streaming reply. Composer height grows with content
-     (textarea autosizes up to 6 lines) plus its own padding, so we
-     over-budget the padding. 12rem clears a fully expanded composer
-     with breathing room even when the last bubble is tall. */
-  padding: var(--space-5) var(--space-5) 12rem;
+  background: var(--surface);
+  /* The composer is the card's last row, after the thread in the
+     flow, so at the bottom of the page it sits below the last reply
+     rather than over it. Ordinary padding is enough; the old 12rem was
+     for a composer floating over a page-background thread, and inside
+     a card it read as an empty gap. */
+  padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -311,12 +324,10 @@
 
 .bubbleAssistant {
   max-width: 85%;
-  background: var(--surface);
+  background: var(--surface-inset);
   color: var(--text);
   padding: var(--space-4);
-  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
   font: var(--text-body);
   overflow-wrap: anywhere;
 }
@@ -495,7 +506,7 @@
 
 .composerInput {
   color: var(--text);
-  background: var(--surface);
+  background: var(--surface-inset);
   resize: none;
   overflow: auto;
 }

@@ -34,6 +34,10 @@
   --bg: var(--aims-sand);
   --surface: var(--aims-white);
   --surface-raised: var(--aims-white);
+  /* A fill that sits INSIDE a white card and must read as distinct
+     from it: a chat reply, the box you type into. Sand is the page
+     behind cards and too close to white to hold a shape on one. */
+  --surface-inset: var(--aims-sky-tint);
   --text: var(--aims-midnight);
   --text-heading: var(--aims-navy);
   --text-muted: #5B6472;
@@ -172,6 +176,7 @@
   --bg: var(--aims-midnight);
   --surface: var(--aims-navy);
   --surface-raised: #263D5F;
+  --surface-inset: #263D5F;
   --text: var(--aims-sand);
   --text-heading: var(--aims-white);
   --text-muted: #A8B4C4;
