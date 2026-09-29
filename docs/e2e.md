@@ -117,6 +117,12 @@ one typo apart, so the script checks rather than trusts.
 
 ## Specs write only into E2E Fixture Co
 
+**The rule: tests never change or move anything belonging to a real
+company or a real agent.** Not a row, not a name, not a place in a
+list, not a published version, not even for a moment and put back
+after. What a spec creates, it creates in the fixtures, and it removes
+what it created even when it fails.
+
 The dev clone holds copies of client companies. A spec may READ them
 (Benson Seafood's real plan is the long-title case the phone specs
 need), but anything a spec creates, renames, reorders or deletes goes
