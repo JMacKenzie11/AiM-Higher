@@ -14,7 +14,7 @@ import path from "node:path";
 // spec was run alone. next.config.ts keeps the compiled pages for the
 // run (onDemandEntries); this compiles them all first.
 //
-// Signed in as the system admin, scoped into Benson, so the page
+// Signed in as the system admin, scoped into E2E Fixture Co, so the page
 // itself compiles rather than a redirect to sign-in. Record pages are
 // requested with a made-up id: a "not found" still compiles the route.
 // API routes the specs call are warmed with a request each refuses
@@ -64,7 +64,12 @@ export default async function globalSetup(config: FullConfig) {
     await page.getByRole("button", { name: /sign in/i }).click();
     await expect(page.getByTestId("user-menu-trigger")).toBeVisible({ timeout: 120_000 });
     await page.goto("/admin/companies", { timeout: 120_000 });
-    await page.getByTestId("scope-into-company").filter({ hasText: /^Benson Seafood$/ }).click();
+    // The fixture company, and a long wait: on a freshly started server
+    // this is the first time the company list compiles.
+    await page
+      .getByTestId("scope-into-company")
+      .filter({ hasText: /^E2E Fixture Co$/ })
+      .click({ timeout: 180_000 });
     await page.waitForURL(/\/dashboard$/, { timeout: 120_000 });
 
     const pages = appPages();

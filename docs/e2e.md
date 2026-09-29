@@ -157,7 +157,7 @@ hit a different test or two every time, and each one passed when run
 alone (2026-09-29).
 
 So `e2e/global-setup.ts` signs in as the system admin, scopes into
-Benson and requests every page under `src/app/(app)` once before the
+E2E Fixture Co and requests every page under `src/app/(app)` once before the
 first test, and `next.config.ts` keeps compiled pages for four hours
 in dev (`onDemandEntries`). The warm-up takes a few minutes on a cold
 server and seconds on a warm one. Production builds are unaffected:
