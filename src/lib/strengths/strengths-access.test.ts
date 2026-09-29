@@ -82,7 +82,7 @@ describe("admin controls admit an assigned guide", () => {
     it(`${page} does not gate its admin controls on role alone`, () => {
       const src = read(page);
       expect(src).not.toMatch(ROLE_ONLY_IS_ADMIN);
-      expect(src).toMatch(/isAdminForCompany\(/);
+      expect(src).toMatch(/(isAdminForCompany|canAdminCompanyContent)\(/);
     });
   }
 });

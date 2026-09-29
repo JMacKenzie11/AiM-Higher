@@ -59,6 +59,41 @@ export function isAdminForCompany(
 }
 
 /**
+ * Admin controls on company CONTENT: Plan and Commitments.
+ *
+ * isAdminForCompany minus portfolio_admin. system_admin, the
+ * company's company_admin, and an aims_guide assigned to it. An
+ * assigned portfolio_admin is refused here even though
+ * isAdminForCompany admits them (Jason, 2026-09-29): their role is the
+ * container around a company, and the content admin buttons stay off
+ * for them. This is a courtesy-layer decision; the server actions and
+ * RLS are unchanged by it.
+ */
+export function canAdminCompanyContent(
+  profile: SessionProfileLike,
+  companyId: string
+): boolean {
+  if (profile.role === "portfolio_admin") return false;
+  return isAdminForCompany(profile, companyId);
+}
+
+/**
+ * The per-row counterpart for owned content rows (commitments): a
+ * content admin (canAdminCompanyContent) or the row's owner. Same
+ * shape as canWriteOwnedRow, which the ACTIONS keep using; this one
+ * decides which controls a page OFFERS, so an assigned portfolio_admin
+ * sees controls on their own rows only.
+ */
+export function canWriteOwnedContent(
+  profile: SessionProfileLike,
+  row: { company_id: string; owner_id: string | null }
+): boolean {
+  if (canAdminCompanyContent(profile, row.company_id)) return true;
+  if (row.owner_id === null) return false;
+  return row.owner_id === profile.id;
+}
+
+/**
  * true if the session role is portfolio_admin, whatever they are
  * assigned to.
  *

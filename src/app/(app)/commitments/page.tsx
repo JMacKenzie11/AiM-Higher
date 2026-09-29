@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
-import { canWriteOwnedRow, isAdminForCompany } from "@/lib/auth/permissions";
+import { canAdminCompanyContent, canWriteOwnedContent } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   getCommitmentsPageData,
@@ -43,8 +43,10 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
 
   // An assigned guide is an admin here: the commitment actions admit
   // them (canWriteOwnedRow, resolverRoleFor) and so does RLS. This
-  // also feeds PriorWeekRow's canResolve.
-  const isAdmin = isAdminForCompany(session.profile, companyId);
+  // also feeds PriorWeekRow's canResolve. An assigned portfolio_admin
+  // is not: canAdminCompanyContent and canWriteOwnedContent leave them
+  // controls on their own rows only.
+  const isAdmin = canAdminCompanyContent(session.profile, companyId);
 
   return (
     <PageShell
@@ -123,9 +125,9 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
             functionalAreaOptions={data.functionalAreaOptions}
             roster={rosterMinimal}
             todayIso={data.todayIso}
-            canResolve={canWriteOwnedRow(session.profile, c)}
-            canLink={canWriteOwnedRow(session.profile, c)}
-            canReassign={canWriteOwnedRow(session.profile, c)}
+            canResolve={canWriteOwnedContent(session.profile, c)}
+            canLink={canWriteOwnedContent(session.profile, c)}
+            canReassign={canWriteOwnedContent(session.profile, c)}
             currentUserId={session.profile.id}
             isAdmin={isAdmin}
           />
@@ -276,9 +278,9 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                   full_name: p.full_name,
                 }))}
                 todayIso={data.todayIso}
-                canResolve={canWriteOwnedRow(session.profile, c)}
-                canLink={canWriteOwnedRow(session.profile, c)}
-                canReassign={canWriteOwnedRow(session.profile, c)}
+                canResolve={canWriteOwnedContent(session.profile, c)}
+                canLink={canWriteOwnedContent(session.profile, c)}
+                canReassign={canWriteOwnedContent(session.profile, c)}
                 currentUserId={session.profile.id}
                 isAdmin={isAdmin}
               />
@@ -343,9 +345,9 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                   full_name: p.full_name,
                 }))}
                 todayIso={data.todayIso}
-                canResolve={canWriteOwnedRow(session.profile, c)}
-                canLink={canWriteOwnedRow(session.profile, c)}
-                canReassign={canWriteOwnedRow(session.profile, c)}
+                canResolve={canWriteOwnedContent(session.profile, c)}
+                canLink={canWriteOwnedContent(session.profile, c)}
+                canReassign={canWriteOwnedContent(session.profile, c)}
                 currentUserId={session.profile.id}
                 isAdmin={isAdmin}
               />
