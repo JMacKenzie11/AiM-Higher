@@ -46,11 +46,11 @@ export type AccessRowData = {
   openCommitmentsByCompany: Record<string, number>;
   /** Account-level controls for this person, if any. */
   actions?: ReactNode;
-  /** Of companyIds, those switched on as company admin (0247). */
+  /** Of companyIds, those switched on as company admin (0245). */
   adminCompanyIds?: string[];
 };
 
-// The company admin switch on a portfolio admin's assignment (0247).
+// The company admin switch on a portfolio admin's assignment (0245).
 // A system admin gets a checkbox per company the person has access to;
 // everybody else sees which ones are on.
 export type AdminSwitch = {

@@ -27,7 +27,7 @@ export type PeopleRosterRow = Profile & {
   // and that is not what a company admin tidying their team means.
   viaAssignment: boolean;
   // For someone here through an assignment: whether a system admin
-  // switched it on as company admin (0247). Off, they are on the team
+  // switched it on as company admin (0245). Off, they are on the team
   // and own their work; on, they are this company's admin.
   assignedAsAdmin: boolean;
 };

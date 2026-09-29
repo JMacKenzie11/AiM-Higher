@@ -87,7 +87,7 @@ describe("removeGuideFromCompanyAction", () => {
 
   it("lets a portfolio admin switched on as company admin end one", async () => {
     // Company admin rights come from the switch a system admin sets
-    // (0247), and isAdminForCompany is where that arrives.
+    // (0245), and isAdminForCompany is where that arrives.
     mocks.profile.role = "portfolio_admin";
     mocks.profile.company_id = null;
     mocks.profile.portfolio_company_ids = ["co_a"];

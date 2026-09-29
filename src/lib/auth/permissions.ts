@@ -16,7 +16,7 @@ export type SessionProfileLike = Pick<Profile, "id" | "role" | "company_id"> & {
   guide_company_ids?: readonly string[];
   portfolio_company_ids?: readonly string[];
   // The assignments a system admin has switched on as company admin
-  // (0247). A subset of portfolio_company_ids.
+  // (0245). A subset of portfolio_company_ids.
   portfolio_admin_company_ids?: readonly string[];
 };
 
@@ -28,14 +28,14 @@ export type SessionProfileLike = Pick<Profile, "id" | "role" | "company_id"> & {
  * level checks are NOT included — combine with an owner check when
  * you need "admin or owner".
  *
- * THE PORTFOLIO BRANCH IS PER-COMPANY, and since 0247 it is the
+ * THE PORTFOLIO BRANCH IS PER-COMPANY, and since 0245 it is the
  * company admin SWITCH, not the assignment. An assignment alone lets a
  * portfolio admin read the company and keep its own work (0246); a
  * system admin switching it on makes them that company's admin there
  * (Jason, 2026-09-29). Instance-wide reach is a different question,
  * answered by canViewCompany below.
  *
- * RLS SAYS THE SAME: is_content_admin_for() (0247) admits a portfolio
+ * RLS SAYS THE SAME: is_content_admin_for() (0245) admits a portfolio
  * admin only where the switch is on. Before 0245 the database admitted
  * every assigned portfolio admin through is_admin_for(), and this
  * helper agreed; both now follow the switch.

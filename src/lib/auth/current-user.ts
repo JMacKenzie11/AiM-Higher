@@ -35,7 +35,7 @@ export type SessionProfile = Profile & {
   guide_company_ids: readonly string[];
   portfolio_company_ids: readonly string[];
   // Of those, the ones a system admin switched on as company admin
-  // (0247): where this portfolio admin acts as the company's admin.
+  // (0245): where this portfolio admin acts as the company's admin.
   portfolio_admin_company_ids: readonly string[];
 };
 

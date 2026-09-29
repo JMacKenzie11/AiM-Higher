@@ -200,7 +200,7 @@ export type PortfolioAdminAccess = {
   companyIds: string[];
   /** Open commitments they own, per company id. Shown before removal. */
   openCommitmentsByCompany: Record<string, number>;
-  /** Of companyIds, those switched on as company admin (0247). */
+  /** Of companyIds, those switched on as company admin (0245). */
   adminCompanyIds: string[];
 };
 

@@ -3017,7 +3017,7 @@ update public.priorities set owner_id = '${PA}' where id = '${rows.priority}';`;
   };
 }
 
-// The company admin switch on a portfolio assignment (0247).
+// The company admin switch on a portfolio assignment (0245).
 //
 // Switched off, an assigned portfolio admin reads, writes its four
 // tables and keeps its own work; switched on, it acts as that
@@ -3030,7 +3030,7 @@ update public.priorities set owner_id = '${PA}' where id = '${rows.priority}';`;
 //             a portfolio admin adding its own assignment switched on:
 //             refused
 //   on        the same three writes land
-// Red before 0247 (no switch); green with it.
+// Red before 0245 (no switch); green with it.
 async function portfolioAdminCompanyAdminSwitch(
   run: Runner,
   ids: Identities,
@@ -3050,7 +3050,7 @@ async function portfolioAdminCompanyAdminSwitch(
       wrong: "no company admin switch on this schema",
       right: "the switch exists",
       ok: false,
-      detail: "no company admin switch: 0247 not applied. Runs for real under --pending 0247_portfolio_admin_company_admin_switch.sql.",
+      detail: "no company admin switch: 0245 not applied. Runs for real under --pending 0245_portfolio_admin_writes_four_tables.sql.",
     };
   }
   const CO = ids.companyAdminCompany;
@@ -3073,7 +3073,7 @@ insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
 values ('${PA}', '00000000-0000-0000-0000-000000000000', 'authenticated',
         'authenticated', '${PA}@example.invalid', '', now(), now(), now());
 insert into public.profiles (id, company_id, full_name, role, status)
-values ('${PA}', null, 'Harness 0247 PA', 'portfolio_admin', 'active');
+values ('${PA}', null, 'Harness 0245 PA', 'portfolio_admin', 'active');
 insert into public.portfolio_assignments (portfolio_admin_id, company_id) values ('${PA}', '${CO}');`;
   const as = (sub: string) =>
     `set local role authenticated;\nset local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
@@ -3094,14 +3094,14 @@ insert into public.portfolio_assignments (portfolio_admin_id, company_id) values
   };
   const writes = async (setup: string) => ({
     issue: await landed(setup,
-      `insert into public.issues (company_id, title, created_by) values ('${CO}', 'harness 0247', '${PA}');`,
-      `select count(*)::int as n from public.issues where title = 'harness 0247';`),
+      `insert into public.issues (company_id, title, created_by) values ('${CO}', 'harness 0245', '${PA}');`,
+      `select count(*)::int as n from public.issues where title = 'harness 0245';`),
     edit: await landed(setup,
-      `update public.commitments set description = 'harness 0247' where id = '${commitment}';`,
-      `select count(*)::int as n from public.commitments where id = '${commitment}' and description = 'harness 0247';`),
+      `update public.commitments set description = 'harness 0245' where id = '${commitment}';`,
+      `select count(*)::int as n from public.commitments where id = '${commitment}' and description = 'harness 0245';`),
     roll: await landed(setup,
-      `select * from public.roll_quarter('${CO}', 'Harness 0247', current_date, current_date + 90);`,
-      `select count(*)::int as n from public.quarters where company_id = '${CO}' and label = 'Harness 0247';`),
+      `select * from public.roll_quarter('${CO}', 'Harness 0245', current_date, current_date + 90);`,
+      `select count(*)::int as n from public.quarters where company_id = '${CO}' and label = 'Harness 0245';`),
   });
   const off = await writes("");
   const onBySys = `${as(SYS)}\n${switchOn(SYS)}\nreset role;`;

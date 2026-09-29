@@ -158,7 +158,7 @@ which is the form `npm run check:docs` reads.
 any owner: rows it owns in a company it is assigned to (its own
 commitments, priorities, goals, and focus areas it sponsors; 0246). And
 where a system admin has switched it on as a company's admin, it holds
-that company's admin writes there (`is_content_admin_for()`, 0247). The list is
+that company's admin writes there (`is_content_admin_for()`, 0245). The list is
 closed. `npm run rls:hazards` fails on a write policy naming the role
 anywhere else, in either spelling, and plants a deliberately wrong one on
 every run so a clean result is never a broken matcher. Reads are wide on

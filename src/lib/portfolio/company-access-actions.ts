@@ -156,7 +156,7 @@ export async function setPortfolioCompanyAccessAction(
 }
 
 // Switch a portfolio admin's assignment on or off as company admin
-// (0247, Jason 2026-09-29). On: they act as that company's admin there.
+// (0245, Jason 2026-09-29). On: they act as that company's admin there.
 // Off: they read it, write their four tables and keep their own work.
 //
 // SYSTEM ADMINS ONLY, and the database says so first: the only update

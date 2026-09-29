@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// The company admin switch (0247): system admins only, through their
+// The company admin switch (0245): system admins only, through their
 // own session, and only on an assignment that exists.
 
 const h = vi.hoisted(() => ({

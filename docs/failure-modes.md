@@ -1532,15 +1532,19 @@ row in the 30 tables names a portfolio admin as its author. 24 of the 30
 have no author column, so there a write can be ruled out only as far as
 "not seen".
 
-**Fixed by** 0245: each of the 75 rules and the two functions use
-`is_assigned_guide_for()`, every other clause kept word for word; the three
-FOR ALL rules get a FOR SELECT twin so reads do not change. The harness
-case `portfolio-admin-four-tables-only` asserts the intent, not the
-schema: no write rule outside the four tables reaches the role through
-any of the three helpers (a planted one is caught), an assigned portfolio
-admin's issue, commitment and roll_quarter writes are refused while a
-guide's and a company admin's land, and reads are unchanged. Red on the
-schema before 0245.
+**Fixed by** 0245: each of the 75 rules and the two functions call
+`is_content_admin_for()` (an assigned guide, or a portfolio admin a system
+admin has switched on as that company's admin), every other clause kept
+word for word; the three FOR ALL rules get a FOR SELECT twin so reads do
+not change. The switch and Promise One's three switches land in the same
+transaction as the restriction, so nobody who ran a company loses access on
+the way. 0246 keeps what any owner can do with its own rows. The harness
+cases `portfolio-admin-four-tables-only`, `portfolio-admin-owns-its-work`
+and `portfolio-admin-company-admin-switch` assert the intent: no write rule
+outside the four tables reaches the role through is_guide_for, is_admin_for
+or is_portfolio_admin (a planted one is caught), an assigned portfolio
+admin's content writes are refused with the switch off and land with it
+on, its own work stays its own, and reads are unchanged.
 
 **The rule** (CLAUDE.md, Permissions): never `is_guide_for()` or
 `is_admin_for()` in a write rule unless portfolio admins are meant to have

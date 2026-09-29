@@ -22,7 +22,7 @@ const PA = { id: "pa_1", role: "portfolio_admin" as const, company_id: null };
 // admin who wants to run one of their companies can, and one who
 // does not, does not — so both shapes are real and both are tested.
 // Assigned to co_a and co_c; a system admin switched co_a on as
-// company admin (0247), co_c is an assignment only.
+// company admin (0245), co_c is an assignment only.
 const PA_ASSIGNED = {
   id: "pa_2",
   role: "portfolio_admin" as const,
