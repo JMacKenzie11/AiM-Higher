@@ -308,7 +308,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   const plainAimee = convo.mode === "general" && !practice;
   const helpFeatures = plainAimee ? await getCompanyFeatures(convo.company_id) : [];
   const helpIndexBlock = plainAimee
-    ? formatHelpIndex(await helpIndexFor(session.profile.role, helpFeatures))
+    ? formatHelpIndex(await helpIndexFor(session.profile.role, helpFeatures), session.profile.role)
     : "";
   const systemPromptText =
     (await loadSystemPrompt(convo.mode, agentConfig)) + (helpIndexBlock ? `\n\n${helpIndexBlock}` : "");

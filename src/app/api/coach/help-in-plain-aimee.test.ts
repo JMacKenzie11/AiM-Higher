@@ -100,6 +100,13 @@ describe("plain Aimee and the app's help", () => {
     expect(system).not.toMatch(/\(\/admin|\(\/hq\)|\(\/portfolio\)/);
   });
 
+  it("is told a team member's role, and to send them to their admin rather than give admin steps", async () => {
+    const { system } = await send();
+    expect(system).toContain("This person is a team member.");
+    expect(system).toMatch(/don't give the steps and don't describe tools they can't use/);
+    expect(system).toContain("their company admin");
+  });
+
   it("tells a system admin about the Agent Hub", async () => {
     h.role = "system_admin";
     const { system } = await send();
