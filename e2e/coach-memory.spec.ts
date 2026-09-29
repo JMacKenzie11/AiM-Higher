@@ -338,11 +338,18 @@ test.describe("coach memory", () => {
     // still reaching context assembly after every row was deleted,
     // she would recall it.
     const remaining = page.getByRole("button", { name: /^Delete:/i });
+    // One at a time, each confirmed gone before the next. A fixed
+    // pause let the loop click a row whose delete was still in flight,
+    // and the run hung on a confirm button that kept leaving the page.
     for (let guard = 0; guard < 20; guard += 1) {
-      if ((await remaining.count()) === 0) break;
+      const count = await remaining.count();
+      if (count === 0) break;
       await remaining.first().click();
-      await page.getByRole("button", { name: /^delete$/i }).click();
-      await page.waitForTimeout(800);
+      const accept = page.getByTestId("confirm-accept");
+      await expect(accept).toBeVisible();
+      await accept.click();
+      await expect(accept).toHaveCount(0);
+      await expect(remaining).toHaveCount(count - 1, { timeout: 30_000 });
     }
     await expect(remaining).toHaveCount(0, { timeout: 30_000 });
 
