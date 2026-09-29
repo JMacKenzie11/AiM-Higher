@@ -1,4 +1,5 @@
 import "server-only";
+import { TEST_AGENT_CODE_CHIP, TEST_AGENT_ID, TEST_ONLY_FEATURE } from "./test-agent";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { PracticeCategory } from "./categories";
@@ -199,6 +200,19 @@ export const PRACTICES: readonly Practice[] = [
     ],
     basePromptMode: "full_coach",
     skipSetup: false,
+  },
+  {
+    // Test-only (lib/practices/test-agent.ts): the E2E fixture companies
+    // alone have its feature, so no real company's people see it.
+    id: TEST_AGENT_ID,
+    title: "E2E version test agent",
+    description: "Used by the browser tests. Shown only inside the E2E fixture companies.",
+    category: "Facilitation",
+    promptFile: "prompts/practices/e2e-version-test.md",
+    chips: [TEST_AGENT_CODE_CHIP],
+    basePromptMode: "voice_only",
+    skipSetup: false,
+    feature: TEST_ONLY_FEATURE,
   },
   {
     id: "ask-better-questions",

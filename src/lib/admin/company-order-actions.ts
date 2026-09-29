@@ -35,23 +35,17 @@ export async function reorderCompaniesAction(
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
-  // Read first, then write only what moved. A drag usually shifts a
-  // contiguous handful of rows, so this is typically two or three
-  // updates rather than one per company — and on a no-op drop, none
-  // at all.
+  // Only the companies whose place in the list changed are written
+  // (planCompanyReorder). Everyone else's row is left alone, even when
+  // positions have gaps from removed companies.
   const { data: current } = await supabase
     .from("companies")
-    .select("id, sort_order")
+    .select("id, sort_order, name")
     .in("id", orderedIds);
-  const currentById = new Map(
-    ((current ?? []) as Array<{ id: string; sort_order: number | null }>).map(
-      (row) => [row.id, row.sort_order]
-    )
+  const changed = planCompanyReorder(
+    (current ?? []) as CompanyPosition[],
+    orderedIds
   );
-
-  const changed = orderedIds
-    .map((id, index) => ({ id, position: index + 1 }))
-    .filter(({ id, position }) => currentById.get(id) !== position);
 
   for (const { id, position } of changed) {
     const { error } = await supabase
@@ -73,4 +67,55 @@ export async function reorderCompaniesAction(
   revalidatePath("/admin/companies");
   revalidatePath("/portfolio");
   return { ok: true };
+}
+
+// ---- Which rows a reorder writes -------------------------------------
+
+export type CompanyPosition = { id: string; sort_order: number | null; name: string };
+
+// WRITE ONLY THE COMPANIES WHOSE PLACE CHANGED (2026-09-29).
+//
+// This used to number the whole list 1, 2, 3... and save every row
+// whose number differed. After a company is removed its number leaves
+// a gap, so the next drag re-saved every company below the gap even
+// though none of them moved. The browser tests swap two fixture
+// companies, and that re-saved the rows of real ones; tests must never
+// change anything belonging to a real company (docs/e2e.md).
+//
+// So: the old order is the current positions (then name, as the list
+// sorts). A company keeps its row untouched if its place in the list is
+// the same. The companies that did change places share out the
+// position numbers they already held, in the new order. Those numbers
+// sit at exactly the places those companies occupy, so the whole list
+// still sorts into the new order. A swap is two writes.
+//
+// If any company has no position yet, or two share one, there are no
+// numbers to share out safely, and it falls back to numbering the list
+// 1..N, as before.
+export function planCompanyReorder(
+  current: readonly CompanyPosition[],
+  orderedIds: readonly string[]
+): Array<{ id: string; position: number }> {
+  const byId = new Map(current.map((row) => [row.id, row]));
+  const rows = orderedIds.map((id) => byId.get(id)).filter((r): r is CompanyPosition => !!r);
+  const values = rows.map((r) => r.sort_order);
+  const usable =
+    rows.length === orderedIds.length &&
+    values.every((v): v is number => v !== null) &&
+    new Set(values).size === values.length;
+
+  if (!usable) {
+    return orderedIds
+      .map((id, index) => ({ id, position: index + 1 }))
+      .filter(({ id, position }) => byId.get(id)?.sort_order !== position);
+  }
+
+  const oldOrder = [...rows]
+    .sort((a, b) => (a.sort_order as number) - (b.sort_order as number) || a.name.localeCompare(b.name))
+    .map((r) => r.id);
+  const moved = orderedIds.filter((id, index) => oldOrder[index] !== id);
+  const pool = moved.map((id) => byId.get(id)!.sort_order as number).sort((a, b) => a - b);
+  return moved
+    .map((id, k) => ({ id, position: pool[k] }))
+    .filter(({ id, position }) => byId.get(id)!.sort_order !== position);
 }

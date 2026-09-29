@@ -138,6 +138,20 @@ seed gives a small chart (Visionary, E2E Operations, E2E Sales) and two
 measures per area, and whose leftover "E2E add" and "E2E move"
 functions the seed clears.
 
+What the fixtures give the specs to change, instead of real data:
+
+- **E2E Fixture Co 2**, next to E2E Fixture Co at the end of the
+  company list. The company-order test swaps these two and checks that
+  no other company's place changed.
+- **The test-only agent** (`e2e-version-test`), which only the two
+  fixtures can see, through the `e2e_testing` feature the seed sets.
+  The agent-version and Agent Hub specs publish, rename and re-scope it
+  and nothing else. The seed resets it to its code default before every
+  run, so a run stopped halfway never leaves the next one a live test
+  version or a stranded draft.
+- The portfolio spec removes the company it creates, the app's way
+  (archive, then delete), even when it fails.
+
 Scope with the name, never with `.first()`:
 
 ```ts

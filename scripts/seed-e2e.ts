@@ -240,8 +240,59 @@ async function main() {
   }
   console.log(`  company "${COMPANY_NAME}" → ${companyId}`);
 
+  // ---- the second fixture company, and the fixtures' place ------
+  //
+  // The company-order test swaps two companies and puts them back. It
+  // swaps these two, so no real company is ever moved (docs/e2e.md).
+  // Both sit at the end of the list, next to each other: positions just
+  // past the highest any other company holds. No other company's row
+  // is read for anything but that number, and none is written.
+  const SECOND_COMPANY_NAME = `${COMPANY_NAME} 2`;
+  const { data: existingSecond } = await admin
+    .from("companies")
+    .select("id")
+    .eq("name", SECOND_COMPANY_NAME)
+    .maybeSingle<{ id: string }>();
+  let secondCompanyId = existingSecond?.id ?? null;
+  if (!secondCompanyId) {
+    const { data, error } = await admin
+      .from("companies")
+      .insert({ name: SECOND_COMPANY_NAME, timezone: COMPANY_TIMEZONE, industry: "Testing" })
+      .select("id")
+      .single<{ id: string }>();
+    if (error) throw error;
+    secondCompanyId = data.id;
+  }
+  const { data: others } = await admin
+    .from("companies")
+    .select("sort_order")
+    .not("id", "in", `(${companyId},${secondCompanyId})`)
+    .not("sort_order", "is", null)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  const last = ((others ?? []) as Array<{ sort_order: number }>)[0]?.sort_order ?? 0;
+  for (const [id, position] of [[companyId, last + 1], [secondCompanyId, last + 2]] as const) {
+    const { error } = await admin
+      .from("companies")
+      .update({ sort_order: position, status: "active", deleted_at: null })
+      .eq("id", id);
+    if (error) throw error;
+  }
+  console.log(`  company "${SECOND_COMPANY_NAME}" → ${secondCompanyId}; both fixtures last in the list (${last + 1}, ${last + 2})`);
+
   // ---- features -----------------------------------------------
-  const features = [...FEATURES];
+  //
+  // e2e_testing on both fixtures and nowhere else: it gates the
+  // test-only agent (src/lib/practices/test-agent.ts). No screen can
+  // switch it on; this is the only place it is set.
+  const features = [...FEATURES, "e2e_testing"];
+  const { error: secondFeaturesError } = await admin
+    .from("company_features")
+    .upsert(
+      ["execution", "e2e_testing"].map((feature) => ({ company_id: secondCompanyId, feature })),
+      { onConflict: "company_id,feature" }
+    );
+  if (secondFeaturesError) throw secondFeaturesError;
   const { error: featuresError } = await admin
     .from("company_features")
     .upsert(
@@ -421,6 +472,39 @@ async function main() {
     );
   if (assignmentError) throw assignmentError;
   console.log(`  guide assignment → ${adminEmail} covers "${COMPANY_NAME}"`);
+
+  // ---- the test-only agent, reset to its code default ------------
+  //
+  // The agent-version specs publish versions of this agent and nothing
+  // else (src/lib/practices/test-agent.ts). Its row carries the
+  // e2e_testing feature so it appears only inside the fixtures, and
+  // both version pointers go back to null before every run, so a run
+  // that was stopped halfway never leaves the next one a live test
+  // version or a stranded draft. Old versions stay; they are history.
+  {
+    const TEST_AGENT_SLUG = "e2e-version-test";
+    const { data: category } = await admin
+      .from("agent_categories")
+      .select("id")
+      .eq("slug", "facilitation")
+      .single<{ id: string }>();
+    const { error } = await admin.from("agents").upsert(
+      {
+        slug: TEST_AGENT_SLUG,
+        category_id: category?.id,
+        title: "E2E version test agent",
+        description: "Used by the browser tests. Shown only inside the E2E fixture companies.",
+        allowed_roles: [],
+        feature: "e2e_testing",
+        archived: false,
+        live_version_id: null,
+        draft_version_id: null,
+      },
+      { onConflict: "slug" }
+    );
+    if (error) throw error;
+    console.log(`  agent "${TEST_AGENT_SLUG}" → code default, fixtures only`);
+  }
 
   // ---- Clear what the specs LEAVE BEHIND -------------------------
   //

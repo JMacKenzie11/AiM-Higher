@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Drawer } from "@/components/ui/Drawer";
 import { COMPANY_FEATURES } from "@/lib/companies/features";
+import { TEST_ONLY_FEATURE } from "@/lib/practices/test-agent";
 import {
   HUB_ROLE_OPTIONS,
   FUNCTION_LEAD_PREDICATE,
@@ -133,7 +134,13 @@ export function AgentAccessDrawer({
             className={admin.select}
             value={feature}
             onChange={(e) => setFeature(e.target.value)}
+            // The test-only agent's gate is fixed: the save keeps it
+            // whatever is chosen here (lib/practices/test-agent.ts).
+            disabled={agent.feature === TEST_ONLY_FEATURE}
           >
+            {agent.feature === TEST_ONLY_FEATURE ? (
+              <option value={TEST_ONLY_FEATURE}>E2E testing (the test fixtures only)</option>
+            ) : null}
             <option value="">No feature needed</option>
             {featureOptions.map((f) => (
               <option key={f.value} value={f.value}>

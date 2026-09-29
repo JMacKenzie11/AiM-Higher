@@ -1,3 +1,4 @@
+import { TEST_AGENT_ID } from "../src/lib/practices/test-agent";
 import {
   test,
   expect,
@@ -12,15 +13,28 @@ import type { Page } from "@playwright/test";
 // The Agent Hub's two write paths, each walked in a browser and each
 // put back the way it was found.
 //
-// These run against the dev clone, so every test here restores what
-// it changed. A rename that leaked would show up on somebody else's
-// screen as the product having been renamed, which is exactly the
-// blast radius this page has and the reason it is system-admin only.
+// ON THE TEST-ONLY AGENT, never a real one (docs/e2e.md). These used
+// to rename "Ask great questions" and change its access, which showed
+// every company on the dev clone a renamed agent while they ran. The
+// test agent is listed in the Hub only while you are inside an E2E
+// fixture company, so every test here scopes in first.
 
-const SLUG = "ask-better-questions";
-// The seeded title, so the restore has something to restore TO even
-// when the test failed before it could read the original.
-const SEEDED_TITLE = "Ask great questions";
+const SLUG = TEST_AGENT_ID;
+// The seeded title (seed:e2e), so the restore has something to restore
+// TO even when the test failed before it could read the original.
+const SEEDED_TITLE = "E2E version test agent";
+
+// Signed in as the system admin, inside the fixture company, on the Hub.
+async function openHubInFixture(page: Page) {
+  await signIn(page, users.admin());
+  await page.goto("/admin/companies");
+  await page
+    .getByTestId("scope-into-company")
+    .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
+    .click();
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
+  await page.goto("/admin/agents");
+}
 
 // The slug is on the row element itself, so this addresses the row
 // directly. Re-resolved after every write rather than held, because
@@ -110,8 +124,7 @@ test.describe("Agent Hub", () => {
   });
 
   async function restoreFixture(page: Page) {
-    await signIn(page, users.admin());
-    await page.goto("/admin/agents");
+    await openHubInFixture(page);
     const row = page.locator(`[data-agent-slug="${SLUG}"]`);
     if ((await row.count()) === 0) return;
 
@@ -151,8 +164,7 @@ test.describe("Agent Hub", () => {
     // which left the seeded five — the ones most likely to be edited
     // centrally and pushed — as the only agents that could not be
     // sent anywhere.
-    await signIn(page, users.admin());
-    await page.goto("/admin/agents");
+    await openHubInFixture(page);
 
     const row = rowFor(page);
     await expect(row).toBeVisible();
@@ -167,8 +179,7 @@ test.describe("Agent Hub", () => {
   }) => {
     const marker = `E2E Renamed ${Date.now()}`;
 
-    await signIn(page, users.admin());
-    await page.goto("/admin/agents");
+    await openHubInFixture(page);
 
     const row = rowFor(page);
     await expect(row).toBeVisible();
@@ -242,8 +253,7 @@ test.describe("Agent Hub", () => {
   });
 
   test("admits Functional Leads, and takes it back", async ({ page }) => {
-    await signIn(page, users.admin());
-    await page.goto("/admin/agents");
+    await openHubInFixture(page);
 
     const row = rowFor(page);
     await expect(row).toBeVisible();
@@ -271,8 +281,7 @@ test.describe("Agent Hub", () => {
   test("refuses to hide a category that still holds agents", async ({
     page,
   }) => {
-    await signIn(page, users.admin());
-    await page.goto("/admin/agents");
+    await openHubInFixture(page);
 
     const categories = page.getByTestId("agent-hub-categories");
     const populated = categories
