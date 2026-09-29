@@ -1,44 +1,18 @@
 // Sentry init for the Node.js server runtime (App Router server
 // components, route handlers, server actions). Loaded from
 // src/instrumentation.ts.
+//
+// What leaves the process is decided in
+// src/lib/observability/scrub-event.ts, shared with the edge and
+// browser configs: no IP addresses, cookies, headers, query strings,
+// or request and response bodies.
 
 import * as Sentry from "@sentry/nextjs";
-
-// Redact anything that looks like a JWT before an event leaves the
-// process. Supabase session tokens are `eyJ…` triple-dot strings; if
-// one lands in a message, breadcrumb data, or extra it must never
-// be stored server-side at Sentry.
-//
-// We only touch fields Sentry guarantees are strings/plain data —
-// walking the whole event blindly overflows the stack on deep
-// structures like stack-frame `vars`, which is what caused
-// JAVASCRIPT-NEXTJS-2 the first time we deployed this scrubber.
-const JWT = /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g;
-
-function redact(s: string | undefined): string | undefined {
-  return s ? s.replace(JWT, "[JWT_REDACTED]") : s;
-}
-
-function scrubShallow(obj: Record<string, unknown> | undefined) {
-  if (!obj) return;
-  for (const [k, v] of Object.entries(obj)) {
-    if (typeof v === "string") obj[k] = redact(v);
-  }
-}
-
-function scrubEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
-  event.message = redact(event.message);
-  for (const ex of event.exception?.values ?? []) {
-    ex.value = redact(ex.value);
-  }
-  for (const bc of event.breadcrumbs ?? []) {
-    bc.message = redact(bc.message);
-    scrubShallow(bc.data);
-  }
-  scrubShallow(event.extra);
-  scrubShallow(event.tags as Record<string, unknown> | undefined);
-  return event;
-}
+import {
+  DATA_COLLECTION,
+  scrubEvent,
+  scrubPersonalDataIntegration,
+} from "./src/lib/observability/scrub-event";
 
 Sentry.init({
   dsn: "https://cfe4404b707a11cbf34a5f659d927ad6@o4511878465978368.ingest.us.sentry.io/4511878475415552",
@@ -50,7 +24,28 @@ Sentry.init({
 
   enableLogs: true,
 
+  sendDefaultPii: false,
+  dataCollection: DATA_COLLECTION,
+
+  integrations: [
+    // Replaces the Http integration @sentry/nextjs installs by default
+    // (same name, so this one wins) with one change: it no longer
+    // buffers incoming request bodies. That buffering (up to 10 KB,
+    // "medium") is on by default and does not consult
+    // dataCollection.httpBodies; the body then lands in
+    // event.request.data. Server action POSTs and /api/coach
+    // conversation text are exactly those bodies.
+    Sentry.httpIntegration({
+      disableIncomingRequestSpans: true,
+      maxIncomingRequestBodySize: "none",
+    }),
+    scrubPersonalDataIntegration(),
+  ],
+
   beforeSend(event) {
+    return scrubEvent(event);
+  },
+  beforeSendTransaction(event) {
     return scrubEvent(event);
   },
 });
