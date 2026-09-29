@@ -8,7 +8,7 @@ import remarkGfm from "remark-gfm";
 import { Drawer } from "@/components/ui/Drawer";
 import { usePageHelp } from "@/components/help/usePageHelp";
 import { trackClient } from "@/lib/analytics/track-client";
-import { AimeeIconA } from "./AimeeIcons";
+import { AimeeIcon } from "./AimeeIcons";
 import styles from "./AimeeLauncher.module.css";
 
 // AIMEE'S ICON AND PANEL, replacing the "?" help button in the same
@@ -109,7 +109,7 @@ export function AimeeLauncher() {
           });
         }}
       >
-        <AimeeIconA />
+        <AimeeIcon />
       </button>
       <Drawer
         open={open}
