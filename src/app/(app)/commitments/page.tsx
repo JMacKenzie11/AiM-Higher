@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
-import { canWriteOwnedRow } from "@/lib/auth/permissions";
+import { canWriteOwnedRow, isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   getCommitmentsPageData,
@@ -41,9 +41,10 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
     filters
   );
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // An assigned guide is an admin here: the commitment actions admit
+  // them (canWriteOwnedRow, resolverRoleFor) and so does RLS. This
+  // also feeds PriorWeekRow's canResolve.
+  const isAdmin = isAdminForCompany(session.profile, companyId);
 
   return (
     <PageShell

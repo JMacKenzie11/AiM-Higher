@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserStrengths } from "@/lib/strengths/user-strengths";
+import { canEditUserStrengths } from "@/lib/strengths/strengths-access";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
 import type { Profile } from "@/lib/types";
@@ -10,7 +11,8 @@ import styles from "@/app/(app)/strengths/strengths.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Manual strengths for a specific team member. Editable by self,
-// system_admin, or company_admin of the same company.
+// system_admin, or the company_admin or assigned guide of the same
+// company. See canEditUserStrengths.
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -30,11 +32,7 @@ export default async function PersonStrengthsPage({ params }: PageProps) {
   if (!subject) notFound();
 
   const isSelf = session.profile.id === subject.id;
-  const isSystemAdmin = session.profile.role === "system_admin";
-  const isCompanyAdmin =
-    session.profile.role === "company_admin" &&
-    session.profile.company_id === subject.company_id;
-  if (!isSelf && !isSystemAdmin && !isCompanyAdmin) redirect("/people");
+  if (!canEditUserStrengths(session.profile, subject)) redirect("/people");
 
   const [strengths, assessmentCompleted] = await Promise.all([
     getUserStrengths(subject.id),

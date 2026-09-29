@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PlusIcon } from "../../../../../components/ui/PlusIcon";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getSfaDetail } from "@/lib/plan/service";
 import { StatusChip } from "@/components/plan/StatusChip";
 import { SfaHeroPanel } from "./SfaHeroPanel";
@@ -22,9 +23,7 @@ export default async function SfaDetailPage({ params }: PageProps) {
   const detail = await getSfaDetail(id);
   if (!detail) notFound();
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  const isAdmin = isAdminForCompany(session.profile, detail.sfa.company_id);
   const isSponsor = detail.sfa.sponsor_id === session.profile.id;
   const sponsor = detail.people.find((p) => p.id === detail.sfa.sponsor_id) ?? null;
 

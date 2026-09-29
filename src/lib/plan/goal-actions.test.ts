@@ -61,7 +61,10 @@ vi.mock("@/lib/auth/current-user", () => ({
   requireProfile: mocks.requireProfile,
 }));
 
-vi.mock("@/lib/auth/permissions", () => ({
+// Partial: the status actions call the real isAdminForCompany, so the
+// guide branch is exercised rather than stubbed.
+vi.mock("@/lib/auth/permissions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth/permissions")>()),
   scopedCompanyId: mocks.scopedCompanyId,
 }));
 
@@ -80,6 +83,7 @@ function sessionFor(profile: {
   id?: string;
   role?: "system_admin" | "company_admin" | "team_member" | "aims_guide";
   company_id?: string | null;
+  guide_company_ids?: string[];
 }) {
   return {
     profile: {
@@ -87,6 +91,7 @@ function sessionFor(profile: {
       role: profile.role ?? "company_admin",
       company_id:
         "company_id" in profile ? profile.company_id : "co_acme",
+      guide_company_ids: profile.guide_company_ids ?? [],
     },
   };
 }
@@ -242,6 +247,48 @@ describe("updateGoalStatusAction", () => {
 
     expect(res.ok).toBe(true);
     expect(mocks.goalsUpdatePatch).toHaveBeenCalledWith({ status: "on_track" });
+  });
+
+  it("allows an aims_guide assigned to the goal's company", async () => {
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({
+        id: "guide_1",
+        role: "aims_guide",
+        company_id: null,
+        guide_company_ids: ["co_acme"],
+      })
+    );
+    mocks.goalsSelectMaybeSingle.mockResolvedValueOnce({
+      data: goalRow({ owner_id: "owner_1" }),
+      error: null,
+    });
+    const { updateGoalStatusAction } = await import("./goal-actions");
+
+    const res = await updateGoalStatusAction("goal_1", "behind");
+
+    expect(res.ok).toBe(true);
+    expect(mocks.goalsUpdatePatch).toHaveBeenCalledWith({ status: "behind" });
+  });
+
+  it("blocks an aims_guide who is not assigned to the goal's company", async () => {
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({
+        id: "guide_1",
+        role: "aims_guide",
+        company_id: null,
+        guide_company_ids: ["co_other"],
+      })
+    );
+    mocks.goalsSelectMaybeSingle.mockResolvedValueOnce({
+      data: goalRow({ owner_id: "owner_1" }),
+      error: null,
+    });
+    const { updateGoalStatusAction } = await import("./goal-actions");
+
+    const res = await updateGoalStatusAction("goal_1", "behind");
+
+    expect(res).toEqual({ ok: false, message: "You can't change this status." });
+    expect(mocks.goalsUpdatePatch).not.toHaveBeenCalled();
   });
 });
 

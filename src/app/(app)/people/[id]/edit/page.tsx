@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
@@ -10,8 +11,8 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // Admin edit surface for a single person. Handles first/last name,
 // email, position, role, reports_to. Self-serve name/position edits
-// still live on /profile. Company admins may edit users in their own
-// company; sysadmins may edit anyone.
+// still live on /profile. Company admins and assigned guides may edit
+// users in their company; sysadmins may edit anyone.
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -21,7 +22,11 @@ export default async function EditPersonPage({ params }: PageProps) {
 
   const isSystemAdmin = session.profile.role === "system_admin";
   const isCompanyAdmin = session.profile.role === "company_admin";
-  if (!isSystemAdmin && !isCompanyAdmin) redirect(`/people/${id}`);
+  // An assigned guide edits people in their company, the same as a
+  // company_admin: updateUserAction admits aims_guide and scopes it
+  // with canManageProfileIn.
+  const isGuide = session.profile.role === "aims_guide";
+  if (!isSystemAdmin && !isCompanyAdmin && !isGuide) redirect(`/people/${id}`);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: subject } = await supabase
@@ -31,7 +36,11 @@ export default async function EditPersonPage({ params }: PageProps) {
     .maybeSingle<Profile>();
   if (!subject) notFound();
 
-  if (isCompanyAdmin && session.profile.company_id !== subject.company_id) {
+  if (
+    !isSystemAdmin &&
+    (subject.company_id === null ||
+      !isAdminForCompany(session.profile, subject.company_id))
+  ) {
     redirect("/people");
   }
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PlusIcon } from "../../../../../components/ui/PlusIcon";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getGoalDetail } from "@/lib/plan/service";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { StatusChip } from "@/components/plan/StatusChip";
@@ -22,9 +23,7 @@ export default async function GoalDetailPage({ params }: PageProps) {
 
   const openQuarter = await getCurrentQuarter(detail.goal.company_id);
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  const isAdmin = isAdminForCompany(session.profile, detail.goal.company_id);
   const isOwner = detail.goal.owner_id === session.profile.id;
   const owner =
     detail.people.find((p) => p.id === detail.goal.owner_id) ?? null;

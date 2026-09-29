@@ -32,6 +32,8 @@ As an admin or guide, you can also:
 
 - **Jump to a stalled action** — click any Priority in the progress
   panel to open its detail page and see what's blocking it.
+- **Read the weekly brief and Recent wins.** Both are for the
+  company's admins and its guides.
 
 The *Set up {company}* checklist lives on **AiMS Implementation**
 (`/scorecard`) now, not here. Head there when you want to see the map of
