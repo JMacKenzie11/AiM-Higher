@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { summarizeFollowThrough } from "@/lib/commitments/follow-through";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { todayInTimezone } from "@/lib/dates";
-import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { logCoachTokenUsage, reportEmptyResult } from "@/lib/coach/usage";
 import type { Commitment, Priority } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
@@ -122,6 +122,12 @@ export async function getOrGenerateDashboardBrief(
       ],
       messages: [{ role: "user", content: snapshot }],
     });
+    content = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("")
+      .trim();
+    const emptyResult = reportEmptyResult("dashboard_brief", content, response);
     if (response.usage) {
       void logCoachTokenUsage({
         conversationId: null,
@@ -129,14 +135,10 @@ export async function getOrGenerateDashboardBrief(
         purpose: "brief",
         model,
         usage: response.usage,
+        emptyResult,
       });
     }
-    content = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-      .trim();
-    if (!content) return null;
+    if (emptyResult) return null;
   } catch {
     return null;
   }

@@ -1,7 +1,7 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
-import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { logCoachTokenUsage, reportEmptyResult } from "@/lib/coach/usage";
 
 // Auto-score a single commitment against the two AiMS clarity
 // criteria and (when either fails) return a short refinement note.
@@ -60,19 +60,21 @@ export async function scoreCommitmentClarity(
       system: [{ type: "text", text: SYSTEM_PROMPT }],
       messages: [{ role: "user", content: userMessage }],
     });
-    if (res.usage) {
-      void logCoachTokenUsage({
-        conversationId: null,
-        companyId: null,
-        purpose: "clarity",
-        model,
-        usage: res.usage,
-      });
-    }
     const raw = res.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("");
+    const emptyResult = reportEmptyResult("commitment_clarity", raw, res);
+    if (res.usage) {
+      void logCoachTokenUsage({
+        conversationId: null,
+        companyId: null,
+        purpose: "commitment_clarity",
+        model,
+        usage: res.usage,
+        emptyResult,
+      });
+    }
     return parseScore(raw);
   } catch (err) {
     console.warn("scoreCommitmentClarity failed:", err);

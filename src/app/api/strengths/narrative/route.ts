@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { anthropic, ANTHROPIC_MODEL } from "@/lib/strengths/anthropic";
-import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { logCoachTokenUsage, reportEmptyResult } from "@/lib/coach/usage";
 import { VOICE_RULES } from "@/lib/strengths/voice-rules";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
@@ -70,6 +70,12 @@ export async function POST(request: Request) {
       content: m.content,
     })),
   });
+  const text = response.content
+    .filter((c): c is Anthropic.TextBlock => c.type === "text")
+    .map((c) => c.text)
+    .join("\n")
+    .trim();
+  const emptyResult = reportEmptyResult("strengths_narrative", text, response);
   if (response.usage) {
     void logCoachTokenUsage({
       conversationId: null,
@@ -77,14 +83,9 @@ export async function POST(request: Request) {
       purpose: "strengths",
       model: ANTHROPIC_MODEL,
       usage: response.usage,
+      emptyResult,
     });
   }
-
-  const text = response.content
-    .filter((c): c is Anthropic.TextBlock => c.type === "text")
-    .map((c) => c.text)
-    .join("\n")
-    .trim();
 
   const doneMarker = /\[\[DONE\]\]/;
   const done = doneMarker.test(text);
