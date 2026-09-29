@@ -357,8 +357,9 @@ user role can create one and neither can a browser test.
 
 So that file needs a fresh `npm run seed:e2e` before each full run.
 The seed rebuilds the meeting, the analysis, the nudge and its
-notification from scratch, and empties the champion seat, which is
-also the state the spec expects to start from.
+notification from scratch, and puts the fixture member in the champion
+seat, since the invitation is theirs. An invitation shows only to
+whoever holds the seat, so an empty seat would hide it.
 
 Every other spec in the suite restores what it changed and does not
 need this.

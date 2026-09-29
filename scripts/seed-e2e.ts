@@ -728,15 +728,19 @@ async function main() {
   if (notifyError) throw notifyError;
   console.log(`  guide nudge → ${memberEmail}, about "E2E Leadership Meeting"`);
 
-  // The seat starts EMPTY on every seed. The spec fills it, reads
-  // what changed, and empties it again; starting from empty means a
-  // spec that died mid-way does not leave the next run asserting
-  // against a seat somebody else set.
+  // The invitation above goes to the member, so the member holds the
+  // champion seat, on every seed. It used to start EMPTY, which sent
+  // the invitation to somebody who was not the champion: on dev the
+  // member saw an invitation they could not open (2026-09-29), and an
+  // invitation now shows only to whoever holds the seat. Setting it
+  // here also means a champion spec that died mid-way does not leave
+  // the next run asserting against a seat somebody else set.
   const { error: seatError } = await admin
     .from("companies")
-    .update({ aims_champion_profile_id: null })
+    .update({ aims_champion_profile_id: memberId })
     .eq("id", companyId);
   if (seatError) throw seatError;
+  console.log(`  champion seat → ${memberEmail}, who holds the invitation`);
 
   // ---- the clone is an authoring instance --------------------
   //
