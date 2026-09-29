@@ -1535,8 +1535,8 @@ have no author column, so there a write can be ruled out only as far as
 **Fixed by** 0245: each of the 75 rules and the two functions call
 `is_content_admin_for()` (an assigned guide, or a portfolio admin a system
 admin has switched on as that company's admin), every other clause kept
-word for word; the three FOR ALL rules get a FOR SELECT twin so reads do
-not change. The switch and Promise One's three switches land in the same
+word for word. Reads do not change: the three FOR ALL rules narrow no
+read, because each table's select rules already admit every reader they did. The switch and Promise One's three switches land in the same
 transaction as the restriction, so nobody who ran a company loses access on
 the way. 0246 keeps what any owner can do with its own rows. The harness
 cases `portfolio-admin-four-tables-only`, `portfolio-admin-owns-its-work`

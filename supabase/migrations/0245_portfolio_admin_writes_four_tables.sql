@@ -54,8 +54,15 @@
 --    word, written out rule by rule from the production schema (identical
 --    on production, PromiseOne and the dev clone, 2026-09-29), so company
 --    admins, system admins, owners and members keep what they had. Reads
---    do not change: select rules are not touched, and the three FOR ALL
---    rules each get a FOR SELECT twin carrying their original expression.
+--    do not change: select rules are not touched. Three of the rules are
+--    FOR ALL, so they cover reads too, and narrowing them narrows no read:
+--    every row they admitted for reading is already admitted by a select
+--    rule on the same table (commitment_occurrences_select,
+--    success_measure_entries_select_guide,
+--    success_measures_select_by_function_guide, whose expressions contain
+--    or equal the old ones, plus each table's *_select_portfolio). An
+--    earlier draft added FOR SELECT copies of the old expressions; they
+--    admitted nobody new and made those reads about three times slower.
 -- 5. Promise One: Scot Lowry, Sean Wenger and Steve Kessen switched on.
 --
 -- ---- BEFORE THIS RAN (read only, 2026-09-29) -------------------------
@@ -183,13 +190,6 @@ alter policy "commitment_occurrences_write_admin" on public."commitment_occurren
   WHERE ((c.id = commitment_occurrences.commitment_id) AND ((( SELECT auth_role() AS auth_role) = 'system_admin'::text) OR ((( SELECT auth_role() AS auth_role) = 'company_admin'::text) AND (( SELECT auth_company_id() AS auth_company_id) = c.company_id)) OR public.is_content_admin_for(c.company_id))))));
 comment on policy "commitment_occurrences_write_admin" on public."commitment_occurrences" is
   'Admits: system_admin, company_admin, an assigned aims_guide or a portfolio admin a system admin switched on as this company''s admin (0245).';
--- The FOR SELECT twin: reads as before, portfolio admins included.
-drop policy if exists "commitment_occurrences_write_admin_read" on public."commitment_occurrences";
-create policy "commitment_occurrences_write_admin_read" on public."commitment_occurrences"
-  for select to authenticated
-  using ((EXISTS ( SELECT 1
-   FROM commitments c
-  WHERE ((c.id = commitment_occurrences.commitment_id) AND ((( SELECT auth_role() AS auth_role) = 'system_admin'::text) OR ((( SELECT auth_role() AS auth_role) = 'company_admin'::text) AND (( SELECT auth_company_id() AS auth_company_id) = c.company_id)) OR is_guide_for(c.company_id))))));
 
 -- ---- commitments ----
 -- commitments_delete_guide (DELETE) admits: an assigned aims_guide or a switched-on portfolio admin. Was also: any assigned portfolio_admin.
@@ -636,14 +636,6 @@ alter policy "success_measure_entries_write_guide" on public."success_measure_en
   WHERE ((sm.id = success_measure_entries.measure_id) AND public.is_content_admin_for(f.company_id)))));
 comment on policy "success_measure_entries_write_guide" on public."success_measure_entries" is
   'Admits: an assigned aims_guide or a portfolio admin a system admin switched on as this company''s admin (0245).';
--- The FOR SELECT twin: reads as before, portfolio admins included.
-drop policy if exists "success_measure_entries_write_guide_read" on public."success_measure_entries";
-create policy "success_measure_entries_write_guide_read" on public."success_measure_entries"
-  for select to authenticated
-  using ((EXISTS ( SELECT 1
-   FROM (success_measures sm
-     JOIN functions f ON ((f.id = sm.function_id)))
-  WHERE ((sm.id = success_measure_entries.measure_id) AND is_guide_for(f.company_id)))));
 
 -- ---- success_measures ----
 -- success_measures_write_by_function_guide (ALL) admits: an assigned aims_guide or a switched-on portfolio admin. Was also: any assigned portfolio_admin.
@@ -656,13 +648,6 @@ alter policy "success_measures_write_by_function_guide" on public."success_measu
   WHERE ((f.id = success_measures.function_id) AND public.is_content_admin_for(f.company_id)))));
 comment on policy "success_measures_write_by_function_guide" on public."success_measures" is
   'Admits: an assigned aims_guide or a portfolio admin a system admin switched on as this company''s admin (0245).';
--- The FOR SELECT twin: reads as before, portfolio admins included.
-drop policy if exists "success_measures_write_by_function_guide_read" on public."success_measures";
-create policy "success_measures_write_by_function_guide_read" on public."success_measures"
-  for select to authenticated
-  using ((EXISTS ( SELECT 1
-   FROM functions f
-  WHERE ((f.id = success_measures.function_id) AND is_guide_for(f.company_id)))));
 
 -- ---- transcript_aliases ----
 -- transcript_aliases_delete_guide (DELETE) admits: an assigned aims_guide or a switched-on portfolio admin. Was also: any assigned portfolio_admin.
