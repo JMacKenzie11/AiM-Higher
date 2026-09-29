@@ -4,6 +4,12 @@
 
 import * as Sentry from "@sentry/nextjs";
 import posthog from "posthog-js";
+import {
+  DATA_COLLECTION,
+  scrubEvent,
+  scrubPersonalDataIntegration,
+  scrubReplayRecordingEvent,
+} from "@/lib/observability/scrub-event";
 
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
@@ -46,7 +52,7 @@ Sentry.init({
   // Worth noting posthog-js already works this way: it resolves to
   // dist/module.js, not module.full.js, so its own recorder is
   // fetched on demand. Sentry was the outlier.
-  integrations: [],
+  integrations: [scrubPersonalDataIntegration()],
 
   // 10% traces — same reasoning as sentry.server.config.ts (Vercel
   // + free tier gets loud fast). Bump if we need higher fidelity.
@@ -62,11 +68,19 @@ Sentry.init({
   // Define how likely Replay events are sampled when an error occurs.
   replaysOnErrorSampleRate: 1.0,
 
-  dataCollection: {
-    // To disable sending user data and HTTP bodies, uncomment the lines below. For more info visit:
-    // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#dataCollection
-    // userInfo: false,
-    // httpBodies: [],
+  // No IP addresses, cookies, headers, query strings, or request and
+  // response bodies. See src/lib/observability/scrub-event.ts. This
+  // used to be `dataCollection: {}`, and in @sentry/core 10.69 an
+  // empty object turns every category ON, including userInfo, which
+  // tells Sentry to infer and store the visitor's IP address.
+  sendDefaultPii: false,
+  dataCollection: DATA_COLLECTION,
+
+  beforeSend(event) {
+    return scrubEvent(event);
+  },
+  beforeSendTransaction(event) {
+    return scrubEvent(event);
   },
 });
 
@@ -94,7 +108,28 @@ if (typeof window !== "undefined") {
       const replayIntegration = await Sentry.lazyLoadIntegration(
         "replayIntegration"
       );
-      Sentry.addIntegration(replayIntegration());
+      Sentry.addIntegration(
+        replayIntegration({
+          // All but the last two are replay's defaults, written down so
+          // a default changing in an SDK upgrade cannot change them.
+          // Text and inputs masked, media blocked.
+          maskAllText: true,
+          maskAllInputs: true,
+          blockAllMedia: true,
+          // Network request and response detail (headers, bodies) is
+          // recorded only for URLs listed here. Empty means none: the
+          // replay shows each request's URL, method, status and size.
+          networkDetailAllowUrls: [],
+          networkRequestHeaders: [],
+          networkResponseHeaders: [],
+          // Default is true, and inert while the allow list is empty.
+          // Off anyway, so adding a URL above cannot start recording
+          // bodies without someone also changing this line.
+          networkCaptureBodies: false,
+          // Query strings off the network and navigation entries.
+          beforeAddRecordingEvent: scrubReplayRecordingEvent,
+        })
+      );
     } catch {
       // CDN unreachable or blocked. Replay is a diagnostic nicety;
       // losing it must never take error reporting down with it.
