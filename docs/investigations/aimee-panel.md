@@ -316,6 +316,13 @@ page stays usable, no `aria-modal`), and a z-index decision. It sits at
 60 and the help widget at 100, and the drawer footers are left-aligned
 only to dodge the widget.
 
+**Decided (Jason, 2026-09-29): it floats over the page, like every other
+panel in the app.** The page keeps its width and the panel sits over its
+right-hand edge. It has no dimmed backdrop, so everything not under it
+stays usable. An early build pushed the page left to make room, and was
+changed. Anything the panel covers, including a drawer's or a dialog's
+buttons, is on the manual test list.
+
 ---
 
 ## Help search
