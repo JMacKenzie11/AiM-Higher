@@ -684,13 +684,45 @@ In order, Agent Hub tools first:
   records a dismissal; opening from the panel marks it read and opened;
   the bell no longer shows the moved kinds.
 
+### Next project, after the panel ships: Aimee sees what leaders ask about
+
+(Decided 2026-09-29.) Choosing the panel's suggested questions showed
+how little plain Aimee can see. She has the company's purpose, vision
+and values, company-wide history (follow-through by quarter, closed
+quarters' plans, resolved issues, scorecard movement), the person's
+own memory, the help, and the name and description of the record on
+screen. She cannot see who is behind, what is at risk this quarter,
+numbers off target, meeting decisions, open issues, anyone's
+strengths, or who leads a function. So the suggested questions were
+limited to what she can answer, and these were held back:
+
+1. **The last meeting's decisions**, and who owns each. First.
+2. **This quarter's priorities and their progress.**
+3. **Open commitments.** A team member sees their own; an admin sees
+   everyone's.
+4. Numbers off target (critical success factors and their latest
+   entries).
+5. Open issues, and how long they have been open.
+6. A named person's strengths, in plain Aimee rather than only in
+   coaching about that person.
+7. Who leads each function.
+8. For a guide or portfolio admin, which of their companies needs
+   attention (across companies, not inside one).
+
+Each is a new tool, read under the person's own session so RLS decides
+what comes back, with a harness probe showing a team member reading
+another person's or another company's rows gets nothing. Items 1 to 3
+first, in that order. The review of the panel's questions
+(2026-09-29) lists the questions each one would unlock.
+
 ### Later: automatic agent choice
 
 Groundwork as described above: one server-side choosing function, a
 record of why an agent was chosen, pinned tools fixed (Step 0.1).
 
-### Separately: the icon preview
+### Separately: the icon preview (done)
 
-A preview page with the three directions at real size, the unread dot,
-light and dark mode, for Jason to choose from. System admins only, no
-effect on anything else. Before Step 1.
+A preview page with the three directions, for Jason to choose from.
+He chose his own mark instead (2026-09-29): a white speech bubble with
+a chartreuse smile, on a cobalt circle. The preview (#351) was closed
+and the page removed.
