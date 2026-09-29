@@ -69,10 +69,34 @@ export async function helpIndexFor(role: Role, features: readonly ModuleFeature[
 }
 
 // The index as it goes into Aimee's prompt: one line a page.
-export function formatHelpIndex(index: readonly HelpIndexEntry[]): string {
+// What each role is called when Aimee is told who she is talking to.
+const ROLE_NAMES: Record<Role, string> = {
+  team_member: "a team member",
+  company_admin: "a company admin",
+  aims_guide: "an AiMS Guide working with this company",
+  system_admin: "a system admin",
+  portfolio_admin: "a portfolio admin, who can read inside a company but not change it",
+};
+
+// THE PERSON'S ROLE, AND WHAT FOLLOWS FROM IT (2026-09-29). A team
+// member asked the panel how to add a function and got the admins'
+// steps, and was told about the admin-only Functional Chart Builder.
+// The help she searches is already cut to their role; this makes her
+// hold the line in what she says too.
+export function formatHelpIndex(index: readonly HelpIndexEntry[], role?: Role): string {
   if (index.length === 0) return "";
   return [
     "<app_pages>",
+    ...(role
+      ? [
+          `This person is ${ROLE_NAMES[role]}. Only explain how to do things their role can do. If they ask how to`,
+          "do something their role can't, don't give the steps and don't describe tools they can't use: say who can",
+          role === "team_member"
+            ? "(their company admin, or the person who owns it), and offer what they can do themselves."
+            : "(usually a company admin), and offer what they can do themselves.",
+          "",
+        ]
+      : []),
     "The pages of the AiMS app this person can open. When they ask where something is, or how to do",
     "something, name the page and link to it as a Markdown link with its path, e.g. [Goals & Priorities](/plan).",
     "Link only to paths on this list or returned by search_help. For how a feature works, call search_help.",
