@@ -22,9 +22,9 @@ import styles from "./AimeeLauncher.module.css";
 // ---- A PANEL THAT DOES NOT BLOCK THE PAGE ----------------------------
 //
 // Desktop: the house Drawer's `side` mode. A labelled complementary
-// region, no scrim, no aria-modal, no focus trap; the layout makes room
-// for it (data-aimee-panel on <html>), so the page stays visible and
-// usable beside it. Opening moves focus into the panel, Escape closes it
+// region, no scrim, no aria-modal, no focus trap. It floats over the
+// page's right-hand edge (Jason, 2026-09-29) and the page keeps its
+// width, so everything not under it stays usable. Opening moves focus into the panel, Escape closes it
 // and returns focus to the button.
 //
 // Phone (768px and under, the sidebar's breakpoint): the panel covers
@@ -66,7 +66,8 @@ export function AimeeLauncher() {
   const firstFocus = useRef<HTMLHeadingElement>(null);
   const help = usePageHelp(pathname, open);
 
-  // The layout makes room for the panel beside the page, on desktop.
+  // Says the panel is open, on desktop: the corner button steps to the
+  // panel's edge, and other drawers open beside it rather than under it.
   useEffect(() => {
     const root = document.documentElement;
     if (open && !phone) root.dataset.aimeePanel = "open";

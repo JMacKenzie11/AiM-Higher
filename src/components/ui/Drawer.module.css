@@ -35,9 +35,9 @@
   will-change: transform;
 }
 
-/* Beside the page, not over it (the `side` prop). Narrower, and the
-   app layout makes room for it while it is open (data-aimee-panel on
-   <html>, layout.module.css), so it covers nothing. */
+/* The `side` prop: narrower, no scrim, not modal. It floats over the
+   right-hand edge of the page, which keeps its width and stays usable
+   (Jason, 2026-09-29; it used to push the page left). */
 .side {
   width: min(400px, 100vw);
 }
