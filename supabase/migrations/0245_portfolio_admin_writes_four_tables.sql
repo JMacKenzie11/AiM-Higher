@@ -49,7 +49,8 @@
 -- 3. is_content_admin_for(company): an assigned aims_guide, or a
 --    portfolio admin whose assignment there is switched on.
 -- 4. Each of the 75 rules, and both functions, call it in place of
---    is_guide_for() / is_admin_for(). Every other clause is kept word for
+--    is_guide_for() / is_admin_for(); and the five role description
+--    rules (0221) call it in place of is_assigned_guide_for(). Every other clause is kept word for
 --    word, written out rule by rule from the production schema (identical
 --    on production, PromiseOne and the dev clone, 2026-09-29), so company
 --    admins, system admins, owners and members keep what they had. Reads
@@ -816,6 +817,38 @@ begin
   );
 end;
 $function$;
+
+-- ---- role descriptions (0221) ----
+-- Written with is_assigned_guide_for() in 0221, so a portfolio admin switched on as
+-- company admin must reach them too: it acts as that company's admin (Jason, 2026-09-29).
+-- role_description_versions_delete_guide (DELETE) admits: as before, and a switched-on portfolio admin.
+alter policy "role_description_versions_delete_guide" on public."role_description_versions"
+  using (public.is_content_admin_for(company_id));
+comment on policy "role_description_versions_delete_guide" on public."role_description_versions" is
+  'Admits: as 0221, with is_content_admin_for in place of is_assigned_guide_for (0245).';
+-- role_description_versions_insert_guide (INSERT) admits: as before, and a switched-on portfolio admin.
+alter policy "role_description_versions_insert_guide" on public."role_description_versions"
+  with check ((public.is_content_admin_for(company_id) AND (EXISTS ( SELECT 1
+   FROM role_descriptions rd
+  WHERE ((rd.id = role_description_versions.role_id) AND (rd.company_id = role_description_versions.company_id))))));
+comment on policy "role_description_versions_insert_guide" on public."role_description_versions" is
+  'Admits: as 0221, with is_content_admin_for in place of is_assigned_guide_for (0245).';
+-- role_descriptions_delete_guide (DELETE) admits: as before, and a switched-on portfolio admin.
+alter policy "role_descriptions_delete_guide" on public."role_descriptions"
+  using (public.is_content_admin_for(company_id));
+comment on policy "role_descriptions_delete_guide" on public."role_descriptions" is
+  'Admits: as 0221, with is_content_admin_for in place of is_assigned_guide_for (0245).';
+-- role_descriptions_insert_guide (INSERT) admits: as before, and a switched-on portfolio admin.
+alter policy "role_descriptions_insert_guide" on public."role_descriptions"
+  with check (public.is_content_admin_for(company_id));
+comment on policy "role_descriptions_insert_guide" on public."role_descriptions" is
+  'Admits: as 0221, with is_content_admin_for in place of is_assigned_guide_for (0245).';
+-- role_descriptions_update_guide (UPDATE) admits: as before, and a switched-on portfolio admin.
+alter policy "role_descriptions_update_guide" on public."role_descriptions"
+  using (public.is_content_admin_for(company_id))
+  with check (public.is_content_admin_for(company_id));
+comment on policy "role_descriptions_update_guide" on public."role_descriptions" is
+  'Admits: as 0221, with is_content_admin_for in place of is_assigned_guide_for (0245).';
 
 -- ---- 5. Promise One ----------------------------------------------------
 --
