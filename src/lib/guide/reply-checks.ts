@@ -86,9 +86,20 @@ export function rewriteRequest(instruction: string): string {
   );
 }
 
+// A contrast with what did not happen, which the banned list's "X
+// instead of Y" does not reach: "a name and a date, not just 'next
+// month'" (Jason's dev debrief, 2026-09-29). Aimee's own words only:
+// a quote of somebody saying it is theirs.
+const CONTRASTS: ReadonlyArray<RegExp> = [/\bnot just\b/gi];
+
+function outsideQuotes(text: string): string {
+  return text.replace(/["“][^"”]*["”]/g, '""');
+}
+
 export type ReplyFaults = {
   banned: BannedHit[];
   denials: string[];
+  contrasts: string[];
   invented: UnsupportedQuote[];
   meta: string[];
 };
@@ -101,13 +112,14 @@ export function checkDebriefReply(text: string, transcript: string): ReplyFaults
   return {
     banned: findBannedPhrases(text),
     denials,
+    contrasts: CONTRASTS.flatMap((re) => [...outsideQuotes(text).matchAll(re)].map((m) => m[0].toLowerCase())),
     invented: transcript.length > 0 ? findUnsupportedQuotes(text, transcript) : [],
     meta: sentences(text).map((x) => x.text).filter(isMeta),
   };
 }
 
 export function replyFaultCount(f: ReplyFaults): number {
-  return f.banned.length + f.denials.length + f.invented.length + f.meta.length;
+  return f.banned.length + f.denials.length + f.contrasts.length + f.invented.length + f.meta.length;
 }
 
 // For the log: what is wrong, where, in one line.
@@ -118,6 +130,9 @@ export function describeReplyFaults(f: ReplyFaults): string {
       : null,
     f.denials.length > 0
       ? `affirming by denial ${f.denials.map((d) => `"${d}"`).join(", ")}`
+      : null,
+    f.contrasts.length > 0
+      ? `contrast ${f.contrasts.map((c) => `"${c}"`).join(", ")}`
       : null,
     f.meta.length > 0
       ? `talked about a previous attempt ${f.meta.map((m) => `"${m}"`).join(", ")}`
@@ -136,6 +151,11 @@ export function replyRetryInstruction(f: ReplyFaults): string {
       ? `You reassured by denying the opposite (${f.denials
           .map((d) => `"${d}"`)
           .join(", ")}). Say what is true, in plain words.`
+      : null,
+    f.contrasts.length > 0
+      ? `You wrote ${f.contrasts
+          .map((c) => `"${c}"`)
+          .join(", ")}, which contrasts what happened with what did not. Say only what to do or what happened.`
       : null,
     f.meta.length > 0
       ? `You wrote about an earlier attempt (${f.meta

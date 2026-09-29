@@ -109,3 +109,19 @@ describe("the request sent back", () => {
     expect(text).toMatch(/never mention a previous version/i);
   });
 });
+
+// Jason, 2026-09-29, on the "after" example: "Put a name and a date on
+// it, not just 'next month'" still contrasts with what did not happen.
+describe("\"not just\"", () => {
+  it("is a fault wherever it appears in Aimee's own words", () => {
+    const f = checkDebriefReply("Put a name and a date on it, not just \"next month\". Who owns it?", "");
+    expect(f.contrasts).toEqual(["not just"]);
+    expect(replyFaultCount(f)).toBe(1);
+    expect(replyRetryInstruction(f)).toMatch(/not just/);
+    expect(describeReplyFaults(f)).toContain('contrast "not just"');
+  });
+
+  it("is left alone inside a quote of what somebody said", () => {
+    expect(checkDebriefReply('Your team said "it is not just a pricing problem". Who owns it?', "").contrasts).toEqual([]);
+  });
+});
