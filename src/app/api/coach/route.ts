@@ -23,6 +23,8 @@ import {
   describeReplyFaults,
   replyFaultCount,
   replyRetryInstruction,
+  rewriteRequest,
+  stripRetryPreamble,
 } from "@/lib/guide/reply-checks";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
@@ -594,14 +596,20 @@ export async function POST(req: NextRequest): Promise<Response> {
                 messages: [
                   ...currentMessages,
                   { role: "assistant", content: assistantText },
-                  { role: "user", content: first.instruction },
+                  // As a replacement, not a correction to answer: see
+                  // rewriteRequest.
+                  { role: "user", content: rewriteRequest(first.instruction) },
                 ],
               });
-              const retried = retry.content
-                .filter((b): b is Anthropic.TextBlock => b.type === "text")
-                .map((b) => b.text)
-                .join("")
-                .trim();
+              // Any "Fair. Let me redo that." still at its front is
+              // taken off here, and anything left is a fault the
+              // check counts.
+              const retried = stripRetryPreamble(
+                retry.content
+                  .filter((b): b is Anthropic.TextBlock => b.type === "text")
+                  .map((b) => b.text)
+                  .join("")
+              );
               // Only if it actually helped. A retry that returns
               // nothing, or no better than the first attempt, leaves
               // the first in place: a blank turn is worse than one

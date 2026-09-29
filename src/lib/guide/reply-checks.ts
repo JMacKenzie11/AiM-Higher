@@ -38,10 +38,59 @@ const DENIALS: ReadonlyArray<RegExp> = [
   /\bthis\s+(?:isn't|isn’t|is\s+not)\s+about\s+blame\b[^.?!]*/gi,
 ];
 
+// Talking about an attempt the person never saw.
+//
+// A reply that breaks a rule is sent back once with what was wrong
+// (the route's retry), and that note reaches the model as the next
+// thing in the conversation. On dev it answered the note: "Fair. Let
+// me redo that part." went out to the champion as if they had
+// corrected her (2026-09-29). Only a sentence that IS the
+// acknowledgement counts: "Fair question" and "Right after the
+// debate" are ordinary openings.
+const ACKNOWLEDGED =
+  /^(?:fair(?: enough)?|you(?:'|’)?re right|good (?:catch|point)|got it|understood|noted|my (?:mistake|bad)|apologies|sorry|ok(?:ay)?)(?:[.!,:]|\s*$)/i;
+const REDOING =
+  /\b(?:let me|i(?:'|’)ll|i will|here(?:'|’)s|here is)\b[^.?!]*\b(?:redo|rewrite|rewriting|rephrase|try (?:that|this|it) again)\b/i;
+const EARLIER_VERSION = /\b(?:my (?:previous|last|earlier|first)|previous|earlier) (?:version|attempt|draft)\b/i;
+
+function sentences(text: string): Array<{ text: string; end: number }> {
+  return [...text.matchAll(/[^.?!\n]+[.?!]*/g)]
+    .map((m) => ({ text: m[0].trim(), end: (m.index ?? 0) + m[0].length }))
+    .filter((x) => x.text.length > 0);
+}
+
+function isMeta(sentence: string): boolean {
+  return ACKNOWLEDGED.test(sentence) || REDOING.test(sentence) || EARLIER_VERSION.test(sentence);
+}
+
+// The retry's own preamble, taken off before it is checked or shown.
+// Only from the front: the reply itself starts where it stops.
+export function stripRetryPreamble(text: string): string {
+  let cut = 0;
+  for (const s of sentences(text)) {
+    if (!isMeta(s.text)) break;
+    cut = s.end;
+  }
+  return text.slice(cut).trim();
+}
+
+// Sent back with whatever was wrong. The note arrives as the next turn
+// of the conversation, so without this the model answers it instead
+// of replacing what it wrote.
+export function rewriteRequest(instruction: string): string {
+  return (
+    `${instruction} Write the whole message again, exactly as they will ` +
+    `read it. It replaces what you wrote, and they never saw that, so ` +
+    `write it as if for the first time: no acknowledgement, no preamble, ` +
+    `and never mention a previous version.`
+  );
+}
+
 export type ReplyFaults = {
   banned: BannedHit[];
   denials: string[];
   invented: UnsupportedQuote[];
+  meta: string[];
 };
 
 export function checkDebriefReply(text: string, transcript: string): ReplyFaults {
@@ -53,11 +102,12 @@ export function checkDebriefReply(text: string, transcript: string): ReplyFaults
     banned: findBannedPhrases(text),
     denials,
     invented: transcript.length > 0 ? findUnsupportedQuotes(text, transcript) : [],
+    meta: sentences(text).map((x) => x.text).filter(isMeta),
   };
 }
 
 export function replyFaultCount(f: ReplyFaults): number {
-  return f.banned.length + f.denials.length + f.invented.length;
+  return f.banned.length + f.denials.length + f.invented.length + f.meta.length;
 }
 
 // For the log: what is wrong, where, in one line.
@@ -68,6 +118,9 @@ export function describeReplyFaults(f: ReplyFaults): string {
       : null,
     f.denials.length > 0
       ? `affirming by denial ${f.denials.map((d) => `"${d}"`).join(", ")}`
+      : null,
+    f.meta.length > 0
+      ? `talked about a previous attempt ${f.meta.map((m) => `"${m}"`).join(", ")}`
       : null,
     f.banned.length > 0 ? describeHits(f.banned) : null,
   ]
@@ -83,6 +136,11 @@ export function replyRetryInstruction(f: ReplyFaults): string {
       ? `You reassured by denying the opposite (${f.denials
           .map((d) => `"${d}"`)
           .join(", ")}). Say what is true, in plain words.`
+      : null,
+    f.meta.length > 0
+      ? `You wrote about an earlier attempt (${f.meta
+          .map((m) => `"${m}"`)
+          .join(", ")}). They never saw one. Leave that out.`
       : null,
     f.banned.length > 0 ? retryInstruction(f.banned) : null,
   ]
