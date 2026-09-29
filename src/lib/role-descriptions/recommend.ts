@@ -80,6 +80,8 @@ export async function recommendForFunction(input: {
     const client = new Anthropic({ apiKey });
     const res = await client.messages.create({
       model,
+      // A short JSON list. Thinking would share the 900 tokens with it and can take them all.
+      thinking: { type: "disabled" },
       max_tokens: MAX_TOKENS,
       system: [{ type: "text", text: systemPrompt }],
       messages: [{ role: "user", content: userMessage }],

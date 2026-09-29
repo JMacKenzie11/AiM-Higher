@@ -61,6 +61,8 @@ export async function POST(request: Request) {
   const client = anthropic();
   const response = await client.messages.create({
     model: ANTHROPIC_MODEL,
+    // One short conversational turn. Thinking could spend all 300 tokens and say nothing.
+    thinking: { type: "disabled" },
     max_tokens: 300,
     system: SYSTEM_PROMPT,
     messages: messages.map((m: { role: string; content: string }) => ({

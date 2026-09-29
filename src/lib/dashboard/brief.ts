@@ -110,6 +110,8 @@ export async function getOrGenerateDashboardBrief(
   try {
     const response = await client.messages.create({
       model,
+      // A short summary of a snapshot already in hand. Thinking could eat the whole 400.
+      thinking: { type: "disabled" },
       max_tokens: MAX_TOKENS,
       system: [
         {

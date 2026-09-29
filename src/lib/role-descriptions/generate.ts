@@ -282,6 +282,8 @@ export async function generateRoleDescription(
     const client = new Anthropic({ apiKey });
     const res = await client.messages.create({
       model,
+      // The document is the whole answer. Thinking would share its 3000 tokens.
+      thinking: { type: "disabled" },
       max_tokens: MAX_TOKENS,
       system: [{ type: "text", text: systemPrompt }],
       messages: [{ role: "user", content: userMessage }],

@@ -54,6 +54,8 @@ export async function scoreCommitmentClarity(
   try {
     const res = await client.messages.create({
       model,
+      // A short JSON verdict. Left to think, it can spend all 400 tokens and return none.
+      thinking: { type: "disabled" },
       max_tokens: MAX_TOKENS,
       system: [{ type: "text", text: SYSTEM_PROMPT }],
       messages: [{ role: "user", content: userMessage }],

@@ -155,6 +155,8 @@ export async function POST(request: Request) {
   const client = anthropic();
   const response = await client.messages.create({
     model: ANTHROPIC_MODEL,
+    // The JSON is the whole answer. Thinking would share its 3000 tokens.
+    thinking: { type: "disabled" },
     max_tokens: 3000,
     system: SYSTEM_PROMPT,
     messages: [

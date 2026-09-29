@@ -245,6 +245,8 @@ export async function generateSessionBrief(
   try {
     const response = await client.messages.create({
       model,
+      // Written from context already in the prompt. Thinking could eat the whole 800.
+      thinking: { type: "disabled" },
       max_tokens: MAX_TOKENS,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
