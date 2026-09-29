@@ -8998,7 +8998,10 @@ values ('${ids.companyAdminCompany}', '${ids.companyAdmin}',
   );
   const nudgeReadAsOtherMember = await attemptSeeded(
     ids.member,
-    `select id from public.guide_nudges;`
+    // Rows addressed to somebody else. The member can be a recipient
+    // themselves: seed:e2e makes the fixture's team member its
+    // champion, and reading their own invitation is the grant.
+    `select id from public.guide_nudges where recipient_profile_id <> '${ids.member}';`
   );
   const nudgeInsert = await attempt(
     ids.member,
