@@ -100,6 +100,9 @@ test("a function opens in a drawer over the chart, not on its own page", async (
     // carry this test id and sit in the same corner.
     const help = document.querySelector('[data-testid="corner-launcher"]');
     if (!help) return "no corner button on the page";
+    // Aimee's button steps aside while a drawer is open, so it covers
+    // nothing. Laid out but invisible still has a box, so ask.
+    if (getComputedStyle(help).visibility === "hidden") return [];
     const h = help.getBoundingClientRect();
     const panel = document.querySelector('[data-drawer-name="chart-function"][role="dialog"]');
     if (!panel) return "no function drawer on the page";
@@ -115,6 +118,9 @@ test("a function opens in a drawer over the chart, not on its own page", async (
     return hit;
   })()`)) as string[] | string;
   expect(overlap, "drawer controls sit under the help widget").toEqual([]);
+  // And it is Aimee's button that stepped aside, not the drawer that
+  // happened to have nothing in that corner.
+  await expect(page.getByTestId("corner-launcher")).toBeHidden();
 
   // ---- Escape closes, chart still there -----------------------
   await page.keyboard.press("Escape");
