@@ -43,6 +43,10 @@ test.describe("portfolio_admin", () => {
     await page.goto("/portfolio");
 
     const nav = page.getByRole("navigation").first();
+    // The Portfolio group starts closed for somebody with no saved
+    // preference (#190), so open it before looking inside it.
+    const group = nav.getByRole("button", { name: /^portfolio$/i });
+    if ((await group.getAttribute("aria-expanded")) !== "true") await group.click();
     await expect(nav.getByRole("link", { name: /overview/i })).toBeVisible();
     // Guide HQ and the platform tools belong to other roles.
     await expect(nav.getByRole("link", { name: /^platform$/i })).toHaveCount(0);

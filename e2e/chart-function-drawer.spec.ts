@@ -1,5 +1,6 @@
 import { test, expect, signIn, users } from "./fixtures";
 import type { Page } from "@playwright/test";
+import { clearChartLeftovers } from "./chart-leftovers";
 
 // Editing a function happens on the chart now.
 //
@@ -256,6 +257,8 @@ test("switching functions in the drawer does not show the last one", async ({
 test("a function can be moved to a different parent", async ({ page }) => {
   test.setTimeout(240_000);
   await scopeIn(page);
+  // A failed earlier run's function is still on the chart otherwise.
+  await clearChartLeftovers(page);
   await page.goto("/chart");
 
   const addPanel = page

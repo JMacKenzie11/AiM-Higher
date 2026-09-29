@@ -1,5 +1,6 @@
 import { test, expect, signIn, users } from "./fixtures";
 import type { Page } from "@playwright/test";
+import { clearChartLeftovers } from "./chart-leftovers";
 
 // The org chart canvas is the size of the chart in it.
 //
@@ -64,6 +65,9 @@ async function scopeIn(page: Page) {
 test("the chart canvas is the size of the chart in it", async ({ page }) => {
   test.setTimeout(300_000);
   await scopeIn(page);
+  // Benson's chart, not Benson's chart plus what failed runs of the
+  // other chart specs left on it (chart-leftovers.ts).
+  await clearChartLeftovers(page);
 
   for (const size of SIZES) {
     await page.setViewportSize({ width: size.width, height: size.height });
