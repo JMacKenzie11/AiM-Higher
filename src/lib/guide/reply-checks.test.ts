@@ -150,3 +150,27 @@ describe("contrasts, in Aimee's words and in quotes", () => {
     expect(replyFaultCount(f)).toBe(0);
   });
 });
+
+// Jason's dev debrief, 2026-09-29, after "Give me some ideas": the
+// retry answered the note ("Fair, that's on me.") and labelled itself
+// ("Rewritten:").
+describe("the preamble Jason saw", () => {
+  const SEEN =
+    "Fair, that's on me. Rewritten: name the move itself. Agree up front that a pricing disagreement is about the model.";
+
+  it("is a fault, sentence by sentence and label", () => {
+    const f = checkDebriefReply(SEEN, "");
+    expect(f.meta).toEqual(expect.arrayContaining(["Fair, that's on me."]));
+    expect(f.meta.some((m) => /^Rewritten:/.test(m))).toBe(true);
+  });
+
+  it("comes off the front, label included", () => {
+    expect(stripRetryPreamble(SEEN)).toBe(
+      "Name the move itself. Agree up front that a pricing disagreement is about the model."
+    );
+  });
+
+  it("leaves an ordinary colon alone", () => {
+    expect(checkDebriefReply("Two things: name the move, and pick a date.", "").meta).toEqual([]);
+  });
+});

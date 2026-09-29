@@ -51,6 +51,11 @@ const ACKNOWLEDGED =
   /^(?:fair(?: enough)?|you(?:'|’)?re right|good (?:catch|point)|got it|understood|noted|my (?:mistake|bad)|apologies|sorry|ok(?:ay)?)(?:[.!,:]|\s*$)/i;
 const REDOING =
   /\b(?:let me|i(?:'|’)ll|i will|here(?:'|’)s|here is)\b[^.?!]*\b(?:redo|rewrite|rewriting|rephrase|try (?:that|this|it) again)\b/i;
+// A label on the rewrite itself: "Rewritten: name the move itself."
+// (Jason's dev debrief, 2026-09-29).
+const REWRITE_LABEL = /^(?:rewritten|revised|rewrite|here(?:'|’)?s the rewrite|updated version|second (?:try|attempt)|take two)\s*:\s*/i;
+// Owning a mistake nobody saw: "that's on me".
+const OWNING = /\b(?:that(?:'|’)?s on me|my (?:mistake|bad|apologies))\b/i;
 const EARLIER_VERSION = /\b(?:my (?:previous|last|earlier|first)|previous|earlier) (?:version|attempt|draft)\b/i;
 
 function sentences(text: string): Array<{ text: string; end: number }> {
@@ -60,7 +65,13 @@ function sentences(text: string): Array<{ text: string; end: number }> {
 }
 
 function isMeta(sentence: string): boolean {
-  return ACKNOWLEDGED.test(sentence) || REDOING.test(sentence) || EARLIER_VERSION.test(sentence);
+  return (
+    ACKNOWLEDGED.test(sentence) ||
+    REDOING.test(sentence) ||
+    EARLIER_VERSION.test(sentence) ||
+    REWRITE_LABEL.test(sentence) ||
+    OWNING.test(sentence)
+  );
 }
 
 // The retry's own preamble, taken off before it is checked or shown.
@@ -69,9 +80,15 @@ export function stripRetryPreamble(text: string): string {
   let cut = 0;
   for (const s of sentences(text)) {
     if (!isMeta(s.text)) break;
+    // A labelled sentence carries the reply: only its label goes.
+    const unlabelled = s.text.replace(REWRITE_LABEL, "");
+    if (unlabelled !== s.text && unlabelled && !isMeta(unlabelled)) break;
     cut = s.end;
   }
-  return text.slice(cut).trim();
+  // A label left at the front of what remains goes too, and the
+  // sentence it headed keeps its content.
+  const rest = text.slice(cut).trim().replace(REWRITE_LABEL, "");
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
 
 // Sent back with whatever was wrong. The note arrives as the next turn
