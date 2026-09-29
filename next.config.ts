@@ -30,6 +30,20 @@ const nextConfig: NextConfig = {
   // to restart the dev server. Set NEXT_DIST_DIR before a build if
   // you need one running at the same time.
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  // KEEP COMPILED PAGES IN `next dev`. By default a page nobody has
+  // requested for a minute is thrown away and recompiled on its next
+  // request. A recompile that lands while another page is rendering
+  // fails that render with "Cannot read properties of undefined
+  // (reading 'call')", which is how the Playwright suite lost a
+  // different test or two on every full run (2026-09-29, the dev-server
+  // log: three of them in one run, each on a first or repeat compile).
+  // With e2e/global-setup.ts compiling every page before the suite,
+  // this keeps them compiled for the whole run. Dev only: a production
+  // build compiles everything up front and ignores this.
+  onDemandEntries: {
+    maxInactiveAge: 4 * 60 * 60 * 1000,
+    pagesBufferLength: 500,
+  },
   // Skip Next.js's in-build `tsc --noEmit` pass. The typecheck is
   // already a required gate in .github/workflows/checks.yml
   // (blocks the PR + push to main), so re-running it inside the
