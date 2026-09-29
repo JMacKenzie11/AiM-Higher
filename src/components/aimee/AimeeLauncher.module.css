@@ -18,6 +18,15 @@
   transition: box-shadow var(--duration-fast, 120ms) var(--ease-out, ease-out);
 }
 
+/* A modal drawer or dialog owns the screen, and its own controls can
+   land in this corner (a function drawer's "Add" did). The page behind
+   it is out of reach, so the button is too: it steps aside until the
+   modal closes. A kept-mounted drawer that is closed is [hidden] and
+   does not count. Aimee's own panel is excluded; it has its own rule. */
+:global(html:has([aria-modal="true"]:not([hidden]):not([data-drawer-name="aimee-panel"]))) .launcher {
+  visibility: hidden;
+}
+
 .launcher:hover {
   box-shadow: 0 6px 18px rgba(20, 38, 71, 0.28);
 }
