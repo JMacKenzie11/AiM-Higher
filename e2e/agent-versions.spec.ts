@@ -167,7 +167,7 @@ async function attach(page: Page, slug: string) {
   await expect(picker).toBeVisible();
   // The picker lists by title, so map the two slugs this spec uses.
   const title =
-    slug === SLUG_A ? "Ask great questions" : "Prepare a hard conversation";
+    slug === SLUG_A ? "E2E version test agent" : "Prepare a hard conversation";
   await picker.getByRole("button", { name: new RegExp(title, "i") }).first().click();
   await expect(picker).toHaveCount(0, { timeout: 20_000 });
   // Reload before reading chips.
