@@ -2054,9 +2054,13 @@ values ('${PA}', null, 'Harness Portfolio Admin', 'portfolio_admin', 'active');`
         ].join("\n")
       );
 
+  // withAssignment wants 0 since 0245. It wanted 1: this case was
+  // written to match what 0199 made the database do, not what
+  // CLAUDE.md says a portfolio admin may do. Inside a company it
+  // writes its four tables and reads the rest (Jason, 2026-09-29).
   const ok =
     noAssignment === 0 &&
-    withAssignment === 1 &&
+    withAssignment === 0 &&
     otherCompany === 0 &&
     forSomebodyElse === 0 &&
     homeSet === 1 &&
@@ -2064,17 +2068,17 @@ values ('${PA}', null, 'Harness Portfolio Admin', 'portfolio_admin', 'active');`
   return {
     name: "portfolio-assignment-boundary",
     hazard:
-      "A portfolio admin writes company content without an assignment, or grants one to somebody else",
-    wrong: `without an assignment, content writes landed: ${noAssignment}`,
-    right: `with an assignment: ${withAssignment} in that company, ${otherCompany} in another`,
+      "A portfolio admin writes company content, with or without an assignment, or grants an assignment to somebody else",
+    wrong: `content writes landed: ${noAssignment} without an assignment, ${withAssignment} with one`,
+    right: `with an assignment: ${withAssignment} in that company, ${otherCompany} in another (want 0 and 0)`,
     ok,
     detail: ok
-      ? `No assignment, no content write. One assignment, writes in that company and nowhere else. An assignment naming somebody else is refused, which is the clause self-assignment rests on. ${
+      ? `No content write, with an assignment or without one: an assigned portfolio admin reads a company's content and writes its four tables only. An assignment naming somebody else is refused, which is the clause self-assignment rests on. ${
           hasHome?.ok
             ? "Setting home_company_id grants nothing: the write is still refused."
             : "home_company_id not on this schema; claim 5 skipped (runs under --pending 0200_home_company.sql)."
         }`
-      : `no-assignment ${noAssignment} (want 0), with-assignment ${withAssignment} (want 1), other-company ${otherCompany} (want 0), for-somebody-else ${forSomebodyElse} (want 0), home-set ${homeSet} (want 1), home-writes ${homeWrites} (want 0).`,
+      : `no-assignment ${noAssignment} (want 0), with-assignment ${withAssignment} (want 0), other-company ${otherCompany} (want 0), for-somebody-else ${forSomebodyElse} (want 0), home-set ${homeSet} (want 1), home-writes ${homeWrites} (want 0).`,
   };
 }
 
@@ -2769,6 +2773,162 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
     detail: ok
       ? "A company reads the people assigned to it, admins and members alike, and nobody else. A company-less profile holding no assignment stays invisible, which is what keeps this an assignment grant rather than a licence to enumerate the instance. The read brought no write with it."
       : `assigned-guide ${guideToAdmin} (want 1), assigned-portfolio ${portfolioToAdmin} (want 1), to-member ${guideToMember} (want 1), unassigned-outsider ${outsiderToAdmin} (want 0), write-refused ${writeRefused} (want true).`,
+  };
+}
+
+// An assigned portfolio admin writes its four tables and nothing else
+// in a company (CLAUDE.md, Permissions; 0245).
+//
+// The static portfolio check fails a write rule that NAMES the role.
+// Since 0199 the role reached 75 content write rules and two
+// privileged functions through is_guide_for() / is_admin_for(), which
+// that check cannot see. This case asserts the intent instead:
+//
+//   static    no write rule outside the four tables (and the
+//             portfolio_assignments container) calls is_guide_for,
+//             is_admin_for or is_portfolio_admin, and no privileged
+//             function but is_guide_for itself calls the first two.
+//             A planted rule on issues proves the matcher sees one.
+//   refused   an assigned portfolio admin: an issue insert, a
+//             commitment update, roll_quarter.
+//   allowed   an assigned guide and the company's admin: the same
+//             three.
+//   reads     the assigned portfolio admin still reads the company's
+//             issues and measures, as many rows as the superuser sees.
+//
+// Red on the schema before 0245; green with it.
+async function portfolioAdminFourTablesOnly(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const ALLOWED = ["companies", "company_features", "profiles", "portfolio_admin_events", "portfolio_assignments"];
+  const allowedList = ALLOWED.map((t) => `'${t}'`).join(",");
+  const writeRulesSql = `select count(*)::int as n from pg_policies
+     where schemaname='public' and cmd in ('INSERT','UPDATE','DELETE','ALL')
+       and tablename not in (${allowedList})
+       and (coalesce(qual,'')||' '||coalesce(with_check,'')) ~ '(is_guide_for|is_admin_for|is_portfolio_admin)\\('`;
+  const [rules] = await run<{ n: number }>(["begin;", pending, writeRulesSql + ";", "rollback;"].join("\n"));
+  const [fns] = await run<{ n: number }>(
+    [
+      "begin;", pending,
+      `select count(*)::int as n from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+        where n.nspname='public' and p.prosecdef and p.proname <> 'is_guide_for'
+          and p.prosrc ~ '(is_guide_for|is_admin_for)\\(';`,
+      "rollback;",
+    ].join("\n")
+  );
+  // The canary: one planted rule the matcher must count.
+  const [planted] = await run<{ n: number }>(
+    [
+      "begin;", pending,
+      `create policy harness_planted_pa on public.issues for insert to authenticated
+         with check (public.is_guide_for(company_id));`,
+      writeRulesSql + ";",
+      "rollback;",
+    ].join("\n")
+  );
+  const canaryCaught = (planted?.n ?? 0) === (rules?.n ?? 0) + 1;
+
+  const CO = ids.companyAdminCompany;
+  const uid = (tag: string) => `aaaa0245-0000-4000-8000-0000000000${tag}`;
+  const PA = uid("01");
+  const GUIDE = uid("02");
+  const person = (id: string, name: string, role: string) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', null, '${name}', '${role}', 'active');`;
+  const seed = [
+    person(PA, "Harness 0245 PA", "portfolio_admin"),
+    person(GUIDE, "Harness 0245 Guide", "aims_guide"),
+    `insert into public.portfolio_assignments (portfolio_admin_id, company_id) values ('${PA}', '${CO}') on conflict do nothing;`,
+    `insert into public.guide_assignments (guide_id, company_id) values ('${GUIDE}', '${CO}') on conflict do nothing;`,
+  ].join("\n");
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  const [target] = await run<{ id: string | null }>(
+    ["begin;", pending, `select id from public.commitments where company_id='${CO}' order by created_at limit 1;`, "rollback;"].join("\n")
+  );
+  const commitment = target?.id ?? null;
+
+  // How many rows the write reached, read back as the superuser.
+  const reached = async (who: string, write: string, check: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        ["begin;", pending, seed, "set local role authenticated;", claims(who), write, "reset role;", check, "rollback;"].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+  const issue = (who: string) =>
+    reached(
+      who,
+      `insert into public.issues (company_id, title, created_by) values ('${CO}', 'harness 0245 ${who}', '${who}');`,
+      `select count(*)::int as n from public.issues where title = 'harness 0245 ${who}';`
+    );
+  const edit = (who: string) =>
+    commitment
+      ? reached(
+          who,
+          `update public.commitments set description = 'harness 0245 ${who}' where id = '${commitment}';`,
+          `select count(*)::int as n from public.commitments where id = '${commitment}' and description = 'harness 0245 ${who}';`
+        )
+      : Promise.resolve(-9);
+  const roll = (who: string) =>
+    reached(
+      who,
+      `select * from public.roll_quarter('${CO}', 'Harness 0245', current_date, current_date + 90);`,
+      `select count(*)::int as n from public.quarters where company_id = '${CO}' and label = 'Harness 0245';`
+    );
+  const reads = async (sub: string | null, table: string, filter: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        ["begin;", pending, seed, ...(sub ? ["set local role authenticated;", claims(sub)] : []),
+          `select count(*)::int as n from public.${table} where ${filter};`, "rollback;"].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return -2;
+    }
+  };
+
+  const pa = { issue: await issue(PA), edit: await edit(PA), roll: await roll(PA) };
+  const guide = { issue: await issue(GUIDE), edit: await edit(GUIDE), roll: await roll(GUIDE) };
+  const admin = { issue: await issue(ids.companyAdmin), edit: await edit(ids.companyAdmin), roll: await roll(ids.companyAdmin) };
+  const issueFilter = `company_id = '${CO}'`;
+  const measureFilter = `function_id in (select id from public.functions where company_id = '${CO}')`;
+  const paIssues = await reads(PA, "issues", issueFilter);
+  const allIssues = await reads(null, "issues", issueFilter);
+  const paMeasures = await reads(PA, "success_measures", measureFilter);
+  const allMeasures = await reads(null, "success_measures", measureFilter);
+
+  const refused = pa.issue === 0 && pa.edit === 0 && pa.roll === 0;
+  const allowed = [guide, admin].every((g) => g.issue === 1 && g.edit === 1 && g.roll === 1);
+  const readsKept = paIssues === allIssues && paMeasures === allMeasures && allIssues > 0;
+  const staticClean = (rules?.n ?? -1) === 0 && (fns?.n ?? -1) === 0;
+  const ok = staticClean && canaryCaught && refused && allowed && readsKept && commitment !== null;
+
+  return {
+    name: "portfolio-admin-four-tables-only",
+    hazard: "An assigned portfolio admin writes a company's content",
+    wrong: `write rules reaching it: ${rules?.n}, privileged functions: ${fns?.n}; its writes landed: issue ${pa.issue}, commitment ${pa.edit}, roll_quarter ${pa.roll}`,
+    right: `refused (want 0 0 0): ${pa.issue} ${pa.edit} ${pa.roll}; guide (want 1 1 1): ${guide.issue} ${guide.edit} ${guide.roll}; company admin (want 1 1 1): ${admin.issue} ${admin.edit} ${admin.roll}; reads issues ${paIssues}/${allIssues}, measures ${paMeasures}/${allMeasures}`,
+    ok,
+    detail: ok
+      ? "No write rule outside the four tables reaches an assigned portfolio admin, and no privileged function does; a planted one is caught. Its issue, commitment and quarter writes are refused while an assigned guide's and the company admin's land, and it reads the company's issues and measures as before."
+      : [
+          `static: ${rules?.n} write rules and ${fns?.n} privileged functions still reach it (want 0 and 0), planted rule caught: ${canaryCaught}`,
+          `portfolio admin issue/commitment/roll ${pa.issue}/${pa.edit}/${pa.roll} (want 0/0/0)`,
+          `guide ${guide.issue}/${guide.edit}/${guide.roll} and company admin ${admin.issue}/${admin.edit}/${admin.roll} (want 1/1/1)`,
+          `reads: issues ${paIssues} of ${allIssues}, measures ${paMeasures} of ${allMeasures} (want equal, issues > 0)`,
+          commitment ? "" : "NOT PROVEN: no commitment in the company to edit",
+        ].filter(Boolean).join("; "),
   };
 }
 
@@ -10169,6 +10329,10 @@ async function main(): Promise<void> {
       "priorities-under-focus-areas",
       (r: Runner, i: Identities) =>
         prioritiesUnderFocusAreas(r, i, pendingSql),
+    ],
+    [
+      "portfolio-admin-four-tables-only",
+      (r: Runner, i: Identities) => portfolioAdminFourTablesOnly(r, i, pendingSql),
     ],
   ] as const;
 

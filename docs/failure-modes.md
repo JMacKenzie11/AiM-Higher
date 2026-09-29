@@ -1506,3 +1506,43 @@ supabase/migrations/ | sort | tail -1`. Build the new body from that
 file. Then run the harness — this class of mistake is invisible in
 review and obvious in a probe, which is the whole argument for having
 probes that exercise grants nobody is currently touching.
+
+### E19. A write rule that reaches a role through a function
+
+**What happened (found 2026-09-29).** CLAUDE.md closes portfolio_admin's
+writes to four tables. 0199 turned `is_guide_for()` into a wrapper over
+`is_admin_for()`, which admits an assigned aims_guide **and an assigned
+portfolio_admin**. About 117 rules call it, 75 of them write rules on 30
+content tables, and two privileged functions (`roll_quarter`,
+`record_external_pull`) check it before writing. So an assigned portfolio
+admin could insert, change and delete plans, commitments, the chart and
+measures, and close a quarter. The app never offered the buttons; the
+database allowed the writes.
+
+**Why nothing caught it.** `rls:hazards`' static check fails a write rule
+that *names* portfolio_admin. None of these did. The harness's
+portfolio-assignment-boundary case asserted that an assigned portfolio
+admin *could* write content: it was written to match what the database
+did, not what the rule said. A green harness was describing the bug.
+The same function crept into new work: 0240's panel-events insert rule.
+
+**What was checked before fixing (read only).** Production: 1 portfolio
+admin, none assigned. PromiseOne: 3, all assigned. On every instance, no
+row in the 30 tables names a portfolio admin as its author. 24 of the 30
+have no author column, so there a write can be ruled out only as far as
+"not seen".
+
+**Fixed by** 0245: each of the 75 rules and the two functions use
+`is_assigned_guide_for()`, every other clause kept word for word; the three
+FOR ALL rules get a FOR SELECT twin so reads do not change. The harness
+case `portfolio-admin-four-tables-only` asserts the intent, not the
+schema: no write rule outside the four tables reaches the role through
+any of the three helpers (a planted one is caught), an assigned portfolio
+admin's issue, commitment and roll_quarter writes are refused while a
+guide's and a company admin's land, and reads are unchanged. Red on the
+schema before 0245.
+
+**The rule** (CLAUDE.md, Permissions): never `is_guide_for()` or
+`is_admin_for()` in a write rule unless portfolio admins are meant to have
+the write; name the roles each write rule allows in a comment beside it.
+A harness case asserts what should happen, never what does.

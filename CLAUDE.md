@@ -160,6 +160,14 @@ anywhere else, in either spelling, and plants a deliberately wrong one on
 every run so a clean result is never a broken matcher. Reads are wide on
 purpose; writes are four tables.
 
+**Never use `is_guide_for()` or `is_admin_for()` in a write rule** unless
+assigned portfolio admins are meant to have that write too. Since 0199 both
+admit an assigned portfolio_admin, and a rule that reaches the role through a
+function is invisible to `rls:hazards`' name matcher. For an assigned guide,
+use `is_assigned_guide_for()`. Every write rule (a policy, or a privileged
+function that writes) names the roles it allows in a comment beside it, so
+the next reader can check the list against this section. Failure mode E19.
+
 **A role widening ships with its RLS change and a harness probe in the same
 PR.** App guards are courtesy; RLS is the boundary. The probe runs as the
 granted role, asserts both the write that must now succeed and a write the
