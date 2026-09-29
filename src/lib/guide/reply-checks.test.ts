@@ -125,3 +125,28 @@ describe("\"not just\"", () => {
     expect(checkDebriefReply('Your team said "it is not just a pricing problem". Who owns it?', "").contrasts).toEqual([]);
   });
 });
+
+// Jason, 2026-09-29: "rather than" joins "not just", and "instead of"
+// (already banned) is held to the same rule: always sent back in
+// Aimee's own words, never inside a quote of what somebody said.
+describe("contrasts, in Aimee's words and in quotes", () => {
+  it("sends back \"rather than\"", () => {
+    const f = checkDebriefReply("Protect it on purpose rather than hoping it happens again. Who owns it?", "");
+    expect(f.contrasts).toEqual(["rather than"]);
+    expect(replyFaultCount(f)).toBe(1);
+  });
+
+  it("sends back \"instead of\"", () => {
+    const f = checkDebriefReply("Build on it instead of just hoping it happens again. Who owns it?", "");
+    expect(replyFaultCount(f)).toBe(1);
+  });
+
+  it("leaves both alone inside a quote", () => {
+    const quoted =
+      'Carmen said "you can just go to one document instead of looking at all these different files" and Jeff said "rather than guess, ask". Who owns it?';
+    const f = checkDebriefReply(quoted, "");
+    expect(f.contrasts).toEqual([]);
+    expect(f.banned).toEqual([]);
+    expect(replyFaultCount(f)).toBe(0);
+  });
+});

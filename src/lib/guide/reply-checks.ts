@@ -90,7 +90,12 @@ export function rewriteRequest(instruction: string): string {
 // instead of Y" does not reach: "a name and a date, not just 'next
 // month'" (Jason's dev debrief, 2026-09-29). Aimee's own words only:
 // a quote of somebody saying it is theirs.
-const CONTRASTS: ReadonlyArray<RegExp> = [/\bnot just\b/gi];
+//
+// "rather than" joined it the same day ("protect it on purpose rather
+// than hoping it happens again"). It stays here rather than on the
+// shared banned list, which every prompt file is also held to and
+// whose own instructions use the phrase about twenty times.
+const CONTRASTS: ReadonlyArray<RegExp> = [/\bnot just\b/gi, /\brather than\b/gi];
 
 function outsideQuotes(text: string): string {
   return text.replace(/["“][^"”]*["”]/g, '""');
@@ -110,7 +115,9 @@ export function checkDebriefReply(text: string, transcript: string): ReplyFaults
     for (const m of text.matchAll(re)) denials.push(m[0].trim());
   }
   return {
-    banned: findBannedPhrases(text),
+    // Aimee's own words. A quote is what somebody said, checked
+    // against the transcript below; "instead of" in it is theirs.
+    banned: findBannedPhrases(outsideQuotes(text)),
     denials,
     contrasts: CONTRASTS.flatMap((re) => [...outsideQuotes(text).matchAll(re)].map((m) => m[0].toLowerCase())),
     invented: transcript.length > 0 ? findUnsupportedQuotes(text, transcript) : [],
