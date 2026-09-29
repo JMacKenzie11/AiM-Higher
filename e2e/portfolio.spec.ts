@@ -123,7 +123,7 @@ test.describe("portfolio_admin", () => {
     //
     // SCOPED TO THE COMPANIES SECTION, because the name now appears
     // twice on this page: once as a card, and once as a checkbox
-    // label in Company admin access, which lists every company on the
+    // label in Company access, which lists every company on the
     // instance. An unscoped getByText was a strict-mode violation the
     // moment that card shipped — and "the name is somewhere on the
     // page" was never the claim. The card is.
