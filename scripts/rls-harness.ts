@@ -2932,6 +2932,91 @@ values ('${id}', null, '${name}', '${role}', 'active');`;
   };
 }
 
+// A portfolio admin keeps what any owner can do with its own work
+// (0246, Jason 2026-09-29).
+//
+// 0245 took an assigned portfolio admin's content writes away, and
+// the owner rules require membership of the company, which a
+// portfolio admin never has. So, as an assigned portfolio admin that
+// OWNS a commitment and a priority:
+//   allowed   mark its commitment kept, reschedule it, park it, add a
+//             commitment of its own, update its priority
+//   refused   change a commitment somebody else owns, hand its own to
+//             somebody else
+// Red after 0245 alone (its own close-out refused); green with 0246.
+async function portfolioAdminOwnsItsWork(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const CO = ids.companyAdminCompany;
+  const PA = "aaaa0246-0000-4000-8000-000000000001";
+  const [rows] = await run<{ mine: string | null; theirs: string | null; priority: string | null }>(
+    [
+      "begin;", pending,
+      `select (select id from public.commitments where company_id='${CO}' order by created_at limit 1) as mine,
+              (select id from public.commitments where company_id='${CO}' order by created_at offset 1 limit 1) as theirs,
+              (select id from public.priorities where company_id='${CO}' order by created_at limit 1) as priority;`,
+      "rollback;",
+    ].join("\n")
+  );
+  if (!rows?.mine || !rows.theirs || !rows.priority) {
+    return {
+      name: "portfolio-admin-owns-its-work",
+      hazard: "A portfolio admin cannot close out its own work",
+      wrong: "NOT PROVEN",
+      right: "NOT PROVEN",
+      ok: false,
+      detail: "NOT PROVEN: the company needs two commitments and a priority to run this.",
+    };
+  }
+  const seed = `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${PA}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${PA}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${PA}', null, 'Harness 0246 PA', 'portfolio_admin', 'active');
+insert into public.portfolio_assignments (portfolio_admin_id, company_id) values ('${PA}', '${CO}');
+update public.commitments set owner_id = '${PA}', status = 'open', parked_at = null where id = '${rows.mine}';
+update public.commitments set owner_id = '${ids.companyAdmin}' where id = '${rows.theirs}';
+update public.priorities set owner_id = '${PA}' where id = '${rows.priority}';`;
+  const claims = `set local request.jwt.claims = '{"sub":"${PA}","role":"authenticated"}';`;
+  // Rows the statement reached, as the portfolio admin.
+  const reached = async (stmt: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        ["begin;", pending, seed, "set local role authenticated;", claims,
+          `with w as (${stmt} returning 1) select count(*)::int as n from w;`, "rollback;"].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+  const kept = await reached(`update public.commitments set status = 'kept_on_time', completed_at = now(), resolved_by_role = 'owner' where id = '${rows.mine}'`);
+  const rescheduled = await reached(`update public.commitments set due_date = current_date + 7 where id = '${rows.mine}'`);
+  const parked = await reached(`update public.commitments set parked_at = now() where id = '${rows.mine}'`);
+  const added = await reached(`insert into public.commitments (company_id, owner_id, description, due_date, week_ending, status)
+      select company_id, '${PA}', 'harness 0246 own', due_date, week_ending, 'open' from public.commitments where id = '${rows.mine}'`);
+  const progress = await reached(`update public.priorities set status = status where id = '${rows.priority}'`);
+  const others = await reached(`update public.commitments set status = 'kept_on_time', completed_at = now(), resolved_by_role = 'owner' where id = '${rows.theirs}'`);
+  const handOff = await reached(`update public.commitments set owner_id = '${ids.companyAdmin}' where id = '${rows.mine}'`);
+
+  const ok = kept === 1 && rescheduled === 1 && parked === 1 && added === 1 && progress === 1 && others === 0 && handOff === 0;
+  const got = `kept ${kept}, rescheduled ${rescheduled}, parked ${parked}, added ${added}, priority ${progress} (want 1 each); somebody else's ${others}, handed off ${handOff} (want 0)`;
+  return {
+    name: "portfolio-admin-owns-its-work",
+    hazard: "A portfolio admin cannot close out its own work, or can change somebody else's",
+    wrong: `its own close-out refused, or somebody else's row changed`,
+    right: got,
+    ok,
+    detail: ok
+      ? "An assigned portfolio admin marks its own commitment kept, reschedules and parks it, adds one of its own and updates its priority. It cannot change a commitment somebody else owns, or hand its own to somebody else."
+      : got,
+  };
+}
+
 // A company sees and ends a portfolio admin's assignment (0205).
 //
 // This reverses decision 5, so the case that used to assert the
@@ -10333,6 +10418,10 @@ async function main(): Promise<void> {
     [
       "portfolio-admin-four-tables-only",
       (r: Runner, i: Identities) => portfolioAdminFourTablesOnly(r, i, pendingSql),
+    ],
+    [
+      "portfolio-admin-owns-its-work",
+      (r: Runner, i: Identities) => portfolioAdminOwnsItsWork(r, i, pendingSql),
     ],
   ] as const;
 

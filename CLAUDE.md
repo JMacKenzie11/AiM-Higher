@@ -154,7 +154,9 @@ which is the form `npm run check:docs` reads.
 ## Permissions
 
 **portfolio_admin may hold a write policy only on `companies`,
-`company_features`, `profiles` and `portfolio_admin_events`.** The list is
+`company_features`, `profiles` and `portfolio_admin_events`.** One exception, as for
+any owner: rows it owns in a company it is assigned to (its own
+commitments, priorities, goals, and focus areas it sponsors; 0246). The list is
 closed. `npm run rls:hazards` fails on a write policy naming the role
 anywhere else, in either spelling, and plants a deliberately wrong one on
 every run so a clean result is never a broken matcher. Reads are wide on
