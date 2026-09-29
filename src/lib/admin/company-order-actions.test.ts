@@ -175,7 +175,7 @@ describe("planCompanyReorder", () => {
     ids.map((id, i) => ({ id, sort_order: positions[i], name: id }));
 
   it("swaps two companies at the end with two writes, even with a gap above them", async () => {
-    const { planCompanyReorder } = await import("./company-order-actions");
+    const { planCompanyReorder } = await import("./company-order");
     // A removed company left a gap at 6.
     const rows = named(["a", "b", "c", "d", "e", "g", "h", "fx1", "fx2"], [1, 2, 3, 4, 5, 7, 8, 23, 24]);
     const writes = planCompanyReorder(rows, ["a", "b", "c", "d", "e", "g", "h", "fx2", "fx1"]);
@@ -187,14 +187,14 @@ describe("planCompanyReorder", () => {
   });
 
   it("writes nothing for a company whose place did not change", async () => {
-    const { planCompanyReorder } = await import("./company-order-actions");
+    const { planCompanyReorder } = await import("./company-order");
     const rows = named(["a", "b", "c", "d"], [1, 5, 9, 12]);
     const writes = planCompanyReorder(rows, ["a", "c", "b", "d"]);
     expect(writes.map((w) => w.id).sort()).toEqual(["b", "c"]);
   });
 
   it("still saves the new order for any drag, gaps or not", async () => {
-    const { planCompanyReorder } = await import("./company-order-actions");
+    const { planCompanyReorder } = await import("./company-order");
     // A fixed-seed shuffle, so a failure reproduces.
     let seed = 7;
     const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
@@ -217,7 +217,7 @@ describe("planCompanyReorder", () => {
   });
 
   it("falls back to numbering 1..N when a company has no position yet", async () => {
-    const { planCompanyReorder } = await import("./company-order-actions");
+    const { planCompanyReorder } = await import("./company-order");
     const rows = named(["a", "b", "c"], [1, null, 3]);
     const writes = planCompanyReorder(rows, ["b", "a", "c"]);
     expect(listAfter(rows, writes)).toEqual(["b", "a", "c"]);
