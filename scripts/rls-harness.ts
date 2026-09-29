@@ -3017,6 +3017,149 @@ update public.priorities set owner_id = '${PA}' where id = '${rows.priority}';`;
   };
 }
 
+// The company admin switch on a portfolio assignment (0247).
+//
+// Switched off, an assigned portfolio admin reads, writes its four
+// tables and keeps its own work; switched on, it acts as that
+// company's admin there. Only a system admin changes the switch, and
+// who did and when is stamped.
+//
+//   off       issue insert, commitment edit, roll_quarter: refused
+//   switch    a system admin turns it on: lands, stamped with them
+//             a company admin, or the portfolio admin itself: refused
+//             a portfolio admin adding its own assignment switched on:
+//             refused
+//   on        the same three writes land
+// Red before 0247 (no switch); green with it.
+async function portfolioAdminCompanyAdminSwitch(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "portfolio-admin-company-admin-switch";
+  const [col] = await run<{ ok: boolean }>(
+    ["begin;", pending,
+      `select count(*) > 0 as ok from information_schema.columns
+        where table_schema='public' and table_name='portfolio_assignments' and column_name='acts_as_company_admin';`,
+      "rollback;"].join("\n")
+  );
+  if (!col?.ok) {
+    return {
+      name,
+      hazard: "A portfolio admin a system admin made a company's admin cannot act as one, or anybody else can make them one",
+      wrong: "no company admin switch on this schema",
+      right: "the switch exists",
+      ok: false,
+      detail: "no company admin switch: 0247 not applied. Runs for real under --pending 0247_portfolio_admin_company_admin_switch.sql.",
+    };
+  }
+  const CO = ids.companyAdminCompany;
+  const PA = "aaaa0247-0000-4000-8000-000000000001";
+  const OTHER_CO = ids.otherCompany;
+  const [target] = await run<{ id: string | null; sys: string | null }>(
+    ["begin;", pending,
+      `select (select id from public.commitments where company_id='${CO}' order by created_at limit 1) as id,
+              (select id from public.profiles where role='system_admin' and status='active' order by created_at limit 1) as sys;`,
+      "rollback;"].join("\n")
+  );
+  const commitment = target?.id;
+  const SYS = target?.sys;
+  if (!commitment || !SYS) {
+    return { name, hazard: "", wrong: "NOT PROVEN", right: "NOT PROVEN", ok: false, detail: "NOT PROVEN: needs a commitment in the company and an active system admin." };
+  }
+  const seed = `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${PA}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${PA}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${PA}', null, 'Harness 0247 PA', 'portfolio_admin', 'active');
+insert into public.portfolio_assignments (portfolio_admin_id, company_id) values ('${PA}', '${CO}');`;
+  const as = (sub: string) =>
+    `set local role authenticated;\nset local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const switchOn = (who: string) =>
+    `update public.portfolio_assignments set acts_as_company_admin = true where portfolio_admin_id = '${PA}' and company_id = '${CO}';`;
+
+  // Count what landed, read back as the superuser. `before` runs with
+  // the caller set, then the write, as the portfolio admin.
+  const landed = async (setup: string, write: string, check: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        ["begin;", pending, seed, setup, as(PA), write, "reset role;", check, "rollback;"].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+  const writes = async (setup: string) => ({
+    issue: await landed(setup,
+      `insert into public.issues (company_id, title, created_by) values ('${CO}', 'harness 0247', '${PA}');`,
+      `select count(*)::int as n from public.issues where title = 'harness 0247';`),
+    edit: await landed(setup,
+      `update public.commitments set description = 'harness 0247' where id = '${commitment}';`,
+      `select count(*)::int as n from public.commitments where id = '${commitment}' and description = 'harness 0247';`),
+    roll: await landed(setup,
+      `select * from public.roll_quarter('${CO}', 'Harness 0247', current_date, current_date + 90);`,
+      `select count(*)::int as n from public.quarters where company_id = '${CO}' and label = 'Harness 0247';`),
+  });
+  const off = await writes("");
+  const onBySys = `${as(SYS)}\n${switchOn(SYS)}\nreset role;`;
+  const on = await writes(onBySys);
+
+  // Who may flip it, read back as the superuser.
+  const flip = async (who: string): Promise<{ on: number; by: string | null }> => {
+    try {
+      const [r] = await run<{ n: number; by: string | null }>(
+        ["begin;", pending, seed, as(who), switchOn(who), "reset role;",
+          `select count(*)::int as n, max(company_admin_set_by::text) as by from public.portfolio_assignments
+            where portfolio_admin_id = '${PA}' and company_id = '${CO}' and acts_as_company_admin and company_admin_set_at is not null;`,
+          "rollback;"].join("\n")
+      );
+      return { on: r?.n ?? -1, by: r?.by ?? null };
+    } catch {
+      return { on: 0, by: null };
+    }
+  };
+  const bySys = await flip(SYS);
+  const byCompanyAdmin = await flip(ids.companyAdmin);
+  const bySelf = await flip(PA);
+  let selfInsertOn = 0;
+  try {
+    const [r] = await run<{ n: number }>(
+      ["begin;", pending, seed, as(PA),
+        `insert into public.portfolio_assignments (portfolio_admin_id, company_id, acts_as_company_admin) values ('${PA}', '${OTHER_CO}', true);`,
+        "reset role;",
+        `select count(*)::int as n from public.portfolio_assignments where portfolio_admin_id = '${PA}' and company_id = '${OTHER_CO}' and acts_as_company_admin;`,
+        "rollback;"].join("\n")
+    );
+    selfInsertOn = r?.n ?? -1;
+  } catch {
+    selfInsertOn = 0;
+  }
+
+  const ok =
+    off.issue === 0 && off.edit === 0 && off.roll === 0 &&
+    on.issue === 1 && on.edit === 1 && on.roll === 1 &&
+    bySys.on === 1 && bySys.by === SYS &&
+    byCompanyAdmin.on === 0 && bySelf.on === 0 && selfInsertOn === 0;
+  const got =
+    `off issue/commitment/roll ${off.issue}/${off.edit}/${off.roll} (want 0/0/0); ` +
+    `on ${on.issue}/${on.edit}/${on.roll} (want 1/1/1); ` +
+    `switched by system admin ${bySys.on}, stamped with them ${bySys.by === SYS} (want 1, true); ` +
+    `by company admin ${byCompanyAdmin.on}, by itself ${bySelf.on}, self-added switched on ${selfInsertOn} (want 0, 0, 0)`;
+  return {
+    name,
+    hazard: "A portfolio admin a system admin made a company's admin cannot act as one, or anybody else can make them one",
+    wrong: "writes land with the switch off, or the switch moves for somebody other than a system admin",
+    right: got,
+    ok,
+    detail: ok
+      ? "Switched off, an assigned portfolio admin's issue, commitment and quarter writes are refused; switched on by a system admin, all three land, and the switch records the system admin and when. A company admin cannot turn it on, the portfolio admin cannot turn it on for itself or add an assignment already switched on."
+      : got,
+  };
+}
+
 // A company sees and ends a portfolio admin's assignment (0205).
 //
 // This reverses decision 5, so the case that used to assert the
@@ -10422,6 +10565,10 @@ async function main(): Promise<void> {
     [
       "portfolio-admin-owns-its-work",
       (r: Runner, i: Identities) => portfolioAdminOwnsItsWork(r, i, pendingSql),
+    ],
+    [
+      "portfolio-admin-company-admin-switch",
+      (r: Runner, i: Identities) => portfolioAdminCompanyAdminSwitch(r, i, pendingSql),
     ],
   ] as const;
 

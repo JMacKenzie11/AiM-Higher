@@ -14,18 +14,30 @@ read of how every company on the instance is doing.
 It is an oversight view. You can read everything inside a company
 and change nothing that a company produces.
 
-## Company admin access
+## Company access
 
-As a portfolio admin you always have full read access to every
-company on this instance. That never changes and it does not depend
-on anything below.
+As a portfolio admin you can read every company on this instance.
+That never changes and doesn't depend on anything below.
 
-Selecting a company on the **Company admin access** card gives you
-full company administrator access there, and you appear on that
-company's team list with the role *company admin*, like anyone else.
-Tick the ones you work in and press **Update**.
+Ticking a company on the **Company access** card puts you on that
+company's team. You can own commitments and priorities there and
+close them out, like anyone on the team. Tick the ones you work in and
+press **Update**.
 
-**Unticking a company gives that access up**, and there is one thing
+**A system admin can also make you a company's admin.** Then, in that
+company, you can do everything its company admin can: change the
+plan, the chart and the measures, and manage the team. The card shows
+**Company admin** beside those companies. Only a system admin can turn
+it on or off, and who did it and when is recorded.
+
+::: role system_admin
+**Making someone a company's admin.** Tick the company for them first
+and press **Update**. Then tick **Company admin** beside it. It saves
+straight away, and unticking it takes the admin rights away again.
+They stay on the company's team either way.
+:::
+
+**Unticking a company takes you off its team**, and there is one thing
 worth knowing before you do it. If you own open commitments in that
 company, they are released to **Unassigned** so somebody else can
 pick them up. That is deliberate: once your access is gone you can

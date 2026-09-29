@@ -34,6 +34,9 @@ export async function getCurrentUser() {
 export type SessionProfile = Profile & {
   guide_company_ids: readonly string[];
   portfolio_company_ids: readonly string[];
+  // Of those, the ones a system admin switched on as company admin
+  // (0247): where this portfolio admin acts as the company's admin.
+  portfolio_admin_company_ids: readonly string[];
 };
 
 export type CurrentSession = {
@@ -84,14 +87,15 @@ export const getCurrentSession = cache(async function getCurrentSession(): Promi
   // system_admin and the assignment's own holder, which is exactly
   // the set that should be able to build this list.
   let portfolioCompanyIds: string[] = [];
+  let portfolioAdminCompanyIds: string[] = [];
   if (profile?.role === "portfolio_admin") {
     const { data: assignments } = await supabase
       .from("portfolio_assignments")
-      .select("company_id")
+      .select("company_id, acts_as_company_admin")
       .eq("portfolio_admin_id", profile.id);
-    portfolioCompanyIds = (
-      (assignments ?? []) as Array<{ company_id: string }>
-    ).map((a) => a.company_id);
+    const rows = (assignments ?? []) as Array<{ company_id: string; acts_as_company_admin?: boolean | null }>;
+    portfolioCompanyIds = rows.map((a) => a.company_id);
+    portfolioAdminCompanyIds = rows.filter((a) => a.acts_as_company_admin === true).map((a) => a.company_id);
   }
 
   return {
@@ -102,6 +106,7 @@ export const getCurrentSession = cache(async function getCurrentSession(): Promi
           ...profile,
           guide_company_ids: guideCompanyIds,
           portfolio_company_ids: portfolioCompanyIds,
+          portfolio_admin_company_ids: portfolioAdminCompanyIds,
         }
       : null,
   };

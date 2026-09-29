@@ -148,6 +148,8 @@ describe("getCurrentSession", () => {
     const session = await getCurrentSession();
 
     expect(session!.profile!.portfolio_company_ids).toEqual(["co_acme"]);
+    // No switch on the row: an assignment, not company admin (0247).
+    expect(session!.profile!.portfolio_admin_company_ids).toEqual([]);
     // The lists do not cross. A portfolio admin is not a guide, and
     // reading the guide table for them would be a query whose answer
     // is always empty.

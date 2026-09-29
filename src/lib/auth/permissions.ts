@@ -15,6 +15,9 @@ import type { Profile, Role } from "@/lib/types";
 export type SessionProfileLike = Pick<Profile, "id" | "role" | "company_id"> & {
   guide_company_ids?: readonly string[];
   portfolio_company_ids?: readonly string[];
+  // The assignments a system admin has switched on as company admin
+  // (0247). A subset of portfolio_company_ids.
+  portfolio_admin_company_ids?: readonly string[];
 };
 
 /**
@@ -25,22 +28,17 @@ export type SessionProfileLike = Pick<Profile, "id" | "role" | "company_id"> & {
  * level checks are NOT included — combine with an owner check when
  * you need "admin or owner".
  *
- * THE PORTFOLIO BRANCH IS PER-COMPANY, and that is the whole point of
- * it. Instance-wide reach is a different question, answered by
- * canViewCompany below, and the two must not be collapsed. A
- * portfolio admin with no assignment row returns false here and every
- * edit affordance in the app stays off, which is what this role has
- * always done; one with an assignment gets company-admin-equivalent
- * writes in that company and nowhere else.
+ * THE PORTFOLIO BRANCH IS PER-COMPANY, and since 0247 it is the
+ * company admin SWITCH, not the assignment. An assignment alone lets a
+ * portfolio admin read the company and keep its own work (0246); a
+ * system admin switching it on makes them that company's admin there
+ * (Jason, 2026-09-29). Instance-wide reach is a different question,
+ * answered by canViewCompany below.
  *
- * RLS SAYS THE SAME THING AND SAID IT FIRST. `is_admin_for()`
- * (migration 0199) already grants exactly this through
- * portfolio_assignments, and the ~117 policies that call it inherited
- * it with no edit. Until this branch existed the app layer was the
- * STRICTER of the two: RLS would have allowed the write and the app
- * never offered it. That is the safe direction to be wrong in, and it
- * is why this change adds no grant — it stops the courtesy layer from
- * refusing what the boundary already permits.
+ * RLS SAYS THE SAME: is_content_admin_for() (0247) admits a portfolio
+ * admin only where the switch is on. Before 0245 the database admitted
+ * every assigned portfolio admin through is_admin_for(), and this
+ * helper agreed; both now follow the switch.
  */
 export function isAdminForCompany(
   profile: SessionProfileLike,
@@ -53,7 +51,7 @@ export function isAdminForCompany(
     return (profile.guide_company_ids ?? []).includes(companyId);
   }
   if (role === "portfolio_admin") {
-    return (profile.portfolio_company_ids ?? []).includes(companyId);
+    return (profile.portfolio_admin_company_ids ?? []).includes(companyId);
   }
   return false;
 }

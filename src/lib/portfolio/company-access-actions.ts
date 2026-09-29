@@ -154,3 +154,37 @@ export async function setPortfolioCompanyAccessAction(
   revalidatePath("/people");
   return { ok: true, added: toAdd.length, removed: toRemove.length, released };
 }
+
+// Switch a portfolio admin's assignment on or off as company admin
+// (0247, Jason 2026-09-29). On: they act as that company's admin there.
+// Off: they read it, write their four tables and keep their own work.
+//
+// SYSTEM ADMINS ONLY, and the database says so first: the only update
+// rule on portfolio_assignments admits a system admin, and a trigger
+// refuses the switch from anybody else and stamps who set it and when
+// (company_admin_set_by, company_admin_set_at). Written through the
+// caller's own session so that stamp is the system admin's.
+export async function setPortfolioCompanyAdminAction(
+  portfolioAdminId: string,
+  companyId: string,
+  on: boolean
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const session = await requireProfile();
+  if (session.profile.role !== "system_admin") {
+    return { ok: false, message: "Only a system admin can change this." };
+  }
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase
+    .from("portfolio_assignments")
+    .update({ acts_as_company_admin: on })
+    .eq("portfolio_admin_id", portfolioAdminId)
+    .eq("company_id", companyId)
+    .select("company_id");
+  if (error) return { ok: false, message: "Couldn't change that. Try again." };
+  if (!data || data.length === 0) {
+    return { ok: false, message: "They need access to that company first." };
+  }
+  revalidatePath("/portfolio");
+  revalidatePath("/people");
+  return { ok: true };
+}

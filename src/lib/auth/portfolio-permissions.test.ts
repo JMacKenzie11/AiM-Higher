@@ -21,11 +21,14 @@ const PA = { id: "pa_1", role: "portfolio_admin" as const, company_id: null };
 // The same role, holding one assignment. Decision 1: a portfolio
 // admin who wants to run one of their companies can, and one who
 // does not, does not — so both shapes are real and both are tested.
+// Assigned to co_a and co_c; a system admin switched co_a on as
+// company admin (0247), co_c is an assignment only.
 const PA_ASSIGNED = {
   id: "pa_2",
   role: "portfolio_admin" as const,
   company_id: null,
-  portfolio_company_ids: ["co_a"],
+  portfolio_company_ids: ["co_a", "co_c"],
+  portfolio_admin_company_ids: ["co_a"],
 };
 const SYS = { id: "sys_1", role: "system_admin" as const, company_id: null };
 const CA = { id: "ca_1", role: "company_admin" as const, company_id: "co_a" };
@@ -73,8 +76,18 @@ describe("canViewCompany vs isAdminForCompany", () => {
     expect(isAdminForCompany(PA, "co_assigned_to_another")).toBe(false);
   });
 
-  it("lets an ASSIGNED portfolio_admin write content in that company", () => {
+  it("lets a portfolio_admin SWITCHED ON as company admin write content in that company", () => {
     expect(isAdminForCompany(PA_ASSIGNED, "co_a")).toBe(true);
+  });
+
+  // Jason, 2026-09-29: an assignment alone reads, writes the four
+  // tables and keeps its own work; only the switch makes them admin.
+  it("does NOT let an assignment alone write content", () => {
+    expect(isAdminForCompany(PA_ASSIGNED, "co_c")).toBe(false);
+    expect(canViewCompany(PA_ASSIGNED, "co_c")).toBe(true);
+    // Their own row, as any owner.
+    expect(canWriteOwnedRow(PA_ASSIGNED, { company_id: "co_c", owner_id: "pa_2" })).toBe(true);
+    expect(canWriteOwnedRow(PA_ASSIGNED, { company_id: "co_c", owner_id: "someone" })).toBe(false);
   });
 
   it("stops at the edge of the assignment", () => {
