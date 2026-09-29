@@ -163,6 +163,17 @@ in dev (`onDemandEntries`). The warm-up takes a few minutes on a cold
 server and seconds on a warm one. Production builds are unaffected:
 they compile everything up front.
 
+**Give the dev server room for it.** Every page compiled and kept uses
+more memory than Node's default limit (about 4 GB here). Near that
+limit `next dev` restarts itself ("Server is approaching the used
+memory threshold, restarting"), drops every compiled page and fails
+whatever was loading at the time. That happened 20 minutes into a full
+run on 2026-09-29. Start the server for a full run with a larger limit:
+
+```sh
+NODE_OPTIONS=--max-old-space-size=12288 npm run dev
+```
+
 Two rules for specs, from the same investigation:
 
 - **Wait on what the product writes, never on the clock.** Coach
