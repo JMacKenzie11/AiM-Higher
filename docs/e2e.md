@@ -170,10 +170,10 @@ Two rules for specs, from the same investigation:
   seconds, longer under load. `coach-memory.spec.ts` reloads the
   Memory page until the expected lines appear, with a time limit,
   instead of pausing and reading once.
-- **Clear your own leftovers before you start**, not only at the end.
-  A spec that fails before its clean-up step leaves its rows behind,
-  and the next run measures them. `chart-leftovers.ts` does this for
-  the chart specs' "E2E add" and "E2E move" functions on Benson.
+- **Write only into E2E Fixture Co.** A spec that fails before its
+  clean-up step leaves its rows behind, and in a copy of a client's
+  company that is the client's data with test rows in it. See "Specs
+  write only into E2E Fixture Co".
 
 ## Running the live-credential specs
 
