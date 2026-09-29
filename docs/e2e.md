@@ -115,6 +115,30 @@ and a test user with a known password in the production auth table is
 not a test user, it is a back door. The dev clone and production are
 one typo apart, so the script checks rather than trusts.
 
+## Specs write only into E2E Fixture Co
+
+The dev clone holds copies of client companies. A spec may READ them
+(Benson Seafood's real plan is the long-title case the phone specs
+need), but anything a spec creates, renames, reorders or deletes goes
+in **E2E Fixture Co**, the company `seed:e2e` builds.
+
+This used to be looser. The chart specs created and deleted functions
+on Benson's chart, and a run that failed before its delete left the
+function there for good: five of them by 2026-09-29, enough to make
+Benson's chart unreadable on a phone and to fail `chart-fit`. The
+measures reorder ran on Geo-Sci, and the issue reorder on whichever
+company sorted first. All three now scope into the fixture, which the
+seed gives a small chart (Visionary, E2E Operations, E2E Sales) and two
+measures per area, and whose leftover "E2E add" and "E2E move"
+functions the seed clears.
+
+Scope with the name, never with `.first()`:
+
+```ts
+.getByTestId("scope-into-company")
+.filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
+```
+
 ## Selectors
 
 Roles, labels and `data-testid`. **Never copy text.** The wording of

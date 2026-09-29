@@ -354,6 +354,64 @@ async function main() {
   }
   console.log(`  function "${LED_FUNCTION}" → led by ${leadEmail}`);
 
+  // ---- a small chart, with measures ------------------------------
+  //
+  // So the chart and measures specs write into THIS company and never
+  // into a copy of a client's. They used to scope into Benson Seafood
+  // and Geo-Sci, and a failed run left its throwaway functions on
+  // Benson's chart for good (five on dev by 2026-09-29).
+  //
+  //   Visionary            top level; the move spec's target parent
+  //     E2E Operations     two measures
+  //     E2E Sales          two measures
+  //
+  // Matched by title, so a rerun updates in place. Measure order is
+  // reset on every run, so a reorder spec that died halfway does not
+  // leave the next run starting from its half-moved state.
+  async function ensureFunction(title: string, parentId: string | null, sortOrder: number): Promise<string> {
+    const { data: found } = await admin
+      .from("functions")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("title", title)
+      .maybeSingle<{ id: string }>();
+    if (found?.id) {
+      const { error } = await admin
+        .from("functions")
+        .update({ parent_function_id: parentId, sort_order: sortOrder, archived: false })
+        .eq("id", found.id);
+      if (error) throw error;
+      return found.id;
+    }
+    const { data, error } = await admin
+      .from("functions")
+      .insert({ company_id: companyId, title, parent_function_id: parentId, sort_order: sortOrder })
+      .select("id")
+      .single<{ id: string }>();
+    if (error || !data) throw error ?? new Error(`could not create ${title}`);
+    return data.id;
+  }
+  async function ensureMeasures(functionId: string, descriptions: string[]): Promise<void> {
+    for (const [i, description] of descriptions.entries()) {
+      const { data: found } = await admin
+        .from("success_measures")
+        .select("id")
+        .eq("function_id", functionId)
+        .eq("description", description)
+        .maybeSingle<{ id: string }>();
+      const { error } = found?.id
+        ? await admin.from("success_measures").update({ sort_order: i + 1, archived: false }).eq("id", found.id)
+        : await admin.from("success_measures").insert({ function_id: functionId, description, sort_order: i + 1 });
+      if (error) throw error;
+    }
+  }
+  const visionaryId = await ensureFunction("Visionary", null, 100);
+  const operationsId = await ensureFunction("E2E Operations", visionaryId, 110);
+  const salesId = await ensureFunction("E2E Sales", visionaryId, 120);
+  await ensureMeasures(operationsId, ["E2E jobs dispatched on time (%)", "E2E jobs closed per week"]);
+  await ensureMeasures(salesId, ["E2E quotes sent per week", "E2E quotes won (%)"]);
+  console.log(`  chart → Visionary, E2E Operations, E2E Sales, with two measures each`);
+
   // ---- guide assignment ---------------------------------------
   const { error: assignmentError } = await admin
     .from("guide_assignments")
@@ -397,6 +455,17 @@ async function main() {
   console.log(
     `  cleared ${(cleared ?? []).length} coaching conversation(s) left by earlier test runs`
   );
+
+  // The chart specs' throwaway functions, when a run failed before
+  // deleting its own. Fixture company only, and only these prefixes.
+  const { data: clearedFns, error: fnClearError } = await admin
+    .from("functions")
+    .delete()
+    .eq("company_id", companyId)
+    .or("title.like.E2E add %,title.like.E2E move %")
+    .select("id");
+  if (fnClearError) throw fnClearError;
+  console.log(`  cleared ${(clearedFns ?? []).length} chart function(s) left by earlier test runs`);
 
   // ---- a Foundation, so the summariser has values to notice ----
   //

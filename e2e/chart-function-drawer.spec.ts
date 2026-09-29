@@ -1,6 +1,5 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 import type { Page } from "@playwright/test";
-import { clearChartLeftovers } from "./chart-leftovers";
 
 // Editing a function happens on the chart now.
 //
@@ -41,7 +40,9 @@ async function scopeIn(page: Page) {
   await page.goto("/admin/companies");
   await page
     .getByTestId("scope-into-company")
-    .filter({ hasText: /^Benson Seafood$/ })
+    // The fixture company, never a copy of a client's. Its chart is
+    // seeded (seed:e2e): Visionary with two functions under it.
+    .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
     .click();
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
 }
@@ -257,8 +258,6 @@ test("switching functions in the drawer does not show the last one", async ({
 test("a function can be moved to a different parent", async ({ page }) => {
   test.setTimeout(240_000);
   await scopeIn(page);
-  // A failed earlier run's function is still on the chart otherwise.
-  await clearChartLeftovers(page);
   await page.goto("/chart");
 
   const addPanel = page

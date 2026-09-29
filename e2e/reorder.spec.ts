@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Drag-to-reorder, on the two lists that have it.
@@ -123,7 +123,12 @@ test.describe("drag to reorder", () => {
   }) => {
     await signIn(page, users.admin());
     await page.goto("/admin/companies");
-    await page.getByTestId("scope-into-company").first().click();
+    // The fixture company, never a copy of a client's. `.first()` was
+    // whichever company sorted first, which was a client's.
+    await page
+      .getByTestId("scope-into-company")
+      .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
+      .click();
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
     await page.goto("/issues");
 
