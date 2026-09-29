@@ -114,7 +114,7 @@ export function AimeeLauncher() {
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
-        title="Aimee"
+        title="Ask Aimee"
         side={!phone}
         trapFocus={phone}
         keepMounted
