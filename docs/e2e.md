@@ -163,16 +163,27 @@ in dev (`onDemandEntries`). The warm-up takes a few minutes on a cold
 server and seconds on a warm one. Production builds are unaffected:
 they compile everything up front.
 
-**Give the dev server room for it.** Every page compiled and kept uses
-more memory than Node's default limit (about 4 GB here). Near that
-limit `next dev` restarts itself ("Server is approaching the used
-memory threshold, restarting"), drops every compiled page and fails
-whatever was loading at the time. That happened 20 minutes into a full
-run on 2026-09-29. Start the server for a full run with a larger limit:
+**Restart the dev server every quarter of the suite.** Every page
+compiled and kept costs memory: measured on 2026-09-29, `next dev` sits
+at about 8 GB after the warm-up and climbs to about 11 GB after ten
+minutes of tests. It gives itself half the machine's memory (16 GB on a
+32 GB Mac) and restarts itself at 80% of that ("Server is approaching the
+used memory threshold, restarting"), which drops every compiled page and
+fails whatever was loading, usually as a timeout or a test sent back to
+sign-in. A half of the suite reaches that; a quarter does not. So a full
+run is four shards, each on a freshly started server, each with its own
+warm-up:
 
 ```sh
-NODE_OPTIONS=--max-old-space-size=12288 npm run dev
+for n in 1 2 3 4; do
+  # stop the server on 3200, start `npm run dev`, wait for /sign-in
+  npx playwright test --project=chromium --shard=$n/4
+done
 ```
+
+Do not raise the memory limit with NODE_OPTIONS: next dev already sets
+it to half the machine's memory, so a smaller number lowers it, and a
+larger one only delays the restart while the machine starts swapping.
 
 Two rules for specs, from the same investigation:
 
