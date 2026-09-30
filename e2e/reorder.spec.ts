@@ -138,6 +138,11 @@ test.describe("drag to reorder", () => {
   test("an issue can be moved down and the new order sticks", async ({
     page,
   }) => {
+    // Its own time limit, like the other specs: it makes about ten
+    // round trips (two creates, a drag, two deletes), and on the
+    // default 30 seconds one slow delete (3.9s, final run 1,
+    // 2026-09-30) ran it out of time after the reorder had passed.
+    test.setTimeout(120_000);
     await signIn(page, users.admin());
     await page.goto("/admin/companies");
     // The fixture company, never a copy of a client's. `.first()` was
