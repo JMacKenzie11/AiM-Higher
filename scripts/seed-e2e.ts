@@ -194,6 +194,15 @@ function surroundingQuarter(): {
   };
 }
 
+// A find-or-create lookup's error stops the seed: read as "not there",
+// it creates a duplicate (see the company lookup below).
+function orThrow(what: string) {
+  return <T>(res: { data: T; error: { message: string } | null }) => {
+    if (res.error) throw new Error(`Could not look up ${what} (${res.error.message}). Nothing more seeded.`);
+    return res;
+  };
+}
+
 async function main() {
   const url = required("LOCAL_INSTANCE_SUPABASE_URL");
   const serviceKey = required("LOCAL_INSTANCE_SUPABASE_SERVICE_KEY");
@@ -218,11 +227,24 @@ async function main() {
   console.log("Seeding e2e fixtures…");
 
   // ---- company ------------------------------------------------
-  const { data: existing } = await admin
+  //
+  // A lookup that fails must stop the seed, never read as "not there".
+  // It used to: the error was ignored, so a lookup that timed out
+  // (Supabase's eastern-US latency incident, 2026-09-29) inserted a
+  // second "E2E Fixture Co", and the next seed, finding two, inserted a
+  // third. Every spec picks the company by name, so all of them failed.
+  const { data: existing, error: existingError } = await admin
     .from("companies")
     .select("id")
     .eq("name", COMPANY_NAME)
     .maybeSingle<{ id: string }>();
+  if (existingError) {
+    throw new Error(
+      existingError.code === "PGRST116"
+        ? `More than one company is named "${COMPANY_NAME}". Nothing seeded. Remove the extras first (docs/e2e.md).`
+        : `Could not look up "${COMPANY_NAME}" (${existingError.message}). Nothing seeded.`
+    );
+  }
 
   let companyId = existing?.id ?? null;
   if (!companyId) {
@@ -309,7 +331,8 @@ async function main() {
     .select("id")
     .eq("company_id", companyId)
     .eq("label", quarter.label)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string }>()
+    .then(orThrow("the fixture quarter"));
   if (existingQuarter?.id) {
     const { error } = await admin
       .from("quarters")
@@ -386,7 +409,8 @@ async function main() {
     .select("id")
     .eq("company_id", companyId)
     .eq("title", LED_FUNCTION)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string }>()
+    .then(orThrow("the led function"));
   if (existingFunction?.id) {
     const { error } = await admin
       .from("functions")
@@ -632,7 +656,8 @@ async function main() {
     .from("transcript_sources")
     .select("id")
     .eq("folder_id", FIXTURE_FOLDER)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string }>()
+    .then(orThrow("the guide's transcript source"));
   let guideSourceId = existingSource?.id ?? null;
   if (!guideSourceId) {
     const { data: created, error: sourceError } = await admin

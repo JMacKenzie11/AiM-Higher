@@ -158,6 +158,21 @@ Scope with the name, never with `.first()`:
 .getByTestId("scope-into-company")
 .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
 ```
+### When a lookup fails, the seed stops
+
+The seed finds its fixtures by name and creates any it cannot find. A
+lookup that errors (a timeout, a dropped connection) stops the seed;
+it is never read as "not there". Until 2026-09-30 it was: a lookup
+that timed out during Supabase's eastern-US latency incident created a
+second "E2E Fixture Co", and the next seed, finding two, created a
+third. Every spec picks the company by name, so every one failed at
+the global setup ("strict mode violation ... resolved to 3 elements").
+
+If the seed says more than one company is named "E2E Fixture Co",
+nothing has been seeded. The extras are test data, but removing them is
+a write to the dev clone, so it is Jason's call each time (CLAUDE.md,
+Scope). List them with their creation dates, keep one, remove the
+rest, then seed again.
 
 ## Selectors
 
