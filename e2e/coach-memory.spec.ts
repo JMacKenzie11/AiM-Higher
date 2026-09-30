@@ -361,17 +361,15 @@ test.describe("coach memory", () => {
     await sendAndWait(page, "What do you remember about me? List everything.");
     const answer = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
 
-    // She must say she has nothing — and must not produce the content
-    // of the conversation that was deleted.
+    // The claim is that deleted memories no longer reach her, so it is
+    // checked by what she can no longer produce: the details of the
+    // deleted conversation. How she words having nothing is hers
+    // (Jason, 2026-09-30: coach tests check something reliable, never
+    // the model's wording). "There's nothing on file yet... a blank
+    // slate" failed the old phrase list while being exactly right.
     expect(
-      /don'?t have|nothing (yet|on record|from)|no (memory|memories|record)|first time|haven'?t (talked|noted)|starting fresh/.test(
-        answer
-      ),
-      `expected an empty-memory answer after deleting everything. Got: ${answer.slice(0, 400)}`
-    ).toBe(true);
-    expect(
-      answer.includes("dispatch"),
-      "the coach recalled deleted content"
+      /dispatch|marcus/.test(answer),
+      `the coach recalled deleted content. Got: ${answer.slice(0, 400)}`
     ).toBe(false);
   });
 });
