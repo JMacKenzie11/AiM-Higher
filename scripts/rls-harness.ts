@@ -3077,7 +3077,7 @@ values ('${PA}', null, 'Harness 0245 PA', 'portfolio_admin', 'active');
 insert into public.portfolio_assignments (portfolio_admin_id, company_id) values ('${PA}', '${CO}');`;
   const as = (sub: string) =>
     `set local role authenticated;\nset local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
-  const switchOn = (who: string) =>
+  const switchOn = () =>
     `update public.portfolio_assignments set acts_as_company_admin = true where portfolio_admin_id = '${PA}' and company_id = '${CO}';`;
 
   // Count what landed, read back as the superuser. `before` runs with
@@ -3104,14 +3104,14 @@ insert into public.portfolio_assignments (portfolio_admin_id, company_id) values
       `select count(*)::int as n from public.quarters where company_id = '${CO}' and label = 'Harness 0245';`),
   });
   const off = await writes("");
-  const onBySys = `${as(SYS)}\n${switchOn(SYS)}\nreset role;`;
+  const onBySys = `${as(SYS)}\n${switchOn()}\nreset role;`;
   const on = await writes(onBySys);
 
   // Who may flip it, read back as the superuser.
   const flip = async (who: string): Promise<{ on: number; by: string | null }> => {
     try {
       const [r] = await run<{ n: number; by: string | null }>(
-        ["begin;", pending, seed, as(who), switchOn(who), "reset role;",
+        ["begin;", pending, seed, as(who), switchOn(), "reset role;",
           `select count(*)::int as n, max(company_admin_set_by::text) as by from public.portfolio_assignments
             where portfolio_admin_id = '${PA}' and company_id = '${CO}' and acts_as_company_admin and company_admin_set_at is not null;`,
           "rollback;"].join("\n")
