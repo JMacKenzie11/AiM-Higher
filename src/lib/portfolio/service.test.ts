@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => {
   const priorities = vi.fn();
   const commitments = vi.fn();
   const occurrences = vi.fn();
-  const scorecard = vi.fn();
+  const snapshots = vi.fn();
   const currentQuarter = vi.fn();
 
   // A chainable query builder that resolves to whatever the matching
@@ -39,7 +39,7 @@ const mocks = vi.hoisted(() => {
     return builder;
   };
 
-  return { companies, priorities, commitments, occurrences, scorecard, currentQuarter, from };
+  return { companies, priorities, commitments, occurrences, snapshots, currentQuarter, from };
 });
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -49,7 +49,7 @@ vi.mock("@/lib/instances/current", () => ({
   getCurrentInstanceConfig: () => ({}),
 }));
 vi.mock("@/lib/maturity/service", () => ({
-  loadCompanyScorecardScores: mocks.scorecard,
+  loadLatestOverallSnapshots: mocks.snapshots,
 }));
 vi.mock("@/lib/quarters/service", () => ({
   getCurrentQuarter: mocks.currentQuarter,
@@ -81,6 +81,8 @@ vi.mock("@/lib/dates", async (importOriginal) => {
   };
 });
 
+import { DISCIPLINES } from "@/lib/maturity/disciplines";
+
 const COMPANY_A = {
   id: "co_a",
   name: "Acme",
@@ -95,9 +97,20 @@ function primeOneCompany() {
     start_date: "2026-07-01",
     end_date: "2026-09-30",
   });
-  mocks.scorecard.mockResolvedValue({
-    overall: { score: 3.4, disciplinesCounted: 8 },
-  });
+  // The latest weekly snapshot: every discipline at 3.4, so the
+  // weighted overall is 3.4 whatever the weights, across all eight.
+  mocks.snapshots.mockResolvedValue(
+    new Map([
+      [
+        "co_a",
+        {
+          date: "2026-09-11",
+          score: 3.4,
+          scores: DISCIPLINES.map((d) => ({ key: d.key, score: 3.4, breakdown: {} })),
+        },
+      ],
+    ])
+  );
   mocks.priorities.mockResolvedValue({
     data: [
       { status: "on_track" },
@@ -190,7 +203,32 @@ describe("loadPortfolioOverview", () => {
     const [card] = await loadPortfolioOverview();
 
     expect(card.scorecardOverall).toBe(3.4);
-    expect(card.scorecardDisciplines).toBe(8);
+    expect(card.scorecardDisciplines).toBe(DISCIPLINES.length);
+  });
+
+  it("dates the score with its snapshot", async () => {
+    // The score is last week's snapshot, not a live compute, so the
+    // card has to be able to say how old it is.
+    const { loadPortfolioOverview } = await import("./service");
+
+    const [card] = await loadPortfolioOverview();
+
+    expect(card.scorecardAsOf).toBe("2026-09-11");
+  });
+
+  it("reads every company's score in one query, not one per company", async () => {
+    // The live compute per company is what ran reads past the
+    // database's time limit on dev (2026-09-30).
+    mocks.companies.mockResolvedValue({
+      data: [COMPANY_A, { id: "co_b", name: "Beta", timezone: "America/Toronto" }],
+    });
+    const { loadPortfolioOverview } = await import("./service");
+
+    const cards = await loadPortfolioOverview();
+
+    expect(cards).toHaveLength(2);
+    expect(mocks.snapshots).toHaveBeenCalledTimes(1);
+    expect(mocks.snapshots).toHaveBeenCalledWith(["co_a", "co_b"]);
   });
 
   it("ends the week in the COMPANY's timezone, not the viewer's", async () => {
@@ -205,16 +243,16 @@ describe("loadPortfolioOverview", () => {
     expect(thisFridaySpy).toHaveBeenCalledWith("America/Anchorage");
   });
 
-  it("degrades to no score when the scorecard compute throws", async () => {
-    // A brand-new tenant with no data must not take the whole page
-    // down with it.
-    mocks.scorecard.mockRejectedValue(new Error("no data"));
+  it("has no score, never zero, for a company with no snapshot yet", async () => {
+    // A new company the weekly cron has not reached.
+    mocks.snapshots.mockResolvedValue(new Map());
     const { loadPortfolioOverview } = await import("./service");
 
     const [card] = await loadPortfolioOverview();
 
     expect(card.scorecardOverall).toBeNull();
     expect(card.scorecardDisciplines).toBe(0);
+    expect(card.scorecardAsOf).toBeNull();
     expect(card.name).toBe("Acme");
   });
 
@@ -248,8 +286,8 @@ describe("loadPortfolioOverview", () => {
 
     expect(cards).toEqual([]);
     // The page renders the create affordance from this; it must not
-    // have paid for a scorecard compute to find out.
-    expect(mocks.scorecard).not.toHaveBeenCalled();
+    // have paid for a scorecard read to find out.
+    expect(mocks.snapshots).not.toHaveBeenCalled();
     expect(mocks.currentQuarter).not.toHaveBeenCalled();
   });
 });

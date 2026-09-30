@@ -50,7 +50,11 @@ are.
 ## What's on a card
 
 - **Scorecard** — the company's overall AiMS Implementation score
-  out of 10, with the number of disciplines it covers underneath.
+  out of 10 from its latest weekly scorecard, with the date it was
+  taken ("Score as of Friday Sep 26") and the number of disciplines
+  it covers underneath. It updates once a week, so it can be a few
+  days old. A new company shows "No score yet" until its first
+  weekly score.
   **Read that second line before comparing two cards.** An overall
   is an average across whichever disciplines have a score, so a
   company measured across four is not ranked against one measured
@@ -107,7 +111,7 @@ guides own that.
 
 **Why does one company show a dash where another shows a number?**
 A dash means there is nothing to report yet — no quarter open, no
-commitments due this week, no scorecard computed. It is not zero.
+commitments due this week, no weekly score yet. It is not zero.
 Zero means the thing was measured and came out at zero.
 
 **Why don't I see Guide HQ, or the platform tools?** Those belong

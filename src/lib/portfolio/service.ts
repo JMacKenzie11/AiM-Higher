@@ -3,7 +3,8 @@ import { loadFollowThroughRows } from "@/lib/commitments/follow-through-rows";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { loadCompanyScorecardScores } from "@/lib/maturity/service";
+import { loadLatestOverallSnapshots } from "@/lib/maturity/service";
+import { overallFrom } from "@/lib/maturity/compute";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { summarizePriorityHealth } from "@/lib/plan/priority-health";
 import {
@@ -25,7 +26,7 @@ import { thisFriday, todayInTimezone } from "@/lib/dates";
 // Reused unchanged, because they were already company-id-driven
 // rather than guide-driven:
 //
-//   loadCompanyScorecardScores  (lib/maturity/service)   cached
+//   loadLatestOverallSnapshots  (lib/maturity/service)   one query
 //   getCurrentQuarter           (lib/quarters/service)   cached
 //   summarizeFollowThrough      (lib/commitments/follow-through)
 //   thisFriday                  (lib/dates)
@@ -82,8 +83,8 @@ export async function loadPortfolioCompanies(): Promise<PortfolioCompany[]> {
 export type PortfolioCard = {
   id: string;
   name: string;
-  // The scorecard overall, and the number of disciplines it is a mean
-  // over.
+  // The scorecard overall from the company's latest weekly snapshot,
+  // and the number of disciplines it is a mean over.
   //
   // THE DENOMINATOR TRAVELS WITH THE NUMBER, and on this page that is
   // not optional. An overall is a weighted mean over whichever
@@ -99,6 +100,10 @@ export type PortfolioCard = {
   // is if the card says so.
   scorecardOverall: number | null;
   scorecardDisciplines: number;
+  // The snapshot's date, so the card can say how old the score is.
+  // Null when the company has no snapshot yet: "No score yet", never
+  // zero.
+  scorecardAsOf: string | null;
   // The open quarter, and how its priorities are doing.
   quarterLabel: string | null;
   priorityGood: number;
@@ -112,19 +117,24 @@ export type PortfolioCard = {
 
 // One card per company.
 //
-// Per-company work rather than one batched query per metric, and that
-// is a deliberate trade. The scorecard is a live compute and the week
-// boundary depends on each company's own timezone, so neither can be
-// answered for N companies in one round trip. Both underlying loaders
-// are request-cached, and an instance holds single-digit to low-double-
-// digit companies. If that stops being true this is the place to
-// revisit, and the shape to revisit it into is a materialised rollup,
-// not a cleverer join.
+// THE SCORE IS THE WEEKLY SNAPSHOT, read for every company in one
+// query, not a live compute per company (Jason, 2026-09-30). The live
+// version fired every company's scorecard at once, about ten reads
+// each, and on the dev clone's 12 companies that burst ran reads past
+// the database's statement time limit. Those timeouts then broke
+// unrelated requests for about a minute, sign-in included. The
+// snapshot is what the weekly cron already writes and Guide HQ already
+// compares against; the card says its date so nobody reads a week-old
+// number as today's.
+//
+// Priorities and this week stay per company, because the week boundary
+// depends on each company's own timezone.
 export async function loadPortfolioOverview(): Promise<PortfolioCard[]> {
   const companies = await loadPortfolioCompanies();
   if (companies.length === 0) return [];
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const snapshots = await loadLatestOverallSnapshots(companies.map((c) => c.id));
 
   return Promise.all(
     companies.map(async (company) => {
@@ -145,12 +155,7 @@ export async function loadPortfolioOverview(): Promise<PortfolioCard[]> {
 
       const quarter = await getCurrentQuarter(company.id);
 
-      const [scorecard, priorityRows, weekRows] = await Promise.all([
-        // A company with no data at all makes this throw rather than
-        // return zeros. A thrown scorecard must not take the whole
-        // page down with it, so it degrades to "no score yet", which
-        // is what a brand-new tenant honestly has.
-        loadCompanyScorecardScores(company.id).catch(() => null),
+      const [priorityRows, weekRows] = await Promise.all([
         quarter
           ? supabase
               .from("priorities")
@@ -173,11 +178,17 @@ export async function loadPortfolioOverview(): Promise<PortfolioCard[]> {
         (priorityRows.data ?? []) as Array<{ status: string }>
       );
 
+      // No snapshot yet (a new company the weekly cron has not
+      // reached) is "No score yet", which is what it honestly has.
+      const snapshot = snapshots.get(company.id);
+      const overall = snapshot ? overallFrom(snapshot.scores) : null;
+
       return {
         id: company.id,
         name: company.name,
-        scorecardOverall: scorecard?.overall.score ?? null,
-        scorecardDisciplines: scorecard?.overall.disciplinesCounted ?? 0,
+        scorecardOverall: overall?.score ?? null,
+        scorecardDisciplines: overall?.disciplinesCounted ?? 0,
+        scorecardAsOf: snapshot?.date ?? null,
         quarterLabel: quarter?.label ?? null,
         priorityGood: priorities.good,
         priorityTotal: priorities.total,
