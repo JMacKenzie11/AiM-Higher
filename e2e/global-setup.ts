@@ -66,10 +66,17 @@ export default async function globalSetup(config: FullConfig) {
     await page.goto("/admin/companies", { timeout: 120_000 });
     // The fixture company, and a long wait: on a freshly started server
     // this is the first time the company list compiles.
-    await page
+    const fixture = page
       .getByTestId("scope-into-company")
-      .filter({ hasText: /^E2E Fixture Co$/ })
-      .click({ timeout: 180_000 });
+      .filter({ hasText: /^E2E Fixture Co$/ });
+    await fixture.waitFor({ timeout: 180_000 });
+    // The company's own id, for pages under /admin/companies/[id]. With
+    // the placeholder id the middleware sends a scoped-in admin to the
+    // picker, the page never compiles, and its first real visit compiles
+    // inside a test: two 30-second timeouts on it in one run
+    // (2026-09-30).
+    const fixtureCompanyId = await fixture.getAttribute("data-company-id");
+    await fixture.click({ timeout: 180_000 });
     await page.waitForURL(/\/dashboard$/, { timeout: 120_000 });
 
     const pages = appPages();
@@ -77,7 +84,10 @@ export default async function globalSetup(config: FullConfig) {
       // Creates a conversation on every request; its page is warmed by
       // the conversation page anyway.
       if (pattern === "/ask-aimee/new") continue;
-      const url = pattern.replace(/\[([^\]]+)\]/g, (_: string, k: string) => SAMPLE[k] ?? "warm-up");
+      const sample = pattern.startsWith("/admin/companies/") && fixtureCompanyId
+        ? { ...SAMPLE, id: fixtureCompanyId }
+        : SAMPLE;
+      const url = pattern.replace(/\[([^\]]+)\]/g, (_: string, k: string) => sample[k] ?? "warm-up");
       await page.request.get(url, { timeout: 180_000, maxRedirects: 0 }).catch(() => {});
     }
     for (const api of ["/api/coach", "/api/coach/memory"]) {
