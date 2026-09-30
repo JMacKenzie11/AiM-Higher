@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { loadFunctionContext } from "./context";
-import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { logCoachTokenUsage, reportEmptyResult } from "@/lib/coach/usage";
 import type { getChartFunctionDetail } from "@/lib/chart/service";
 
 // Full-document Role Description generation. One Sonnet call, one
@@ -282,10 +282,17 @@ export async function generateRoleDescription(
     const client = new Anthropic({ apiKey });
     const res = await client.messages.create({
       model,
+      // The document is the whole answer. Thinking would share its 3000 tokens.
+      thinking: { type: "disabled" },
       max_tokens: MAX_TOKENS,
       system: [{ type: "text", text: systemPrompt }],
       messages: [{ role: "user", content: userMessage }],
     });
+    const raw = res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+    const emptyResult = reportEmptyResult("rd_generate", raw, res);
     if (res.usage) {
       void logCoachTokenUsage({
         conversationId: null,
@@ -297,12 +304,9 @@ export async function generateRoleDescription(
         purpose: "rd",
         model,
         usage: res.usage,
+        emptyResult,
       });
     }
-    const raw = res.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("");
     return parseDocument(raw);
   } catch (err) {
     console.warn("generateRoleDescription failed:", err);

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { anthropic, ANTHROPIC_MODEL } from "@/lib/strengths/anthropic";
-import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { logCoachTokenUsage, reportEmptyResult } from "@/lib/coach/usage";
 import { VOICE_RULES } from "@/lib/strengths/voice-rules";
 import { computeTeamSignals, type TeamMember } from "@/lib/strengths/team-signals";
 import { SUB_STRENGTH_LABELS, type ResultsProfile } from "@/lib/strengths/types";
@@ -198,6 +198,8 @@ export async function POST(request: Request) {
   const client = anthropic();
   const response = await client.messages.create({
     model: ANTHROPIC_MODEL,
+    // The JSON is the whole answer. Thinking would share its 2000 tokens.
+    thinking: { type: "disabled" },
     max_tokens: 2000,
     system: SYSTEM_PROMPT,
     messages: [
@@ -209,6 +211,12 @@ export async function POST(request: Request) {
       },
     ],
   });
+  const text = response.content
+    .filter((c): c is Anthropic.TextBlock => c.type === "text")
+    .map((c) => c.text)
+    .join("\n")
+    .trim();
+  const emptyResult = reportEmptyResult("strengths_team_insights", text, response);
   if (response.usage) {
     void logCoachTokenUsage({
       conversationId: null,
@@ -216,14 +224,9 @@ export async function POST(request: Request) {
       purpose: "strengths",
       model: ANTHROPIC_MODEL,
       usage: response.usage,
+      emptyResult,
     });
   }
-
-  const text = response.content
-    .filter((c): c is Anthropic.TextBlock => c.type === "text")
-    .map((c) => c.text)
-    .join("\n")
-    .trim();
 
   let parsed: { narrative: string };
   try {

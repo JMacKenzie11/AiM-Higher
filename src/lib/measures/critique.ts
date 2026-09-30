@@ -1,7 +1,7 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
-import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { logCoachTokenUsage, reportEmptyResult } from "@/lib/coach/usage";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
 
 // AI-scored quality check for a metric draft on the chart. Judges
@@ -67,23 +67,27 @@ export async function scoreMeasureDraft(input: {
   try {
     const res = await client.messages.create({
       model,
+      // Three short hints as JSON. Left to think, it can spend all 400 tokens and return none.
+      thinking: { type: "disabled" },
       max_tokens: MAX_TOKENS,
       system: [{ type: "text", text: SYSTEM_PROMPT }],
       messages: [{ role: "user", content: userMessage }],
     });
-    if (res.usage) {
-      void logCoachTokenUsage({
-        conversationId: null,
-        companyId: null,
-        purpose: "clarity",
-        model,
-        usage: res.usage,
-      });
-    }
     const raw = res.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("");
+    const emptyResult = reportEmptyResult("measure_critique", raw, res);
+    if (res.usage) {
+      void logCoachTokenUsage({
+        conversationId: null,
+        companyId: null,
+        purpose: "measure_critique",
+        model,
+        usage: res.usage,
+        emptyResult,
+      });
+    }
     return parseResult(raw);
   } catch (err) {
     console.warn("scoreMeasureDraft failed:", err);

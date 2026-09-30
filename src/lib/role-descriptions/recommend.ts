@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { formatContextForPrompt, loadFunctionContext } from "./context";
-import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { logCoachTokenUsage, reportEmptyResult } from "@/lib/coach/usage";
 
 // Direct one-shot recommendation service for the Role Description
 // interview. Mirrors the shape of src/lib/measures/critique.ts —
@@ -80,10 +80,17 @@ export async function recommendForFunction(input: {
     const client = new Anthropic({ apiKey });
     const res = await client.messages.create({
       model,
+      // A short JSON list. Thinking would share the 900 tokens with it and can take them all.
+      thinking: { type: "disabled" },
       max_tokens: MAX_TOKENS,
       system: [{ type: "text", text: systemPrompt }],
       messages: [{ role: "user", content: userMessage }],
     });
+    const raw = res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+    const emptyResult = reportEmptyResult("rd_recommend", raw, res);
     if (res.usage) {
       void logCoachTokenUsage({
         conversationId: null,
@@ -91,12 +98,9 @@ export async function recommendForFunction(input: {
         purpose: "rd",
         model,
         usage: res.usage,
+        emptyResult,
       });
     }
-    const raw = res.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("");
     return parseRecommendations(raw);
   } catch (err) {
     console.warn("recommendForFunction failed:", err);

@@ -87,8 +87,8 @@ export function estimateCostCents(model: string, usage: UsageInput): number {
 }
 
 // Purpose enum mirrors the CHECK constraint on coach_token_usage.purpose
-// (migration 0136). The name "coach" in the type/function/table is a
-// historical artifact — every platform model call logs here now.
+// (latest: migration 0243). The name "coach" in the type/function/table
+// is a historical artifact — every platform model call logs here now.
 export type CoachUsagePurpose =
   | "turn" // coach conversation turn
   | "title" // coach conversation auto-title
@@ -97,7 +97,11 @@ export type CoachUsagePurpose =
   | "rd" // role description generator + recommend
   | "strengths" // strengths assessment narrative / results / team insights
   | "brief" // dashboard "Week in review" brief
-  | "clarity" // commitment clarity, measure critique, measure target check
+  | "hq_brief" // HQ session brief, not logged at all before 0243
+  | "clarity" // LEGACY, rows before 0243: the next three under one label
+  | "commitment_clarity" // commitment clarity autoscore
+  | "measure_critique" // measure-draft critique
+  | "measure_target_check" // measure target-quality check
   | "facilitation" // leadership facilitation review
   | "facilitation_retry" // that review's second attempt, when the
   // first came back having scored nothing. Its own purpose so two
@@ -117,11 +121,14 @@ export async function logCoachTokenUsage(args: {
   purpose: CoachUsagePurpose;
   model: string;
   usage: UsageInput;
+  // The call returned no text; see reportEmptyResult below. Sent only
+  // when true, so the column is named only on the rows that need it.
+  emptyResult?: boolean;
 }): Promise<void> {
   try {
     const cost = estimateCostCents(args.model, args.usage);
     const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-    await admin.from("coach_token_usage").insert({
+    const { error } = await admin.from("coach_token_usage").insert({
       conversation_id: args.conversationId,
       company_id: args.companyId,
       purpose: args.purpose,
@@ -131,8 +138,49 @@ export async function logCoachTokenUsage(args: {
       cache_creation_input_tokens: args.usage.cache_creation_input_tokens ?? 0,
       cache_read_input_tokens: args.usage.cache_read_input_tokens ?? 0,
       cost_usd_cents: cost,
+      ...(args.emptyResult ? { empty_result: true } : {}),
     });
+    // A REFUSED ROW IS RETURNED, NOT THROWN. supabase-js hands a check
+    // violation back as `error`, so the catch below never saw one and
+    // `memory` rows were refused unheard for the life of coach memory
+    // (0206). Still never thrown: a usage log must not break the call
+    // it is counting.
+    if (error) {
+      console.error(
+        `logCoachTokenUsage: row refused for purpose "${args.purpose}"` +
+          (args.emptyResult ? " (empty_result)" : "") +
+          `: ${error.code ?? "no code"} ${error.message}`
+      );
+    }
   } catch (err) {
-    console.warn("logCoachTokenUsage failed", err);
+    console.error(
+      `logCoachTokenUsage: failed for purpose "${args.purpose}"`,
+      err
+    );
   }
+}
+
+// A MODEL CALL THAT SAID NOTHING, SAID OUT LOUD.
+//
+// Every caller keeps only text blocks, and each one falls back
+// quietly when there are none: a null score, an empty list, no brief.
+// A model that spends its whole max_tokens thinking returns no text at
+// all, so before this the only trace was a feature that did nothing.
+// Returns whether the result was empty, for the usage row's
+// empty_result.
+export function reportEmptyResult(
+  feature: string,
+  text: string,
+  response: {
+    stop_reason?: string | null;
+    usage?: { output_tokens?: number | null } | null;
+  }
+): boolean {
+  if (text.trim().length > 0) return false;
+  console.error(
+    `[${feature}] model returned no text ` +
+      `(stop_reason=${response.stop_reason ?? "unknown"}, ` +
+      `output_tokens=${response.usage?.output_tokens ?? "?"})`
+  );
+  return true;
 }

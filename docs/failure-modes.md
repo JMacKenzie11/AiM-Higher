@@ -1248,6 +1248,14 @@ is a third copy to forget, and it carries its own falsification
 because comparing two parsed lists is exactly the shape that passes by
 parsing nothing.
 
+**The second guard, added 2026-09-29 (migration 0243).** The logger
+now reads the insert's returned `error`, not only a thrown one.
+supabase-js returns a check violation, so the `try/catch` never saw
+one. A refused row is `console.error`'d with its label and the
+database's code and message, and the logger still never throws.
+`src/lib/coach/usage.test.ts` shapes a 23514 refusal and asserts the
+line. It was run red against the old handling first.
+
 **The general shape.** Not-awaiting a write is a latency decision, and
 it silently becomes a correctness decision the moment the write can
 fail for a reason that is not transient. Where a fire-and-forget write

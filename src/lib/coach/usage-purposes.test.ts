@@ -61,6 +61,23 @@ describe("coach token usage purposes", () => {
     expect(allowed).toContain("facilitation_retry");
   });
 
+  it("keeps the legacy clarity label and has one label per clarity feature and the HQ brief", () => {
+    // 0243 split `clarity` into three. The old label stays valid:
+    // production rows carry it, and a narrowed constraint would fail
+    // the migration on them.
+    const allowed = constraintPurposes();
+    for (const p of [
+      "clarity",
+      "commitment_clarity",
+      "measure_critique",
+      "measure_target_check",
+      "hq_brief",
+      "brief",
+    ]) {
+      expect(allowed).toContain(p);
+    }
+  });
+
   it("catches drift in either direction", () => {
     // Falsification, inline, because a comparison of two parsed
     // lists is exactly the shape that passes by parsing nothing.
