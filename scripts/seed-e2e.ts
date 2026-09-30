@@ -652,9 +652,13 @@ async function main() {
   // table's has moved once already; a seed that breaks on a
   // constraint rename is a seed somebody deletes.
   const FIXTURE_FOLDER = "e2e-guide-fixture-folder";
+  // Within the fixture company. Found by folder alone, it reused a
+  // source another fixture company owned (2026-09-30), so the meeting
+  // below belonged to one company and its source to another.
   const { data: existingSource } = await admin
     .from("transcript_sources")
     .select("id")
+    .eq("company_id", companyId)
     .eq("folder_id", FIXTURE_FOLDER)
     .maybeSingle<{ id: string }>()
     .then(orThrow("the guide's transcript source"));
