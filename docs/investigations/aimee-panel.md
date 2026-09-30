@@ -722,6 +722,23 @@ another person's or another company's rows gets nothing. Items 1 to 3
 first, in that order. The review of the panel's questions
 (2026-09-29) lists the questions each one would unlock.
 
+### Later: varied example first replies, instead of more checks
+
+Jason, 2026-09-30, after the last wording change for now. Plain
+Aimee's first reply is checked before it is shown (#367): her name,
+an opening "That's" or "Okay", "actually" in the question, "rather
+than" / "instead of" / "not just", more than one question, and a
+named strength skipped. Each check was added after a test run showed
+her settling into one pattern ("That's X, especially...", then "Okay,
+that's...", then "... is real"), and each one closed that pattern
+while the next appeared.
+
+The next step is not another check. Give her a set of varied example
+first replies in her instructions, different in shape and length, so
+she has more than one pattern to draw on. Decide what goes in from
+the weekly counts (`npm run aimee:uptake`: stock openings, harsh
+words said back, and the rest), not from single test replies.
+
 ### Later: automatic agent choice
 
 Groundwork as described above: one server-side choosing function, a
