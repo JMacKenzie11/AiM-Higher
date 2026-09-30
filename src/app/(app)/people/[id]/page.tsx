@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getPersonScorecard } from "@/lib/people/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
@@ -28,7 +29,20 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   if (!data) notFound();
 
   const isSelf = session.profile.id === id;
+  // Edit rights over this person: system_admin, their company's
+  // company_admin, or an aims_guide assigned to that company.
+  // updateUserAction and saveUserStrengthsAction admit the same set,
+  // and user_strengths RLS carries the guide mirror from 0242.
+  // portfolio_admin is excluded by name: neither action admits it and
+  // no write policy on those tables names it.
   const isAdmin =
+    session.profile.role === "system_admin" ||
+    (data.profile.company_id !== null &&
+      isAdminForCompany(session.profile, data.profile.company_id) &&
+      session.profile.role !== "portfolio_admin");
+  // Coach stays with system_admin and company_admin. Guides do not get
+  // the Coach link (Jason's decision, 2026-09-29).
+  const coachesEveryone =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
   // A direct manager can now coach about their report — same
@@ -66,7 +80,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                 Ask Aimee
               </Link>
             ) : null}
-            {(isAdmin || isManager) && !isSelf ? (
+            {(coachesEveryone || isManager) && !isSelf ? (
               <Link
                 href={`/coach/${id}`}
                 className={styles.heroCoachAction}

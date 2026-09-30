@@ -5,12 +5,14 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserStrength } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { canEditUserStrengths } from "./strengths-access";
 
 // Manual strengths + superpowers per user. These feed the coaching
 // context directly — no strengths assessment required. Editable by:
 //   - the user themselves
 //   - system_admin (any user)
 //   - company_admin (users in their company)
+//   - aims_guide (users in a company they are assigned to)
 // Enforced both here (server action) and by RLS on user_strengths.
 
 export type UserStrengthsView = {
@@ -48,22 +50,33 @@ export async function saveUserStrengthsAction(
   const userId = String(formData.get("user_id") ?? "");
   if (!userId) return { ok: false, message: "Missing user id." };
 
-  // Authorization: self, system_admin, or same-company company_admin.
+  // Authorization: self, system_admin, or the company_admin or
+  // assigned guide of the subject's company. canEditUserStrengths is
+  // the one answer; RLS (0188, and 0242's guide mirror) is the boundary.
   if (userId !== session.profile.id) {
-    if (session.profile.role === "system_admin") {
-      // ok
-    } else if (session.profile.role === "company_admin") {
+    if (
+      session.profile.role !== "system_admin" &&
+      session.profile.role !== "company_admin" &&
+      session.profile.role !== "aims_guide"
+    ) {
+      return { ok: false, message: "You can't edit that user's strengths." };
+    }
+    if (session.profile.role !== "system_admin") {
       const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
       const { data: target } = await supabase
         .from("profiles")
         .select("company_id")
         .eq("id", userId)
         .maybeSingle<{ company_id: string | null }>();
-      if (!target || target.company_id !== session.profile.company_id) {
+      if (
+        !target ||
+        !canEditUserStrengths(session.profile, {
+          id: userId,
+          company_id: target.company_id,
+        })
+      ) {
         return { ok: false, message: "Not your user to edit." };
       }
-    } else {
-      return { ok: false, message: "You can't edit that user's strengths." };
     }
   }
 

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { mondayOf } from "@/lib/dates";
 import { requireProfile } from "@/lib/auth/current-user";
-import { canWriteOwnedRow, isAdminForCompany } from "@/lib/auth/permissions";
+import { canAdminCompanyContent, canWriteOwnedContent } from "@/lib/auth/permissions";
 import { getPriorityDetail } from "@/lib/plan/service";
 import {
   getPriorityCommitmentPanelData,
@@ -23,7 +23,7 @@ export default async function PriorityDetailPage({ params }: PageProps) {
   const detail = await getPriorityDetail(id);
   if (!detail) notFound();
 
-  const isAdmin = isAdminForCompany(
+  const isAdmin = canAdminCompanyContent(
     session.profile,
     detail.priority.company_id
   );
@@ -109,7 +109,7 @@ function HistoryWeek({
   todayIso: string;
   currentUserId: string;
   isAdmin: boolean;
-  sessionProfile: Parameters<typeof canWriteOwnedRow>[0];
+  sessionProfile: Parameters<typeof canWriteOwnedContent>[0];
 }) {
   return (
     <div>
@@ -124,9 +124,9 @@ function HistoryWeek({
             priorityOptions={[]}
             roster={roster}
             todayIso={todayIso}
-            canResolve={canWriteOwnedRow(sessionProfile, commitment)}
+            canResolve={canWriteOwnedContent(sessionProfile, commitment)}
             canLink={false}
-            canReassign={canWriteOwnedRow(sessionProfile, commitment)}
+            canReassign={canWriteOwnedContent(sessionProfile, commitment)}
             currentUserId={currentUserId}
             isAdmin={isAdmin}
             hidePriority

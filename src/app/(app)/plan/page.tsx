@@ -5,6 +5,7 @@ import { PlusIcon } from "../../../components/ui/PlusIcon";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { canAdminCompanyContent } from "@/lib/auth/permissions";
 import { getCascade } from "@/lib/plan/service";
 import { getQuartersForCompany } from "@/lib/quarters/service";
 import { StatusChip } from "@/components/plan/StatusChip";
@@ -71,9 +72,11 @@ export default async function PlanPage({ searchParams }: PageProps) {
     .order("full_name");
   const roster = (people ?? []) as Pick<Profile, "id" | "full_name">[];
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // Admin controls on the cascade. An assigned guide gets them too:
+  // the create/update/archive actions admit aims_guide and RLS on the
+  // plan tables admits them through is_guide_for(). An assigned
+  // portfolio_admin does not get them (canAdminCompanyContent).
+  const isAdmin = canAdminCompanyContent(session.profile, companyId);
 
   // Every priority in the selected quarter, labelled by what it sits
   // under, for the Add Commitment picker. Two priorities can share a

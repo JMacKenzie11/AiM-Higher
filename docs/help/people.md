@@ -32,10 +32,21 @@ As an admin or guide, you can also:
 
 - **Edit anyone's Details and Strengths** — the top-of-page cards
   become editable with a Save button.
-- **Coach a direct report or anyone in your company** — from the
-  quick-view drawer or the scorecard page.
 - **Deactivate** — stops sign-in without deleting history.
 - **Delete** — removes sign-in + profile permanently. See below.
+:::
+
+::: role aims_guide
+As a guide you have the same Team controls as the company's admins,
+with two exceptions. There is no **Coach** button on this page or on
+a person's scorecard, and a portfolio admin's row has no menu,
+because removing them from the company is for the company's own
+admins.
+:::
+
+::: role company_admin,system_admin
+- **Coach a direct report or anyone in your company** — from the
+  quick-view drawer or the scorecard page.
 - **Remove a portfolio admin from this company.** Somebody who runs
   the wider group of companies can take company admin rights here,
   and when they do they appear on this list with the role *company

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
-import { scopedCompanyId } from "@/lib/auth/permissions";
+import { isAdminForCompany, scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
@@ -113,10 +113,7 @@ export async function updateSfaStatusAction(
     .maybeSingle<StrategicFocusArea>();
   if (!existing) return { ok: false, message: "Focus area not found." };
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    (session.profile.role === "company_admin" &&
-      session.profile.company_id === existing.company_id);
+  const isAdmin = isAdminForCompany(session.profile, existing.company_id);
   const isSponsor = existing.sponsor_id === session.profile.id;
   if (!isAdmin && !isSponsor) {
     return { ok: false, message: "You can't change this status." };

@@ -113,7 +113,24 @@ export default async function PeoplePage() {
   const canRevise =
     isAdminForCompany(session.profile, companyId) ||
     (await leadsAnyFunction(session.profile.id, companyId));
+  // The roster controls: system_admin, this company's company_admin,
+  // or an aims_guide assigned to it. updateUserAction, deleteUserAction
+  // and setProfileStatusAction all admit aims_guide, and profiles RLS
+  // carries _guide mirrors. portfolio_admin is excluded by name even
+  // with an assignment, for the reason in the next comment.
   const isAdmin =
+    isAdminForCompany(session.profile, companyId) &&
+    session.profile.role !== "portfolio_admin";
+  // The two role-only checks below are deliberately NOT widened to
+  // guides (Jason's decisions, 2026-09-29):
+  //   - Coach stays with system_admin and company_admin.
+  //   - "Remove from this company" on a portfolio-assignment row is
+  //     hidden from guides. portfolio_assignments RLS refuses them,
+  //     so the item would be a button that does nothing.
+  const coachesEveryone =
+    session.profile.role === "system_admin" ||
+    session.profile.role === "company_admin";
+  const canRemoveAssignments =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
   // Inviting people into company roles is item 3 of portfolio_admin's
@@ -166,7 +183,12 @@ export default async function PeoplePage() {
                   const isSelfRow = person.id === session.profile.id;
                   const canCoachPerson =
                     !isSelfRow &&
-                    (isAdmin || person.reports_to === session.profile.id);
+                    (coachesEveryone ||
+                      person.reports_to === session.profile.id);
+                  // An assignment row's only item is "Remove from this
+                  // company", so hiding that item hides the menu.
+                  const showRowMenu =
+                    isAdmin && (!person.viaAssignment || canRemoveAssignments);
                   const pill = statusPill(person.status, person.invited_at);
                   return (
                     <tr key={person.id}>
@@ -217,7 +239,7 @@ export default async function PeoplePage() {
                             Coach
                           </Link>
                         ) : null}
-                        {isAdmin ? (
+                        {showRowMenu ? (
                           <RowActionsMenu
                             profileId={person.id}
                             status={person.status}

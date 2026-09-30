@@ -9407,7 +9407,166 @@ values ('${ids.companyAdminCompany}', '${ids.companyAdmin}',
     });
   }
 
+  probes.push(...(await userStrengthsGuideProbes(run, ids, pending)));
+
   return probes;
+}
+
+// ---- 0242: an assigned guide edits a person's Strengths ---------
+//
+// The widening: saveUserStrengthsAction admits an aims_guide for
+// anyone in a company they are assigned to. Before 0242 nothing on
+// user_strengths admitted a guide for any verb, so the editor would
+// render and every save would fail (E5).
+//
+// ALL FOUR VERBS. The action saves by replace-all, delete then
+// insert, and a delete can only reach rows the SELECT policy shows
+// (E11). A grant that covered insert and not select would delete
+// nothing and then duplicate, which is why read is its own claim.
+//
+// WITHHELD, three ways, each a different boundary:
+//   team_member peer   a colleague who is not the subject may still
+//                      not write someone else's strengths
+//   unassigned company the guide's reach stops at their caseload
+//   portfolio_admin    assigned to the same company, and still
+//                      refused: user_strengths is not on CLAUDE.md's
+//                      closed list, which is why 0242 uses
+//                      is_assigned_guide_for() and not is_guide_for()
+//
+// Every person is seeded per run. The clone's fixture guide is real
+// (ids.guide on ids.guideCompany); the subject, the peer, the
+// outsider and the portfolio admin are made inside the transaction so
+// a clone with no team_members in the guide's company reports on the
+// policy rather than on the fixture.
+//
+// Run without --pending 0242_user_strengths_guide.sql and the granted
+// half goes red: insert refused by RLS, update/delete/read 0 rows.
+async function userStrengthsGuideProbes(
+  run: Runner,
+  ids: Identities,
+  pending: string
+): Promise<GrantProbe[]> {
+  const SUBJECT = "aaaaaaaa-0000-4000-8000-000000024201";
+  const PEER = "aaaaaaaa-0000-4000-8000-000000024202";
+  const OUTSIDER = "aaaaaaaa-0000-4000-8000-000000024203";
+  const PA = "aaaaaaaa-0000-4000-8000-000000024204";
+  const G = ids.guideCompany;
+  const X = ids.otherCompany;
+
+  const user = (id: string, email: string) =>
+    `insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                            email_confirmed_at, created_at, updated_at)
+     values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+             'authenticated', '${email}', '', now(), now(), now());`;
+
+  const seed = `
+${user(SUBJECT, "harness-strengths-subject@example.invalid")}
+${user(PEER, "harness-strengths-peer@example.invalid")}
+${user(OUTSIDER, "harness-strengths-outsider@example.invalid")}
+${user(PA, "harness-strengths-pa@example.invalid")}
+insert into public.profiles (id, company_id, full_name, role, status) values
+  ('${SUBJECT}', '${G}', 'Harness Strengths Subject', 'team_member', 'active'),
+  ('${PEER}', '${G}', 'Harness Strengths Peer', 'team_member', 'active'),
+  ('${OUTSIDER}', '${X}', 'Harness Strengths Outsider', 'team_member', 'active'),
+  ('${PA}', null, 'Harness Strengths PA', 'portfolio_admin', 'active');
+insert into public.portfolio_assignments (portfolio_admin_id, company_id)
+values ('${PA}', '${G}');
+insert into public.user_strengths (user_id, kind, label) values
+  ('${SUBJECT}', 'strength', 'harness seeded'),
+  ('${OUTSIDER}', 'strength', 'harness seeded');`;
+
+  const as = async (
+    sub: string,
+    stmt: string,
+    read = false
+  ): Promise<WriteOutcome> => {
+    try {
+      const rows = await run<Record<string, unknown>>(
+        asCaller(sub, `${pending}\n${seed}`, stmt)
+      );
+      return read ? `${rows.length} row(s) visible` : describeOutcome(rows);
+    } catch (err) {
+      return describeOutcome(null, err);
+    }
+  };
+
+  const insertFor = (subject: string) =>
+    `insert into public.user_strengths (user_id, kind, label)
+     values ('${subject}', 'superpower', 'harness probe') returning id;`;
+  const updateFor = (subject: string) =>
+    `update public.user_strengths set label = 'harness edited'
+      where user_id = '${subject}' returning id;`;
+  const deleteFor = (subject: string) =>
+    `delete from public.user_strengths where user_id = '${subject}' returning id;`;
+  const readFor = (subject: string) =>
+    `select id from public.user_strengths where user_id = '${subject}';`;
+
+  // The control for every "0 rows" below: the seeded row exists,
+  // counted as the connection, not as any caller.
+  let seeded = -1;
+  try {
+    const [r] = await run<{ n: number }>(
+      [
+        "begin;",
+        pending,
+        seed,
+        `select count(*)::int as n from public.user_strengths
+          where user_id = '${SUBJECT}';`,
+        "rollback;",
+      ].join("\n")
+    );
+    seeded = r?.n ?? -1;
+  } catch {
+    seeded = -1;
+  }
+
+  const gInsert = await as(ids.guide, insertFor(SUBJECT));
+  const gUpdate = await as(ids.guide, updateFor(SUBJECT));
+  const gDelete = await as(ids.guide, deleteFor(SUBJECT));
+  const gRead = await as(ids.guide, readFor(SUBJECT), true);
+
+  const peerInsert = await as(PEER, insertFor(SUBJECT));
+  const peerDelete = await as(PEER, deleteFor(SUBJECT));
+  const gOutside = await as(ids.guide, insertFor(OUTSIDER));
+  const paInsert = await as(PA, insertFor(SUBJECT));
+
+  const written = (o: string) => o.includes("row(s) written");
+  const refused = (o: string) =>
+    o === "refused by RLS" || o.startsWith("0 rows");
+
+  const grantedOk =
+    written(gInsert) &&
+    written(gUpdate) &&
+    written(gDelete) &&
+    gRead === "1 row(s) visible";
+  const withheldOk =
+    refused(peerInsert) &&
+    refused(peerDelete) &&
+    refused(gOutside) &&
+    refused(paInsert);
+  const controlOk = seeded === 1;
+  const ok = grantedOk && withheldOk && controlOk;
+
+  return [
+    {
+      name: "user_strengths guide grant · aims_guide",
+      granted:
+        `on an assigned company's member: insert ${gInsert} | update ${gUpdate} | ` +
+        `delete ${gDelete} | read ${gRead}`,
+      withheld:
+        `team_member peer insert ${peerInsert} | peer delete ${peerDelete} | ` +
+        `guide on unassigned company ${gOutside} | assigned portfolio_admin ${paInsert} ` +
+        `(seeded rows as connection: ${seeded})`,
+      ok,
+      detail: !controlOk
+        ? "NOT PROVEN: the seeded row is missing, so a refusal proves nothing"
+        : !grantedOk
+          ? "THE GRANT DOES NOT WORK: the guide cannot edit strengths the action offers them"
+          : !withheldOk
+            ? "THE GRANT IS TOO WIDE: someone other than the subject, their admin or their guide can write"
+            : "a guide edits strengths in their caseload, and nobody new beyond it",
+    },
+  ];
 }
 
 // ---- portfolio_admin ------------------------------------------

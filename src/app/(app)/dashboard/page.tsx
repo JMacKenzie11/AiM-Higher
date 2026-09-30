@@ -42,13 +42,17 @@ export default async function DashboardPage() {
   const data = await getDashboardData(companyId);
   if (!data) redirect(crossTenantHome);
 
-  const isAdmin =
+  // Whether the caller has admin-level authority over *this* company:
+  // system_admin, this company's company_admin, or an aims_guide
+  // assigned to it. Gates the Week in Review brief, Recent wins and
+  // the admin links below.
+  const canManageCompany = isAdminForCompany(session.profile, companyId);
+  // The Coach column is deliberately NOT on canManageCompany. Guides
+  // do not get the Coach link (Jason's decision, 2026-09-29), so it
+  // stays on the roles it has always been on.
+  const coachesEveryone =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
-  // Whether the caller has admin-level authority over *this* company.
-  // Broader than the local isAdmin above because it also admits an
-  // aims_guide when the current company is one of their assignments.
-  const canManageCompany = isAdminForCompany(session.profile, companyId);
 
   // Setup checklist moved to /scorecard (the AiMS Implementation
   // surface). The dashboard is the running-rhythm view; the
@@ -90,7 +94,7 @@ export default async function DashboardPage() {
   const managesAnyone = data.people.some(
     (p) => p.reports_to === session.profile.id,
   );
-  const showCoachColumn = isAdmin || managesAnyone;
+  const showCoachColumn = coachesEveryone || managesAnyone;
 
   // A LAPSED quarter has to say so. It used to read "Current quarter
   // · Q3 2026" with no link, because the link only appeared when
@@ -224,7 +228,7 @@ export default async function DashboardPage() {
       {/* --- Week in review (admin-only, streamed via Suspense so
             the rest of the dashboard renders immediately while the
             model call is in flight) --- */}
-      {isAdmin ? (
+      {canManageCompany ? (
           <Suspense fallback={<BriefLoading />}>
             <BriefSection
               companyId={companyId}
@@ -243,7 +247,7 @@ export default async function DashboardPage() {
         ) : null}
 
         {/* --- Recent successes (admin-only) --- */}
-        {isAdmin && data.recentSuccesses.length > 0 ? (
+        {canManageCompany && data.recentSuccesses.length > 0 ? (
           <section
             className={styles.cardAccent}
             aria-labelledby="successes-card"
@@ -292,7 +296,7 @@ export default async function DashboardPage() {
           {data.sfas.length === 0 ? (
             <p className={styles.emptyLine}>
               No focus areas yet.{" "}
-              {isAdmin ? (
+              {canManageCompany ? (
                 <Link href="/plan" className={styles.inlineLink}>
                   Add the first one
                 </Link>
@@ -380,7 +384,7 @@ export default async function DashboardPage() {
               <tbody>
                 {data.people.map((person) => {
                   const canCoachPerson =
-                    isAdmin || person.reports_to === session.profile.id;
+                    coachesEveryone || person.reports_to === session.profile.id;
                   return (
                     <tr key={person.id}>
                     <td>
