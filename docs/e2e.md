@@ -163,23 +163,35 @@ in dev (`onDemandEntries`). The warm-up takes a few minutes on a cold
 server and seconds on a warm one. Production builds are unaffected:
 they compile everything up front.
 
-**Restart the dev server every quarter of the suite.** Every page
+**Restart the dev server every eighth of the suite.** Every page
 compiled and kept costs memory: measured on 2026-09-29, `next dev` sits
 at about 8 GB after the warm-up and climbs to about 11 GB after ten
 minutes of tests. It gives itself half the machine's memory (16 GB on a
 32 GB Mac) and restarts itself at 80% of that ("Server is approaching the
 used memory threshold, restarting"), which drops every compiled page and
 fails whatever was loading, usually as a timeout or a test sent back to
-sign-in. A half of the suite reaches that; a quarter does not. So a full
-run is four shards, each on a freshly started server, each with its own
-warm-up:
+sign-in. A half of the suite reaches that.
+
+A quarter reached it too, once the Aimee panel work was in: on
+2026-09-30 the first quarter (the Agent Hub and Aimee specs, whose
+pages are the heaviest) restarted about 8.5 minutes after its server
+started, in two runs out of two, and failed whichever Agent Hub
+version test was loading at that moment (test 15 in one run, test 14
+in the other). Every other test in that file passed both times. The
+second quarter sat at 10.1 GB ten minutes in. So a full run is eight
+shards, each on a freshly started server, each with its own warm-up:
 
 ```sh
-for n in 1 2 3 4; do
+for n in 1 2 3 4 5 6 7 8; do
   # stop the server on 3200, start `npm run dev`, wait for /sign-in
-  npx playwright test --project=chromium --shard=$n/4
+  npx playwright test --project=chromium --shard=$n/8
 done
 ```
+
+A run that restarts anyway says so in its log ("approaching the used
+memory threshold"). Read that before reading its failures: the test
+that was loading at that moment failed because the server went away,
+not because of anything it checks.
 
 Do not raise the memory limit with NODE_OPTIONS: next dev already sets
 it to half the machine's memory, so a smaller number lowers it, and a
