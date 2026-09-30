@@ -4,6 +4,8 @@ import {
   describeReplyFaults,
   replyFaultCount,
   replyRetryInstruction,
+  rewriteRequest,
+  stripRetryPreamble,
 } from "./reply-checks";
 
 // The fixture meeting's real lines (scripts/fixtures/leadership-meeting.txt).
@@ -58,5 +60,117 @@ describe("the retry", () => {
     const line = describeReplyFaults(checkDebriefReply(REAL, TRANSCRIPT));
     expect(line).toMatch(/^invented quote\(s\) "how much do they want"/);
     expect(line).toContain("X instead of Y");
+  });
+});
+
+// Jason's dev debrief, 2026-09-29: the retry answered the note it was
+// sent back with, as if he had corrected her, and he read it.
+const LEAKED =
+  "Fair. Let me redo that part. The meeting left one thing moving: the pricing review is now next month. Who is best placed to own getting ready for it?";
+
+describe("talking about a previous attempt", () => {
+  it("is a fault: the reply opens by acknowledging a correction", () => {
+    const f = checkDebriefReply(LEAKED, "");
+    expect(f.meta).toEqual(["Fair.", "Let me redo that part."]);
+    expect(replyFaultCount(f)).toBe(2);
+    expect(describeReplyFaults(f)).toContain('talked about a previous attempt "Fair."');
+  });
+
+  it("is a fault anywhere it mentions an earlier version", () => {
+    expect(checkDebriefReply("Here it is without the phrase from my last version. Who owns it?", "").meta).toHaveLength(1);
+    expect(checkDebriefReply("You're right, I shouldn't have quoted that. Who owns it?", "").meta).toHaveLength(1);
+  });
+
+  it("leaves an ordinary opening alone", () => {
+    for (const ok of [
+      "Fair question. The pricing review moved to next month.",
+      "Let me pull up what the summary says about pricing.",
+      "Right after the pricing debate, the team set a date.",
+      "Your team got to a decision fast.",
+    ]) {
+      expect(checkDebriefReply(ok, "").meta, ok).toEqual([]);
+    }
+  });
+
+  it("is stripped from the front of a retry before it is checked", () => {
+    expect(stripRetryPreamble(LEAKED)).toBe(
+      "The meeting left one thing moving: the pricing review is now next month. Who is best placed to own getting ready for it?"
+    );
+    expect(stripRetryPreamble("You're right. Got it, rewriting without it.\n\nThe team set a date.")).toBe("The team set a date.");
+    expect(stripRetryPreamble("Fair question. The review moved.")).toBe("Fair question. The review moved.");
+  });
+});
+
+describe("the request sent back", () => {
+  it("asks for the whole message again, written as if for the first time", () => {
+    const text = rewriteRequest("You used \"the room\".");
+    expect(text.startsWith('You used "the room".')).toBe(true);
+    expect(text).toMatch(/whole message/i);
+    expect(text).toMatch(/never mention a previous version/i);
+  });
+});
+
+// Jason, 2026-09-29, on the "after" example: "Put a name and a date on
+// it, not just 'next month'" still contrasts with what did not happen.
+describe("\"not just\"", () => {
+  it("is a fault wherever it appears in Aimee's own words", () => {
+    const f = checkDebriefReply("Put a name and a date on it, not just \"next month\". Who owns it?", "");
+    expect(f.contrasts).toEqual(["not just"]);
+    expect(replyFaultCount(f)).toBe(1);
+    expect(replyRetryInstruction(f)).toMatch(/not just/);
+    expect(describeReplyFaults(f)).toContain('contrast "not just"');
+  });
+
+  it("is left alone inside a quote of what somebody said", () => {
+    expect(checkDebriefReply('Your team said "it is not just a pricing problem". Who owns it?', "").contrasts).toEqual([]);
+  });
+});
+
+// Jason, 2026-09-29: "rather than" joins "not just", and "instead of"
+// (already banned) is held to the same rule: always sent back in
+// Aimee's own words, never inside a quote of what somebody said.
+describe("contrasts, in Aimee's words and in quotes", () => {
+  it("sends back \"rather than\"", () => {
+    const f = checkDebriefReply("Protect it on purpose rather than hoping it happens again. Who owns it?", "");
+    expect(f.contrasts).toEqual(["rather than"]);
+    expect(replyFaultCount(f)).toBe(1);
+  });
+
+  it("sends back \"instead of\"", () => {
+    const f = checkDebriefReply("Build on it instead of just hoping it happens again. Who owns it?", "");
+    expect(replyFaultCount(f)).toBe(1);
+  });
+
+  it("leaves both alone inside a quote", () => {
+    const quoted =
+      'Carmen said "you can just go to one document instead of looking at all these different files" and Jeff said "rather than guess, ask". Who owns it?';
+    const f = checkDebriefReply(quoted, "");
+    expect(f.contrasts).toEqual([]);
+    expect(f.banned).toEqual([]);
+    expect(replyFaultCount(f)).toBe(0);
+  });
+});
+
+// Jason's dev debrief, 2026-09-29, after "Give me some ideas": the
+// retry answered the note ("Fair, that's on me.") and labelled itself
+// ("Rewritten:").
+describe("the preamble Jason saw", () => {
+  const SEEN =
+    "Fair, that's on me. Rewritten: name the move itself. Agree up front that a pricing disagreement is about the model.";
+
+  it("is a fault, sentence by sentence and label", () => {
+    const f = checkDebriefReply(SEEN, "");
+    expect(f.meta).toEqual(expect.arrayContaining(["Fair, that's on me."]));
+    expect(f.meta.some((m) => /^Rewritten:/.test(m))).toBe(true);
+  });
+
+  it("comes off the front, label included", () => {
+    expect(stripRetryPreamble(SEEN)).toBe(
+      "Name the move itself. Agree up front that a pricing disagreement is about the model."
+    );
+  });
+
+  it("leaves an ordinary colon alone", () => {
+    expect(checkDebriefReply("Two things: name the move, and pick a date.", "").meta).toEqual([]);
   });
 });
