@@ -1,6 +1,7 @@
 import "server-only";
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { requestJson } from "./model";
 
 // DID THE EXTRACTION MISS ANYTHING?
 //
@@ -47,37 +48,34 @@ export type CoverageReport = {
   checked: number;
 };
 
-const TOOL: Anthropic.Tool = {
-  name: "record_coverage",
-  description:
-    "Record commitments present in the transcript that are missing from the extracted list.",
-  input_schema: {
-    type: "object",
-    required: ["missed"],
-    properties: {
-      missed: {
-        type: "array",
-        maxItems: 12,
-        items: {
-          type: "object",
-          // Quote first: the verdict follows from the words, not the
-          // other way round.
-          required: ["quote", "reason", "speaker"],
-          properties: {
-            quote: {
-              type: "string",
-              description:
-                "The transcript's own words, verbatim and short. If you cannot quote it, it is not a miss.",
-            },
-            speaker: {
-              type: ["string", "null"],
-              description: "Who said it, from the speaker map. Null when unknown.",
-            },
-            reason: {
-              type: "string",
-              description:
-                "One sentence: who would do what. Not an argument for including it — just what it is.",
-            },
+// The answer's shape, asked for as structured output (transcripts/model.ts,
+// requestJson). Record commitments present in the transcript that are missing from the extracted list.
+const COVERAGE_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  required: ["missed"],
+  properties: {
+    missed: {
+      type: "array",
+      maxItems: 12,
+      items: {
+        type: "object",
+        // Quote first: the verdict follows from the words, not the
+        // other way round.
+        required: ["quote", "reason", "speaker"],
+        properties: {
+          quote: {
+            type: "string",
+            description:
+              "The transcript's own words, verbatim and short. If you cannot quote it, it is not a miss.",
+          },
+          speaker: {
+            type: ["string", "null"],
+            description: "Who said it, from the speaker map. Null when unknown.",
+          },
+          reason: {
+            type: "string",
+            description:
+              "One sentence: who would do what. Not an argument for including it — just what it is.",
           },
         },
       },
@@ -117,16 +115,13 @@ export async function checkCoverage(
       input.extracted.length > 0
         ? input.extracted.map((d, i) => `${i + 1}. ${d}`).join("\n")
         : "(none were extracted)";
-    const response = await client.messages.create({
+    // Reading and comparing, not reasoning: thinking off, or as low as
+    // the model allows (transcripts/model.ts).
+    const { data, message: response } = await requestJson(client, {
       model: input.model,
-      // Reading and comparing, not reasoning. Thinking consumed the
-      // whole budget and emitted nothing on the analysis call; see
-      // the note in analyze.ts.
-      thinking: { type: "disabled" },
       max_tokens: 3000,
-      system: [{ type: "text", text: SYSTEM }],
-      tools: [TOOL],
-      tool_choice: { type: "tool", name: "record_coverage" },
+      system: SYSTEM,
+      schema: COVERAGE_SCHEMA,
       messages: [
         {
           role: "user",
@@ -136,16 +131,13 @@ export async function checkCoverage(
         },
       ],
     });
-    const block = response.content.find(
-      (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
-    );
-    if (!block) {
+    if (data === null) {
       console.error(
-        `[coverage] no tool_use block — stop_reason=${response.stop_reason}`
+        `[coverage] no JSON answer — stop_reason=${response.stop_reason}`
       );
       return null;
     }
-    const missed = normaliseMissed(block.input);
+    const missed = normaliseMissed(data);
     if (!missed) {
       console.error("[coverage] could not read the result");
       return null;

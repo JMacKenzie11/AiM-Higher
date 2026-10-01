@@ -60,8 +60,10 @@ const MARKDOWN = [
   ...walk("prompts", (p) => p.endsWith(".md")),
   "src/lib/leadership/facilitation/prompt.v2.md",
 ];
+// A file that asks the model, directly or through the transcript
+// pipeline's structured-output helper (transcripts/model.ts).
 const CODE = walk("src", (p) => /\.(ts|tsx)$/.test(p) && !/\.test\.tsx?$/.test(p)).filter((p) =>
-  /messages\.(create|stream)\(/.test(readFileSync(join(root, p), "utf8"))
+  /messages\.(create|stream)\(|requestJson\(/.test(readFileSync(join(root, p), "utf8"))
 );
 
 describe("no prompt uses a phrase the banned list bans", () => {

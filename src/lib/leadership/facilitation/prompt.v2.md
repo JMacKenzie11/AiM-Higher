@@ -114,7 +114,7 @@ Capture paraphrases (not verbatim), each with a one-line "why this counts" conte
 
 Analyze the meeting transcript against the three frameworks above. Your job is process quality — not individual performance, personnel matters, or business strategy decisions.
 
-Return a single tool-use call to `record_facilitation_review` with the structured shape defined by the tool's schema. Do not output prose outside the tool call.
+Return a single JSON object with the structured shape defined by the schema. Do not output prose outside it.
 
 ---
 

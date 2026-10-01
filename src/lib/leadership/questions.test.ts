@@ -55,7 +55,7 @@ describe("questionFaults", () => {
 function stub(...outputs: Array<Record<string, unknown>>) {
   const create = vi.fn();
   for (const o of outputs) {
-    create.mockResolvedValueOnce({ content: [{ type: "tool_use", id: "t", name: "record_questions", input: o }] });
+    create.mockResolvedValueOnce({ content: [{ type: "text", text: JSON.stringify(o) }] });
   }
   return { client: { messages: { create } } as unknown as Anthropic, create };
 }

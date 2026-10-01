@@ -1,6 +1,7 @@
 import "server-only";
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { requestJson } from "./model";
 
 // WHO WAS SPEAKING — resolved once, before anything else runs.
 //
@@ -56,46 +57,43 @@ export type SpeakerMap = {
   speakers: SpeakerMapping[];
 };
 
-const TOOL: Anthropic.Tool = {
-  name: "record_speaker_map",
-  description:
-    "Record who each transcript speaker label refers to. One entry per label that appears in the transcript.",
-  input_schema: {
-    type: "object",
-    required: ["speakers"],
-    properties: {
-      speakers: {
-        type: "array",
-        items: {
-          type: "object",
-          // evidence first: the name is a conclusion drawn from it.
-          required: ["label", "evidence", "name", "confidence"],
-          properties: {
-            label: {
-              type: "string",
-              description: "The label exactly as the transcript writes it, e.g. 'Speaker 3'.",
-            },
-            evidence: {
-              type: "string",
-              description:
-                "What in the transcript points at this person — a topic only they would own, someone addressing them by name, a role they describe. One or two sentences. Write this BEFORE deciding the name.",
-            },
-            name: {
-              type: ["string", "null"],
-              description:
-                "The person's name, taken ONLY from the roster or from the transcript itself. Null when the evidence does not identify anybody — that is a valid and useful answer. NEVER invent a plausible name.",
-            },
-            confidence: {
-              type: "string",
-              enum: ["high", "medium", "low", "unknown"],
-              description:
-                "high = addressed by name or owns a topic nobody else could. medium = strong role match. low = a guess worth recording. unknown = no idea, and `name` must be null.",
-            },
-            shared_label: {
-              type: "boolean",
-              description:
-                "True when this label plainly covers more than one voice — diarization merges people. Later sections will hedge attribution for it.",
-            },
+// The answer's shape, asked for as structured output (transcripts/model.ts,
+// requestJson). Record who each transcript speaker label refers to. One entry per label that appears in the transcript.
+const SPEAKER_MAP_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  required: ["speakers"],
+  properties: {
+    speakers: {
+      type: "array",
+      items: {
+        type: "object",
+        // evidence first: the name is a conclusion drawn from it.
+        required: ["label", "evidence", "name", "confidence"],
+        properties: {
+          label: {
+            type: "string",
+            description: "The label exactly as the transcript writes it, e.g. 'Speaker 3'.",
+          },
+          evidence: {
+            type: "string",
+            description:
+              "What in the transcript points at this person — a topic only they would own, someone addressing them by name, a role they describe. One or two sentences. Write this BEFORE deciding the name.",
+          },
+          name: {
+            type: ["string", "null"],
+            description:
+              "The person's name, taken ONLY from the roster or from the transcript itself. Null when the evidence does not identify anybody — that is a valid and useful answer. NEVER invent a plausible name.",
+          },
+          confidence: {
+            type: "string",
+            enum: ["high", "medium", "low", "unknown"],
+            description:
+              "high = addressed by name or owns a topic nobody else could. medium = strong role match. low = a guess worth recording. unknown = no idea, and `name` must be null.",
+          },
+          shared_label: {
+            type: "boolean",
+            description:
+              "True when this label plainly covers more than one voice — diarization merges people. Later sections will hedge attribution for it.",
           },
         },
       },
@@ -199,20 +197,18 @@ export async function mapSpeakers(
   }
 ): Promise<SpeakerMap | null> {
   try {
-    const response = await client.messages.create({
+    // Summarising and matching, not reasoning: thinking off, or as low
+    // as the model allows (transcripts/model.ts). Thinking here once
+    // consumed the whole budget and emitted nothing.
+    const { data, message: response } = await requestJson(client, {
       model: input.model,
-      // Summarising and matching, not reasoning. Thinking here
-      // consumed the whole budget and emitted nothing on the
-      // analysis call; see the note in analyze.ts.
-      thinking: { type: "disabled" },
       // 13 speaker labels each with a sentence of evidence does not
-      // fit in 3000: the tool call was cut off mid-JSON and arrived
-      // with no complete tool_use block, so the mapping silently
-      // returned null and every section went back to guessing.
+      // fit in 3000: the answer was cut off mid-JSON, so the mapping
+      // silently returned null and every section went back to
+      // guessing.
       max_tokens: 8000,
-      system: [{ type: "text", text: SYSTEM }],
-      tools: [TOOL],
-      tool_choice: { type: "tool", name: "record_speaker_map" },
+      system: SYSTEM,
+      schema: SPEAKER_MAP_SCHEMA,
       messages: [
         {
           role: "user",
@@ -220,25 +216,22 @@ export async function mapSpeakers(
         },
       ],
     });
-    const block = response.content.find(
-      (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
-    );
-    if (!block) {
+    if (data === null) {
       // Say WHY. A null here sends every later section back to
       // guessing, and "no speaker map" on its own does not tell
       // anybody whether the budget was short or the model refused.
       console.error(
-        `[speakers] no tool_use block — stop_reason=${response.stop_reason}, ` +
+        `[speakers] no JSON answer — stop_reason=${response.stop_reason}, ` +
           `blocks=[${response.content.map((b) => b.type).join(", ")}]`
       );
       return null;
     }
-    const parsed = normalise(block.input);
+    const parsed = normalise(data);
     if (!parsed) {
       console.error(
         `[speakers] could not read the mapping — ` +
           `stop_reason=${response.stop_reason}. RAW: ` +
-          JSON.stringify(block.input).slice(0, 1200)
+          JSON.stringify(data).slice(0, 1200)
       );
       return null;
     }

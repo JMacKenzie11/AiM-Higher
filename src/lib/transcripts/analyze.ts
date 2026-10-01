@@ -22,7 +22,7 @@ import { attendeesFromSummary, presentOwnerIds } from "./attendees";
 import { settleSummary } from "./summary";
 import { mapStrings, redactAnalysis, redactionCount } from "./redact";
 import { rewordWithModel } from "./reword";
-import { summaryModel } from "./model";
+import { callSettings, requestJson, transcriptModel } from "./model";
 import { buildSpeller, describeChanges, summariseChanges, type SpellingChange, type SpellingEntry } from "./spelling";
 import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/score";
 import { generateMeetingQuestions } from "@/lib/leadership/questions";
@@ -134,7 +134,7 @@ export async function analyzeMeeting(
     const context = await loadCompanyContext(admin, meetingRow.company_id);
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
-    const model = summaryModel();
+    const model = transcriptModel();
     const client = new Anthropic({ apiKey });
 
     // ---- NO EXTENDED THINKING ON EITHER CALL ------------------
@@ -157,10 +157,12 @@ export async function analyzeMeeting(
     //
     // Neither of these is a reasoning task. One restates a meeting in
     // a fixed structure; the other pulls commitments out of it. The
-    // judgement call in this pipeline is the facilitation review, and
-    // that one is left alone — it is evaluative, it is forced tool
-    // use, and it was producing complete output throughout.
-    const NO_THINKING = { thinking: { type: "disabled" as const } };
+    // judgement call in this pipeline is the facilitation review.
+    //
+    // Opus 5.5 cannot switch thinking off, only down: callSettings
+    // (model.ts) gives each call thinking off where the model allows
+    // it and effort "low" where it does not (Jason, 2026-10-01).
+    const NO_THINKING = callSettings(model, "off");
 
     const analyzerPrompt = await loadAnalyzerPrompt();
     const companyBlock = formatCompanyContext(context);
@@ -217,11 +219,14 @@ export async function analyzeMeeting(
     // ---- Call 2: extraction (not on a summary-only run) ----
     const extractionP = options.carryOver
       ? Promise.resolve(null)
-      : client.messages.create({
+      : requestJson(client, {
           model,
-          ...NO_THINKING,
           max_tokens: MAX_TOKENS_EXTRACTION,
-          system: [{ type: "text", text: EXTRACTION_SYSTEM_PROMPT }],
+          system: EXTRACTION_SYSTEM_PROMPT,
+          // Structured output, so a model that reasons aloud before the
+          // JSON (Sonnet 5 did, 2026-10-01: 0 commitments) cannot cost
+          // the meeting its commitments.
+          schema: EXTRACTION_SCHEMA,
           messages: [
             {
               role: "user",
@@ -367,21 +372,14 @@ export async function analyzeMeeting(
       validated = options.carryOver?.commitments_json ?? [];
       validatedIssues = options.carryOver?.issues_json ?? [];
     } else {
-      if (rawExtraction.usage) {
-        void logCoachTokenUsage({
-          conversationId: null,
-          companyId: meetingRow.company_id,
-          purpose: "analyzer",
-          model,
-          usage: rawExtraction.usage,
-        });
-      }
-      const rawText = rawExtraction.content
+      const extractionMessage = rawExtraction.message;
+      logAnalysisUsage(extractionMessage);
+      const rawText = extractionMessage.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("");
       const { commitments: rawCommitments, issues: rawIssues } =
-        parseExtractionJson(rawText);
+        readExtraction(rawExtraction.data);
       // Verbose logging when the extraction lands empty. The pipeline
       // silently accepts an empty result today (LLM stochasticity is a
       // legit outcome), so without this trail an empty landing was
@@ -390,7 +388,7 @@ export async function analyzeMeeting(
       // diagnose from Vercel logs alone: stop_reason, character count,
       // and the first + last chunks of the raw output.
       if (rawCommitments.length === 0 && rawIssues.length === 0) {
-        const stopReason = rawExtraction.stop_reason ?? "unknown";
+        const stopReason = extractionMessage.stop_reason ?? "unknown";
         const preview = rawText.slice(0, 400);
         const tail = rawText.length > 800 ? rawText.slice(-400) : "";
         console.warn(
@@ -976,6 +974,49 @@ Due-date resolution rules:
 
 ${PERSONAL_DETAIL_RULE}`;
 
+// The shape the prompt above describes, asked for as structured output
+// (model.ts, requestJson). The prompt keeps its own description of the
+// fields; this makes the answer parse whatever the model says first.
+const nullableString = { type: ["string", "null"] };
+const EXTRACTION_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  required: ["commitments", "issues"],
+  properties: {
+    commitments: {
+      type: "array",
+      maxItems: 20,
+      items: {
+        type: "object",
+        required: [
+          "owner_profile_id",
+          "description",
+          "due_phrase",
+          "due_date",
+          "priority_id",
+          "clarity_timeline",
+          "clarity_success",
+          "clarity_note",
+        ],
+        properties: {
+          owner_profile_id: nullableString,
+          description: { type: "string" },
+          due_phrase: nullableString,
+          due_date: nullableString,
+          priority_id: nullableString,
+          clarity_timeline: { type: "boolean" },
+          clarity_success: { type: "boolean" },
+          clarity_note: nullableString,
+        },
+      },
+    },
+    issues: {
+      type: "array",
+      maxItems: 8,
+      items: { type: "object", required: ["title"], properties: { title: { type: "string" } } },
+    },
+  },
+};
+
 function buildExtractionUserMessage(
   ctx: CompanyContext,
   transcript: string,
@@ -1015,12 +1056,19 @@ export function parseExtractionJson(raw: string): {
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "");
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(cleaned);
+    return readExtraction(JSON.parse(cleaned));
   } catch {
     return { commitments: [], issues: [] };
   }
+}
+
+// The extraction's answer, already parsed (structured output), read
+// into the two lists. Never throws on an unexpected shape.
+export function readExtraction(parsed: unknown): {
+  commitments: ExtractedCommitment[];
+  issues: ExtractedIssue[];
+} {
   // Backward-compat: earlier revisions of the extraction prompt
   // returned a bare array of commitments (no wrapping object). If
   // the model regresses to that shape, still honor the commitments
