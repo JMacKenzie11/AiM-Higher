@@ -52,6 +52,9 @@ const SAMPLE: Record<string, string> = {
 };
 
 export default async function globalSetup(config: FullConfig) {
+  // A production build has every page compiled already (E2E_PROD=1,
+  // playwright.config.ts). Only next dev needs this.
+  if (process.env.E2E_PROD === "1") return;
   const baseURL = config.projects[0]?.use?.baseURL ?? "http://localhost:3200";
   const browser = await chromium.launch();
   const page = await browser.newPage({ baseURL });

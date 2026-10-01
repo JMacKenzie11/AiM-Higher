@@ -27,6 +27,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next-e2e-unresolved/types/**/*.ts",
+    ".next-e2e/types/**/*.ts",
     ".next-e2e-panel-off/types/**/*.ts"
   ],
   // scripts/ is checked by scripts/tsconfig.json instead, which is the

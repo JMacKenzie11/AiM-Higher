@@ -61,7 +61,33 @@ const UNRESOLVED_BASE_URL = `http://localhost:${UNRESOLVED_PORT}`;
 // unset), which is how production runs until Jason switches it on. The
 // main server has it on, which is what every other spec expects.
 const PANEL_OFF_PORT = 3202;
+
 const PANEL_OFF_BASE_URL = `http://localhost:${PANEL_OFF_PORT}`;
+
+// ---- WHICH SERVER THE SUITE RUNS AGAINST ----------------------
+//
+// next dev BY DEFAULT; A PRODUCTION BUILD WITH E2E_PROD=1 (2026-10-01).
+//
+// `npm run e2e:prod` builds the app once into .next-e2e and runs all
+// three servers below as `next start` on that one build, each with its
+// own environment. That is the build users get, it needs no warm-up and
+// never meets the dev server's memory restart, and a full run takes
+// about 20 minutes instead of 70. It is not the default yet: on a local
+// production build the page sometimes does not refresh after a server
+// action (docs/e2e.md, "Against a production build"), which fails up to
+// five tests that pass on next dev and in production on Vercel.
+const DEV = process.env.E2E_PROD !== "1";
+const PROD_DIST = ".next-e2e";
+// A server for one port: next dev in dev mode, otherwise next start on
+// the shared build, refusing to start without one rather than serving
+// whatever an earlier `next build` left in .next.
+const serve = (port: number, devCommand: string) =>
+  DEV
+    ? devCommand
+    : `test -f ${PROD_DIST}/BUILD_ID || { echo "No e2e build in ${PROD_DIST}: run npm run e2e:build first." >&2; exit 1; }; next start -p ${port}`;
+// Dev servers each need their own build output; production servers
+// share the one build, which next start only reads.
+const distDir = (devDir: string | undefined) => (DEV ? devDir : PROD_DIST);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -105,9 +131,9 @@ export default defineConfig({
 
   webServer: [
     {
-      command: "npm run dev",
+      command: serve(PORT, "npm run dev"),
       url: `${BASE_URL}/sign-in`,
-      reuseExistingServer: true,
+      reuseExistingServer: DEV,
       // A cold Next dev boot plus first compile is slow.
       timeout: 180_000,
       stdout: "ignore",
@@ -115,12 +141,15 @@ export default defineConfig({
       // Aimee's panel on, which every chromium spec expects. A server
       // started some other way (a script, by hand) must set this itself:
       // reuseExistingServer does not apply it.
-      env: { AIMEE_PANEL_FOR_EVERYONE: "true" },
+      env: {
+        AIMEE_PANEL_FOR_EVERYONE: "true",
+        ...(DEV ? {} : { NEXT_DIST_DIR: PROD_DIST }),
+      },
     },
     {
-      command: `next dev -p ${UNRESOLVED_PORT}`,
+      command: serve(UNRESOLVED_PORT, `next dev -p ${UNRESOLVED_PORT}`),
       url: `${UNRESOLVED_BASE_URL}/instance-not-found`,
-      reuseExistingServer: true,
+      reuseExistingServer: DEV,
       timeout: 180_000,
       stdout: "ignore",
       stderr: "pipe",
@@ -128,7 +157,7 @@ export default defineConfig({
         // Its own build output. Two `next dev` processes sharing
         // .next invalidate each other's compile until requests start
         // timing out — measured, not theoretical.
-        NEXT_DIST_DIR: ".next-e2e-unresolved",
+        NEXT_DIST_DIR: distDir(".next-e2e-unresolved") as string,
         LOCAL_INSTANCE_SUPABASE_URL: "",
         LOCAL_INSTANCE_SUPABASE_ANON_KEY: "",
         LOCAL_INSTANCE_SUPABASE_SERVICE_KEY: "",
@@ -137,16 +166,16 @@ export default defineConfig({
       },
     },
     {
-      command: `next dev -p ${PANEL_OFF_PORT}`,
+      command: serve(PANEL_OFF_PORT, `next dev -p ${PANEL_OFF_PORT}`),
       url: `${PANEL_OFF_BASE_URL}/sign-in`,
-      reuseExistingServer: true,
+      reuseExistingServer: DEV,
       timeout: 180_000,
       stdout: "ignore",
       stderr: "pipe",
       env: {
-        NEXT_DIST_DIR: ".next-e2e-panel-off",
+        NEXT_DIST_DIR: distDir(".next-e2e-panel-off") as string,
         AIMEE_PANEL_FOR_EVERYONE: "",
       },
-    },
+    }
   ],
 });
