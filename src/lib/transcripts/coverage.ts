@@ -37,6 +37,9 @@ export type CoverageMiss = {
   speaker: string | null;
   // Why it reads as a commitment: who would do it, and what.
   reason: string;
+  // Mentions somebody's private life and could not be reworded
+  // (transcripts/redact.ts): kept, for the company admin.
+  needs_rewording?: boolean;
 };
 
 export type CoverageReport = {

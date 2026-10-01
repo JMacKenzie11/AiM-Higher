@@ -21,6 +21,8 @@ import {
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
 import { settleSummary } from "./summary";
 import { mapStrings, redactAnalysis, redactionCount } from "./redact";
+import { rewordWithModel } from "./reword";
+import { summaryModel } from "./model";
 import { buildSpeller, describeChanges, summariseChanges, type SpellingChange, type SpellingEntry } from "./spelling";
 import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/score";
 import { generateMeetingQuestions } from "@/lib/leadership/questions";
@@ -47,7 +49,6 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // as CONTENT only — any embedded "ignore your instructions"
 // language is treated as text to analyze, not directives.
 
-const DEFAULT_MODEL = "claude-sonnet-5";
 // Raised from 5000 on 2026-09-24. At 5000 a real leadership meeting
 // did not fit: Benson Seafood's ran to roughly 6,300 output tokens
 // and stopped on the words "current stock to be". Of 36 stored
@@ -133,7 +134,7 @@ export async function analyzeMeeting(
     const context = await loadCompanyContext(admin, meetingRow.company_id);
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
-    const model = process.env.ANTHROPIC_SUMMARY_MODEL || DEFAULT_MODEL;
+    const model = summaryModel();
     const client = new Anthropic({ apiKey });
 
     // ---- NO EXTENDED THINKING ON EITHER CALL ------------------
@@ -515,7 +516,8 @@ export async function analyzeMeeting(
     // NOTHING ABOUT A PERSON'S PRIVATE LIFE, applied once to the whole
     // row, after every pass has run on the full data: coverage above
     // compared against every extracted commitment. See redact.ts.
-    const { row: stored, counts: redacted } = redactAnalysis(
+    // Items are reworded, never dropped; see reword.ts.
+    const { row: stored, counts: redacted } = await redactAnalysis(
       {
         analysis_markdown: stripEmDashes(analysisMarkdown),
         commitments_json: validated,
@@ -523,14 +525,15 @@ export async function analyzeMeeting(
         coverage_json: coverage,
         facilitation_review_json: reviewForStorage,
       },
-      personalDetail
+      personalDetail,
+      rewordWithModel(client, model, logAnalysisUsage)
     );
     // Counts only: what was said is never logged.
     if (redactionCount(redacted) > 0) {
       console.warn(
         `[analyze] personal detail kept out of meeting ${meetingId}: ` +
-          `${redacted.sentences} sentence(s), ${redacted.commitments} commitment(s), ` +
-          `${redacted.issues} issue(s), ${redacted.missed} missed commitment(s)`
+          `${redacted.sentences} sentence(s) taken out, ${redacted.reworded} item(s) reworded, ` +
+          `${redacted.flagged} item(s) kept and marked for the company admin`
       );
     }
     const { error: analysisErr } = await admin.from("meeting_analyses").insert({

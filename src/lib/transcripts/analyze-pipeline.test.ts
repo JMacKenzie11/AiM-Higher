@@ -91,7 +91,11 @@ const SUMMARY = "## Attendees\n\n- Pat\n\n## Summary\n\nThe team agreed the quot
 const EXTRACTION = JSON.stringify({ commitments: [], issues: [{ title: "Quote timing" }] });
 
 const kindOf = (req: { system: Array<{ text: string }> }) =>
-  req.system[0].text.startsWith("You extract commitments") ? "extraction" : "analysis";
+  req.system[0].text.startsWith("You extract commitments")
+    ? "extraction"
+    : req.system[0].text.startsWith("Each item below")
+      ? "reword"
+      : "analysis";
 const text = (t: string) => ({ content: [{ type: "text", text: t }], stop_reason: "end_turn", usage: null });
 
 beforeEach(() => {
@@ -235,20 +239,37 @@ describe("a summary never stores somebody's private life", () => {
     expect(stored().analysis_markdown).toBe(SUMMARY);
   });
 
-  it("drops an issue that names it, and keeps the rest", async () => {
-    h.create.mockImplementation(async (req) =>
-      text(
-        kindOf(req) === "analysis"
-          ? SUMMARY
+  const withIssue = (rewrite: string) => async (req: { system: Array<{ text: string }> }) =>
+    text(
+      kindOf(req) === "analysis"
+        ? SUMMARY
+        : kindOf(req) === "reword"
+          ? JSON.stringify([rewrite])
           : JSON.stringify({ commitments: [], issues: [{ title: "Quote timing" }, { title: "Cover while Pat is on sick leave" }] })
-      )
     );
+
+  it("rewords an issue that names it, and never drops it", async () => {
+    h.create.mockImplementation(withIssue("Cover Pat's work this week"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const { analyzeMeeting } = await import("./analyze");
     await analyzeMeeting("m1");
 
-    expect(stored().issues_json?.map((i) => i.title)).toEqual(["Quote timing"]);
+    expect(stored().issues_json).toEqual([{ title: "Quote timing" }, { title: "Cover Pat's work this week" }]);
+    warn.mockRestore();
+  });
+
+  it("keeps an issue it cannot reword, marked for the company admin", async () => {
+    h.create.mockImplementation(withIssue("Cover while Pat is on sick leave"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(stored().issues_json).toEqual([
+      { title: "Quote timing" },
+      { title: "Cover while Pat is on sick leave", needs_rewording: true },
+    ]);
     warn.mockRestore();
   });
 });

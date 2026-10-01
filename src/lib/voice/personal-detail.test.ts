@@ -19,7 +19,6 @@ describe("record mode: a summary or a card", () => {
       "Darlene's surgery is on Tuesday.",
       "Jeff has been unwell since the weekend.",
       "She shared that her father passed away.",
-      "Sam is on holiday next week.",
       "He mentioned his daughter's wedding.",
       "The team sent condolences after the funeral.",
     ]) {
@@ -47,6 +46,45 @@ describe("record mode: a summary or a card", () => {
     expect(findPersonalDetail("Priya is recovering from surgery.", record)).toEqual([]);
     expect(findPersonalDetail("Priya is recovering from surgery.", { mode: "record", people: ["Priya Shah"] })).toHaveLength(1);
     expect(findPersonalDetail("She is recovering from surgery.", record)).toHaveLength(1);
+  });
+});
+
+// Jason, 2026-10-01: time off may be mentioned, never why or where;
+// family members' roles in the business are not private.
+describe("time off and family", () => {
+  it("catches why and where somebody is away", () => {
+    for (const t of [
+      "Sam is in Mexico for his anniversary.",
+      "Sam is on vacation in Mexico next week.",
+      "Darlene is away to look after her mother.",
+      "Jeff is off because his son is sick.",
+      "Sam missed the meeting for his daughter's graduation.",
+      "His father is in hospital.",
+      "Her mother passed away on Sunday.",
+      // A missed commitment quotes the speaker.
+      "I'm taking Mum to hospital Friday.",
+      "I need to pick up my daughter at three.",
+    ]) {
+      expect(findPersonalDetail(t, record), t).toHaveLength(1);
+    }
+  });
+
+  it("lets time off and family businesses through", () => {
+    for (const t of [
+      "Sam is away next week, so Lee covers Thursday.",
+      "Sam is on vacation next week; Darlene runs the stand-up.",
+      "Jeff has two days off, back on Wednesday.",
+      "His father founded the company.",
+      "His father still signs off on pricing.",
+      "Her brother runs the Denver branch.",
+      "Jeff's daughter joined the sales team in May.",
+      "Sam is out next week and his father covers the accounts.",
+      "Sam took a trip to the warehouse.",
+      "My father founded the company.",
+      "I'm away next week; Lee has the Thursday call.",
+    ]) {
+      expect(findPersonalDetail(t, record), t).toEqual([]);
+    }
   });
 });
 

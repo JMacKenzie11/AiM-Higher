@@ -683,8 +683,12 @@ export type Meeting = {
 // action that creates an issues row on demand (title only,
 // desired_outcome + commitments left empty for the team to work
 // live). Cap 8 per meeting; titles under 200 characters.
+// Set when the issue mentioned somebody's private life and could not
+// be reworded without it: kept, for the company admin to reword
+// (transcripts/redact.ts). Never dropped.
 export type ExtractedIssue = {
   title: string;
+  needs_rewording?: boolean;
 };
 
 export type ExtractedCommitment = {
@@ -708,6 +712,8 @@ export type ExtractedCommitment = {
   clarity_timeline?: boolean | null;
   clarity_success?: boolean | null;
   clarity_note?: string | null;
+  // As on ExtractedIssue: kept and marked, never dropped.
+  needs_rewording?: boolean;
 };
 
 export type OAuthCredentials = {
